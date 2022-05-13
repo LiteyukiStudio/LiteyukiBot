@@ -1,0 +1,30 @@
+from extraApi.cardimage import Cardimage
+from extraApi.rule import pluginEnable
+from nonebot import on_keyword
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Bot
+from nonebot.typing import T_State
+from .api import search_data
+
+keywords = {"疫情", "新冠", "病毒"}
+
+cmd_covid19 = on_keyword(keywords=keywords, rule=pluginEnable(pluginId="kami.covid19"), priority=10)
+
+
+@cmd_covid19.handle()
+async def cmd_covid19_handle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
+    for kw in keywords:
+        event.raw_message = event.raw_message.replace(kw, "")
+    cityname = event.raw_message.strip()
+    if cityname != "":
+        state["cityname"] = cityname
+    else:
+
+        await cmd_covid19.send(message="你想查询哪里的疫情呢?", at_sender=True)
+
+
+@cmd_covid19.got(key="cityname")
+async def cmd_covid19_got(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
+    cityname = str(state["cityname"])
+    message, card = await search_data(cityname)
+    await cmd_covid19.send(message)
+    await card.delete()

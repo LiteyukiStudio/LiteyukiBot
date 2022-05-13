@@ -1,0 +1,9 @@
+超级工具命令
+
+设置属性 <type> <id> <key> <value>(仅超级用户)
+获取属性 <type> <id> <key>
+
+type:
+u: 用户
+g: 群
+gm: 群成员

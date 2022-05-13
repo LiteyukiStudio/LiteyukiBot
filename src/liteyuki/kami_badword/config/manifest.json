@@ -1,0 +1,5 @@
+{
+    "name": "违禁词",
+    "id": "kami.badword",
+    "default": false
+}
