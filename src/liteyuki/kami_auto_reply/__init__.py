@@ -30,6 +30,7 @@ async def listenerHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEven
     p = (Balance.clamp(await Balance.getFavoValue(event.user_id) / 100, 0, 1)) * reply_probability
     if random.random() < p:
         reply = await getReply(bot, event, state)
+        user_call_bot = await ExtraData.get_user_data(user_id=event.user_id, key="my.user_call_bot", default=list(bot.config.nickname)[0])
         placeholder = {
 
             "%time1%": "%s:%s" % tuple(list(time.localtime())[3:5]),
@@ -38,6 +39,7 @@ async def listenerHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEven
             "%at%": "[CQ:at,qq=%s]" % str(event.user_id),
             "%user_id%": str(event.user_id),
             "%bot_name%": random.choice(list(bot.config.nickname)),
+            "%call_bot%": user_call_bot,
             "%call%": await ExtraData.getData(targetType=ExtraData.User, targetId=event.user_id, key="my.bot_call_user",
                                               default=event.sender.nickname),
             "%nickname%": event.sender.nickname

@@ -21,7 +21,9 @@ async def getReply(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, sta
     groupReplyMsgList = []
     globalReplyMsgList = []
     globalReplyData: dict = await ExtraData.getData(targetType=ExtraData.Group, targetId=0, key="auto_reply", default={})
-    if list(bot.config.nickname)[0] in event.raw_message or await to_me()(bot, event, state):
+    if list(bot.config.nickname)[0] in event.raw_message or await to_me()(bot, event, state) or await ExtraData.get_user_data(event.user_id, key="my.user_call_bot",
+                                                                                                                              default=list(bot.config.nickname)[
+                                                                                                                                  0]) in event.raw_message:
         tome = True
     else:
         tome = False

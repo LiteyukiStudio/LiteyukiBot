@@ -1,10 +1,11 @@
 import random
-from extraApi.base import Session, ExtraData
-from extraApi.permission import AUTHUSER, NOTAUTHUSER
-from nonebot import on_command, on_message
-from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEvent
+
+from nonebot import on_message
 from nonebot.rule import to_me
 from nonebot.typing import T_State
+
+from extraApi.base import Session
+from extraApi.permission import NOTAUTHUSER
 from .userApi import *
 from .user_config import *
 
