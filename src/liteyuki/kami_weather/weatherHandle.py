@@ -25,7 +25,8 @@ async def handleRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMess
             event.raw_message.replace(re.search(r"\d+小时天气", event.raw_message).group(0), "").strip())
     else:
         state["mode"] = "now"
-        args, kws = Command.formatToCommand(event.raw_message.replace("天气", "").strip())
+
+        args, kws = Command.formatToCommand(event.raw_message.replace("兔兔天气查询", "天气").replace("天气", "").strip())
 
     if "more" in kws:
         state["more"] = []
@@ -55,7 +56,9 @@ async def handleRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMess
 
 
 async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
+    preview_message = await bot.send(event, "查询天气中...", at_sender=True)
     if state["city"] is not None:
+
         state["params"].update({"location": str(state["city"])})
         cityList = await getQWCityInfo(state["params"])
         if cityList["code"] != "200":
@@ -73,16 +76,17 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
         # 合成图片 失败发文字
         # 城市基本信息获取
 
-        country = city["country"]  # 国家
-        name = city["name"]  # 城市名
-        lon = city["lon"]  # 经度
-        lat = city["lat"]  # 纬度
-        adm2 = city["adm2"]  # 城市上级行政区名
-        adm1 = city["adm1"]  # 一级行政区名
-        tz = city["tz"]  # 时区
-        city_id = city["id"]  # 城市id
-        rank = city["rank"]
-        typ = city["type"]
+        country = city.get("country", "Unknown")  # 国家
+        name = city.get("name", "Unknown")  # 城市名
+        lon = city.get("lon", "0.0")  # 经度
+        lat = city.get("lat", "0.0")  # 纬度
+        adm2 = city.get("adm2", "Unknown")  # 城市上级行政区名
+        adm1 = city.get("adm1", "Unknown")  # 一级行政区名
+        tz = city.get("tz", "Unknown")  # 时区
+        city_id = city.get("id", "Unknown")  # 城市id
+        rank = city.get("rank", "Unknown")
+        # 城市属性
+        typ = city.get("type", "Unknown")
         city_description = None
         if city_id in await ExtraData.getData(targetType=ExtraData.Group, targetId=0,
                                               key="kami.weather.city_description", default={}):
@@ -91,7 +95,7 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                                         default={}))[city_id]
 
         levels = [country, adm1, adm2, name]
-        cityName = "%s %s" % (adm2, name)
+        cityName = "%s %s" % (adm2, name) if adm2 != name else adm2
 
         unit = state["params"].get("unit", None)
         if unit == "i":
@@ -104,32 +108,34 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
             weatherInfo = await getQWRealTimeWeather(city, state["params"])
             if weatherInfo["code"] == "200":
 
-                preview_message = await bot.send(event, "正在生成天气卡片，请稍等...", at_sender=True)
+                updateTime = weatherInfo.get("updateTime")  # API响应时间
+                link = weatherInfo.get("fxLink")  # 链接
 
-                updateTime = weatherInfo["updateTime"]  # API响应时间
-                link = weatherInfo["fxLink"]  # 链接
-
-                weatherData = weatherInfo["now"]  # 天气数据
-                obsTime = weatherData["obsTime"]  # 观测时间
+                weatherData = weatherInfo.get("now", {})  # 天气数据
+                obsTime = weatherData.get("obsTime", "Unknown")  # 观测时间
 
                 obsDate = obsTime.split("T")[0]
                 obsLocalTime = obsTime.split("T")[1].split("+")[0]
 
-                temp = weatherData["temp"]  # 气温℃
-                feelsLike = weatherData["feelsLike"]  # 体感温度℃
-                icon = weatherData["icon"]  # 图标码
-                text = weatherData["text"]  # 天气状况文本
-                wind360 = weatherData["wind360"]  # 风向角度
-                windDir = weatherData["windDir"]  # 风向
-                windScale = weatherData["windScale"]  # 风力等级
-                windSpeed = weatherData["windSpeed"]  # 风速km/h
+                temp = weatherData.get("temp")  # 气温℃
+                feelsLike = weatherData.get("feelsLike")  # 体感温度℃
+                icon = weatherData.get("icon")  # 图标码
+                text = weatherData.get("text")  # 天气状况文本
+                wind360 = weatherData.get("wind360")  # 风向角度
+                windDir = weatherData.get("windDir")  # 风向
+                windScale = weatherData.get("windScale")  # 风力等级
+                windSpeed = weatherData.get("windSpeed")  # 风速km/h
 
-                humidity = weatherData["humidity"]  # 相对湿度百分比
-                precip = weatherData["precip"]  # 小时累计降水量mm
-                pressure = weatherData["pressure"]  # 大气压
-                vis = weatherData["vis"]  # 能见度
-                cloud = weatherData["cloud"]  # 云量
-                dew = weatherData["dew"]  # 露点温度
+                humidity = weatherData.get("humidity")  # 相对湿度百分比
+                precip = weatherData.get("precip")  # 小时累计降水量mm
+                pressure = weatherData.get("pressure")  # 大气压
+                vis = weatherData.get("vis")  # 能见度
+                cloud = weatherData.get("cloud")  # 云量
+                dew = weatherData.get("dew")  # 露点温度
+
+                weather_advice = (await ExtraData.get_global_data("kami.weather.advice", default={})).get(icon, "没有建议")
+                if state["params"].get("lang", "zh") not in ["zh"]:
+                    weather_advice = await Command.translate(text=weather_advice, from_lang="zh", to_lang=state["params"].get("lang", "zh"))
 
                 try:
                     font_80 = os.path.join(ExConfig.resPath, state["params"].get("font1", "fonts/MiSans-Heavy.ttf"))
@@ -154,19 +160,26 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                                                    font=font_80, color=Cardimage.hex2dec("ffa4a4a4"))
 
                     # 观测时间城市编号
-                    await weather_card.addText(uvSize=(1, 1), boxSize=(0.9, 0.04), xy=(0, 0),
+                    await weather_card.addText(uvSize=(1, 1), boxSize=(1.0, 0.04), xy=(0, 0),
                                                baseAnchor=(0.95, 0.95), textAnchor=(1, 1),
-                                               content="%s | %s %s" % (city_id, obsDate, obsLocalTime),
+                                               content="%s | %s | %s %s" % (icon, city_id, obsDate, obsLocalTime),
                                                font=font_80, color=Cardimage.hex2dec("ffa4a4a4"))
-                    # 天气 状态文本 和 图片 和 温度
+                    # 天气 状态文本 和 图片 和 温度 和 建议
+                    download = True
                     if not os.path.exists(os.path.join(ExConfig.resPath, "textures/weather/icons/%s.png" % icon)):
-                        await ExtraData.download_file("https://a.hecdn.net/img/common/icon/202106d/%s.png" % icon,
-                                                      os.path.join(ExConfig.resPath,
-                                                                   "textures/weather/icons/%s.png" % icon))
-                    await weather_card.addImage(uvSize=(1, 1), boxSize=(0.4, 0.4), xy=(0, 0),
-                                                baseAnchor=(0.5, 0.45), imgAnchor=(1, 0.5),
-                                                img=Image.open(os.path.join(ExConfig.resPath,
-                                                                            "textures/weather/icons/%s.png" % icon)))
+                        download = await ExtraData.download_file("https://a.hecdn.net/img/common/icon/202106d/%s.png" % icon,
+                                                                 os.path.join(ExConfig.resPath,
+                                                                              "textures/weather/icons/%s.png" % icon))
+                    try:
+                        await weather_card.addImage(uvSize=(1, 1), boxSize=(0.4, 0.4), xy=(0, 0),
+                                                    baseAnchor=(0.5, 0.45), imgAnchor=(1, 0.5),
+                                                    img=Image.open(os.path.join(ExConfig.resPath,
+                                                                                "textures/weather/icons/%s.png" % icon)))
+                    except BaseException:
+                        await weather_card.addImage(uvSize=(1, 1), boxSize=(0.4, 0.4), xy=(0, 0),
+                                                    baseAnchor=(0.5, 0.45), imgAnchor=(1, 0.5),
+                                                    img=Image.open(os.path.join(ExConfig.resPath,
+                                                                                "textures/weather/icons/default.png")))
                     await weather_card.addText(uvSize=(1, 1), boxSize=(0.4, 0.15), xy=(0, 0),
                                                baseAnchor=(0.55, 0.45), textAnchor=(0, 0.1),
                                                content=text,
@@ -174,6 +187,10 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                     await weather_card.addText(uvSize=(1, 1), boxSize=(0.3, 0.1), xy=(0, 0),
                                                baseAnchor=(0.55, 0.4), textAnchor=(0, 0.9),
                                                content="%s%s" % (temp, tempUnit),
+                                               font=font_80, color=Cardimage.hex2dec("ffffffff"))
+                    await weather_card.addText(uvSize=(1, 1), boxSize=(0.9, 0.065), xy=(0, 0),
+                                               baseAnchor=(0.5, 0.68), textAnchor=(0.5, 0.5),
+                                               content=weather_advice,
                                                font=font_80, color=Cardimage.hex2dec("ffffffff"))
 
                     # 风向风角度 风级风速 风力图标
@@ -222,15 +239,16 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
 
                     await bot.send(event,
                                    message=MessageSegment(type="image",
-                                                          data={"file": "file:///%s" % await weather_card.getPath(),}))
+                                                          data={"file": "file:///%s" % await weather_card.getPath(), }))
                     await weather_card.delete()
-                    await bot.delete_msg(message_id=preview_message["message_id"])
+
                 except BaseException as ae:
                     await Session.sendException(bot, event, state, ae)
 
             else:
                 await bot.send(event, message="%s查询失败: %s\nhttps://dev.qweather.com/docs/resource/status-code/" % (
                     "实时天气", weatherInfo["code"]), at_sender=True)
+
         elif state["mode"] == "multiPre":
             weatherData = await getQWDaysWeather(city, state["days"], state["params"])
             if weatherData["code"] == "200":
@@ -278,5 +296,6 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
         await bot.send(event,
                        message="地点查询失败: %s\nhttps://dev.qweather.com/docs/resource/status-code/" % cityList["code"],
                        at_sender=True)
+    await bot.delete_msg(message_id=preview_message["message_id"])
 
     await Log.plugin_log("kami.weather", "用户:%s查询了%s天气，状态码是%s" % (event.user_id, event.raw_message, cityList["code"]))

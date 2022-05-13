@@ -5,12 +5,15 @@ import json
 import os
 import re
 import traceback
+import translate
 
 import aiohttp
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Bot
 from nonebot.exception import FinishedException, IgnoredException
 from nonebot.typing import T_State
-from typing import Tuple, List, Union
+from typing import Tuple, List, Union, Iterable
+
+from nonebot.utils import run_sync
 
 
 class ExConfig:
@@ -95,7 +98,7 @@ class Command:
         matchWords = [
             "   ",
             "???12",
-            "在吗?asas",
+            "在吗?asks",
             "你好!?sas12",
             "我爱你12!",
             "1920.",
@@ -105,9 +108,9 @@ class Command:
             "瓶子是小121萝莉!",
             "我爱你!121",
             "啥时候去?asa",
-            "作业做完没?asas",
-            "1234567890abcdef",
-            "kami sama nan de",
+            "作业做完没?asks",
+            "1234567890abc-def",
+            "kami same nan de",
             "abcdefghijklmnopqrstuvwxyz",
             "1212121"
         ]
@@ -122,6 +125,26 @@ class Command:
                 return True
         except BaseException:
             return False
+
+    @staticmethod
+    @run_sync
+    def translate(text: str, to_lang: str, from_lang: str = None):
+        if from_lang is None:
+            return translate.Translator(to_lang=to_lang, provider="mymemory", email="snowykami@outlook.com").translate(text)
+        else:
+            return translate.Translator(from_lang=from_lang, to_lang=to_lang, provider="mymemory", email="snowykami@outlook.com").translate(text)
+
+    @staticmethod
+    def fuzzy_match_str(iterable: Iterable[str,], fuzzy_key: str):
+        for i in iterable:
+            if i == fuzzy_key:
+                return i
+        for i in iterable:
+            if fuzzy_key in i:
+                return i
+        for i in iterable:
+            if i in fuzzy_key:
+                return i
 
 
 class ExtraData:
@@ -146,8 +169,12 @@ class ExtraData:
     @staticmethod
     async def download_file(url, path):
         async with aiohttp.ClientSession().get(url) as FileStream:
-            async with aiofiles.open(path, "wb") as FileIO:
-                await FileIO.write(await FileStream.content.read())
+            if FileStream.status == 200:
+                async with aiofiles.open(path, "wb") as FileIO:
+                    await FileIO.write(await FileStream.content.read())
+                    return True
+            else:
+                return False
 
     @staticmethod
     async def getTargetCard(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, user_id=None):
@@ -221,7 +248,7 @@ class ExtraData:
         :param default:
         :return:
         """
-        members_data = await ExtraData.get_group_data(group_id=group_id, key="%s_members_data" % group_id,  default={})
+        members_data = await ExtraData.get_group_data(group_id=group_id, key="%s_members_data" % group_id, default={})
         member_data = members_data.get(str(user_id), {})
         return member_data.get(key, default)
 
@@ -267,11 +294,11 @@ class ExtraData:
 
     @staticmethod
     async def set_group_member_data(group_id: int, user_id: int, key: str, value: T) -> bool:
-        members_data = await ExtraData.get_group_data(group_id=group_id, key="%s_members_data" % group_id,  default={})
+        members_data = await ExtraData.get_group_data(group_id=group_id, key="%s_members_data" % group_id, default={})
         member_data = members_data.get(str(user_id), {})
         member_data[key] = value
         members_data[str(user_id)] = member_data
-        return await ExtraData.set_group_data(group_id=group_id, key="%s_members_data" % group_id,  value=members_data)
+        return await ExtraData.set_group_data(group_id=group_id, key="%s_members_data" % group_id, value=members_data)
 
     @staticmethod
     async def removeData(targetType: str, targetId: int, key: str) -> bool:
@@ -342,7 +369,7 @@ class ExtraData:
 
         databaseList = list()
         for f in os.listdir(ExtraData.databasePath):
-            if re.match("[g,u][0-9]+[.]json", f):
+            if re.match(r"[g,u]\d+[.]json", f):
                 databaseList.append(f.replace(".json", ""))
 
         return databaseList
@@ -558,13 +585,11 @@ class Log:
     async def receive_message(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], *args):
         log = "[收到消息]:"
         if type(event) is GroupMessageEvent:
-            group_info = await bot.get_group_info(group_id=event.group_id)
-            member_info = await bot.get_group_member_info(group_id=event.group_id, user_id=event.user_id)
-            log += "群聊:%s(%s) 内 用户:%s(%s) 的 消息:%s" % (
-                group_info["group_name"], event.group_id, member_info["card"], event.group_id, event.raw_message)
+            log += "%s 的 消息:%s" % (
+                await Log.get_session_name(bot, event), event.raw_message)
         else:
             user_info = await bot.get_stranger_info(user_id=event.user_id)
-            log += "用户:%s(%s) 的 消息:%s" % (user_info["nickname"], event.user_id, event.raw_message)
+            log += "%s 的 消息:%s" % (await Log.get_session_name(bot, event), event.raw_message)
         await Log.write(log)
 
     @staticmethod
@@ -575,8 +600,9 @@ class Log:
     async def get_session_name(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]) -> str:
         if type(event) is GroupMessageEvent:
             group_info = await bot.get_group_info(group_id=event.group_id)
+            member_info = await bot.get_group_member_info(group_id=event.group_id, user_id=event.user_id)
             session = "群聊:%s(%s) 内 用户:%s(%s)" % (
-                group_info["group_name"], event.group_id, event.sender.nickname, event.user_id)
+                group_info["group_name"], event.group_id, member_info["card"] if member_info["card"] != "" else event.sender.nickname, event.user_id)
         else:
             session = "用户:%s(%s)" % (event.sender.nickname, event.user_id)
         return session

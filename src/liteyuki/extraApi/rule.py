@@ -22,6 +22,12 @@ def pluginEnable(pluginId: str):
                                                 key="enabled_plugin", default=list())
         test_users = await ExtraData.get_global_data(key="test_users", default=[])
 
+        if type(event) is GroupMessageEvent and await ExtraData.get_group_data(group_id=event.group_id, key="enable", default=False) or type(
+                event) is PrivateMessageEvent and await ExtraData.get_user_data(user_id=event.user_id, key="enable", default=False):
+            pass
+        else:
+            return False
+
         plugin = searchForPlugin(pluginId)
         # 不响应名单
         if event.user_id in no_response:

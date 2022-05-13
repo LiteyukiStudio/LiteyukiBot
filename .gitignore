@@ -16,7 +16,6 @@ log/
 data/
 src/plugins老/
 src/python/
-data/g0.json
 .env
 .env.dev
 .env.prod
