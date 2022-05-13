@@ -108,9 +108,6 @@ async def editReplyGotMatch(bot: Bot, event: GroupMessageEvent | PrivateMessageE
 async def editReplyGotReply(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
     try:
 
-        # if type(event) is GroupMessageEvent and (await SUPERUSER(bot, event) or await GROUP_OWNER(bot, event) or await GROUP_ADMIN(bot, event)) or type(event) is
-        # PrivateMessageEvent: pass else: await editReply.finish(message="编辑自动回复失败:权限不足")
-
         if state["reply"] is None:
             await editReply.finish()
         op = state["op"]
