@@ -107,7 +107,6 @@ async def editReplyGotMatch(bot: Bot, event: GroupMessageEvent | PrivateMessageE
 @editReply.got("reply")
 async def editReplyGotReply(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
     try:
-
         if state["reply"] is None:
             await editReply.finish()
         op = state["op"]
