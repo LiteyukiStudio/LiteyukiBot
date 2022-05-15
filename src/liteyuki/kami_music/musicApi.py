@@ -87,4 +87,4 @@ async def getMusic(kw: str, plat: str):
             else:
                 return "在%s中什么都没有搜到呢" % platform[plat]["name"]
         else:
-            return "在%s中什么都没有搜到呢" % platform[plat]["name"]
+            return "平台参数出错：%s" % platform[plat]["name"]

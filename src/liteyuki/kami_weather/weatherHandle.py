@@ -136,6 +136,8 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                 weather_advice = (await ExtraData.get_global_data("kami.weather.advice", default={})).get(icon, "没有建议")
                 if state["params"].get("lang", "zh") not in ["zh"]:
                     weather_advice = await Command.translate(text=weather_advice, from_lang="zh", to_lang=state["params"].get("lang", "zh"))
+                    if city_description is not None:
+                        city_description = await Command.translate(text=city_description, from_lang="zh", to_lang=state["params"].get("lang", "zh"))
 
                 try:
                     font_80 = os.path.join(ExConfig.resPath, state["params"].get("font1", "fonts/MiSans-Heavy.ttf"))
@@ -144,25 +146,25 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                     base_img = Image.open(os.path.join(ExConfig.resPath, "textures/weather/mesh3.png"))
                     weather_card: Cardimage = Cardimage(baseImg=base_img)
                     # 城市名和国家 编号
-                    city_pos = await weather_card.addText(uvSize=(1, 1), boxSize=(0.4, 0.1), xy=(0, 0),
+                    city_pos = await weather_card.addText(uvSize=(1, 1), boxSize=(0.5, 0.1), xy=(0, 0),
                                                           baseAnchor=(0.05, 0.05), textAnchor=(0, 0), content=cityName,
                                                           font=font_80, color=Cardimage.hex2dec("ffffffff"))
                     await weather_card.addText(uvSize=(1, 1), boxSize=(
-                        0.3, Balance.clamp((city_pos[3] - city_pos[1]) / 1.2, 0.05, 0.07)), xy=(0, 0),
+                        0.4, Balance.clamp((city_pos[3] - city_pos[1]) / 1.2, 0.05, 0.07)), xy=(0, 0),
                                                baseAnchor=(city_pos[2] + 0.02, city_pos[1] + 0.01), textAnchor=(0, 0),
-                                               content="%s | %s" % (adm1, country),
+                                               content="%s-%s" % (country, adm1),
                                                font=font_80, color=Cardimage.hex2dec("ffa4a4a4"))
                     # 城市描述
                     if city_description is not None:
                         await weather_card.addText(uvSize=(1, 1), boxSize=(0.4, 0.05), xy=(0, 0),
-                                                   baseAnchor=(0.95, 0.075), textAnchor=(1, 0),
+                                                   baseAnchor=(0.95, 0.19), textAnchor=(1, 0),
                                                    content=city_description,
                                                    font=font_80, color=Cardimage.hex2dec("ffa4a4a4"))
 
                     # 观测时间城市编号
                     await weather_card.addText(uvSize=(1, 1), boxSize=(1.0, 0.04), xy=(0, 0),
                                                baseAnchor=(0.95, 0.95), textAnchor=(1, 1),
-                                               content="%s | %s | %s %s" % (icon, city_id, obsDate, obsLocalTime),
+                                               content="%s-%s | %s %s" % (icon, city_id, obsDate, obsLocalTime),
                                                font=font_80, color=Cardimage.hex2dec("ffa4a4a4"))
                     # 天气 状态文本 和 图片 和 温度 和 建议
                     download = True

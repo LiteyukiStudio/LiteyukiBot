@@ -12,7 +12,10 @@ async def Online(bot: Bot, event: PrivateMessageEvent, state: T_State):
 
 @Rule
 async def Not_Disconnect(bot: Bot, event: PrivateMessageEvent, state: T_State):
-    if event.raw_message[0:4] in ["断开朋友", "屏蔽朋友", "连接朋友", "断绝朋友"]:
+    """
+    命令屏蔽器
+    """
+    if event.raw_message[0:4] in ["断开朋友", "屏蔽朋友", "连接朋友", "断绝朋友", "为朋友点歌"]:
         return False
     else:
         return True

@@ -2,6 +2,8 @@ import smtplib
 import traceback
 from email.mime.text import MIMEText
 
+from extraApi.base import ExtraData
+
 
 async def sendAuthCode(email: str, auth_code: str):
     """
@@ -13,9 +15,9 @@ async def sendAuthCode(email: str, auth_code: str):
     """
     mail_host = "smtp.163.com"
     mail_user = "snowyfirefly"
-    mail_auth = "SRZZFXHBSLTOOYZT"
+    mail_auth = await ExtraData.get_global_data(key="kami.base.auth", default="xxx")
 
-    sender = "snowyfirefly@163.com"
+    sender = await ExtraData.get_global_data(key="kami.base.host_email", default="mmmm@12345.com")
 
     receivers = [email]
 

@@ -3,10 +3,11 @@ import time
 
 from nonebot import on_command, on_message
 from datetime import datetime
-from extraApi.base import Session
+from extraApi.base import Session, Command
 from extraApi.permission import AUTHUSER
 from extraApi.rule import pluginEnable
 from .mfApi import *
+from ..kami_music.musicApi import getMusic
 
 make_friend = on_command(cmd="寻找朋友", rule=pluginEnable("kami.make_friend"), permission=AUTHUSER, priority=10, block=True)
 desert_friend = on_command(cmd="断绝朋友", rule=pluginEnable("kami.make_friend"), permission=AUTHUSER, priority=10, block=True)
@@ -15,6 +16,8 @@ accept = on_command(cmd="同意请求", rule=pluginEnable("kami.make_friend"), p
 connect = on_command(cmd="连接朋友", rule=pluginEnable("kami.make_friend"), permission=AUTHUSER, priority=10, block=True)
 disconnect = on_command(cmd="断开朋友", rule=pluginEnable("kami.make_friend"), permission=AUTHUSER, priority=10, block=True)
 shield = on_command(cmd="屏蔽朋友", rule=pluginEnable("kami.make_friend"), permission=AUTHUSER, priority=10, block=True)
+
+select_song = on_command(cmd="为朋友点歌", permission=AUTHUSER, rule=pluginEnable("kami.make_friend"), priority=10, block=True)
 
 msg_trans = on_message(block=True, permission=AUTHUSER, rule=Online & Not_Disconnect & pluginEnable("kami.make_friend"))
 
@@ -144,3 +147,28 @@ async def shield_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
     else:
         await ExtraData.set_user_data(user_id=event.user_id, key="kami.make_friend.shield", value=False)
         await shield.send(message="[系统]你已允许接收朋友的消息，ta也不知道")
+
+
+@select_song.handle()
+async def select_song_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
+    args, kws = Command.formatToCommand(cmd=event.raw_message)
+    target_id = await ExtraData.get_user_data(user_id=event.user_id, key="kami.make_friend.target")
+    if target_id is not None:
+        state["target_id"] = target_id
+        song = await getMusic(" ".join(args[1:]), plat=kws.get("plat", "163"))
+        state["song"] = song
+        await select_song.send(song)
+    else:
+        state["words"] = None
+        await select_song.send(message="[系统]你还没有朋友")
+
+
+@select_song.got(key="words", prompt="[系统]这是你即将点给ta的歌，你还想对他说的话是什么呢（发送\"取消点歌\"即可取消）")
+async def select_song_got(bot: Bot, event: PrivateMessageEvent, state: T_State):
+    if state["words"] is not None:
+        if str(state["words"]).strip() == "取消点歌":
+            await select_song.send(message="[系统]点歌已取消")
+        else:
+            await bot.send_private_msg(user_id=state["target_id"], message=state["song"])
+            await bot.send_private_msg(user_id=state["target_id"], message="[系统]你的朋友给你点了一首歌，ta想对你说：" + str(state["words"]))
+            await select_song.send(message="[系统]点歌和想说的话已发送到对方")

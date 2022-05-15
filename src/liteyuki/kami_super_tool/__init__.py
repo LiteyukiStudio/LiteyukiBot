@@ -69,7 +69,7 @@ async def send_mutil_msg_handle(bot: Bot, event: GroupMessageEvent | PrivateMess
     for friend in friend_list:
         try:
             if await ExtraData.get_user_data(user_id=friend["user_id"], key="enable", default=False):
-                await bot.send_private_msg(user_id=friend["user_id"], message=Message(" ".join(args)))
+                await bot.send_private_msg(user_id=friend["user_id"], message=Message(" ".join(args[1:])))
         except BaseException as e:
             await Session.sendException(bot, event, state, e)
 

@@ -40,7 +40,7 @@ async def setAdviceHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEve
         advice = Command.formatToString(*args[2:]).replace("%20", " ")
         adviceDict[args[1]] = advice
         await ExtraData.setData(ExtraData.Group, targetId=0, key="kami.weather.advice", value=adviceDict)
-        await setDescription.send(message="天气建议设置成功: %s %s" % (args[0], advice))
+        await setDescription.send(message="天气建议设置成功: %s-%s" % (args[1], advice))
 
     except BaseException as e:
         await Session.sendException(bot, event, T_State, e)
