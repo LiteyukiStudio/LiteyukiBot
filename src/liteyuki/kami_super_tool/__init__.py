@@ -1,13 +1,17 @@
+import asyncio
+import random
+
 from extraApi.base import Command, ExtraData, Session
 from extraApi.permission import AUTHUSER
 from extraApi.rule import pluginEnable
 from nonebot import on_command
-from nonebot.adapters.onebot.v11 import Bot, PrivateMessageEvent, GroupMessageEvent, GROUP_OWNER, GROUP_ADMIN
+from nonebot.adapters.onebot.v11 import Bot, PrivateMessageEvent, GroupMessageEvent, GROUP_OWNER, GROUP_ADMIN, Message
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 
 setConfig = on_command(cmd="设置属性", rule=pluginEnable("kami.super_tool"), permission=SUPERUSER, priority=10, block=True)
 getConfig = on_command(cmd="获取属性", rule=pluginEnable("kami.super_tool"), permission=AUTHUSER, priority=10, block=True)
+send_mutil_msg = on_command(cmd="群发消息", rule=pluginEnable("kami.super_tool"), permission=SUPERUSER, priority=10, block=True)
 
 
 @setConfig.handle()
@@ -42,7 +46,8 @@ async def getConfigHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEve
         targetId = int(args[2])
         key = args[3]
 
-        if targetType in ["g", "gm"] and (await GROUP_OWNER(bot, event) or await GROUP_ADMIN(bot, event)) or await SUPERUSER(bot, event) or targetType == "u" and event.user_id == int(targetId):
+        if targetType in ["g", "gm"] and (await GROUP_OWNER(bot, event) or await GROUP_ADMIN(bot, event)) or await SUPERUSER(bot, event) \
+                or targetType == "u" and event.user_id == int(targetId):
             if targetType == "gm":
                 r = await ExtraData.get_group_member_data(event.group_id, targetId, key=key)
             else:
@@ -55,3 +60,17 @@ async def getConfigHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEve
             await getConfig.send("你没有权限查看此条目", at_sender=True)
     except BaseException as e:
         await Session.sendException(bot, event, state, e)
+
+
+@send_mutil_msg.handle()
+async def send_mutil_msg_handle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
+    friend_list = await bot.get_friend_list()
+    args = event.raw_message.split()
+    for friend in friend_list:
+        try:
+            if await ExtraData.get_user_data(user_id=friend["user_id"], key="enable", default=False):
+                await bot.send_private_msg(user_id=friend["user_id"], message=Message(" ".join(args)))
+        except BaseException as e:
+            await Session.sendException(bot, event, state, e)
+
+        await asyncio.sleep(random.randint(5, 9))

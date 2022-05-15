@@ -10,6 +10,7 @@ from extraApi.rule import pluginEnable, BOT_GT_USER
 @event_preprocessor
 async def badwordWarn(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], state: T_State):
     if await IS_BADWORD(bot, event, state):
+        state["is_badword"] = True
         """
         0.无操作
         1.仅撤回
@@ -53,6 +54,10 @@ async def badwordWarn(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEv
                                                       value=0)
                 await bot.set_group_kick(group_id=event.group_id, user_id=event.user_id)
                 await bot.send(event, "违规次数达到上限，移出群聊", at_sender=True)
+        if type(event) is PrivateMessageEvent:
+            await bot.send_private_msg(user_id=event.user_id, message="你的消息含有违禁词")
+
+        await Balance.editFavoValue(user_id=event.user_id, delta=-5, reason="触发违禁词")
         event.raw_message = "***"
         event.message = Message("***")
 

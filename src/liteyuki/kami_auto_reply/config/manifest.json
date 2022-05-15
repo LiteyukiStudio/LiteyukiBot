@@ -1,5 +1,5 @@
 {
     "name": "自动回复",
     "id": "kami.auto_reply",
-    "default": false
+    "default": true
 }

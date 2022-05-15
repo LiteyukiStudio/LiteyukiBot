@@ -1,4 +1,5 @@
 import time
+from types import NoneType
 
 import aiofiles
 import json
@@ -130,9 +131,9 @@ class Command:
     @run_sync
     def translate(text: str, to_lang: str, from_lang: str = None):
         if from_lang is None:
-            return translate.Translator(to_lang=to_lang, provider="mymemory", email="snowykami@outlook.com").translate(text)
+            return translate.Translator(to_lang=to_lang, email="snowykami@outlook.com").translate(text)
         else:
-            return translate.Translator(from_lang=from_lang, to_lang=to_lang, provider="mymemory", email="snowykami@outlook.com").translate(text)
+            return translate.Translator(from_lang=from_lang, to_lang=to_lang, email="snowykami@outlook.com").translate(text)
 
     @staticmethod
     def fuzzy_match_str(iterable: Iterable[str,], fuzzy_key: str):
@@ -154,7 +155,7 @@ class ExtraData:
     全局数据: g1000
     """
     # json
-    T = Union[int, float, str, bool, dict, list, None]
+    T = [int, float, str, bool, dict, list, type(None)]
     databasePath = os.path.join(ExConfig.rootPath, "data")
 
     User = u = "u"
@@ -264,8 +265,8 @@ class ExtraData:
         设置用户数据
         """
         key = str(key)
-        if type(value) not in [str, int, float, dict, list, tuple, set, bool, None]:
-            await Log.plugin_log("kami.database", "%s")
+        if type(value) not in ExtraData.T:
+            Log.plugin_log("kami.database", "%s")
             return False
         targetType = ExtraData.targetTypeDict[targetType]
         data = await ExtraData.getData(targetType, targetId, default=dict())
