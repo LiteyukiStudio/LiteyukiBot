@@ -143,7 +143,7 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                     font_80 = os.path.join(ExConfig.res_path, state["params"].get("font1", "fonts/MiSans-Heavy.ttf"))
                     font_60 = os.path.join(ExConfig.res_path, state["params"].get("font2", "fonts/MiSans-Semibold.ttf"))
 
-                    base_img = Image.open(os.path.join(ExConfig.res_path, "textures/weather/mesh_3x.png"))
+                    base_img = Image.open(os.path.join(ExConfig.res_path, "textures/weather/mesh_4xx.png"))
                     weather_card: Cardimage = Cardimage(baseImg=base_img)
                     # 城市名和国家 编号
                     city_pos = await weather_card.addText(uvSize=(1, 1), boxSize=(0.5, 0.075), xyOffset=(0, 0),
@@ -153,108 +153,111 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                         0.5, Balance.clamp((city_pos[3] - city_pos[1]) / 1.2, 0.04, 0.05)), xyOffset=(0, 0),
                                                baseAnchor=(city_pos[2] + 0.02, city_pos[1] + 0.01), textAnchor=(0, 0),
                                                content="%s-%s" % (country, adm1),
-                                               font=font_80, color=Cardimage.hex2dec("ffa4a4a4"))
+                                               font=font_80, color=Cardimage.hex2dec("ffdedede"))
                     # 城市描述
                     if city_description is not None:
-                        await weather_card.addText(uvSize=(1, 1), boxSize=(0.4, 0.04), xyOffset=(0, 0),
-                                                   baseAnchor=(0.95, 0.15), textAnchor=(1, 0),
+                        await weather_card.addText(uvSize=(1, 1), boxSize=(0.4, 0.025), xyOffset=(0, 0),
+                                                   baseAnchor=(0.95, 0.12), textAnchor=(1, 0),
                                                    content=city_description,
-                                                   font=font_80, color=Cardimage.hex2dec("ffa4a4a4"))
+                                                   font=font_80, color=Cardimage.hex2dec("ffdedede"))
 
                     # 观测时间城市编号
                     await weather_card.addText(uvSize=(1, 1), boxSize=(1.0, 0.025), xyOffset=(0, 0),
                                                baseAnchor=(0.95, 0.97), textAnchor=(1, 1),
                                                content="%s-%s | %s %s  Designed by SnowyKami" % (icon, city_id, obsDate, obsLocalTime),
-                                               font=font_80, color=Cardimage.hex2dec("ffa4a4a4"))
+                                               font=font_80, color=Cardimage.hex2dec("ffdedede"))
                     # 天气 状态文本 和 图片 和 温度 和 建议
                     download = True
                     if not os.path.exists(os.path.join(ExConfig.res_path, "textures/weather/icons/%s.png" % icon)):
                         download = await ExtraData.download_file("https://a.hecdn.net/img/common/icon/202106d/%s.png" % icon,
                                                                  os.path.join(ExConfig.res_path,
                                                                               "textures/weather/icons/%s.png" % icon))
+                    main_text_offset = 0.015
                     try:
                         await weather_card.addImage(uvSize=(1, 1), boxSize=(0.275, 0.275), xyOffset=(0, 0),
-                                                    baseAnchor=(0.5, 0.295), imgAnchor=(1, 0.5),
+                                                    baseAnchor=(0.5, 0.27 - main_text_offset), imgAnchor=(1, 0.5),
                                                     img=Image.open(os.path.join(ExConfig.res_path,
                                                                                 "textures/weather/icons/%s.png" % icon)))
                     except BaseException:
                         await weather_card.addImage(uvSize=(1, 1), boxSize=(0.275, 0.275), xyOffset=(0, 0),
-                                                    baseAnchor=(0.5, 0.295), imgAnchor=(1, 0.5),
+                                                    baseAnchor=(0.5, 0.27 - main_text_offset), imgAnchor=(1, 0.5),
                                                     img=Image.open(os.path.join(ExConfig.res_path,
                                                                                 "textures/weather/icons/default.png")))
-                        # 天气文本
+
+                    # 天气文本
                     await weather_card.addText(uvSize=(1, 1), boxSize=(0.4, 0.075), xyOffset=(0, 0),
-                                               baseAnchor=(0.55, 0.29), textAnchor=(0, 0.1),
+                                               baseAnchor=(0.55, 0.27 - main_text_offset), textAnchor=(0, 0.1),
                                                content=text,
                                                font=font_80, color=Cardimage.hex2dec("ffffffff"))
                     # 温度
                     await weather_card.addText(uvSize=(1, 1), boxSize=(0.3, 0.05), xyOffset=(0, 0),
-                                               baseAnchor=(0.55, 0.26), textAnchor=(0, 0.9),
+                                               baseAnchor=(0.55, 0.24 - main_text_offset), textAnchor=(0, 0.9),
                                                content="%s%s" % (temp, tempUnit),
                                                font=font_80, color=Cardimage.hex2dec("ffffffff"))
                     # 建议
-                    await weather_card.addText(uvSize=(1, 1), boxSize=(1, 0.045), xyOffset=(0, 0),
-                                               baseAnchor=(0.5, 0.5), textAnchor=(0.5, 0.5),
+                    await weather_card.addText(uvSize=(1, 1), boxSize=(1, 0.04), xyOffset=(0, 0),
+                                               baseAnchor=(0.5, 0.43 - main_text_offset), textAnchor=(0.5, 0.5),
                                                content=weather_advice,
                                                font=font_80, color=Cardimage.hex2dec("ffffffff"))
 
                     # 风向风角度 风级风速 风力图标
                     lite_font_size = 0.0275
+                    sub_text_center_line = 0.525
                     wind_icon_pos = await weather_card.addImage(uvSize=(1, 1), boxSize=(0.07, 0.07), xyOffset=(0, 0),
-                                                                baseAnchor=(0.06, 0.6), imgAnchor=(0.5, 0.5),
+                                                                baseAnchor=(0.06, sub_text_center_line), imgAnchor=(0.5, 0.5),
                                                                 img=Image.open(os.path.join(ExConfig.res_path,
                                                                                             "textures/weather/风速.png")))
                     await weather_card.addText(uvSize=(1, 1), boxSize=(0.4, lite_font_size), xyOffset=(0, 0),
-                                               baseAnchor=(wind_icon_pos[2] + 0.01, 0.6), textAnchor=(0, 1),
+                                               baseAnchor=(wind_icon_pos[2] + 0.01, sub_text_center_line), textAnchor=(0, 1),
                                                content="%s %s°" % (windDir, wind360),
                                                font=font_60, color=Cardimage.hex2dec("ffffffff"))
                     await weather_card.addText(uvSize=(1, 1), boxSize=(0.4, lite_font_size), xyOffset=(0, 0),
-                                               baseAnchor=(wind_icon_pos[2] + 0.01, 0.6), textAnchor=(0, 0),
+                                               baseAnchor=(wind_icon_pos[2] + 0.01, sub_text_center_line), textAnchor=(0, 0),
                                                content="%sLv %skm/h" % (windScale, windSpeed),
                                                font=font_60, color=Cardimage.hex2dec("ffffffff"))
 
                     # 体感和湿度
                     feel_icon_pos = await weather_card.addImage(uvSize=(1, 1), boxSize=(0.08, 0.08), xyOffset=(0, 0),
-                                                                baseAnchor=(0.34, 0.6), imgAnchor=(0.5, 0.5),
+                                                                baseAnchor=(0.34, sub_text_center_line), imgAnchor=(0.5, 0.5),
                                                                 img=Image.open(os.path.join(ExConfig.res_path,
                                                                                             "textures/weather/衣服.png")))
                     await weather_card.addText(uvSize=(1, 1), boxSize=(0.4, lite_font_size), xyOffset=(0, 0),
-                                               baseAnchor=(feel_icon_pos[2] + 0.01, 0.6), textAnchor=(0, 1),
+                                               baseAnchor=(feel_icon_pos[2] + 0.01, sub_text_center_line), textAnchor=(0, 1),
                                                content="%s%s" % (feelsLike, tempUnit),
                                                font=font_60, color=Cardimage.hex2dec("ffffffff"))
                     await weather_card.addText(uvSize=(1, 1), boxSize=(0.4, lite_font_size), xyOffset=(0, 0),
-                                               baseAnchor=(feel_icon_pos[2] + 0.01, 0.6), textAnchor=(0, 0),
+                                               baseAnchor=(feel_icon_pos[2] + 0.01, sub_text_center_line), textAnchor=(0, 0),
                                                content="%shPa" % pressure,
                                                font=font_60, color=Cardimage.hex2dec("ffffffff"))
 
                     # 湿度和降水
                     rain_icon_pos = await weather_card.addImage(uvSize=(1, 1), boxSize=(0.08, 0.08), xyOffset=(0, 0),
-                                                                baseAnchor=(0.58, 0.6), imgAnchor=(0.5, 0.5),
+                                                                baseAnchor=(0.58, sub_text_center_line), imgAnchor=(0.5, 0.5),
                                                                 img=Image.open(os.path.join(ExConfig.res_path,
                                                                                             "textures/weather/w_湿度.png")))
                     await weather_card.addText(uvSize=(1, 1), boxSize=(0.4, lite_font_size), xyOffset=(0, 0),
-                                               baseAnchor=(rain_icon_pos[2] + 0.008, 0.6), textAnchor=(0, 1),
+                                               baseAnchor=(rain_icon_pos[2] + 0.008, sub_text_center_line), textAnchor=(0, 1),
                                                content="%smm" % precip,
                                                font=font_60, color=Cardimage.hex2dec("ffffffff"))
                     await weather_card.addText(uvSize=(1, 1), boxSize=(0.4, lite_font_size), xyOffset=(0, 0),
-                                               baseAnchor=(rain_icon_pos[2] + 0.008, 0.6), textAnchor=(0, 0),
+                                               baseAnchor=(rain_icon_pos[2] + 0.008, sub_text_center_line), textAnchor=(0, 0),
                                                content=f"{humidity}%",
                                                font=font_60, color=Cardimage.hex2dec("ffffffff"))
 
                     # 太阳升起和落下
                     try:
-                        sun_pos = await weather_card.addImage(uvSize=(1, 1), boxSize=(0.08, 0.08), xyOffset=(0, 0), baseAnchor=(0.82, 0.6), imgAnchor=(0.5, 0.5),
+                        sun_pos = await weather_card.addImage(uvSize=(1, 1), boxSize=(0.08, 0.08), xyOffset=(0, 0), baseAnchor=(0.82, sub_text_center_line), imgAnchor=(0.5, 0.5),
                                                               img=Image.open(os.path.join(ExConfig.res_path, "textures/weather/日出日落.png")))
                         daily_weather_data = await getQWDaysWeather(city={"id": state["params"].get("location", "")}, days=1,
                                                                     params=Command.get_keywords(state["params"],
                                                                                                 {"lang": "zh", "location": state["params"].get("location", ""), "adm": "",
                                                                                                  "unit": "m"}))
                         await weather_card.addText(uvSize=(1, 1), boxSize=(0.4, lite_font_size), xyOffset=(0, 0),
-                                                   baseAnchor=(sun_pos[2] + 0.008, 0.6), textAnchor=(0, 1),
+                                                   baseAnchor=(sun_pos[2] + 0.008, sub_text_center_line), textAnchor=(0, 1),
                                                    content="%s" % daily_weather_data["daily"][0]["sunrise"],
                                                    font=font_60, color=Cardimage.hex2dec("ffffffff"))
                         await weather_card.addText(uvSize=(1, 1), boxSize=(0.4, lite_font_size), xyOffset=(0, 0),
-                                                   baseAnchor=(sun_pos[2] + 0.008, 0.6), textAnchor=(0, 0),
+                                                   baseAnchor=(sun_pos[2] + 0.008, sub_text_center_line), textAnchor=(0, 0),
                                                    content="%s" % daily_weather_data["daily"][0]["sunset"],
                                                    font=font_60, color=Cardimage.hex2dec("ffffffff"))
 
@@ -282,7 +285,7 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                             text_hourly = hourly_data["text"]
 
                             x_point_hourly += 1 / (hours + 1)
-                            y_high = 0.77
+                            y_high = 0.71
                             y_low = 0.87
                             uv_section = y_low - y_high
                             if temp_section != 0:
@@ -295,7 +298,7 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                                                        baseAnchor=(x_point_hourly, y_high - 0.03), textAnchor=(0.5, 0.5),
                                                        content="%s%s" % (temp_hourly, tempUnit),
                                                        font=font_60, color=Cardimage.hex2dec("ffffffff"))
-                            await weather_card.addText(uvSize=(1, 1), boxSize=(0.1, 0.06), xyOffset=(0, 0),
+                            await weather_card.addText(uvSize=(1, 1), boxSize=(0.2, 0.0275), xyOffset=(0, 0),
                                                        baseAnchor=(x_point_hourly, y_low + 0.02), textAnchor=(0.5, 0.5),
                                                        content="%s" % time24_hourly,
                                                        font=font_60, color=Cardimage.hex2dec("ffffffff"))
