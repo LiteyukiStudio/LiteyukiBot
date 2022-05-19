@@ -3,17 +3,17 @@ import time
 import asyncio
 from extraApi.base import Session, Command, Balance, Log
 from extraApi.permission import AUTHUSER
-from extraApi.rule import pluginEnable
+from extraApi.rule import plugin_enable
 from nonebot import on_message, on_command
 from nonebot.adapters.onebot.v11 import Message, GROUP_OWNER, GROUP_ADMIN, PRIVATE_FRIEND, Bot
 from nonebot.permission import SUPERUSER
 from .arApi import *
 
-listener = on_message(rule=pluginEnable("kami.auto_reply") & MATCHPATTERN, priority=30)
+listener = on_message(rule=plugin_enable("kami.auto_reply") & MATCHPATTERN, priority=30)
 editReply = on_command(cmd="添加回复", aliases={"删除回复", "清除回复", "添加全局回复", "删除全局回复", "清除全局回复"},
-                       rule=pluginEnable("kami.auto_reply"), priority=10, block=True, permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | PRIVATE_FRIEND)
+                       rule=plugin_enable("kami.auto_reply"), priority=10, block=True, permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | PRIVATE_FRIEND)
 # 注册的人默认回复
-registerDefault = on_message(rule=to_me() & pluginEnable("kami.auto_reply"), permission=AUTHUSER, priority=100)
+registerDefault = on_message(rule=to_me() & plugin_enable("kami.auto_reply"), permission=AUTHUSER, priority=100)
 
 
 @registerDefault.handle()
@@ -25,7 +25,7 @@ async def registerDefaultHandle(bot: Bot, event: GroupMessageEvent | PrivateMess
 
 @listener.handle()
 async def listenerHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
-    event.raw_message = event.raw_message.replace("&#91;", "[").replace("&#93;", "]")
+    event.raw_message = Command.escape(event.raw_message)
     reply_probability = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="reply_probability", default=1.0)
     p = (Balance.clamp(await Balance.getFavoValue(event.user_id) / 100, 0, 1)) * reply_probability
     if random.random() < p:
@@ -140,6 +140,8 @@ async def editReplyGotReply(bot: Bot, event: GroupMessageEvent | PrivateMessageE
                 if match in replyData[mode]:
                     if reply in replyData[mode][match]:
                         replyData[mode][match].remove(reply)
+                        if len(replyData[mode][match]) == 0:
+                            del replyData[mode][match]
                         r = "删除%s回复成功:\n匹配:[%s]%s\n回复:%s" % (globalModeText, mode, match, reply)
                     else:
                         r = "删除%s回复失败:\n[%s]%s中不存在回复:%s" % (globalModeText, mode, match, reply)

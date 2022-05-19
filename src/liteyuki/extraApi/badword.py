@@ -3,7 +3,7 @@ from typing import Union
 
 from nonebot.permission import SUPERUSER
 
-from extraApi.base import ExtraData, Log
+from extraApi.base import ExtraData, Log, Command
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEvent, GROUP_ADMIN, GROUP_OWNER
 from nonebot.rule import Rule
 from nonebot.typing import T_State
@@ -11,6 +11,7 @@ from nonebot.typing import T_State
 
 @Rule
 async def IS_BADWORD(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
+    escaped = Command.escape(event.raw_message)
     if await GROUP_ADMIN(bot, event) or await GROUP_OWNER(bot, event) or await SUPERUSER(bot, event):
         if re.match("(添加)|(删除)(全局)?违禁词", event.raw_message) is not None:
             return False

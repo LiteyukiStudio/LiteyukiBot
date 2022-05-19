@@ -1,6 +1,6 @@
 import random
 from extraApi.base import Command, Session
-from extraApi.rule import pluginEnable
+from extraApi.rule import plugin_enable
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Bot, GROUP_ADMIN, GROUP_OWNER
 from nonebot.permission import SUPERUSER
@@ -15,8 +15,8 @@ from .pmApi import *
 enablePlugin = on_command(cmd="启用插件", aliases={"停用插件", "开启插件", "关闭插件"}, priority=1, block=True)
 listPlugin = on_command(cmd="列出插件"
                             "", aliases={"菜单", "menu", "help"}, priority=1, block=True,
-                        rule=pluginEnable(pluginId="kami.plugin_manager"))
-createPlugin = on_command(cmd="创建插件", priority=10, block=True, rule=pluginEnable("kami.plugin_manager"),
+                        rule=plugin_enable(pluginId="kami.plugin_manager"))
+createPlugin = on_command(cmd="创建插件", priority=10, block=True, rule=plugin_enable("kami.plugin_manager"),
                           permission=SUPERUSER)
 
 
@@ -103,7 +103,7 @@ async def createPluginHandle(bot: Bot, event: PrivateMessageEvent, state: T_Stat
             pluginFolder = args[3]
         else:
             pluginFolder = args[2].replace(".", "_")
-        pluginDir = os.path.join(ExConfig.pluginsPath, pluginFolder)
+        pluginDir = os.path.join(ExConfig.plugins_path, pluginFolder)
         if os.path.exists(pluginDir):
             await createPlugin.send("创建失败, 文件夹名重复")
         else:

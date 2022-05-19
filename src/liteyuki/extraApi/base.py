@@ -12,22 +12,23 @@ import aiohttp
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Bot
 from nonebot.exception import FinishedException, IgnoredException
 from nonebot.typing import T_State
-from typing import Tuple, List, Union, Iterable
+from typing import Tuple, List, Union, Iterable, Dict
 
 from nonebot.utils import run_sync
 
 
 class ExConfig:
-    pluginsPath = os.path.abspath(os.path.join(__file__, "../.."))
-    rootPath = os.path.abspath(os.path.join(__file__, "../../../.."))
-    resPath = os.path.join(rootPath, "resource")
-    cachePath = os.path.join(rootPath, "cache")
-    logPath = os.path.join(rootPath, "log")
-    dataPath = os.path.join(rootPath, "data")
+    plugins_path = os.path.abspath(os.path.join(__file__, "../.."))
+    root_path = os.path.abspath(os.path.join(__file__, "../../../.."))
+    res_path = os.path.join(root_path, "resource")
+    cache_path = os.path.join(root_path, "cache")
+    log_path = os.path.join(root_path, "log")
+    data_path = os.path.join(root_path, "data")
+    data_backup_path = os.path.join(root_path, "data_backup")
 
     @staticmethod
     async def init():
-        pathList = [ExConfig.pluginsPath, ExConfig.resPath, ExConfig.cachePath]
+        pathList = [ExConfig.plugins_path, ExConfig.res_path, ExConfig.cache_path]
         for path in pathList:
             if not os.path.exists(path):
                 os.makedirs(path)
@@ -36,22 +37,21 @@ class ExConfig:
 class Command:
 
     @staticmethod
-    def get_keywords(old_dict: dict, *keys) -> dict:
+    def get_keywords(old_dict: dict, keywords: dict) -> dict:
         """
-
+        :param keywords:
         :param old_dict:
-        :param keys:
         :return:
 
         提取旧字典中设定键合成新字典
         """
         new = dict()
-        for key in keys:
-            new[key] = old_dict.get(key, "")
+        for key in keywords:
+            new[key] = old_dict.get(key, keywords[key])
         return new
 
     @staticmethod
-    def formatToCommand(cmd: str, sep: str = " ", kw=True) -> Tuple[tuple, dict]:
+    def formatToCommand(cmd: str, sep: str = " ", kw=True) -> Tuple[Tuple, Dict]:
         """
         :param kw: 将有等号的词语分出
         :param sep: 分隔符,默认空格
@@ -61,6 +61,7 @@ class Command:
         命令参数处理
         "%20"表示空格
         """
+        cmd = Command.escape(cmd)
         cmdList = cmd.strip().split(sep)
         args = []
         keywords = {}
@@ -85,7 +86,10 @@ class Command:
         s = ""
         for arg in args:
             s += arg.replace(" ", "%20") + " "
-        for item in keywords.items():
+        kw_item = keywords.items()
+        kw_item: list
+
+        for item in kw_item:
             s += ("%s=%s" % (item[0], item[1])).replace(" ", "%20") + " "
         return s[:-1]
 
@@ -147,6 +151,9 @@ class Command:
             if i in fuzzy_key:
                 return i
 
+    @staticmethod
+    def escape(text: str) -> str:
+        return text.replace("&amp;", "&").replace("&#91;", "[").replace("&#93;", "]").replace("&#44;", ",")
 
 class ExtraData:
     """
@@ -156,7 +163,7 @@ class ExtraData:
     """
     # json
     T = [int, float, str, bool, dict, list, type(None)]
-    databasePath = os.path.join(ExConfig.rootPath, "data")
+    databasePath = os.path.join(ExConfig.root_path, "data")
 
     User = u = "u"
     Group = g = "g"
@@ -363,7 +370,7 @@ class ExtraData:
             return False
 
     @staticmethod
-    async def getDatabaseList() -> List[str]:
+    async def get_database_list() -> List[str]:
         """
         :return: ["u00000", "g00000"]
         """
@@ -578,7 +585,7 @@ class Log:
 
     @staticmethod
     async def write(log: str):
-        file_name = os.path.join(ExConfig.logPath, "%s-%s-%s.log" % tuple(list(time.localtime())[0:3]))
+        file_name = os.path.join(ExConfig.log_path, "%s-%s-%s.log" % tuple(list(time.localtime())[0:3]))
         async with aiofiles.open(file_name, mode="a", encoding="utf-8") as f:
             await f.write(("[%s-%s-%s %s:%s:%s]" % tuple(list(time.localtime())[0:6]) + log + "\n"))
 
@@ -607,3 +614,11 @@ class Log:
         else:
             session = "用户:%s(%s)" % (event.sender.nickname, event.user_id)
         return session
+
+    @staticmethod
+    async def call_api_log(api: str, data: dict, result: str):
+        data_str = ""
+        for key, v in zip(data.keys(), data.items()):
+            data_str += "%s=%s" % (key, v)
+
+        await Log.write("[call_api]api:%s data:%s result:%s" % (api, str(data), result))

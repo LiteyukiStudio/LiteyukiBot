@@ -5,16 +5,16 @@
 # @Email   :  youzyyz1384@qq.com
 # @File    : __init__.py.py
 # @Software: PyCharm
-from extraApi.rule import pluginEnable
+from extraApi.rule import plugin_enable
 from nonebot import on_command
-from nonebot.adapters.onebot.v11 import Bot, PrivateMessageEvent, GroupMessageEvent
+from nonebot.adapters.onebot.v11 import Bot, PrivateMessageEvent, GroupMessageEvent, Message
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from .run import run
 from extraApi.badword import *
 
 runcode = on_command(cmd='code',
-                     rule=pluginEnable(pluginId="nb.code"),
+                     rule=plugin_enable(pluginId="nb.code"),
                      priority=2, block=True)
 
 
@@ -26,7 +26,10 @@ async def _(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_S
         if len(res) >= 2400:
             await runcode.send(message="code:返回字符串过长")
         else:
-            await runcode.send(message=await badwordFilter(bot, event, state, res))
+            if await SUPERUSER(bot, event):
+                await runcode.send(message=Message(await badwordFilter(bot, event, state, res)))
+            else:
+                await runcode.send(message=await badwordFilter(bot, event, state, res))
             if len(res.splitlines()) >= 100 and type(event) is GroupMessageEvent and not await SUPERUSER(bot, event):
                 await bot.set_group_ban(group_id=event.group_id, user_id=event.user_id, duration=len(res) * 60)
                 await runcode.send(message="code:故意刷屏,禁言与输出文本字符同样多的分钟数:%s分钟" % len(res), at_sender=True)

@@ -82,17 +82,21 @@ async def getQWRealTimeWeather(city: dict, params) -> dict:
 
 async def getQWDaysWeather(city: dict, days: int, params) -> dict:
     apiKey = await ExtraData.getData(targetType=ExtraData.Group, targetId=0, key="kami.weather.key", default=str())
-    if params["key"] is None:
+    if params.get("key") is None:
         params["key"] = apiKey
     if days <= 3:
-        url = "https://api.qweather.com/v7/weather/%sd?" % 3
+        url = "https://api.qweather.com/v7/weather/3d?"
+    elif days <= 7:
+        url = "https://api.qweather.com/v7/weather/7d?"
+    elif days <= 10:
+        url = "https://api.qweather.com/v7/weather/10d?"
+    elif days <= 15:
+        url = "https://api.qweather.com/v7/weather/15d?"
     else:
-        url = "https://api.qweather.com/v7/weather/%sd?" % 30
+        url = "https://api.qweather.com/v7/weather/30d?"
 
     if "adm" in params:
         del params["adm"]
-    if params.get("key", None) is None:
-        params["key"] = apiKey
     params["location"] = city["id"]
 
     async with aiohttp.request("GET", url=url, params=params, headers={
@@ -104,20 +108,18 @@ async def getQWDaysWeather(city: dict, days: int, params) -> dict:
 
 async def getQWHoursWeather(city: dict, hours: int, params) -> dict:
     apiKey = await ExtraData.getData(targetType=ExtraData.Group, targetId=0, key="kami.weather.key", default=str())
-    if params["key"] is None:
+    if params.get("key") is None:
         params["key"] = apiKey
     if hours <= 24:
         url = "https://api.qweather.com/v7/weather/24h?"
+    elif hours <= 72:
+        url = "https://api.qweather.com/v7/weather/72h?"
     else:
-        url = "https://api.qweather.com/v7/weather/%168h?"
+        url = "https://api.qweather.com/v7/weather/168h?"
 
     if "adm" in params:
         del params["adm"]
-    if params.get("key", None) is None:
-        params["key"] = apiKey
     params["location"] = city["id"]
-    print(params)
-
     async with aiohttp.request("GET", url=url, params=params, headers={
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36',
     }) as r:

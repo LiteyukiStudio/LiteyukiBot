@@ -1,17 +1,21 @@
 import asyncio
 import random
 
-from extraApi.base import Command, ExtraData, Session
-from extraApi.permission import AUTHUSER
-from extraApi.rule import pluginEnable
-from nonebot import on_command
-from nonebot.adapters.onebot.v11 import Bot, PrivateMessageEvent, GroupMessageEvent, GROUP_OWNER, GROUP_ADMIN, Message
+from nonebot import on_command, get_bot, get_bots
+from nonebot.adapters.onebot.v11 import GROUP_OWNER, GROUP_ADMIN, Message
 from nonebot.permission import SUPERUSER
-from nonebot.typing import T_State
+from nonebot import require, get_driver
 
-setConfig = on_command(cmd="设置属性", rule=pluginEnable("kami.super_tool"), permission=SUPERUSER, priority=10, block=True)
-getConfig = on_command(cmd="获取属性", rule=pluginEnable("kami.super_tool"), permission=AUTHUSER, priority=10, block=True)
-send_mutil_msg = on_command(cmd="群发消息", rule=pluginEnable("kami.super_tool"), permission=SUPERUSER, priority=10, block=True)
+from extraApi.permission import AUTHUSER
+from extraApi.rule import plugin_enable
+from .stApi import *
+
+setConfig = on_command(cmd="设置属性", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER, priority=10, block=True)
+getConfig = on_command(cmd="获取属性", rule=plugin_enable("kami.super_tool"), permission=AUTHUSER, priority=10, block=True)
+send_mutil_msg = on_command(cmd="群发消息", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER, priority=10, block=True)
+backup_data = on_command(cmd="备份数据", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER, priority=10, block=True)
+statistics_data = on_command(cmd='统计数据', rule=plugin_enable("kami.super_tool"), permission=AUTHUSER, priority=10, block=True)
+call_api = on_command(cmd="api", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER, priority=10, block=True)
 
 
 @setConfig.handle()
@@ -63,14 +67,33 @@ async def getConfigHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEve
 
 
 @send_mutil_msg.handle()
-async def send_mutil_msg_handle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
+async def send_mutil_msg_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
     friend_list = await bot.get_friend_list()
     args = event.raw_message.split()
+    msg = Message(" ".join(args[1:]))
     for friend in friend_list:
         try:
+            friend_info = await bot.get_stranger_info(user_id=friend["user_id"])
             if await ExtraData.get_user_data(user_id=friend["user_id"], key="enable", default=False):
-                await bot.send_private_msg(user_id=friend["user_id"], message=Message(" ".join(args[1:])))
+                await bot.send_private_msg(user_id=friend["user_id"], message=msg)
+                await send_mutil_msg.send(message="消息已发送到：%s(%s)" % (friend_info["nickname"], friend["user_id"]))
         except BaseException as e:
             await Session.sendException(bot, event, state, e)
 
-        await asyncio.sleep(random.randint(5, 9))
+        await asyncio.sleep(random.randint(15, 30))
+
+
+@backup_data.handle()
+async def backup_data_handle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent):
+    f, n = await backup()
+    await backup_data.send(message="数据备份完成：%s，共计%s个数据库" % (f, n))
+
+
+@call_api.handle()
+async def call_api_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], state: T_State):
+    try:
+        args, kws = Command.formatToCommand(cmd=event.raw_message)
+        r = await bot.call_api(args[1], **kws)
+        await call_api.send(message=str(r))
+    except BaseException as e:
+        await Session.sendException(bot, event, state, e)

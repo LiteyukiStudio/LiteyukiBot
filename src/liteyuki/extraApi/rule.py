@@ -10,17 +10,20 @@ from nonebot.internal.rule import Rule
 from nonebot.typing import T_State
 
 
-def pluginEnable(pluginId: str):
+def plugin_enable(pluginId: str, no_response=True):
     async def _pluginEnable(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
         enable_mode = await ExtraData.get_global_data(key="enable_mode", default=1)
         # 1正常状态 0停止状态 -1检修模式仅响应检修成员
-        no_response = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event),
-                                              key="no_response", default=list())
+        no_response_list = await ExtraData.get_global_data(key="no_response", default=list())
         bannedPlugin = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event),
                                                key="banned_plugin", default=list())
         enabledPlugin = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event),
                                                 key="enabled_plugin", default=list())
         test_users = await ExtraData.get_global_data(key="test_users", default=[])
+
+        # 不响应名单
+        if event.user_id in no_response_list and no_response:
+            return False
 
         if type(event) is GroupMessageEvent and await ExtraData.get_group_data(group_id=event.group_id, key="enable", default=False) or type(
                 event) is PrivateMessageEvent and await ExtraData.get_user_data(user_id=event.user_id, key="enable", default=False):
@@ -29,9 +32,6 @@ def pluginEnable(pluginId: str):
             return False
 
         plugin = searchForPlugin(pluginId)
-        # 不响应名单
-        if event.user_id in no_response:
-            return False
 
         # 模式检测
         if enable_mode == 0:

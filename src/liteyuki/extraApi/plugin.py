@@ -47,9 +47,9 @@ def searchForPlugin(keyword) -> Any | None:
 
 def getPluginList() -> List[Plugin]:
     pluginList = []
-    for f in os.listdir(ExConfig.pluginsPath):
-        if os.path.exists(os.path.join(ExConfig.pluginsPath, f, "__init__.py")):
-            pluginList.append(Plugin(os.path.join(ExConfig.pluginsPath, f)))
+    for f in os.listdir(ExConfig.plugins_path):
+        if os.path.exists(os.path.join(ExConfig.plugins_path, f, "__init__.py")):
+            pluginList.append(Plugin(os.path.join(ExConfig.plugins_path, f)))
     return pluginList
 
 
