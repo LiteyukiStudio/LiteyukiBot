@@ -268,13 +268,13 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
 
                     try:
                         x_point_hourly = 0
-                        hours = Balance.clamp(int(state["params"].get("hours", 6)), 1, 168)
+                        hours = Balance.clamp(int(state["params"].get("hours", 8)), 0, 168)
                         hourly_weather_data = await getQWHoursWeather(city={"id": state["params"].get("location", "")}, hours=hours,
                                                                       params=Command.get_keywords(state["params"],
                                                                                                   {"lang": "zh", "location": state["params"].get("location", ""), "adm": "",
                                                                                                    "unit": "m"}))
-                        hourly_temp_max = max([float(hourly["temp"]) for hourly in hourly_weather_data["hourly"][0:hours]]) + 2
-                        hourly_temp_min = min([float(hourly["temp"]) for hourly in hourly_weather_data["hourly"][0:hours]]) - 2
+                        hourly_temp_max = max([float(hourly["temp"]) for hourly in hourly_weather_data["hourly"][0:hours]]) + 1
+                        hourly_temp_min = min([float(hourly["temp"]) for hourly in hourly_weather_data["hourly"][0:hours]]) - 1
                         temp_section = hourly_temp_max - hourly_temp_min
                         point = []
                         for hour, hourly_data in enumerate(hourly_weather_data["hourly"][0:hours]):
@@ -294,7 +294,7 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                                 y_point_hourly = (y_low + y_high) / 2
                             point.append([x_point_hourly, y_point_hourly])
 
-                            await weather_card.addText(uvSize=(1, 1), boxSize=(0.2, 0.03), xyOffset=(0, 0),
+                            await weather_card.addText(uvSize=(1, 1), boxSize=(0.2, 0.028), xyOffset=(0, 0),
                                                        baseAnchor=(x_point_hourly, y_high - 0.03), textAnchor=(0.5, 0.5),
                                                        content="%s%s" % (temp_hourly, tempUnit),
                                                        font=font_60, color=Cardimage.hex2dec("ffffffff"))
@@ -329,7 +329,7 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                                 await weather_card.addImage(uvSize=(1, 1), boxSize=(0.025, 0.025), xyOffset=(0, 0),
                                                             baseAnchor=(x_point_hourly, y_point_hourly), imgAnchor=(0.5, 0.5),
                                                             img=Image.open(os.path.join(ExConfig.res_path,
-                                                                                        "textures/weather/around_2.png")))
+                                                                                        "textures/weather/around_point.png")))
                                 await weather_card.drawLine(uvSize=(1, 1), p1=(point[hour - 1]), p2=[x_point_hourly, y_point_hourly], width=10)
                     except BaseException as e:
                         pass

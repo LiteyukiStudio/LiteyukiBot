@@ -13,7 +13,7 @@ music = on_command(cmd="音乐", aliases={"点歌"}, priority=10, rule=plugin_en
 async def musicHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
     args, kw = Command.formatToCommand(cmd=event.raw_message)
     songName = Command.formatToString(*args[1:]).replace("%20", " ")
-    plat = kw.get("plat", await ExtraData.getData(targetType=ExtraData.User, targetId=event.user_id, key="kami.music.plat", default="163"))
+    plat = kw.get("plat", "163")
     songMessage = await getMusic(songName, plat)
     await music.send(Message(songMessage))
     await Balance.editCoinValue(user_id=event.user_id, delta=-1, reason="点歌")

@@ -53,10 +53,15 @@ def plugin_enable(pluginId: str, no_response=True):
 
 def minimumCoin(num: Union[float, int]) -> Rule:
     async def _minimumCoin(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], state: T_State):
+        prompt = state.get("balance_prompt", False)
+
         coin = await Balance.getCoinValue(user_id=event.user_id)
         if coin >= num:
             return True
         else:
+            if not prompt:
+                # await bot.send(event, "硬币余额不足：%s" % coin, at_sender=True)
+                state["balance_prompt"] = True
             return False
 
     return Rule(_minimumCoin)
