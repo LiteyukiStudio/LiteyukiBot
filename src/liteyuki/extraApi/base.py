@@ -155,6 +155,7 @@ class Command:
     def escape(text: str) -> str:
         return text.replace("&amp;", "&").replace("&#91;", "[").replace("&#93;", "]").replace("&#44;", ",")
 
+
 class ExtraData:
     """
     外部数据管理类

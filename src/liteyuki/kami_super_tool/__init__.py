@@ -1,20 +1,19 @@
 import asyncio
 import random
 
-from nonebot import on_command, get_bot, get_bots
+from nonebot import on_command
 from nonebot.adapters.onebot.v11 import GROUP_OWNER, GROUP_ADMIN, Message
+from nonebot.internal.permission import Permission
 from nonebot.permission import SUPERUSER
-from nonebot import require, get_driver
 
-from extraApi.permission import AUTHUSER
 from extraApi.rule import plugin_enable
 from .stApi import *
 
 setConfig = on_command(cmd="设置属性", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER, priority=10, block=True)
-getConfig = on_command(cmd="获取属性", rule=plugin_enable("kami.super_tool"), permission=AUTHUSER, priority=10, block=True)
+getConfig = on_command(cmd="获取属性", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER, priority=10, block=True)
 send_mutil_msg = on_command(cmd="群发消息", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER, priority=10, block=True)
 backup_data = on_command(cmd="备份数据", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER, priority=10, block=True)
-statistics_data = on_command(cmd='统计数据', rule=plugin_enable("kami.super_tool"), permission=AUTHUSER, priority=10, block=True)
+statistics_data = on_command(cmd='统计数据', rule=plugin_enable("kami.super_tool"), permission=SUPERUSER, priority=10, block=True)
 call_api = on_command(cmd="api", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER, priority=10, block=True)
 
 
@@ -50,8 +49,7 @@ async def getConfigHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEve
         targetId = int(args[2])
         key = args[3]
 
-        if targetType in ["g", "gm"] and (await GROUP_OWNER(bot, event) or await GROUP_ADMIN(bot, event)) or await SUPERUSER(bot, event) \
-                or targetType == "u" and event.user_id == int(targetId):
+        if targetType in ["g", "gm"] and await Permission(GROUP_OWNER, GROUP_ADMIN, SUPERUSER)(bot, event):
             if targetType == "gm":
                 r = await ExtraData.get_group_member_data(event.group_id, targetId, key=key)
             else:

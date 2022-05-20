@@ -1,38 +1,45 @@
 import os.path
 import platform
 import random
-from typing import Union
-from .auturun import *
+
 import aiofiles
 import aiohttp
 from PIL import Image
 from nonebot import on_command, on_notice
-from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEvent, NoticeEvent, Message
-from nonebot.permission import SUPERUSER
-from nonebot.typing import T_State
+from nonebot.adapters.onebot.v11 import NoticeEvent, Message
 
-from extraApi.base import Balance, ExtraData, Command
+from extraApi.base import Balance, Command
 from extraApi.base import ExConfig
 from extraApi.cardimage import Cardimage
-from extraApi.rule import plugin_enable
+from extraApi.rule import plugin_enable, NOT_IGNORED, NOT_BLOCKED, MODE_DETECT
+from .auturun import *
 
-about = on_command(cmd="about", aliases={"关于轻雪", "关于小羽"}, rule=plugin_enable("kami.base"), priority=10, block=True)
-balance = on_command(cmd="查询好感度", aliases={"查询硬币", "好感度查询", "硬币查询"}, rule=plugin_enable("kami.base"), priority=10, block=True)
-balance_rank = on_command(cmd="好感度排行", rule=plugin_enable("kami.base"), priority=10, block=True)
+about = on_command(cmd="about", aliases={"关于轻雪", "关于小羽"},
+                   rule=plugin_enable("kami.base") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
+                   priority=10, block=True)
+balance = on_command(cmd="查询好感度", aliases={"查询硬币", "好感度查询", "硬币查询"},
+                     rule=plugin_enable("kami.base") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
+                     priority=10, block=True)
+balance_rank = on_command(cmd="好感度排行",
+                          rule=plugin_enable("kami.base") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
+                          priority=10, block=True)
+# 超管专区
 start_close = on_command(cmd="轻雪", aliases={"liteyuki"}, permission=SUPERUSER, priority=10, block=True)
+
 echo = on_command(cmd="echo", permission=SUPERUSER, priority=10, block=True)
+
 m = on_command(cmd="liteyuki")
 
 fileReceiver = on_notice()
 
 
 @m.handle()
-async def testHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent):
+async def testHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
     await m.send("轻雪机器人:测试成功")
 
 
 @echo.handle()
-async def echoHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent):
+async def echoHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
     msg = Message(event.raw_message.split()[1].replace("&#91;", "[").replace("&#93;", "]"))
     await echo.send(message=msg)
 

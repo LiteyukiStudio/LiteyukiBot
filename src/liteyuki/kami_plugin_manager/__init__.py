@@ -1,22 +1,21 @@
-import random
-from extraApi.base import Command, Session
-from extraApi.rule import plugin_enable
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Bot, GROUP_ADMIN, GROUP_OWNER
+from nonebot.internal.permission import Permission
 from nonebot.permission import SUPERUSER
-from extraApi.plugin import *
 # 插件开关
 # 插件详情
 # 插件帮助
 from nonebot.typing import T_State
 
-from .pmApi import *
+from extraApi.base import Command, Session
+from extraApi.plugin import *
+from extraApi.rule import plugin_enable, NOT_BLOCKED, NOT_IGNORED, MODE_DETECT
 
 enablePlugin = on_command(cmd="启用插件", aliases={"停用插件", "开启插件", "关闭插件"}, priority=1, block=True)
-listPlugin = on_command(cmd="列出插件"
-                            "", aliases={"菜单", "menu", "help"}, priority=1, block=True,
-                        rule=plugin_enable(pluginId="kami.plugin_manager"))
-createPlugin = on_command(cmd="创建插件", priority=10, block=True, rule=plugin_enable("kami.plugin_manager"),
+
+listPlugin = on_command(cmd="列出插件", aliases={"菜单", "menu", "help"}, priority=1, block=True,
+                        rule=plugin_enable(pluginId="kami.plugin_manager") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT)
+createPlugin = on_command(cmd="创建插件", priority=10, block=True, rule=plugin_enable("kami.plugin_manager") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT,
                           permission=SUPERUSER)
 
 
@@ -28,12 +27,10 @@ async def enablePluginHandle(bot: Bot, event: GroupMessageEvent | PrivateMessage
         if plugin is not None:
             pluginState = await getPluginEnable(event.message_type, ExtraData.getTargetId(event), plugin)
             operation = True if Command.formatToCommand(event.raw_message.strip())[0][0] in ["启用插件", "开启插件"] else False
-            if type(event) is GroupMessageEvent and (
-                    await GROUP_OWNER(bot, event) or await GROUP_ADMIN(bot, event) or await SUPERUSER(bot,
-                                                                                                      event)) or type(
-                    event) is PrivateMessageEvent:
+            if type(event) is GroupMessageEvent and await Permission(GROUP_OWNER, GROUP_ADMIN, SUPERUSER)(bot, event) or type(event) is PrivateMessageEvent:
                 bannedPlugin: list = await ExtraData.getData(targetType=event.message_type,
-                                                             targetId=ExtraData.getTargetId(event), key="banned_plugin",
+                                                             targetId=ExtraData.getTargetId(event),
+                                                             key="banned_plugin",
                                                              default=[])
                 enabledPlugin: list = await ExtraData.getData(targetType=event.message_type,
                                                               targetId=ExtraData.getTargetId(event),
@@ -79,13 +76,19 @@ async def listPluginHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEv
                 reply += "- %s%s\n" % (plugin.pluginName,
                                        "" if await getPluginEnable(event.message_type, ExtraData.getTargetId(event),
                                                                    plugin) else "[未启用]")
-            reply += "\n使用 help <插件名称> 获取每个插件的使用方法\n<>是必填，[]是可选，无需输入括号"
+            reply += "\n# 使用 help <插件名> 获取每个插件的总文档\n\n" \
+                     "# 使用 help <插件名> [*args] 获取每个插件的子文档\n\n" \
+                     "# <>是必填，[]是可选，括号是用来标记的，实际无需输入"
             await listPlugin.send(message=reply)
         else:
-            pluginName = Command.formatToString(*args[1:])
-            plugin = searchForPlugin(pluginName)
+            pluginName = Command.formatToString(args[1])
+            plugin: Plugin = searchForPlugin(pluginName)
+
             if plugin is not None:
-                await listPlugin.send(plugin.pluginDocs)
+                if len(args) == 2:
+                    await listPlugin.send("%s帮助文档：\n\n" % plugin.pluginName + plugin.pluginDocs)
+                else:
+                    await listPlugin.send("%s帮助文档：\n\n" % "-".join(args[2:]) + await plugin.get_sub_docs(args[2:], plugin_name=plugin.pluginName))
             else:
                 await listPlugin.send("未找到插件")
 

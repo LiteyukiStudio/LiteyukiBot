@@ -1,19 +1,25 @@
+import asyncio
 import time
 
-import asyncio
+from nonebot import on_message, on_command
+from nonebot.adapters.onebot.v11 import Message, GROUP_OWNER, GROUP_ADMIN, PRIVATE_FRIEND
+from nonebot.permission import SUPERUSER
+
 from extraApi.base import Session, Command, Balance, Log
 from extraApi.permission import AUTHUSER
-from extraApi.rule import plugin_enable
-from nonebot import on_message, on_command
-from nonebot.adapters.onebot.v11 import Message, GROUP_OWNER, GROUP_ADMIN, PRIVATE_FRIEND, Bot
-from nonebot.permission import SUPERUSER
+from extraApi.rule import *
 from .arApi import *
 
-listener = on_message(rule=plugin_enable("kami.auto_reply") & MATCHPATTERN, priority=30)
+listener = on_message(rule=plugin_enable("kami.auto_reply") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT & MATCHPATTERN,
+                      priority=30)
 editReply = on_command(cmd="添加回复", aliases={"删除回复", "清除回复", "添加全局回复", "删除全局回复", "清除全局回复"},
-                       rule=plugin_enable("kami.auto_reply"), priority=10, block=True, permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | PRIVATE_FRIEND)
+                       rule=plugin_enable("kami.auto_reply") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
+                       permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | PRIVATE_FRIEND,
+                       priority=10, block=True)
 # 注册的人默认回复
-registerDefault = on_message(rule=to_me() & plugin_enable("kami.auto_reply"), permission=AUTHUSER, priority=100)
+registerDefault = on_message(rule=to_me() & plugin_enable("kami.auto_reply") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
+                             permission=AUTHUSER,
+                             priority=100)
 
 
 @registerDefault.handle()
@@ -107,7 +113,6 @@ async def editReplyGotMatch(bot: Bot, event: GroupMessageEvent | PrivateMessageE
 @editReply.got("reply")
 async def editReplyGotReply(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
     try:
-        # wanwan
         if state["reply"] is None:
             await editReply.finish()
         op = state["op"]

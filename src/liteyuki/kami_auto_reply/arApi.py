@@ -33,7 +33,9 @@ async def getReply(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, sta
     else:
         groupReplyData = {}
 
-    for match in userReplyData.items():
+    items: list = userReplyData.items()
+
+    for match in items:
         mode = match[0]
         rules = match[1]
         for rule in rules.items():
@@ -44,7 +46,9 @@ async def getReply(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, sta
             elif (mode == "eq" or mode == "tmeq" and tome) and subMatch == event.raw_message:
                 userReplyMsgList.extend(replys)
 
-    for match in globalReplyData.items():
+    items: list = globalReplyData.items()
+
+    for match in items:
         mode = match[0]
         rules = match[1]
         for rule in rules.items():
@@ -55,7 +59,9 @@ async def getReply(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, sta
             elif (mode == "eq" or mode == "tmeq" and tome) and subMatch == event.raw_message:
                 globalReplyMsgList.extend(replys)
 
-    for match in groupReplyData.items():
+    items: list = groupReplyData.items()
+
+    for match in items:
         mode = match[0]
         rules = match[1]
         for rule in rules.items():

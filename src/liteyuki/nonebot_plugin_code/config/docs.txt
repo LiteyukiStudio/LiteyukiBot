@@ -1,4 +1,4 @@
-运行代码
+运行代码：
 目前支持c/cpp/c#/py/php/go/java/js
 命令:
 code <语言类型>

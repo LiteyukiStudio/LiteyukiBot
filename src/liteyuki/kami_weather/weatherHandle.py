@@ -115,7 +115,8 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                 obsTime = weatherData.get("obsTime", "Unknown")  # 观测时间
 
                 obsDate = obsTime.split("T")[0]
-                obsLocalTime = obsTime.split("T")[1].split("+")[0]
+                obsLocalTime = obsTime.split("T")[1]
+
 
                 temp = weatherData.get("temp")  # 气温℃
                 feelsLike = weatherData.get("feelsLike")  # 体感温度℃
@@ -147,7 +148,7 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                     weather_card: Cardimage = Cardimage(baseImg=base_img)
                     # 城市名和国家 编号
                     city_pos = await weather_card.addText(uvSize=(1, 1), boxSize=(0.5, 0.075), xyOffset=(0, 0),
-                                                          baseAnchor=(0.05, 0.05), textAnchor=(0, 0), content=cityName,
+                                                          baseAnchor=(0.05, 0.04), textAnchor=(0, 0), content=cityName,
                                                           font=font_80, color=Cardimage.hex2dec("ffffffff"))
                     await weather_card.addText(uvSize=(1, 1), boxSize=(
                         0.5, Balance.clamp((city_pos[3] - city_pos[1]) / 1.2, 0.04, 0.05)), xyOffset=(0, 0),
@@ -164,7 +165,7 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                     # 观测时间城市编号
                     await weather_card.addText(uvSize=(1, 1), boxSize=(1.0, 0.025), xyOffset=(0, 0),
                                                baseAnchor=(0.95, 0.97), textAnchor=(1, 1),
-                                               content="%s-%s | %s %s  Designed by SnowyKami" % (icon, city_id, obsDate, obsLocalTime),
+                                               content="%s-%s | %s %s Designed by SnowyKami" % (icon, city_id, obsDate, obsLocalTime),
                                                font=font_80, color=Cardimage.hex2dec("ffdedede"))
                     # 天气 状态文本 和 图片 和 温度 和 建议
                     download = True
@@ -279,7 +280,11 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                         point = []
                         for hour, hourly_data in enumerate(hourly_weather_data["hourly"][0:hours]):
                             date_hourly = hourly_data["fxTime"].split("T")[0]
-                            time24_hourly = hourly_data["fxTime"].split("T")[1].split("+")[0]
+                            if "+" in hourly_data["fxTime"]:
+                                split_char = "+"
+                            else:
+                                split_char = "-"
+                            time24_hourly = hourly_data["fxTime"].split("T")[1].split(split_char)[0]
                             icon_hourly = hourly_data["icon"]
                             temp_hourly = hourly_data["temp"]
                             text_hourly = hourly_data["text"]

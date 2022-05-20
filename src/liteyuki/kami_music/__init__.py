@@ -1,12 +1,13 @@
-from extraApi.base import Command, ExtraData, Balance
-from extraApi.rule import plugin_enable, minimumCoin
 from nonebot import on_command
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Bot, Message, MessageSegment
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Bot
 from nonebot.typing import T_State
-from typing import Union
+
+from extraApi.base import Command, Balance
+from extraApi.rule import plugin_enable, minimumCoin, NOT_BLOCKED, NOT_IGNORED, MODE_DETECT
 from .musicApi import *
 
-music = on_command(cmd="音乐", aliases={"点歌"}, priority=10, rule=plugin_enable("kami.music") & minimumCoin(1), block=True)
+music = on_command(cmd="音乐", aliases={"点歌"}, priority=10, rule=plugin_enable("kami.music") & minimumCoin(1) & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT
+                   , block=True)
 
 
 @music.handle()

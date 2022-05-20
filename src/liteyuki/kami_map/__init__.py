@@ -1,20 +1,14 @@
-
-from nonebot import on_command
-from nonebot.adapters.onebot.v11 import Bot, PrivateMessageEvent, GroupMessageEvent
-from nonebot.typing import T_State
-from extraApi.rule import plugin_enable, minimumCoin
-from extraApi.base import Command, ExtraData, Balance
-import aiohttp
-from typing import Union
+from extraApi.base import Balance
+from extraApi.rule import minimumCoin, NOT_BLOCKED, NOT_IGNORED, MODE_DETECT
 from .api import *
 from .userData import *
 
 pois_cmd = on_command(cmd="pois", aliases={"地点查询"},
-                      rule=plugin_enable("kami.map") & minimumCoin(2),
+                      rule=plugin_enable("kami.map") & minimumCoin(2) & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT,
                       priority=2, block=True)
 
 bing_pois = on_command(cmd="pois", aliases={"全球查询"},
-                       rule=plugin_enable("kami.map"),
+                       rule=plugin_enable("kami.map") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT,
                        priority=2, block=True)
 
 

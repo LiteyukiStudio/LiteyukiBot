@@ -2,6 +2,8 @@ import json
 import os
 from typing import List, Any
 
+import aiofiles
+
 from extraApi.base import ExConfig, ExtraData
 
 
@@ -16,24 +18,34 @@ class Plugin:
                 self.pluginId = data.get("id", "")
                 self.pluginName = data.get("name", "")
                 self.defaultStats = data.get("default", True)
+                self.path = fp
         except BaseException:
-            self.pluginId = "获取出错"
-            self.pluginName = "获取出错"
+            self.pluginId = "PluginIdError"
+            self.pluginName = "PluginNameError"
             self.defaultStats = True
+            self.path = None
         try:
             with open(os.path.join(fp, "config/docs.txt"), "r", encoding="utf-8") as file:
                 self.pluginDocs = file.read()
         except BaseException:
-            self.pluginDocs = "文档文件不存在"
+            self.pluginDocs = "ErrorDocs"
 
     def __str__(self):
         return "<Plugin name=%s id=%s>" % (self.pluginName, self.pluginId)
+
+    async def get_sub_docs(self, args, plugin_name: str):
+        docs_path = os.path.join(self.path, "config/docs/" + "/".join(args) + ".txt")
+        if os.path.exists(docs_path):
+            async with aiofiles.open(docs_path, "r", encoding="utf-8") as asyncfile:
+                return await asyncfile.read()
+        else:
+            return "未在插件 %s 中找到 %s 文档" % (plugin_name, ".".join(args))
 
 
 def searchForPlugin(keyword) -> Any | None:
     """
     :param keyword:
-    :return: None PLugin
+    :return: None Plugin
     """
     pluginList = getPluginList()
     for p in pluginList:

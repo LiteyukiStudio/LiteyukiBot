@@ -1,18 +1,24 @@
 import random
 
 from extraApi.base import Command, Session, Balance, ExtraData
-from extraApi.rule import plugin_enable, BOT_IS_OWNER, BOT_IS_ADMIN
+from extraApi.rule import *
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import GROUP_OWNER, GROUP_ADMIN, Bot, GroupMessageEvent, MessageSegment, Message
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from .groupApi import *
 
-ban = on_command(cmd="ban", aliases={"禁言", "解禁"}, rule=plugin_enable("kami.group_manager") & BOT_IS_ADMIN,
-                 permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN, block=True)
-kick = on_command(cmd="kick", aliases={"移出", "移除"}, rule=plugin_enable("kami.group_manager") & BOT_IS_ADMIN,
-                  permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN, block=True)
-title = on_command(cmd="头衔", rule=plugin_enable("kami.group_manager") & BOT_IS_OWNER, block=True)
+ban = on_command(cmd="ban", aliases={"禁言", "解禁"},
+                 rule=plugin_enable("kami.group_manager") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT & BOT_IS_ADMIN,
+                 permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN,
+                 block=True)
+kick = on_command(cmd="kick", aliases={"移出", "移除"},
+                  rule=plugin_enable("kami.group_manager") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT & BOT_IS_ADMIN,
+                  permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN,
+                  block=True)
+title = on_command(cmd="头衔",
+                   rule=plugin_enable("kami.group_manager") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT & BOT_IS_OWNER,
+                   block=True)
 
 
 @ban.handle()

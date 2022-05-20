@@ -4,7 +4,6 @@ import aiohttp
 import jieba
 from PIL import Image
 from nonebot.adapters.onebot.v11 import Message
-from nonebot.internal.adapter import MessageSegment
 
 from extraApi.base import ExConfig
 from extraApi.cardimage import Cardimage

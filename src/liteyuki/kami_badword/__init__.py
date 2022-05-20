@@ -4,7 +4,8 @@ from nonebot.message import event_preprocessor
 
 from extraApi.badword import *
 from extraApi.base import Session, Command, Balance
-from extraApi.rule import plugin_enable, BOT_GT_USER
+from extraApi.rule import plugin_enable, BOT_GT_USER, NOT_IGNORED, NOT_BLOCKED, MODE_DETECT
+from nonebot.rule import Rule
 
 
 @event_preprocessor
@@ -17,7 +18,7 @@ async def badwordWarn(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEv
         2.撤回且禁言（默认3次）
         3.撤回且禁言移除（默认9次）
         """
-        if type(event) is GroupMessageEvent and await BOT_GT_USER(bot, event, state) and await plugin_enable("kami.badword", no_response=False)(bot, event, state):
+        if type(event) is GroupMessageEvent and await Rule(BOT_GT_USER, plugin_enable("kami.badword"), NOT_IGNORED)(bot, event, state):
             user_warn_time = await ExtraData.get_group_member_data(group_id=event.group_id, user_id=event.user_id,
                                                                    key="warn_time", default=0)
             user_warn_time += 1
@@ -62,10 +63,17 @@ async def badwordWarn(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEv
 
 
 editBadword = on_command(cmd="添加违禁词", aliases={"删除违禁词", "添加全局违禁词", "删除全局违禁词"},
-                         permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN, rule=plugin_enable("kami.badword"), priority=10, block=True)
-listBadword = on_command(cmd="列出违禁词", rule=plugin_enable("kami.badword"),
-                         permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN, priority=10, block=True)
-set_time = on_command(cmd="设置禁言次数", aliases={"设置移出次数", "设置违禁词模式"}, rule=plugin_enable("kami.badword"), permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN, priority=10, block=True)
+                         permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN,
+                         rule=plugin_enable("kami.badword") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
+                         priority=10, block=True)
+listBadword = on_command(cmd="列出违禁词",
+                         rule=plugin_enable("kami.badword") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
+                         permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN,
+                         priority=10, block=True)
+set_time = on_command(cmd="设置禁言次数", aliases={"设置移出次数", "设置违禁词模式"},
+                      rule=plugin_enable("kami.badword") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
+                      permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN,
+                      priority=10, block=True)
 
 
 @editBadword.handle()

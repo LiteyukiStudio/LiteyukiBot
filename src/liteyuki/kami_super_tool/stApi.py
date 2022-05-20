@@ -1,8 +1,7 @@
-import os
 import shutil
 
 from nonebot import require
-from nonebot.utils import run_sync
+
 from extraApi.base import *
 
 scheduler = require("nonebot_plugin_apscheduler").scheduler

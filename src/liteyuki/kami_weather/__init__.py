@@ -1,16 +1,16 @@
 from nonebot import on_keyword, on_command
 from nonebot.permission import SUPERUSER
 
-from extraApi.rule import plugin_enable, minimumCoin
+from extraApi.rule import *
 from .config import *
 from .weatherHandle import *
 
-realTimeWeather = on_keyword(keywords={"天气"}, rule=plugin_enable(pluginId="kami.weather") & minimumCoin(2), priority=11,
+realTimeWeather = on_keyword(keywords={"天气"}, rule=plugin_enable(pluginId="kami.weather") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT & minimumCoin(2), priority=11,
                              block=True)
-bindCity = on_command(cmd="绑定天气城市", rule=plugin_enable(pluginId="kami.weather"), priority=10, block=True)
-helpWeather = on_command(cmd="天气参数", rule=plugin_enable(pluginId="kami.weather"), priority=10, block=True)
-setDescription = on_command(cmd="设置城市描述", rule=plugin_enable(pluginId="kami.weather"), permission=SUPERUSER, priority=10, block=True)
-setAdvice = on_command(cmd="设置天气建议", rule=plugin_enable(pluginId="kami.weather"), permission=SUPERUSER, priority=10, block=True)
+bindCity = on_command(cmd="绑定天气城市", rule=plugin_enable(pluginId="kami.weather") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT, priority=10, block=True)
+helpWeather = on_command(cmd="天气参数", rule=plugin_enable(pluginId="kami.weather") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT, priority=10, block=True)
+setDescription = on_command(cmd="设置城市描述", rule=plugin_enable(pluginId="kami.weather") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT, permission=SUPERUSER, priority=10, block=True)
+setAdvice = on_command(cmd="设置天气建议", rule=plugin_enable(pluginId="kami.weather") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT, permission=SUPERUSER, priority=10, block=True)
 
 
 @setDescription.handle()
