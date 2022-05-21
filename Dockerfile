@@ -1,4 +1,4 @@
-FROM python:3.9 as requirements-stage
+FROM python:3.10 as requirements-stage
 
 WORKDIR /tmp
 

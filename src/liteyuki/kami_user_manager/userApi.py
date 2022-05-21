@@ -35,7 +35,7 @@ async def sendAuthCode(email: str, auth_code: str):
 </br></br>
 此验证码五分钟内有效，请不要告诉他人
 </br></br>
-<font size=3><p align="right">此致</br>雪萤工坊</p></font></p>
+<font size=3><p align="right">此致</br>轻雪科技</p></font></p>
     """ % (email, auth_code)
 
     message = MIMEText(content, "html", "utf-8")

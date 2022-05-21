@@ -12,19 +12,28 @@
 
 ## 安装
 
-- 环境：Python3.10+
+- 环境：Python3.10+(3.9及以下不行的哦，因为用的3.10的语法格式)
 
-- 依赖：requirements.txt
+- 依赖：requirements.txt(除此之外，报错缺啥你装啥)
 
 - cqhttp自行下载
 
 ## 配置
 
-部分插件需要配置特定数据
+启动机器人时，会默认生成配置文件data/g0.json，里面会告诉你那些配置怎么填，自己去看
 
-在项目根目录下面的data/g0.sjon最外层添加以下属性键值对
+## 常见问题
 
-- kami.weather.key(去[和风天气](https://dev.qweather.com/)申请)
+#### 1.机器人不响应群聊消息
 
-- kami.map.key(去[高德地图](https://console.amap.com/dev/key/app)申请)
+- 机器人加入群聊需要超级用户手动开启，私聊bot发送“群聊启用 <群号>”
 
+#### 2.bot无法注册，收不到邮箱验证码
+
+- bot注册需要在配置中配置bot注册验证码发送的邮箱和邮箱登录码（只能用网易163邮箱，其他邮箱没有支持，你也可以改src/kami_user_manager/userApi.py的代码来实现），并且邮箱要开启POP3/SMTP/IMAP服务
+- 邮箱配置无误后，若用户未收到验证码请检查垃圾邮件，90%的可能在那里面
+
+#### 3.其他问题
+
+- 请提交issue，我每天应该能看一两次github
+- 加我qq[2751454815](http://ti.qq.com/friend/recall?uin=2751454815)

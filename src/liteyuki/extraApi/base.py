@@ -272,13 +272,15 @@ class ExtraData:
 
         设置用户数据
         """
-        key = str(key)
         if type(value) not in ExtraData.T:
             Log.plugin_log("kami.database", "%s")
             return False
         targetType = ExtraData.targetTypeDict[targetType]
-        data = await ExtraData.getData(targetType, targetId, default=dict())
-        data[key] = value
+        if key is None:
+            data = value
+        else:
+            data = await ExtraData.getData(targetType, targetId, default=dict())
+            data[key] = value
         try:
             async with aiofiles.open(os.path.join(ExtraData.databasePath, "%s%s.json" % (targetType, targetId)),
                                      mode='w', encoding='utf-8') as file:
@@ -298,7 +300,7 @@ class ExtraData:
         return await ExtraData.setData(targetType=ExtraData.Group, targetId=group_id, key=key, value=value)
 
     @staticmethod
-    async def set_global_data(key: str, value: T) -> bool:
+    async def set_global_data(key: str | None, value: T) -> bool:
         return await ExtraData.setData(targetType=ExtraData.Group, targetId=0, key=key, value=value)
 
     @staticmethod
@@ -333,7 +335,7 @@ class ExtraData:
             return False
 
     @staticmethod
-    async def createDatabase(targetType: str, targetId: int, force=False, **initialData) -> bool:
+    async def createDatabase(targetType: str, targetId: int, force=False, initialData={}) -> bool:
         """
         :param targetType: 目标类型: u, g
         :param targetId: 目标id
@@ -348,7 +350,7 @@ class ExtraData:
         if not existence or existence and force:
             async with aiofiles.open(os.path.join(ExtraData.databasePath, "%s%s.json" % (targetType, targetId)),
                                      mode='w', encoding='utf-8') as file:
-                json.dump(initialData, file)
+                await file.write(json.dumps(initialData, ensure_ascii=False, indent=4))
             return True
         else:
             return False
