@@ -117,7 +117,6 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                 obsDate = obsTime.split("T")[0]
                 obsLocalTime = obsTime.split("T")[1]
 
-
                 temp = weatherData.get("temp")  # 气温℃
                 feelsLike = weatherData.get("feelsLike")  # 体感温度℃
                 icon = weatherData.get("icon")  # 图标码
@@ -337,7 +336,10 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                                                                                         "textures/weather/around_point.png")))
                                 await weather_card.drawLine(uvSize=(1, 1), p1=(point[hour - 1]), p2=[x_point_hourly, y_point_hourly], width=10)
                     except BaseException as e:
-                        pass
+                        await weather_card.addText(uvSize=(1, 1), boxSize=(0.6, 0.2), xyOffset=(0, 0),
+                                                   baseAnchor=(0.5, 0.75), textAnchor=(0.5, 0.5),
+                                                   content="未查询到逐小时天气数据",
+                                                   font=font_60, color=Cardimage.hex2dec("ffffffff"))
 
                     # 体感湿度
 

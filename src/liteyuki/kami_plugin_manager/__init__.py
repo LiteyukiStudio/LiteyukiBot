@@ -76,8 +76,8 @@ async def listPluginHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEv
                 reply += "- %s%s\n" % (plugin.pluginName,
                                        "" if await getPluginEnable(event.message_type, ExtraData.getTargetId(event),
                                                                    plugin) else "[未启用]")
-            reply += "\n# 使用 help <插件名> 获取每个插件的总文档\n\n" \
-                     "# 使用 help <插件名> [*args] 获取每个插件的子文档\n\n" \
+            reply += "\n# 发送 help <插件名> 获取每个插件的总文档\n\n" \
+                     "# 发送 help <插件名> [*args] 获取每个插件的子文档\n\n" \
                      "# <>是必填，[]是可选，括号是用来标记的，实际无需输入"
             await listPlugin.send(message=reply)
         else:

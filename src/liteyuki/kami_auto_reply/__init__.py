@@ -22,7 +22,6 @@ registerDefault = on_message(rule=to_me() & plugin_enable("kami.auto_reply") & N
                              priority=100)
 
 
-@registerDefault.handle()
 async def registerDefaultHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
     msgList = await ExtraData.getData(targetType=ExtraData.Group, targetId=0, key="register_default_reply",
                                       default=["喵喵喵"])
