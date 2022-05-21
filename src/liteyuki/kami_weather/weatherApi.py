@@ -15,7 +15,8 @@ async def getQWCityInfo(params) -> list:
     :return: 城市列表json
     """
 
-    apiKey = await ExtraData.getData(targetType=ExtraData.Group, targetId=0, key="kami.weather.key", default=str())
+    key_type = await ExtraData.get_global_data(key="kami.weather.key_type", default="dev")
+    apiKey = await ExtraData.get_global_data(key="kami.weather.key", default=str())
     url = "https://geoapi.qweather.com/v2/city/lookup?"
     if "key" not in params:
         params["key"] = apiKey
@@ -48,7 +49,9 @@ async def getQWRealTimeWeather(city: dict, params) -> dict:
     :param params: 用户命令中的参数
     :return: 实时天气数据json
     """
-    if city.get("custom"):
+    key_type = await ExtraData.get_global_data(key="kami.weather.key_type", default="dev")
+    if city.get("custom", False):
+        # 自定义城市模式
         weather = city.get("weatherData")
         datetime = list(time.localtime())
         weather["obsTime"] = "%s-%s-%sT%s:%s+00:00" % tuple(datetime[0:5])
@@ -65,7 +68,7 @@ async def getQWRealTimeWeather(city: dict, params) -> dict:
         return {"code": "200", "now": weather}
     else:
         apiKey = await ExtraData.getData(targetType=ExtraData.Group, targetId=0, key="kami.weather.key", default=str())
-        url = "https://api.qweather.com/v7/weather/now?"
+        url = "https://%sapi.qweather.com/v7/weather/now?" % ("dev" if key_type == "dev" else "")
 
         if "adm" in params:
             del params["adm"]
@@ -81,13 +84,14 @@ async def getQWRealTimeWeather(city: dict, params) -> dict:
 
 
 async def getQWDaysWeather(city: dict, days: int, params) -> dict:
+    key_type = await ExtraData.get_global_data(key="kami.weather.key_type", default="dev")
     apiKey = await ExtraData.getData(targetType=ExtraData.Group, targetId=0, key="kami.weather.key", default=str())
     if params.get("key") is None:
         params["key"] = apiKey
     if days <= 3:
-        url = "https://api.qweather.com/v7/weather/3d?"
+        url = "https://%sapi.qweather.com/v7/weather/3d?" % ("dev" if key_type == "dev" else "")
     elif days <= 7:
-        url = "https://api.qweather.com/v7/weather/7d?"
+        url = "https://%sapi.qweather.com/v7/weather/7d?" % ("dev" if key_type == "dev" else "")
     elif days <= 10:
         url = "https://api.qweather.com/v7/weather/10d?"
     elif days <= 15:
@@ -107,11 +111,12 @@ async def getQWDaysWeather(city: dict, days: int, params) -> dict:
 
 
 async def getQWHoursWeather(city: dict, hours: int, params) -> dict:
+    key_type = await ExtraData.get_global_data(key="kami.weather.key_type", default="dev")
     apiKey = await ExtraData.getData(targetType=ExtraData.Group, targetId=0, key="kami.weather.key", default=str())
     if params.get("key") is None:
         params["key"] = apiKey
     if hours <= 24:
-        url = "https://api.qweather.com/v7/weather/24h?"
+        url = "https://%sapi.qweather.com/v7/weather/24h?" % ("dev" if key_type == "dev" else "")
     elif hours <= 72:
         url = "https://api.qweather.com/v7/weather/72h?"
     else:
