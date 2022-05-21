@@ -1,5 +1,9 @@
+import json
 import random
 import re
+
+import aiohttp
+
 from extraApi.base import ExtraData
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEvent
 from nonebot.rule import Rule
@@ -77,4 +81,14 @@ async def getReply(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, sta
     if len(userReplyMsgList) > 0:
         return random.choice(userReplyMsgList)
     else:
-        return None
+        if tome:
+            async with aiohttp.request("GET", url="http://api.qingyunke.com/api.php?key=free&appid=0&msg={%s}" % str(event.message)) as asyncStream:
+                print((json.loads(await asyncStream.text()))["result"], "\n\n\n\n\n")
+                if (json.loads(await asyncStream.text()))["result"] == 0:
+                    text = (json.loads(await asyncStream.text())).get("content").replace("菲菲", "%call_bot%")
+                    print(text)
+                    return text
+                else:
+                    return None
+        else:
+            return None

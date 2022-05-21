@@ -6,6 +6,7 @@ from extraApi.badword import *
 from extraApi.base import Session, Command, Balance
 from extraApi.rule import plugin_enable, BOT_GT_USER, NOT_IGNORED, NOT_BLOCKED, MODE_DETECT
 from nonebot.rule import Rule
+from nonebot.exception import IgnoredException
 
 
 @event_preprocessor
@@ -60,6 +61,7 @@ async def badwordWarn(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEv
         await Balance.editFavoValue(user_id=event.user_id, delta=-5, reason="触发违禁词")
         event.raw_message = "***"
         event.message = Message("***")
+        raise IgnoredException
 
 
 editBadword = on_command(cmd="添加违禁词", aliases={"删除违禁词", "添加全局违禁词", "删除全局违禁词"},
