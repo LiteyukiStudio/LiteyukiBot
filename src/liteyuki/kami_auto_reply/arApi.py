@@ -78,7 +78,7 @@ async def getReply(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, sta
 
     userReplyMsgList.extend(groupReplyMsgList)
     userReplyMsgList.extend(globalReplyMsgList)
-    if len(userReplyMsgList) > 0:
+    if len(userReplyMsgList) > 0 and random.random() <= 0.75:
         return random.choice(userReplyMsgList)
     else:
         if tome or random.random() <= 0.1:
