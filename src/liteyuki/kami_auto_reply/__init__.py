@@ -22,10 +22,14 @@ registerDefault = on_message(rule=to_me() & plugin_enable("kami.auto_reply") & N
                              priority=100)
 
 
+@registerDefault.handle()
 async def registerDefaultHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
     msgList = await ExtraData.getData(targetType=ExtraData.Group, targetId=0, key="register_default_reply",
                                       default=["喵喵喵"])
-    await registerDefault.send(random.choice(msgList))
+    reply_probability = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="reply_probability", default=1.0)
+    p = (Balance.clamp(await Balance.getFavoValue(event.user_id) / 100, 0, 1)) * reply_probability
+    if random.random() < p:
+        await registerDefault.send(random.choice(msgList))
 
 
 @listener.handle()
