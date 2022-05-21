@@ -27,7 +27,7 @@ async def enablePluginHandle(bot: Bot, event: GroupMessageEvent | PrivateMessage
         if plugin is not None:
             pluginState = await getPluginEnable(event.message_type, ExtraData.getTargetId(event), plugin)
             operation = True if Command.formatToCommand(event.raw_message.strip())[0][0] in ["启用插件", "开启插件"] else False
-            if type(event) is GroupMessageEvent and await Permission(GROUP_OWNER, GROUP_ADMIN, SUPERUSER)(bot, event) or type(event) is PrivateMessageEvent:
+            if type(event) is GroupMessageEvent and await (GROUP_OWNER | GROUP_ADMIN | SUPERUSER)(bot, event) or type(event) is PrivateMessageEvent:
                 bannedPlugin: list = await ExtraData.getData(targetType=event.message_type,
                                                              targetId=ExtraData.getTargetId(event),
                                                              key="banned_plugin",

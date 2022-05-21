@@ -309,20 +309,22 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
 
                             # 小时天气状态图
                             download = True
-                            if not os.path.exists(os.path.join(ExConfig.res_path, "textures/weather/icons/%s.png" % icon)):
-                                download = await ExtraData.download_file("https://a.hecdn.net/img/common/icon/202106d/%s.png" % icon,
+                            if not os.path.exists(os.path.join(ExConfig.res_path, "textures/weather/icons/%s.png" % icon_hourly)):
+
+                                download = await ExtraData.download_file("https://a.hecdn.net/img/common/icon/202106d/%s.png" % icon_hourly,
                                                                          os.path.join(ExConfig.res_path,
-                                                                                      "textures/weather/icons/%s.png" % icon))
+                                                                                      "textures/weather/icons/%s.png" % icon_hourly))
+
                             try:
                                 await weather_card.addImage(uvSize=(1, 1), boxSize=(0.075, 0.075), xyOffset=(0, 0),
                                                             baseAnchor=(x_point_hourly, y_high - 0.08), imgAnchor=(0.5, 0.5),
                                                             img=Image.open(os.path.join(ExConfig.res_path,
                                                                                         "textures/weather/icons/%s.png" % icon_hourly)))
-                            except BaseException:
-                                await weather_card.addImage(uvSize=(1, 1), boxSize=(0.075, 0.075), xyOffset=(0, 0),
-                                                            baseAnchor=(x_point_hourly, y_high - 0.08), imgAnchor=(0.5, 0.5),
-                                                            img=Image.open(os.path.join(ExConfig.res_path,
-                                                                                        "textures/weather/icons/default.png")))
+                            except BaseException as e:
+                                await Session.sendException(bot, event, state, e)
+                                await weather_card.addText(uvSize=(1, 1), boxSize=(0.075, 0.075), xyOffset=(0, 0),
+                                                           baseAnchor=(x_point_hourly, y_high - 0.08), textAnchor=(0.5, 0.5),
+                                                           content="%s" % icon_hourly)
                             # 圆点 画线
                             if hour == 0:
                                 await weather_card.addImage(uvSize=(1, 1), boxSize=(0.025, 0.025), xyOffset=(0, 0),
