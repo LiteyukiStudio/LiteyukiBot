@@ -60,7 +60,12 @@ async def listenerHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEven
             reply = reply.replace(old, new)
 
         await Balance.editFavoValue(user_id=event.user_id, delta=random.randint(1, 3), reason="互动：%s" % reply)
-        await listener.send(message=Message(reply))
+        if random.random() <= 0.9:
+            for reply_seg in reply.split("，"):
+                await asyncio.sleep(Balance.clamp(random.randint(len(reply_seg) - 3, len(reply_seg) + 3) * 0.15, 0.5, 4.0))
+                await listener.send(message=Message(reply_seg))
+        else:
+            await listener.send(message=Message(reply))
 
 
 @editReply.handle()
