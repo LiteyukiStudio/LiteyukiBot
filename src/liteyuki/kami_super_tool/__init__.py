@@ -6,15 +6,16 @@ from nonebot.adapters.onebot.v11 import GROUP_OWNER, GROUP_ADMIN, Message
 from nonebot.internal.permission import Permission
 from nonebot.permission import SUPERUSER
 
+from extraApi.permission import MASTER
 from extraApi.rule import plugin_enable
 from .stApi import *
 
-setConfig = on_command(cmd="设置属性", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER, priority=10, block=True)
-getConfig = on_command(cmd="获取属性", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER, priority=10, block=True)
-send_mutil_msg = on_command(cmd="群发消息", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER, priority=10, block=True)
-backup_data = on_command(cmd="备份数据", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER, priority=10, block=True)
-statistics_data = on_command(cmd='统计数据', rule=plugin_enable("kami.super_tool"), permission=SUPERUSER, priority=10, block=True)
-call_api = on_command(cmd="api", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER, priority=10, block=True)
+setConfig = on_command(cmd="设置属性", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
+getConfig = on_command(cmd="获取属性", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
+send_mutil_msg = on_command(cmd="群发消息", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
+backup_data = on_command(cmd="备份数据", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
+statistics_data = on_command(cmd='统计数据', rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
+call_api = on_command(cmd="api", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
 
 
 @setConfig.handle()

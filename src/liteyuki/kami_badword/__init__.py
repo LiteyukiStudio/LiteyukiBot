@@ -4,6 +4,7 @@ from nonebot.message import event_preprocessor
 
 from extraApi.badword import *
 from extraApi.base import Session, Command, Balance
+from extraApi.permission import MASTER
 from extraApi.rule import plugin_enable, BOT_GT_USER, NOT_IGNORED, NOT_BLOCKED, MODE_DETECT
 from nonebot.rule import Rule
 from nonebot.exception import IgnoredException
@@ -65,16 +66,16 @@ async def badwordWarn(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEv
 
 
 editBadword = on_command(cmd="添加违禁词", aliases={"删除违禁词", "添加全局违禁词", "删除全局违禁词"},
-                         permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN,
+                         permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | MASTER,
                          rule=plugin_enable("kami.badword") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                          priority=10, block=True)
 listBadword = on_command(cmd="列出违禁词",
                          rule=plugin_enable("kami.badword") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
-                         permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN,
+                         permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | MASTER,
                          priority=10, block=True)
 set_time = on_command(cmd="设置禁言次数", aliases={"设置移出次数", "设置违禁词模式"},
                       rule=plugin_enable("kami.badword") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
-                      permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN,
+                      permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | MASTER,
                       priority=10, block=True)
 
 

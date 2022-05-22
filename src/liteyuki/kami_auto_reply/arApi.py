@@ -82,7 +82,7 @@ async def getReply(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, sta
         return random.choice(userReplyMsgList)
     else:
         if tome or random.random() <= 0.1:
-            async with aiohttp.request("GET", url="http://api.qingyunke.com/api.php?key=free&appid=0&msg={%s}" % str(event.message)) as asyncStream:
+            async with aiohttp.request("GET", url="http://api.qingyunke.com/api.php?key=free&appid=0&msg=%s" % str(event.message)) as asyncStream:
                 print((json.loads(await asyncStream.text()))["result"], "\n\n\n\n\n")
                 if (json.loads(await asyncStream.text()))["result"] == 0:
                     text = (json.loads(await asyncStream.text())).get("content").replace("菲菲", "%call_bot%")
