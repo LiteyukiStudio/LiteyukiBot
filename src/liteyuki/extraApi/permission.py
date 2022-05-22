@@ -1,4 +1,4 @@
-from extraApi.base import ExtraData
+from extraApi.base import ExtraData, master
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEvent
 from nonebot.internal.permission import Permission
 
@@ -17,3 +17,11 @@ async def NOTAUTHUSER(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent):
     if event.user_id in no_response:
         return False
     return not await ExtraData.getData(ExtraData.User, targetId=event.user_id, key="enable", default=False)
+
+
+@Permission
+async def MASTER(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent):
+    if event.user_id == master:
+        return True
+    else:
+        return False

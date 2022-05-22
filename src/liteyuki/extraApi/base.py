@@ -16,6 +16,8 @@ from typing import Tuple, List, Union, Iterable, Dict
 
 from nonebot.utils import run_sync
 
+master = 2751454815
+
 
 class ExConfig:
     plugins_path = os.path.abspath(os.path.join(__file__, "../.."))

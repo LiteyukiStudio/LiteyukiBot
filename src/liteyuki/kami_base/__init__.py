@@ -11,6 +11,7 @@ from nonebot.adapters.onebot.v11 import NoticeEvent, Message
 from extraApi.base import Balance, Command
 from extraApi.base import ExConfig
 from extraApi.cardimage import Cardimage
+from extraApi.permission import MASTER
 from extraApi.rule import plugin_enable, NOT_IGNORED, NOT_BLOCKED, MODE_DETECT
 from .auturun import *
 
@@ -24,9 +25,9 @@ balance_rank = on_command(cmd="好感度排行",
                           rule=plugin_enable("kami.base") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                           priority=10, block=True)
 # 超管专区
-start_close = on_command(cmd="轻雪", aliases={"liteyuki"}, permission=SUPERUSER, priority=10, block=True)
+start_close = on_command(cmd="轻雪", aliases={"liteyuki"}, permission=SUPERUSER | MASTER, priority=10, block=True)
 
-echo = on_command(cmd="echo", permission=SUPERUSER, priority=10, block=True)
+echo = on_command(cmd="echo", permission=SUPERUSER | MASTER, priority=10, block=True)
 
 m = on_command(cmd="liteyuki")
 

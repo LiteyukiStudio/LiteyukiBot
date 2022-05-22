@@ -1,5 +1,5 @@
 from nonebot import on_command
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Bot, GROUP_ADMIN, GROUP_OWNER
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Bot, GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
 from nonebot.internal.permission import Permission
 from nonebot.permission import SUPERUSER
 # 插件开关
@@ -8,15 +8,16 @@ from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 
 from extraApi.base import Command, Session
+from extraApi.permission import MASTER
 from extraApi.plugin import *
 from extraApi.rule import plugin_enable, NOT_BLOCKED, NOT_IGNORED, MODE_DETECT
 
-enablePlugin = on_command(cmd="启用插件", aliases={"停用插件", "开启插件", "关闭插件"}, priority=1, block=True)
+enablePlugin = on_command(cmd="启用插件", aliases={"停用插件", "开启插件", "关闭插件"}, permission=SUPERUSER | MASTER | GROUP_ADMIN | GROUP_OWNER | PRIVATE_FRIEND, priority=1, block=True)
 
 listPlugin = on_command(cmd="列出插件", aliases={"菜单", "menu", "help"}, priority=1, block=True,
                         rule=plugin_enable(pluginId="kami.plugin_manager") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT)
 createPlugin = on_command(cmd="创建插件", priority=10, block=True, rule=plugin_enable("kami.plugin_manager") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT,
-                          permission=SUPERUSER)
+                          permission=SUPERUSER | MASTER)
 
 
 @enablePlugin.handle()

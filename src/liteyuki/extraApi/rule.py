@@ -3,7 +3,7 @@ from typing import Union
 from nonebot.permission import SUPERUSER
 
 from extraApi.plugin import *
-from extraApi.base import ExtraData, Balance, Session
+from extraApi.base import ExtraData, Balance, Session, master
 
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEvent
 from nonebot.rule import Rule
@@ -22,7 +22,7 @@ def plugin_enable(pluginId: str):
         enabledPlugin = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event),
                                                 key="enabled_plugin", default=list())
         # 群聊授权或私聊授权
-        if await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="enable", default=False):
+        if await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="enable", default=False) or event.user_id == master:
             pass
         else:
             return False
