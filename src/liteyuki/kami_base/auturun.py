@@ -37,7 +37,7 @@ async def folder_check():
         for k, v in zip(initial_config.keys(), initial_config.values()):
             if k not in g0_data:
                 g0_data[k] = v
-        await ExtraData.set_global_data(key=None, value=g0_data)
+        await ExtraData.setData(targetType=ExtraData.Group, targetId=0, key=None, value=g0_data, force=True)
 
 
 @event_preprocessor

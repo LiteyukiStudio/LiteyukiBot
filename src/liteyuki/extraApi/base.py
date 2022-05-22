@@ -220,7 +220,6 @@ class ExtraData:
         """
 
         targetType = ExtraData.targetTypeDict[targetType]
-        await Log.plugin_log("extraApi.base", "get_data target:%s%s key:%s value:%s" % (targetType, targetId, key, default))
         if os.path.exists(os.path.join(ExtraData.databasePath, "%s%s.json" % (targetType, targetId))):
             async with aiofiles.open(os.path.join(ExtraData.databasePath, "%s%s.json" % (targetType, targetId)),
                                      encoding='utf-8') as file:
@@ -264,8 +263,9 @@ class ExtraData:
         return member_data.get(key, default)
 
     @staticmethod
-    async def setData(targetType: str, targetId: int, key: str, value: T) -> bool:
+    async def setData(targetType: str, targetId: int, key: str | None, value: T, force=False) -> bool:
         """
+        :param force: False
         :param targetType: 目标类型: u, g
         :param targetId: 目标id
         :param key: 数据名, 不加返回所有数据
@@ -277,11 +277,11 @@ class ExtraData:
         if type(value) not in ExtraData.T:
             return False
         targetType = ExtraData.targetTypeDict[targetType]
-        if key is None:
+        if key is None and force:
             data = value
         else:
             data = await ExtraData.getData(targetType, targetId, default=dict())
-            data[key] = value
+            data[str(key)] = value
         try:
             async with aiofiles.open(os.path.join(ExtraData.databasePath, "%s%s.json" % (targetType, targetId)),
                                      mode='w', encoding='utf-8') as file:
