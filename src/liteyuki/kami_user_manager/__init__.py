@@ -17,7 +17,13 @@ unregister = on_message(permission=NOTAUTHUSER, priority=100, rule=to_me() & NOT
 @register.handle()
 async def registerHandle(bot: Bot, event: PrivateMessageEvent, state: T_State):
     try:
-        await register.send(message="请输入邮箱")
+        state["register_mode"] = await ExtraData.get_global_data(key="kami.base.verify", default=False)
+        if state["register_mode"]:
+            await register.send(message="请输入邮箱")
+        else:
+            state["authCode"] = None
+            state["authCodeInput"] = None
+            state["email"] = None
     except BaseException as e:
         await Session.sendException(bot, event, state, e)
 
@@ -25,10 +31,14 @@ async def registerHandle(bot: Bot, event: PrivateMessageEvent, state: T_State):
 @register.got(key="email")
 async def registerGotEmail(bot: Bot, event: PrivateMessageEvent, state: T_State):
     try:
-        authCode = hex(random.randint(1118481, 16777215))[2:].upper()
-        await sendAuthCode(email=str(state["email"]), auth_code=authCode)
-        state["authCode"] = authCode
-        await register.send(message="请查收验证码邮件并在五分钟内输入")
+        if state["register_mode"]:
+            authCode = hex(random.randint(1118481, 16777215))[2:].upper()
+            await sendAuthCode(email=str(state["email"]), auth_code=authCode)
+            state["authCode"] = authCode
+            await register.send(message="请查收验证码邮件并在五分钟内输入")
+        else:
+            state["authCode"] = None
+            state["authCodeInput"] = None
     except BaseException as e:
         state["authCode"] = None
         state["authCodeInput"] = None
@@ -38,13 +48,17 @@ async def registerGotEmail(bot: Bot, event: PrivateMessageEvent, state: T_State)
 @register.got(key="authCodeInput")
 async def registerGotAuthCode(bot: Bot, event: PrivateMessageEvent, state: T_State):
     try:
-        if state["authCodeInput"] is not None:
-            if state["authCode"].lower() == str(state["authCodeInput"]).lower().strip():
-                await register.send(message="验证成功, 欢迎使用轻雪机器人")
-                await ExtraData.setData(targetType=ExtraData.User, targetId=event.user_id, key="enable", value=True)
-                await ExtraData.setData(targetType=ExtraData.User, targetId=event.user_id, key="email", value=str(state["email"]))
-            else:
-                await register.send(message="验证失败, 验证码错误")
+        if state["register_mode"]:
+            if state["authCodeInput"] is not None:
+                if state["authCode"].lower() == str(state["authCodeInput"]).lower().strip():
+                    await register.send(message="验证成功, 欢迎使用轻雪机器人")
+                    await ExtraData.setData(targetType=ExtraData.User, targetId=event.user_id, key="enable", value=True)
+                    await ExtraData.setData(targetType=ExtraData.User, targetId=event.user_id, key="email", value=str(state["email"]))
+                else:
+                    await register.send(message="验证失败, 验证码错误")
+        else:
+            await ExtraData.setData(targetType=ExtraData.User, targetId=event.user_id, key="enable", value=True)
+            await register.send(message="注册成功，欢迎使用机器人")
     except BaseException as e:
         await Session.sendException(bot, event, state, e)
 

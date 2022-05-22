@@ -20,11 +20,13 @@ driver = get_driver()
 async def folder_check():
     folders = [ExConfig.cache_path, ExConfig.data_path, ExConfig.data_backup_path, ExConfig.log_path]
     initial_config = {
-        "kami.weather.key": "去和风天气申请key",
-        "kami.weather.key_type": "和风天气key类型，商业版填写com，开发版填写dev",
-        "kami.map.key": "去高德地图申请key",
-        "kami.base.host_email": "发送验证码邮件的邮箱，建议注册一个163的",
-        "kami.base.auth": "发送验证邮件的邮箱随机密码，可以在邮箱服务商处申请"
+        "kami.weather.key": "字符串，去和风天气申请key",
+        "kami.weather.key_type": "字符串，和风天气key类型，商业版填写com，开发版填写dev",
+        "kami.map.key": "字符串，去高德地图申请key",
+        "kami.base.verify": "bool值，是否启用邮箱验证，false的话kami.base.host_email, kami.base.auth, kami.base.host_user都不用填",
+        "kami.base.host_email": "字符串，发送验证码邮件的邮箱，建议注册一个163的",
+        "kami.base.auth": "字符串，发送验证邮件的邮箱随机密码，可以在邮箱服务商处申请",
+        "kami.base.host_user": "字符串，发送邮件的用户名，和邮箱的一致"
     }
     for folder in folders:
         if not os.path.exists(folder):
