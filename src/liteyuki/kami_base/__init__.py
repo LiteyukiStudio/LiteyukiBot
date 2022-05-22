@@ -50,13 +50,13 @@ async def aboutHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent):
     now_state = await ExtraData.get_global_data(key="enable_mode", default=1)
     text = f"""{random.choice(list(bot.config.nickname))}Bot更多信息
 - 状态：{"开启" if now_state == 1 else "关闭" if now_state == 0 else "调试模式" if now_state == -1 else "未知"}
-- 简介：小羽是一个非常可爱的开源Bot呀
+- 简介：%s是一个非常可爱的开源Bot呀
 - 项目：https://github.com/snowyfirefly/Liteyuki
 - 运行平台：{platform.platform()}
 - Python：{platform.python_version() + " " + platform.python_implementation()}
 - Websocket服务端支持：Nonebot(https://v2.nonebot.dev)
 - 客户端支持：go-cqhttp(https://docs.go-cqhttp.org)
-    """
+    """ % list(bot.config.nickname)[0]
     await about.send(text)
 
 
