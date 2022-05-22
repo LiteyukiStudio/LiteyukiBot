@@ -49,7 +49,7 @@ async def getConfigHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEve
         targetId = int(args[2])
         key = args[3]
 
-        if targetType in ["g", "gm"] and await Permission(GROUP_OWNER, GROUP_ADMIN, SUPERUSER)(bot, event):
+        if targetType in ["g", "gm"] and await(GROUP_OWNER | GROUP_ADMIN | SUPERUSER)(bot, event) or await SUPERUSER(bot, event):
             if targetType == "gm":
                 r = await ExtraData.get_group_member_data(event.group_id, targetId, key=key)
             else:

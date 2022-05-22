@@ -220,11 +220,13 @@ class ExtraData:
         """
 
         targetType = ExtraData.targetTypeDict[targetType]
+        await Log.plugin_log("extraApi.base", "get_data target:%s%s key:%s value:%s" % (targetType, targetId, key, default))
         if os.path.exists(os.path.join(ExtraData.databasePath, "%s%s.json" % (targetType, targetId))):
             async with aiofiles.open(os.path.join(ExtraData.databasePath, "%s%s.json" % (targetType, targetId)),
                                      encoding='utf-8') as file:
                 try:
                     data = json.loads(await file.read())
+
                     if key is None:
                         return data
                     else:
@@ -273,7 +275,6 @@ class ExtraData:
         设置用户数据
         """
         if type(value) not in ExtraData.T:
-            Log.plugin_log("kami.database", "%s")
             return False
         targetType = ExtraData.targetTypeDict[targetType]
         if key is None:
@@ -286,6 +287,7 @@ class ExtraData:
                                      mode='w', encoding='utf-8') as file:
                 jsonText = json.dumps(data, indent=4, ensure_ascii=False)
                 await file.write(jsonText)
+                await Log.plugin_log("extraApi.base", "set_data target:%s%s key:%s value:%s" % (targetType, targetId, key, value))
             return True
         except BaseException:
             traceback.print_exc()
