@@ -1,12 +1,13 @@
+from typing import Union
+
 from nonebot import on_command
-from nonebot.adapters.onebot.v11 import Message
+from nonebot.adapters.onebot.v11 import Message, PRIVATE_FRIEND
 from nonebot.message import event_preprocessor
 
 from extraApi.badword import *
 from extraApi.base import Session, Command, Balance
 from extraApi.permission import MASTER
 from extraApi.rule import plugin_enable, BOT_GT_USER, NOT_IGNORED, NOT_BLOCKED, MODE_DETECT
-from nonebot.rule import Rule
 from nonebot.exception import IgnoredException
 
 
@@ -20,7 +21,8 @@ async def badwordWarn(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEv
         2.撤回且禁言（默认3次）
         3.撤回且禁言移除（默认9次）
         """
-        if type(event) is GroupMessageEvent and await Rule(BOT_GT_USER, plugin_enable("kami.badword"), NOT_IGNORED)(bot, event, state):
+
+        if type(event) is GroupMessageEvent and await (BOT_GT_USER & plugin_enable("kami.badword") & NOT_IGNORED)(bot, event, state):
             user_warn_time = await ExtraData.get_group_member_data(group_id=event.group_id, user_id=event.user_id,
                                                                    key="warn_time", default=0)
             user_warn_time += 1
@@ -71,7 +73,7 @@ editBadword = on_command(cmd="添加违禁词", aliases={"删除违禁词", "添
                          priority=10, block=True)
 listBadword = on_command(cmd="列出违禁词",
                          rule=plugin_enable("kami.badword") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
-                         permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | MASTER,
+                         permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | MASTER | PRIVATE_FRIEND,
                          priority=10, block=True)
 set_time = on_command(cmd="设置禁言次数", aliases={"设置移出次数", "设置违禁词模式"},
                       rule=plugin_enable("kami.badword") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
@@ -80,7 +82,7 @@ set_time = on_command(cmd="设置禁言次数", aliases={"设置移出次数", "
 
 
 @editBadword.handle()
-async def editBadwordHandle(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def editBadwordHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], state: T_State):
     """
     :param bot:
     :param event:
@@ -90,13 +92,14 @@ async def editBadwordHandle(bot: Bot, event: GroupMessageEvent, state: T_State):
     违禁词编辑
     """
     try:
+        print("")
         args, kws = Command.formatToCommand(event.raw_message, kw=False)
-        if args[0][2:4] == "全局" and await SUPERUSER(bot, event):
+        if args[0][2:4] == "全局" and await (SUPERUSER | MASTER)(bot, event):
             state["globalMode"] = True
         elif type(event) is GroupMessageEvent:
             state["globalMode"] = False
         else:
-            await editBadword.finish(message="此会话无法编辑违禁词", at_sender=True)
+            state["globalMode"] = False
 
         if args[0][0:2] not in ["添加", "删除"]:
             state["word"] = None
@@ -120,7 +123,7 @@ async def editBadwordHandle(bot: Bot, event: GroupMessageEvent, state: T_State):
         if state["globalMode"]:
             data = await ExtraData.getData(targetType=ExtraData.Group, targetId=0, key="badword", default={})
         else:
-            data = await ExtraData.getData(targetType=ExtraData.Group, targetId=event.group_id, key="badword",
+            data = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="badword",
                                            default={})
         modeData = data.get(state["mode"], [])
         if state["op"] == "添加" and state["word"] not in modeData:
@@ -132,16 +135,20 @@ async def editBadwordHandle(bot: Bot, event: GroupMessageEvent, state: T_State):
                 state["op"], "全局" if state["globalMode"] else "本群", "已" if state["op"] == "添加" else "没"),
                                      at_sender=True)
         data[state["mode"]] = modeData
-        await ExtraData.setData(targetType=ExtraData.Group, targetId=0 if state["globalMode"] else event.group_id,
-                                key="badword", value=data)
-        await editBadword.finish(message="%s%s违禁词成功" % (state["op"], "全局" if state["globalMode"] else "本群"))
+
+        if state["globalMode"]:
+            await ExtraData.setData(targetType=ExtraData.Group, targetId=0,
+                                    key="badword", value=data)
+        else:
+            await ExtraData.setData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="badword", value=data)
+        await editBadword.finish(message="%s%s违禁词成功" % (state["op"], "全局" if state["globalMode"] else "本群" if type(event) is GroupMessageEvent else "本会话"))
 
     except BaseException as e:
         await Session.sendException(bot, event, state, e, text="请检查命令格式是否正确")
 
 
 @listBadword.handle()
-async def listBadwordHandle(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def listBadwordHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], state: T_State):
     """
     :param bot:
     :param event:
@@ -151,8 +158,12 @@ async def listBadwordHandle(bot: Bot, event: GroupMessageEvent, state: T_State):
     违禁词列出
     """
     try:
-        data = await ExtraData.getData(targetType=ExtraData.Group, targetId=event.group_id, key="badword", default={})
-        reply = "本群违禁词如下"
+        data = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="badword", default={})
+        if type(event) is GroupMessageEvent:
+            session_name = "群"
+        else:
+            session_name = "会话"
+        reply = "本%s违禁词如下" % session_name
         count = 0
         for match in data.items():
             mode = match[0]
@@ -163,7 +174,7 @@ async def listBadwordHandle(bot: Bot, event: GroupMessageEvent, state: T_State):
         if count > 0:
             await listBadword.send(message=reply)
         else:
-            await listBadword.send(message="本群没有违禁词")
+            await listBadword.send(message="本%s没有违禁词" % session_name)
     except BaseException as e:
         await Session.sendException(bot, event, state, e)
 

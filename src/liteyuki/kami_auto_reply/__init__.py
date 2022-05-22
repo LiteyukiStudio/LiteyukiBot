@@ -7,6 +7,7 @@ from nonebot.permission import SUPERUSER
 
 from extraApi.base import Session, Command, Balance, Log
 from extraApi.permission import AUTHUSER, MASTER
+from extraApi.badword import *
 from extraApi.rule import *
 from .arApi import *
 
@@ -60,6 +61,9 @@ async def listenerHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEven
             reply = reply.replace(old, new)
 
         await Balance.editFavoValue(user_id=event.user_id, delta=random.randint(1, 3), reason="互动：%s" % reply)
+
+        reply = await badwordFilter(bot, event, state, reply)
+
         if random.random() <= 0.6:
             for reply_seg in reply.replace("。", "，").replace("!", "，").replace("!", "，").split("，"):
                 await asyncio.sleep(Balance.clamp(random.randint(len(reply_seg) - 3, len(reply_seg) + 3) * 0.15, 1.0, 4.0))
