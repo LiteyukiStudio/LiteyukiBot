@@ -16,7 +16,6 @@ log/
 data/
 src/plugins老/
 src/python/
-.env
 .env.dev
 .env.prod
 resource/file_recv

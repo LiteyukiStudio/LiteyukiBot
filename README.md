@@ -41,6 +41,6 @@
 #### 3.其他问题
 
 - 请提交issue，我每天应该能看一两次github
-- 加我qq[2751454815](http://ti.qq.com/friend/recall?uin=2751454815)
+- 加我qq[2238694726](http://ti.qq.com/friend/recall?uin=2238694726)
 
 ###### 程序留有一个最高主人权限，如果不想要删除README.md即可。
