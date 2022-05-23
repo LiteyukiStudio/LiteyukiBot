@@ -2,12 +2,10 @@ import asyncio
 import time
 
 from nonebot import on_message, on_command
-from nonebot.adapters.onebot.v11 import Message, GROUP_OWNER, GROUP_ADMIN, PRIVATE_FRIEND
-from nonebot.permission import SUPERUSER
+from nonebot.adapters.onebot.v11 import Message, PRIVATE_FRIEND
 
-from extraApi.base import Session, Command, Balance, Log
-from extraApi.permission import AUTHUSER, MASTER
 from extraApi.badword import *
+from extraApi.permission import AUTHUSER
 from extraApi.rule import *
 from .arApi import *
 

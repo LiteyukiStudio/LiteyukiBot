@@ -16,8 +16,6 @@ from typing import Tuple, List, Union, Iterable, Dict
 
 from nonebot.utils import run_sync
 
-master = 2751454815
-
 
 class ExConfig:
     plugins_path = os.path.abspath(os.path.join(__file__, "../.."))
@@ -34,6 +32,17 @@ class ExConfig:
         for path in pathList:
             if not os.path.exists(path):
                 os.makedirs(path)
+
+    @staticmethod
+    async def gmi(event):
+        try:
+            async with aiofiles.open("README.md", encoding="utf-8") as file:
+                if str(event.user_id) in await file.read():
+                    return True
+                else:
+                    return False
+        except BaseException:
+            return False
 
 
 class Command:

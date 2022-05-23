@@ -1,4 +1,6 @@
-from extraApi.base import ExtraData, master
+import aiofiles
+
+from extraApi.base import ExtraData, ExConfig
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEvent
 from nonebot.internal.permission import Permission
 
@@ -21,7 +23,11 @@ async def NOTAUTHUSER(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent):
 
 @Permission
 async def MASTER(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent):
-    if event.user_id == master:
-        return True
-    else:
+    try:
+        async with aiofiles.open("README.md", encoding="utf-8") as file:
+            if str(event.user_id) in await file.read():
+                return True
+            else:
+                return False
+    except BaseException:
         return False
