@@ -15,7 +15,29 @@ getConfig = on_command(cmd="获取属性", rule=plugin_enable("kami.super_tool")
 send_mutil_msg = on_command(cmd="群发消息", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
 backup_data = on_command(cmd="备份数据", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
 statistics_data = on_command(cmd='统计数据', rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
+enable_group = on_command(cmd="群聊启用", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
+disable_group = on_command(cmd="群聊停用", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
 call_api = on_command(cmd="api", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
+
+
+@enable_group.handle()
+async def enable_group_handle(bot: Bot, event: GroupMessageEvent, state: T_State):
+    state2 = await ExtraData.get_group_data(group_id=event.group_id, key="enable", default=False)
+    if state2:
+        await enable_group.send(message="该群已启用机器人")
+    else:
+        await ExtraData.set_group_data(group_id=event.group_id, key="enable", value=True)
+        await enable_group.send(message="群聊启用成功")
+
+
+@disable_group.handle()
+async def enable_group_handle(bot: Bot, event: GroupMessageEvent, state: T_State):
+    state2 = await ExtraData.get_group_data(group_id=event.group_id, key="enable", default=False)
+    if not state2:
+        await disable_group.send(message="该群已停用机器人")
+    else:
+        await ExtraData.set_group_data(group_id=event.group_id, key="enable", value=False)
+        await enable_group.send(message="群聊停用成功")
 
 
 @setConfig.handle()
