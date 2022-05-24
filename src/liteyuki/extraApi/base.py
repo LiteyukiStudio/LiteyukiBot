@@ -145,10 +145,13 @@ class Command:
     @staticmethod
     @run_sync
     def translate(text: str, to_lang: str, from_lang: str = None):
-        if from_lang is None:
-            return translate.Translator(to_lang=to_lang, email="snowykami@outlook.com").translate(text)
-        else:
-            return translate.Translator(from_lang=from_lang, to_lang=to_lang, email="snowykami@outlook.com").translate(text)
+        try:
+            if from_lang is None:
+                return translate.Translator(to_lang=to_lang).translate(text)
+            else:
+                return translate.Translator(from_lang=from_lang, to_lang=to_lang).translate(text)
+        except BaseException:
+            return "翻译错误"
 
     @staticmethod
     def fuzzy_match_str(iterable: Iterable[str,], fuzzy_key: str):
