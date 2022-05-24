@@ -22,7 +22,8 @@
 
 - 这是一个适配器，通俗易懂来说就是一个特殊的qq客户端，它能接收消息并上报给机器人，就好比手机qq能将消息通知给你，而此时的你是机器人
 - 转到[下载页面](https://github.com/Mrs4s/go-cqhttp/releases)，选择适合你系统的版本进行下载
-- 配置，详细方法见[go-cqhttp](https://docs.go-cqhttp.org/guide/quick_start.html)
+- 配置，选择反向websocket通信方式，详细配置方法见[go-cqhttp](https://docs.go-cqhttp.org/guide/quick_start.html)
+  。最后在config.yml的servers.ws-reverse.universal处填入`ws://127.0.0.1:你的端口号/onebot/v11/ws`
 
 #### 3.下载机器人
 
@@ -39,7 +40,8 @@
 
 - 启动机器人时，会默认生成配置文件data/g0.json，里面会告诉你那些配置怎么填，一定要去看。
 
-- 自行配置.env文件。
+- 自行配置.env文件。HOST默认是127.0.0.1，PORT的值要和go-cqhttp中config.yml中的端口号一致，SUPERUSERS的中括号中填写超级用户的QQ号，多个QQ号用英文逗号分隔。
+  如果想给机器人改名，请修改NICKNAME的值，多个昵称请用逗号隔开。
 
 - 发送liteyuki，若回复测试成功即为安装完成。
 
