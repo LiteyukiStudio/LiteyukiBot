@@ -7,36 +7,34 @@ from nonebot.adapters.onebot.v11 import Message, PRIVATE_FRIEND
 from extraApi.badword import *
 from extraApi.permission import AUTHUSER
 from extraApi.rule import *
+from numpy import mean
 from .arApi import *
 
-listener = on_message(rule=plugin_enable("kami.auto_reply") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT & MATCHPATTERN,
+listener = on_message(rule=plugin_enable("kami.auto_reply") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                       priority=30)
 editReply = on_command(cmd="添加回复", aliases={"删除回复", "清除回复", "添加全局回复", "删除全局回复", "清除全局回复"},
                        rule=plugin_enable("kami.auto_reply") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                        permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | PRIVATE_FRIEND | MASTER,
                        priority=10, block=True)
-# 注册的人默认回复
-registerDefault = on_message(rule=to_me() & plugin_enable("kami.auto_reply") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
-                             permission=AUTHUSER | MASTER,
-                             priority=100)
+set_reply_probability = on_command(cmd="设置回复率", rule=plugin_enable("kami.auto_reply") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
+                                   permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | PRIVATE_FRIEND | MASTER,
+                                   priority=10, block=True)
 
 
-@registerDefault.handle()
-async def registerDefaultHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
-    msgList = await ExtraData.getData(targetType=ExtraData.Group, targetId=0, key="register_default_reply",
-                                      default=["喵喵喵"])
-    reply_probability = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="reply_probability", default=1.0)
-    p = (Balance.clamp(await Balance.getFavoValue(event.user_id) / 100, 0, 1)) * reply_probability
-    if random.random() < p:
-        await registerDefault.send(random.choice(msgList))
+@set_reply_probability.handle()
+async def set_reply_probability_handle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
+    probability = Balance.clamp(float(event.raw_message.split()[1]), 0.0, 1.0)
+    await ExtraData.set_global_data(key="kami.auto_reply.reply_probability", value=probability)
+    await set_reply_probability.send(message="已将此会话中回复率设置为:%s" % probability)
 
 
 @listener.handle()
 async def listenerHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
     event.raw_message = Command.escape(event.raw_message)
-    reply_probability = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="reply_probability", default=1.0)
-    p = (Balance.clamp(await Balance.getFavoValue(event.user_id) / 100, 0, 1)) * reply_probability
-    if random.random() < p:
+    session_reply_probability = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="kami.auto_reply.reply_probability",
+                                                        default=1.0 if type(event) is PrivateMessageEvent else 0.25)
+    favo_reply_probability = (Balance.clamp(await Balance.getFavoValue(event.user_id) / 100, 0, 1))
+    if random.random() < session_reply_probability * favo_reply_probability or to_me()(bot, event, state):
         reply = await getReply(bot, event, state)
         if reply is not None:
             user_call_bot = await ExtraData.get_user_data(user_id=event.user_id, key="my.user_call_bot", default=list(bot.config.nickname)[0])
@@ -63,7 +61,8 @@ async def listenerHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEven
 
             reply = await badwordFilter(bot, event, state, reply)
 
-            if random.random() <= 0.6:
+            reply_format_list = reply.replace("。", "，").replace("!", "，").replace("!", "，").split("，")
+            if random.random() <= 0.6 and len(reply_format_list) < 8 and mean([len(seg) for seg in reply_format_list]) >= 4:
                 for reply_seg in reply.replace("。", "，").replace("!", "，").replace("!", "，").split("，"):
                     await asyncio.sleep(Balance.clamp(random.randint(len(reply_seg) - 3, len(reply_seg) + 3) * 0.15, 1.0, 4.0))
                     await listener.send(message=Message(reply_seg))

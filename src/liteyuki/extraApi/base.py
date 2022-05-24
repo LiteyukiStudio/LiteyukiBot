@@ -167,6 +167,13 @@ class Command:
 
     @staticmethod
     def escape(text: str) -> str:
+        """
+        CQ码去义
+
+
+        :param text:
+        :return:
+        """
         return text.replace("&amp;", "&").replace("&#91;", "[").replace("&#93;", "]").replace("&#44;", ",")
 
 
