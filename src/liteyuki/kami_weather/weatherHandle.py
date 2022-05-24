@@ -146,11 +146,11 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                     base_img = Image.open(os.path.join(ExConfig.res_path, "textures/weather/mesh_4xx.png"))
                     weather_card: Cardimage = Cardimage(baseImg=base_img)
                     # 城市名和国家 编号
-                    city_pos = await weather_card.addText(uvSize=(1, 1), boxSize=(0.5, 0.075), xyOffset=(0, 0),
+                    city_pos = await weather_card.addText(uvSize=(1, 1), boxSize=(0.45, 0.075), xyOffset=(0, 0),
                                                           baseAnchor=(0.05, 0.04), textAnchor=(0, 0), content=cityName,
                                                           font=font_80, color=Cardimage.hex2dec("ffffffff"))
                     await weather_card.addText(uvSize=(1, 1), boxSize=(
-                        0.5, Balance.clamp((city_pos[3] - city_pos[1]) / 1.2, 0.04, 0.05)), xyOffset=(0, 0),
+                        0.45, Balance.clamp((city_pos[3] - city_pos[1]) / 1.2, 0.04, 0.05)), xyOffset=(0, 0),
                                                baseAnchor=(city_pos[2] + 0.02, city_pos[1] + 0.01), textAnchor=(0, 0),
                                                content="%s-%s" % (country, adm1),
                                                font=font_80, color=Cardimage.hex2dec("ffdedede"))
