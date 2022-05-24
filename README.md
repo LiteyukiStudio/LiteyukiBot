@@ -12,11 +12,28 @@
 
 ## 安装
 
-- 环境：Python3.10+(3.9及以下不行的哦，因为用的3.10的语法格式)
+#### 1.安装Python3.10运行环境
 
-- 依赖：requirements.txt(除此之外，报错缺啥你装啥)
+- 机器人是需要Python运行环境的，就像我的世界Java版需要Java运行环境
+- 转到[下载页面](https://www.python.org/downloads/release/python-3100/)，选择你需要的版本下载，记得勾选Add Python to environment variables
+- 不会请看[这里](https://zhuanlan.zhihu.com/p/344887837)
 
-- cqhttp自行下载
+#### 2.安装go-cqhttp
+
+- 这是一个适配器，通俗易懂来说就是一个特殊的qq客户端，它能接收消息并上报给机器人，就好比手机qq能将消息通知给你，而此时的你是机器人
+- 转到[下载页面](https://github.com/Mrs4s/go-cqhttp/releases)，选择适合你系统的版本进行下载
+- 配置，详细方法见[go-cqhttp](https://docs.go-cqhttp.org/guide/quick_start.html)
+
+#### 3.下载机器人
+
+- 点击github页面那个绿色的`code`按钮，再点击download ZIP
+- 解压ZIP，打开根目录（包含boy.py文件的目录），右键单击空白处，在此打开终端/cmd，输入`pip install -r requirements.txt`并回车，等待完成
+
+#### 4.启动
+
+- 在go-cqhttp配置好后，请去按照本页面内容配置机器人
+- 启动go-cqhttp(请一定用命令行启动)
+- 启动机器人，点击bot.py或用命令行启动
 
 ## 配置
 
@@ -26,7 +43,7 @@
 
 - 发送liteyuki，若回复测试成功即为安装完成。
 
-- 部分插件正常工作，需要[手动配置](https://github.com/snowyfirefly/Liteyuki/blob/master/docs/config.md)g0.json
+- 部分插件正常工作需要[手动配置](https://github.com/snowyfirefly/Liteyuki/blob/master/docs/config.md)g0.json
 
 ## 使用
 
