@@ -26,6 +26,8 @@
 
 - 发送liteyuki，若回复测试成功即为安装完成。
 
+- 部分插件正常工作，需要[手动配置](https://github.com/snowyfirefly/Liteyuki/blob/master/docs/config.md)g0.json
+
 ## 使用
 
 - 私聊使用前需注册，data/g0.json中kami.base.verify的值为是否邮箱验证，默认为false，若需要邮箱验证请自行改为true并自行配置。
@@ -49,6 +51,10 @@
 ```
 
 ## 常见问题
+
+#### 0.更新频率
+
+- 大多数情况下是每天一次，保持更新，遇到无解bug请更新，若还是有bug请反馈
 
 #### 1.机器人不响应群聊消息
 

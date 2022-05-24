@@ -1,15 +1,16 @@
 from extraApi.base import Balance
 from extraApi.rule import minimumCoin, NOT_BLOCKED, NOT_IGNORED, MODE_DETECT
+from nonebot.rule import startswith
 from .api import *
 from .userData import *
 
 pois_cmd = on_command(cmd="pois", aliases={"地点查询"},
-                      rule=plugin_enable("kami.map") & minimumCoin(2) & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT,
-                      priority=2, block=True)
+                      rule=plugin_enable("kami.map") & minimumCoin(2, "无法查询地点", startswith(("地点查询", "pois"))) & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT,
+                      priority=12, block=True)
 
 bing_pois = on_command(cmd="pois", aliases={"全球查询"},
                        rule=plugin_enable("kami.map") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT,
-                       priority=2, block=True)
+                       priority=12, block=True)
 
 
 @pois_cmd.handle()

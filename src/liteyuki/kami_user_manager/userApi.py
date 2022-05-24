@@ -13,11 +13,11 @@ async def sendAuthCode(email: str, auth_code: str):
 
     发送邮箱验证码,请在此前校验邮箱格式
     """
-    mail_host = "smtp.163.com"
-    mail_user = await ExtraData.get_global_data(key="kami.base.host_user", default="mmmm@12345.com")
-    mail_auth = await ExtraData.get_global_data(key="kami.base.auth", default="xxx")
+    mail_host = await ExtraData.get_global_data(key="kami.base.email_host", default="")
+    mail_user = await ExtraData.get_global_data(key="kami.base.email_user", default="")
+    mail_auth = await ExtraData.get_global_data(key="kami.base.email_auth", default="")
 
-    sender = await ExtraData.get_global_data(key="kami.base.host_email", default="mmmm@12345.com")
+    sender = await ExtraData.get_global_data(key="kami.base.email", default="")
 
     receivers = [email]
 

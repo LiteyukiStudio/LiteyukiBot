@@ -9,10 +9,9 @@ from nonebot import on_command, on_notice
 from nonebot.adapters.onebot.v11 import NoticeEvent, Message
 
 from extraApi.base import Balance, Command
-from extraApi.base import ExConfig
 from extraApi.cardimage import Cardimage
 from extraApi.permission import MASTER
-from extraApi.rule import plugin_enable, NOT_IGNORED, NOT_BLOCKED, MODE_DETECT
+from extraApi.rule import plugin_enable, MODE_DETECT
 from .auturun import *
 
 about = on_command(cmd="about", aliases={"关于轻雪", "关于小羽"},

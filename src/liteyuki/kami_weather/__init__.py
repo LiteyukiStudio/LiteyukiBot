@@ -1,12 +1,13 @@
 from nonebot import on_keyword, on_command
 from nonebot.permission import SUPERUSER
-
+from nonebot.rule import keyword
 from extraApi.permission import MASTER
 from extraApi.rule import *
 from .config import *
 from .weatherHandle import *
 
-realTimeWeather = on_keyword(keywords={"天气"}, rule=plugin_enable(pluginId="kami.weather") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT & minimumCoin(2), priority=11,
+realTimeWeather = on_keyword(keywords={"天气"}, rule=plugin_enable(pluginId="kami.weather") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT & minimumCoin(2, "无法查询天气", keyword("天气")),
+                             priority=11,
                              block=True)
 bindCity = on_command(cmd="绑定天气城市", rule=plugin_enable(pluginId="kami.weather") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT, priority=10, block=True)
 helpWeather = on_command(cmd="天气参数", rule=plugin_enable(pluginId="kami.weather") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT, priority=10, block=True)

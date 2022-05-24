@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Tuple
 
 from nonebot.permission import SUPERUSER
 
@@ -38,17 +38,23 @@ def plugin_enable(pluginId: str):
     return Rule(_pluginEnable)
 
 
-def minimumCoin(num: Union[float, int], reason=None) -> Rule:
+def minimumCoin(num: Union[float, int], reason=str(), rule: Rule = None) -> Rule:
+    """
+    :param num: 最小硬币数
+    :param reason: 理由
+    :param rule: nonebot的规则
+    :return:
+    """
+
     async def _minimumCoin(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], state: T_State):
         prompt = state.get("balance_prompt", False)
-
         coin = await Balance.getCoinValue(user_id=event.user_id)
         if coin >= num:
             return True
         else:
-            if not prompt and reason is not None:
-                await bot.send(event, "硬币余额不足：%s" % coin, at_sender=True)
-                state["balance_prompt"] = True
+            if rule is not None and await rule(bot, event, state):
+                await bot.send(event, "硬币余额不足：你只有%s，但此次所需为%s，%s" % (coin, num, reason), at_sender=True)
+            state["balance_prompt"] = True
             return False
 
     return Rule(_minimumCoin)

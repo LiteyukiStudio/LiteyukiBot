@@ -13,11 +13,11 @@ from .weatherApi import *
 
 
 async def handleRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
-    if re.search(r"\d+[日,天]天气", event.raw_message) is not None:
+    if re.search(r"\d+[日天]天气", event.raw_message) is not None:
         state["mode"] = "multiPre"
-        state["days"] = int(re.search(r"\d+[日,天]天气", event.raw_message).group(0).replace("天天气", "").replace("日天气", ""))
+        state["days"] = int(re.search(r"\d+[日天]天气", event.raw_message).group(0).replace("天天气", "").replace("日天气", ""))
         args, kws = Command.formatToCommand(
-            event.raw_message.replace(re.search(r"\d+[日,天]天气", event.raw_message).group(0), "").strip())
+            event.raw_message.replace(re.search(r"\d+[日天]天气", event.raw_message).group(0), "").strip())
     elif re.search(r"\d+小时天气", event.raw_message) is not None:
         state["mode"] = "hourPre"
         state["hours"] = int(re.search(r"\d+小时天气", event.raw_message).group(0).replace("小时天气", ""))
@@ -43,7 +43,7 @@ async def handleRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMess
     state["params"].update(kws)
     argStr = Command.formatToString(*args)
     if argStr != "" or "location" in kws:
-        # 用户第一次输入了地点文本
+        # 用户第一次输入了地点文本,或传入location参数
         state["city"] = argStr
     else:
         # 用户第一次没输入地点
@@ -58,7 +58,6 @@ async def handleRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMess
 async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
     preview_message = await bot.send(event, "查询天气中...", at_sender=True)
     if state["city"] is not None:
-
         state["params"].update({"location": str(state["city"])})
         cityList = await getQWCityInfo(state["params"])
         if cityList["code"] != "200":
@@ -70,7 +69,9 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                 else:
                     state["params"]["adm"] = arg
 
-    cityList = await getQWCityInfo(state["params"])
+            cityList = await getQWCityInfo(state["params"])
+    else:
+        cityList = await getQWCityInfo(state["params"])
     if cityList["code"] == "200":
         city = cityList["location"][0]
         # 合成图片 失败发文字
@@ -102,6 +103,8 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
             tempUnit = "℉"
         else:
             tempUnit = "℃"
+
+        state["params"]["location"] = city_id
 
         # 天气基本信息获取
         if state["mode"] == "now":

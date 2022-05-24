@@ -351,7 +351,7 @@ class ExtraData:
             return False
 
     @staticmethod
-    async def createDatabase(targetType: str, targetId: int, force=False, initialData={}) -> bool:
+    async def createDatabase(targetType: str, targetId: int, force=False, initialData=None) -> bool:
         """
         :param targetType: 目标类型: u, g
         :param targetId: 目标id
@@ -361,6 +361,8 @@ class ExtraData:
 
         创建数据库
         """
+        if initialData is None:
+            initialData = {}
         targetType = ExtraData.targetTypeDict[targetType]
         existence = os.path.exists(os.path.join(ExtraData.databasePath, "%s%s.json" % (targetType, targetId)))
         if not existence or existence and force:
@@ -400,10 +402,6 @@ class ExtraData:
                 databaseList.append(f.replace(".json", ""))
 
         return databaseList
-
-
-class Nonebot:
-    GPMessage = GroupMessageEvent | PrivateMessageEvent
 
 
 class Session:
@@ -584,6 +582,10 @@ class Balance:
         return True
 
     @staticmethod
+    async def balance_warn(event: Union[GroupMessageEvent, PrivateMessageEvent]):
+        pass
+
+    @staticmethod
     def clamp(x, _min, _max) -> int | float:
         """
         :param x:
@@ -604,9 +606,10 @@ class Log:
 
     @staticmethod
     async def write(log: str):
-        file_name = os.path.join(ExConfig.log_path, "%s-%s-%s.log" % tuple(list(time.localtime())[0:3]))
-        async with aiofiles.open(file_name, mode="a", encoding="utf-8") as f:
-            await f.write(("[%s-%s-%s %s:%s:%s]" % tuple(list(time.localtime())[0:6]) + log + "\n"))
+        if await ExtraData.get_global_data(key="log_mode", default=False):
+            file_name = os.path.join(ExConfig.log_path, "%s-%s-%s.log" % tuple(list(time.localtime())[0:3]))
+            async with aiofiles.open(file_name, mode="a", encoding="utf-8") as f:
+                await f.write(("[%s-%s-%s %s:%s:%s]" % tuple(list(time.localtime())[0:6]) + log + "\n"))
 
     @staticmethod
     async def receive_message(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], *args):

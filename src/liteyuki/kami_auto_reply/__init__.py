@@ -38,36 +38,37 @@ async def listenerHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEven
     p = (Balance.clamp(await Balance.getFavoValue(event.user_id) / 100, 0, 1)) * reply_probability
     if random.random() < p:
         reply = await getReply(bot, event, state)
-        user_call_bot = await ExtraData.get_user_data(user_id=event.user_id, key="my.user_call_bot", default=list(bot.config.nickname)[0])
-        placeholder = {
+        if reply is not None:
+            user_call_bot = await ExtraData.get_user_data(user_id=event.user_id, key="my.user_call_bot", default=list(bot.config.nickname)[0])
+            placeholder = {
 
-            "%time1%": "%s:%s" % tuple(list(time.localtime())[3:5]),
-            "%time2%": "%s:%s:%s" % tuple(list(time.localtime())[3:6]),
-            "%date%": "%s-%s-%s" % tuple(list(time.localtime())[0:3]),
-            "%at%": "[CQ:at,qq=%s]" % str(event.user_id),
-            "%user_id%": str(event.user_id),
-            "%bot_name%": random.choice(list(bot.config.nickname)),
-            "%call_bot%": user_call_bot,
-            "%call%": await ExtraData.getData(targetType=ExtraData.User, targetId=event.user_id, key="my.bot_call_user",
-                                              default=event.sender.nickname),
-            "%nickname%": event.sender.nickname
+                "%time1%": "%s:%s" % tuple(list(time.localtime())[3:5]),
+                "%time2%": "%s:%s:%s" % tuple(list(time.localtime())[3:6]),
+                "%date%": "%s-%s-%s" % tuple(list(time.localtime())[0:3]),
+                "%at%": "[CQ:at,qq=%s]" % str(event.user_id),
+                "%user_id%": str(event.user_id),
+                "%bot_name%": random.choice(list(bot.config.nickname)),
+                "%call_bot%": user_call_bot,
+                "%call%": await ExtraData.getData(targetType=ExtraData.User, targetId=event.user_id, key="my.bot_call_user",
+                                                  default=event.sender.nickname),
+                "%nickname%": event.sender.nickname
 
-        }
-        # 遍历和替换
-        replace_items: tuple = placeholder.items()
-        for old, new in replace_items:
-            reply = reply.replace(old, new)
+            }
+            # 遍历和替换
+            replace_items: tuple = placeholder.items()
+            for old, new in replace_items:
+                reply = reply.replace(old, new)
 
-        await Balance.editFavoValue(user_id=event.user_id, delta=random.randint(1, 3), reason="互动：%s" % reply)
+            await Balance.editFavoValue(user_id=event.user_id, delta=random.randint(1, 3), reason="互动：%s" % reply)
 
-        reply = await badwordFilter(bot, event, state, reply)
+            reply = await badwordFilter(bot, event, state, reply)
 
-        if random.random() <= 0.6:
-            for reply_seg in reply.replace("。", "，").replace("!", "，").replace("!", "，").split("，"):
-                await asyncio.sleep(Balance.clamp(random.randint(len(reply_seg) - 3, len(reply_seg) + 3) * 0.15, 1.0, 4.0))
-                await listener.send(message=Message(reply_seg))
-        else:
-            await listener.send(message=Message(reply))
+            if random.random() <= 0.6:
+                for reply_seg in reply.replace("。", "，").replace("!", "，").replace("!", "，").split("，"):
+                    await asyncio.sleep(Balance.clamp(random.randint(len(reply_seg) - 3, len(reply_seg) + 3) * 0.15, 1.0, 4.0))
+                    await listener.send(message=Message(reply_seg))
+            else:
+                await listener.send(message=Message(reply))
 
 
 @editReply.handle()
