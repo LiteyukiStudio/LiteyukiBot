@@ -28,7 +28,7 @@
 #### 3.下载机器人
 
 - 点击github页面那个绿色的`code`按钮，再点击download ZIP
-- 解压ZIP，打开根目录（包含boy.py文件的目录），右键单击空白处，在此打开终端/cmd，输入`pip install -r requirements.txt`并回车，等待完成
+- 解压ZIP，打开根目录（包含bot.py文件的目录），右键单击空白处，在此打开终端/cmd，输入`pip install -r requirements.txt`并回车，等待完成
 
 #### 4.启动
 
