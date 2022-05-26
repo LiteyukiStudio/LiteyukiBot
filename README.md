@@ -28,35 +28,32 @@
 #### 3.下载机器人
 
 - 点击github页面那个绿色的`code`按钮，再点击download ZIP
-- 解压ZIP，打开根目录（包含boy.py文件的目录），右键单击空白处，在此打开终端/cmd，输入`pip install -r requirements.txt`并回车，等待完成
+- 解压ZIP，打开根目录（包含`boy.py`文件的目录），右键单击空白处，在此打开终端/cmd，输入`pip install -r requirements.txt`并回车，等待完成
 
 #### 4.启动
 
 - 在go-cqhttp配置好后，请去按照本页面内容配置机器人
 - 启动go-cqhttp(请一定用命令行启动)
-- 启动机器人，点击bot.py或用命令行启动
+- 启动机器人，点击`bot.py`或用命令行启动
 
 ## 配置
 
-- 启动机器人时，会默认生成配置文件data/g0.json，里面会告诉你那些配置怎么填，一定要去看。
-
-- 自行配置.env文件。HOST默认是127.0.0.1，PORT的值要和go-cqhttp中config.yml中的端口号一致，SUPERUSERS的中括号中填写超级用户的QQ号，多个QQ号用英文逗号分隔。
-  如果想给机器人改名，请修改NICKNAME的值，多个昵称请用逗号隔开。
+- 首次启动机器人时，会默认生成BOT配置文件.env，大多数情况下，你只需要配置PORT使它和go-cqhttp中的端口相同。如果你想给BOT改名，修改NICKNAME的值即可。修改完后手动重启BOT端
 
 - 发送liteyuki，若回复测试成功即为安装完成。
 
-- 部分插件正常工作需要[手动配置](https://github.com/snowyfirefly/Liteyuki/blob/master/docs/config.md)g0.json
+- 部分插件正常工作需要[手动配置](https://github.com/snowyfirefly/Liteyuki/blob/master/docs/config.md)`data/g0.json`。
 
 ## 使用
 
 - 私聊使用前需注册，data/g0.json中kami.base.verify的值为是否邮箱验证，默认为false，若需要邮箱验证请自行改为true并自行配置。
 - 群聊使用前需要超级用户在即将启用的群中对bot发送："群聊启用"进行授权，若要撤销授权，需要发送"群聊停用"(温馨提示：少加群，大群牛马多，容易被举报)。
-- 发送"help"、"菜单"或"帮助"获取插件列表。
-- 发送"help <插件名>"获取插件文档。
-- 发送"help <插件名> <子文档>"获取插件子文档。
+- 发送`help`、`菜单`或`帮助`获取插件列表。
+- 发送`help <插件名>`获取插件文档。
+- 发送`help <插件名> <子文档>`获取插件子文档。
 - 目前天气服务需要申请和风天气的key，地图服务需要申请高德地图的key，这些都是免费的。
 - 可以安装其他Onebot适配器插件，但是默认情况下不能使用机器人的插件管理，(这里开始后面看不懂就别看了)如需使用，请将插件移到src/liteyuki目录下，参考内置插件，并在插件中创建一个config文件夹，config中创建manifest.json，docs.txt(文档，请自行编写)
-- manifest字段如下，填写完此字段请在插件的响应器中添加新规则plugin_enable(plugin_id)，从extraApi.rule导入
+- manifest字段如下，填写完此字段请在插件的响应器中添加新规则`plugin_enable(plugin_id)`，从`extraApi.rule`导入
 
 ```json
 {
@@ -77,12 +74,12 @@
 
 #### 1.机器人不响应群聊消息
 
-- 机器人加入群聊需要超级用户手动开启，私聊bot发送“群聊启用 <群号>”。
-- .env中COMMAND_START中没有""空命令前缀选项，命令需接斜杠。
+- 机器人加入群聊需要超级用户手动开启，私聊bot发送`群聊启用 <群号>`。
+- .env中COMMAND_START中没有`""`空命令前缀选项，命令需接斜杠。
 
 #### 2.bot无法注册，收不到邮箱验证码
 
-- bot注册需要在配置中配置bot注册验证码发送的邮箱和邮箱登录码，并且邮箱要开启POP3/SMTP/IMAP服务。
+- BOT注册默认情况下无需邮箱验证码，用户可根据需求打开，想要开启需要在`data/g0.json`中配置BOT注册验证码发送的邮箱和邮箱登录码，并且邮箱要开启POP3/SMTP/IMAP服务，详细请查看[手动配置](https://github.com/snowyfirefly/Liteyuki/blob/master/docs/config.md)。
 - 邮箱配置无误后，若用户未收到验证码请检查垃圾邮件，90%的可能在那里面。
 
 #### 3.其他问题

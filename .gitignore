@@ -17,6 +17,7 @@ data/
 src/plugins老/
 src/python/
 .env.dev
+.env
 .env.prod
 resource/file_recv
 data_backup/

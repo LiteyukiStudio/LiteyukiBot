@@ -25,6 +25,8 @@ class ExConfig:
     log_path = os.path.join(root_path, "log")
     data_path = os.path.join(root_path, "data")
     data_backup_path = os.path.join(root_path, "data_backup")
+    version = "3.0.5"
+    version_description = "5-27"
 
     @staticmethod
     async def init():
@@ -70,13 +72,14 @@ class Command:
         :return:
 
         命令参数处理
+        自动cq去义
         "%20"表示空格
         """
         cmd = Command.escape(cmd)
-        cmdList = cmd.strip().split(sep)
+        cmd_list = cmd.strip().split(sep)
         args = []
         keywords = {}
-        for arg in cmdList:
+        for arg in cmd_list:
             arg = arg.replace("%20", " ")
             if "=" in arg and kw:
                 keywords[arg.split("=")[0]] = arg.split("=")[1]
@@ -91,17 +94,20 @@ class Command:
         :param args:
         :param keywords:
         :return:
-        会将空格转为%20
+        escape会将空格转为%20，默认False不转，会将空格转为%20
         """
-        keywords.get("escape", True)
+
         s = ""
+        escape = keywords.get("escape", False)
         for arg in args:
-            s += arg.replace(" ", "%20") + " "
+            s += (arg.replace(" ", "%20") if escape else arg) + " "
         kw_item = keywords.items()
         kw_item: list
 
         for item in kw_item:
-            s += ("%s=%s" % (item[0], item[1])).replace(" ", "%20") + " "
+            if not item[0] == "escape" and type(item[1]) is bool:
+                kw = ("%s=%s" % (item[0], item[1]))
+                s += (kw.replace(" ", "%20") if escape else kw) + " "
         return s[:-1]
 
     @staticmethod

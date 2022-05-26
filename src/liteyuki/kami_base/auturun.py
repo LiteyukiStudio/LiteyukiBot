@@ -1,6 +1,7 @@
 import os
 from typing import Union, Optional, Dict, Any
 
+import aiofiles
 from nonebot import get_driver
 from nonebot.adapters import Bot
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent

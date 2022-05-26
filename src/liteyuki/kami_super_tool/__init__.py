@@ -43,21 +43,22 @@ async def enable_group_handle(bot: Bot, event: GroupMessageEvent, state: T_State
 @setConfig.handle()
 async def setConfigHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
     try:
-        args, kws = Command.formatToCommand(event.raw_message)
+        args, kws = Command.formatToCommand(Command.escape(event.raw_message))
+
         targetType = args[1]
         targetId = args[2]
         key = args[3]
-        value = eval(args[4])
+        value = eval(Command.formatToString(*args[4:]))
         if targetType == "gm":
             r = await ExtraData.set_group_member_data(event.group_id, targetId, key=key, value=value)
             if r:
-                await setConfig.send("属性设置成功:\n%s%s\n%s:%s" % tuple(args[1:]))
+                await setConfig.send("属性设置成功:\n%s%s\n%s:%s" % (targetType, targetId, key, value))
             else:
                 await setConfig.send("属性设置失败")
         else:
             r = await ExtraData.setData(targetType=targetType, targetId=targetId, key=key, value=value)
             if r:
-                await setConfig.send("属性设置成功:\n%s%s\n%s:%s" % tuple(args[1:]))
+                await setConfig.send("属性设置成功:\n%s%s\n%s:%s" % (targetType, targetId, key, value))
             else:
                 await setConfig.send("属性设置失败")
     except BaseException as e:

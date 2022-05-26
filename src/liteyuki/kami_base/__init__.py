@@ -14,7 +14,7 @@ from extraApi.permission import MASTER
 from extraApi.rule import plugin_enable, MODE_DETECT
 from .auturun import *
 
-about = on_command(cmd="about", aliases={"关于轻雪", "关于小羽"},
+about = on_command(cmd="about", aliases={"关于轻雪"},
                    rule=plugin_enable("kami.base") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                    priority=10, block=True)
 balance = on_command(cmd="查询好感度", aliases={"查询硬币", "好感度查询", "硬币查询"},
@@ -49,6 +49,7 @@ async def aboutHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent):
     now_state = await ExtraData.get_global_data(key="enable_mode", default=1)
     text = f"""{random.choice(list(bot.config.nickname))}Bot更多信息
 - 状态：{"开启" if now_state == 1 else "关闭" if now_state == 0 else "调试模式" if now_state == -1 else "未知"}
+- 版本：{ExConfig.version}({ExConfig.version_description})
 - 简介：%s是一个非常可爱的开源Bot呀
 - 项目：https://github.com/snowyfirefly/Liteyuki
 - 运行平台：{platform.platform()}
