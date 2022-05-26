@@ -25,6 +25,8 @@ class ExConfig:
     log_path = os.path.join(root_path, "log")
     data_path = os.path.join(root_path, "data")
     data_backup_path = os.path.join(root_path, "data_backup")
+    version = "3.0.5"
+    version_description = "5-27"
 
     @staticmethod
     async def init():
