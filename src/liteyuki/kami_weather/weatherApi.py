@@ -1,7 +1,27 @@
 import time
+from typing import Union
 
 import aiohttp
+from nonebot.typing import T_State
+
 from extraApi.base import ExtraData, Command
+from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEvent
+from nonebot.rule import Rule, startswith, endswith
+
+
+def args_start_or_end_with(text: str) -> Rule:
+    async def _rule(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], state: T_State):
+        args, kws = Command.formatToCommand(event.raw_message)
+        args_text = Command.formatToString(*args)
+        if text in args_text:
+            if args_text[:len(text)] == text or args_text[-len(text):] == text:
+                return True
+            else:
+                return False
+        else:
+            return False
+
+    return Rule(_rule)
 
 
 def match_custom_city(name, city_list: list):
