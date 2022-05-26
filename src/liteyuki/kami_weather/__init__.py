@@ -6,7 +6,9 @@ from extraApi.rule import *
 from .config import *
 from .weatherHandle import *
 
-realTimeWeather = on_keyword(keywords={"天气"}, rule=plugin_enable(pluginId="kami.weather") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT & minimumCoin(2, "无法查询天气", keyword("天气")),
+realTimeWeather = on_keyword(keywords={"天气"},
+                             rule=plugin_enable(pluginId="kami.weather") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT & args_start_or_end_with("天气") & minimumCoin(2, "无法查询天气",
+                                                                                                                                                                keyword("天气")),
                              priority=11,
                              block=True)
 bindCity = on_command(cmd="绑定天气城市", rule=plugin_enable(pluginId="kami.weather") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT, priority=10, block=True)
