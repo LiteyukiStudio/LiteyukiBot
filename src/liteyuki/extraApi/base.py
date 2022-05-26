@@ -25,7 +25,7 @@ class ExConfig:
     log_path = os.path.join(root_path, "log")
     data_path = os.path.join(root_path, "data")
     data_backup_path = os.path.join(root_path, "data_backup")
-    version = "3.0.5"
+    version = "3.0.7"
     version_description = "5-27"
 
     @staticmethod
@@ -415,6 +415,28 @@ class ExtraData:
                 databaseList.append(f.replace(".json", ""))
 
         return databaseList
+
+    @staticmethod
+    async def get_resource_data(key: str, default: T) -> T:
+        try:
+            async with aiofiles.open(os.path.join(ExConfig.res_path, "resource_database.json"), "r", encoding="utf-8") as file:
+                data = json.loads(await file.read())
+                return data.get(key, default)
+        except BaseException:
+            return default
+
+    @staticmethod
+    async def set_resource_data(key: str, value: T) -> bool:
+        try:
+            async with aiofiles.open(os.path.join(ExConfig.res_path, "resource_database.json"), "r", encoding="utf-8") as file:
+                data = json.loads(await file.read())
+                data[key] = value
+            async with aiofiles.open(os.path.join(ExConfig.res_path, "resource_database.json"), "w", encoding="utf-8") as file:
+                await file.write(json.dumps(data, ensure_ascii=False, indent=4))
+                return True
+
+        except BaseException:
+            return False
 
 
 class Session:

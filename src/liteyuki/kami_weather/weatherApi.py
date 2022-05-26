@@ -27,7 +27,7 @@ async def getQWCityInfo(params) -> list:
         if (await r.json())["code"] == "200":
             return await r.json()
         else:
-            custom_pos = await ExtraData.get_global_data(key="kami.weather.custom_city_data", default=[])
+            custom_pos = await ExtraData.get_resource_data(key="kami.weather.custom_city_data", default=[])
             target_name = match_custom_city(params.get("location"), custom_pos)
             if target_name is None:
                 return {"code": 404}

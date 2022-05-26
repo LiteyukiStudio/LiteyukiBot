@@ -26,6 +26,9 @@ async def folder_check():
     initial_config: dict
     if not os.path.exists(os.path.join(ExConfig.data_path, "g0.json")):
         await ExtraData.createDatabase(targetType=ExtraData.Group, targetId=0, force=True)
+    if not os.path.exists(os.path.join(ExConfig.res_path, "resource_database.json")):
+        async with aiofiles.open(os.path.join(ExConfig.res_path, "resource_database.json"), "w", encoding="utf-8") as file:
+            await file.write("{}")
 
 
 @event_preprocessor

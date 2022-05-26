@@ -21,10 +21,9 @@ async def setDescriptionHandle(bot: Bot, event: GroupMessageEvent | PrivateMessa
     try:
         args, params = Command.formatToCommand(event.raw_message)
         city_info = (await getQWCityInfo({"location": args[1]}))["location"][0]
-        descriptionDict = await ExtraData.getData(targetType=ExtraData.Group, targetId=0,
-                                                  key="kami.weather.city_description", default={})
+        descriptionDict = await ExtraData.get_resource_data(key="kami.weather.city_description", default={})
         descriptionDict[city_info["id"]] = description = Command.formatToString(*args[2:]).replace("%20", " ")
-        await ExtraData.setData(ExtraData.Group, targetId=0, key="kami.weather.city_description", value=descriptionDict)
+        await ExtraData.set_resource_data(key="kami.weather.city_description", value=descriptionDict)
         await setDescription.send(message="城市描述设置成功: %s%s%s%s %s" % (
             city_info["country"], city_info["adm1"], city_info["adm2"], city_info["name"], description))
 
@@ -37,11 +36,10 @@ async def setAdviceHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEve
     try:
         args, params = Command.formatToCommand(event.raw_message)
 
-        adviceDict = await ExtraData.getData(targetType=ExtraData.Group, targetId=0,
-                                             key="kami.weather.advice", default={})
+        adviceDict = await ExtraData.get_resource_data(key="kami.weather.advice", default={})
         advice = Command.formatToString(*args[2:]).replace("%20", " ")
         adviceDict[args[1]] = advice
-        await ExtraData.setData(ExtraData.Group, targetId=0, key="kami.weather.advice", value=adviceDict)
+        await ExtraData.set_resource_data(key="kami.weather.advice", value=adviceDict)
         await setDescription.send(message="天气建议设置成功: %s-%s" % (args[1], advice))
 
     except BaseException as e:

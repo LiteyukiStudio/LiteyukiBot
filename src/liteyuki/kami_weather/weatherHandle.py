@@ -89,11 +89,9 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
         # 城市属性
         typ = city.get("type", "Unknown")
         city_description = None
-        if city_id in await ExtraData.getData(targetType=ExtraData.Group, targetId=0,
-                                              key="kami.weather.city_description", default={}):
+        if city_id in await ExtraData.get_resource_data(key="kami.weather.city_description", default={}):
             city_description = (
-                await ExtraData.getData(targetType=ExtraData.Group, targetId=0, key="kami.weather.city_description",
-                                        default={}))[city_id]
+                await ExtraData.get_resource_data(key="kami.weather.city_description", default={}))[city_id]
 
         levels = [country, adm1, adm2, name]
         cityName = "%s %s" % (adm2, name) if adm2 != name else adm2
@@ -136,7 +134,7 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                 cloud = weatherData.get("cloud")  # 云量
                 dew = weatherData.get("dew")  # 露点温度
 
-                weather_advice = (await ExtraData.get_global_data("kami.weather.advice", default={})).get(icon, "没有建议")
+                weather_advice = (await ExtraData.get_resource_data("kami.weather.advice", default={})).get(icon, "没有建议")
                 if state["params"].get("lang", "zh") not in ["zh"]:
                     weather_advice = await Command.translate(text=weather_advice, from_lang="zh", to_lang=state["params"].get("lang", "zh"))
                     if city_description is not None:
@@ -313,7 +311,6 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                             # 小时天气状态图
                             download = True
                             if not os.path.exists(os.path.join(ExConfig.res_path, "textures/weather/icons/%s.png" % icon_hourly)):
-
                                 download = await ExtraData.download_file("https://a.hecdn.net/img/common/icon/202106d/%s.png" % icon_hourly,
                                                                          os.path.join(ExConfig.res_path,
                                                                                       "textures/weather/icons/%s.png" % icon_hourly))
