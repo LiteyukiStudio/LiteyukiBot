@@ -24,7 +24,7 @@ set_reply_probability = on_command(cmd="设置回复率", rule=plugin_enable("ka
 @set_reply_probability.handle()
 async def set_reply_probability_handle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
     probability = Balance.clamp(float(event.raw_message.split()[1]), 0.0, 1.0)
-    await ExtraData.set_global_data(key="kami.auto_reply.reply_probability", value=probability)
+    await ExtraData.setData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="kami.auto_reply.reply_probability", value=probability)
     await set_reply_probability.send(message="已将此会话中回复率设置为:%s" % probability)
 
 

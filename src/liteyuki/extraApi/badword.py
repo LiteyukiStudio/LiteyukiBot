@@ -42,11 +42,19 @@ async def badwordFilter(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent
     :param message:
     :return:
     """
-    if message is None:
-        message = event.raw_message
-    else:
-        event.raw_message = message
-    if await IS_BADWORD(bot, event, state):
-        return "该条消息已被和谐处理"
-    else:
-        return message
+    escaped = Command.escape(message)
+    msg = message
+    global_badwords: dict = await ExtraData.getData(targetType=ExtraData.Group, targetId=0, key="badword",
+                                                    default={})
+    session_badwords: dict = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event),
+                                                     key="badword", default={})
+    session = await Log.get_session_name(bot, event)
+    for re_badword in global_badwords.get("re", []) + session_badwords.get("re", []):
+        if re.search(re_badword, message) is not None:
+            message = message.replace(re.search(re_badword, message).group(0), len(re.search(re_badword, message).group(0)) * "*")
+
+    for eq_badword in global_badwords.get("eq", []) + session_badwords.get("eq", []):
+        if eq_badword == message:
+            message = len(message) * "*"
+
+    return message
