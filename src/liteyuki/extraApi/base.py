@@ -1,19 +1,17 @@
-import time
-from types import NoneType
-
-import aiofiles
+import asyncio
 import json
 import os
 import re
+import time
 import traceback
-import translate
+from typing import Tuple, List, Union, Iterable, Dict
 
+import aiofiles
 import aiohttp
+import translate
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Bot
 from nonebot.exception import FinishedException, IgnoredException
 from nonebot.typing import T_State
-from typing import Tuple, List, Union, Iterable, Dict
-
 from nonebot.utils import run_sync
 
 
@@ -25,8 +23,7 @@ class ExConfig:
     log_path = os.path.join(root_path, "log")
     data_path = os.path.join(root_path, "data")
     data_backup_path = os.path.join(root_path, "data_backup")
-    version = "3.0.7"
-    version_description = "5-27"
+    loop = asyncio.get_event_loop()
 
 
 class Command:
@@ -142,7 +139,7 @@ class Command:
             return "翻译错误"
 
     @staticmethod
-    def fuzzy_match_str(iterable: Iterable[str,], fuzzy_key: str):
+    def fuzzy_match_str(iterable: Iterable[str], fuzzy_key: str):
         for i in iterable:
             if i == fuzzy_key:
                 return i

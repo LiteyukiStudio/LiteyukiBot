@@ -29,6 +29,7 @@
 
 - 点击github页面那个绿色的`code`按钮，再点击download ZIP
 - 解压ZIP，打开根目录（包含`boy.py`文件的目录），右键单击空白处，在此打开终端/cmd，输入`pip install -r requirements.txt`并回车，等待完成
+- 后续更新可以使用git，也可以直接下载zip，然后把新文件拷贝覆盖老文件
 
 #### 4.启动
 

@@ -2,6 +2,7 @@ import os
 from typing import Union, Optional, Dict, Any
 
 import aiofiles
+import aiohttp
 from nonebot import get_driver
 from nonebot.adapters import Bot
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent
@@ -48,3 +49,11 @@ async def auto_log_receive_handle(bot: Bot, event: Union[PrivateMessageEvent, Gr
 @Bot.on_called_api
 async def record_api_calling(bot: Bot, exception: Optional[Exception], api: str, data: Dict[str, Any], result: Any):
     await Log.call_api_log(api, data, result)
+
+
+@driver.on_bot_connect
+async def check_for_update(bot: Bot):
+    now_version = await ExtraData.get_resource_data(key="liteyuki.bot.version", default="0.0.0")
+    now_version_description = await ExtraData.get_resource_data(key="liteyuki.bot.version_description", default="0.0.0")
+    # async with aiohttp.request("GET")
+   
