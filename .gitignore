@@ -15,6 +15,7 @@ cache/
 log/
 data/
 src/plugins老/
+resource/version/new_code.zip
 src/python/
 .env.dev
 .env

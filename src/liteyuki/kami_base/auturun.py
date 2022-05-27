@@ -4,8 +4,8 @@ from typing import Union, Optional, Dict, Any
 import aiofiles
 import aiohttp
 from nonebot import get_driver
-from nonebot.adapters import Bot
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent
+
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Bot
 from nonebot.message import event_preprocessor
 from nonebot.permission import SUPERUSER
 from nonebot.rule import to_me
@@ -55,5 +55,8 @@ async def record_api_calling(bot: Bot, exception: Optional[Exception], api: str,
 async def check_for_update(bot: Bot):
     now_version = await ExtraData.get_resource_data(key="liteyuki.bot.version", default="0.0.0")
     now_version_description = await ExtraData.get_resource_data(key="liteyuki.bot.version_description", default="0.0.0")
-    # async with aiohttp.request("GET")
-   
+    async with aiohttp.request("GET", url="https://raw.githubusercontent.com/snowyfirefly/Liteyuki/master/resource/resource_database.json") as r:
+        if (await r.json())["liteyuki.bot.version"] != now_version:
+            # 更新
+            for superuser in bot.config.superusers:
+                await bot.send_private_msg(user_id=int(superuser), message="检测到新版本，发送\"轻雪 更新\"立即更新")

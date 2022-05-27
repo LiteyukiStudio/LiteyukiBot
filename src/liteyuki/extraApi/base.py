@@ -183,6 +183,9 @@ class ExtraData:
 
     @staticmethod
     async def download_file(url, path):
+
+        if not os.path.exists(os.path.dirname(path)):
+            os.makedirs(path)
         async with aiohttp.ClientSession().get(url) as FileStream:
             if FileStream.status == 200:
                 async with aiofiles.open(path, "wb") as FileIO:
