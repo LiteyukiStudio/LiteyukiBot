@@ -67,7 +67,7 @@ async def listenerHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEven
             reply_format_list = reply.replace("。", "，").replace("!", "，").replace("!", "，").split("，")
             if random.random() <= 0.6 and len(reply_format_list) < 8 and mean([len(seg) for seg in reply_format_list]) >= 4:
                 for reply_seg in reply.replace("。", "，").replace("!", "，").replace("!", "，").split("，"):
-                    await asyncio.sleep(Balance.clamp(random.randint(len(reply_seg) - 3, len(reply_seg) + 3) * 0.15, 1.0, 4.0))
+                    await asyncio.sleep(Balance.clamp(random.randint(len(reply_seg) - 3, len(reply_seg) + 3) * 0.25, 2.0, 5.0))
                     await listener.send(message=Message(reply_seg))
             else:
                 await listener.send(message=Message(reply))
