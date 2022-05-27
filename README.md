@@ -25,7 +25,7 @@
 - 配置，选择反向websocket通信方式，详细配置方法见[go-cqhttp](https://docs.go-cqhttp.org/guide/quick_start.html)
   。最后在config.yml的servers.ws-reverse.universal处填入`ws://127.0.0.1:你的端口号/onebot/v11/ws`
 
-#### 3.下载机器人
+#### 3.下载(更新)机器人
 
 - 点击github页面那个绿色的`code`按钮，再点击download ZIP
 - 解压ZIP，打开根目录（包含`boy.py`文件的目录），右键单击空白处，在此打开终端/cmd，输入`pip install -r requirements.txt`并回车，等待完成
@@ -45,6 +45,8 @@
 - 部分插件正常工作需要[手动配置](https://github.com/snowyfirefly/Liteyuki/blob/master/docs/config.md)`data/g0.json`。
 
 ## 使用
+
+- Bot的命令提示中<>和[]都是标记参数可选性的，输入命令时无需输入括号
 
 - 私聊使用前需注册，data/g0.json中kami.base.verify的值为是否邮箱验证，默认为false，若需要邮箱验证请自行改为true并自行配置。
 - 群聊使用前需要超级用户在即将启用的群中对bot发送："群聊启用"进行授权，若要撤销授权，需要发送"群聊停用"(温馨提示：少加群，大群牛马多，容易被举报)。

@@ -10,8 +10,9 @@ from nonebot.rule import Rule
 from nonebot.typing import T_State
 
 
-def plugin_enable(pluginId: str):
+def plugin_enable(pluginId: str, force_session_enable: bool = True):
     """
+    :param force_session_enable: 启用会话授权检查，是
     :param pluginId: 插件id
     :return:
     """
@@ -22,10 +23,13 @@ def plugin_enable(pluginId: str):
         enabledPlugin = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event),
                                                 key="enabled_plugin", default=list())
         # 群聊授权或私聊授权
-        if await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="enable", default=False) or await ExConfig.gmi(event):
+        if await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="enable", default=False):
             pass
         else:
-            return False
+            if force_session_enable:
+                return False
+            else:
+                pass
         plugin = searchForPlugin(pluginId)
         if plugin is None:
             await Session.sendExceptionToSuperuser(bot, event, state, exception=BaseException("插件id:%s不存在，请检查代码中是否输入正确" % pluginId))

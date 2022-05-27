@@ -79,7 +79,7 @@ async def listPluginHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEv
                                                                    plugin) else "[未启用]")
             reply += "\n# 发送 help <插件名> 获取每个插件的总文档\n\n" \
                      "# 发送 help <插件名> [*args] 获取每个插件的子文档\n\n" \
-                     "# <>是必填，[]是可选，括号是用来标记的，实际无需输入"
+                     "# <>是必填参数，[]是可选参数，输入命令时无需带<>和[]"
             await listPlugin.send(message=reply)
         else:
             pluginName = Command.formatToString(args[1])

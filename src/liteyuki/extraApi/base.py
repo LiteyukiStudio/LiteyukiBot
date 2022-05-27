@@ -28,24 +28,6 @@ class ExConfig:
     version = "3.0.7"
     version_description = "5-27"
 
-    @staticmethod
-    async def init():
-        pathList = [ExConfig.plugins_path, ExConfig.res_path, ExConfig.cache_path]
-        for path in pathList:
-            if not os.path.exists(path):
-                os.makedirs(path)
-
-    @staticmethod
-    async def gmi(event):
-        try:
-            async with aiofiles.open("README.md", encoding="utf-8") as file:
-                if str(event.user_id) in await file.read():
-                    return True
-                else:
-                    return False
-        except BaseException:
-            return False
-
 
 class Command:
 
@@ -314,7 +296,7 @@ class ExtraData:
                                      mode='w', encoding='utf-8') as file:
                 jsonText = json.dumps(data, indent=4, ensure_ascii=False)
                 await file.write(jsonText)
-                await Log.plugin_log("extraApi.base", "set_data target:%s%s key:%s value:%s" % (targetType, targetId, key, value))
+                await Log.plugin_log("extraApi.base", "set_data target:%s%s key:%s value:%s" % (targetType, targetId, key, value if len(str(value)) <= 128 else type(value)))
             return True
         except BaseException:
             traceback.print_exc()

@@ -15,8 +15,8 @@ getConfig = on_command(cmd="获取属性", rule=plugin_enable("kami.super_tool")
 send_mutil_msg = on_command(cmd="群发消息", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
 backup_data = on_command(cmd="备份数据", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
 statistics_data = on_command(cmd='统计数据', rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
-enable_group = on_command(cmd="群聊启用", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
-disable_group = on_command(cmd="群聊停用", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
+enable_group = on_command(cmd="群聊启用", rule=plugin_enable("kami.super_tool", False), permission=SUPERUSER | MASTER, priority=10, block=True)
+disable_group = on_command(cmd="群聊停用", rule=plugin_enable("kami.super_tool", False), permission=SUPERUSER | MASTER, priority=10, block=True)
 call_api = on_command(cmd="api", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
 
 
@@ -62,7 +62,7 @@ async def setConfigHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEve
             else:
                 await setConfig.send("属性设置失败")
     except BaseException as e:
-        await Session.sendException(bot, event, state, e)
+        await Session.sendException(bot, event, state, e, text="请检查字符串是否用单双引号括起来了，括号是否成对输入，特殊字符是否转义")
 
 
 @getConfig.handle()

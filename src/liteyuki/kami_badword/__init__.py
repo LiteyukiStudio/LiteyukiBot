@@ -48,7 +48,10 @@ async def badwordWarn(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEv
                 await bot.delete_msg(message_id=event.message_id)
                 remain = user_warn_time % max_ban_time
                 if user_warn_time % max_ban_time != 0:
-                    await bot.send(event, "你的消息中含有违禁词，%s/%s后禁言" % (remain, max_ban_time), at_sender=True)
+                    if enable_ban:
+                        await bot.send(event, "你的消息中含有违禁词，%s/%s次后禁言" % (remain, max_ban_time), at_sender=True)
+                    else:
+                        await bot.send(event, "你的消息中含有违禁词，已撤回处理", at_sender=True)
             if enable_ban and user_warn_time % max_ban_time == 0:
                 await bot.set_group_ban(group_id=event.group_id, user_id=event.user_id,
                                         duration=user_warn_time // max_ban_time * 20 * 60)

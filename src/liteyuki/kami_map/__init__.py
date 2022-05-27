@@ -8,15 +8,11 @@ pois_cmd = on_command(cmd="pois", aliases={"地点查询"},
                       rule=plugin_enable("kami.map") & minimumCoin(2, "无法查询地点", startswith(("地点查询", "pois"))) & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT,
                       priority=12, block=True)
 
-bing_pois = on_command(cmd="pois", aliases={"全球查询"},
-                       rule=plugin_enable("kami.map") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT,
-                       priority=12, block=True)
-
 
 @pois_cmd.handle()
 async def pois_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupMessageEvent], state: T_State):
-    args, params = Command.formatToCommand(str(event.message))
-    keywords = Command.formatToString(*args)
+    args, params = Command.formatToCommand(event.raw_message)
+    keywords = Command.formatToString(*args[1:])
     params["keywords"] = keywords
     if "page_size" not in params:
         params["page_size"] = 1
