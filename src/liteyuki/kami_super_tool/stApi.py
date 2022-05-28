@@ -23,4 +23,7 @@ def backup():
 @run_sync
 def update_move():
     for f in os.listdir(os.path.join(ExConfig.cache_path, "new_code/Liteyuki-master")):
-        shutil.move(os.path.join(ExConfig.cache_path, "new_code/Liteyuki-master", f), ExConfig.root_path)
+        try:
+            shutil.move(os.path.join(ExConfig.cache_path, "new_code/Liteyuki-master", f), ExConfig.root_path)
+        except BaseException:
+            pass
