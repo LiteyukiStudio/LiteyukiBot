@@ -196,17 +196,16 @@ class ExtraData:
                 return False
 
     @staticmethod
-    @run_sync
-    def async_unzip_file(file, src, tar):
+    def async_unzip_file(file, tar):
         """
 
         :param file: 文件路径
-        :param src: 文件内路径
+
         :param tar: 目标文件夹
         :return:
         """
         with zipfile.ZipFile(file, mode="r") as zf:
-            zf.extract(src, tar)
+            zf.extractall(tar)
         return True
 
     @staticmethod

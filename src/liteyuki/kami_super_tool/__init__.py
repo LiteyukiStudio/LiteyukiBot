@@ -147,10 +147,9 @@ async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
             await update.send("开始下载更新：%s -> %s" % (now_version, online_version))
             r = await ExtraData.download_file("https://hub.fastgit.xyz/snowyfirefly/Liteyuki/archive/refs/heads/master.zip",
                                               os.path.join(ExConfig.res_path, "version/new_code.zip"))
-            print(r.status)
             if r:
                 await update.send("正在安装，请勿操作机器人控制台！")
-                await ExtraData.async_unzip_file(os.path.join(ExConfig.res_path, "version/new_code.zip"), "Liteyuki-master", os.path.join(ExConfig.cache_path, "new_code"))
+                ExtraData.async_unzip_file(os.path.join(ExConfig.res_path, "version/new_code.zip"), "Liteyuki-master", os.path.join(ExConfig.cache_path, "new_code"))
                 # shutil.move(os.path.join(ExConfig.cache_path, "new_code", ""))
                 await update.send("更新完成")
             else:
