@@ -149,7 +149,7 @@ async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
                                               os.path.join(ExConfig.res_path, "version/new_code.zip"))
             if r:
                 await update.send("正在安装，请勿操作机器人控制台！")
-                ExtraData.async_unzip_file(os.path.join(ExConfig.res_path, "version/new_code.zip"), "Liteyuki-master", os.path.join(ExConfig.cache_path, "new_code"))
+                ExtraData.async_unzip_file(os.path.join(ExConfig.res_path, "version/new_code.zip"), os.path.join(ExConfig.cache_path, "new_code"))
                 # shutil.move(os.path.join(ExConfig.cache_path, "new_code", ""))
                 await update.send("更新完成")
             else:
