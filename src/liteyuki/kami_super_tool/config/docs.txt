@@ -3,12 +3,12 @@
 - 设置属性 <type> <id> <key> <value>(仅超级用户)
 - 获取属性 <type> <id> <key>
 - 群聊启用/停用 [群号](不接群号默认为发送消息的群)
-- update(联网更新机器人)
+- /update (联网更新机器人)
 
 # 给注册用户发送消息
 - 群发消息 消息内容...
 - 备份数据
-- api apiname apidata
+- /api <API名称> [API参数]
 
 type:
 u: 用户

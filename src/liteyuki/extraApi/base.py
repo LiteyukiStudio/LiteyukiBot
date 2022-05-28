@@ -4,6 +4,7 @@ import os
 import re
 import time
 import traceback
+import zipfile
 from typing import Tuple, List, Union, Iterable, Dict
 
 import aiofiles
@@ -185,14 +186,28 @@ class ExtraData:
     async def download_file(url, path):
 
         if not os.path.exists(os.path.dirname(path)):
-            os.makedirs(path)
-        async with aiohttp.ClientSession().get(url) as FileStream:
+            os.makedirs(os.path.dirname(path))
+        async with aiohttp.request("GET", url) as FileStream:
             if FileStream.status == 200:
                 async with aiofiles.open(path, "wb") as FileIO:
                     await FileIO.write(await FileStream.content.read())
                     return True
             else:
                 return False
+
+    @staticmethod
+    @run_sync
+    def async_unzip_file(file, src, tar):
+        """
+
+        :param file: 文件路径
+        :param src: 文件内路径
+        :param tar: 目标文件夹
+        :return:
+        """
+        with zipfile.ZipFile(file, mode="r") as zf:
+            zf.extract(src, tar)
+        return True
 
     @staticmethod
     async def getTargetCard(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, user_id=None):

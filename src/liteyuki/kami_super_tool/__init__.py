@@ -1,4 +1,5 @@
 import asyncio
+import os
 import random
 
 import aiohttp
@@ -18,8 +19,8 @@ backup_data = on_command(cmd="备份数据", rule=plugin_enable("kami.super_tool
 statistics_data = on_command(cmd='统计数据', rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
 enable_group = on_command(cmd="群聊启用", rule=plugin_enable("kami.super_tool", False), permission=SUPERUSER | MASTER, priority=10, block=True)
 disable_group = on_command(cmd="群聊停用", rule=plugin_enable("kami.super_tool", False), permission=SUPERUSER | MASTER, priority=10, block=True)
-call_api = on_command(cmd="api", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
-update = on_command(cmd="update", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
+call_api = on_command(cmd="/api", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
+update = on_command(cmd="/update", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
 
 
 @enable_group.handle()
@@ -138,12 +139,24 @@ async def call_api_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessa
 @update.handle()
 async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
     try:
-        await update.send("开始下载")
-        r = await ExtraData.download_file("https://hub.fastgit.xyz/snowyfirefly/Liteyuki/archive/refs/heads/master.zip", os.path.join(ExConfig.res_path, "version/new_code.zip"))
-        if r:
-            await update.send("更新完成")
+        now_version = await ExtraData.get_resource_data(key="liteyuki.bot.version", default="0.0.0")
+        now_version_description = await ExtraData.get_resource_data(key="liteyuki.bot.version_description", default="0.0.0")
+        async with aiohttp.request("GET", url="https://gitee.com/snowykami/Liteyuki/raw/master/resource/resource_database.json") as r:
+            online_version = (await r.json())["liteyuki.bot.version"]
+        if now_version != online_version:
+            await update.send("开始下载更新：%s -> %s" % (now_version, online_version))
+            r = await ExtraData.download_file("https://hub.fastgit.xyz/snowyfirefly/Liteyuki/archive/refs/heads/master.zip",
+                                              os.path.join(ExConfig.res_path, "version/new_code.zip"))
+            print(r.status)
+            if r:
+                await update.send("正在安装，请勿操作机器人控制台！")
+                await ExtraData.async_unzip_file(os.path.join(ExConfig.res_path, "version/new_code.zip"), "Liteyuki-master", os.path.join(ExConfig.cache_path, "new_code"))
+                # shutil.move(os.path.join(ExConfig.cache_path, "new_code", ""))
+                await update.send("更新完成")
+            else:
+                await update.send("下载更新失败")
         else:
-            await update.send("更新失败")
+            await update.send("当前已是最新版本：%s" % now_version(now_version_description))
 
     except BaseException as e:
-        await Session.sendException(bot, event, state, e, "更新失败，也许是网络原因，毕竟国内github经常连不上")
+        await Session.sendException(bot, event, state, e, "检查更新失败")
