@@ -23,8 +23,19 @@ def backup():
     return f, n
 
 
+@run_sync
 def update_move():
     zf = zipfile.ZipFile(os.path.join(ExConfig.res_path, "version/new_code.zip"))
-    for f in zf.namelist():
-        print(f, os.path.join(ExConfig.root_path, "/".join(f.split("/")[1:])))
-        zf.extract(f, os.path.dirname(os.path.join(ExConfig.root_path, "/".join(f.split("/")[1:]))))
+    zf.extractall(os.path.join(ExConfig.cache_path))
+
+    def bianli(path, short):
+        for f in os.listdir(path):
+            short2 = os.path.join(short, f)
+            whole = os.path.join(path, f)
+            if os.path.isdir(whole):
+                bianli(whole, short2)
+            else:
+                print(whole, os.path.join(ExConfig.root_path, short2))
+                shutil.copyfile(whole, os.path.join(ExConfig.root_path, short2))
+
+    bianli(os.path.join(ExConfig.cache_path, "Liteyuki-master"), "")

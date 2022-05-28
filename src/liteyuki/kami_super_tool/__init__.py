@@ -150,7 +150,7 @@ async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
                                               os.path.join(ExConfig.res_path, "version/new_code.zip"))
             if r:
                 await update.send("正在安装")
-                update_move()
+                await update_move()
                 await update.send("更新完成")
             else:
                 await update.send("下载更新失败")
