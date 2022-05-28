@@ -196,6 +196,7 @@ class ExtraData:
                 return False
 
     @staticmethod
+    @run_sync
     def async_unzip_file(file, tar):
         """
 
@@ -206,7 +207,6 @@ class ExtraData:
         """
         with zipfile.ZipFile(file, mode="r") as zf:
             zf.extractall(tar)
-        return True
 
     @staticmethod
     async def getTargetCard(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, user_id=None):

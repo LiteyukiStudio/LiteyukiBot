@@ -1,6 +1,7 @@
 import asyncio
 import os
 import random
+import shutil
 
 import aiohttp
 from nonebot import on_command
@@ -149,8 +150,9 @@ async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
                                               os.path.join(ExConfig.res_path, "version/new_code.zip"))
             if r:
                 await update.send("正在安装，请勿操作机器人控制台！")
-                ExtraData.async_unzip_file(os.path.join(ExConfig.res_path, "version/new_code.zip"), os.path.join(ExConfig.cache_path, "new_code"))
-                # shutil.move(os.path.join(ExConfig.cache_path, "new_code", ""))
+                await ExtraData.async_unzip_file(os.path.join(ExConfig.res_path, "version/new_code.zip"), os.path.join(ExConfig.cache_path, "new_code"))
+                for f in os.listdir(os.path.join(ExConfig.cache_path, "new_code/Liteyuki-master")):
+                    shutil.move(os.path.join(ExConfig.cache_path, "new_code/Liteyuki-master", f), ExConfig.root_path)
                 await update.send("更新完成")
             else:
                 await update.send("下载更新失败")

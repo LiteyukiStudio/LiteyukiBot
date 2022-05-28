@@ -27,13 +27,12 @@ print("依赖安装完成，开始启动轻雪机器人")
 
 if not os.path.exists(os.path.join(ExConfig.root_path, ".env")):
     with open(os.path.join(ExConfig.root_path, ".env"), "w", encoding="utf-8") as file:
-        file.write("""ENVIRONMENT=dev
+        file.write("""ENVIRONMENT=prod
 HOST=127.0.0.1
 PORT=8080
 SUPERUSERS=[]
 SESSION_EXPIRE_TIMEOUT=200
-LOG_LEVEL=DEBUG
-DEBUG=true
+DEBUG=false
 FASTAPI_RELOAD=true
 NICKNAME=["轻雪"]
 SESSION_RUNNING_EXPRESSION="轻雪脑抽中..."
