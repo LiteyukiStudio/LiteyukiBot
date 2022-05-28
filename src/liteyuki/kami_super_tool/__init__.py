@@ -12,7 +12,7 @@ from nonebot.permission import SUPERUSER
 from extraApi.permission import MASTER
 from extraApi.rule import plugin_enable
 from .stApi import *
-
+#    ahhaha
 setConfig = on_command(cmd="设置属性", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
 getConfig = on_command(cmd="获取属性", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
 send_mutil_msg = on_command(cmd="群发消息", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
@@ -149,9 +149,8 @@ async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
             r = await ExtraData.download_file("https://hub.fastgit.xyz/snowyfirefly/Liteyuki/archive/refs/heads/master.zip",
                                               os.path.join(ExConfig.res_path, "version/new_code.zip"))
             if r:
-                await update.send("正在安装，请勿操作机器人控制台！")
-                await ExtraData.async_unzip_file(os.path.join(ExConfig.res_path, "version/new_code.zip"), os.path.join(ExConfig.cache_path, "new_code"))
-                await update_move()
+                await update.send("正在安装")
+                update_move()
                 await update.send("更新完成")
             else:
                 await update.send("下载更新失败")

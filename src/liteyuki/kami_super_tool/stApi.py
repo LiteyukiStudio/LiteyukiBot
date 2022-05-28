@@ -1,8 +1,10 @@
+import os
 import shutil
 
 from nonebot import require
 
 from extraApi.base import *
+import zipfile
 
 scheduler = require("nonebot_plugin_apscheduler").scheduler
 
@@ -20,10 +22,9 @@ def backup():
         n += 1
     return f, n
 
-@run_sync
+
 def update_move():
-    for f in os.listdir(os.path.join(ExConfig.cache_path, "new_code/Liteyuki-master")):
-        try:
-            shutil.move(os.path.join(ExConfig.cache_path, "new_code/Liteyuki-master", f), ExConfig.root_path)
-        except BaseException:
-            pass
+    zf = zipfile.ZipFile(os.path.join(ExConfig.res_path, "version/new_code.zip"))
+    for f in zf.namelist():
+        print(f, os.path.join(ExConfig.root_path, "/".join(f.split("/")[1:])))
+        zf.extract(f, os.path.join(ExConfig.root_path, "/".join(f.split("/")[1:])))
