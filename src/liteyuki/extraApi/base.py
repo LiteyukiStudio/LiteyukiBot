@@ -550,12 +550,9 @@ class Balance:
         :return: 成功
         """
         value = await ExtraData.getData(targetType=ExtraData.User, targetId=user_id, key="favorability", default=20)
-        records = await ExtraData.getData(targetType=ExtraData.User, targetId=user_id, key="favorability_record",
-                                          default=[])
-        records.append({"time": list(time.localtime()), "reason": reason, "change": delta})
+
         value += delta
         await ExtraData.setData(targetType=ExtraData.User, targetId=user_id, key="favorability", value=value)
-        await ExtraData.setData(targetType=ExtraData.User, targetId=user_id, key="favorability_record", value=records)
         return True
 
     @staticmethod
@@ -578,11 +575,8 @@ class Balance:
         :return: 成功
         """
         value = await ExtraData.getData(targetType=ExtraData.User, targetId=user_id, key="coin", default=100)
-        records = await ExtraData.getData(targetType=ExtraData.User, targetId=user_id, key="coin_record", default=[])
-        records.append({"time": list(time.localtime()), "reason": reason, "change": delta})
         value += delta
         await ExtraData.setData(targetType=ExtraData.User, targetId=user_id, key="coin", value=value)
-        await ExtraData.setData(targetType=ExtraData.User, targetId=user_id, key="coin_record", value=records)
         return True
 
     @staticmethod
