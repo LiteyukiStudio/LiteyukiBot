@@ -27,4 +27,4 @@ def update_move():
     zf = zipfile.ZipFile(os.path.join(ExConfig.res_path, "version/new_code.zip"))
     for f in zf.namelist():
         print(f, os.path.join(ExConfig.root_path, "/".join(f.split("/")[1:])))
-        zf.extract(f, os.path.join(ExConfig.root_path, "/".join(f.split("/")[1:])))
+        zf.extract(f, os.path.dirname(os.path.join(ExConfig.root_path, "/".join(f.split("/")[1:]))))
