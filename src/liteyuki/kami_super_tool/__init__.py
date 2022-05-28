@@ -138,7 +138,8 @@ async def call_api_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessa
 @update.handle()
 async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
     try:
-        r = await ExtraData.download_file("https://github.com/snowyfirefly/Liteyuki/archive/refs/heads/master.zip", os.path.join(ExConfig.res_path, "version/new_code.zip"))
+        await update.send("开始下载")
+        r = await ExtraData.download_file("https://hub.fastgit.xyz/snowyfirefly/Liteyuki/archive/refs/heads/master.zip", os.path.join(ExConfig.res_path, "version/new_code.zip"))
         if r:
             await update.send("更新完成")
         else:
