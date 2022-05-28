@@ -151,8 +151,7 @@ async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
             if r:
                 await update.send("正在安装，请勿操作机器人控制台！")
                 await ExtraData.async_unzip_file(os.path.join(ExConfig.res_path, "version/new_code.zip"), os.path.join(ExConfig.cache_path, "new_code"))
-                for f in os.listdir(os.path.join(ExConfig.cache_path, "new_code/Liteyuki-master")):
-                    shutil.move(os.path.join(ExConfig.cache_path, "new_code/Liteyuki-master", f), ExConfig.root_path)
+                await update_move()
                 await update.send("更新完成")
             else:
                 await update.send("下载更新失败")

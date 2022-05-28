@@ -19,3 +19,8 @@ def backup():
         shutil.copy(whole_path, os.path.join(folder, data_json))
         n += 1
     return f, n
+
+@run_sync
+def update_move():
+    for f in os.listdir(os.path.join(ExConfig.cache_path, "new_code/Liteyuki-master")):
+        shutil.move(os.path.join(ExConfig.cache_path, "new_code/Liteyuki-master", f), ExConfig.root_path)

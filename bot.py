@@ -20,11 +20,6 @@ from nonebot.adapters.onebot.v11 import Adapter as ONEBOT_V11Adapter
 sys.path.append(os.path.realpath(os.path.dirname(__file__)) + "/src/liteyuki")
 from extraApi.base import ExConfig
 
-print("正在检查并安装依赖，请稍等")
-os.system("pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple")
-os.system("pip install -r requirements.txt")
-print("依赖安装完成，开始启动轻雪机器人")
-
 if not os.path.exists(os.path.join(ExConfig.root_path, ".env")):
     with open(os.path.join(ExConfig.root_path, ".env"), "w", encoding="utf-8") as file:
         file.write("""ENVIRONMENT=prod
