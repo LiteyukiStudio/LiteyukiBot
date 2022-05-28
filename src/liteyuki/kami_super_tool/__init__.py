@@ -157,7 +157,7 @@ async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
             else:
                 await update.send("下载更新失败")
         else:
-            await update.send("当前已是最新版本：%s" % now_version(now_version_description))
+            await update.send("当前已是最新版本：%s(%s)" % (now_version, now_version_description))
 
     except BaseException as e:
         await Session.sendException(bot, event, state, e, "检查更新失败")
