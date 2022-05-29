@@ -97,7 +97,7 @@ async def getConfigHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEve
             args = list(args)
             args.append(r)
             args.append(type(r))
-            await getConfig.send("%s%s\n%s:%s[%s]" % tuple(args[1:]))
+            await getConfig.send("- 类: %s\n- 值: %s" % (type(r), r))
         else:
             await getConfig.send("你没有权限查看此条目", at_sender=True)
     except BaseException as e:
