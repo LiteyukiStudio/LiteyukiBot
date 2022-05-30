@@ -43,7 +43,7 @@
 
 - 发送liteyuki，若回复测试成功即为安装完成。
 
-- 部分插件正常工作需要[手动配置](https://github.com/snowyfirefly/Liteyuki/blob/master/docs/config.md)`data/g0.json`。
+- 部分插件正常工作需要[手动配置](/docs/config.md)`data/g0.json`。
 
 ## 使用
 

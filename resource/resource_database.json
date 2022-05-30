@@ -1,6 +1,6 @@
 {
-    "liteyuki.bot.version": "3.2.4",
-    "liteyuki.bot.version_description": "import-fix",
+    "liteyuki.bot.version": "3.2.5",
+    "liteyuki.bot.version_description": "sync-fix",
     "kami.weather.city_description": {
         "D03DE": "林檎区",
         "101020100": "魔都",

@@ -6,6 +6,7 @@ from PIL import Image
 from nonebot.adapters.onebot.v11 import Bot, MessageSegment
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent
 from nonebot.typing import T_State
+from .qweather import *
 
 from ..extraApi.base import Session, ExConfig, Log, Balance
 from ..extraApi.cardimage import Cardimage
@@ -25,8 +26,7 @@ async def handleRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMess
             event.raw_message.replace(re.search(r"\d+小时天气", event.raw_message).group(0), "").strip())
     else:
         state["mode"] = "now"
-
-        args, kws = Command.formatToCommand(event.raw_message.replace("兔兔天气查询", "天气").replace("天气", "").strip())
+        args, kws = Command.formatToCommand(event.raw_message.replace("兔兔天气查询", "天气").replace("实时天气", "").replace("天气", "").strip())
 
     if "more" in kws:
         state["more"] = []
@@ -37,41 +37,31 @@ async def handleRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMess
         state["more"] = None
 
     # 处理城市名
-    state["params"] = await ExtraData.getData(targetType=ExtraData.User, targetId=event.user_id,
-                                              key="kami.weather.params", default={})
+    state["user_params"] = await ExtraData.getData(targetType=ExtraData.User, targetId=event.user_id,
+                                                   key="kami.weather.params", default={})
     # 原始内容,除去变量
+    state["params"] = {}
     state["params"].update(kws)
+
     argStr = Command.formatToString(*args)
-    if argStr != "" or "location" in kws:
+    if argStr != "" or "location" in state["params"]:
         # 用户第一次输入了地点文本,或传入location参数
         state["city"] = argStr
     else:
         # 用户第一次没输入地点
         # 检查判断绑定数据有没有字典
-        if "location" not in state["params"]:
+        if "location" not in state["user_params"]:
             # 第二次输入地点文本
             await bot.send(event, message="你想查询哪里的天气呢", at_sender=True)
         else:
-            state["city"] = None
+
+            state["city"] = state["user_params"].get("location")
 
 
 async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
     preview_message = await bot.send(event, "查询天气中...", at_sender=True)
-    if state["city"] is not None:
-        state["params"].update({"location": str(state["city"])})
-        cityList = await getQWCityInfo(state["params"])
-        if cityList["code"] != "200":
-            args = jieba.lcut(str(state["city"]))
-            args.reverse()
-            for i, arg in enumerate(args):
-                if i == 0:
-                    state["params"]["location"] = arg
-                else:
-                    state["params"]["adm"] = arg
-
-            cityList = await getQWCityInfo(state["params"])
-    else:
-        cityList = await getQWCityInfo(state["params"])
+    apikey = await ExtraData.get_global_data(key="kami.weather.key", default="")
+    cityList = await search_cities(str(state["city"]), apikey, **state["params"])
     if cityList["code"] == "200":
         city = cityList["location"][0]
         # 合成图片 失败发文字

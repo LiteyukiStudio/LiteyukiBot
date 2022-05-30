@@ -244,10 +244,10 @@ class ExtraData:
 
         targetType = ExtraData.targetTypeDict[targetType]
         if os.path.exists(os.path.join(ExtraData.databasePath, "%s%s.json" % (targetType, targetId))):
-            async with aiofiles.open(os.path.join(ExtraData.databasePath, "%s%s.json" % (targetType, targetId)),
-                                     encoding='utf-8') as file:
+            with open(os.path.join(ExtraData.databasePath, "%s%s.json" % (targetType, targetId)),
+                      encoding='utf-8') as file:
                 try:
-                    data = json.loads(await file.read())
+                    data = json.loads(file.read())
 
                     if key is None:
                         return data
@@ -306,10 +306,10 @@ class ExtraData:
             data = await ExtraData.getData(targetType, targetId, default=dict())
             data[str(key)] = value
         try:
-            async with aiofiles.open(os.path.join(ExtraData.databasePath, "%s%s.json" % (targetType, targetId)),
-                                     mode='w', encoding='utf-8') as file:
+            with open(os.path.join(ExtraData.databasePath, "%s%s.json" % (targetType, targetId)),
+                      mode='w', encoding='utf-8') as file:
                 jsonText = json.dumps(data, indent=4, ensure_ascii=False)
-                await file.write(jsonText)
+                file.write(jsonText)
                 await Log.plugin_log("extraApi.base", "set_data target:%s%s key:%s value:%s" % (targetType, targetId, key, value if len(str(value)) <= 128 else type(value)))
             return True
         except BaseException:
