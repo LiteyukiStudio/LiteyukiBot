@@ -4,10 +4,10 @@ from nonebot import on_command
 from nonebot.adapters.onebot.v11 import Message, PRIVATE_FRIEND
 from nonebot.message import event_preprocessor
 
-from extraApi.badword import *
-from extraApi.base import Session, Command, Balance
-from extraApi.permission import MASTER
-from extraApi.rule import plugin_enable, BOT_GT_USER, NOT_IGNORED, NOT_BLOCKED, MODE_DETECT
+from ..extraApi.badword import *
+from ..extraApi.base import Session, Command, Balance
+from ..extraApi.permission import MASTER
+from ..extraApi.rule import plugin_enable, BOT_GT_USER, NOT_IGNORED, NOT_BLOCKED, MODE_DETECT
 from nonebot.exception import IgnoredException
 
 

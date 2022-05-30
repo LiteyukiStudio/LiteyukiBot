@@ -1,6 +1,6 @@
 from nonebot import on_keyword
 
-from extraApi.rule import *
+from ..extraApi.rule import *
 from .api import search_data
 
 keywords = {"疫情", "新冠", "病毒"}

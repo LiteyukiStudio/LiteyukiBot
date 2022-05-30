@@ -4,9 +4,9 @@ from nonebot import on_message
 from nonebot.rule import to_me
 from nonebot.typing import T_State
 
-from extraApi.base import Session
-from extraApi.permission import NOTAUTHUSER
-from extraApi.rule import NOT_BLOCKED, MODE_DETECT, NOT_IGNORED
+from ..extraApi.base import Session
+from ..extraApi.permission import NOTAUTHUSER
+from ..extraApi.rule import NOT_BLOCKED, MODE_DETECT, NOT_IGNORED
 from .userApi import *
 from .user_config import *
 

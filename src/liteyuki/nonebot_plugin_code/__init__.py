@@ -11,8 +11,8 @@ from nonebot.adapters.onebot.v11 import Bot, PrivateMessageEvent, GroupMessageEv
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from .run import run
-from extraApi.badword import *
-from extraApi.rule import *
+from ..extraApi.badword import *
+from ..extraApi.rule import *
 
 runcode = on_command(cmd='code',
                      rule=plugin_enable(pluginId="nb.code") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT,

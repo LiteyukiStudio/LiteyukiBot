@@ -5,8 +5,8 @@ import jieba
 from PIL import Image
 from nonebot.adapters.onebot.v11 import Message
 
-from extraApi.base import ExConfig
-from extraApi.cardimage import Cardimage
+from ..extraApi.base import ExConfig
+from ..extraApi.cardimage import Cardimage
 
 
 def match(kw1, kw2):

@@ -12,9 +12,9 @@ from nonebot.permission import SUPERUSER
 from nonebot.rule import to_me
 from nonebot.typing import T_State
 
-from extraApi.base import Log, ExtraData, ExConfig
+from ..extraApi.base import Log, ExtraData, ExConfig
 # 日志记录和模式回复
-from extraApi.rule import NOT_IGNORED, NOT_BLOCKED
+from ..extraApi.rule import NOT_IGNORED, NOT_BLOCKED
 
 driver = get_driver()
 

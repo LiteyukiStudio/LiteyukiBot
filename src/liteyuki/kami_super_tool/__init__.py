@@ -9,9 +9,10 @@ from nonebot.adapters.onebot.v11 import GROUP_OWNER, GROUP_ADMIN, Message
 from nonebot.internal.permission import Permission
 from nonebot.permission import SUPERUSER
 
-from extraApi.permission import MASTER
-from extraApi.rule import plugin_enable
+from ..extraApi.permission import MASTER
+from ..extraApi.rule import plugin_enable
 from .stApi import *
+
 #    ahhaha
 setConfig = on_command(cmd="设置属性", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
 getConfig = on_command(cmd="获取属性", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)

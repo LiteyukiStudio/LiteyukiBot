@@ -15,10 +15,7 @@ from nonebot.adapters.onebot.v11 import Adapter as ONEBOT_V11Adapter
 #            format=default_format)
 
 # You can pass some keyword args config to init function
-# 外部api路径加入运行目录
-
-sys.path.append(os.path.realpath(os.path.dirname(__file__)) + "/src/liteyuki")
-from extraApi.base import ExConfig
+from src.liteyuki.extraApi.base import ExConfig
 
 if not os.path.exists(os.path.join(ExConfig.root_path, ".env")):
     with open(os.path.join(ExConfig.root_path, ".env"), "w", encoding="utf-8") as file:

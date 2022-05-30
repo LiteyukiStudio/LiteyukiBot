@@ -1,8 +1,8 @@
 from nonebot import on_keyword, on_command
 from nonebot.permission import SUPERUSER
 from nonebot.rule import keyword
-from extraApi.permission import MASTER
-from extraApi.rule import *
+from ..extraApi.permission import MASTER
+from ..extraApi.rule import *
 from .config import *
 from .weatherHandle import *
 

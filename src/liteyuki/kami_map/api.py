@@ -1,8 +1,8 @@
-import extraApi
+
 import requests
 import aiohttp
 
-from extraApi.base import Command, ExtraData
+from ..extraApi.base import Command, ExtraData
 
 
 async def get_poi(keywords: str = None, params: dict = None) -> dict:

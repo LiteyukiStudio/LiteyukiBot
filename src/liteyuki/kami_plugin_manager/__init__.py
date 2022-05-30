@@ -7,10 +7,10 @@ from nonebot.permission import SUPERUSER
 # 插件帮助
 from nonebot.typing import T_State
 
-from extraApi.base import Command, Session
-from extraApi.permission import MASTER
-from extraApi.plugin import *
-from extraApi.rule import plugin_enable, NOT_BLOCKED, NOT_IGNORED, MODE_DETECT
+from ..extraApi.base import Command, Session
+from ..extraApi.permission import MASTER
+from ..extraApi.plugin import *
+from ..extraApi.rule import plugin_enable, NOT_BLOCKED, NOT_IGNORED, MODE_DETECT
 
 enablePlugin = on_command(cmd="启用插件", aliases={"停用插件", "开启插件", "关闭插件"}, permission=SUPERUSER | MASTER | GROUP_ADMIN | GROUP_OWNER | PRIVATE_FRIEND, priority=1, block=True)
 

@@ -4,7 +4,7 @@ import re
 
 import aiohttp
 
-from extraApi.base import ExtraData
+from ..extraApi.base import ExtraData
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEvent
 from nonebot.rule import Rule
 from nonebot.rule import to_me

@@ -1,7 +1,7 @@
 from nonebot.adapters.onebot.v11 import Bot, PrivateMessageEvent
 from nonebot.rule import Rule
 from nonebot.typing import T_State
-from extraApi.base import ExtraData
+from ..extraApi.base import ExtraData
 
 
 @Rule

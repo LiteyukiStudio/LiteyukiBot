@@ -1,18 +1,14 @@
 import os.path
 import platform
 import random
-
-import aiofiles
-import aiohttp
 from PIL import Image
 from nonebot import on_command, on_notice
 from nonebot.adapters.onebot.v11 import NoticeEvent, Message
-
-from extraApi.base import Balance, Command
-from extraApi.cardimage import Cardimage
-from extraApi.permission import MASTER
-from extraApi.rule import plugin_enable, MODE_DETECT
 from .auturun import *
+from ..extraApi.base import Balance, Command
+from ..extraApi.cardimage import Cardimage
+from ..extraApi.permission import MASTER
+from ..extraApi.rule import plugin_enable, MODE_DETECT
 
 about = on_command(cmd="about", aliases={"关于轻雪"},
                    rule=plugin_enable("kami.base") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,

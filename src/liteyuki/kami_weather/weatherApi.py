@@ -4,7 +4,7 @@ from typing import Union
 import aiohttp
 from nonebot.typing import T_State
 
-from extraApi.base import ExtraData, Command
+from ..extraApi.base import ExtraData, Command
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEvent
 from nonebot.rule import Rule, startswith, endswith
 

@@ -7,8 +7,8 @@ from nonebot.adapters.onebot.v11 import Bot, MessageSegment
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent
 from nonebot.typing import T_State
 
-from extraApi.base import Session, ExConfig, Log, Balance
-from extraApi.cardimage import Cardimage
+from ..extraApi.base import Session, ExConfig, Log, Balance
+from ..extraApi.cardimage import Cardimage
 from .weatherApi import *
 
 

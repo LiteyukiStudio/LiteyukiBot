@@ -2,7 +2,7 @@ import smtplib
 import traceback
 from email.mime.text import MIMEText
 
-from extraApi.base import ExtraData
+from ..extraApi.base import ExtraData
 
 
 async def sendAuthCode(email: str, auth_code: str):

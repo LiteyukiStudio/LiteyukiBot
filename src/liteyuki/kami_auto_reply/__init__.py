@@ -1,14 +1,12 @@
-import asyncio
 import time
 
+import asyncio
 from nonebot import on_message, on_command
 from nonebot.adapters.onebot.v11 import Message, PRIVATE_FRIEND
-
-from extraApi.badword import *
-from extraApi.permission import AUTHUSER
-from extraApi.rule import *
 from numpy import mean
 from .arApi import *
+from ..extraApi.badword import *
+from ..extraApi.rule import *
 
 listener = on_message(rule=plugin_enable("kami.auto_reply") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                       priority=30)

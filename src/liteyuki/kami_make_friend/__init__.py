@@ -3,9 +3,9 @@ import time
 
 from nonebot import on_command, on_message
 from datetime import datetime
-from extraApi.base import Session, Command
-from extraApi.permission import AUTHUSER, MASTER
-from extraApi.rule import plugin_enable, NOT_IGNORED, NOT_BLOCKED, MODE_DETECT
+from ..extraApi.base import Session, Command
+from ..extraApi.permission import AUTHUSER, MASTER
+from ..extraApi.rule import plugin_enable, NOT_IGNORED, NOT_BLOCKED, MODE_DETECT
 from .mfApi import *
 from ..kami_music.musicApi import getMusic
 

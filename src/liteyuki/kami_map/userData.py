@@ -4,8 +4,8 @@ from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, 
 from nonebot import on_command
 from nonebot.typing import T_State
 
-from extraApi.base import Session
-from extraApi.rule import plugin_enable
+from ..extraApi.base import Session
+from ..extraApi.rule import plugin_enable
 
 bind_home = on_command(cmd="设置家庭地址", rule=plugin_enable("kami.map"), priority=10, block=True)
 

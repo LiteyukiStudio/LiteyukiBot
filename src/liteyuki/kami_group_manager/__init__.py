@@ -1,8 +1,8 @@
 import random
 
-from extraApi.base import Command, Session, Balance, ExtraData
-from extraApi.permission import MASTER
-from extraApi.rule import *
+from ..extraApi.base import Command, Session, Balance, ExtraData
+from ..extraApi.permission import MASTER
+from ..extraApi.rule import *
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import GROUP_OWNER, GROUP_ADMIN, Bot, GroupMessageEvent, MessageSegment, Message
 from nonebot.permission import SUPERUSER
