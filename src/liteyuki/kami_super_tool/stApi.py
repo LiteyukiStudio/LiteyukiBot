@@ -3,7 +3,7 @@ import shutil
 
 from nonebot import require
 
-from extraApi.base import *
+from ..extraApi.base import *
 import zipfile
 
 scheduler = require("nonebot_plugin_apscheduler").scheduler

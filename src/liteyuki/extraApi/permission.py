@@ -1,6 +1,6 @@
 import aiofiles
 
-from extraApi.base import ExtraData, ExConfig
+from .base import ExtraData, ExConfig
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEvent
 from nonebot.internal.permission import Permission
 

@@ -2,8 +2,8 @@ from typing import Union, Tuple
 
 from nonebot.permission import SUPERUSER
 
-from extraApi.plugin import *
-from extraApi.base import ExtraData, Balance, Session
+from .plugin import *
+from .base import ExtraData, Balance, Session
 
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEvent
 from nonebot.rule import Rule

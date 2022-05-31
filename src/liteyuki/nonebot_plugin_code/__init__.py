@@ -4,8 +4,7 @@
 # @Author  : yzyyz
 # @Email   :  youzyyz1384@qq.com
 # @File    : __init__.py.py
-# @Software: PyCharm
-from extraApi.rule import plugin_enable
+# @Software: PyCh
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import Bot, PrivateMessageEvent, GroupMessageEvent, Message
 from nonebot.permission import SUPERUSER

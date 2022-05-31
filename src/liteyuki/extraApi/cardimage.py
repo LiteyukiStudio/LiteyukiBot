@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import uuid
 from PIL import Image, ImageFont, ImageDraw
-from extraApi.base import ExConfig
+from .base import ExConfig
 from typing import Tuple
 from nonebot.utils import run_sync
 

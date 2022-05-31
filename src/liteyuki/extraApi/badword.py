@@ -5,8 +5,8 @@ from nonebot.permission import SUPERUSER
 from nonebot.rule import Rule
 from nonebot.typing import T_State
 
-from extraApi.base import ExtraData, Log, Command
-from extraApi.permission import MASTER
+from .base import ExtraData, Log, Command
+from .permission import MASTER
 
 
 @Rule

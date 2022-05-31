@@ -4,7 +4,7 @@ from typing import List, Any
 
 import aiofiles
 
-from extraApi.base import ExConfig, ExtraData
+from .base import ExConfig, ExtraData
 
 
 class Plugin:
