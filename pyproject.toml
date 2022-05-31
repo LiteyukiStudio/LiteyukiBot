@@ -14,7 +14,7 @@ nb-cli = "^0.6.0"
 
 [tool.nonebot]
 plugins = ["nonebot_plugin_apscheduler"]
-plugin_dirs = ["src/liteyuki"]
+plugin_dirs = ["src/liteyuki-built-in", "src/nonebot_plugin"]
 
 [build-system]
 requires = ["poetry_core>=1.0.0"]
