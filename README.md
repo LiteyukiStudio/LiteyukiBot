@@ -4,7 +4,9 @@
 
 # Liteyuki Bot
 
-### 基于[Nonebot](https://v2.nonebot.dev/)库和[go-cqhttp](https://docs.go-cqhttp.org/)的QQ机器人
+### 轻雪机器人
+
+#### 基于[Nonebot](https://v2.nonebot.dev/)库和[go-cqhttp](https://docs.go-cqhttp.org/)的QQ机器人
 
 </div>
 
