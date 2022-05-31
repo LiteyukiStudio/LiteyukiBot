@@ -61,6 +61,7 @@ async def handleRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMess
 async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
     preview_message = await bot.send(event, "查询天气中...", at_sender=True)
     apikey = await ExtraData.get_global_data(key="kami.weather.key", default="")
+    api_key_type = await ExtraData.get_global_data(key="kami.weather.key_type", default="dev")
     cityList = await search_cities(str(state["city"]), apikey, **state["params"])
     if cityList["code"] == "200":
         city = cityList["location"][0]
@@ -239,10 +240,8 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                     try:
                         sun_pos = await weather_card.addImage(uvSize=(1, 1), boxSize=(0.08, 0.08), xyOffset=(0, 0), baseAnchor=(0.82, sub_text_center_line), imgAnchor=(0.5, 0.5),
                                                               img=Image.open(os.path.join(ExConfig.res_path, "textures/weather/日出日落.png")))
-                        daily_weather_data = await getQWDaysWeather(city={"id": state["params"].get("location", "")}, days=1,
-                                                                    params=Command.get_keywords(state["params"],
-                                                                                                {"lang": "zh", "location": state["params"].get("location", ""), "adm": "",
-                                                                                                 "unit": "m"}))
+                        daily_weather_data = await get_daily_weather(location=city_id, key=apikey, dev=True if api_key_type == "dev" else False, days=1,
+                                                                     lang=state["params"].get("lang", "zh"), unit=state["params"].get("unit", "m"))
                         await weather_card.addText(uvSize=(1, 1), boxSize=(0.4, lite_font_size), xyOffset=(0, 0),
                                                    baseAnchor=(sun_pos[2] + 0.008, sub_text_center_line), textAnchor=(0, 1),
                                                    content="%s" % daily_weather_data["daily"][0]["sunrise"],
@@ -260,10 +259,8 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                     try:
                         x_point_hourly = 0
                         hours = Balance.clamp(int(state["params"].get("hours", 8)), 0, 168)
-                        hourly_weather_data = await getQWHoursWeather(city={"id": state["params"].get("location", "")}, hours=hours,
-                                                                      params=Command.get_keywords(state["params"],
-                                                                                                  {"lang": "zh", "location": state["params"].get("location", ""), "adm": "",
-                                                                                                   "unit": "m"}))
+                        hourly_weather_data = await get_hourly_weather(location=city_id, key=apikey, hours=hours, dev=True if api_key_type == "dev" else False,
+                                                                       lang=state["params"].get("lang", "zh"), unit=state["params"].get("unit", "m"))
                         hourly_temp_max = max([float(hourly["temp"]) for hourly in hourly_weather_data["hourly"][0:hours]]) + 1
                         hourly_temp_min = min([float(hourly["temp"]) for hourly in hourly_weather_data["hourly"][0:hours]]) - 1
                         temp_section = hourly_temp_max - hourly_temp_min
@@ -348,7 +345,8 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                     "实时天气", weatherInfo["code"]), at_sender=True)
 
         elif state["mode"] == "multiPre":
-            weatherData = await getQWDaysWeather(city, state["days"], state["params"])
+            weatherData = await get_daily_weather(location=city_id, key=apikey, days=state["days"], dev=True if api_key_type == "dev" else False,
+                                                  lang=state["params"].get("lang", "zh"), unit=state["params"].get("unit", "m"))
             if weatherData["code"] == "200":
                 reply = "%s %s日预报:" % (cityName, state["days"])
                 for day in weatherData["daily"][0:state["days"]]:
@@ -371,7 +369,8 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                 await bot.send(event, message="%s查询失败: %s\nhttps://dev.qweather.com/docs/resource/status-code/" % (
                     "%s日预报天气" % state["days"], weatherData["code"]), at_sender=True)
         elif state["mode"] == "hourPre":
-            weatherData = await getQWHoursWeather(city, state["hours"], state["params"])
+            weatherData = await get_hourly_weather(location=city_id, key=apikey, dev=True if api_key_type == "dev" else False, hours=state["hours"],
+                                                   lang=state["params"].get("lang", "zh"), unit=state["params"].get("unit", "m"))
             if weatherData["code"] == "200":
                 reply = "%s %s小时预报:" % (cityName, state["hours"])
                 for hour in weatherData["hourly"][0:state["hours"]]:

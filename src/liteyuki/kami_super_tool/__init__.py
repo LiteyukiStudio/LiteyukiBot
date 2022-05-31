@@ -147,7 +147,7 @@ async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
             online_version = (await r.json())["liteyuki.bot.version"]
         if now_version != online_version:
             await update.send("开始下载更新：%s -> %s" % (now_version, online_version))
-            r = await ExtraData.download_file("https://hub.fastgit.xyz/snowyfirefly/Liteyuki/archive/refs/heads/master.zip",
+            r = await ExtraData.download_file("https://github.com/snowyfirefly/Liteyuki/archive/refs/heads/master.zip",
                                               os.path.join(ExConfig.res_path, "version/new_code.zip"))
             if r:
                 await update.send("正在安装")
