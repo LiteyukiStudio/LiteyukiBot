@@ -20,10 +20,10 @@ class Plugin:
                 self.defaultStats = data.get("default", True)
                 self.path = fp
         except BaseException:
-            self.pluginId = "PluginIdError"
-            self.pluginName = "PluginNameError"
+            self.pluginId = os.path.basename(fp)
+            self.pluginName = os.path.basename(fp)
             self.defaultStats = True
-            self.path = None
+            self.path = fp
         try:
             with open(os.path.join(fp, "config/docs.txt"), "r", encoding="utf-8") as file:
                 self.pluginDocs = file.read()
@@ -62,6 +62,10 @@ def getPluginList() -> List[Plugin]:
     for f in os.listdir(ExConfig.plugins_path):
         if os.path.exists(os.path.join(ExConfig.plugins_path, f, "__init__.py")):
             pluginList.append(Plugin(os.path.join(ExConfig.plugins_path, f)))
+
+    for e_f in os.listdir(ExConfig.nonebot_plugin_path):
+        if os.path.exists(os.path.join(ExConfig.nonebot_plugin_path, e_f, "__init__.py")):
+            pluginList.append(Plugin(os.path.join(ExConfig.nonebot_plugin_path, e_f)))
     return pluginList
 
 
