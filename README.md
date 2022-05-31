@@ -1,5 +1,7 @@
 <div align="center">
 
+![图片](/docs/img/luxun.png)
+
 # Liteyuki Bot
 
 ### 基于[Nonebot](https://v2.nonebot.dev/)库和[go-cqhttp](https://docs.go-cqhttp.org/)的QQ机器人
@@ -52,12 +54,12 @@
 
 ```json
 {
-    "name": "示例插件",
-    //插件名，不可重复
-    "id": "example.example",
-    // 插件id，不可重复
-    "default": true
-    // 默认状态
+  "name": "示例插件",
+  //插件名，不可重复
+  "id": "example.example",
+  // 插件id，不可重复
+  "default": true
+  // 默认状态
 }
 ```
 
