@@ -114,19 +114,19 @@ async def covid_data_format_to_message(data: dict):
     await card.addText(uvSize=(1, 1), boxSize=(0.7, 0.15), xyOffset=(0, 0), baseAnchor=(0.05, 0.05), textAnchor=(0, 0),
                        content=data.get("wholeName", data.get("name", "未知地点")), color=(255, 255, 255, 255))
 
-    now_pos = await card.addText(uvSize=(1, 1), boxSize=(0.7, 0.1), xyOffset=(0, 0), baseAnchor=(0.05, 0.3),
+    now_pos = await card.addText(uvSize=(1, 1), boxSize=(0.9, 0.08), xyOffset=(0, 0), baseAnchor=(0.05, 0.3),
                                  textAnchor=(0, 0), content="现有确诊: %s(%s)" % (confirmNow, confirmNowAdd),
-                                 color=(255, 255, 255, 255))
-    await card.addText(uvSize=(1, 1), boxSize=(0.7, 0.1), xyOffset=(0, 0), baseAnchor=(0.05, 0.4), textAnchor=(0, 0),
-                       content="累计确诊: %s(%s)" % (confirmTotal, confirmTotalAdd), color=(255, 255, 255, 255))
-    await card.addText(uvSize=(1, 1), boxSize=(0.7, 0.1), xyOffset=(0, 0), baseAnchor=(0.05, 0.5), textAnchor=(0, 0),
+                                 color=(255, 255, 255, 255), force_size=True)
+    await card.addText(uvSize=(1, 1), boxSize=(0.9, 0.08), xyOffset=(0, 0), baseAnchor=(0.05, 0.4), textAnchor=(0, 0),
+                       content="累计确诊: %s(%s)" % (confirmTotal, confirmTotalAdd), color=(255, 255, 255, 255), force_size=True)
+    await card.addText(uvSize=(1, 1), boxSize=(0.9, 0.08), xyOffset=(0, 0), baseAnchor=(0.05, 0.5), textAnchor=(0, 0),
                        content="累计治愈: %s(%s)" % (healTotal,
-                                                 healTotalAdd), color=(255, 255, 255, 255))
-    await card.addText(uvSize=(1, 1), boxSize=(0.7, 0.1), xyOffset=(0, 0), baseAnchor=(0.05, 0.6), textAnchor=(0, 0),
-                       content="累计死亡: %s(%s)" % (deadTotal, deadTotalAdd), color=(255, 255, 255, 255))
-    await card.addText(uvSize=(1, 1), boxSize=(0.7, 0.1), xyOffset=(0, 0), baseAnchor=(0.05, 0.7), textAnchor=(0, 0),
-                       content="境外输入: %s(%s)" % (inputNow, inputAdd), color=(255, 255, 255, 255))
+                                                 healTotalAdd), color=(255, 255, 255, 255), force_size=True)
+    await card.addText(uvSize=(1, 1), boxSize=(0.9, 0.08), xyOffset=(0, 0), baseAnchor=(0.05, 0.6), textAnchor=(0, 0),
+                       content="累计死亡: %s(%s)" % (deadTotal, deadTotalAdd), color=(255, 255, 255, 255), force_size=True)
+    await card.addText(uvSize=(1, 1), boxSize=(0.9, 0.08), xyOffset=(0, 0), baseAnchor=(0.05, 0.7), textAnchor=(0, 0),
+                       content="境外输入: %s(%s)" % (inputNow, inputAdd), color=(255, 255, 255, 255), force_size=True)
 
     await card.addText(uvSize=(1, 1), boxSize=(0.7, 0.05), xyOffset=(0, 0), baseAnchor=(0.95, 0.95), textAnchor=(1, 1),
-                       content=data.get("lastUpdateTime"), color=Cardimage.hex2dec("ffa4a4a4"))
+                       content="更新时间：" + data.get("lastUpdateTime"), color=Cardimage.hex2dec("ffeeeeee"))
     return Message("[CQ:image,file=file:///%s]" % await card.getPath()), card
