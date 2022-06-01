@@ -37,4 +37,4 @@ def update_move():
                 print(whole, os.path.join(ExConfig.root_path, short2))
                 shutil.copyfile(whole, os.path.join(ExConfig.root_path, short2))
 
-    bianli(os.path.join(ExConfig.cache_path, "Liteyuki-master"), "")
+    bianli(os.path.join(ExConfig.cache_path, "Liteyuki-Bot-master"), "")

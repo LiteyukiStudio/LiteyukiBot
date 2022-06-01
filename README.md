@@ -89,7 +89,7 @@
 - 加我qq[2238694726](http://ti.qq.com/friend/recall?uin=2238694726)
 
 #### 4.捐赠
-
+- 作者已经吃不起饭，睡大街了(doge)，如果你觉得此项目不错的话可以给作者一些鼓励，这将会是我继续维护的动力
 - 微信-WeChat
   ![捐赠：微信](/docs/img/donate_wechat.png)
 - 支付宝-Alipay
