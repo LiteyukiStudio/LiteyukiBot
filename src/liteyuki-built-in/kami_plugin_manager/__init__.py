@@ -1,5 +1,5 @@
 from nonebot import on_command
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Bot, GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Bot, GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND, Message
 from nonebot.permission import SUPERUSER
 # 插件开关
 # 插件详情
@@ -86,9 +86,9 @@ async def listPluginHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEv
 
             if plugin is not None:
                 if len(args) == 2:
-                    await listPlugin.send("%s帮助文档：\n\n" % plugin.pluginName + plugin.pluginDocs)
+                    await listPlugin.send(Message("%s帮助文档：\n\n" % plugin.pluginName + plugin.pluginDocs))
                 else:
-                    await listPlugin.send("%s帮助文档：\n\n" % "-".join(args[2:]) + await plugin.get_sub_docs(args[2:], plugin_name=plugin.pluginName))
+                    await listPlugin.send(Message("%s帮助文档：\n\n" % "-".join(args[2:]) + await plugin.get_sub_docs(args[2:], plugin_name=plugin.pluginName)))
             else:
                 await listPlugin.send("未找到插件")
 
