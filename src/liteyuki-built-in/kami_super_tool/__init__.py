@@ -138,18 +138,30 @@ async def call_api_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessa
 @update.handle()
 async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
     try:
+        args, kwargs = Command.formatToCommand(event.raw_message)
+
         now_version = await ExtraData.get_resource_data(key="liteyuki.bot.version", default="0.0.0")
         now_version_description = await ExtraData.get_resource_data(key="liteyuki.bot.version_description", default="0.0.0")
-        async with aiohttp.request("GET", url="https://gitee.com/snowykami/Liteyuki/raw/master/resource/resource_database.json") as r:
-            online_version = (await r.json())["liteyuki.bot.version"]
+        async with aiohttp.request("GET", url="https://gitee.com/snowykami/Liteyuki/raw/master/resource/resource_database.json") as resp:
+            online_version = (await resp.json())["liteyuki.bot.version"]
         if now_version != online_version:
-            await update.send("开始下载更新：%s -> %s" % (now_version, online_version))
-            r = await ExtraData.download_file("https://github.com/snowyfirefly/Liteyuki/archive/refs/heads/master.zip",
-                                              os.path.join(ExConfig.res_path, "version/new_code.zip"))
+            source_list: list = (await resp.json())["liteyuki.bot.version_download"]
+            if "mirror" in kwargs:
+                source_list.insert(0, kwargs["mirror"])
+            for i, url in source_list:
+                try:
+                    await update.send("%s下载更新：\n%s -> %s，源：%s" % ("开始" if i == 0 else "当前源不可用，正在从其他源重试", now_version, online_version, url))
+                    r = await ExtraData.download_file(url, os.path.join(ExConfig.res_path, "version/new_code.zip"))
+                    if r:
+                        break
+                except BaseException:
+                    continue
+            else:
+                r = False
             if r:
                 await update.send("正在安装")
                 await update_move()
-                await update.send("更新完成")
+                await update.send("更新安装完成，正在重启，若重启失败请手动重启")
             else:
                 await update.send("下载更新失败")
         else:

@@ -1,6 +1,10 @@
 {
-    "liteyuki.bot.version": "3.2.8",
+    "liteyuki.bot.version": "3.2.9",
     "liteyuki.bot.version_description": "天气api更新",
+    "liteyuki.bot.version_download": [
+        "https://github.com/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip",
+        "https://hub.fastgit.xyz/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip"
+    ],
     "kami.weather.city_description": {
         "D03DE": "林檎区",
         "101020100": "魔都",
