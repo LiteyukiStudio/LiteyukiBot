@@ -15,6 +15,7 @@ cache/
 log/
 data/
 src/plugins老/
+src/nonebot_plugin/
 resource/version/new_code.zip
 src/python/
 .env.dev
@@ -148,4 +149,3 @@ dmypy.json
 # pytype static type analyzer
 .pytype/
 
-# End of https://www.toptal.com/developers/gitignore/api/python

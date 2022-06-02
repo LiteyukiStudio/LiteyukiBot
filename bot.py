@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os
-import sys
 import nonebot
 from nonebot.adapters.onebot.v11 import Adapter as ONEBOT_V11Adapter
 
@@ -15,7 +14,7 @@ from nonebot.adapters.onebot.v11 import Adapter as ONEBOT_V11Adapter
 #            format=default_format)
 
 # You can pass some keyword args config to init function
-from src.liteyuki.extraApi.base import ExConfig
+from src.extraApi.base import ExConfig
 
 if not os.path.exists(os.path.join(ExConfig.root_path, ".env")):
     with open(os.path.join(ExConfig.root_path, ".env"), "w", encoding="utf-8") as file:

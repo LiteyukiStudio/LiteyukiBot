@@ -4,7 +4,10 @@
 
 # Liteyuki Bot
 
-### 基于[Nonebot](https://v2.nonebot.dev/)库的QQ机器人
+
+### 轻雪机器人
+
+#### 基于[Nonebot](https://v2.nonebot.dev/)库的QQ机器人
 
 </div>
 
@@ -90,3 +93,11 @@
 
 - 请提交issue
 - 加我qq[2238694726](http://ti.qq.com/friend/recall?uin=2238694726)
+
+
+#### 4.捐赠
+
+- 微信-WeChat
+  ![捐赠：微信](/docs/img/donate_wechat.png)
+- 支付宝-Alipay
+  ![捐赠：支付宝](/docs/img/donate_alipay.png)
