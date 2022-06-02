@@ -132,7 +132,7 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                     font_80 = os.path.join(ExConfig.res_path, state["params"].get("font1", "fonts/MiSans-Heavy.ttf"))
                     font_60 = os.path.join(ExConfig.res_path, state["params"].get("font2", "fonts/MiSans-Semibold.ttf"))
 
-                    base_img = Image.open(os.path.join(ExConfig.res_path, "textures/weather/mesh_4xx.png"))
+                    base_img = Image.open(os.path.join(ExConfig.res_path, "textures/weather/mesh_4xx_b.png"))
                     weather_card: Cardimage = Cardimage(baseImg=base_img)
                     # 城市名和国家 编号
                     city_pos = await weather_card.addText(uvSize=(1, 1), boxSize=(0.45, 0.075), xyOffset=(0, 0),
@@ -237,7 +237,7 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                     try:
                         sun_pos = await weather_card.addImage(uvSize=(1, 1), boxSize=(0.08, 0.08), xyOffset=(0, 0), baseAnchor=(0.82, sub_text_center_line), imgAnchor=(0.5, 0.5),
                                                               img=Image.open(os.path.join(ExConfig.res_path, "textures/weather/日出日落.png")))
-                        daily_weather_data = await CityWeatherApi.get_daily_weather(location=city_id, key=apikey, dev=True if api_key_type == "dev" else False, days=1,
+                        daily_weather_data = await CityWeatherApi.get_daily_weather(location=city_id, key=apikey, key_type=api_key_type, days=1,
                                                                                     lang=state["params"].get("lang", "zh"), unit=state["params"].get("unit", "m"))
                         await weather_card.addText(uvSize=(1, 1), boxSize=(0.4, lite_font_size), xyOffset=(0, 0),
                                                    baseAnchor=(sun_pos[2] + 0.008, sub_text_center_line), textAnchor=(0, 1),
@@ -256,7 +256,7 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                     try:
                         x_point_hourly = 0
                         hours = Balance.clamp(int(state["params"].get("hours", 8)), 0, 168)
-                        hourly_weather_data = await CityWeatherApi.get_hourly_weather(location=city_id, key=apikey, hours=hours, dev=True if api_key_type == "dev" else False,
+                        hourly_weather_data = await CityWeatherApi.get_hourly_weather(location=city_id, key=apikey, hours=hours, key_type=api_key_type,
                                                                                       lang=state["params"].get("lang", "zh"), unit=state["params"].get("unit", "m"))
                         hourly_temp_max = max([float(hourly["temp"]) for hourly in hourly_weather_data["hourly"][0:hours]]) + 1
                         hourly_temp_min = min([float(hourly["temp"]) for hourly in hourly_weather_data["hourly"][0:hours]]) - 1
