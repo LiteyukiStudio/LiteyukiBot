@@ -102,33 +102,53 @@ class GeoApi:
                   "lang": kwargs.get("lang", "zh")}
         if kwargs.get("city") is not None:
             params["city"] = kwargs.get("city")
+        async with aiohttp.request("GET", url=url, params=params, headers=headers) as response:
+            return await response.json()
+
+    @staticmethod
+    async def range_poi(location: str, _type: str, key: str, **kwargs) -> dict:
+        """
+
+        :param location:
+        :param _type:
+        :param key:
+        :param kwargs:
+        :return:
+
+        https://dev.qweather.com/docs/api/geo/poi-range/
+        """
+        url = "https://geoapi.qweather.com/v2/poi/range?"
+        params = {"location": kwargs.get("location", location), "type": kwargs.get("type", _type), "key": kwargs.get("key", key),
+                  "radius": kwargs.get("radius", "5"), "number": kwargs.get("number", "10"), "lang": kwargs.get("lang", "zh")}
+        async with aiohttp.request("GET", url=url, params=params, headers=headers) as response:
+            return await response.json()
 
 
 class CityWeatherApi:
 
     @staticmethod
-    async def get_now_weather(location: str, key: str, dev: True, **kwargs) -> dict:
+    async def get_now_weather(location: str, key: str, key_type: str, **kwargs) -> dict:
         """
+        :param key_type: dev or com
         :param location: search_cities获取的城市id或者经纬度
         :param key: 和风天气key
-        :param dev: 是否为开发版
         :param kwargs: https://dev.qweather.com/docs/api/weather/weather-now/
         :return: {}
 
         实时天气
         """
-        url = url = "https://%sapi.qweather.com/v7/weather/now?" % ("dev" if dev else "")
+        url = url = "https://%sapi.qweather.com/v7/weather/now?" % ("dev" if key_type == "dev" else "")
         params = {"location": kwargs.get("location", location), "key": kwargs.get("key", key), "lang": kwargs.get("lang", "zh"), "unit": kwargs.get("unit", "m")}
         async with aiohttp.request("GET", url, params=params, headers=headers) as response:
             return await response.json()
 
     @staticmethod
-    async def get_daily_weather(location: str, key: str, days: int, dev: True, **kwargs) -> dict:
+    async def get_daily_weather(location: str, key: str, days: int, key_type: str, **kwargs) -> dict:
         """
+        :param key_type:
         :param days: 天数[1, 30]，开发版支持3,7 商业版支持3,7,10,15,30，返回区间最大数量
         :param location:
         :param key:
-        :param dev:
         :param kwargs: https://dev.qweather.com/docs/api/weather/weather-daily-forecast/
         :return:
 
@@ -142,18 +162,18 @@ class CityWeatherApi:
         else:
             days = days_list[-1]
 
-        url = "https://%sapi.qweather.com/v7/weather/%sd?" % ("dev" if dev else "", days)
+        url = "https://%sapi.qweather.com/v7/weather/%sd?" % ("dev" if key_type == "dev" else "", days)
         params = {"location": kwargs.get("location", location), "key": kwargs.get("key", key), "lang": kwargs.get("lang", "zh"), "unit": kwargs.get("unit", "m")}
         async with aiohttp.request("GET", url, params=params, headers=headers) as response:
             return await response.json()
 
     @staticmethod
-    async def get_hourly_weather(location: str, key: str, hours: int, dev: True, **kwargs) -> dict:
+    async def get_hourly_weather(location: str, key: str, hours: int, key_type: str, **kwargs) -> dict:
         """
+        :param key_type:
         :param hours: 1-168，但返回的是区间最大数量
         :param location:
         :param key:
-        :param dev:
         :param kwargs:
         :return:
 
@@ -167,7 +187,45 @@ class CityWeatherApi:
         else:
             hours = hours_list[-1]
 
-        url = "https://%sapi.qweather.com/v7/weather/%sh?" % ("dev" if dev else "", hours)
+        url = "https://%sapi.qweather.com/v7/weather/%sh?" % ("dev" if key_type == "dev" else "", hours)
         params = {"location": kwargs.get("location", location), "key": kwargs.get("key", key), "lang": kwargs.get("lang", "zh"), "unit": kwargs.get("unit", "m")}
         async with aiohttp.request("GET", url, params=params, headers=headers) as response:
             return await response.json()
+
+
+class PointWeatherApi:
+    # 格点天气API
+
+    @staticmethod
+    async def minutely_precip(location: str, key: str, **kwargs) -> dict:
+        """
+        :param location: 经纬度
+        :param key:
+        :param kwargs:
+        :return:
+
+        https://dev.qweather.com/docs/api/grid-weather/minutely/
+        """
+        url = "https://api.qweather.com/v7/minutely/5m?"
+        params = {"location": kwargs.get("location", location), "key": kwargs.get("key", key), "lang": kwargs.get("lang", "zh")}
+        async with aiohttp.request("GET", url=url, params=params, headers=headers) as response:
+            return await response.json()
+
+
+class AirApi:
+    # 空气Api
+    @staticmethod
+    async def now_air(location: str, key: str, dev: bool, lang: str = "zh", **kwargs):
+        """
+        :param dev: 是否为开发版
+        :param location:
+        :param key:
+        :param lang:
+        :return:
+
+        https://dev.qweather.com/docs/api/air/air-now/
+
+        实时空气质量
+        """
+        url = "https://%sapi.qweather.com/v7/air/now?"
+        params = {"location": kwargs.get("location", location), "key": kwargs.get("key", key), }
