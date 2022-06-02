@@ -20,7 +20,7 @@ driver = get_driver()
 
 @driver.on_startup
 async def folder_check():
-    folders = [ExConfig.cache_path, ExConfig.data_path, ExConfig.data_backup_path, ExConfig.log_path]
+    folders = [ExConfig.cache_path, ExConfig.data_path, ExConfig.data_backup_path, ExConfig.log_path, ExConfig.plugins_path, ExConfig.nonebot_plugin_path]
     for folder in folders:
         if not os.path.exists(folder):
             os.makedirs(folder)

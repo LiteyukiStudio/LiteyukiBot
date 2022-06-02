@@ -4,9 +4,10 @@
 
 # Liteyuki Bot
 
+
 ### 轻雪机器人
 
-#### 基于[Nonebot](https://v2.nonebot.dev/)库和[go-cqhttp](https://docs.go-cqhttp.org/)的QQ机器人
+#### 基于[Nonebot](https://v2.nonebot.dev/)库的QQ机器人
 
 </div>
 
@@ -17,12 +18,13 @@
 ## 安装
 
 #### 1.安装Python3.10运行环境
-
+##### Windows
 - 机器人是需要Python运行环境的，就像我的世界Java版需要Java运行环境
 - 转到[下载页面](https://www.python.org/downloads/release/python-3100/)，选择你需要的版本下载，记得勾选Add Python to environment variables
 - 不会请看[这里](https://zhuanlan.zhihu.com/p/344887837)
-
-#### 2.安装go-cqhttp
+##### Linux
+- 如果发行版已提供Python3.10的软件包，则直接通过包管理器安装即可。若无，请参考[此教程](https://blog.csdn.net/weixin_43935402/article/details/121416812)
+#### 2.安装机器人适配器（以[go-cqhttp](https://docs.go-cqhttp.org/)为例）
 
 - 这是一个适配器，通俗易懂来说就是一个特殊的qq客户端，它能接收消息并上报给机器人，就好比手机qq能将消息通知给你，而此时的你是机器人
 - 转到[下载页面](https://github.com/Mrs4s/go-cqhttp/releases)，选择适合你系统的版本进行下载
@@ -31,8 +33,12 @@
 
 #### 3.下载(更新)机器人
 
-- 点击github页面那个绿色的`code`按钮，再点击download ZIP
-- 解压ZIP，打开根目录（包含`bot.py`文件的目录），右键单击空白处，在此打开终端/cmd，输入`pip install -r requirements.txt`并回车，等待完成
+- 安装[Git](http://git-scm.com/)命令行工具，并使用以下命令克隆本仓库：
+   ```
+   git clone https://github.com/snowyfirefly/Liteyuki
+   ```
+  或者点击github页面那个绿色的`code`按钮，再点击download ZIP，并解压ZIP（不推荐）
+- 打开根目录（包含`bot.py`文件的目录），右键单击空白处，在此打开终端/cmd，输入`pip install -r requirements.txt`并回车，等待完成
 - 给Bot发送`/update`以更新，若此方法更新失败，请手动下载仓库源码覆盖老文件
 
 #### 4.启动
@@ -87,6 +93,7 @@
 
 - 请提交issue
 - 加我qq[2238694726](http://ti.qq.com/friend/recall?uin=2238694726)
+
 
 #### 4.捐赠
 - 作者已经吃不起饭，睡大街了(doge)，如果你觉得此项目不错的话可以给作者一些鼓励，这将会是我继续维护的动力
