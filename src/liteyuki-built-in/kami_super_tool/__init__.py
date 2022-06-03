@@ -148,7 +148,7 @@ async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
             source_list: list = (await resp.json())["liteyuki.bot.version_download"]
             if "mirror" in kwargs:
                 source_list.insert(0, kwargs["mirror"])
-            for i, url in source_list:
+            for i, url in enumerate(source_list):
                 try:
                     await update.send("%s下载更新：\n%s -> %s，源：%s" % ("开始" if i == 0 else "当前源不可用，正在从其他源重试", now_version, online_version, url))
                     r = await ExtraData.download_file(url, os.path.join(ExConfig.res_path, "version/new_code.zip"))
