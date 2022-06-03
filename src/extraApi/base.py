@@ -1,3 +1,5 @@
+import sys
+
 import asyncio
 import json
 import os
@@ -14,6 +16,11 @@ from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, 
 from nonebot.exception import FinishedException, IgnoredException
 from nonebot.typing import T_State
 from nonebot.utils import run_sync
+
+
+def restart():
+    os.system("python restart.py")
+    sys.exit(0)
 
 
 class ExConfig:
