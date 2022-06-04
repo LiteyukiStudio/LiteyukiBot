@@ -67,6 +67,28 @@ class GeoApi:
             if (await response.json()).get("code", "000") == "200":
                 return await response.json()
 
+        # 高德查格点
+        url = "https://restapi.amap.com/v5/place/text?"
+        params = {"keywords": location, "key": await ExtraData.get_global_data("kami.map.key", default="")}
+        async with aiohttp.request("GET", url=url, params=params, headers=headers) as gd_response:
+            if (await gd_response.json()).get("info", "0") == "OK":
+                if len((await gd_response.json()).get("pois", [])) > 0:
+                    gd_poi = (await gd_response.json()).get("pois", [])[0]
+                    city = {"code": "200",
+                            "location": [{
+                                "is_gaode": True,
+                                "name": gd_poi.get("adname", ""),
+                                "poi_name": gd_poi.get("name", ""),
+                                "adm2": gd_poi.get("cityname", ""),
+                                "adm1": gd_poi.get("pname", ""),
+                                "country": "中国",
+                                "id": gd_poi.get("adcode", ""),
+                                "lon": gd_poi.get("location").split(",")[0],
+                                "lat": gd_poi.get("location").split(",")[1]
+                            }]}
+                    print(city)
+                    return city
+
         custom_cities = await ExtraData.get_resource_data(key="kami.weather.custom_city_data", default=[])
         for city in custom_cities:
             if location in city.get("name"):
@@ -209,6 +231,45 @@ class PointWeatherApi:
         url = "https://api.qweather.com/v7/minutely/5m?"
         params = {"location": kwargs.get("location", location), "key": kwargs.get("key", key), "lang": kwargs.get("lang", "zh")}
         async with aiohttp.request("GET", url=url, params=params, headers=headers) as response:
+            return await response.json()
+
+    @staticmethod
+    async def get_now_weather(location: str, key: str, **kwargs) -> dict:
+        """
+        :param location: 经纬度
+        :param key:
+        :param kwargs:
+        :return:
+
+        https://dev.qweather.com/docs/api/grid-weather/minutely/
+        """
+        url = "https://api.qweather.com/v7/grid-weather/now?"
+        params = {"location": kwargs.get("location", location), "key": kwargs.get("key", key), "lang": kwargs.get("lang", "zh")}
+        async with aiohttp.request("GET", url=url, params=params, headers=headers) as response:
+            return await response.json()
+
+    @staticmethod
+    async def get_hourly_weather(location: str, key: str, hours: int, **kwargs) -> dict:
+        """
+        :param hours: 1-168，但返回的是区间最大数量
+        :param location:
+        :param key:
+        :param kwargs:
+        :return:
+
+        逐小时天气
+        """
+        hours_list = [24, 72]
+        for i in hours_list:
+            if hours <= i:
+                hours = i
+                break
+        else:
+            hours = hours_list[-1]
+
+        url = "https://api.qweather.com/v7/grid-weather/%sh?" % hours
+        params = {"location": kwargs.get("location", location), "key": kwargs.get("key", key), "lang": kwargs.get("lang", "zh"), "unit": kwargs.get("unit", "m")}
+        async with aiohttp.request("GET", url, params=params, headers=headers) as response:
             return await response.json()
 
 

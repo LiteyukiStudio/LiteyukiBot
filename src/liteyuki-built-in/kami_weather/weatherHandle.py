@@ -64,7 +64,7 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
         city = cityList["location"][0]
         # 合成图片 失败发文字
         # 城市基本信息获取
-
+        is_gaode = city.get("is_gaode", False)
         country = city.get("country", "Unknown")  # 国家
         name = city.get("name", "Unknown")  # 城市名
         lon = city.get("lon", "0.0")  # 经度
@@ -94,7 +94,13 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
 
         # 天气基本信息获取
         if state["mode"] == "now":
-            weatherInfo = await getQWRealTimeWeather(city, state["params"])
+            print(state["params"].get("location", "%s,%s" % (lon, lat)), apikey, api_key_type, state["params"].get("lang", "zh"), state["params"].get("unit", "m"))
+            if is_gaode:
+                weatherInfo = await PointWeatherApi.get_now_weather("%s,%s" % (lon, lat), key=apikey,
+                                                                    lang=state["params"].get("lang", "zh"), unit=state["params"].get("unit", "m"))
+            else:
+                weatherInfo = await CityWeatherApi.get_now_weather(location=state["params"].get("location", "%s,%s" % (lon, lat)), key=apikey, key_type=api_key_type,
+                                                                   lang=state["params"].get("lang", "zh"), unit=state["params"].get("unit", "m"))
             if weatherInfo["code"] == "200":
 
                 updateTime = weatherInfo.get("updateTime")  # API响应时间
@@ -135,9 +141,19 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                     base_img = Image.open(os.path.join(ExConfig.res_path, "textures/weather/mesh_4xx_b.png"))
                     weather_card: Cardimage = Cardimage(baseImg=base_img)
                     # 城市名和国家 编号
-                    city_pos = await weather_card.addText(uvSize=(1, 1), boxSize=(0.45, 0.075), xyOffset=(0, 0),
-                                                          baseAnchor=(0.05, 0.04), textAnchor=(0, 0), content=cityName,
-                                                          font=font_80, color=Cardimage.hex2dec("ffffffff"))
+
+                    if is_gaode:
+                        city_pos = await weather_card.addText(uvSize=(1, 1), boxSize=(0.45, 0.075), xyOffset=(0, 0),
+                                                              baseAnchor=(0.05, 0.04), textAnchor=(0, 0), content=cityName,
+                                                              font=font_80, color=Cardimage.hex2dec("ffffffff"))
+                        poi_name = city.get("poi_name", "poi查询失败")
+                        await weather_card.addText(uvSize=(1, 1), boxSize=(0.9, 0.05), xyOffset=(0, 0),
+                                                   baseAnchor=(city_pos[0], city_pos[3]), textAnchor=(0, 0), content=poi_name,
+                                                   font=font_80, color=Cardimage.hex2dec("ffffffff"))
+                    else:
+                        city_pos = await weather_card.addText(uvSize=(1, 1), boxSize=(0.45, 0.075), xyOffset=(0, 0),
+                                                              baseAnchor=(0.05, 0.04), textAnchor=(0, 0), content=cityName,
+                                                              font=font_80, color=Cardimage.hex2dec("ffffffff"))
                     await weather_card.addText(uvSize=(1, 1), boxSize=(
                         0.45, Balance.clamp((city_pos[3] - city_pos[1]) / 1.2, 0.04, 0.05)), xyOffset=(0, 0),
                                                baseAnchor=(city_pos[2] + 0.02, city_pos[1] + 0.01), textAnchor=(0, 0),
@@ -237,7 +253,7 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                     try:
                         sun_pos = await weather_card.addImage(uvSize=(1, 1), boxSize=(0.08, 0.08), xyOffset=(0, 0), baseAnchor=(0.82, sub_text_center_line), imgAnchor=(0.5, 0.5),
                                                               img=Image.open(os.path.join(ExConfig.res_path, "textures/weather/日出日落.png")))
-                        daily_weather_data = await CityWeatherApi.get_daily_weather(location=city_id, key=apikey, key_type=api_key_type, days=1,
+                        daily_weather_data = await CityWeatherApi.get_daily_weather(location="%s,%s" % (lon, lat), key=apikey, key_type=api_key_type, days=1,
                                                                                     lang=state["params"].get("lang", "zh"), unit=state["params"].get("unit", "m"))
                         await weather_card.addText(uvSize=(1, 1), boxSize=(0.4, lite_font_size), xyOffset=(0, 0),
                                                    baseAnchor=(sun_pos[2] + 0.008, sub_text_center_line), textAnchor=(0, 1),
@@ -256,8 +272,13 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                     try:
                         x_point_hourly = 0
                         hours = Balance.clamp(int(state["params"].get("hours", 8)), 0, 168)
-                        hourly_weather_data = await CityWeatherApi.get_hourly_weather(location=city_id, key=apikey, hours=hours, key_type=api_key_type,
-                                                                                      lang=state["params"].get("lang", "zh"), unit=state["params"].get("unit", "m"))
+                        if is_gaode:
+                            hourly_weather_data = await PointWeatherApi.get_hourly_weather(location="%s,%s" % (lon, lat), key=apikey, hours=hours,
+                                                                                           lang=state["params"].get("lang", "zh"), unit=state["params"].get("unit", "m"))
+                        else:
+
+                            hourly_weather_data = await CityWeatherApi.get_hourly_weather(location=city_id, key=apikey, hours=hours, key_type=api_key_type,
+                                                                                          lang=state["params"].get("lang", "zh"), unit=state["params"].get("unit", "m"))
                         hourly_temp_max = max([float(hourly["temp"]) for hourly in hourly_weather_data["hourly"][0:hours]]) + 1
                         hourly_temp_min = min([float(hourly["temp"]) for hourly in hourly_weather_data["hourly"][0:hours]]) - 1
                         temp_section = hourly_temp_max - hourly_temp_min

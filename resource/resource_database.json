@@ -1,6 +1,6 @@
 {
-    "liteyuki.bot.version": "3.3.1",
-    "liteyuki.bot.version_description": "命令体验更新",
+    "liteyuki.bot.version": "3.3.2",
+    "liteyuki.bot.version_description": "天气查询细化更新",
     "liteyuki.bot.version_download": [
         "https://github.com/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip",
         "https://hub.fastgit.xyz/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip"
@@ -14,7 +14,9 @@
         "ex-114514": "林檎产地",
         "101220301": "芜湖 起飞~",
         "101042900": "儒雅璧山 田园都市",
-        "101043800": "红岩发源地"
+        "101043800": "红岩发源地",
+        "101291205": "我是云南的",
+        "101291201": "我是云南的"
     },
     "kami.weather.custom_city_data": [
         {
