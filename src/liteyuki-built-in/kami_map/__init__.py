@@ -1,3 +1,5 @@
+from nonebot.adapters.onebot.v11 import Message
+from nonebot.params import CommandArg
 from ...extraApi.base import Balance
 from ...extraApi.rule import minimumCoin, NOT_BLOCKED, NOT_IGNORED, MODE_DETECT
 from nonebot.rule import startswith
@@ -10,9 +12,9 @@ pois_cmd = on_command(cmd="pois", aliases={"地点查询"},
 
 
 @pois_cmd.handle()
-async def pois_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupMessageEvent], state: T_State):
-    args, params = Command.formatToCommand(event.raw_message)
-    keywords = Command.formatToString(*args[1:])
+async def pois_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupMessageEvent], state: T_State, args: Message = CommandArg()):
+    args, params = Command.formatToCommand(str(args))
+    keywords = Command.formatToString(*args)
     params["keywords"] = keywords
     if "page_size" not in params:
         params["page_size"] = 1
@@ -32,7 +34,7 @@ async def pois_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupMessageEv
 
 
 @pois_cmd.got(key="city")
-async def pois_got_city(bot: Bot, event: Union[PrivateMessageEvent, GroupMessageEvent], state: T_State):
+async def pois_got_city(bot: Bot, event: Union[PrivateMessageEvent, GroupMessageEvent], state: T_State, args: Message = CommandArg()):
     if state["city"] is not True:
         state["params"]["region"] = str(state["city"])
         pois = await get_poi(params=state["params"])

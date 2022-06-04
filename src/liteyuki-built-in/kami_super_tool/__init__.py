@@ -4,6 +4,7 @@ import random
 import aiohttp
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import GROUP_OWNER, GROUP_ADMIN, Message
+from nonebot.params import CommandArg
 from nonebot.permission import SUPERUSER
 
 from ...extraApi.permission import MASTER
@@ -23,19 +24,23 @@ update = on_command(cmd="/update", rule=plugin_enable("kami.super_tool"), permis
 
 
 @enable_group.handle()
-async def enable_group_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupMessageEvent], state: T_State):
-    if len(event.raw_message.split()) == 2:
-        group_id = int(event.raw_message.split()[1])
-    elif type(event) is GroupMessageEvent:
-        group_id = event.group_id
+async def enable_group_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupMessageEvent], state: T_State, args: Message = CommandArg()):
+    if str(args).strip() == "":
+        if isinstance(event, GroupMessageEvent):
+            group_id = event.group_id
+        else:
+            await enable_group.finish("命令参数缺失：群号")
+            group_id = 0
     else:
-        group_id = 0
+        group_id = int(str(args).strip())
     state2 = await ExtraData.get_group_data(group_id=group_id, key="enable", default=False)
+    group_info = await bot.get_group_info(group_id=group_id)
     if state2:
-        await enable_group.send(message="该群已启用机器人")
+        await enable_group.send(message="群：%s已启用机器人" % group_info["group_name"])
     else:
+
         await ExtraData.set_group_data(group_id=group_id, key="enable", value=True)
-        await enable_group.send(message="群聊启用成功")
+        await enable_group.send(message="群聊启用成功：%s" % group_info["group_name"])
 
 
 @disable_group.handle()
