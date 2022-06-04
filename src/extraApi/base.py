@@ -195,7 +195,9 @@ class ExtraData:
 
         if not os.path.exists(os.path.dirname(path)):
             os.makedirs(os.path.dirname(path))
-        async with aiohttp.request("GET", url) as FileStream:
+        async with aiohttp.request("GET", url, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36',
+        }) as FileStream:
             if FileStream.status == 200:
                 async with aiofiles.open(path, "wb") as FileIO:
                     await FileIO.write(await FileStream.content.read())

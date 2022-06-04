@@ -57,21 +57,7 @@
 
 ## 使用
 
-- 可以安装其他Onebot适配器插件，但是默认情况下不能使用机器人的插件管理，(这里开始后面看不懂就别看了)如需使用，请将插件移到src/liteyuki目录下，参考内置插件，并在插件中创建一个config文件夹，config中创建manifest.json，docs.txt(文档，请自行编写)
-- manifest字段如下，填写完此字段请在插件的响应器中添加新规则`plugin_enable(plugin_id)`，从`extraApi.rule`导入
-
-```json
-{
-  "name": "示例插件",
-  //插件名，不可重复
-  "id": "example.example",
-  // 插件id，不可重复
-  "default": true
-  // 默认状态
-}
-```
-
-- 更详细的使用方法请参阅[使用手册]()
+- 请参阅[使用手册](/docs/usage.md)
 
 ## 常见问题
 
