@@ -10,6 +10,7 @@ from nonebot.message import event_preprocessor
 from nonebot.permission import SUPERUSER
 from nonebot.rule import to_me
 from nonebot.typing import T_State
+from nonebot.exception import IgnoredException
 
 from ...extraApi.base import Log, ExtraData, ExConfig
 # 日志记录和模式回复
@@ -43,6 +44,12 @@ async def auto_log_receive_handle(bot: Bot, event: Union[PrivateMessageEvent, Gr
             start = ""
         await bot.send(event, message="%s%s正在升级中" % (start, list(bot.config.nickname)[0]), at_sender=True)
     await Log.receive_message(bot, event)
+
+
+@event_preprocessor
+async def auto_filter_block_ignore(bot: Bot, event: Union[PrivateMessageEvent, GroupMessageEvent], state: T_State):
+    if await (NOT_IGNORED & NOT_BLOCKED)(bot, event, state):
+        raise IgnoredException("")
 
 
 # api记录
