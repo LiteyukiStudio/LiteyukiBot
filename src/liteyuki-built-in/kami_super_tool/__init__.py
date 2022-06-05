@@ -151,10 +151,11 @@ async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
 
         now_version = await ExtraData.get_resource_data(key="liteyuki.bot.version", default="0.0.0")
         now_version_description = await ExtraData.get_resource_data(key="liteyuki.bot.version_description", default="0.0.0")
-        async with aiohttp.request("GET", url="https://gitee.com/snowykami/Liteyuki/raw/master/resource/resource_database.json") as resp:
-            online_version = (await resp.json())["liteyuki.bot.version"]
+        async with aiohttp.request("GET", url="https://gitee.com/snowykami/Liteyuki/raw/master/resource/version.json") as resp:
+            print(await resp.json())
+            online_version = (json.loads(resp.text))["version"]
         if now_version != online_version or kwargs.get("force", False):
-            source_list: list = (await resp.json())["liteyuki.bot.version_download"]
+            source_list: list = (await resp.json())["download"]
             if "mirror" in kwargs:
                 source_list.insert(0, kwargs["mirror"])
             for i, url in enumerate(source_list):

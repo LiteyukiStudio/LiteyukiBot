@@ -67,7 +67,7 @@ async def badwordWarn(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEv
         await Balance.editFavoValue(user_id=event.user_id, delta=-5, reason="触发违禁词")
         event.raw_message = "***"
         event.message = Message("***")
-        raise IgnoredException
+        raise IgnoredException("违禁词")
 
 
 editBadword = on_command(cmd="添加违禁词", aliases={"删除违禁词", "添加全局违禁词", "删除全局违禁词"},

@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Union, Optional, Dict, Any
 
@@ -63,7 +64,7 @@ async def check_for_update(bot: Bot):
     now_version = await ExtraData.get_resource_data(key="liteyuki.bot.version", default="0.0.0")
     now_version_description = await ExtraData.get_resource_data(key="liteyuki.bot.version_description", default="0.0.0")
     async with aiohttp.request("GET", url="https://gitee.com/snowykami/Liteyuki/raw/master/resource/resource_database.json") as r:
-        online_version = (await r.json())["liteyuki.bot.version"]
+        online_version = (json.loads(r.text))["liteyuki.bot.version"]
         if online_version != now_version:
             # 更新检查
             for superuser in bot.config.superusers:
