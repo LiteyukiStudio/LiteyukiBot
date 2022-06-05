@@ -1,5 +1,5 @@
 import time, os
 
-time.sleep(10)
+time.sleep(3)
 print("正在重启中...")
 os.system("python bot.py")
