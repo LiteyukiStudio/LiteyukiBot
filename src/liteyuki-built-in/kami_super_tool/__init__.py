@@ -1,3 +1,5 @@
+import sys
+
 import asyncio
 import random
 
@@ -10,6 +12,7 @@ from nonebot.permission import SUPERUSER
 from ...extraApi.permission import MASTER
 from ...extraApi.rule import plugin_enable
 from .stApi import *
+import os
 
 #    ahhaha
 setConfig = on_command(cmd="设置属性", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
@@ -167,6 +170,8 @@ async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
                 await update.send("正在安装")
                 await update_move()
                 await update.send("更新安装完成，正在重启，若重启失败请手动重启")
+                os.system("python bot.py")
+                sys.exit(0)
             else:
                 await update.send("下载更新失败")
         else:
