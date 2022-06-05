@@ -4,6 +4,7 @@ import asyncio
 import random
 
 import aiohttp
+import threading
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import GROUP_OWNER, GROUP_ADMIN, Message
 from nonebot.params import CommandArg
@@ -170,7 +171,8 @@ async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
                 await update.send("正在安装")
                 await update_move()
                 await update.send("更新安装完成，正在重启，若重启失败请手动重启")
-                os.system("python %s" % os.path.join(os.path.dirname(__file__), "restart.py"))
+                threading.Thread(target=os.system, args=("python %s" % os.path.join(os.path.dirname(__file__), "restart.py"))).start()
+                asyncio.sleep(2)
                 os._exit(0)
             else:
                 await update.send("下载更新失败")
