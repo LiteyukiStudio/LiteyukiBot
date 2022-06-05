@@ -21,24 +21,22 @@ async def MATCHPATTERN(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent,
 
 
 async def getReply(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
-    userReplyMsgList = []
-    groupReplyMsgList = []
-    globalReplyMsgList = []
-    globalReplyData: dict = await ExtraData.getData(targetType=ExtraData.Group, targetId=0, key="auto_reply", default={})
-    if list(bot.config.nickname)[0] in event.raw_message or await to_me()(bot, event, state) or await ExtraData.get_user_data(event.user_id, key="my.user_call_bot",
-                                                                                                                              default=list(bot.config.nickname)[
-                                                                                                                                  0]) in event.raw_message:
+    user_reply_msg_list = []
+    group_reply_msg_list = []
+    global_reply_msg_list = []
+    resource_reply_msg_list = []
+    resource_reply_dada: dict = await ExtraData.get_resource_data(key="auto_reply", default={})
+    global_reply_data: dict = await ExtraData.get_global_data(key="auto_reply", default={})
+    user_reply_data: dict = await ExtraData.get_user_data(user_id=event.user_id, key="auto_reply", default={})
+    group_reply_data: dict = dict() if not isinstance(event, GroupMessageEvent) else await ExtraData.get_group_data(group_id=event.group_id, key="auto_reply", default={})
+    # to_me : bot的第一昵称在消息中或者被at，或者用户自定义唤醒词在消息中
+    if await to_me()(bot, event, state) or await ExtraData.get_user_data(event.user_id, key="my.user_call_bot", default=list(bot.config.nickname)[0]) in event.raw_message:
         tome = True
     else:
         tome = False
-    userReplyData: dict = await ExtraData.getData(targetType=ExtraData.User, targetId=event.user_id, key="auto_reply", default={})
-    if type(event) is GroupMessageEvent:
-        groupReplyData: dict = await ExtraData.getData(targetType=ExtraData.Group, targetId=event.group_id, key="auto_reply", default={})
-    else:
-        groupReplyData = {}
 
-    items: list = userReplyData.items()
-
+    # 骗ide
+    items: list = user_reply_data.items()
     for match in items:
         mode = match[0]
         rules = match[1]
@@ -46,12 +44,11 @@ async def getReply(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, sta
             subMatch = rule[0]
             replys = rule[1]
             if (mode == "re" or mode == "tmre" and tome) and re.search(subMatch, event.raw_message) is not None:
-                userReplyMsgList.extend(replys)
+                user_reply_msg_list.extend(replys)
             elif (mode == "eq" or mode == "tmeq" and tome) and subMatch == event.raw_message:
-                userReplyMsgList.extend(replys)
+                user_reply_msg_list.extend(replys)
 
-    items: list = globalReplyData.items()
-
+    items: list = global_reply_data.items()
     for match in items:
         mode = match[0]
         rules = match[1]
@@ -59,12 +56,11 @@ async def getReply(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, sta
             subMatch = rule[0]
             replys = rule[1]
             if (mode == "re" or mode == "tmre" and tome) and re.search(subMatch, event.raw_message) is not None:
-                globalReplyMsgList.extend(replys)
+                global_reply_msg_list.extend(replys)
             elif (mode == "eq" or mode == "tmeq" and tome) and subMatch == event.raw_message:
-                globalReplyMsgList.extend(replys)
+                global_reply_msg_list.extend(replys)
 
-    items: list = groupReplyData.items()
-
+    items: list = resource_reply_dada.items()
     for match in items:
         mode = match[0]
         rules = match[1]
@@ -72,14 +68,39 @@ async def getReply(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, sta
             subMatch = rule[0]
             replys = rule[1]
             if (mode == "re" or mode == "tmre" and tome) and re.search(subMatch, event.raw_message) is not None:
-                groupReplyMsgList.extend(replys)
+                resource_reply_msg_list.extend(replys)
             elif (mode == "eq" or mode == "tmeq" and tome) and subMatch == event.raw_message:
-                groupReplyMsgList.extend(replys)
+                resource_reply_msg_list.extend(replys)
 
-    userReplyMsgList.extend(groupReplyMsgList)
-    userReplyMsgList.extend(globalReplyMsgList)
-    if len(userReplyMsgList) > 0 and random.random() <= 0.75:
-        return random.choice(userReplyMsgList)
+    items: list = group_reply_data.items()
+    for match in items:
+        mode = match[0]
+        rules = match[1]
+        for rule in rules.items():
+            subMatch = rule[0]
+            replys = rule[1]
+            if (mode == "re" or mode == "tmre" and tome) and re.search(subMatch, event.raw_message) is not None:
+                group_reply_msg_list.extend(replys)
+            elif (mode == "eq" or mode == "tmeq" and tome) and subMatch == event.raw_message:
+                group_reply_msg_list.extend(replys)
+
+    items: list = resource_reply_dada.items()
+    for match in items:
+        mode = match[0]
+        rules = match[1]
+        for rule in rules.items():
+            subMatch = rule[0]
+            replys = rule[1]
+            if (mode == "re" or mode == "tmre" and tome) and re.search(subMatch, event.raw_message) is not None:
+                resource_reply_msg_list.extend(replys)
+            elif (mode == "eq" or mode == "tmeq" and tome) and subMatch == event.raw_message:
+                resource_reply_msg_list.extend(replys)
+
+    user_reply_msg_list.extend(group_reply_msg_list)
+    user_reply_msg_list.extend(global_reply_msg_list)
+    user_reply_msg_list.extend(resource_reply_msg_list)
+    if len(user_reply_msg_list) > 0 and random.random() <= 0.75:
+        return random.choice(user_reply_msg_list)
     else:
         if tome or random.random() <= 0.1:
             async with aiohttp.request("GET", url="http://api.qingyunke.com/api.php?key=free&appid=0&msg=%s" % str(event.raw_message).replace(list(bot.config.nickname)[0],
