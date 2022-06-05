@@ -10,6 +10,9 @@ pois_cmd = on_command(cmd="pois", aliases={"地点查询"},
                       rule=plugin_enable("kami.map") & minimumCoin(2, "无法查询地点", startswith(("地点查询", "pois"))) & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT,
                       priority=12, block=True)
 
+locate_ip = on_command(cmd="ip定位", aliases={"IP定位", "Ip定位", "iP定位"}, rule=plugin_enable("kami.map") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT,
+                       priority=12, block=True)
+
 
 @pois_cmd.handle()
 async def pois_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupMessageEvent], state: T_State, args: Message = CommandArg()):
@@ -61,3 +64,16 @@ async def pois_got_city(bot: Bot, event: Union[PrivateMessageEvent, GroupMessage
         at_sender = True
     await pois_cmd.send(message=replys, at_sender=at_sender)
     await Balance.editCoinValue(user_id=event.user_id, delta=-2, reason="查询地点")
+
+
+@locate_ip.handle()
+async def ip_locate(bot: Bot, event: Union[PrivateMessageEvent, GroupMessageEvent], state: T_State, args: Message = CommandArg()):
+    ip = str(args).strip()
+    url = "https://restapi.amap.com/v3/ip?"
+    params = {"key": await ExtraData.get_global_data(key="kami.map.key", default="")}
+    if ip != "":
+        params["ip"] = ip
+    async with aiohttp.request("GET", url, ) as resp:
+        data = await resp.json()
+        if data["info"] == "OK":
+            await locate_ip.send(message="- IP: %s\n- 地址: %s %s" % (ip, data["province"], data["city"]))
