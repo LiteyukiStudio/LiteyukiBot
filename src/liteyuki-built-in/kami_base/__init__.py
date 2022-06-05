@@ -4,7 +4,7 @@ import random
 from PIL import Image
 from nonebot import on_command, on_notice
 from nonebot.adapters.onebot.v11 import NoticeEvent, Message
-from .auturun import *
+from .autorun import *
 from ...extraApi.base import Balance, Command
 from ...extraApi.cardimage import Cardimage
 from ...extraApi.permission import MASTER
@@ -43,9 +43,13 @@ async def echoHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEve
 @about.handle()
 async def aboutHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent):
     now_state = await ExtraData.get_global_data(key="enable_mode", default=1)
+    async with aiofiles.open(os.path.join(ExConfig.res_path, "version.json"), "r", encoding="utf-8") as version_file:
+        now_version_data = json.loads(await version_file.read())
+        now_version = now_version_data.get("version")
+        now_version_description = now_version_data.get("description")
     text = f"""{random.choice(list(bot.config.nickname))}Bot更多信息
 - 状态：{"开启" if now_state == 1 else "关闭" if now_state == 0 else "调试模式" if now_state == -1 else "未知"}
-- 版本：{await ExtraData.get_resource_data(key="liteyuki.bot.version", default="0.0.0")}({await ExtraData.get_resource_data(key="liteyuki.bot.version_description", default="0.0.0")})
+- 版本：{now_version}({now_version_description})
 - 简介：%s是一个非常可爱的开源Bot呀
 - Github：https://github.com/snowyfirefly/Liteyuki
 - Gitee：https://gitee.com/snowykami/Liteyuki

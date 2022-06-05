@@ -5,7 +5,7 @@ from nonebot.permission import SUPERUSER
 # 插件详情
 # 插件帮助
 from nonebot.typing import T_State
-
+from .autorun import *
 from ...extraApi.base import Command, Session
 from ...extraApi.permission import MASTER
 from ...extraApi.plugin import *
@@ -73,9 +73,9 @@ async def listPluginHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEv
             pluginList = getPluginList()
             reply = "插件列表如下:\n\n"
             for plugin in pluginList:
-                reply += "- %s%s\n" % (plugin.pluginName,
-                                       "" if await getPluginEnable(event.message_type, ExtraData.getTargetId(event),
-                                                                   plugin) else "[未启用]")
+                reply += "- %s%s%s\n" % ("[内置]" if plugin.built_in else "[第三方]", plugin.pluginName,
+                                         "" if await getPluginEnable(event.message_type, ExtraData.getTargetId(event),
+                                                                     plugin) else "[未启用]")
             reply += "\n# 发送 help <插件名> 获取每个插件的总文档\n\n" \
                      "# 发送 help <插件名> [*args] 获取每个插件的子文档\n\n" \
                      "# <>是必填参数，[]是可选参数，输入命令时无需带<>和[]"

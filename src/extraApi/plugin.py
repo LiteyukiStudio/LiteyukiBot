@@ -9,7 +9,7 @@ from .base import ExConfig, ExtraData
 
 
 class Plugin:
-    def __init__(self, fp):
+    def __init__(self, fp, built_in):
         """
         :param fp: 路径
         """
@@ -20,11 +20,13 @@ class Plugin:
                 self.pluginName = data.get("name", "")
                 self.defaultStats = data.get("default", True)
                 self.path = fp
+                self.built_in = built_in
         except BaseException:
             self.pluginId = os.path.basename(fp)
             self.pluginName = os.path.basename(fp)
             self.defaultStats = True
             self.path = fp
+            self.built_in = built_in
         try:
             with open(os.path.join(fp, "config/docs.txt"), "r", encoding="utf-8") as file:
                 self.pluginDocs = file.read()
@@ -62,11 +64,11 @@ def getPluginList() -> List[Plugin]:
     pluginList = []
     for f in os.listdir(ExConfig.plugins_path):
         if os.path.exists(os.path.join(ExConfig.plugins_path, f, "__init__.py")):
-            pluginList.append(Plugin(os.path.join(ExConfig.plugins_path, f)))
+            pluginList.append(Plugin(os.path.join(ExConfig.plugins_path, f), True))
 
     for e_f in os.listdir(ExConfig.nonebot_plugin_path):
         if os.path.exists(os.path.join(ExConfig.nonebot_plugin_path, e_f, "__init__.py")):
-            pluginList.append(Plugin(os.path.join(ExConfig.nonebot_plugin_path, e_f)))
+            pluginList.append(Plugin(os.path.join(ExConfig.nonebot_plugin_path, e_f), False))
     return pluginList
 
 

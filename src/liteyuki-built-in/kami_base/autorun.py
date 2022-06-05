@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Union, Optional, Dict, Any
 
@@ -6,7 +7,7 @@ import aiohttp
 from nonebot import get_driver
 
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Bot
-from nonebot.message import event_preprocessor
+from nonebot.message import event_preprocessor, run_preprocessor
 from nonebot.permission import SUPERUSER
 from nonebot.rule import to_me
 from nonebot.typing import T_State
@@ -60,10 +61,12 @@ async def record_api_calling(bot: Bot, exception: Optional[Exception], api: str,
 
 @driver.on_bot_connect
 async def check_for_update(bot: Bot):
-    now_version = await ExtraData.get_resource_data(key="liteyuki.bot.version", default="0.0.0")
-    now_version_description = await ExtraData.get_resource_data(key="liteyuki.bot.version_description", default="0.0.0")
-    async with aiohttp.request("GET", url="https://gitee.com/snowykami/Liteyuki/raw/master/resource/resource_database.json") as r:
-        online_version = (await r.json())["liteyuki.bot.version"]
+    async with aiofiles.open(os.path.join(ExConfig.res_path, "version.json"), "r", encoding="utf-8") as version_file:
+        now_version_data = json.loads(await version_file.read())
+        now_version = now_version_data.get("version")
+        now_version_description = now_version_data.get("description")
+    async with aiohttp.request("GET", url="https://gitee.com/snowykami/Liteyuki/raw/master/resource/version.json") as resp:
+        online_version = (json.loads(await resp.text()))["version"]
         if online_version != now_version:
             # 更新检查
             for superuser in bot.config.superusers:
