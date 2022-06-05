@@ -86,7 +86,7 @@ class GeoApi:
                                 "lon": gd_poi.get("location").split(",")[0],
                                 "lat": gd_poi.get("location").split(",")[1]
                             }]}
-                    print(city)
+
                     return city
 
         custom_cities = await ExtraData.get_resource_data(key="kami.weather.custom_city_data", default=[])

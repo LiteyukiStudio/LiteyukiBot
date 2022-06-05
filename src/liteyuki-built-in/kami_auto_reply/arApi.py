@@ -107,6 +107,7 @@ async def getReply(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, sta
                                                                                                                                               "你")) as asyncStream:
                 if (json.loads(await asyncStream.text()))["result"] == 0:
                     text = (json.loads(await asyncStream.text())).get("content").replace("菲菲", "%call_bot%")
+                    text = text.replace("{br}", "\n")
                     return text
                 else:
                     return random.choice(await ExtraData.get_global_data(key="register_default_reply", default=["喵喵喵"]))

@@ -278,10 +278,9 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                         x_point_hourly = 0
                         hours = Balance.clamp(int(state["params"].get("hours", 8)), 0, 168)
                         if is_gaode:
-                            hourly_weather_data = await PointWeatherApi.get_hourly_weather(location="%s,%s" % (lon, lat), key=apikey, hours=hours,
-                                                                                           lang=state["params"].get("lang", "zh"), unit=state["params"].get("unit", "m"))
+                            hourly_weather_data = await CityWeatherApi.get_hourly_weather(location="%s,%s" % (lon, lat), key=apikey, hours=hours, key_type=api_key_type,
+                                                                                          lang=state["params"].get("lang", "zh"), unit=state["params"].get("unit", "m"))
                         else:
-
                             hourly_weather_data = await CityWeatherApi.get_hourly_weather(location=city_id, key=apikey, hours=hours, key_type=api_key_type,
                                                                                           lang=state["params"].get("lang", "zh"), unit=state["params"].get("unit", "m"))
                         hourly_temp_max = max([float(hourly["temp"]) for hourly in hourly_weather_data["hourly"][0:hours]]) + 1
