@@ -11,20 +11,19 @@ from nonebot.params import CommandArg
 from nonebot.permission import SUPERUSER
 
 from ...extraApi.permission import MASTER
-from ...extraApi.rule import plugin_enable
 from .stApi import *
 import os
 
 #    ahhaha
-setConfig = on_command(cmd="设置属性", rule=plugin_enable("kami_super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
-getConfig = on_command(cmd="获取属性", rule=plugin_enable("kami_super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
-send_mutil_msg = on_command(cmd="群发消息", rule=plugin_enable("kami_super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
-backup_data = on_command(cmd="备份数据", rule=plugin_enable("kami_super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
-statistics_data = on_command(cmd='统计数据', rule=plugin_enable("kami_super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
-enable_group = on_command(cmd="群聊启用", rule=plugin_enable("kami_super_tool", False), permission=SUPERUSER | MASTER, priority=10, block=True)
-disable_group = on_command(cmd="群聊停用", rule=plugin_enable("kami_super_tool", False), permission=SUPERUSER | MASTER, priority=10, block=True)
-call_api = on_command(cmd="/api", rule=plugin_enable("kami_super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
-update = on_command(cmd="/update", rule=plugin_enable("kami_super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
+setConfig = on_command(cmd="设置属性", permission=SUPERUSER | MASTER, priority=10, block=True)
+getConfig = on_command(cmd="获取属性", permission=SUPERUSER | MASTER, priority=10, block=True)
+send_mutil_msg = on_command(cmd="群发消息", permission=SUPERUSER | MASTER, priority=10, block=True)
+backup_data = on_command(cmd="备份数据", permission=SUPERUSER | MASTER, priority=10, block=True)
+statistics_data = on_command(cmd='统计数据', permission=SUPERUSER | MASTER, priority=10, block=True)
+enable_group = on_command(cmd="群聊启用", permission=SUPERUSER | MASTER, priority=10, block=True)
+disable_group = on_command(cmd="群聊停用", permission=SUPERUSER | MASTER, priority=10, block=True)
+call_api = on_command(cmd="/api", permission=SUPERUSER | MASTER, priority=10, block=True)
+update = on_command(cmd="/update", permission=SUPERUSER | MASTER, priority=10, block=True)
 
 
 @enable_group.handle()
@@ -148,12 +147,12 @@ async def call_api_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessa
 async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
     try:
         args, kwargs = Command.formatToCommand(event.raw_message)
-        async with aiofiles.open(os.path.join(ExConfig.res_path, "version.json"), "r", encoding="utf-8") as version_file:
-            now_version_data = json.loads(await version_file.read())
-            now_version = now_version_data.get("version")
-            now_version_description = now_version_data.get("description")
+
+        now_version = await ExtraData.get_resource_data(key="liteyuki.bot.version", default="0.0.0")
+        now_version_description = await ExtraData.get_resource_data(key="liteyuki.bot.version_description", default="0.0.0")
         async with aiohttp.request("GET", url="https://gitee.com/snowykami/Liteyuki/raw/master/resource/version.json") as resp:
-            online_version = (json.loads(await resp.text()))["version"]
+            print(await resp.json())
+            online_version = (json.loads(resp.text))["version"]
         if now_version != online_version or kwargs.get("force", False):
             source_list: list = (await resp.json())["download"]
             if "mirror" in kwargs:

@@ -5,12 +5,12 @@ from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEv
 from nonebot.matcher import Matcher
 from nonebot.typing import T_State
 from typing import Union
-from ...extraApi.rule import plugin_enable
+from ...extraApi.rule import check_plugin_enable
 
 
 @run_preprocessor
 async def check(matcher: Matcher, bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], state: T_State):
-    if await plugin_enable(matcher.plugin_name)(bot, event, state):
+    if await check_plugin_enable(matcher.plugin_name)(bot, event, state):
         pass
     else:
         if matcher.plugin_name == os.path.basename(os.path.dirname(__file__)):

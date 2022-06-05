@@ -6,15 +6,14 @@ from .config import *
 from .weatherHandle import *
 
 realTimeWeather = on_keyword(keywords={"天气"},
-                             rule=plugin_enable(pluginId="kami_weather") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT & args_start_or_end_with("天气") & minimumCoin(2, "无法查询天气",
-                                                                                                                                                                keyword("天气")),
+                             rule=args_start_or_end_with("天气") & minimumCoin(2, "无法查询天气", keyword("天气")),
                              priority=11,
                              block=True)
-bindCity = on_command(cmd="绑定天气城市", rule=plugin_enable(pluginId="kami_weather") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT, priority=10, block=True)
-helpWeather = on_command(cmd="天气参数", rule=plugin_enable(pluginId="kami_weather") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT, priority=10, block=True)
-setDescription = on_command(cmd="设置城市描述", rule=plugin_enable(pluginId="kami_weather") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT, permission=SUPERUSER | MASTER, priority=10,
+bindCity = on_command(cmd="绑定天气城市", priority=10, block=True)
+helpWeather = on_command(cmd="天气参数", priority=10, block=True)
+setDescription = on_command(cmd="设置城市描述", permission=SUPERUSER | MASTER, priority=10,
                             block=True)
-setAdvice = on_command(cmd="设置天气建议", rule=plugin_enable(pluginId="kami_weather") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT, permission=SUPERUSER | MASTER, priority=10, block=True)
+setAdvice = on_command(cmd="设置天气建议", permission=SUPERUSER | MASTER, priority=10, block=True)
 
 
 @setDescription.handle()

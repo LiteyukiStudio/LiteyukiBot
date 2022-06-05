@@ -7,11 +7,10 @@ from .api import *
 from .userData import *
 
 pois_cmd = on_command(cmd="pois", aliases={"地点查询"},
-                      rule=plugin_enable("kami_map") & minimumCoin(2, "无法查询地点", startswith(("地点查询", "pois"))) & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT,
+                      rule=minimumCoin(2, "无法查询地点", startswith(("地点查询", "pois"))),
                       priority=12, block=True)
 
-locate_ip = on_command(cmd="ip定位", aliases={"IP定位", "Ip定位", "iP定位"}, rule=plugin_enable("kami_map") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT,
-                       priority=12, block=True)
+locate_ip = on_command(cmd="ip定位", aliases={"IP定位", "Ip定位", "iP定位"}, priority=12, block=True)
 
 
 @pois_cmd.handle()

@@ -1,5 +1,6 @@
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Bot, GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND, Message
+from nonebot.params import CommandArg
 from nonebot.permission import SUPERUSER
 # 插件开关
 # 插件详情
@@ -9,24 +10,20 @@ from .autorun import *
 from ...extraApi.base import Command, Session
 from ...extraApi.permission import MASTER
 from ...extraApi.plugin import *
-from ...extraApi.rule import plugin_enable, NOT_BLOCKED, NOT_IGNORED, MODE_DETECT
 
 enablePlugin = on_command(cmd="启用插件", aliases={"停用插件", "开启插件", "关闭插件"}, permission=SUPERUSER | MASTER | GROUP_ADMIN | GROUP_OWNER | PRIVATE_FRIEND, priority=1, block=True)
 
-listPlugin = on_command(cmd="列出插件", aliases={"菜单", "menu", "help"}, priority=1, block=True,
-                        rule=plugin_enable(pluginId="kami_plugin_manager") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT)
-createPlugin = on_command(cmd="创建插件", priority=10, block=True, rule=plugin_enable("kami_plugin_manager") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT,
-                          permission=SUPERUSER | MASTER)
+listPlugin = on_command(cmd="列出插件", aliases={"菜单", "menu", "help"}, priority=1, block=True)
+createPlugin = on_command(cmd="创建插件", priority=10, block=True, permission=SUPERUSER | MASTER)
 
 
 @enablePlugin.handle()
-async def enablePluginHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
+async def enablePluginHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State, args: Message = CommandArg()):
     try:
-        plugin: Plugin = searchForPlugin(
-            Command.formatToString(*Command.formatToCommand(event.raw_message.strip())[0][1:]))
+        plugin: Plugin = searchForPlugin(str(args))
         if plugin is not None:
             pluginState = await getPluginEnable(event.message_type, ExtraData.getTargetId(event), plugin)
-            operation = True if Command.formatToCommand(event.raw_message.strip())[0][0] in ["启用插件", "开启插件"] else False
+            operation = True if event.raw_message.strip()[0:4] in ["启用插件", "开启插件"] else False
             if type(event) is GroupMessageEvent and await (GROUP_OWNER | GROUP_ADMIN | SUPERUSER)(bot, event) or type(event) is PrivateMessageEvent:
                 bannedPlugin: list = await ExtraData.getData(targetType=event.message_type,
                                                              targetId=ExtraData.getTargetId(event),
@@ -66,10 +63,10 @@ async def enablePluginHandle(bot: Bot, event: GroupMessageEvent | PrivateMessage
 
 
 @listPlugin.handle()
-async def listPluginHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
+async def listPluginHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State, args: Message = CommandArg()):
     try:
-        args = Command.formatToCommand(event.raw_message)[0]
-        if len(args) == 1:
+        args = Command.formatToCommand(str(args).strip())[0]
+        if args[0] == "":
             pluginList = getPluginList()
             reply = "插件列表如下:\n\n"
             for plugin in pluginList:
@@ -81,14 +78,14 @@ async def listPluginHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEv
                      "# <>是必填参数，[]是可选参数，输入命令时无需带<>和[]"
             await listPlugin.send(message=reply)
         else:
-            pluginName = Command.formatToString(args[1])
+            pluginName = args[0]
             plugin: Plugin = searchForPlugin(pluginName)
 
             if plugin is not None:
-                if len(args) == 2:
+                if len(args) == 1:
                     await listPlugin.send(Message("%s帮助文档：\n\n" % plugin.pluginName + plugin.pluginDocs))
                 else:
-                    await listPlugin.send(Message("%s帮助文档：\n\n" % "-".join(args[2:]) + await plugin.get_sub_docs(args[2:], plugin_name=plugin.pluginName)))
+                    await listPlugin.send(Message("%s帮助文档：\n\n" % "-".join(args) + await plugin.get_sub_docs(args[1:], plugin_name=plugin.pluginName)))
             else:
                 await listPlugin.send("未找到插件")
 

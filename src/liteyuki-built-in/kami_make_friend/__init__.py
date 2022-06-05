@@ -4,43 +4,35 @@ import time
 from nonebot import on_command, on_message
 from ...extraApi.base import Session, Command
 from ...extraApi.permission import AUTHUSER, MASTER
-from ...extraApi.rule import plugin_enable, NOT_IGNORED, NOT_BLOCKED, MODE_DETECT
 from .mfApi import *
 from ..kami_music.musicApi import getMusic
 
 plugin_id = "kami_make_friend"
 
 make_friend = on_command(cmd="寻找朋友",
-                         rule=plugin_enable(plugin_id) & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                          permission=AUTHUSER | MASTER,
                          priority=10, block=True)
 desert_friend = on_command(cmd="断绝朋友",
-                           rule=plugin_enable(plugin_id) & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                            permission=AUTHUSER | MASTER,
                            priority=10, block=True)
 accept = on_command(cmd="同意请求",
-                    rule=plugin_enable(plugin_id) & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                     permission=AUTHUSER | MASTER,
                     priority=10, block=True)
 
 connect = on_command(cmd="连接朋友",
-                     rule=plugin_enable(plugin_id) & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                      permission=AUTHUSER | MASTER,
                      priority=10, block=True)
 disconnect = on_command(cmd="断开朋友",
-                        rule=plugin_enable(plugin_id) & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                         permission=AUTHUSER | MASTER,
                         priority=10, block=True)
 shield = on_command(cmd="屏蔽朋友",
-                    rule=plugin_enable(plugin_id) & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                     permission=AUTHUSER | MASTER,
                     priority=10, block=True)
 select_song = on_command(cmd="为朋友点歌",
                          permission=AUTHUSER | MASTER,
-                         rule=plugin_enable(plugin_id) & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                          priority=10, block=True)
 
-msg_trans = on_message(block=True, permission=AUTHUSER | MASTER, rule=Online & Not_Disconnect & plugin_enable("kami.make_friend"))
+msg_trans = on_message(block=True, permission=AUTHUSER | MASTER, rule=Online & Not_Disconnect)
 
 
 @make_friend.handle()

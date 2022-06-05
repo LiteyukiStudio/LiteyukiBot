@@ -8,16 +8,13 @@ from .autorun import *
 from ...extraApi.base import Balance, Command
 from ...extraApi.cardimage import Cardimage
 from ...extraApi.permission import MASTER
-from ...extraApi.rule import plugin_enable, MODE_DETECT
+from ...extraApi.rule import MODE_DETECT
 
 about = on_command(cmd="about", aliases={"关于轻雪"},
-                   rule=plugin_enable("kami_base") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                    priority=10, block=True)
 balance = on_command(cmd="查询好感度", aliases={"查询硬币", "好感度查询", "硬币查询"},
-                     rule=plugin_enable("kami_base") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                      priority=10, block=True)
 balance_rank = on_command(cmd="好感度排行",
-                          rule=plugin_enable("kami_base") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                           priority=10, block=True)
 # 超管专区
 start_close = on_command(cmd="轻雪", aliases={"liteyuki"}, permission=SUPERUSER | MASTER, priority=10, block=True)

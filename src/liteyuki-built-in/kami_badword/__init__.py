@@ -7,7 +7,7 @@ from nonebot.message import event_preprocessor
 from ...extraApi.badword import *
 from ...extraApi.base import Session, Command, Balance
 from ...extraApi.permission import MASTER
-from ...extraApi.rule import plugin_enable, BOT_GT_USER, NOT_IGNORED, NOT_BLOCKED, MODE_DETECT
+from ...extraApi.rule import BOT_GT_USER, NOT_IGNORED, NOT_BLOCKED, MODE_DETECT, check_plugin_enable
 from nonebot.exception import IgnoredException
 
 
@@ -22,7 +22,7 @@ async def badwordWarn(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEv
         3.撤回且禁言移除（默认9次）
         """
 
-        if type(event) is GroupMessageEvent and await (BOT_GT_USER & plugin_enable("kami_badword") & NOT_IGNORED)(bot, event, state):
+        if type(event) is GroupMessageEvent and await (BOT_GT_USER & check_plugin_enable("kami_badword") & NOT_IGNORED)(bot, event, state):
             user_warn_time = await ExtraData.get_group_member_data(group_id=event.group_id, user_id=event.user_id,
                                                                    key="warn_time", default=0)
             user_warn_time += 1
@@ -72,14 +72,11 @@ async def badwordWarn(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEv
 
 editBadword = on_command(cmd="添加违禁词", aliases={"删除违禁词", "添加全局违禁词", "删除全局违禁词"},
                          permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | MASTER,
-                         rule=plugin_enable("kami_badword") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                          priority=10, block=True)
 listBadword = on_command(cmd="列出违禁词",
-                         rule=plugin_enable("kami_badword") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                          permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | MASTER | PRIVATE_FRIEND,
                          priority=10, block=True)
 set_time = on_command(cmd="设置禁言次数", aliases={"设置移出次数", "设置违禁词模式"},
-                      rule=plugin_enable("kami_badword") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                       permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | MASTER,
                       priority=10, block=True)
 

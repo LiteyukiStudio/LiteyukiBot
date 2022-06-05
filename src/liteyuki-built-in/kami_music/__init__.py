@@ -4,12 +4,12 @@ from nonebot.params import CommandArg
 from nonebot.typing import T_State
 from nonebot.rule import startswith
 from ...extraApi.base import Command, Balance
-from ...extraApi.rule import plugin_enable, minimumCoin, NOT_BLOCKED, NOT_IGNORED, MODE_DETECT
+from ...extraApi.rule import minimumCoin
 from .musicApi import *
 
 music = on_command(cmd="音乐", aliases={"点歌"}, priority=10,
-                   rule=plugin_enable("kami_music") & minimumCoin(1, "无法点歌", startswith(("点歌", "音乐"))) & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT
-                   , block=True)
+                   rule=minimumCoin(1, "无法点歌", startswith(("点歌", "音乐"))),
+                   block=True)
 
 
 @music.handle()

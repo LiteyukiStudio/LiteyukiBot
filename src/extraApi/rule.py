@@ -10,7 +10,7 @@ from nonebot.rule import Rule
 from nonebot.typing import T_State
 
 
-def plugin_enable(pluginId: str, force_session_enable: bool = True):
+def check_plugin_enable(pluginId: str, force_session_enable: bool = True):
     """
     :param force_session_enable: 启用会话授权检查，是
     :param pluginId: 插件id

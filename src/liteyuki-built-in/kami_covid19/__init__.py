@@ -6,7 +6,6 @@ from .api import search_data
 keywords = {"疫情", "新冠", "病毒"}
 
 cmd_covid19 = on_keyword(keywords=keywords,
-                         rule=plugin_enable(pluginId="kami_covid19") & NOT_IGNORED & NOT_IGNORED & MODE_DETECT,
                          priority=10)
 
 
