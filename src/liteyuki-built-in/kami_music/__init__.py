@@ -8,7 +8,7 @@ from ...extraApi.rule import plugin_enable, minimumCoin, NOT_BLOCKED, NOT_IGNORE
 from .musicApi import *
 
 music = on_command(cmd="音乐", aliases={"点歌"}, priority=10,
-                   rule=plugin_enable("kami.music") & minimumCoin(1, "无法点歌", startswith(("点歌", "音乐"))) & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT
+                   rule=plugin_enable("kami_music") & minimumCoin(1, "无法点歌", startswith(("点歌", "音乐"))) & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT
                    , block=True)
 
 

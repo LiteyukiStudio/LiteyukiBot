@@ -11,13 +11,13 @@ from ...extraApi.permission import MASTER
 from ...extraApi.rule import plugin_enable, MODE_DETECT
 
 about = on_command(cmd="about", aliases={"关于轻雪"},
-                   rule=plugin_enable("kami.base") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
+                   rule=plugin_enable("kami_base") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                    priority=10, block=True)
 balance = on_command(cmd="查询好感度", aliases={"查询硬币", "好感度查询", "硬币查询"},
-                     rule=plugin_enable("kami.base") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
+                     rule=plugin_enable("kami_base") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                      priority=10, block=True)
 balance_rank = on_command(cmd="好感度排行",
-                          rule=plugin_enable("kami.base") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
+                          rule=plugin_enable("kami_base") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                           priority=10, block=True)
 # 超管专区
 start_close = on_command(cmd="轻雪", aliases={"liteyuki"}, permission=SUPERUSER | MASTER, priority=10, block=True)
@@ -191,5 +191,5 @@ async def start_close_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMe
         else:
             await start_close.send(message="%s处于调试模式，无需重复操作" % list(bot.config.nickname)[0])
     if r:
-        await Log.plugin_log("kami.base",
+        await Log.plugin_log("kami_base",
                              "机器人状态更新为：%s" % ("开启" if s == 1 else "关闭" if s == 0 else "检修" if s == -1 else "未知"))

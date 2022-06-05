@@ -1,7 +1,8 @@
 import json
 import os
-from typing import List, Any
-
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Bot
+from typing import List, Any, Union
+import asyncio
 import aiofiles
 
 from .base import ExConfig, ExtraData
@@ -15,7 +16,7 @@ class Plugin:
         try:
             with open(os.path.join(fp, "config/manifest.json"), "r", encoding="utf-8") as file:
                 data = json.load(file)
-                self.pluginId = data.get("id", "")
+                self.pluginId = os.path.basename(fp)
                 self.pluginName = data.get("name", "")
                 self.defaultStats = data.get("default", True)
                 self.path = fp

@@ -3,10 +3,10 @@ from ...extraApi.base import Command
 from ...extraApi.rule import *
 
 dna_comp = on_command(cmd="dna互补", aliases={"DNA互补"},
-                      rule=plugin_enable("kami.learning_tools") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
+                      rule=plugin_enable("kami_learning_tools") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                       priority=10, block=True)
 dna_translation = on_command(cmd="dna翻译", aliases={"DNA翻译"},
-                             rule=plugin_enable("kami.learning_tools") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
+                             rule=plugin_enable("kami_learning_tools") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                              priority=10, block=True)
 
 

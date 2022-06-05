@@ -32,7 +32,7 @@ def plugin_enable(pluginId: str, force_session_enable: bool = True):
                 pass
         plugin = searchForPlugin(pluginId)
         if plugin is None:
-            await Session.sendExceptionToSuperuser(bot, event, state, exception=BaseException("插件id:%s不存在，请检查代码中是否输入正确" % pluginId))
+            # await Session.sendExceptionToSuperuser(bot, event, state, exception=BaseException("插件id:%s不存在，请检查代码中是否输入正确" % pluginId))
             return False
         if plugin.defaultStats and plugin.pluginId not in bannedPlugin or not plugin.defaultStats and plugin.pluginId in enabledPlugin:
             return True

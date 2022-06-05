@@ -10,15 +10,15 @@ from nonebot.typing import T_State
 from .groupApi import *
 
 ban = on_command(cmd="ban", aliases={"禁言", "解禁"},
-                 rule=plugin_enable("kami.group_manager") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT & BOT_IS_ADMIN,
+                 rule=plugin_enable("kami_group_manager") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT & BOT_IS_ADMIN,
                  permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | MASTER,
                  block=True)
 kick = on_command(cmd="kick", aliases={"移出", "移除"},
-                  rule=plugin_enable("kami.group_manager") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT & BOT_IS_ADMIN,
+                  rule=plugin_enable("kami_group_manager") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT & BOT_IS_ADMIN,
                   permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | MASTER,
                   block=True)
 title = on_command(cmd="头衔",
-                   rule=plugin_enable("kami.group_manager") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT & BOT_IS_OWNER,
+                   rule=plugin_enable("kami_group_manager") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT & BOT_IS_OWNER,
                    block=True)
 
 

@@ -16,15 +16,15 @@ from .stApi import *
 import os
 
 #    ahhaha
-setConfig = on_command(cmd="设置属性", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
-getConfig = on_command(cmd="获取属性", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
-send_mutil_msg = on_command(cmd="群发消息", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
-backup_data = on_command(cmd="备份数据", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
-statistics_data = on_command(cmd='统计数据', rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
-enable_group = on_command(cmd="群聊启用", rule=plugin_enable("kami.super_tool", False), permission=SUPERUSER | MASTER, priority=10, block=True)
-disable_group = on_command(cmd="群聊停用", rule=plugin_enable("kami.super_tool", False), permission=SUPERUSER | MASTER, priority=10, block=True)
-call_api = on_command(cmd="/api", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
-update = on_command(cmd="/update", rule=plugin_enable("kami.super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
+setConfig = on_command(cmd="设置属性", rule=plugin_enable("kami_super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
+getConfig = on_command(cmd="获取属性", rule=plugin_enable("kami_super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
+send_mutil_msg = on_command(cmd="群发消息", rule=plugin_enable("kami_super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
+backup_data = on_command(cmd="备份数据", rule=plugin_enable("kami_super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
+statistics_data = on_command(cmd='统计数据', rule=plugin_enable("kami_super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
+enable_group = on_command(cmd="群聊启用", rule=plugin_enable("kami_super_tool", False), permission=SUPERUSER | MASTER, priority=10, block=True)
+disable_group = on_command(cmd="群聊停用", rule=plugin_enable("kami_super_tool", False), permission=SUPERUSER | MASTER, priority=10, block=True)
+call_api = on_command(cmd="/api", rule=plugin_enable("kami_super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
+update = on_command(cmd="/update", rule=plugin_enable("kami_super_tool"), permission=SUPERUSER | MASTER, priority=10, block=True)
 
 
 @enable_group.handle()

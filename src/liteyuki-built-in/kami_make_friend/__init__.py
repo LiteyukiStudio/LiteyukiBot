@@ -8,7 +8,7 @@ from ...extraApi.rule import plugin_enable, NOT_IGNORED, NOT_BLOCKED, MODE_DETEC
 from .mfApi import *
 from ..kami_music.musicApi import getMusic
 
-plugin_id = "kami.make_friend"
+plugin_id = "kami_make_friend"
 
 make_friend = on_command(cmd="寻找朋友",
                          rule=plugin_enable(plugin_id) & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,

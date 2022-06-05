@@ -14,8 +14,8 @@ from ...extraApi.rule import plugin_enable, NOT_BLOCKED, NOT_IGNORED, MODE_DETEC
 enablePlugin = on_command(cmd="启用插件", aliases={"停用插件", "开启插件", "关闭插件"}, permission=SUPERUSER | MASTER | GROUP_ADMIN | GROUP_OWNER | PRIVATE_FRIEND, priority=1, block=True)
 
 listPlugin = on_command(cmd="列出插件", aliases={"菜单", "menu", "help"}, priority=1, block=True,
-                        rule=plugin_enable(pluginId="kami.plugin_manager") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT)
-createPlugin = on_command(cmd="创建插件", priority=10, block=True, rule=plugin_enable("kami.plugin_manager") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT,
+                        rule=plugin_enable(pluginId="kami_plugin_manager") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT)
+createPlugin = on_command(cmd="创建插件", priority=10, block=True, rule=plugin_enable("kami_plugin_manager") & NOT_BLOCKED & NOT_IGNORED & MODE_DETECT,
                           permission=SUPERUSER | MASTER)
 
 

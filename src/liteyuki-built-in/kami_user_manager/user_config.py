@@ -5,8 +5,8 @@ from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEv
 from ...extraApi.rule import plugin_enable
 from ...extraApi.base import ExtraData, Command
 
-set_call = on_command(cmd="设置称呼", rule=plugin_enable("kami.plugin_manager"), priority=10, block=True)
-set_nick = on_command(cmd="设置昵称", rule=plugin_enable("kami.plugin_manager"), priority=10, block=True)
+set_call = on_command(cmd="设置称呼", rule=plugin_enable("kami_plugin_manager"), priority=10, block=True)
+set_nick = on_command(cmd="设置昵称", rule=plugin_enable("kami_plugin_manager"), priority=10, block=True)
 
 
 @set_call.handle()

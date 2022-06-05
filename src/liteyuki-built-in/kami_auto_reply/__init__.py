@@ -8,13 +8,13 @@ from .arApi import *
 from ...extraApi.badword import *
 from ...extraApi.rule import *
 
-listener = on_message(rule=plugin_enable("kami.auto_reply") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
+listener = on_message(rule=plugin_enable("kami_auto_reply") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                       priority=30)
 editReply = on_command(cmd="添加回复", aliases={"删除回复", "清除回复", "添加全局回复", "删除全局回复", "清除全局回复"},
-                       rule=plugin_enable("kami.auto_reply") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
+                       rule=plugin_enable("kami_auto_reply") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                        permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | PRIVATE_FRIEND | MASTER,
                        priority=10, block=True)
-set_reply_probability = on_command(cmd="设置回复率", rule=plugin_enable("kami.auto_reply") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
+set_reply_probability = on_command(cmd="设置回复率", rule=plugin_enable("kami_auto_reply") & NOT_IGNORED & NOT_BLOCKED & MODE_DETECT,
                                    permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | PRIVATE_FRIEND | MASTER,
                                    priority=10, block=True)
 
@@ -184,7 +184,7 @@ async def editReplyGotReply(bot: Bot, event: GroupMessageEvent | PrivateMessageE
         if rd:
             await editReply.send(message=Message(r), at_sender=True)
             session = await Log.get_session_name(bot, event)
-            await Log.plugin_log("kami.auto_reply", "%s:%s" % (session, r))
+            await Log.plugin_log("kami_auto_reply", "%s:%s" % (session, r))
         else:
             await editReply.send(message="自动回复数据储存出错", at_sender=True)
     except BaseException as e:
