@@ -48,7 +48,7 @@ async def auto_log_receive_handle(bot: Bot, event: Union[PrivateMessageEvent, Gr
 
 @event_preprocessor
 async def auto_filter_block_ignore(bot: Bot, event: Union[PrivateMessageEvent, GroupMessageEvent], state: T_State):
-    if await (NOT_IGNORED & NOT_BLOCKED)(bot, event, state):
+    if not await NOT_BLOCKED(bot, event, state) or not await NOT_IGNORED(bot, event, state):
         raise IgnoredException("")
 
 
