@@ -172,7 +172,7 @@ async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
                 await update_move()
                 await update.send("更新安装完成，正在重启，若重启失败请手动重启")
                 threading.Thread(target=os.system, args=("python %s" % os.path.join(os.path.dirname(__file__), "restart.py"))).start()
-                asyncio.sleep(2)
+                await asyncio.sleep(2)
                 os._exit(0)
             else:
                 await update.send("下载更新失败")
