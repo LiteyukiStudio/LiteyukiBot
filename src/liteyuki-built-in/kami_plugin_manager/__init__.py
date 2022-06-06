@@ -8,12 +8,13 @@ from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from .autorun import *
 from ...extraApi.base import Command, Session
-from ...extraApi.permission import MASTER
+from ...extraApi.permission import MASTER, AUTHUSER
 from ...extraApi.plugin import *
+from ...extraApi.rule import *
 
-enablePlugin = on_command(cmd="启用插件", aliases={"停用插件", "开启插件", "关闭插件"}, permission=SUPERUSER | MASTER | GROUP_ADMIN | GROUP_OWNER | PRIVATE_FRIEND, priority=1, block=True)
+enablePlugin = on_command(cmd="启用插件", aliases={"停用插件", "开启插件", "关闭插件"}, permission=SUPERUSER | MASTER | GROUP_ADMIN | GROUP_OWNER | AUTHUSER, priority=1, block=True)
 
-listPlugin = on_command(cmd="列出插件", aliases={"菜单", "menu", "help"}, priority=1, block=True)
+listPlugin = on_command(cmd="列出插件", aliases={"菜单", "menu", "help"}, rule=check_plugin_enable("kami_plugin_manager"), priority=1, block=True)
 createPlugin = on_command(cmd="创建插件", priority=10, block=True, permission=SUPERUSER | MASTER)
 
 

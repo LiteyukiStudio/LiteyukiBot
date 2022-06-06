@@ -49,9 +49,9 @@ async def badwordWarn(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEv
                 remain = user_warn_time % max_ban_time
                 if user_warn_time % max_ban_time != 0:
                     if enable_ban:
-                        await bot.send(event, "你的消息中含有违禁词，%s/%s次后禁言" % (remain, max_ban_time), at_sender=True)
+                        await bot.send(event, "你的消息或群昵称中含有违禁词，%s/%s次后禁言" % (remain, max_ban_time), at_sender=True)
                     else:
-                        await bot.send(event, "你的消息中含有违禁词，已撤回处理", at_sender=True)
+                        await bot.send(event, "你的消息或群昵称中含有违禁词，已撤回处理", at_sender=True)
             if enable_ban and user_warn_time % max_ban_time == 0:
                 await bot.set_group_ban(group_id=event.group_id, user_id=event.user_id,
                                         duration=user_warn_time // max_ban_time * 20 * 60)
@@ -166,11 +166,13 @@ async def listBadwordHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMes
         reply = "本%s违禁词如下" % session_name
         count = 0
         for match in data.items():
+
             mode = match[0]
+            reply += "\n%s:" % mode
             words = match[1]
             for word in words:
                 count += 1
-                reply += "\n[%s]%s" % (mode, word)
+                reply += "\n- %s" % word
         if count > 0:
             await listBadword.send(message=reply)
         else:

@@ -8,18 +8,20 @@ from .autorun import *
 from ...extraApi.base import Balance, Command
 from ...extraApi.cardimage import Cardimage
 from ...extraApi.permission import MASTER
-from ...extraApi.rule import MODE_DETECT
+from ...extraApi.rule import check_plugin_enable
 
-about = on_command(cmd="about", aliases={"关于轻雪"},
+PluginEnable = check_plugin_enable("kami_base")
+
+about = on_command(cmd="about", aliases={"关于轻雪"}, rule=PluginEnable,
                    priority=10, block=True)
-balance = on_command(cmd="查询好感度", aliases={"查询硬币", "好感度查询", "硬币查询"},
+balance = on_command(cmd="查询好感度", aliases={"查询硬币", "好感度查询", "硬币查询"}, rule=PluginEnable,
                      priority=10, block=True)
-balance_rank = on_command(cmd="好感度排行",
+balance_rank = on_command(cmd="好感度排行", rule=PluginEnable,
                           priority=10, block=True)
 # 超管专区
-start_close = on_command(cmd="轻雪", aliases={"liteyuki"}, permission=SUPERUSER | MASTER, priority=10, block=True)
+start_close = on_command(cmd="轻雪", permission=SUPERUSER | MASTER, priority=10, block=True, rule=PluginEnable)
 
-echo = on_command(cmd="echo", permission=SUPERUSER | MASTER, priority=10, block=True)
+echo = on_command(cmd="echo", permission=SUPERUSER | MASTER, priority=10, block=True, rule=PluginEnable)
 
 m = on_command(cmd="liteyuki")
 

@@ -21,12 +21,12 @@ async def IS_BADWORD(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, s
                                                      key="badword", default={})
     session = await Log.get_session_name(bot, event)
     for re_badword in global_badwords.get("re", []) + session_badwords.get("re", []):
-        if re.search(re_badword, event.raw_message) is not None:
+        if re.search(re_badword, event.raw_message) is not None or isinstance(event, GroupMessageEvent) and re.search(re_badword, event.sender.card):
             await Log.plugin_log("kami.badword", "%s 触发了违禁词：[re]%s" % (session, re_badword))
             return True
 
     for eq_badword in global_badwords.get("eq", []) + session_badwords.get("eq", []):
-        if eq_badword == event.raw_message:
+        if eq_badword == event.raw_message or isinstance(event, GroupMessageEvent) and eq_badword == event.sender.card:
             await Log.plugin_log("kami.badword", "%s 触发了违禁词：[eq]%s" % (session, eq_badword))
             return True
 

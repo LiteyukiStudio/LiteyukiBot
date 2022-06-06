@@ -3,9 +3,11 @@ from typing import Union
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEvent
 from ...extraApi.base import ExtraData, Command
+from ...extraApi.rule import *
 
-set_call = on_command(cmd="设置称呼", priority=10, block=True)
-set_nick = on_command(cmd="设置昵称", priority=10, block=True)
+plugin_id = "kami_user_manager"
+set_call = on_command(cmd="设置称呼", priority=10, rule=check_plugin_enable(plugin_id), block=True)
+set_nick = on_command(cmd="设置昵称", priority=10, rule=check_plugin_enable(plugin_id), block=True)
 
 
 @set_call.handle()
