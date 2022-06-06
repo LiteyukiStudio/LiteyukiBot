@@ -13,7 +13,7 @@ async def check(matcher: Matcher, bot: Bot, event: Union[GroupMessageEvent, Priv
     if await check_plugin_enable(matcher.plugin_name)(bot, event, state):
         pass
     else:
-        if matcher.plugin_name in ["kami_plugin_manager", "kami_base", "kami_user_manager"]:
+        if matcher.plugin_name in ["kami_plugin_manager", "kami_base", "kami_user_manager", "kami_super_tool"]:
             pass
         else:
             raise IgnoredException("插件未启用")

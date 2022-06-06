@@ -39,7 +39,7 @@ async def enable_group_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupM
     state2 = await ExtraData.get_group_data(group_id=group_id, key="enable", default=False)
     group_info = await bot.get_group_info(group_id=group_id)
     if state2:
-        await enable_group.send(message="群：%s已启用机器人" % group_info["group_name"])
+        await enable_group.send(message="群：%s已启用机器人，无需再次操作" % group_info["group_name"])
     else:
 
         await ExtraData.set_group_data(group_id=group_id, key="enable", value=True)
@@ -56,7 +56,7 @@ async def enable_group_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupM
         group_id = 0
     state2 = await ExtraData.get_group_data(group_id=group_id, key="enable", default=False)
     if not state2:
-        await disable_group.send(message="该群已停用机器人")
+        await disable_group.send(message="该群已停用机器人，无需再次操作")
     else:
         await ExtraData.set_group_data(group_id=group_id, key="enable", value=False)
         await enable_group.send(message="群聊停用成功")
@@ -151,7 +151,6 @@ async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
         now_version = await ExtraData.get_resource_data(key="liteyuki.bot.version", default="0.0.0")
         now_version_description = await ExtraData.get_resource_data(key="liteyuki.bot.version_description", default="0.0.0")
         async with aiohttp.request("GET", url="https://gitee.com/snowykami/Liteyuki/raw/master/resource/version.json") as resp:
-            print(await resp.json())
             online_version = (json.loads(resp.text))["version"]
         if now_version != online_version or kwargs.get("force", False):
             source_list: list = (await resp.json())["download"]
