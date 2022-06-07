@@ -1,6 +1,6 @@
 {
-    "version": "3.4.0",
-    "description": "修复更新",
+    "version": "3.4.2",
+    "description": "优化了插件管理",
     "download": [
         "https://github.com/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip",
         "https://hub.fastgit.xyz/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip"

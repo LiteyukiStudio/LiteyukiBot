@@ -94,27 +94,28 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
 
         # 天气基本信息获取
         if state["mode"] == "now":
-            print(state["params"].get("location", "%s,%s" % (lon, lat)), apikey, api_key_type, state["params"].get("lang", "zh"), state["params"].get("unit", "m"))
-            if is_gaode:
-                weatherInfo = await PointWeatherApi.get_now_weather("%s,%s" % (lon, lat), key=apikey,
+            if city.get("custom", False):
+                weatherInfo = {"code": "200", "now": city.get("weatherData")}
+            elif is_gaode:
+                weatherInfo = await PointWeatherApi.get_now_weather("%s,%s" % (lon, lat), key=apikey, key_type=api_key_type,
                                                                     lang=state["params"].get("lang", "zh"), unit=state["params"].get("unit", "m"))
             else:
                 weatherInfo = await CityWeatherApi.get_now_weather(location=state["params"].get("location", "%s,%s" % (lon, lat)), key=apikey, key_type=api_key_type,
                                                                    lang=state["params"].get("lang", "zh"), unit=state["params"].get("unit", "m"))
             if weatherInfo["code"] == "200":
 
-                updateTime = weatherInfo.get("updateTime")  # API响应时间
+                updateTime = weatherInfo.get("updateTime", "00-00-00T00:00+00:00")  # API响应时间
                 link = weatherInfo.get("fxLink")  # 链接
 
                 weatherData = weatherInfo.get("now", {})  # 天气数据
-                obsTime = weatherData.get("obsTime", "Unknown")  # 观测时间
+                obsTime = weatherData.get("obsTime", "00-00-00T00:00+00:00")  # 观测时间
 
                 obsDate = obsTime.split("T")[0]
                 obsLocalTime = obsTime.split("T")[1]
 
                 temp = weatherData.get("temp")  # 气温℃
                 feelsLike = weatherData.get("feelsLike")  # 体感温度℃
-                icon = weatherData.get("icon")  # 图标码
+                icon = weatherData.get("icon", city.get("id"))  # 图标码
                 text = weatherData.get("text")  # 天气状况文本
                 wind360 = weatherData.get("wind360")  # 风向角度
                 windDir = weatherData.get("windDir")  # 风向
@@ -162,11 +163,11 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                                                    baseAnchor=(0.95, 0.97), textAnchor=(1, 1),
                                                    content="%s-%s | %s %s Designed by SnowyKami" % (icon, city_id, obsDate, obsLocalTime),
                                                    font=font_80, color=Cardimage.hex2dec("ffdedede"))
-                    await weather_card.addText(uvSize=(1, 1), boxSize=(
+                    country_pos = await weather_card.addText(uvSize=(1, 1), boxSize=(
                         0.45, Balance.clamp((city_pos[3] - city_pos[1]) / 1.2, 0.04, 0.05)), xyOffset=(0, 0),
-                                               baseAnchor=(city_pos[2] + 0.02, city_pos[1] + 0.01), textAnchor=(0, 0),
-                                               content="%s-%s" % (country, adm1),
-                                               font=font_80, color=Cardimage.hex2dec("ffdedede"))
+                                                             baseAnchor=(city_pos[2] + 0.02, city_pos[1] + 0.01), textAnchor=(0, 0),
+                                                             content="%s-%s" % (country, adm1),
+                                                             font=font_80, color=Cardimage.hex2dec("ffdedede"))
                     # 城市描述
                     if city_description is not None:
                         await weather_card.addText(uvSize=(1, 1), boxSize=(0.4, 0.025), xyOffset=(0, 0),

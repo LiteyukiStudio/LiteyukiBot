@@ -14,7 +14,7 @@ from ...extraApi.rule import *
 
 enablePlugin = on_command(cmd="启用插件", aliases={"停用插件", "开启插件", "关闭插件"}, permission=SUPERUSER | MASTER | GROUP_ADMIN | GROUP_OWNER | AUTHUSER, priority=1, block=True)
 
-listPlugin = on_command(cmd="列出插件", aliases={"菜单", "menu", "help"}, rule=check_plugin_enable("kami_plugin_manager"), priority=1, block=True)
+listPlugin = on_command(cmd="列出插件", aliases={"菜单", "menu", "help", "帮助"}, rule=check_plugin_enable("kami_plugin_manager"), priority=1, block=True)
 createPlugin = on_command(cmd="创建插件", priority=10, block=True, permission=SUPERUSER | MASTER)
 
 
@@ -68,7 +68,7 @@ async def listPluginHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEv
     try:
         args = Command.formatToCommand(str(args).strip())[0]
         if args[0] == "":
-            pluginList = getPluginList()
+            pluginList = getPluginDict().values()
             reply = "插件列表如下:\n\n"
             for plugin in pluginList:
                 reply += "- %s%s%s\n" % ("[内置]" if plugin.built_in else "[第三方]", plugin.pluginName,

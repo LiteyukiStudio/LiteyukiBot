@@ -1,8 +1,11 @@
 from nonebot import on_keyword, on_command
+from nonebot.adapters.onebot.v11 import Message
+from nonebot.params import CommandArg
 from nonebot.rule import keyword
 from src.extraApi.permission import MASTER
 from src.extraApi.rule import *
 from .config import *
+from .qweather import *
 from .weatherHandle import *
 
 realTimeWeather = on_keyword(keywords={"天气"},
@@ -17,10 +20,11 @@ setAdvice = on_command(cmd="设置天气建议", permission=SUPERUSER | MASTER, 
 
 
 @setDescription.handle()
-async def setDescriptionHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent):
+async def setDescriptionHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, args: Message = CommandArg()):
     try:
-        args, params = Command.formatToCommand(event.raw_message)
-        city_info = (await getQWCityInfo({"location": args[1]}))["location"][0]
+        args, params = Command.formatToCommand(str(args))
+        api_key = await ExtraData.get_global_data(key="kami.weather.key", default="")
+        city_info = (await GeoApi.lookup_city(location=args[0], key=api_key, **params))["location"][0]
         descriptionDict = await ExtraData.get_resource_data(key="kami.weather.city_description", default={})
         descriptionDict[city_info["id"]] = description = Command.formatToString(*args[2:]).replace("%20", " ")
         await ExtraData.set_resource_data(key="kami.weather.city_description", value=descriptionDict)
@@ -78,19 +82,11 @@ async def realTimeWeatherGotCity(bot: Bot, event: GroupMessageEvent | PrivateMes
 
 
 @bindCity.handle()
-async def bindCityHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
+async def bindCityHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State, args: Message = CommandArg()):
     try:
-        args, param = Command.formatToCommand(event.raw_message)
-        args = jieba.lcut(Command.formatToString(*args[1:]))
-        args.reverse()
-        params = {}
-        for i, arg in enumerate(args):
-            if i == 0:
-                params["location"] = arg
-            else:
-                params["adm"] = arg
-        params.update(param)
-        cityList = await getQWCityInfo(params)
+        args, params = Command.formatToCommand(str(args))
+        api_key = await ExtraData.get_global_data(key="kami.weather.key", default="")
+        cityList = await GeoApi.lookup_city(location=Command.formatToString(*args), key=api_key, **params)
         if cityList["code"] == "200":
             params["location"] = cityList["location"][0]["id"]
 

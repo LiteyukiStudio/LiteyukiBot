@@ -1,5 +1,6 @@
 import aiohttp
 import jieba
+import re
 from ...extraApi.base import ExtraData
 from nonebot.utils import run_sync
 
@@ -86,12 +87,11 @@ class GeoApi:
                                 "lon": gd_poi.get("location").split(",")[0],
                                 "lat": gd_poi.get("location").split(",")[1]
                             }]}
-
                     return city
 
         custom_cities = await ExtraData.get_resource_data(key="kami.weather.custom_city_data", default=[])
         for city in custom_cities:
-            if location in city.get("name"):
+            if location in city.get("name") or city.get("match") is not None and re.search(city.get("match", ""), location):
                 return {"code": "200", "location": [city]}
         else:
             return await response.json()

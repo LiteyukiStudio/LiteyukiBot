@@ -28,7 +28,7 @@ async def set_reply_probability_handle(bot: Bot, event: GroupMessageEvent | Priv
 async def listenerHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
     event.raw_message = Command.escape(event.raw_message)
     session_reply_probability = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="kami.auto_reply.reply_probability",
-                                                        default=1.0 if type(event) is PrivateMessageEvent else 0.1)
+                                                        default=1.0 if type(event) is PrivateMessageEvent else 0.02)
     favo_reply_probability = (Balance.clamp(await Balance.getFavoValue(event.user_id) / 200, 0, 1))
     if random.random() < session_reply_probability * favo_reply_probability or await to_me()(bot, event, state) or await ExtraData.get_user_data(event.user_id,
                                                                                                                                                  key="my.user_call_bot",

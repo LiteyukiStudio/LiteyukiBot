@@ -1,15 +1,15 @@
 import json
 import os
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Bot
-from typing import List, Any, Union
-import asyncio
+from typing import List, Any, Dict
 import aiofiles
 
 from .base import ExConfig, ExtraData
+from nonebot.plugin.plugin import plugins
+from nonebot.plugin.plugin import Plugin as NBPlugin
 
 
 class Plugin:
-    def __init__(self, fp, built_in):
+    def __init__(self, fp, built_in: False):
         """
         :param fp: 路径
         """
@@ -50,26 +50,25 @@ def searchForPlugin(keyword) -> Any | None:
     :param keyword:
     :return: None Plugin
     """
-    pluginList = getPluginList()
-    for p in pluginList:
+    pluginDict = getPluginDict()
+    for p in pluginDict.values():
         if keyword == p.pluginName or keyword == p.pluginId:
             return p
-    for p in pluginList:
+    for p in pluginDict.values():
         if keyword in p.pluginName:
             return p
     return None
 
 
-def getPluginList() -> List[Plugin]:
-    pluginList = []
+def getPluginDict() -> Dict[str, Plugin]:
+    pluginDict = dict()
     for f in os.listdir(ExConfig.plugins_path):
         if os.path.exists(os.path.join(ExConfig.plugins_path, f, "__init__.py")):
-            pluginList.append(Plugin(os.path.join(ExConfig.plugins_path, f), True))
-
-    for e_f in os.listdir(ExConfig.nonebot_plugin_path):
-        if os.path.exists(os.path.join(ExConfig.nonebot_plugin_path, e_f, "__init__.py")):
-            pluginList.append(Plugin(os.path.join(ExConfig.nonebot_plugin_path, e_f), False))
-    return pluginList
+            pluginDict[f] = Plugin(os.path.join(ExConfig.plugins_path, f), True)
+    for plugin in plugins.items():
+        if plugin[0] not in pluginDict:
+            pluginDict[plugin[0]] = Plugin(plugin[1].module.__path__[0], False)
+    return pluginDict
 
 
 async def getPluginEnable(targetType, targetId, plugin: Plugin):
