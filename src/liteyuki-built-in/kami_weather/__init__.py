@@ -8,6 +8,22 @@ from .config import *
 from .qweather import *
 from .weatherHandle import *
 
+
+def args_start_or_end_with(text: str) -> Rule:
+    async def _rule(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], state: T_State):
+        args, kws = Command.formatToCommand(event.raw_message)
+        args_text = Command.formatToString(*args)
+        if text in args_text:
+            if args_text[:len(text)] == text or args_text[-len(text):] == text:
+                return True
+            else:
+                return False
+        else:
+            return False
+
+    return Rule(_rule)
+
+
 realTimeWeather = on_keyword(keywords={"天气"},
                              rule=args_start_or_end_with("天气") & minimumCoin(2, "无法查询天气", keyword("天气")),
                              priority=11,

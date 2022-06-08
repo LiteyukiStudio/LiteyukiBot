@@ -2,12 +2,12 @@ import os
 import re
 
 from PIL import Image
-from nonebot.adapters.onebot.v11 import MessageSegment
+from nonebot.adapters.onebot.v11 import MessageSegment, GroupMessageEvent, PrivateMessageEvent, Bot
+from nonebot.typing import T_State
 from .qweather import *
 
-from ...extraApi.base import Session, ExConfig, Log, Balance
+from ...extraApi.base import Session, ExConfig, Log, Balance, Command
 from ...extraApi.cardimage import Cardimage
-from .weatherApi import *
 
 
 async def handleRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
@@ -368,7 +368,7 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                     "实时天气", weatherInfo["code"]), at_sender=True)
 
         elif state["mode"] == "multiPre":
-            weatherData = await CityWeatherApi.get_daily_weather(location=city_id, key=apikey, days=state["days"], dev=True if api_key_type == "dev" else False,
+            weatherData = await CityWeatherApi.get_daily_weather(location=city_id, key=apikey, days=state["days"], key_type=api_key_type,
                                                                  lang=state["params"].get("lang", "zh"), unit=state["params"].get("unit", "m"))
             if weatherData["code"] == "200":
                 reply = "%s %s日预报:" % (cityName, state["days"])
@@ -392,7 +392,7 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
                 await bot.send(event, message="%s查询失败: %s\nhttps://dev.qweather.com/docs/resource/status-code/" % (
                     "%s日预报天气" % state["days"], weatherData["code"]), at_sender=True)
         elif state["mode"] == "hourPre":
-            weatherData = await CityWeatherApi.get_hourly_weather(location=city_id, key=apikey, dev=True if api_key_type == "dev" else False, hours=state["hours"],
+            weatherData = await CityWeatherApi.get_hourly_weather(location=city_id, key=apikey, key_type=api_key_type, hours=state["hours"],
                                                                   lang=state["params"].get("lang", "zh"), unit=state["params"].get("unit", "m"))
             if weatherData["code"] == "200":
                 reply = "%s %s小时预报:" % (cityName, state["hours"])
