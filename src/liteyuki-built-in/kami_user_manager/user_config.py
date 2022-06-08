@@ -7,7 +7,7 @@ from ...extraApi.rule import *
 
 plugin_id = "kami_user_manager"
 set_call = on_command(cmd="设置称呼", priority=10, rule=check_plugin_enable(plugin_id), block=True)
-set_nick = on_command(cmd="设置昵称", priority=10, rule=check_plugin_enable(plugin_id), block=True)
+set_nick = on_command(cmd="设置唤醒词", priority=10, rule=check_plugin_enable(plugin_id), block=True)
 
 
 @set_call.handle()

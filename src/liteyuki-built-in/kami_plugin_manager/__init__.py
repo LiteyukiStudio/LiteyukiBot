@@ -71,9 +71,9 @@ async def listPluginHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEv
             pluginList = getPluginDict().values()
             reply = "插件列表如下:\n\n"
             for plugin in pluginList:
-                reply += "- %s%s%s\n" % ("[内置]" if plugin.built_in else "[第三方]", plugin.pluginName,
-                                         "" if await getPluginEnable(event.message_type, ExtraData.getTargetId(event),
-                                                                     plugin) else "[未启用]")
+                reply += "%s%s%s\n" % ("[内置]" if plugin.built_in else "", plugin.pluginName,
+                                       "" if await getPluginEnable(event.message_type, ExtraData.getTargetId(event),
+                                                                   plugin) else "[未启用]")
             reply += "\n# 发送 help <插件名> 获取每个插件的总文档\n\n" \
                      "# 发送 help <插件名> [*args] 获取每个插件的子文档\n\n" \
                      "# <>是必填参数，[]是可选参数，输入命令时无需带<>和[]"
