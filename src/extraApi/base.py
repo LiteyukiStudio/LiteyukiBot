@@ -168,7 +168,7 @@ class Command:
         :param text:
         :return:
         """
-        return text.replace("&amp;", "&").replace("&#91;", "[").replace("&#93;", "]").replace("&#44;", ",")
+        return text.replace("&amp;", "&").replace("&#91;", "[").replace("&#93;", "]").replace("&#44;", ",").replace("%20", " ")
 
 
 class ExtraData:

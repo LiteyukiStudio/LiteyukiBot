@@ -1,10 +1,11 @@
 import random
+from nonebot.params import CommandArg
 
 from ...extraApi.base import Command
 from ...extraApi.permission import MASTER
 from ...extraApi.rule import *
 from nonebot import on_command
-from nonebot.adapters.onebot.v11 import GROUP_OWNER, GROUP_ADMIN, Bot, GroupMessageEvent
+from nonebot.adapters.onebot.v11 import GROUP_OWNER, GROUP_ADMIN, Bot, GroupMessageEvent, Message
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from .groupApi import *
@@ -78,9 +79,9 @@ async def kick_got_determine(bot: Bot, event: GroupMessageEvent, state: T_State)
 
 
 @title.handle()
-async def title_handle(bot: Bot, event: GroupMessageEvent, state: T_State):
+async def title_handle(bot: Bot, event: GroupMessageEvent, state: T_State, args: Message = CommandArg()):
     try:
-        title_text = Command.formatToString(*event.raw_message.split()[1:]).replace("%20", " ")
+        title_text = Command.escape(str(args))
         await bot.set_group_special_title(group_id=event.group_id, user_id=event.user_id, special_title=title_text)
         if len(title_text.encode("utf-8")) >= 19:
             await title.send(message="头衔字符超过18字节，可能会设置失败", at_sender=True)

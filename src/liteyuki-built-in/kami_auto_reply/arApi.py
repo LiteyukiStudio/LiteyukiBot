@@ -30,7 +30,8 @@ async def getReply(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, sta
     user_reply_data: dict = await ExtraData.get_user_data(user_id=event.user_id, key="auto_reply", default={})
     group_reply_data: dict = dict() if not isinstance(event, GroupMessageEvent) else await ExtraData.get_group_data(group_id=event.group_id, key="auto_reply", default={})
     # to_me : bot的第一昵称在消息中或者被at，或者用户自定义唤醒词在消息中
-    if await to_me()(bot, event, state) or await ExtraData.get_user_data(event.user_id, key="my.user_call_bot", default=list(bot.config.nickname)[0]) in event.raw_message:
+    if await to_me()(bot, event, state) or await ExtraData.get_user_data(event.user_id, key="my.user_call_bot", default=list(bot.config.nickname)[0]) in event.raw_message or \
+            list(bot.config.nickname)[0] in event.raw_message:
         tome = True
     else:
         tome = False

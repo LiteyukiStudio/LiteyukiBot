@@ -5,7 +5,6 @@ from PIL import Image
 from nonebot.adapters.onebot.v11 import MessageSegment, GroupMessageEvent, PrivateMessageEvent, Bot
 from nonebot.typing import T_State
 from .qweather import *
-
 from ...extraApi.base import Session, ExConfig, Log, Balance, Command
 from ...extraApi.cardimage import Cardimage
 
