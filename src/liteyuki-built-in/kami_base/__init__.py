@@ -4,11 +4,13 @@ import random
 from PIL import Image
 from nonebot import on_command, on_notice
 from nonebot.adapters.onebot.v11 import NoticeEvent, Message
+from nonebot.params import CommandArg
 from .autorun import *
 from ...extraApi.base import Balance, Command
 from ...extraApi.cardimage import Cardimage
 from ...extraApi.permission import MASTER
 from ...extraApi.rule import check_plugin_enable
+import psutil
 
 PluginEnable = check_plugin_enable("kami_base")
 
@@ -18,6 +20,7 @@ balance = on_command(cmd="查询好感度", aliases={"查询硬币", "好感度�
                      priority=10, block=True)
 balance_rank = on_command(cmd="好感度排行", rule=PluginEnable,
                           priority=10, block=True)
+state = on_command(cmd="state", aliases={"状态"}, rule=PluginEnable, priority=10, block=True)
 # 超管专区
 start_close = on_command(cmd="轻雪", permission=SUPERUSER | MASTER, priority=10, block=True, rule=PluginEnable)
 
@@ -164,12 +167,12 @@ async def balance_rank_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateM
 
 
 @start_close.handle()
-async def start_close_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], state: T_State):
+async def start_close_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], state: T_State, args: Message = CommandArg()):
     now_state = await ExtraData.get_global_data(key="enable_mode", default=1)
-    args, kw = Command.formatToCommand(event.raw_message)
     s = 1
     r = False
-    if args[1] in ["start", "启动", "开启"]:
+    args = str(args)
+    if args in ["start", "启动", "开启"]:
         if now_state != 1:
             await start_close.send(message="%s开启成功" % list(bot.config.nickname)[0])
             await ExtraData.set_global_data(key="enable_mode", value=1)
@@ -177,7 +180,7 @@ async def start_close_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMe
             s = 1
         else:
             await start_close.send(message="%s处于开启状态，无需重复操作" % list(bot.config.nickname)[0])
-    elif args[1] in ["close", "关闭"]:
+    elif args in ["close", "关闭"]:
         if now_state != 0:
             await start_close.send(message="%s关闭成功" % list(bot.config.nickname)[0])
             await ExtraData.set_global_data(key="enable_mode", value=0)
@@ -185,7 +188,7 @@ async def start_close_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMe
             s = 0
         else:
             await start_close.send(message="%s处于关闭状态，无需重复操作" % list(bot.config.nickname)[0])
-    elif args[1] in ["debug", "调试"]:
+    elif args in ["debug", "调试"]:
         if now_state != -1:
             await start_close.send(message="%s已进入调试模式" % list(bot.config.nickname)[0])
             await ExtraData.set_global_data(key="enable_mode", value=-1)
@@ -196,3 +199,24 @@ async def start_close_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMe
     if r:
         await Log.plugin_log("kami_base",
                              "机器人状态更新为：%s" % ("开启" if s == 1 else "关闭" if s == 0 else "检修" if s == -1 else "未知"))
+
+
+@state.handle()
+async def state_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
+    msg = "当前设备状态："
+    each_core = psutil.cpu_percent(percpu=True)
+    msg += "\nCPU:"
+    for i, p in enumerate(each_core):
+        msg += "\n - 核%d: %.1f" % (i + 1, p) + "%"
+    msg += "\n内存:\n - 总计: %.1fGB\n - 已用: %.1fGB\n - 剩余: %.1fGB" % \
+           (psutil.virtual_memory().total / 1024 ** 3, psutil.virtual_memory().used / 1024 ** 3, psutil.virtual_memory().free / 1024 ** 3)
+    msg += "\n磁盘:"
+    disk_total = 0
+    disk_used = 0
+    for disk in psutil.disk_partitions():
+        use = psutil.disk_usage(disk.device)
+        msg += "\n - %s: %.1f/%.1fGB" % (disk.device, use.used / 1024 ** 3, use.total / 1024 ** 3)
+        disk_total += use.total
+        disk_used += use.used
+    msg += "\n - 总计: %.1f/%.1fGB" % (disk_used / 1024 ** 3, disk_total / 1024 ** 3)
+    await state.send(msg)
