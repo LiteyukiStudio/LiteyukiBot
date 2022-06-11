@@ -164,16 +164,21 @@ async def install_plugin_handle(bot: Bot, event: Union[PrivateMessageEvent], sta
 async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
     try:
         args, kwargs = Command.formatToCommand(event.raw_message)
-        async with aiofiles.open(os.path.join(ExConfig.res_path, "version.json"), "r", encoding="utf-8") as file:
-            file_data = json.loads(await file.read())
-            now_version = file_data.get("version", "0.0.0")
-            now_version_description = file_data.get("description", "无")
-        async with aiohttp.request("GET", url="https://gitee.com/snowykami/Liteyuki/raw/master/resource/version.json") as resp:
-            online_version = (json.loads(await resp.text()))["version"]
+        try:
+            async with aiofiles.open(os.path.join(ExConfig.res_path, "version.json"), "r", encoding="utf-8") as file:
+                file_data = json.loads(await file.read())
+                now_version = file_data.get("version", "0.0.0")
+                now_version_description = file_data.get("description", "无")
+            async with aiohttp.request("GET", url="https://gitee.com/snowykami/Liteyuki/raw/master/resource/version.json") as resp:
+                online_version = (json.loads(await resp.text()))["version"]
+        except BaseException:
+            now_version = "0.0.0"
+            now_version_description = "无"
+            online_version = "0.0.0"
         if now_version != online_version or kwargs.get("force", False):
             source_list: list = (await resp.json())["download"]
-            if "mirror" in kwargs:
-                source_list.insert(0, kwargs["mirror"])
+            if "url" in kwargs:
+                source_list.insert(0, kwargs["url"])
             for i, url in enumerate(source_list):
                 try:
                     await update.send("%s下载更新：\n%s -> %s，源：%s" % ("开始" if i == 0 else "当前源不可用，正在从其他源重试", now_version, online_version, url))
