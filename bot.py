@@ -55,7 +55,7 @@ requires = ["poetry_core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"''')
 
 nonebot.init(
-    _env_file=".env.dev",
+    _env_file=".env",
     apscheduler_autostart=True
 )
 app = nonebot.get_asgi()
