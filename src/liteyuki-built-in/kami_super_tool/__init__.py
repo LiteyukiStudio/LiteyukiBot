@@ -164,9 +164,10 @@ async def install_plugin_handle(bot: Bot, event: Union[PrivateMessageEvent], sta
 async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
     try:
         args, kwargs = Command.formatToCommand(event.raw_message)
-
-        now_version = await ExtraData.get_resource_data(key="liteyuki.bot.version", default="0.0.0")
-        now_version_description = await ExtraData.get_resource_data(key="liteyuki.bot.version_description", default="0.0.0")
+        async with aiofiles.open(os.path.join(ExConfig.res_path, "version.json"), "r", encoding="utf-8") as file:
+            file_data = json.loads(await file.read())
+            now_version = file_data.get("version", "0.0.0")
+            now_version_description = file_data.get("description", "无")
         async with aiohttp.request("GET", url="https://gitee.com/snowykami/Liteyuki/raw/master/resource/version.json") as resp:
             online_version = (json.loads(await resp.text()))["version"]
         if now_version != online_version or kwargs.get("force", False):
