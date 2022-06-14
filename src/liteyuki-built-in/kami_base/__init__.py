@@ -209,8 +209,10 @@ async def state_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageE
     msg += "\nCPU:"
     for i, p in enumerate(each_core):
         msg += "\n - 核%d: %.1f" % (i + 1, p) + "%"
+    msg += "\n - 平均: %.1f" % psutil.cpu_percent() + "%"
     msg += "\n内存:\n - 总计: %.1fGB\n - 已用: %.1fGB\n - 剩余: %.1fGB" % \
            (psutil.virtual_memory().total / 1024 ** 3, psutil.virtual_memory().used / 1024 ** 3, psutil.virtual_memory().free / 1024 ** 3)
+    msg += "\n - BOT使用: %.1fMB" % (psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2)
     msg += "\n磁盘:"
     disk_total = 0
     disk_used = 0

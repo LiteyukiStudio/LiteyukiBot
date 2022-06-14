@@ -6,8 +6,8 @@ from nonebot.rule import startswith
 from .api import *
 from .userData import *
 
-pois_cmd = on_command(cmd="pois", aliases={"地点查询"},
-                      rule=minimumCoin(2, "无法查询地点", startswith(("地点查询", "pois"))),
+pois_cmd = on_command(cmd="pois", aliases={"查询地点"},
+                      rule=minimumCoin(2, "无法查询地点", startswith(("查询地点", "pois"))),
                       priority=12, block=True)
 
 locate_ip = on_command(cmd="ip定位", aliases={"IP定位", "Ip定位", "iP定位"}, priority=12, block=True)

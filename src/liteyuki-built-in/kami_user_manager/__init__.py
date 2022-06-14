@@ -65,12 +65,10 @@ async def registerGotAuthCode(bot: Bot, event: PrivateMessageEvent, state: T_Sta
 
 # 未注册的人回复
 @unregister.handle()
-async def unregisterHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
+async def unregisterHandle(bot: Bot, event: PrivateMessageEvent, state: T_State):
     day_times = await ExtraData.get_user_data(user_id=event.user_id, key="kami.user_manager.unregister_reply_time", default=0)
     if day_times <= 5 or isinstance(event, PrivateMessageEvent):
         await unregister.send("你还未注册，无法与%s交流，请先私聊发送\"注册\"" % list(bot.config.nickname)[0], at_sender=True)
 
     day_times += 1
     await ExtraData.set_user_data(user_id=event.user_id, key="kami.user_manager.unregister_reply_time", value=day_times)
-
-
