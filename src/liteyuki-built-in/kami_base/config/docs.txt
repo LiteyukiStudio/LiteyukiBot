@@ -1,6 +1,6 @@
 插件命令：
 - 查询好感度（可以查看好感度，硬币）
 - 抽奖(更新中)
-- about(关于小羽)
-- state(查看设备情况)
-- 轻雪 close/start/test(总开关)
+- /about(关于小羽)
+- /state(查看设备情况)
+- /轻雪 close/start/test(总开关)
