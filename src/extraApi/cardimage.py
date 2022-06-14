@@ -156,8 +156,3 @@ class Cardimage:
         """
         return int(colorHex[2:4], 16), int(colorHex[4:6], 16), int(colorHex[6:8], 16), int(colorHex[0:2], 16)
 
-# im = Image.new(mode="RGBA", size=(1000, 500), color=(255, 255, 255, 255))
-#
-# card = Cardimage(im)
-# card.addText(uvSize=(1, 1), boxSize=(0.2, 0.2), xy=(0, 0), baseAnchor=[0.5, 0], textAnchor=[0.5, 0], content="我日你先人", font="汉仪文黑-85w.ttf")
-# card.baseImg.show()

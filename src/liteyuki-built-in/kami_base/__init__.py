@@ -10,6 +10,7 @@ from ...extraApi.base import Balance, Command
 from ...extraApi.cardimage import Cardimage
 from ...extraApi.permission import MASTER
 from ...extraApi.rule import check_plugin_enable
+from nonebot.adapters.qqguild import GuildEvent
 import psutil
 
 PluginEnable = check_plugin_enable("kami_base")
@@ -32,7 +33,7 @@ fileReceiver = on_notice()
 
 
 @m.handle()
-async def testHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
+async def testHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent, GuildEvent]):
     await m.send("轻雪机器人:测试成功")
 
 
