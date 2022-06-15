@@ -77,9 +77,9 @@ async def listPluginHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMess
                 reply += "%s%s%s\n" % ("[内置]" if plugin.built_in else "", plugin.pluginName,
                                        "" if await getPluginEnable(event.message_type, ExtraData.getTargetId(event),
                                                                    plugin) else "[未启用]")
-            reply += "\n# 发送 help <插件名> 获取每个插件的总文档\n\n" \
-                     "# 发送 help <插件名> [*args] 获取每个插件的子文档\n\n" \
-                     "# <>是必填参数，[]是可选参数，输入命令时无需带<>和[]"
+            reply += "\n# \"help <插件名>\"获取插件的帮助文档\n\n" \
+                     "# \"help <插件名> <子文档>...\"获取插件的子文档\n\n" \
+                     "# <>是必填，[]是可选，输入时无需带<>和[]"
             await listPlugin.send(message=reply)
         else:
             pluginName = args[0]
