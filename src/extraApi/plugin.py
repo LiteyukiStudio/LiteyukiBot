@@ -67,7 +67,8 @@ def getPluginDict() -> Dict[str, Plugin]:
             pluginDict[f] = Plugin(os.path.join(ExConfig.plugins_path, f), True)
     for plugin in plugins.items():
         if plugin[0] not in pluginDict:
-            pluginDict[plugin[0]] = Plugin(plugin[1].module.__path__[0], False)
+            if hasattr(plugin[1].module,"__path__"):
+                pluginDict[plugin[0]] = Plugin(plugin[1].module.__path__[0], False)
     return pluginDict
 
 
