@@ -164,25 +164,28 @@ async def install_plugin_handle(bot: Bot, event: Union[PrivateMessageEvent], sta
 async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
     try:
         args, kwargs = Command.formatToCommand(event.raw_message)
+
+        async with aiofiles.open(os.path.join(ExConfig.res_path, "version.json"), "r", encoding="utf-8") as file:
+            file_data = json.loads(await file.read())
+            now_version = file_data.get("version", "0.0.0")
+            now_version_description = file_data.get("description", "无")
         version_check_list = [
-            "https://raw.xn--gzu630h.xn--kpry57d/snowyfirefly/Liteyuki-Bot/master/resource/version.json"
-            "https://cdn.githubjs.cf/snowyfirefly/Liteyuki-Bot/raw/master/resource/version.json"
             "https://gitee.com/snowykami/Liteyuki/raw/master/resource/version.json",
+            "https://raw.xn--gzu630h.xn--kpry57d/snowyfirefly/Liteyuki-Bot/master/resource/version.json",
+            "https://cdn.githubjs.cf/snowyfirefly/Liteyuki-Bot/raw/master/resource/version.json",
+
         ]
         for version_url in version_check_list:
+            print(version_url)
             try:
-                async with aiofiles.open(os.path.join(ExConfig.res_path, "version.json"), "r", encoding="utf-8") as file:
-                    file_data = json.loads(await file.read())
-                    now_version = file_data.get("version", "0.0.0")
-                    now_version_description = file_data.get("description", "无")
-                async with aiohttp.request("GET", url="https://gitee.com/snowykami/Liteyuki/raw/master/resource/version.json") as resp:
-                    online_version = (json.loads(await resp.text()))["version"]
-            except BaseException:
+                async with aiohttp.request("GET", url=version_url) as resp:
+                    online_version_data = json.loads(await resp.text())
+                    online_version = online_version_data.get("version")
+                break
+            except BaseException as e:
+                online_version = "检查失败"
                 continue
-        else:
-            now_version = "0.0.0"
-            now_version_description = "无"
-            online_version = "0.0.0"
+
         if now_version != online_version or kwargs.get("mode") == "force":
 
             if kwargs.get("mode") == "check":
@@ -192,7 +195,6 @@ async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
                     await update.send("当前已是最新版本：%s(%s)" % (now_version, now_version_description))
 
             else:
-
                 source_list: list = (await resp.json())["download"]
                 if "url" in kwargs:
                     source_list.insert(0, kwargs["url"])
