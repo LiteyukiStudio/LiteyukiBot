@@ -79,7 +79,8 @@ async def listPluginHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMess
                                                                    plugin) else "[未启用]")
             reply += "\n# \"help <插件名>\"获取插件的帮助文档\n\n" \
                      "# \"help <插件名> <子文档>...\"获取插件的子文档\n\n" \
-                     "# <>是必填，[]是可选，输入时无需带<>和[]"
+                     "# <>是必填，[]是可选，输入时无需带<>和[]\n\n" \
+                     "# 更详细的使用手册：https://github.com/snowyfirefly/Liteyuki-Bot/blob/master/docs/usage_user.md"
             await listPlugin.send(message=reply)
         else:
             pluginName = args[0]
