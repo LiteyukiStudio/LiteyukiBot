@@ -1,8 +1,10 @@
 {
-    "version": "3.4.3",
-    "description": "更新修复",
+    "version": "3.4.5",
+    "description": "体验更新",
     "download": [
         "https://github.com/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip",
-        "https://hub.fastgit.xyz/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip"
+        "https://cdn.githubjs.cf/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip",
+        "https://hub.fastgit.xyz/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip",
+        "https://hub.連接.台灣/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip"
     ]
 }
