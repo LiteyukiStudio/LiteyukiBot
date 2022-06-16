@@ -3,7 +3,7 @@ import platform
 import random
 from PIL import Image
 from nonebot import on_command, on_notice
-from nonebot.adapters.onebot.v11 import NoticeEvent, Message
+from nonebot.adapters.onebot.v11 import NoticeEvent, Message, GROUP_OWNER, GROUP_ADMIN
 from nonebot.params import CommandArg
 from .autorun import *
 from ...extraApi.base import Balance, Command
@@ -26,6 +26,10 @@ state = on_command(cmd="/state", aliases={"/状态"}, rule=PluginEnable, priorit
 start_close = on_command(cmd="/轻雪", permission=SUPERUSER | MASTER, priority=10, block=True, rule=PluginEnable)
 
 echo = on_command(cmd="echo", permission=SUPERUSER | MASTER, priority=10, block=True, rule=PluginEnable)
+
+liteyuki_auto_inner_ignored = on_command(cmd="ly-auto-ignore", priority=1, block=True)
+
+auto_ignore = on_command(cmd="自动屏蔽", priority=1, permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN, block=True)
 
 m = on_command(cmd="liteyuki")
 
@@ -223,3 +227,15 @@ async def state_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageE
         disk_used += use.used
     msg += "\n - 总计: %.1f/%.1fGB" % (disk_used / 1024 ** 3, disk_total / 1024 ** 3)
     await state.send(msg)
+
+
+@liteyuki_auto_inner_ignored.handle()
+async def _(bot: Bot, event: GroupMessageEvent, args: Message = CommandArg()):
+    ignored_users = await ExtraData.get_global_data("ignored_users", [])
+    ignored_users.append(event.user_id)
+    await ExtraData.set_global_data("ignored_users", ignored_users)
+
+
+@auto_ignore.handle()
+async def _(bot: Bot, event: GroupMessageEvent, args: Message = CommandArg()):
+    await auto_ignore.send("ly-auto-ignore")

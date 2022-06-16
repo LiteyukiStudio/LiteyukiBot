@@ -1,6 +1,6 @@
 {
-    "version": "3.4.5",
-    "description": "体验更新",
+    "version": "3.4.6",
+    "description": "自动屏蔽bot更新",
     "download": [
         "https://github.com/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip",
         "https://cdn.githubjs.cf/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip",

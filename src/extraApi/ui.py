@@ -2,6 +2,14 @@ from PIL import Image, ImageFont, ImageDraw
 from typing import Tuple, Union, List
 
 
+def hex2dec(colorHex: str) -> Tuple[int, int, int, int]:
+    """
+    :param colorHex: FFFFFFFF （ARGB）-> (R, G, B, A)
+    :return:
+    """
+    return int(colorHex[2:4], 16), int(colorHex[4:6], 16), int(colorHex[6:8], 16), int(colorHex[0:2], 16)
+
+
 class Canvas:
     def __init__(self, base_img: Image.Image = Image.new(mode="RGBA", size=(1920, 1080), color=0)):
         self.base_img: Image.Image = base_img
@@ -179,6 +187,25 @@ class TextNode(BaseNode):
 
         self.scale = 0.95
 
+    @property
+    def actual_canvas_uv_size(self) -> Tuple[float, float]:
+        # 限制像素大小
+        limited_width, limited_height = self.canvas_pixel_pos_size
+        # 字体初次像素大小
+        font_size = int(limited_width / len(self.text.splitlines()))
+        # 初次字体实例化
+        font = ImageFont.truetype(self.font_path, size=font_size)
+        # 初次文本大小
+        init_size = font.getsize(text=self.text)
+        while init_size[0] > limited_width or init_size[1] > limited_height:
+            # 减小
+            font_size *= self.scale
+            font = ImageFont.truetype(self.font_path, size=int(font_size))
+            init_size = font.getsize(text=self.text)
+        # 创建绘画对象
+        actual_width, actual_height = font.getsize(text=self.text)
+        return actual_width / self.canvas.size[0], actual_height / self.canvas_uv_size[1]
+
     def place(self):
         # 限制像素大小
         limited_width, limited_height = self.canvas_pixel_pos_size
@@ -195,6 +222,8 @@ class TextNode(BaseNode):
             init_size = font.getsize(text=self.text)
         # 创建绘画对象
         actual_width, actual_height = font.getsize(text=self.text)
+        # 创建绘画对象
+        actual_width, actual_height = self.actual_canvas_uv_size
         width_offset, height_offset = font.getoffset(text=self.text)
         draw = ImageDraw.Draw(self.canvas.base_img)
 
@@ -255,10 +284,18 @@ class ImgNode(BaseNode):
         self.canvas.base_img.paste(self.img, box=box, mask=self.img.split()[3])
 
 
-c = Canvas()
-c.pan = PanelNode(parent_uv_size=(1, 1), parent_ap=(0, 0), ap=(0, 0))
-c.pan.Title = TextNode((1, 1), (0.5, 0.5), (0.5, 0.5), text="EEE", align="CC", font="PSHT.ttf", color=(255, 255, 128, 255))
-# c.img = ImgNode(parent_uv_size=(0.5, 1), parent_ap=(0, 0.5), ap=(0, 0.5), img=Image.new(mode="RGBA", size=(100, 100), color=(255, 0, 0, 255)))
-c.generate()
-print(c.pan.Title.canvas_ap_pos, c.pan.Title.canvas_pixel_pos, c.pan.Title.canvas_ap_pos)
-c.base_img.show()
+def weather_card(city: dict, now_weather: dict, hourly_weather: dict, daily_weather: dict):
+    card = Canvas(base_img=Image.open("2160.png"))
+    card.cityInfoPanel = PanelNode(parent_uv_size=(1, 0.2), parent_ap=(0.5, 0), ap=(0.5, 0))
+    card.cityInfoPanel.cityname = TextNode(parent_uv_size=(1, 0.2), parent_ap=(0.5, 0.1), ap=(0.5, 0),
+                                           text="%s %s" % (city.get("adm2", "重庆市"), city.get("name", "渝中区")) if city.get("name", "渝中区") != city.get("adm2", "重庆市") else city.get(
+                                               "name", "城市名"), font="MS.ttf")
+    card.cityInfoPanel.cityname.countryname = TextNode(parent_uv_size=(1, 0.2), parent_ap=(0.5, 0.1), ap=(0.5, 0),
+                                                       text="%s %s" % (city.get("adm2", "重庆市"), city.get("name", "渝中区")) if city.get("name", "渝中区") != city.get("adm2",
+                                                                                                                                                                "重庆市") else city.get(
+                                                           "name", "城市名"), font="MS.ttf")
+    card.generate()
+    card.base_img.show()
+
+
+weather_card({}, {}, {}, {})
