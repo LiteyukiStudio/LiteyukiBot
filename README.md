@@ -78,7 +78,7 @@
 #### 3.其他问题
 
 - 请提交issue
-- 加我qq[2238694726](http://ti.qq.com/friend/recall?uin=2238694726)
+- 加入QQ群Liteyuki Studio[775840726](https://jq.qq.com/?_wv=1027&k=0UnuCqSh)，欢迎来玩
 
 
 #### 4.捐赠

@@ -29,7 +29,7 @@ echo = on_command(cmd="echo", permission=SUPERUSER | MASTER, priority=10, block=
 
 liteyuki_auto_inner_ignored = on_command(cmd="ly-auto-ignore", priority=1, block=True)
 
-auto_ignore = on_command(cmd="自动屏蔽", priority=1, permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN, block=True)
+auto_ignore = on_command(cmd="自动屏蔽", priority=1, block=True)
 
 m = on_command(cmd="liteyuki")
 
@@ -234,8 +234,9 @@ async def _(bot: Bot, event: GroupMessageEvent, args: Message = CommandArg()):
     user_id = str(args)[1:]
     if int(user_id) == event.user_id:
         ignored_users = await ExtraData.get_global_data("ignored_users", [])
-        ignored_users.append(event.user_id)
-        await ExtraData.set_global_data("ignored_users", ignored_users)
+        if event.user_id not in ignored_users:
+            ignored_users.append(event.user_id)
+            await ExtraData.set_global_data("ignored_users", ignored_users)
 
 
 @auto_ignore.handle()
