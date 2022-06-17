@@ -231,11 +231,13 @@ async def state_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageE
 
 @liteyuki_auto_inner_ignored.handle()
 async def _(bot: Bot, event: GroupMessageEvent, args: Message = CommandArg()):
-    ignored_users = await ExtraData.get_global_data("ignored_users", [])
-    ignored_users.append(event.user_id)
-    await ExtraData.set_global_data("ignored_users", ignored_users)
+    user_id = str(args)[1:]
+    if int(user_id) == event.user_id:
+        ignored_users = await ExtraData.get_global_data("ignored_users", [])
+        ignored_users.append(event.user_id)
+        await ExtraData.set_global_data("ignored_users", ignored_users)
 
 
 @auto_ignore.handle()
 async def _(bot: Bot, event: GroupMessageEvent, args: Message = CommandArg()):
-    await auto_ignore.send("ly-auto-ignore")
+    await auto_ignore.send("ly-auto-ignore-%s" % bot.self_id)
