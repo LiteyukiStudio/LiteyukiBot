@@ -151,11 +151,13 @@ async def install_plugin_handle(bot: Bot, event: Union[PrivateMessageEvent], sta
     def _install(_plugin_name: str):
         r = os.system("nb plugin install %s" % _plugin_name)
         return r
-
     try:
         plugin_name = str(args).strip()
         r = await _install(plugin_name)
-        await install_plugin.send(r)
+        await install_plugin.send("插件安装成功，正在重载中...")
+        threading.Thread(target=os.system, args=("python %s" % os.path.join(os.path.dirname(__file__), "restart.py"),)).start()
+        await asyncio.sleep(2)
+        os._exit(0)
 
     except BaseException as e:
         await Session.sendException(bot, event, state, e, "插件安装失败")
