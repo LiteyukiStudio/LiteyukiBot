@@ -2,7 +2,6 @@ from nonebot import on_command
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Bot, GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND, Message
 from nonebot.params import CommandArg
 from nonebot.permission import SUPERUSER
-from nonebot.adapters.qqguild import GuildEvent
 # 插件开关
 # 插件详情
 # 插件帮助
@@ -65,9 +64,7 @@ async def enablePluginHandle(bot: Bot, event: GroupMessageEvent | PrivateMessage
 
 
 @listPlugin.handle()
-async def listPluginHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent, GuildEvent], state: T_State, args: Message = CommandArg()):
-    if isinstance(event, GuildEvent):
-        print(event.get_session_id())
+async def listPluginHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], state: T_State, args: Message = CommandArg()):
     try:
         args = Command.formatToCommand(str(args).strip())[0]
         if args[0] == "":

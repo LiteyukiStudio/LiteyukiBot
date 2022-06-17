@@ -16,6 +16,8 @@ from nonebot.adapters.onebot.v11 import Adapter as ONEBOT_V11Adapter
 # You can pass some keyword args config to init function
 from src.extraApi.base import ExConfig
 
+print("正在检查安装依赖项...")
+os.system("pip install -r requirements.txt")
 if not os.path.exists(os.path.join(ExConfig.root_path, ".env")):
     with open(os.path.join(ExConfig.root_path, ".env"), "w", encoding="utf-8") as file:
         file.write("""ENVIRONMENT=prod
