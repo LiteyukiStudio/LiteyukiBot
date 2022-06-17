@@ -190,7 +190,7 @@ async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
 
             if kwargs.get("mode") == "check":
                 if online_version != now_version:
-                    await update.send("检查到更新：%s -> %s" % (now_version, online_version))
+                    await update.send("检测到更新：%s -> %s" % (now_version, online_version))
                 else:
                     await update.send("当前已是最新版本：%s(%s)" % (now_version, now_version_description))
 
