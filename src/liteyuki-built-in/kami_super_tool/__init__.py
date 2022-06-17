@@ -25,6 +25,7 @@ disable_group = on_command(cmd="群聊停用", permission=SUPERUSER | GROUP_OWNE
 call_api = on_command(cmd="/api", permission=SUPERUSER | MASTER, priority=10, block=True)
 update = on_command(cmd="/update", permission=SUPERUSER | MASTER, priority=10, block=True)
 install_plugin = on_command(cmd="安装插件", permission=SUPERUSER, priority=10, block=True)
+reload = on_command("/reload", permission=SUPERUSER, priority=10, block=True)
 
 
 @enable_group.handle()
@@ -222,3 +223,11 @@ async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
 
     except BaseException as e:
         await Session.sendException(bot, event, state, e, "检查更新失败")
+
+
+@reload.handle()
+async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
+    await reload.send("reloading...")
+    threading.Thread(target=os.system, args=("python %s" % os.path.join(os.path.dirname(__file__), "restart.py"),)).start()
+    await asyncio.sleep(2)
+    os._exit(0)
