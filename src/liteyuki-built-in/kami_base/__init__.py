@@ -213,7 +213,10 @@ async def state_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageE
     each_core = psutil.cpu_percent(percpu=True)
     msg += "\nCPU:"
     for i, p in enumerate(each_core):
-        msg += "\n - 核%d: %.1f" % (i + 1, p) + "%"
+        try:
+            msg += "\n - 核%d: %.1f" % (i + 1, p) + "%"
+        except BaseException:
+            pass
     msg += "\n - 平均: %.1f" % psutil.cpu_percent() + "%"
     msg += "\n内存:\n - 总计: %.1fGB\n - 已用: %.1fGB\n - 剩余: %.1fGB" % \
            (psutil.virtual_memory().total / 1024 ** 3, psutil.virtual_memory().used / 1024 ** 3, psutil.virtual_memory().free / 1024 ** 3)
@@ -222,10 +225,13 @@ async def state_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageE
     disk_total = 0
     disk_used = 0
     for disk in psutil.disk_partitions():
-        use = psutil.disk_usage(disk.device)
-        msg += "\n - %s: %.1f/%.1fGB" % (disk.device, use.used / 1024 ** 3, use.total / 1024 ** 3)
-        disk_total += use.total
-        disk_used += use.used
+        try:
+            use = psutil.disk_usage(disk.device)
+            msg += "\n - %s: %.1f/%.1fGB" % (disk.device, use.used / 1024 ** 3, use.total / 1024 ** 3)
+            disk_total += use.total
+            disk_used += use.used
+        except BaseException:
+            pass
     msg += "\n - 总计: %.1f/%.1fGB" % (disk_used / 1024 ** 3, disk_total / 1024 ** 3)
     await state.send(msg)
 
