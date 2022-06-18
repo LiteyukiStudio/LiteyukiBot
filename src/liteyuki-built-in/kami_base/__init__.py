@@ -55,16 +55,11 @@ async def aboutHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent):
         now_version = now_version_data.get("version")
         now_version_description = now_version_data.get("description")
     text = f"""Liteyuki Bot更多信息
+- 昵称：{list(bot.config.nickname)[0]}
 - 状态：{"开启" if now_state == 1 else "关闭" if now_state == 0 else "调试模式" if now_state == -1 else "未知"}
 - 版本：{now_version}({now_version_description})
-- 昵称：{list(bot.config.nickname)[0]}
 - 简介：轻雪机器人(Liteyuki Bot)是一个非常可爱的开源Bot呀，希望能和大家好好相处
-- Github：https://github.com/snowyfirefly/Liteyuki
-- Gitee：https://gitee.com/snowykami/Liteyuki
-- 运行平台：{platform.platform()}
-- Python：{platform.python_version() + " " + platform.python_implementation()}
-- Websocket服务端支持：Nonebot(https://v2.nonebot.dev)
-- 客户端支持：go-cqhttp(https://docs.go-cqhttp.org)
+- 项目：https://github.com/snowyfirefly/Liteyuki
     """
     await about.send(text)
 
