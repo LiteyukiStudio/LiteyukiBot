@@ -18,7 +18,7 @@ enablePlugin = on_command(cmd="启用插件", aliases={"停用插件", "开启�
 listPlugin = on_command(cmd="列出插件", aliases={"菜单", "menu", "help", "帮助"}, rule=PluginEnable, priority=1, block=True)
 createPlugin = on_command(cmd="创建插件", priority=10, block=True, permission=SUPERUSER | MASTER)
 set_name = on_command(cmd="设置插件名", priority=5, block=True, permission=SUPERUSER, rule=PluginEnable)
-set_docs = on_command(cmd="设置文档", priority=5, block=True, permission=SUPERUSER, rule=PluginEnable)
+set_docs = on_command(cmd="设置插件文档", priority=5, block=True, permission=SUPERUSER, rule=PluginEnable)
 
 
 @enablePlugin.handle()
@@ -130,6 +130,18 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args
     plugin: Plugin = searchForPlugin(plugin_id)
     if not os.path.exists(os.path.join(plugin.path, "config")):
         os.makedirs(os.path.join(plugin.path, "config"))
-    async with aiofiles.open(os.path.join(plugin.path, "config/manifest.json"), "w") as async_file:
+    async with aiofiles.open(os.path.join(plugin.path, "config/manifest.json"), "w", encoding="utf-8") as async_file:
         await async_file.write(json.dumps({"name": plugin_name}))
     await set_name.send("插件名设置成功: %s(%s)" % (plugin_name, plugin_id))
+
+
+@set_docs.handle()
+async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args: Message = CommandArg()):
+    plugin_id = str(args).split()[0]
+    docs = Command.escape("\n".join(str(args).splitlines()[1:]))
+    plugin: Plugin = searchForPlugin(plugin_id)
+    if not os.path.exists(os.path.join(plugin.path, "config")):
+        os.makedirs(os.path.join(plugin.path, "config"))
+    async with aiofiles.open(os.path.join(plugin.path, "config/docs.txt"), "w", encoding="utf_8") as async_file:
+        await async_file.write(docs)
+    await set_name.send("插件文档设置成功: %s(%s)" % (plugin.pluginName, plugin_id))
