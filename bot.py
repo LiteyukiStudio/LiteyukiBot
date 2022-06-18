@@ -32,8 +32,8 @@ SESSION_RUNNING_EXPRESSION="轻雪脑抽中..."
 COMMAND_START=[""]
 APSCHEDULER_CONFIG={"apscheduler.timezone": "Asia/Shanghai"}
 APSCHEDULER_AUTOSTART=true""")
-if not os.path.exists(os.path.join(ExConfig.root_path, "data/pyproject.toml")):
-    with open(os.path.join(ExConfig.root_path, "data/pyproject.toml"), "w", encoding="utf-8") as file:
+if not os.path.exists(os.path.join(ExConfig.root_path, "pyproject.toml")):
+    with open(os.path.join(ExConfig.root_path, "pyproject.toml"), "w", encoding="utf-8") as file:
         file.write('''[tool.poetry]
 name = "Liteyuki"
 version = "0.1.0"
@@ -67,7 +67,7 @@ driver.register_adapter(ONEBOT_V11Adapter)
 
 # Please DO NOT modify this file unless you know what you are doing!
 # As an alternative, you should use command `nb` or modify `pyproject.toml` to load plugins
-nonebot.load_from_toml("data/pyproject.toml")
+nonebot.load_from_toml("pyproject.toml")
 
 # Modify some config / config depends on loaded configs
 # 
