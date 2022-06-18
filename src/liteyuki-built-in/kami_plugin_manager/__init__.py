@@ -12,10 +12,13 @@ from ...extraApi.permission import MASTER, AUTHUSER
 from ...extraApi.plugin import *
 from ...extraApi.rule import *
 
+PluginEnable = check_plugin_enable(os.path.basename(os.path.dirname(__file__)))
 enablePlugin = on_command(cmd="启用插件", aliases={"停用插件", "开启插件", "关闭插件"}, permission=SUPERUSER | MASTER | GROUP_ADMIN | GROUP_OWNER | AUTHUSER, priority=1, block=True)
 
-listPlugin = on_command(cmd="列出插件", aliases={"菜单", "menu", "help", "帮助"}, rule=check_plugin_enable("kami_plugin_manager"), priority=1, block=True)
+listPlugin = on_command(cmd="列出插件", aliases={"菜单", "menu", "help", "帮助"}, rule=PluginEnable, priority=1, block=True)
 createPlugin = on_command(cmd="创建插件", priority=10, block=True, permission=SUPERUSER | MASTER)
+set_name = on_command(cmd="设置插件名", priority=5, block=True, permission=SUPERUSER, rule=PluginEnable)
+set_docs = on_command(cmd="设置文档", priority=5, block=True, permission=SUPERUSER, rule=PluginEnable)
 
 
 @enablePlugin.handle()
@@ -118,3 +121,15 @@ async def createPluginHandle(bot: Bot, event: PrivateMessageEvent, state: T_Stat
             await createPlugin.send("插件 %s(%s) 创建成功" % (pluginName, pluginId))
     except BaseException as e:
         await Session.sendException(bot, event, state, e)
+
+
+@set_name.handle()
+async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args: Message = CommandArg()):
+    plugin_id = str(args).split()[0]
+    plugin_name = " ".join(str(args).split()[1:])
+    plugin: Plugin = searchForPlugin(plugin_id)
+    if not os.path.exists(os.path.join(plugin.path, "config")):
+        os.makedirs(os.path.join(plugin.path, "config"))
+    async with aiofiles.open(os.path.join(plugin.path, "config/manifest.json"), "w") as async_file:
+        await async_file.write(json.dumps({"name": plugin_name}))
+    await set_name.send("插件名设置成功: %s(%s)" % (plugin_name, plugin_id))
