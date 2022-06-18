@@ -1,3 +1,4 @@
+import jieba
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Bot, GROUP_ADMIN, GROUP_OWNER, PRIVATE_FRIEND, Message
 from nonebot.params import CommandArg
@@ -74,13 +75,16 @@ async def listPluginHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMess
             pluginList = getPluginDict().values()
             reply = "插件列表如下:\n\n"
             for plugin in pluginList:
-                reply += "%s%s%s\n" % ("[内置]" if plugin.built_in else "", plugin.pluginName,
+                plugin_name = plugin.pluginName.replace("nonebot_plugin_", "")
+                if len(plugin_name) >= 10:
+                    plugin_name = jieba.lcut(plugin_name)[0]
+                reply += "%s%s%s\n" % ("[内置]" if plugin.built_in else "[外置]", plugin_name,
                                        "" if await getPluginEnable(event.message_type, ExtraData.getTargetId(event),
                                                                    plugin) else "[未启用]")
             reply += "\n# \"help <插件名>\"获取插件的帮助文档\n\n" \
                      "# \"help <插件名> <子文档>...\"获取插件的子文档\n\n" \
                      "# <>是必填，[]是可选，输入时无需带<>和[]\n\n" \
-                     "# 更详细的使用手册：https://github.com/snowyfirefly/Liteyuki-Bot/blob/master/docs/usage_user.md"
+                     "# 更详细的使用手册：https://hub.fastgit.xyz/snowyfirefly/Liteyuki-Bot/blob/master/docs/usage_user.md"
             await listPlugin.send(message=reply)
         else:
             pluginName = args[0]
@@ -132,7 +136,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args
         os.makedirs(os.path.join(plugin.path, "config"))
     async with aiofiles.open(os.path.join(plugin.path, "config/manifest.json"), "w", encoding="utf-8") as async_file:
         await async_file.write(json.dumps({"name": plugin_name}))
-    await set_name.send("插件名设置成功: %s(%s)" % (plugin_name, plugin_id))
+    await set_name.send("插件名设置成功: %s(%s)" % (plugin_name, plugin.pluginId))
 
 
 @set_docs.handle()
@@ -144,4 +148,4 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args
         os.makedirs(os.path.join(plugin.path, "config"))
     async with aiofiles.open(os.path.join(plugin.path, "config/docs.txt"), "w", encoding="utf_8") as async_file:
         await async_file.write(docs)
-    await set_name.send("插件文档设置成功: %s(%s)" % (plugin.pluginName, plugin_id))
+    await set_name.send("插件文档设置成功: %s(%s)" % (plugin.pluginName, plugin.pluginId))

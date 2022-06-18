@@ -72,9 +72,8 @@ def getPluginDict() -> Dict[str, Plugin]:
         if os.path.exists(os.path.join(ExConfig.plugins_path, f, "__init__.py")):
             pluginDict[f] = Plugin(os.path.join(ExConfig.plugins_path, f), True)
     for plugin in plugins.items():
-        print(plugin)
-        if plugin[0] not in pluginDict:
-            pluginDict[plugin[0]] = Plugin(os.path.dirname(plugin[1].module.__file__), False, plugin[1].module)
+        if hasattr(plugin[1].module, "__path__") and plugin[0] not in pluginDict:
+            pluginDict[plugin[0]] = Plugin(plugin[1].module.__path__[0], False, plugin[1].module)
     return pluginDict
 
 
