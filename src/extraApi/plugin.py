@@ -9,29 +9,35 @@ from nonebot.plugin.plugin import Plugin as NBPlugin
 
 
 class Plugin:
-    def __init__(self, fp, built_in: False):
+    def __init__(self, fp, built_in: False, module=None):
         """
         :param fp: 路径
         """
+        self.pluginId = os.path.basename(fp)
         try:
             with open(os.path.join(fp, "config/manifest.json"), "r", encoding="utf-8") as file:
                 data = json.load(file)
-                self.pluginId = os.path.basename(fp)
                 self.pluginName = data.get("name", "")
                 self.defaultStats = data.get("default", True)
                 self.path = fp
                 self.built_in = built_in
         except BaseException:
-            self.pluginId = os.path.basename(fp)
-            self.pluginName = os.path.basename(fp)
+            try:
+                self.pluginName = module.__des__
+            except BaseException:
+                self.pluginName = self.pluginId
             self.defaultStats = True
             self.path = fp
             self.built_in = built_in
+
         try:
             with open(os.path.join(fp, "config/docs.txt"), "r", encoding="utf-8") as file:
                 self.pluginDocs = file.read()
         except BaseException:
-            self.pluginDocs = "ErrorDocs"
+            try:
+                self.pluginDocs = module.__usage__
+            except BaseException:
+                self.pluginDocs = "ErrorDocs"
 
     def __str__(self):
         return "<Plugin name=%s id=%s>" % (self.pluginName, self.pluginId)
@@ -67,7 +73,7 @@ def getPluginDict() -> Dict[str, Plugin]:
             pluginDict[f] = Plugin(os.path.join(ExConfig.plugins_path, f), True)
     for plugin in plugins.items():
         if plugin[0] not in pluginDict:
-            pluginDict[plugin[0]] = Plugin(os.path.dirname(plugin[1].module.__file__), False)
+            pluginDict[plugin[0]] = Plugin(os.path.dirname(plugin[1].module.__file__), False, plugin[1].module)
     return pluginDict
 
 

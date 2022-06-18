@@ -18,6 +18,7 @@ data/
 src/plugins老/
 src/nonebot_plugin/
 resource/version/new_code.zip
+accounts/
 src/python/
 .env.dev
 .env

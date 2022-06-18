@@ -146,15 +146,18 @@ async def call_api_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessa
 
 
 @install_plugin.handle()
-async def install_plugin_handle(bot: Bot, event: Union[PrivateMessageEvent], state: T_State, args: Message = CommandArg()):
+async def install_plugin_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupMessageEvent], state: T_State, args: Message = CommandArg()):
     @run_sync
     def _install(_plugin_name: str):
         r = os.system("nb plugin install %s" % _plugin_name)
         return r
+
+    plugin_list = str(args).split()
     try:
-        plugin_name = str(args).strip()
-        r = await _install(plugin_name)
-        await install_plugin.send("插件安装成功，正在重载中...")
+        for plugin in plugin_list:
+            r = await _install(plugin)
+            await install_plugin.send("插件:%s安装成功" % plugin)
+        await install_plugin.send("正在重载中...")
         threading.Thread(target=os.system, args=("python %s" % os.path.join(os.path.dirname(__file__), "restart.py"),)).start()
         await asyncio.sleep(2)
         os._exit(0)
@@ -164,7 +167,7 @@ async def install_plugin_handle(bot: Bot, event: Union[PrivateMessageEvent], sta
 
 
 @update.handle()
-async def update_handle(bot: Bot, event: PrivateMessageEvent, state: T_State):
+async def update_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupMessageEvent], state: T_State):
     try:
         args, kwargs = Command.formatToCommand(event.raw_message)
 
