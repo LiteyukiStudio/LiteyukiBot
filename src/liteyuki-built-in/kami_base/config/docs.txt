@@ -6,3 +6,12 @@
 超级用户
 - /轻雪 close/start/test(总开关)
 - 自动屏蔽(当一个群有多个轻雪bot时发送此命令)
+
+/execute命令
+- /execute [at=group_id] [as=user_id] [only=bot_id,] [except=bot_id,]
+only: 仅选中机器人执行，多个格式为only=123,456
+except: 选中的bot不执行，多个格式为only=123,456
+at: 要模拟的群聊(超级用户)
+as: 用户qq(超级用户)
+例如 /execute only=114514 沙坪坝天气
+意思是只让QQ号为114514的bot查询天气

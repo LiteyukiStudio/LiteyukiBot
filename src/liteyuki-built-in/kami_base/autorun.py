@@ -6,14 +6,14 @@ import aiofiles
 import aiohttp
 from nonebot import get_driver
 
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Bot
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Bot, Message
 from nonebot.message import event_preprocessor, run_preprocessor
 from nonebot.permission import SUPERUSER
-from nonebot.rule import to_me
+from nonebot.rule import to_me, startswith
 from nonebot.typing import T_State
 from nonebot.exception import IgnoredException
 
-from ...extraApi.base import Log, ExtraData, ExConfig
+from ...extraApi.base import Log, ExtraData, ExConfig, Command
 # 日志记录和模式回复
 from ...extraApi.rule import NOT_IGNORED, NOT_BLOCKED
 
@@ -37,7 +37,6 @@ async def folder_check():
 @event_preprocessor
 async def auto_log_receive_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupMessageEvent], state: T_State):
     state2 = await ExtraData.get_global_data(key="enable_mode", default=1)
-
     if state2 == -1 and await (NOT_IGNORED & NOT_BLOCKED & to_me())(bot, event, state):
         if await SUPERUSER(bot, event):
             start = "[超级用户模式]"
@@ -50,7 +49,37 @@ async def auto_log_receive_handle(bot: Bot, event: Union[PrivateMessageEvent, Gr
 @event_preprocessor
 async def auto_filter_block_ignore(bot: Bot, event: Union[PrivateMessageEvent, GroupMessageEvent], state: T_State):
     if not await NOT_BLOCKED(bot, event, state) or not await NOT_IGNORED(bot, event, state):
-        raise IgnoredException("")
+        raise IgnoredException("被屏蔽了")
+
+
+@event_preprocessor
+async def execute_preprocessor(bot: Bot, event: Union[PrivateMessageEvent, GroupMessageEvent], state: T_State):
+    """execute 处理器
+    execute as=2751454815 msg
+    execute only=bot_id列表 msg
+    execute except=bot_id列表 msg
+    """
+
+    if await startswith("/execute")(bot, event, state):
+        args, kwargs = Command.formatToCommand(event.raw_message)
+
+        only_list = [int(uid) for uid in kwargs.get("only", str(bot.self_id)).split(",")]
+        except_list = [int(uid) for uid in kwargs.get("except", "0").split(",")]
+        if event.self_id in only_list and event.self_id not in except_list:
+            pass
+        else:
+            raise IgnoredException("非指定bot")
+        if await SUPERUSER(bot, event):
+            event.user_id = int(kwargs.get("as", event.user_id))
+            if isinstance(event, GroupMessageEvent): event.group_id = int(kwargs.get("at", event.group_id))
+        delete_key = ["as", "at", "only", "except"]
+        for k in delete_key:
+            if k in kwargs:
+                del kwargs[k]
+        print(Command.formatToString(*args[1:], **kwargs))
+        event.raw_message = Command.formatToString(*args[1:], **kwargs)
+        print(event.raw_message)
+        event.message = Message(event.raw_message)
 
 
 # api记录

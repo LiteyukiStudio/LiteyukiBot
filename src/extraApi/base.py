@@ -86,16 +86,13 @@ class Command:
         """
 
         s = ""
-        escape = keywords.get("escape", False)
         for arg in args:
-            s += (arg.replace(" ", "%20") if escape else arg) + " "
-        kw_item = keywords.items()
-        kw_item: list
+            s += Command.escape(arg) + " "
+        kw_item: list = keywords.items()
 
         for item in kw_item:
-            if not item[0] == "escape" and type(item[1]) is bool:
-                kw = ("%s=%s" % (item[0], item[1]))
-                s += (kw.replace(" ", "%20") if escape else kw) + " "
+            kw = ("%s=%s" % (item[0], item[1]))
+            s += Command.escape(kw) + " "
         return s[:-1]
 
     @staticmethod
