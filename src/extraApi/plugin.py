@@ -37,7 +37,7 @@ class Plugin:
             try:
                 self.pluginDocs = module.__usage__
             except BaseException:
-                self.pluginDocs = "ErrorDocs"
+                self.pluginDocs = "这个插件还没有添加文档哦"
 
     def __str__(self):
         return "<Plugin name=%s id=%s>" % (self.pluginName, self.pluginId)

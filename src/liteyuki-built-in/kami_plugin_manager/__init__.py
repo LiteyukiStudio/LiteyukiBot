@@ -89,6 +89,7 @@ async def listPluginHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMess
         else:
             pluginName = args[0]
             plugin: Plugin = searchForPlugin(pluginName)
+            a = "*e*e*ter"
 
             if plugin is not None:
                 if len(args) == 1:
