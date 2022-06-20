@@ -42,8 +42,8 @@ async def testHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEve
 
 
 @echo.handle()
-async def echoHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
-    msg = Message(event.raw_message.split()[1].replace("&#91;", "[").replace("&#93;", "]"))
+async def echoHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args: Message = CommandArg()):
+    msg = Message(Command.escape(str(args)))
     await echo.send(message=msg)
 
 
