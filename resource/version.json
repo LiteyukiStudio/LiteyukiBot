@@ -1,6 +1,6 @@
 {
-    "version": "3.5.0",
-    "description": "新增execute 详细使用help 基础查看",
+    "version": "3.5.0.114514",
+    "description": "修复了一点文档问题",
     "download": [
         "https://github.com/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip",
         "https://hub.fastgit.xyz/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip",
