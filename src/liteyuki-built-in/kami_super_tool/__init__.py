@@ -209,7 +209,7 @@ async def update_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupMessage
                     await update.send("当前已是最新版本：%s(%s)" % (now_version, now_version_description))
 
             else:
-                source_list: list = (await resp.json()).get("download", [
+                source_list: list = online_version_data.get("download", [
                     "https://github.com/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip",
                     "https://hub.fastgit.xyz/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip"])
 
