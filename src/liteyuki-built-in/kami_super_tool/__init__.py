@@ -138,7 +138,7 @@ async def backup_data_handle(bot: Bot, event: GroupMessageEvent | PrivateMessage
 @call_api.handle()
 async def call_api_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], state: T_State):
     try:
-        args, kws = Command.formatToCommand(cmd=event.raw_message)
+        args, kws = Command.formatToCommand(cmd=Command.escape(event.raw_message))
         r = await bot.call_api(args[1], **kws)
         await call_api.send(message=str(r))
     except BaseException as e:

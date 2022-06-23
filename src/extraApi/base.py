@@ -70,7 +70,7 @@ class Command:
         for arg in cmd_list:
             arg = arg.replace("%20", " ")
             if "=" in arg and kw:
-                keywords[arg.split("=")[0]] = arg.split("=")[1]
+                keywords[arg.split("=")[0]] = "=".join(arg.split("=")[1:])
             else:
                 args.append(arg)
         return tuple(args), keywords
