@@ -194,7 +194,7 @@ async def update_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupMessage
                 async with aiohttp.request("GET", url=version_url) as resp:
                     online_version_data = json.loads(await resp.text())
                     online_version = online_version_data.get("version")
-                    online_version_description = online_version_data.ger("version_description")
+                    online_version_description = online_version_data.get("version_description")
                 break
             except BaseException as e:
                 online_version = "检查失败"
