@@ -26,7 +26,7 @@ def backup():
 
 @run_sync
 def update_move():
-    zf = zipfile.ZipFile(os.path.join(ExConfig.res_path, "version/new_code.zip"))
+    zf = zipfile.ZipFile(os.path.join(ExConfig.cache_path, "version/new_code.zip"))
     zf.extractall(os.path.join(ExConfig.cache_path))
 
     def bianli(path, short):

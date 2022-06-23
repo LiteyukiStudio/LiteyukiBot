@@ -194,7 +194,7 @@ async def update_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupMessage
                 async with aiohttp.request("GET", url=version_url) as resp:
                     online_version_data = json.loads(await resp.text())
                     online_version = online_version_data.get("version")
-                    online_version_description = online_version_data.get("version_description")
+                    print(online_version)
                 break
             except BaseException as e:
                 online_version = "检查失败"
@@ -219,7 +219,7 @@ async def update_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupMessage
                 for i, url in enumerate(source_list):
                     try:
                         await update.send("%s下载更新：\n%s -> %s\n源：%s" % ("开始" if i == 0 else "当前源不可用，正在从其他源重试", now_version, online_version, url))
-                        r = await ExtraData.download_file(url, os.path.join(ExConfig.res_path, "version/new_code.zip"))
+                        r = await ExtraData.download_file(url, os.path.join(ExConfig.cache_path, "version/new_code.zip"))
                         if r:
                             break
                     except BaseException:
@@ -228,6 +228,7 @@ async def update_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupMessage
                     r = False
                 if r:
                     await update.send("下载完成，正在安装")
+                    await update_move()
                     await update.send("更新安装完成，正在重启")
                     Reloader.reload()
                 else:
