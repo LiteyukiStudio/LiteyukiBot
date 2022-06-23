@@ -15,7 +15,7 @@ from .stApi import *
 import os
 
 # require("nonebot_plugin_reboot")
-from nonebot_plugin_reboot import Reloader
+from ...extraApi.reload import Reloader
 
 #    ahhaha
 setConfig = on_command(cmd="设置属性", permission=SUPERUSER | MASTER, priority=1, block=True)
