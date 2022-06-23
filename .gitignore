@@ -19,6 +19,7 @@ src/plugins老/
 src/nonebot_plugin/
 resource/version/new_code.zip
 accounts/
+update_init_bu.py
 src/python/
 .env.dev
 .env
