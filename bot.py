@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os
+import sys
+
 import nonebot
 from nonebot.adapters.onebot.v11 import Adapter as ONEBOT_V11Adapter
 
@@ -56,7 +58,7 @@ plugin_dirs = ["src/liteyuki-built-in", "src/nonebot_plugin"]
 requires = ["poetry_core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"''')
 if os.path.exists("init.py"):
-    os.system("update_init.py")
+    os.system('"%s" update_init.py' % sys.executable)
     os.remove("update_init.py")
 
 nonebot.init(
