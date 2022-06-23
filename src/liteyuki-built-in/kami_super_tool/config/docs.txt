@@ -9,6 +9,7 @@
 - /api <API名称> [API参数]
 - /reload(重启bot)
 - 安装插件 <插件名>
+- /cmd <command>(终端执行命令)
 
 type:
 u: 用户

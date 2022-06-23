@@ -14,21 +14,22 @@ from ...extraApi.permission import MASTER
 from .stApi import *
 import os
 
-require("nonebot_plugin_reboot")
+# require("nonebot_plugin_reboot")
 from nonebot_plugin_reboot import Reloader
 
 #    ahhaha
-setConfig = on_command(cmd="设置属性", permission=SUPERUSER | MASTER, priority=10, block=True)
-getConfig = on_command(cmd="获取属性", permission=SUPERUSER | MASTER, priority=10, block=True)
-send_mutil_msg = on_command(cmd="群发消息", permission=SUPERUSER | MASTER, priority=10, block=True)
-backup_data = on_command(cmd="备份数据", permission=SUPERUSER | MASTER, priority=10, block=True)
-statistics_data = on_command(cmd='统计数据', permission=SUPERUSER | MASTER, priority=10, block=True)
-enable_group = on_command(cmd="群聊启用", permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN, priority=10, block=True)
-disable_group = on_command(cmd="群聊停用", permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN, priority=10, block=True)
-call_api = on_command(cmd="/api", permission=SUPERUSER | MASTER, priority=10, block=True)
-update = on_command(cmd="/update", permission=SUPERUSER | MASTER, priority=10, block=True)
-install_plugin = on_command(cmd="安装插件", permission=SUPERUSER, priority=10, block=True)
-reload = on_command("/reload", aliases={"/reboot"}, permission=SUPERUSER, priority=10, block=True)
+setConfig = on_command(cmd="设置属性", permission=SUPERUSER | MASTER, priority=1, block=True)
+getConfig = on_command(cmd="获取属性", permission=SUPERUSER | MASTER, priority=1, block=True)
+send_mutil_msg = on_command(cmd="群发消息", permission=SUPERUSER | MASTER, priority=1, block=True)
+backup_data = on_command(cmd="备份数据", permission=SUPERUSER | MASTER, priority=1, block=True)
+statistics_data = on_command(cmd='统计数据', permission=SUPERUSER | MASTER, priority=1, block=True)
+enable_group = on_command(cmd="群聊启用", permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN, priority=1, block=True)
+disable_group = on_command(cmd="群聊停用", permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN, priority=1, block=True)
+call_api = on_command(cmd="/api", permission=SUPERUSER | MASTER, priority=1, block=True)
+update = on_command(cmd="/update", permission=SUPERUSER | MASTER, priority=1, block=True)
+install_plugin = on_command(cmd="安装插件", permission=SUPERUSER, priority=1, block=True)
+reload = on_command("/reload", aliases={"/reboot"}, permission=SUPERUSER, priority=1, block=True)
+cmd = on_command("/cmd", permission=SUPERUSER, priority=1, block=True)
 
 
 @enable_group.handle()
@@ -155,7 +156,7 @@ async def install_plugin_handle(bot: Bot, event: Union[PrivateMessageEvent, Grou
         result = os.system("nb plugin install %s" % _plugin_name)
         return result
 
-    plugin_list = str(args).split()
+    plugin_list = str(args).split(",")
     try:
         for plugin in plugin_list:
             r = await _install(plugin)
@@ -244,3 +245,17 @@ async def update_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupMessage
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
     await reload.send("正在重启...")
     Reloader.reload()
+
+
+@cmd.handle()
+async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args: Message = CommandArg()):
+    cmd_str = Command.escape(str(args)).strip()
+
+    @run_sync
+    def run_cmd(command: str):
+        return os.popen(command).read()
+
+    result = await run_cmd(cmd_str)
+    print(result)
+
+    await cmd.send("执行结果：\n%s" % result)
