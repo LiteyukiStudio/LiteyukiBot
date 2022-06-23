@@ -2,7 +2,7 @@ import sys
 
 import asyncio
 import random
-
+from nonebot import require
 import aiohttp
 import threading
 from nonebot import on_command
@@ -13,6 +13,9 @@ from nonebot.permission import SUPERUSER
 from ...extraApi.permission import MASTER
 from .stApi import *
 import os
+
+require("nonebot_plugin_reboot")
+from nonebot_plugin_reboot import Reloader
 
 #    ahhaha
 setConfig = on_command(cmd="设置属性", permission=SUPERUSER | MASTER, priority=10, block=True)
@@ -25,7 +28,7 @@ disable_group = on_command(cmd="群聊停用", permission=SUPERUSER | GROUP_OWNE
 call_api = on_command(cmd="/api", permission=SUPERUSER | MASTER, priority=10, block=True)
 update = on_command(cmd="/update", permission=SUPERUSER | MASTER, priority=10, block=True)
 install_plugin = on_command(cmd="安装插件", permission=SUPERUSER, priority=10, block=True)
-reload = on_command("/reload", permission=SUPERUSER, priority=10, block=True)
+reload = on_command("/reload", aliases={"/reboot"}, permission=SUPERUSER, priority=10, block=True)
 
 
 @enable_group.handle()
@@ -149,18 +152,19 @@ async def call_api_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessa
 async def install_plugin_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupMessageEvent], state: T_State, args: Message = CommandArg()):
     @run_sync
     def _install(_plugin_name: str):
-        r = os.system("nb plugin install %s" % _plugin_name)
-        return r
+        result = os.system("nb plugin install %s" % _plugin_name)
+        return result
 
     plugin_list = str(args).split()
     try:
         for plugin in plugin_list:
             r = await _install(plugin)
             await install_plugin.send("插件:%s安装成功" % plugin)
-        await install_plugin.send("正在重载中...")
-        threading.Thread(target=os.system, args=("python %s" % os.path.join(os.path.dirname(__file__), "restart.py"),)).start()
-        await asyncio.sleep(2)
-        os._exit(0)
+
+        # await install_plugin.send("正在重载中...")
+        # threading.Thread(target=os.system, args=("python %s" % os.path.join(os.path.dirname(__file__), "restart.py"),)).start()
+        # await asyncio.sleep(2)
+        Reloader.reload()
 
     except BaseException as e:
         await Session.sendException(bot, event, state, e, "插件安装失败")
@@ -171,22 +175,26 @@ async def update_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupMessage
     try:
         args, kwargs = Command.formatToCommand(event.raw_message)
 
+        # 获取本地版本数据
         async with aiofiles.open(os.path.join(ExConfig.res_path, "version.json"), "r", encoding="utf-8") as file:
             file_data = json.loads(await file.read())
             now_version = file_data.get("version", "0.0.0")
             now_version_description = file_data.get("description", "无")
-        version_check_list = [
-            "https://gitee.com/snowykami/Liteyuki/raw/master/resource/version.json",
-            "https://raw.xn--gzu630h.xn--kpry57d/snowyfirefly/Liteyuki-Bot/master/resource/version.json",
-            "https://cdn.githubjs.cf/snowyfirefly/Liteyuki-Bot/raw/master/resource/version.json",
 
+        version_check_list = [
+            "https://raw.fastgit.org/snowyfirefly/Liteyuki-Bot/master/resource/version.json",
+            "https://cdn.githubjs.cf/snowyfirefly/Liteyuki-Bot/raw/master/resource/version.json",
+            "https://raw.xn--gzu630h.xn--kpry57d/snowyfirefly/Liteyuki-Bot/master/resource/version.json",
+            "https://gitee.com/snowykami/Liteyuki/raw/master/resource/version.json",
         ]
+
+        # 获取新版本数据
         for version_url in version_check_list:
-            print(version_url)
             try:
                 async with aiohttp.request("GET", url=version_url) as resp:
                     online_version_data = json.loads(await resp.text())
                     online_version = online_version_data.get("version")
+                    online_version_description = online_version_data.ger("version_description")
                 break
             except BaseException as e:
                 online_version = "检查失败"
@@ -196,17 +204,21 @@ async def update_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupMessage
 
             if kwargs.get("mode") == "check":
                 if online_version != now_version:
-                    await update.send("检测到更新：%s -> %s" % (now_version, online_version))
+                    await update.send("检测到更新：\n - 当前版本：%s\n - 新版本：%s" % (now_version, online_version))
                 else:
                     await update.send("当前已是最新版本：%s(%s)" % (now_version, now_version_description))
 
             else:
-                source_list: list = (await resp.json())["download"]
+                source_list: list = (await resp.json()).get("download", [
+                    "https://github.com/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip",
+                    "https://hub.fastgit.xyz/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip"])
+
                 if "url" in kwargs:
                     source_list.insert(0, kwargs["url"])
+
                 for i, url in enumerate(source_list):
                     try:
-                        await update.send("%s下载更新：\n%s -> %s，源：%s" % ("开始" if i == 0 else "当前源不可用，正在从其他源重试", now_version, online_version, url))
+                        await update.send("%s下载更新：\n%s -> %s\n源：%s" % ("开始" if i == 0 else "当前源不可用，正在从其他源重试", now_version, online_version, url))
                         r = await ExtraData.download_file(url, os.path.join(ExConfig.res_path, "version/new_code.zip"))
                         if r:
                             break
@@ -215,14 +227,11 @@ async def update_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupMessage
                 else:
                     r = False
                 if r:
-                    await update.send("正在安装")
-                    await update_move()
-                    await update.send("更新安装完成，正在重启，若重启失败请手动重启")
-                    threading.Thread(target=os.system, args=("python %s" % os.path.join(os.path.dirname(__file__), "restart.py"),)).start()
-                    await asyncio.sleep(2)
-                    os._exit(0)
+                    await update.send("下载完成，正在安装")
+                    await update.send("更新安装完成，正在重启")
+                    Reloader.reload()
                 else:
-                    await update.send("下载更新失败")
+                    await update.send("下载更新失败，请检查网络")
         else:
             await update.send("当前已是最新版本：%s(%s)" % (now_version, now_version_description))
 
@@ -232,7 +241,5 @@ async def update_handle(bot: Bot, event: Union[PrivateMessageEvent, GroupMessage
 
 @reload.handle()
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
-    await reload.send("reloading...")
-    threading.Thread(target=os.system, args=("python %s" % os.path.join(os.path.dirname(__file__), "restart.py"),)).start()
-    await asyncio.sleep(2)
-    os._exit(0)
+    await reload.send("正在重启...")
+    Reloader.reload()

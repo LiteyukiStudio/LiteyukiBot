@@ -55,6 +55,9 @@ plugin_dirs = ["src/liteyuki-built-in", "src/nonebot_plugin"]
 [build-system]
 requires = ["poetry_core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"''')
+if os.path.exists("init.py"):
+    os.system("update_init.py")
+    os.remove("update_init.py")
 
 nonebot.init(
     _env_file=".env",
