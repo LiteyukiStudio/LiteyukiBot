@@ -1,6 +1,6 @@
 {
-    "version": "3.5.3",
-    "description": "修复了nb run启动失败的问题",
+    "version": "3.5.4",
+    "description": "更新了一大堆功能，例如手动屏蔽，清除缓存，简单配置",
     "download": [
         "https://github.com/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip",
         "https://hub.fastgit.xyz/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip",
