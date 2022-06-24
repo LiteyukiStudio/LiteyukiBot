@@ -10,3 +10,5 @@ for d_f in delete_list:
         os.remove(d_f)
     except:
         pass
+
+os.remove(__file__)

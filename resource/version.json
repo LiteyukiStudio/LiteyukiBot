@@ -1,6 +1,6 @@
 {
-    "version": "3.5.1",
-    "description": "修复了一点文档问题",
+    "version": "3.5.2",
+    "description": "修复了依赖项错误问题",
     "download": [
         "https://github.com/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip",
         "https://hub.fastgit.xyz/snowyfirefly/Liteyuki-Bot/archive/refs/heads/master.zip",
