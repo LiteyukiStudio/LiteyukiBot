@@ -7,13 +7,23 @@
 - 群发消息 消息内容...
 - 备份数据
 - 清除缓存
-- /config <配置名> [配置值]   (没有配置值则为查询)
-- /api <API名称> [API参数]
-- /reload   (重启bot)
-- /update [mode={check|force}] [url=下载链接]
-- /cmd <command>    (终端执行命令)
 
-设置数据type参数
+# 设置/查询配置
+- /config <配置名> [配置值(不输入时为查询)]
+
+# 调用gocqAPI
+- /api <API名称> [API参数]
+
+# 重启Bot
+- /reload (重启bot)
+
+# 更新Bot
+- /update [mode={check|force}] [url=下载链接]
+
+# 终端执行命令
+- /cmd <command>
+
+# 设置数据type参数
 type:
 u: 用户
 g: 群

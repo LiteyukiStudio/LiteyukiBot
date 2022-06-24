@@ -12,7 +12,7 @@ from nonebot.permission import SUPERUSER
 from nonebot.rule import to_me, startswith
 from nonebot.typing import T_State
 from nonebot.exception import IgnoredException
-
+from nonebot.rule import startswith
 from ...extraApi.base import Log, ExtraData, ExConfig, Command
 # 日志记录和模式回复
 from ...extraApi.rule import NOT_IGNORED, NOT_BLOCKED
@@ -43,7 +43,11 @@ async def auto_log_receive_handle(bot: Bot, event: Union[PrivateMessageEvent, Gr
         else:
             start = ""
         await bot.send(event, message="%s%s正在升级中" % (start, list(bot.config.nickname)[0]), at_sender=True)
+        if await SUPERUSER(bot, event):
+            raise IgnoredException("检修状态：-1")
     await Log.receive_message(bot, event)
+    if state2 == 0 and not await startswith("/轻雪")(bot, event, state):
+        raise IgnoredException("关闭状态：0")
 
 
 @event_preprocessor

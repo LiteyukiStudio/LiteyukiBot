@@ -554,7 +554,7 @@ class Balance:
         return value
 
     @staticmethod
-    async def getFavoLevel(user_id) -> Tuple[int, int, int]:
+    async def getFavoLevel(user_id) -> Tuple[int, int]:
         """
         :return: level, 下一级数量
         """

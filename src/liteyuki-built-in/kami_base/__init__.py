@@ -6,7 +6,7 @@ from nonebot import on_command, on_notice
 from nonebot.adapters.onebot.v11 import NoticeEvent, Message, GROUP_OWNER, GROUP_ADMIN
 from nonebot.params import CommandArg
 from .autorun import *
-from ...extraApi.base import Balance, Command
+from ...extraApi.base import Balance, Command, Util
 from ...extraApi.cardimage import Cardimage
 from ...extraApi.permission import MASTER
 from ...extraApi.rule import check_plugin_enable
@@ -211,21 +211,21 @@ async def state_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageE
         except BaseException:
             pass
     msg += "\n - 平均: %.1f" % psutil.cpu_percent() + "%"
-    msg += "\n内存:\n - 总计: %.1fGB\n - 已用: %.1fGB\n - 剩余: %.1fGB" % \
-           (psutil.virtual_memory().total / 1024 ** 3, psutil.virtual_memory().used / 1024 ** 3, psutil.virtual_memory().free / 1024 ** 3)
-    msg += "\n - BOT使用: %.1fMB" % (psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2)
+    msg += "\n内存:\n - 总计: %s\n - 已用: %s\n - 剩余: %s" % \
+           (Util.size_text(psutil.virtual_memory().total), Util.size_text(psutil.virtual_memory().used), Util.size_text(psutil.virtual_memory().free))
+    msg += "\n - BOT使用: %s" % Util.size_text(psutil.Process(os.getpid()).memory_info().rss)
     msg += "\n磁盘:"
     disk_total = 0
     disk_used = 0
     for disk in psutil.disk_partitions():
         try:
             use = psutil.disk_usage(disk.device)
-            msg += "\n - %s: %.1f/%.1fGB" % (disk.device, use.used / 1024 ** 3, use.total / 1024 ** 3)
+            msg += "\n - %s: %s/%s" % (disk.device, Util.size_text(use.used), Util.size_text(use.total))
             disk_total += use.total
             disk_used += use.used
         except BaseException:
             pass
-    msg += "\n - 总计: %.1f/%.1fGB" % (disk_used / 1024 ** 3, disk_total / 1024 ** 3)
+    msg += "\n - 总计: %s/%s" % (Util.size_text(disk_used), Util.size_text(disk_total))
     await state.send(msg)
 
 

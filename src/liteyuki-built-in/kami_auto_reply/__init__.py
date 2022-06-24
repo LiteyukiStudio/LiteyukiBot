@@ -8,65 +8,94 @@ from .arApi import *
 from ...extraApi.badword import *
 from ...extraApi.rule import *
 
-listener = on_message(priority=100)
+listener = on_message(priority=100, block=False)
 editReply = on_command(cmd="添加回复", aliases={"删除回复", "清除回复", "添加全局回复", "删除全局回复", "清除全局回复"},
-                       permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | PRIVATE_FRIEND | MASTER,
-                       priority=10, block=True)
+                       permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | PRIVATE_FRIEND,
+                       priority=1, block=True)
 set_reply_probability = on_command(cmd="设置回复率",
-                                   permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | PRIVATE_FRIEND | MASTER,
-                                   priority=10, block=True)
+                                   permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | PRIVATE_FRIEND,
+                                   priority=1, block=True)
+set_ai_reply = on_command(cmd="启用智能回复", aliases={"停用智能回复"},
+                          permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | PRIVATE_FRIEND,
+                          priority=1, block=True)
 
 
 @set_reply_probability.handle()
-async def set_reply_probability_handle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
+async def set_reply_probability_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], state: T_State):
     probability = Balance.clamp(float(event.raw_message.split()[1]), 0.0, 1.0)
     await ExtraData.setData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="kami.auto_reply.reply_probability", value=probability)
     await set_reply_probability.send(message="已将此会话中回复率设置为:%s" % probability)
 
 
+@set_ai_reply.handle()
+async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
+    state_0 = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="kami.auto_reply.enable_ai",
+                                      default=True if isinstance(event, PrivateMessageEvent) else False)
+    if "启用" in event.raw_message:
+        if state_0:
+            await set_ai_reply.send(message="当前会话智能回复已启用，无需重复操作")
+        else:
+            await set_ai_reply.send(message="当前会话智能回复启用成功")
+            await ExtraData.setData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="kami.auto_reply.enable_ai", value=False)
+    else:
+        if not state_0:
+            await set_ai_reply.send(message="当前会话智能回复已停用，无需重复操作")
+        else:
+            await set_ai_reply.send(message="当前会话智能回复停用成功")
+            await ExtraData.setData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="kami.auto_reply.enable_ai", value=False)
+
+
 @listener.handle()
-async def listenerHandle(bot: Bot, event: GroupMessageEvent | PrivateMessageEvent, state: T_State):
+async def listenerHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], state: T_State):
     event.raw_message = Command.escape(event.raw_message)
     session_reply_probability = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="kami.auto_reply.reply_probability",
-                                                        default=1.0 if type(event) is PrivateMessageEvent else 0.02)
+                                                        default=1.0)
+    session_enable_ai = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="kami.auto_reply.enable_ai",
+                                                default=True if isinstance(event, PrivateMessageEvent) else False)
+
+    # 基于好感度的回复
     favo_reply_probability = (Balance.clamp(await Balance.getFavoValue(event.user_id) / 200, 0, 1))
-    if random.random() < session_reply_probability * favo_reply_probability or await to_me()(bot, event, state) or await ExtraData.get_user_data(event.user_id,
-                                                                                                                                                 key="my.user_call_bot",
-                                                                                                                                                 default=list(bot.config.nickname)[
-                                                                                                                                                     0]) in event.raw_message:
-        reply = await getReply(bot, event, state)
-        if reply is not None:
-            user_call_bot = await ExtraData.get_user_data(user_id=event.user_id, key="my.user_call_bot", default=list(bot.config.nickname)[0])
-            placeholder = {
+    # if random.random() < session_reply_probability * favo_reply_probability or await to_me()(bot, event, state) or await ExtraData.get_user_data(event.user_id,
+    #                                                                                                                                              key="my.user_call_bot",
+    #                                                                                                                                              default=list(bot.config.nickname)[
+    #                                                                                                                                                  0]) in event.raw_message:
+    reply = await get_database_reply(bot, event, state)
+    if reply is not None:
+        user_call_bot = await ExtraData.get_user_data(user_id=event.user_id, key="my.user_call_bot", default=list(bot.config.nickname)[0])
+        placeholder = {
+            "%msg%": Command.escape(event.raw_message),
+            "%time1%": "%s:%s" % tuple(list(time.localtime())[3:5]),
+            "%time2%": "%s:%s:%s" % tuple(list(time.localtime())[3:6]),
+            "%date%": "%s-%s-%s" % tuple(list(time.localtime())[0:3]),
+            "%at%": "[CQ:at,qq=%s]" % str(event.user_id),
+            "%user_id%": str(event.user_id),
+            "%bot_name%": random.choice(list(bot.config.nickname)),
+            "%call_bot%": user_call_bot,
+            "%call%": await ExtraData.getData(targetType=ExtraData.User, targetId=event.user_id, key="my.bot_call_user",
+                                              default=event.sender.nickname),
+            "%nickname%": event.sender.nickname
+        }
+        # 遍历和替换
+        replace_items: tuple = placeholder.items()
+        for old, new in replace_items:
+            reply = reply.replace(old, new)
 
-                "%time1%": "%s:%s" % tuple(list(time.localtime())[3:5]),
-                "%time2%": "%s:%s:%s" % tuple(list(time.localtime())[3:6]),
-                "%date%": "%s-%s-%s" % tuple(list(time.localtime())[0:3]),
-                "%at%": "[CQ:at,qq=%s]" % str(event.user_id),
-                "%user_id%": str(event.user_id),
-                "%bot_name%": random.choice(list(bot.config.nickname)),
-                "%call_bot%": user_call_bot,
-                "%call%": await ExtraData.getData(targetType=ExtraData.User, targetId=event.user_id, key="my.bot_call_user",
-                                                  default=event.sender.nickname),
-                "%nickname%": event.sender.nickname
+        if re.search("%surl,.+,.+,.+.,?url%"):
+            pass
 
-            }
-            # 遍历和替换
-            replace_items: tuple = placeholder.items()
-            for old, new in replace_items:
-                reply = reply.replace(old, new)
+        await Balance.editFavoValue(user_id=event.user_id, delta=random.randint(1, 3), reason="互动：%s" % reply)
+        await Balance.editCoinValue(user_id=event.user_id, delta=random.randint(1, 2), reason="互动：%s" % reply)
 
-            await Balance.editFavoValue(user_id=event.user_id, delta=random.randint(1, 3), reason="互动：%s" % reply)
+        reply = await badwordFilter(bot, event, state, reply)
 
-            reply = await badwordFilter(bot, event, state, reply)
+        reply_format_list = reply.replace("。", "||").replace("!", "||").replace("，", "||").replace("\n", "||").split("||")
 
-            reply_format_list = reply.replace("。", "||").replace("!", "||").replace("，", "||").replace("\n", "||").split("||")
-            if random.random() <= 0.6 and len(reply_format_list) <= 10 and mean([len(seg) for seg in reply_format_list]) >= 4 or "||" in reply:
-                for reply_seg in reply_format_list:
-                    await asyncio.sleep(Balance.clamp(random.randint(len(reply_seg) - 3, len(reply_seg) + 3) * 0.25, 0.5, 5.0))
-                    await listener.send(message=Message(reply_seg))
-            else:
-                await listener.send(message=Message(reply))
+        if random.random() <= 0.5 and len(reply_format_list) <= 10 and mean([len(seg) for seg in reply_format_list]) >= 5 or "||" in reply:
+            for reply_seg in reply_format_list:
+                await asyncio.sleep(Balance.clamp(random.randint(len(reply_seg) - 3, len(reply_seg) + 3) * 0.25, 0.5, 5.0))
+                await listener.send(message=Message(reply_seg))
+        else:
+            await listener.send(message=Message(reply))
 
 
 @editReply.handle()
