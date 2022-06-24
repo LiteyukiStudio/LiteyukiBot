@@ -2,8 +2,9 @@ import threading
 from multiprocessing import get_context
 
 import nonebot
-from nonebot import logger
 
+# from nonebot import logger
+#
 _nb_run = nonebot.run
 
 
@@ -41,11 +42,11 @@ def run(*args, **kwargs):
         process.start()
         while not should_exit:
             if event.wait(1):
-                logger.info("Receive reboot event")
+                print("Receive reboot event")
                 process.terminate()
                 process.join(0)
                 if process.is_alive():
-                    logger.warning(
+                    print(
                         "Cannot shutdown gracefully in 0 second, force kill process."
                     )
                     process.kill()
@@ -56,5 +57,4 @@ def run(*args, **kwargs):
                 # Process stoped without setting event
                 should_exit = True
 
-
-nonebot.run = run
+# nonebot.run = run
