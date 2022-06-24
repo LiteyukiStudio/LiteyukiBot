@@ -178,15 +178,15 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
 
                     # 天气 状态文本 和 图片 和 温度 和 建议
                     download = True
-                    if not os.path.exists(os.path.join(ExConfig.res_path, "textures/weather/icons/%s.png" % icon)):
+                    if not os.path.exists(os.path.join(ExConfig.cache_path, "textures/weather/icons/%s.png" % icon)):
                         download = await ExtraData.download_file("https://a.hecdn.net/img/common/icon/202106d/%s.png" % icon,
-                                                                 os.path.join(ExConfig.res_path,
+                                                                 os.path.join(ExConfig.cache_path,
                                                                               "textures/weather/icons/%s.png" % icon))
                     main_text_offset = 0.015
                     try:
                         await weather_card.addImage(uvSize=(1, 1), boxSize=(0.275, 0.275), xyOffset=(0, 0),
                                                     baseAnchor=(0.5, 0.27 - main_text_offset), imgAnchor=(1, 0.5),
-                                                    img=Image.open(os.path.join(ExConfig.res_path,
+                                                    img=Image.open(os.path.join(ExConfig.cache_path,
                                                                                 "textures/weather/icons/%s.png" % icon)))
                     except BaseException:
                         await weather_card.addImage(uvSize=(1, 1), boxSize=(0.275, 0.275), xyOffset=(0, 0),
@@ -319,15 +319,15 @@ async def sendRealTimeWeather(bot: Bot, event: GroupMessageEvent | PrivateMessag
 
                             # 小时天气状态图
                             download = True
-                            if not os.path.exists(os.path.join(ExConfig.res_path, "textures/weather/icons/%s.png" % icon_hourly)):
+                            if not os.path.exists(os.path.join(ExConfig.cache_path, "textures/weather/icons/%s.png" % icon_hourly)):
                                 download = await ExtraData.download_file("https://a.hecdn.net/img/common/icon/202106d/%s.png" % icon_hourly,
-                                                                         os.path.join(ExConfig.res_path,
+                                                                         os.path.join(ExConfig.cache_path,
                                                                                       "textures/weather/icons/%s.png" % icon_hourly))
 
                             try:
                                 await weather_card.addImage(uvSize=(1, 1), boxSize=(0.075, 0.075), xyOffset=(0, 0),
                                                             baseAnchor=(x_point_hourly, y_high - 0.08), imgAnchor=(0.5, 0.5),
-                                                            img=Image.open(os.path.join(ExConfig.res_path,
+                                                            img=Image.open(os.path.join(ExConfig.cache_path,
                                                                                         "textures/weather/icons/%s.png" % icon_hourly)))
                             except BaseException as e:
                                 await Session.sendException(bot, event, state, e)

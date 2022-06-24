@@ -59,7 +59,6 @@ async def execute_preprocessor(bot: Bot, event: Union[PrivateMessageEvent, Group
     execute only=bot_id列表 msg
     execute except=bot_id列表 msg
     """
-
     if await startswith("/execute")(bot, event, state):
         args, kwargs = Command.formatToCommand(event.raw_message)
 
@@ -76,9 +75,7 @@ async def execute_preprocessor(bot: Bot, event: Union[PrivateMessageEvent, Group
         for k in delete_key:
             if k in kwargs:
                 del kwargs[k]
-        print(Command.formatToString(*args[1:], **kwargs))
         event.raw_message = Command.formatToString(*args[1:], **kwargs)
-        print(event.raw_message)
         event.message = Message(event.raw_message)
 
 

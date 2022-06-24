@@ -175,6 +175,8 @@ async def NOT_IGNORED(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEv
     :return:
     """
     no_response = await ExtraData.get_global_data(key="ignored_users", default=[])
+    if isinstance(event, GroupMessageEvent):
+        no_response += await ExtraData.get_group_data(event.group_id, key="ignored_users", default=[])
     if event.user_id in no_response:
         return False
     else:
@@ -192,6 +194,8 @@ async def NOT_BLOCKED(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEv
     :return:
     """
     no_response = await ExtraData.get_global_data(key="blocked_users", default=[])
+    if isinstance(event, GroupMessageEvent):
+        no_response += await ExtraData.get_group_data(event.group_id, key="blocked_users", default=[])
     if event.user_id in no_response:
         return False
     else:

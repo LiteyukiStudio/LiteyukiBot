@@ -18,18 +18,20 @@ import os
 from ...extraApi.reload import Reloader
 
 #    ahhaha
-setConfig = on_command(cmd="设置属性", permission=SUPERUSER | MASTER, priority=1, block=True)
-getConfig = on_command(cmd="获取属性", permission=SUPERUSER | MASTER, priority=1, block=True)
+setConfig = on_command(cmd="设置数据", permission=SUPERUSER | MASTER, priority=1, block=True)
+getConfig = on_command(cmd="获取数据", permission=SUPERUSER | MASTER, priority=1, block=True)
 send_mutil_msg = on_command(cmd="群发消息", permission=SUPERUSER | MASTER, priority=1, block=True)
 backup_data = on_command(cmd="备份数据", permission=SUPERUSER | MASTER, priority=1, block=True)
 statistics_data = on_command(cmd='统计数据', permission=SUPERUSER | MASTER, priority=1, block=True)
 enable_group = on_command(cmd="群聊启用", permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN, priority=1, block=True)
 disable_group = on_command(cmd="群聊停用", permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN, priority=1, block=True)
+clear_cache = on_command(cmd="清除缓存", permission=SUPERUSER, block=True)
 call_api = on_command(cmd="/api", permission=SUPERUSER | MASTER, priority=1, block=True)
 update = on_command(cmd="/update", permission=SUPERUSER | MASTER, priority=1, block=True)
 install_plugin = on_command(cmd="安装插件", permission=SUPERUSER, priority=1, block=True)
 reload = on_command("/reload", aliases={"/reboot"}, permission=SUPERUSER, priority=1, block=True)
 cmd = on_command("/cmd", permission=SUPERUSER, priority=1, block=True)
+config = on_command("/config", permission=SUPERUSER, priority=1, block=True)
 
 
 @enable_group.handle()
@@ -259,3 +261,34 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args
     print(result)
 
     await cmd.send("执行结果：\n%s" % result)
+
+
+@config.handle()
+async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args: Message = CommandArg()):
+    try:
+        args = str(args).strip().split()
+        if len(args) >= 1:
+            config_name = args[0]
+            if len(args) >= 2:
+                config_value = eval(" ".join(str(args).split()[1:]))
+                await ExtraData.set_global_data(key=config_name, value=config_value)
+                await config.send(message="属性设置成功：\n%s: %s" % (config_name, config_value))
+            else:
+                config_value = await ExtraData.get_global_data(key=config_name, default=None)
+                await config.send(message="属性值：\n%s: %s" % (config_name, config_value))
+    except BaseException as e:
+        await Session.sendException(bot, event, {}, e)
+
+
+@clear_cache.handle()
+async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
+    if os.path.exists(ExConfig.cache_path) and len(os.listdir(ExConfig.cache_path)) > 0:
+        print(os.path.getsize(ExConfig.cache_path))
+        size = await run_sync(Util.size_text)(os.path.getsize(ExConfig.cache_path))
+        await run_sync(shutil.rmtree)(ExConfig.cache_path)
+        await run_sync(os.makedirs)(ExConfig.cache_path)
+        await clear_cache.send(message="缓存清除成功：%s" % size)
+    else:
+        if not os.path.exists(ExConfig.cache_path):
+            os.makedirs(ExConfig.cache_path)
+        await clear_cache.send(message="当前没有缓存")

@@ -6,6 +6,7 @@ import nonebot
 # from nonebot import logger
 #
 _nb_run = nonebot.run
+import nonebot
 
 
 class Reloader:
@@ -57,4 +58,5 @@ def run(*args, **kwargs):
                 # Process stoped without setting event
                 should_exit = True
 
-# nonebot.run = run
+
+nonebot.run = run

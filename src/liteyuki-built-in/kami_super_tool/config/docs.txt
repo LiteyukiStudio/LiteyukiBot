@@ -1,16 +1,19 @@
 超级工具命令：
 
-- 设置属性 <type> <id> <key> <value>(仅超级用户)
-- 获取属性 <type> <id> <key>
+- 设置数据 <type> <id> <key> <value>(仅超级用户)
+- 获取数据 <type> <id> <key>
 - 群聊启用/停用 [群号](不接群号默认为发送消息的群)
-- /update [mode={check|force}] [url=下载连接=链接] (联网更新机器人，force是强制更新，check仅检查，自定义镜像源就是github镜像的下载zip链接)
+- 安装插件 <插件名>
 - 群发消息 消息内容...
 - 备份数据
+- 清除缓存
+- /config <配置名> [配置值]   (没有配置值则为查询)
 - /api <API名称> [API参数]
-- /reload(重启bot)
-- 安装插件 <插件名>
-- /cmd <command>(终端执行命令)
+- /reload   (重启bot)
+- /update [mode={check|force}] [url=下载链接]
+- /cmd <command>    (终端执行命令)
 
+设置数据type参数
 type:
 u: 用户
 g: 群

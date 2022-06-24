@@ -9,39 +9,17 @@
 
 ### 安装插件
 
-- 直接在cmd命令行使用`nb plugin install <插件名>`命令安装
+- 商店中的插件给Bot发送`安装插件 <插件名>`即可，如果是zip文件，请解压后放到`src/nonebot_plugin`
+- Bot支持`OnebotV11`协议适配器的插件（不保证所有第三方插件均能完美运行）
+- 安装的插件有的会没有中文名，超级用户可以使用`设置插件名 <插件原名> <插件中文名>`为插件配置名称，也可以改名
+- 安装的插件有的会没有文档，超级用户使用`设置插件文档 <插件名> <文档内容...>`可为插件添加文档
 
-- 支持插件管理（但较复杂，大概会花费3分钟配置插件）：Bot在首次运行时会生成`src/nonebot_plugin`文件夹，
-  将含有`__init__.py`的插件文件夹拖放到此处，
-  并在插件文件夹内创建`config`文件夹，在`config`内创建`manifest.json`和`docs.txt`,其目录结构如下
+### 更新
 
-```
-Liteyuki-Bot
-├── bot.py
-├── README.md
-├── ...
-└── src
-    ├── extraApi
-    ├── liteyuki-built-in
-    └── nonebot_plugin
-        └── example_plugin
-            ├── __init__.py
-            ├── ...
-            └── config
-                ├── docs.txt
-                └── manifest.json
-```
+- 给Bot发送`/update`以更新，若屡次提示下载失败，可将zip下载至本地，然后用`/update mode=force url=file:///本地zip路径.zip`命令更新
+- 给Bot发送`/update mode=force`仅检查更新
 
-- `manifest.json`中填写内容如下，`name`是插件名，最好是唯一的，可以自定义，便于插件管理
+### 超级用户常用功能
 
-```json
-{
-    "name": "NoneBot示例插件"
-}
-```
-
-- `docs.txt`中就是插件文档，可以从github项目的README.md复制，也可以自己编写，这是给QQ用户呈现的，
-  若帮助文档是图片，则可以填写图片CQ码`[CQ:image,file=图片链接/路径
-
-- 此时给你的Bot发送`help`，返回的插件列表应该就有你新装的插件了
-- 关于插件的问题请询问插件作者，如果是内置插件的问题可以询问BOT作者
+- 给Bot发送`help 超级工具`查看
+- 屏蔽和忽略用户：发送`屏蔽用户 用户1 用户2...`以实现屏蔽，发送`忽略用户 用户1 用户2...`以实现忽略，两种方法不同之处在于屏蔽后触发违禁词仍然可以被惩罚目标，忽略是完全不响应
