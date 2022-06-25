@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os
+
+print("正在检查安装依赖项...")
+os.system("pip install -r requirements.txt")
 import sys
 
 import nonebot
@@ -18,22 +21,23 @@ from nonebot.adapters.onebot.v11 import Adapter as ONEBOT_V11Adapter
 # You can pass some keyword args config to init function
 from src.extraApi.base import ExConfig
 
-print("正在检查安装依赖项...")
-os.system("pip install -r requirements.txt")
 if not os.path.exists(os.path.join(ExConfig.root_path, ".env")):
+    port = input("请输入go-cqhttp端口号:")
+    superuser = input("请输入超级用户qq号(多个请逗号分隔):")
+    bot_name = input("请输入机器人昵称:")
     with open(os.path.join(ExConfig.root_path, ".env"), "w", encoding="utf-8") as file:
-        file.write("""ENVIRONMENT=prod
+        file.write('''ENVIRONMENT=prod
 HOST=127.0.0.1
-PORT=8080
-SUPERUSERS=[]
-SESSION_EXPIRE_TIMEOUT=200
+PORT=%s
+SUPERUSERS=[%s]
+SESSION_EXPIRE_TIMEOUT=300
 DEBUG=false
 FASTAPI_RELOAD=false
-NICKNAME=["轻雪"]
+NICKNAME=["%s"]
 SESSION_RUNNING_EXPRESSION="轻雪脑抽中..."
 COMMAND_START=[""]
 APSCHEDULER_CONFIG={"apscheduler.timezone": "Asia/Shanghai"}
-APSCHEDULER_AUTOSTART=true""")
+APSCHEDULER_AUTOSTART=true''' % (port, superuser, bot_name))
 if not os.path.exists(os.path.join(ExConfig.root_path, "pyproject.toml")):
     with open(os.path.join(ExConfig.root_path, "pyproject.toml"), "w", encoding="utf-8") as file:
         file.write('''[tool.poetry]

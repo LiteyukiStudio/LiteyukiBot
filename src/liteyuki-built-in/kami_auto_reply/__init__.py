@@ -1,8 +1,12 @@
+import copy
 import time
 
 import asyncio
+
+import requests
 from nonebot import on_message, on_command
 from nonebot.adapters.onebot.v11 import Message, PRIVATE_FRIEND
+from nonebot.utils import run_sync
 from numpy import mean
 from .arApi import *
 from ...extraApi.badword import *
@@ -48,19 +52,22 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
 @listener.handle()
 async def listenerHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], state: T_State):
     event.raw_message = Command.escape(event.raw_message)
-    session_reply_probability = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="kami.auto_reply.reply_probability",
-                                                        default=1.0)
-    session_enable_ai = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="kami.auto_reply.enable_ai",
-                                                default=True if isinstance(event, PrivateMessageEvent) else False)
 
-    # 基于好感度的回复
-    favo_reply_probability = (Balance.clamp(await Balance.getFavoValue(event.user_id) / 200, 0, 1))
     # if random.random() < session_reply_probability * favo_reply_probability or await to_me()(bot, event, state) or await ExtraData.get_user_data(event.user_id,
     #                                                                                                                                              key="my.user_call_bot",
     #                                                                                                                                              default=list(bot.config.nickname)[
     #                                                                                                                                                  0]) in event.raw_message:
     reply = await get_database_reply(bot, event, state)
-    if reply is not None:
+    session_reply_probability = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="kami.auto_reply.reply_probability",
+                                                        default=1.0)
+    session_enable_ai = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="kami.auto_reply.enable_ai",
+                                                default=True if isinstance(event, PrivateMessageEvent) else False)
+
+    if session_enable_ai:
+        # 基于好感度的回复
+        favo_reply_probability = (Balance.clamp(await Balance.getFavoValue(event.user_id) / 200, 0, 1))
+        reply = await get_ai_reply(bot, event, state)
+    if reply is not None and random.random() <= session_reply_probability:
         user_call_bot = await ExtraData.get_user_data(user_id=event.user_id, key="my.user_call_bot", default=list(bot.config.nickname)[0])
         placeholder = {
             "%msg%": Command.escape(event.raw_message),
@@ -76,12 +83,35 @@ async def listenerHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessag
             "%nickname%": event.sender.nickname
         }
         # 遍历和替换
-        replace_items: tuple = placeholder.items()
+        replace_items = placeholder.items()
         for old, new in replace_items:
             reply = reply.replace(old, new)
 
-        if re.search(r"%surl,.+?^\\,.+?^\\,.+?^\\,.^\?url%"):
-            pass
+        # %url,http:a.a.a,json,a.b.c.d,url%
+        url_search = re.findall("%url,.+?[^\\\\],.+?[^\\\\],.+?[^\\\\],url%", reply)
+        url_rph = "1145141919810hhhaaaa"
+        for url_ph in url_search:
+            url_ph.replace("\\,", url_rph)
+            params = url_ph[5: -5].split(",")
+            new_params = []
+            for p in params:
+                new_params.append(p.replace(url_rph, ","))
+            data = await run_sync(requests.get)(url=new_params[0], headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36',
+            })
+            if new_params[1] == "json":
+                json_key_seq = new_params[2].split("/")
+                sub_data = copy.deepcopy(data.json())
+                for seq in json_key_seq:
+                    try:
+                        seq = int(seq)
+                    except:
+                        seq = str(seq)
+                    sub_data = sub_data[seq]
+                target_text = str(sub_data)
+            else:
+                target_text = str(data.text)
+            reply = reply.replace(url_ph, target_text)
 
         await Balance.editFavoValue(user_id=event.user_id, delta=random.randint(1, 3), reason="互动：%s" % reply)
         await Balance.editCoinValue(user_id=event.user_id, delta=random.randint(1, 2), reason="互动：%s" % reply)
@@ -92,10 +122,10 @@ async def listenerHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessag
 
         if random.random() <= 0.5 and len(reply_format_list) <= 10 and mean([len(seg) for seg in reply_format_list]) >= 5 or "||" in reply:
             for reply_seg in reply_format_list:
-                await asyncio.sleep(Balance.clamp(random.randint(len(reply_seg) - 3, len(reply_seg) + 3) * 0.25, 0.5, 5.0))
-                await listener.send(message=Message(reply_seg))
+                await asyncio.sleep(Balance.clamp(random.randint(len(reply_seg) - 3, len(reply_seg) + 3) * 0.25, 0.5, 1.0))
+                await listener.finish(message=Message(reply_seg))
         else:
-            await listener.send(message=Message(reply))
+            await listener.finish(message=Message(reply))
 
 
 @editReply.handle()

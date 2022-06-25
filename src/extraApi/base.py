@@ -18,11 +18,6 @@ from nonebot.typing import T_State
 from nonebot.utils import run_sync
 
 
-def restart():
-    os.system("python restart.py")
-    sys.exit(0)
-
-
 class Util:
 
     @staticmethod
@@ -45,6 +40,25 @@ class Util:
             unit = "B"
 
         return "%s%s" % (round(size, dec), unit)
+
+    @staticmethod
+    async def load_env(file: str):
+        data = {}
+        async with aiofiles.open(file, "r", encoding="utf-8") as async_file:
+            text = await async_file.read()
+            for line in text.splitlines():
+                args = line.split("=")
+                data[args[0]] = "=".join(args[1:])
+        return data
+
+    @staticmethod
+    async def dump_env(file: str, obj: dict):
+        lines = ""
+        for item in obj.items():
+            line = "%s=%s\n" % (item[0], item[1])
+            lines += line
+        async with aiofiles.open(file, "w", encoding="utf-8") as async_file:
+            await async_file.write(lines)
 
 
 class ExConfig:

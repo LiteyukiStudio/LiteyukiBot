@@ -109,3 +109,25 @@ async def get_database_reply(bot: Bot, event: Union[GroupMessageEvent, PrivateMe
         #             return random.choice(await ExtraData.get_global_data(key="register_default_reply", default=["喵喵喵"]))
         # else:
         #     return random.choice(await ExtraData.get_global_data(key="register_default_reply", default=["喵喵喵"]))
+
+
+async def get_ai_reply(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], state: T_State) -> Union[str, None]:
+    replacer = [
+        "[CQ:image,.+]",
+        "[CQ:at,.+]",
+        "[CQ:record,.+]",
+        "[CQ:face,.+]"
+    ]
+    msg = event.raw_message
+    for rpc in replacer:
+        all_ = re.findall(rpc, msg)
+        for word in all_:
+            msg = msg.replace(word, "")
+    async with aiohttp.request("GET", url="http://api.qingyunke.com/api.php?key=free&appid=0&msg=%s" % str(event.raw_message).replace(list(bot.config.nickname)[0],
+                                                                                                                                      "你")) as asyncStream:
+        if (json.loads(await asyncStream.text()))["result"] == 0:
+            text = (json.loads(await asyncStream.text())).get("content").replace("菲菲", "%call_bot%")
+            text = text.replace("{br}", "\n")
+            return text
+        else:
+            return None

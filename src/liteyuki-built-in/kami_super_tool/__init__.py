@@ -32,6 +32,7 @@ install_plugin = on_command(cmd="安装插件", permission=SUPERUSER, priority=1
 reload = on_command("/reload", aliases={"/reboot"}, permission=SUPERUSER, priority=1, block=True)
 cmd = on_command("/cmd", permission=SUPERUSER, priority=1, block=True)
 config = on_command("/config", permission=SUPERUSER, priority=1, block=True)
+env = on_command("/env", permission=SUPERUSER, priority=1, block=True)
 
 
 @enable_group.handle()
@@ -266,16 +267,38 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args
 @config.handle()
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args: Message = CommandArg()):
     try:
-        args = str(args).strip().split()
+        args = Command.escape(str(args)).strip().split()
         if len(args) >= 1:
             config_name = args[0]
             if len(args) >= 2:
-                config_value = eval(" ".join(str(args).split()[1:]))
+                config_value = eval(" ".join(args[1:]))
                 await ExtraData.set_global_data(key=config_name, value=config_value)
                 await config.send(message="属性设置成功：\n%s: %s" % (config_name, config_value))
             else:
                 config_value = await ExtraData.get_global_data(key=config_name, default=None)
                 await config.send(message="属性值：\n%s: %s" % (config_name, config_value))
+    except BaseException as e:
+        await Session.sendException(bot, event, {}, e)
+
+
+@env.handle()
+async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args: Message = CommandArg()):
+    try:
+        args = Command.escape(str(args)).strip().split()
+        if len(args) >= 1:
+            config_name = args[0]
+            if len(args) >= 2:
+                config_value = " ".join(args[1:])
+                data = await Util.load_env(".env")
+                data[config_name] = config_value
+                await Util.dump_env(".env", data)
+                await config.send(message="env属性设置成功：\n%s: %s" % (config_name, config_value))
+                print(config_value, type(config_value))
+                # Reloader.reload()
+            else:
+                data = await Util.load_env(".env")
+                config_value = data.get(config_name, "属性值不存在")
+                await config.send(message="env属性值：\n%s: %s" % (config_name, config_value))
     except BaseException as e:
         await Session.sendException(bot, event, {}, e)
 

@@ -14,6 +14,9 @@
 # 调用gocqAPI
 - /api <API名称> [API参数]
 
+# 设置env配置
+- /env <配置名> [配置值(不输入时为查询)]
+
 # 重启Bot
 - /reload (重启bot)
 
