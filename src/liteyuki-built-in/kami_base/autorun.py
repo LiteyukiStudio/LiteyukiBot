@@ -39,11 +39,11 @@ async def auto_log_receive_handle(bot: Bot, event: Union[PrivateMessageEvent, Gr
     state2 = await ExtraData.get_global_data(key="enable_mode", default=1)
     if state2 == -1 and await (NOT_IGNORED & NOT_BLOCKED & to_me())(bot, event, state):
         if await SUPERUSER(bot, event):
-            start = "[超级用户模式]"
+            pass
         else:
             start = ""
-        await bot.send(event, message="%s%s正在升级中" % (start, list(bot.config.nickname)[0]), at_sender=True)
-        if await SUPERUSER(bot, event):
+            await bot.send(event, message="%s%s正在升级中" % (start, list(bot.config.nickname)[0]), at_sender=True)
+        if not await SUPERUSER(bot, event):
             raise IgnoredException("检修状态：-1")
     await Log.receive_message(bot, event)
     if state2 == 0 and not await startswith("/轻雪")(bot, event, state):

@@ -80,7 +80,7 @@ async def listenerHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessag
         for old, new in replace_items:
             reply = reply.replace(old, new)
 
-        if re.search("%surl,.+,.+,.+.,?url%"):
+        if re.search(r"%surl,.+?^\\,.+?^\\,.+?^\\,.^\?url%"):
             pass
 
         await Balance.editFavoValue(user_id=event.user_id, delta=random.randint(1, 3), reason="互动：%s" % reply)
