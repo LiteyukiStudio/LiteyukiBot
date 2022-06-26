@@ -6,6 +6,7 @@ import asyncio
 import requests
 from nonebot import on_message, on_command
 from nonebot.adapters.onebot.v11 import Message, PRIVATE_FRIEND
+from nonebot.params import CommandArg
 from nonebot.utils import run_sync
 from numpy import mean
 from .arApi import *
@@ -25,8 +26,8 @@ set_ai_reply = on_command(cmd="启用智能回复", aliases={"停用智能回复
 
 
 @set_reply_probability.handle()
-async def set_reply_probability_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], state: T_State):
-    probability = Balance.clamp(float(event.raw_message.split()[1]), 0.0, 1.0)
+async def set_reply_probability_handle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], state: T_State, args: Message = CommandArg()):
+    probability = Balance.clamp(float(str(args)), 0.0, 1.0)
     await ExtraData.setData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="kami.auto_reply.reply_probability", value=probability)
     await set_reply_probability.send(message="已将此会话中回复率设置为:%s" % probability)
 
@@ -63,7 +64,7 @@ async def listenerHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessag
     session_enable_ai = await ExtraData.getData(targetType=event.message_type, targetId=ExtraData.getTargetId(event), key="kami.auto_reply.enable_ai",
                                                 default=True if isinstance(event, PrivateMessageEvent) else False)
 
-    if session_enable_ai:
+    if session_enable_ai and reply is None:
         # 基于好感度的回复
         favo_reply_probability = (Balance.clamp(await Balance.getFavoValue(event.user_id) / 200, 0, 1))
         reply = await get_ai_reply(bot, event, state)

@@ -101,7 +101,7 @@ class Command:
         自动cq去义
         "%20"表示空格
         """
-        cmd = Command.escape(cmd)
+        cmd = Command.escape(cmd, blank=False)
         cmd_list = cmd.strip().split(sep)
         args = []
         keywords = {}
@@ -195,7 +195,7 @@ class Command:
                 return i
 
     @staticmethod
-    def escape(text: str) -> str:
+    def escape(text: str, blank=True) -> str:
         """
         CQ码去义
 
@@ -203,7 +203,7 @@ class Command:
         :param text:
         :return:
         """
-        return text.replace("&amp;", "&").replace("&#91;", "[").replace("&#93;", "]").replace("&#44;", ",").replace("%20", " ")
+        return text.replace("&amp;", "&").replace("&#91;", "[").replace("&#93;", "]").replace("&#44;", ",").replace("%20", " " if blank else "%20")
 
 
 class ExtraData:
