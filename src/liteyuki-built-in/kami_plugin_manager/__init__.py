@@ -92,9 +92,13 @@ async def listPluginHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMess
 
             if plugin is not None:
                 if len(args) == 1:
-                    await listPlugin.send(Message("%s帮助文档：\n\n" % plugin.pluginName + plugin.pluginDocs))
+                    await listPlugin.send(Message("%s%s帮助文档：\n\n%s" % (plugin.pluginName,
+                                                                       "[已启用]" if await getPluginEnable(event.message_type, ExtraData.getTargetId(event),
+                                                                                                        plugin) else "[未启用]", plugin.pluginDocs)))
                 else:
-                    await listPlugin.send(Message("%s帮助文档：\n\n" % "-".join(args) + await plugin.get_sub_docs(args[1:], plugin_name=plugin.pluginName)))
+                    await listPlugin.send(Message("%s%s帮助文档：\n\n%s" % ("-".join(args), "[已启用]" if await getPluginEnable(event.message_type, ExtraData.getTargetId(event),
+                                                                                                                        plugin) else "[未启用]",
+                                                                       await plugin.get_sub_docs(args[1:], plugin_name=plugin.pluginName))))
             else:
                 await listPlugin.send("未找到插件")
 

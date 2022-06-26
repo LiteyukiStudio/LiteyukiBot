@@ -110,13 +110,18 @@ PORT=11451              # Websocket服务端端口，此处和go-cqhttp配置相
 
 - 作者已经吃不起饭，睡大街了(doge)，如果你觉得此项目不错的话可以给作者一些鼓励，这将会是我继续维护的动力
 - 微信-WeChat
-  ![捐赠：微信](/docs/img/donate_wechat.png)
+  ![捐赠：微信](docs/img/donate_wechat.png)
 - 支付宝-Alipay
-  ![捐赠：支付宝](/docs/img/donate_alipay.png)
+  ![捐赠：支付宝](docs/img/donate_alipay.png)
 
 ## 6.更新日志
 
-### ```2022.6.26```v3.5.5
+### `2022.6.27`v3.5.6
+
+- `help`单插件文档命令添加了显示插件启用状态
+- 更新下载目录修改为缓存目录，用户可以更新完后删除更新包
+
+### `2022.6.26`v3.5.5
 
 - 可以通过`/env <key> <value>`配置Bot的env
 - 可以通过`/config <key> <value>`配置Bot
