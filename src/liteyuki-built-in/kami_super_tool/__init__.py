@@ -292,9 +292,9 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args
                 data = await Util.load_env(".env")
                 data[config_name] = config_value
                 await Util.dump_env(".env", data)
-                await config.send(message="env属性设置成功：\n%s: %s" % (config_name, config_value))
+                await config.send(message="env属性设置成功：\n%s: %s\n正在重载中..." % (config_name, config_value))
                 print(config_value, type(config_value))
-                # Reloader.reload()
+                Reloader.reload()
             else:
                 data = await Util.load_env(".env")
                 config_value = data.get(config_name, "属性值不存在")
