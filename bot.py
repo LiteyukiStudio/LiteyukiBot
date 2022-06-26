@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import asyncio
 import os
 
 print("正在检查安装依赖项...")
@@ -20,6 +21,7 @@ from nonebot.adapters.onebot.v11 import Adapter as ONEBOT_V11Adapter
 
 # You can pass some keyword args config to init function
 from src.extraApi.base import ExConfig
+from src.extraApi.base import ExtraData
 
 if not os.path.exists(os.path.join(ExConfig.root_path, ".env")):
     port = input("请输入go-cqhttp端口号:")
@@ -61,9 +63,11 @@ plugin_dirs = ["src/liteyuki-built-in", "src/nonebot_plugin"]
 [build-system]
 requires = ["poetry_core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"''')
-if os.path.exists("init.py"):
+
+if os.path.exists("update_init.py"):
     os.system('"%s" update_init.py' % sys.executable)
-    os.remove("update_init.py")
+    if asyncio.run(ExtraData.get_global_data(key="remove_init_file", default=True)):
+        os.remove("update_init.py")
 
 nonebot.init(
     _env_file=".env",
