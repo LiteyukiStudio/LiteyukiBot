@@ -22,20 +22,32 @@
 ###### Windows
 
 - 机器人是需要Python运行环境的
-- 转到[下载页面](https://www.python.org/downloads/release/python-3100/)，选择你需要的版本下载，记得勾选`Add Python to environment variables`
+- 微软商店版：转到[下载页面](https://apps.microsoft.com/store/detail/python-310/9PJPW5LDXLZ5?hl=zh-cn)，直接点击获取。
+- 官方版：转到[下载页面](https://www.python.org/downloads/release/python-3100/)，选择你需要的版本下载，记得勾选`Add Python to environment variables`
 - 不会请看[这里](https://zhuanlan.zhihu.com/p/344887837)
 
 ###### Linux
 
+- 部分发行版内置了Python3.10，则无需另外添加软件包。
 - 如果发行版已提供Python3.10的软件包，则直接通过包管理器安装即可。
 - 不会请看[这里](https://blog.csdn.net/weixin_43935402/article/details/121416812)
 - ~~不会吧不会吧，你都用Linux还不会安装Python环境~~
+
+###### macOS
+
+- 转到[下载页面](https://www.python.org/downloads/release/python-3100/)，选择你需要的版本下载。
+- 不会请看[这里](http://c.biancheng.net/view/4164.html)
+- ~~不会吧不会吧，你都用macOS还要跑这个Bot~~
 
 #### 2.下载Bot
 
 - 方法一：安装[Git](http://git-scm.com/)命令行工具，并使用以下命令克隆本仓库：
    ```
    git clone https://github.com/snowyfirefly/Liteyuki
+   ```
+  速度慢可尝试以下命令：
+  ```
+   git clone https://hub.fastgit.xyz/snowyfirefly/Liteyuki
    ```
 - 方法二：或者点击下载zip，解压。
 
