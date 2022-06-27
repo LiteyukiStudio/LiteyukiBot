@@ -82,7 +82,7 @@ async def listenerHandle(bot: Bot, event: Union[GroupMessageEvent, PrivateMessag
             "%call%": await ExtraData.getData(targetType=ExtraData.User, targetId=event.user_id, key="my.bot_call_user",
                                               default=event.sender.nickname),
             "%nickname%": event.sender.nickname,
-            "%message_id%": event.message_id
+            "%message_id%": str(event.message_id)
         }
         # 遍历和替换
         replace_items = placeholder.items()
