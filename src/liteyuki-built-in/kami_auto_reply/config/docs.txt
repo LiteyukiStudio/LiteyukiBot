@@ -22,6 +22,7 @@
 - %bot_name%: 机器人名称
 - %call_bot%：用户对机器人的昵称
 - %call%: 机器人对用户的称呼
+- %message_id%: 消息id，用于编写群回复
 - %url,url内容,json|text,[jsonpath.]%: 从网络api请求内容
 jsonpath请用|分隔内容
 - ||：让机器人回复多条消息的分隔符
