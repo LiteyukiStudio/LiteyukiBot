@@ -26,6 +26,7 @@ src/python/
 .env.prod
 resource/file_recv
 data_backup/
+resource/customize
 # Distribution / packaging
 .Python
 build/

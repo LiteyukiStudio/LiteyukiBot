@@ -1,8 +1,9 @@
 import smtplib
 import traceback
+import os
 from email.mime.text import MIMEText
 
-from ...extraApi.base import ExtraData
+from ...extraApi.base import ExConfig, ExtraData
 
 
 async def sendAuthCode(email: str, auth_code: str):
@@ -21,23 +22,14 @@ async def sendAuthCode(email: str, auth_code: str):
 
     receivers = [email]
 
-    content = """
-    <p><center><font color="84e4ff" size=6>轻</font><font color="51abff" size=6>雪</font><font color="84e4ff" size=6>科</font><font color="51abff" size=6>技</font></center>
-<center><font color="84e4ff" size=2>SnowyFirefly Studio</font></center></p>
-
-<h4>亲爱的%s:</h4>
-
-<h4>感谢你支持轻雪机器人</h4>
-
-<h4>以下是你的验证码</h4>
-
-<p><font color="84e4ff" size=6>%s</font>
-</br></br>
-此验证码五分钟内有效，请不要告诉他人
-</br></br>
-<font size=3><p align="right">此致</br>轻雪科技</p></font></p>
-    """ % (email, auth_code)
-
+    with open(os.path.join(ExConfig.root_path, "resource", "customize", "email_text.html"), encoding="utf-8") as f:
+        content = f.read()
+        try:
+            content = content.replace("#auth_code#", auth_code)
+            content = content.replace("#email#", email)
+        except:
+            pass
+        f.close()
     message = MIMEText(content, "html", "utf-8")
     message["Subject"] = "LiteYuki-轻雪验证码"
     message["From"] = sender
