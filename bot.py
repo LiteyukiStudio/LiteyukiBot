@@ -6,7 +6,7 @@ import os
 print("正在检查安装依赖项...")
 os.system("pip install -r requirements.txt")
 import sys
-
+import shutil
 import nonebot
 from nonebot.adapters.onebot.v11 import Adapter as ONEBOT_V11Adapter
 
@@ -68,6 +68,13 @@ if os.path.exists("update_init.py"):
     os.system('"%s" update_init.py' % sys.executable)
     if asyncio.run(ExtraData.get_global_data(key="remove_init_file", default=True)):
         os.remove("update_init.py")
+try:
+    os.mkdir(os.path.join(ExConfig.root_path, "resource", "customize"))
+except:
+    pass
+for templatefile in os.listdir(os.path.join(ExConfig.root_path, "resource", "customize_templates")):
+    if not os.path.exists(os.path.join(ExConfig.root_path, "resources", "customize", f"{templatefile}")):
+        shutil.copyfile(os.path.join(ExConfig.root_path, "resource", "customize_templates", f"{templatefile}"), os.path.join(ExConfig.root_path, "resource", "customize", f"{templatefile}"))
 
 nonebot.init(
     _env_file=".env",
