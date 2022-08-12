@@ -2,9 +2,6 @@
 # -*- coding: utf-8 -*-
 import asyncio
 import os
-
-print("正在检查安装依赖项...")
-os.system("pip install -r requirements.txt")
 import sys
 import shutil
 import nonebot
@@ -40,29 +37,6 @@ SESSION_RUNNING_EXPRESSION="轻雪脑抽中..."
 COMMAND_START=[""]
 APSCHEDULER_CONFIG={"apscheduler.timezone": "Asia/Shanghai"}
 APSCHEDULER_AUTOSTART=true''' % (port, superuser, bot_name))
-if not os.path.exists(os.path.join(ExConfig.root_path, "pyproject.toml")):
-    with open(os.path.join(ExConfig.root_path, "pyproject.toml"), "w", encoding="utf-8") as file:
-        file.write('''[tool.poetry]
-name = "Liteyuki"
-version = "0.1.0"
-description = "Liteyuki"
-authors = []
-readme = "README.md"
-
-[tool.poetry.dependencies]
-python = "^3.7.3"
-nonebot2 = "^2.0.0-beta.1"
-
-[tool.poetry.dev-dependencies]
-nb-cli = "^0.6.0"
-
-[tool.nonebot]
-plugins = ["nonebot_plugin_apscheduler"]
-plugin_dirs = ["src/liteyuki-built-in", "src/nonebot_plugin"]
-
-[build-system]
-requires = ["poetry_core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"''')
 
 if os.path.exists("update_init.py"):
     os.system('"%s" update_init.py' % sys.executable)

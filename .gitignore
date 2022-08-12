@@ -13,7 +13,6 @@ __pycache__/
 # 数据
 cache/
 log/
-pyproject.toml
 data/
 src/plugins老/
 src/nonebot_plugin/
