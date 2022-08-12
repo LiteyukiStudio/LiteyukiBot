@@ -28,10 +28,7 @@
 
 ###### Linux
 
-- 部分发行版内置了Python3.10，则无需另外添加软件包。
-- 如果发行版已提供Python3.10的软件包，则直接通过包管理器安装即可。
-- 不会请看[这里](https://blog.csdn.net/weixin_43935402/article/details/121416812)
-- ~~不会吧不会吧，你都用Linux还不会安装Python环境~~
+[![TRSS Liteyuki 管理脚本](https://github-readme-stats.vercel.app/api/pin/?username=TimeRainStarSky&repo=TRSS_Liteyuki&show_owner=true)](https://github.com/TimeRainStarSky/TRSS_Liteyuki)
 
 ###### macOS
 
