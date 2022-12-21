@@ -14,7 +14,8 @@ pyproject.toml
 
 # C extensions
 *.so
-
+# liteyuki
+cache/.*
 # Distribution / packaging
 .Python
 build/
