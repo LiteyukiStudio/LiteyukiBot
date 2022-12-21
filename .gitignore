@@ -9,7 +9,6 @@ __pycache__/
 *$py.class
 # Liteyuki ignore
 .idea
-pyproject.toml
 .env
 
 # C extensions
