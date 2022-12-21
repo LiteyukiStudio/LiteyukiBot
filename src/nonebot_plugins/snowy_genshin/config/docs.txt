@@ -1,0 +1,8 @@
+首次使用需配置uid
+命令格式：
+- 绑定uid xxxxxxxxx [lang=xxx] (不接lang默认为中文用户)
+- 原神数据 [uid] (不接uid时默认为绑定的uid)
+- xxx面板 [uid=] (不接uid参数默认为绑定的uid)
+
+lang参数可选值
+en ru vi th pt ko ja id fr es de zh-TW zh-CN it tr

@@ -1,3 +1,9 @@
 {
-    "mongodb": "mongodb://localhost:27017"
+    "mongodb": "mongodb://localhost:27017",
+    "necessary_path": [
+        "src/resource",
+        "src/data",
+        "src/cache",
+        "src/config"
+    ]
 }

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import time
-
+from src.liteyuki_api.config import init
 from src.liteyuki_api.data import Data
 import nonebot
 from nonebot.adapters.onebot.v11 import Adapter as ONEBOT_V11Adapter
+init()
 nonebot.init()
 app = nonebot.get_asgi()
 

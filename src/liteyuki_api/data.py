@@ -19,6 +19,7 @@ class Data:
         self._id = _id
 
     def get_data(self, key, default=None) -> Any:
+        key = key.replace(".", "_")
         if self.database_name not in LiteyukiDB.list_collection_names():
             return default
         else:
@@ -29,4 +30,5 @@ class Data:
                 return document.get(key, default)
 
     def set_data(self, key, value):
+        key = key.replace(".", "_")
         LiteyukiDB[self.database_name].update_one({"_id": self._id}, {"$set": {key: value}}, upsert=True)

@@ -15,6 +15,7 @@ __pycache__/
 *.so
 # liteyuki
 cache/.*
+data/.*
 # Distribution / packaging
 .Python
 build/
