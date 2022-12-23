@@ -14,8 +14,9 @@ __pycache__/
 # C extensions
 *.so
 # liteyuki
-cache/.*
-data/.*
+src/cache/.*
+src/data/.*
+src/resource/.*
 # Distribution / packaging
 .Python
 build/

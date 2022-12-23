@@ -1,4 +1,5 @@
 import json
+import ntpath
 import os.path
 import traceback
 from typing import Union
@@ -14,7 +15,6 @@ from nonebot.permission import SUPERUSER
 from PIL import Image, ImageEnhance
 from nonebot.rule import Rule
 
-from ...liteyuki_api.cardimage import Cardimage
 from ...liteyuki_api.data import Data
 from ...liteyuki_api.utils import clamp, Command, download_file
 from ...liteyuki_api.config import *
@@ -163,54 +163,54 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args
             icon_avatar_id = player_data["playerInfo"]["profilePicture"]["avatarId"]
 
             iconName = file_pool["characters.json"].get(str(icon_avatar_id), {"iconName": "unknown.png"})["iconName"]
-            if not os.path.exists(os.path.join(Path.data, "genshin", "ui", "%s.png" % iconName)):
+            if not os.path.exists(os.path.join(Path.cache, "genshin", "ui", "%s.png" % iconName)):
                 await run_sync(download_file)(url="https://enka.network/ui/%s.png" % iconName,
-                                              file=os.path.join(Path.data, "genshin", "ui", "%s.png" % iconName))
+                                              file=os.path.join(Path.cache, "genshin", "ui", "%s.png" % iconName))
             else:
                 pass
             hywh_font = os.path.join(Path.res, "fonts", "hywh.ttf")
             # 头像
-            await card.addImage(uvSize=(1, 1), boxSize=(0.15, 0.15), xyOffset=(0, 0), basePoint=(0.04, 0.04), selfPoint=(0, 0),
-                                img=Image.open(os.path.join(Path.data, "genshin", "ui", "%s.png" % iconName)))
+            card.addImage(uvSize=(1, 1), boxSize=(0.15, 0.15), xyOffset=(0, 0), basePoint=(0.04, 0.04), selfPoint=(0, 0),
+                                img=Image.open(os.path.join(Path.cache, "genshin", "ui", "%s.png" % iconName)))
             # 昵称 双等级 签名
-            nickname_pos = await card.addText(uvSize=(1, 1), boxSize=(0.8, 0.05), xyOffset=(0, 0), baseAnchor=(0.2, 0.04), textAnchor=(0, 0),
-                                              content=playerInfo["nickname"],
+            nickname_pos = card.addText(uvSize=(1, 1), boxSize=(0.8, 0.05), xyOffset=(0, 0), basePoint=(0.2, 0.04), selfPoint=(0, 0),
+                                              text=playerInfo["nickname"],
                                               font=hywh_font, color=(0, 0, 0, 255))
             # uid
             if Data(Data.users, event.user_id).get_data(key="genshin.hid_uid", default=False):
                 text_uid = str(uid)[0:3] + "*" * 6
             else:
                 text_uid = str(uid)
-            await card.addText(uvSize=(1, 1), boxSize=(0.8, 0.03), xyOffset=(0, 0), baseAnchor=(0.95, 0.16), textAnchor=(1, 0),
-                               content="UID:%s" % text_uid,
+            card.addText(uvSize=(1, 1), boxSize=(0.8, 0.03), xyOffset=(0, 0), basePoint=(0.95, 0.16), selfPoint=(1, 0),
+                               text="UID:%s" % text_uid,
                                font=hywh_font, color=(60, 60, 60, 255))
             # 双等级
-            await card.addText(uvSize=(1, 1), boxSize=(0.8, 0.035), xyOffset=(0, 0), baseAnchor=(0.2, 0.11), textAnchor=(0, 0),
-                               content="%s    AR %s    WL %s" % (servers.get(str(uid)[0], "Unknown Server"), playerInfo["level"], playerInfo.get("worldLevel", 0)),
+            card.addText(uvSize=(1, 1), boxSize=(0.8, 0.035), xyOffset=(0, 0), basePoint=(0.2, 0.11), selfPoint=(0, 0),
+                               text="%s    AR %s    WL %s" % (servers.get(str(uid)[0], "Unknown Server"), playerInfo["level"], playerInfo.get("worldLevel", 0)),
                                font=hywh_font, color=(80, 80, 80, 255))
             # 签名
-            await card.addText(uvSize=(1, 1), boxSize=(0.8, 0.035), xyOffset=(0, 0), baseAnchor=(0.2, 0.16), textAnchor=(0, 0),
-                               content=playerInfo.get("signature", ""),
+            card.addText(uvSize=(1, 1), boxSize=(0.8, 0.035), xyOffset=(0, 0), basePoint=(0.2, 0.16), selfPoint=(0, 0),
+                               text=playerInfo.get("signature", ""),
                                font=hywh_font, color=(80, 80, 80, 255))
 
             # 成就
-            await card.addText(uvSize=(1, 1), boxSize=(0.4, 0.05), xyOffset=(0, 0), baseAnchor=(0.15, 0.27), textAnchor=(0, 0),
-                               content="%s：%s" % (info_lang.get(lang, info_lang["en"])["finishAchievementNum"], playerInfo.get("finishAchievementNum", 0)),
+            card.addText(uvSize=(1, 1), boxSize=(0.4, 0.05), xyOffset=(0, 0), basePoint=(0.15, 0.27), selfPoint=(0, 0),
+                               text="%s：%s" % (info_lang.get(lang, info_lang["en"])["finishAchievementNum"], playerInfo.get("finishAchievementNum", 0)),
                                font=hywh_font, color=(80, 80, 80, 255))
             # 深渊
-            await card.addText(uvSize=(1, 1), boxSize=(0.4, 0.05), xyOffset=(0, 0), baseAnchor=(0.85, 0.27), textAnchor=(1, 0),
-                               content="%s：%s-%s" % (info_lang.get(lang, info_lang["en"])["tower"], playerInfo.get("towerFloorIndex", 0), playerInfo.get("towerLevelIndex", 0)),
+            card.addText(uvSize=(1, 1), boxSize=(0.4, 0.05), xyOffset=(0, 0), basePoint=(0.85, 0.27), selfPoint=(1, 0),
+                               text="%s：%s-%s" % (info_lang.get(lang, info_lang["en"])["tower"], playerInfo.get("towerFloorIndex", 0), playerInfo.get("towerLevelIndex", 0)),
                                font=hywh_font, color=(80, 80, 80, 255))
 
             # 轻雪标记
-            await card.addText(uvSize=(1, 1), boxSize=(0.8, 0.04), xyOffset=(0, 0), baseAnchor=(0.5, 0.96), textAnchor=(0.5, 0.5),
-                               content=liteyuki_sign,
+            card.addText(uvSize=(1, 1), boxSize=(0.8, 0.04), xyOffset=(0, 0), basePoint=(0.5, 0.96), selfPoint=(0.5, 0.5),
+                               text=liteyuki_sign,
                                font=hywh_font, color=(120, 120, 120, 255))
             # 展示角色
 
             if "showAvatarInfoList" not in playerInfo or len(playerInfo["showAvatarInfoList"]) == 0:
-                await card.addText(uvSize=(4, 5), boxSize=(3, 1), xyOffset=(0, 0), baseAnchor=(0.5, 0.6), textAnchor=(0.5, 0.5),
-                                   content="请在游戏中至少展示一名角色", font=hywh_font, color=(120, 120, 120, 255))
+                card.addText(uvSize=(4, 5), boxSize=(3, 1), xyOffset=(0, 0), basePoint=(0.5, 0.6), selfPoint=(0.5, 0.5),
+                                   text="请在游戏中至少展示一名角色", font=hywh_font, color=(120, 120, 120, 255))
             else:
                 for i, character in enumerate(playerInfo["showAvatarInfoList"]):
                     # 公认数据
@@ -226,20 +226,19 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args
                     if not os.path.exists(os.path.join(Path.data, "genshin", "ui", "%s.png" % character_icon)):
                         await run_sync(download_file)(url="https://enka.network/ui/%s.png" % character_icon,
                                                       file=os.path.join(Path.data, "genshin", "ui", "%s.png" % character_icon))
-                    await character_card.addImage(uvSize=(4, 5), boxSize=(3.6, 3.6), xyOffset=(0, 0), basePoint=(0.5, 0.4), selfPoint=(0.5, 0.5),
+                    character_card.addImage(uvSize=(4, 5), boxSize=(3.6, 3.6), xyOffset=(0, 0), basePoint=(0.5, 0.4), selfPoint=(0.5, 0.5),
                                                   img=Image.open(os.path.join(Path.data, "genshin", "ui", "%s.png" % character_icon)))
                     if character["avatarId"] not in [10000005, 10000007]:
-                        await character_card.addImage(uvSize=(4, 5), boxSize=(0.8, 0.8), xyOffset=(0, 0), basePoint=(0.11, 0.9), selfPoint=(0.5, 0.5),
+                        character_card.addImage(uvSize=(4, 5), boxSize=(0.8, 0.8), xyOffset=(0, 0), basePoint=(0.11, 0.9), selfPoint=(0.5, 0.5),
                                                       img=Image.open(os.path.join(Path.res, "textures", "genshin", "%s.png" % element)))
-                    await character_card.addText(uvSize=(4, 5), boxSize=(4, 0.65), xyOffset=(0, 0), baseAnchor=(0.5, 0.9), textAnchor=(0.5, 0.5),
-                                                 content="Lv.%s" % character["level"], font=hywh_font, color=(0, 0, 0, 255))
+                    character_card.addText(uvSize=(4, 5), boxSize=(4, 0.65), xyOffset=(0, 0), basePoint=(0.5, 0.9), selfPoint=(0.5, 0.5),
+                                                 text="Lv.%s" % character["level"], font=hywh_font, color=(0, 0, 0, 255))
                     x = i % 4 * 0.24 + 0.14
                     y = 0.5 + i // 4 * 0.3
-                    await card.addImage(uvSize=(1, 1), boxSize=(0.25, 0.25), xyOffset=(0, 0), basePoint=(x, y), selfPoint=(0.5, 0.5),
+                    card.addImage(uvSize=(1, 1), boxSize=(0.25, 0.25), xyOffset=(0, 0), basePoint=(x, y), selfPoint=(0.5, 0.5),
                                         img=character_card.baseImg)
 
             await user_card.send(MessageSegment.image(file="file:///%s" % await card.getPath()))
-            await card.delete()
 
 
 @set_uid.handle()
@@ -486,41 +485,41 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
                 6: 90
             }
             # 立绘
-            if os.path.exists(os.path.join(Path.res, "textures", "genshin", "%s.png" % enka_character_data["SideIconName"].split("_")[-1])):
-                chinese_name = file_pool["loc.json"]["zh-CN"].get(character_hash_id)
+            chinese_name = file_pool["loc.json"]["zh-CN"].get(character_hash_id)
+            if os.path.exists(os.path.join(Path.res, "textures", "genshin", "%s.png" % chinese_name)):
                 character_wish_img = Image.open(os.path.join(Path.res, "textures", "genshin", "%s.png" % chinese_name))
                 character_wish_img = await wish_img_crop(character_wish_img)
             else:
                 character_wish_img = Image.new("RGBA", (300, 300), color=(255, 255, 255, 255))
             await resource_detect(enka_character_data["SideIconName"].split("_")[-1])
-            await bar_bg.addImage(uvSize=(1, 1), boxSize=(2, 0.9), xyOffset=(0, 0), basePoint=(0.18, 0.6),
+            bar_bg.addImage(uvSize=(1, 1), boxSize=(2, 0.9), xyOffset=(0, 0), basePoint=(0.18, 0.6),
                                   selfPoint=(0.5, 0.5),
                                   img=character_wish_img)
-            name_pos = await bar_bg.addText(uvSize=(1, 1), boxSize=(0.22, 0.06), xyOffset=(0, 0), baseAnchor=(0.03061, 0.06),
-                                            textAnchor=(0, 0), content=get_lang_word(str(character_hash_id), lang, file_pool["loc.json"]), font=hywh_font)
+            name_pos = bar_bg.addText(uvSize=(1, 1), boxSize=(0.22, 0.06), xyOffset=(0, 0), basePoint=(0.03061, 0.06),
+                                            selfPoint=(0, 0), text=get_lang_word(str(character_hash_id), lang, file_pool["loc.json"]), font=hywh_font)
             if character_name_input != entry:
-                await bar_bg.addText(uvSize=(1, 1), boxSize=(0.12, 0.04), xyOffset=(0, 0), baseAnchor=(name_pos[2] + 0.005, name_pos[3]),
-                                     textAnchor=(0, 1), content="(%s)" % character_name_input, font=hywh_font, color=(180, 180, 180, 255), force_size=True)
+                bar_bg.addText(uvSize=(1, 1), boxSize=(0.12, 0.04), xyOffset=(0, 0), basePoint=(name_pos[2] + 0.005, name_pos[3]),
+                                     selfPoint=(0, 1), text="(%s)" % character_name_input, font=hywh_font, color=(180, 180, 180, 255), force_size=True)
 
-            level_pos = await bar_bg.addText(uvSize=(1, 1), boxSize=(0.3, 0.05), xyOffset=(0, 0), baseAnchor=(0.03061, 0.17),
-                                             textAnchor=(0, 0),
-                                             content="%s %s/" % (
+            level_pos = bar_bg.addText(uvSize=(1, 1), boxSize=(0.3, 0.05), xyOffset=(0, 0), basePoint=(0.03061, 0.17),
+                                             selfPoint=(0, 0),
+                                             text="%s %s/" % (
                                                  get_lang_word("level", lang, file_pool["loc.json"]), player_character_data["propMap"]["4001"]["val"]),
                                              font=hywh_font)
-            await bar_bg.addText(uvSize=(1, 1), boxSize=(0.3, 0.05), xyOffset=(0, 0), baseAnchor=(level_pos[2], 0.17),
-                                 textAnchor=(0, 0),
-                                 content="%s" % rank_level[int(player_character_data["propMap"]["1002"].get("val", 0))],
+            bar_bg.addText(uvSize=(1, 1), boxSize=(0.3, 0.05), xyOffset=(0, 0), basePoint=(level_pos[2], 0.17),
+                                 selfPoint=(0, 0),
+                                 text="%s" % rank_level[int(player_character_data["propMap"]["1002"].get("val", 0))],
                                  font=hywh_font, color=(180, 180, 180, 255))
             # 好感度
-            love_icon_pos = await bar_bg.addImage(uvSize=(1, 1), boxSize=(0.3, 0.05), xyOffset=(0, 0), basePoint=(0.0306, 0.24),
+            love_icon_pos = bar_bg.addImage(uvSize=(1, 1), boxSize=(0.3, 0.05), xyOffset=(0, 0), basePoint=(0.0306, 0.24),
                                                   selfPoint=(0, 0), img=Image.open(os.path.join(Path.res, "textures", "genshin", "love.png")))
 
-            await bar_bg.addText(uvSize=(1, 1), boxSize=(0.3, 0.04), xyOffset=(0, 0), baseAnchor=(love_icon_pos[2] + 0.01, (love_icon_pos[1] + love_icon_pos[3]) / 2),
-                                 textAnchor=(0, 0.6),
-                                 content="%s" % player_character_data["fetterInfo"]["expLevel"],
+            bar_bg.addText(uvSize=(1, 1), boxSize=(0.3, 0.04), xyOffset=(0, 0), basePoint=(love_icon_pos[2] + 0.01, (love_icon_pos[1] + love_icon_pos[3]) / 2),
+                                 selfPoint=(0, 0.6),
+                                 text="%s" % player_character_data["fetterInfo"]["expLevel"],
                                  font=hywh_font)
             # 元素图
-            await bar_bg.addImage(uvSize=(1, 1), boxSize=(0.3, 0.08), xyOffset=(0, 0), basePoint=(0.2653, 0.06),
+            bar_bg.addImage(uvSize=(1, 1), boxSize=(0.3, 0.08), xyOffset=(0, 0), basePoint=(0.2653, 0.06),
                                   selfPoint=(0, 0), img=Image.open(os.path.join(Path.res, "textures", "genshin", "%s.png" % greece_element)))
 
             # 命之座
@@ -534,26 +533,26 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
                 await resource_detect(constellation_texture_name)
                 if i + 1 <= constellation_num:
                     # 已解锁命之座,先放底图，再放材质图
-                    await bar_bg.addImage(uvSize=(1, 1), boxSize=(0.1, base_size), xyOffset=(0, 0), basePoint=(x0, y0 + i * constellation_distance),
+                    bar_bg.addImage(uvSize=(1, 1), boxSize=(0.1, base_size), xyOffset=(0, 0), basePoint=(x0, y0 + i * constellation_distance),
                                           selfPoint=(0.5, 0.5),
                                           img=Image.open(os.path.join(Path.res, "textures", "genshin", "constellation_%s_unlocked.png" % greece_element)))
-                    await bar_bg.addImage(uvSize=(1, 1), boxSize=(0.1, texture_size), xyOffset=(0, 0), basePoint=(x0, y0 + i * constellation_distance),
+                    bar_bg.addImage(uvSize=(1, 1), boxSize=(0.1, texture_size), xyOffset=(0, 0), basePoint=(x0, y0 + i * constellation_distance),
                                           selfPoint=(0.5, 0.5),
-                                          img=Image.open(os.path.join(Path.res, "textures", "genshin", "%s.png" % constellation_texture_name)))
+                                          img=Image.open(os.path.join(Path.cache, "genshin", "%s.png" % constellation_texture_name)))
                 else:
                     # 先放材质图，再放底图遮盖，最后加锁
                     texture_img = ImageEnhance.Brightness(
-                        Image.open(os.path.join(Path.res, "textures", "genshin", "%s.png" % constellation_texture_name)).convert("RGBA")).enhance(0.5)
+                        Image.open(os.path.join(Path.cache, "genshin", "%s.png" % constellation_texture_name)).convert("RGBA")).enhance(0.5)
                     base_img = ImageEnhance.Brightness(
                         Image.open(os.path.join(Path.res, "textures", "genshin", "constellation_%s_locked.png" % greece_element)).convert("RGBA")).enhance(
                         0.75)
-                    await bar_bg.addImage(uvSize=(1, 1), boxSize=(0.1, base_size), xyOffset=(0, 0), basePoint=(x0, y0 + i * constellation_distance),
+                    bar_bg.addImage(uvSize=(1, 1), boxSize=(0.1, base_size), xyOffset=(0, 0), basePoint=(x0, y0 + i * constellation_distance),
                                           selfPoint=(0.5, 0.5),
                                           img=base_img)
-                    await bar_bg.addImage(uvSize=(1, 1), boxSize=(0.1, texture_size), xyOffset=(0, 0), basePoint=(x0, y0 + i * constellation_distance),
+                    bar_bg.addImage(uvSize=(1, 1), boxSize=(0.1, texture_size), xyOffset=(0, 0), basePoint=(x0, y0 + i * constellation_distance),
                                           selfPoint=(0.5, 0.5),
                                           img=texture_img)
-                    await bar_bg.addImage(uvSize=(1, 1), boxSize=(0.1, 0.032), xyOffset=(0, 0), basePoint=(x0, y0 + i * constellation_distance),
+                    bar_bg.addImage(uvSize=(1, 1), boxSize=(0.1, 0.032), xyOffset=(0, 0), basePoint=(x0, y0 + i * constellation_distance),
                                           selfPoint=(0.5, 0.5),
                                           img=Image.open(os.path.join(Path.res, "textures", "genshin", "locked.png")))
             # 天赋
@@ -572,36 +571,36 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
                 if skill_i == 2 and constellation_num >= 5:
                     skill_level += 3
                     add = True
-                talent_base_pos = await bar_bg.addImage(uvSize=(1, 1), boxSize=(0.1, 0.12), xyOffset=(0, 0), basePoint=(x0, y0 + skill_i * skill_distance),
+                talent_base_pos = bar_bg.addImage(uvSize=(1, 1), boxSize=(0.1, 0.12), xyOffset=(0, 0), basePoint=(x0, y0 + skill_i * skill_distance),
                                                         selfPoint=(0.5, 0.5),
                                                         img=Image.open(os.path.join(Path.res, "textures", "genshin", "talent.png")))
-                await bar_bg.addImage(uvSize=(1, 1), boxSize=(0.1, 0.08), xyOffset=(0, 0), basePoint=(x0, y0 + skill_i * skill_distance),
+                bar_bg.addImage(uvSize=(1, 1), boxSize=(0.1, 0.08), xyOffset=(0, 0), basePoint=(x0, y0 + skill_i * skill_distance),
                                       selfPoint=(0.5, 0.5),
-                                      img=Image.open(os.path.join(Path.res, "textures", "genshin", "%s.png" % skill_texture)))
-                await bar_bg.addImage(uvSize=(1, 1), boxSize=(0.1, 0.03), xyOffset=(0, 0), basePoint=((talent_base_pos[0] + talent_base_pos[2]) / 2, talent_base_pos[3]),
+                                      img=Image.open(os.path.join(Path.cache, "genshin", "%s.png" % skill_texture)))
+                bar_bg.addImage(uvSize=(1, 1), boxSize=(0.1, 0.03), xyOffset=(0, 0), basePoint=((talent_base_pos[0] + talent_base_pos[2]) / 2, talent_base_pos[3]),
                                       selfPoint=(0.5, 1),
                                       img=Image.open(os.path.join(Path.res, "textures", "genshin", "talent_level_base_%s.png" % ("add" if add else "normal"))))
                 if add and skill_level == 13 or not add and skill_level == 10:
                     color = Cardimage.hex2dec("FFFFEE00")
                 else:
                     color = (255, 255, 255, 255)
-                await bar_bg.addText(uvSize=(1, 1), boxSize=(0.1, 0.025), xyOffset=(0, 0), baseAnchor=((talent_base_pos[0] + talent_base_pos[2]) / 2, talent_base_pos[3] - 0.005),
-                                     textAnchor=(0.5, 1), content=str(skill_level), font=hywh_font, color=color)
+                bar_bg.addText(uvSize=(1, 1), boxSize=(0.1, 0.025), xyOffset=(0, 0), basePoint=((talent_base_pos[0] + talent_base_pos[2]) / 2, talent_base_pos[3] - 0.005),
+                                     selfPoint=(0.5, 1), text=str(skill_level), font=hywh_font, color=color)
 
             # ---------------------------------------------- #
             # ---------------------------------------------- #
             # 武器图
             await resource_detect(weapon["flat"]["icon"])
             # 贴图
-            weapon_pos = await bar_bg.addImage(uvSize=(1, 1), boxSize=(0.18, 0.25), xyOffset=(0, 0), basePoint=(start_line_x, 0.05),
-                                               selfPoint=(0, 0), img=Image.open(os.path.join(Path.res, "textures", "genshin", "%s.png" % weapon["flat"]["icon"])))
+            weapon_pos = bar_bg.addImage(uvSize=(1, 1), boxSize=(0.18, 0.25), xyOffset=(0, 0), basePoint=(start_line_x, 0.05),
+                                               selfPoint=(0, 0), img=Image.open(os.path.join(Path.cache, "genshin", "%s.png" % weapon["flat"]["icon"])))
             # 武器名
-            await bar_bg.addText(uvSize=(1, 1), boxSize=(0.18, 0.05), xyOffset=(0, 0), baseAnchor=(weapon_pos[2] + 0.019, weapon_pos[1] + 0.03),
-                                 textAnchor=(0, 0), content=get_lang_word(weapon["flat"]["nameTextMapHash"], lang, loc=file_pool["loc.json"]), font=hywh_font)
+            bar_bg.addText(uvSize=(1, 1), boxSize=(0.18, 0.05), xyOffset=(0, 0), basePoint=(weapon_pos[2] + 0.019, weapon_pos[1] + 0.03),
+                                 selfPoint=(0, 0), text=get_lang_word(weapon["flat"]["nameTextMapHash"], lang, loc=file_pool["loc.json"]), font=hywh_font)
             star = weapon["flat"]["rankLevel"]
             # 星级
-            await bar_bg.drawLine(uvSize=(1, 1), p1=(weapon_pos[0], weapon_pos[3]), p2=(weapon_pos[2], weapon_pos[3]), color=(255, 255, 255, 255), width=5)
-            await bar_bg.addImage(uvSize=(1, 1), boxSize=(0.25, 0.04), xyOffset=(0, 0), basePoint=((weapon_pos[0] + weapon_pos[2]) / 2, weapon_pos[3]),
+            bar_bg.drawLine(uvSize=(1, 1), p1=(weapon_pos[0], weapon_pos[3]), p2=(weapon_pos[2], weapon_pos[3]), color=(255, 255, 255, 255), width=5)
+            bar_bg.addImage(uvSize=(1, 1), boxSize=(0.25, 0.04), xyOffset=(0, 0), basePoint=((weapon_pos[0] + weapon_pos[2]) / 2, weapon_pos[3]),
                                   selfPoint=(0.5, 1), img=Image.open(os.path.join(Path.res, "textures", "genshin", "star_%s.png" % star)))
             weapon_info_bg = Cardimage(Image.open(os.path.join(Path.res, "textures", "genshin", "weapon_info.png")))
             stats_distance = 0.43
@@ -627,25 +626,25 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
             ]
 
             for i, stats in enumerate(weapon["flat"]["weaponStats"]):
-                icon_pos = await weapon_info_bg.addImage(uvSize=(1, 1), boxSize=(0.22, 0.22), xyOffset=(0, 0), basePoint=(x0 + i * stats_distance, y0),
+                icon_pos = weapon_info_bg.addImage(uvSize=(1, 1), boxSize=(0.22, 0.22), xyOffset=(0, 0), basePoint=(x0 + i * stats_distance, y0),
                                                          selfPoint=(0.5, 0.5),
                                                          img=Image.open(os.path.join(Path.res, "textures", "genshin", "%s.png" % stats["appendPropId"])))
                 if stats["appendPropId"] in percent_prop:
                     value = str(stats["statValue"]) + "%"
                 else:
                     value = str(stats["statValue"])
-                await weapon_info_bg.addText(uvSize=(1, 1), boxSize=(0.5, 0.23), xyOffset=(0, 0), baseAnchor=(icon_pos[2] + 0.03, y0),
-                                             textAnchor=(0, 0.5), content=value, font=hywh_font, force_size=True)
+                weapon_info_bg.addText(uvSize=(1, 1), boxSize=(0.5, 0.23), xyOffset=(0, 0), basePoint=(icon_pos[2] + 0.03, y0),
+                                             selfPoint=(0, 0.5), text=value, font=hywh_font, force_size=True)
 
-            level_pos = await weapon_info_bg.addText(uvSize=(1, 1), boxSize=(0.5, 0.23), xyOffset=(0, 0), baseAnchor=(x0 - 0.05, y1),
-                                                     textAnchor=(0, 0.5),
-                                                     content="%s %s/" % (
+            level_pos = weapon_info_bg.addText(uvSize=(1, 1), boxSize=(0.5, 0.23), xyOffset=(0, 0), basePoint=(x0 - 0.05, y1),
+                                                     selfPoint=(0, 0.5),
+                                                     text="%s %s/" % (
                                                          get_lang_word("level", lang, file_pool["loc.json"]), weapon["weapon"]["level"],
                                                      ),
                                                      font=hywh_font, force_size=True)
-            level_max_pos = await weapon_info_bg.addText(uvSize=(1, 1), boxSize=(0.5, 0.23), xyOffset=(0, 0), baseAnchor=(level_pos[2], y1),
-                                                         textAnchor=(0, 0.5),
-                                                         content="%s" % rank_level[weapon["weapon"].get("promoteLevel", 0)],
+            level_max_pos = weapon_info_bg.addText(uvSize=(1, 1), boxSize=(0.5, 0.23), xyOffset=(0, 0), basePoint=(level_pos[2], y1),
+                                                         selfPoint=(0, 0.5),
+                                                         text="%s" % rank_level[weapon["weapon"].get("promoteLevel", 0)],
                                                          font=hywh_font, force_size=True, color=(180, 180, 180, 255))
             r = 0
             if "affixMap" in weapon["weapon"]:
@@ -654,43 +653,43 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
             else:
                 r = 0
             # 精炼等级
-            await weapon_info_bg.addText(uvSize=(1, 1), boxSize=(0.5, 0.23), xyOffset=(0, 0), baseAnchor=(0.8, y1),
-                                         textAnchor=(0, 0.5),
-                                         content="R%s" % (r + 1),
+            weapon_info_bg.addText(uvSize=(1, 1), boxSize=(0.5, 0.23), xyOffset=(0, 0), basePoint=(0.8, y1),
+                                         selfPoint=(0, 0.5),
+                                         text="R%s" % (r + 1),
                                          font=hywh_font, force_size=True, color=Cardimage.hex2dec("FFFFEE00" if r == 4 else "FFFFFFFF"))
-            await bar_bg.addImage(uvSize=(1, 1), boxSize=(0.1531, 0.155), xyOffset=(0, 0), basePoint=(0.4898, 0.155),
+            bar_bg.addImage(uvSize=(1, 1), boxSize=(0.1531, 0.155), xyOffset=(0, 0), basePoint=(0.4898, 0.155),
                                   selfPoint=(0, 0), img=weapon_info_bg.baseImg)
 
             # ---------------------------------------------- #
             # ---------------------------------------------- #
             # 属性词条图
             for prop_name, prop_data in prop_dict.items():
-                await bar_bg.addImage(uvSize=(1, 1), boxSize=(0.3, line_high * 0.7), xyOffset=(0, 0),
+                bar_bg.addImage(uvSize=(1, 1), boxSize=(0.3, line_high * 0.7), xyOffset=(0, 0),
                                       basePoint=(start_line_x, start_line_y + line * (prop_line_distance + line_high)),
                                       selfPoint=(0, 0.5), img=Image.open(os.path.join(Path.res, "textures", "genshin", "%s.png" % prop_name)))
-                await bar_bg.addText(uvSize=(1, 1), boxSize=(0.6, line_high * 0.6), xyOffset=(0, 0),
-                                     baseAnchor=(start_line_x + line_high * 0.55, start_line_y + line * (prop_line_distance + line_high)),
-                                     textAnchor=(0, 0.5), content=file_pool["loc.json"].get(lang, file_pool["loc.json"]["zh-CN"]).get(prop_name, prop_name), font=hywh_font,
+                bar_bg.addText(uvSize=(1, 1), boxSize=(0.6, line_high * 0.6), xyOffset=(0, 0),
+                                     basePoint=(start_line_x + line_high * 0.55, start_line_y + line * (prop_line_distance + line_high)),
+                                     selfPoint=(0, 0.5), text=file_pool["loc.json"].get(lang, file_pool["loc.json"]["zh-CN"]).get(prop_name, prop_name), font=hywh_font,
                                      force_size=True)
                 if prop_data["type"] == "int1":
-                    value_pos = await bar_bg.addText(uvSize=(1, 1), boxSize=(0.4, line_high * 0.6), xyOffset=(0, 0),
-                                                     baseAnchor=(end_line_x, start_line_y + line * (prop_line_distance + line_high)),
-                                                     textAnchor=(1, 0.6), content=str(round(prop_data["value"])), font=hywh_font, force_size=True)
-                    add_pos = await bar_bg.addText(uvSize=(1, 1), boxSize=(0.4, line_high * 0.4), xyOffset=(0, 0),
-                                                   baseAnchor=(value_pos[2], value_pos[3]),
-                                                   textAnchor=(1, 0), content=" +" + str(round(prop_data["add"])), font=hywh_font, force_size=True,
+                    value_pos = bar_bg.addText(uvSize=(1, 1), boxSize=(0.4, line_high * 0.6), xyOffset=(0, 0),
+                                                     basePoint=(end_line_x, start_line_y + line * (prop_line_distance + line_high)),
+                                                     selfPoint=(1, 0.6), text=str(round(prop_data["value"])), font=hywh_font, force_size=True)
+                    add_pos = bar_bg.addText(uvSize=(1, 1), boxSize=(0.4, line_high * 0.4), xyOffset=(0, 0),
+                                                   basePoint=(value_pos[2], value_pos[3]),
+                                                   selfPoint=(1, 0), text=" +" + str(round(prop_data["add"])), font=hywh_font, force_size=True,
                                                    color=Cardimage.hex2dec("FF05C05F"))
-                    await bar_bg.addText(uvSize=(1, 1), boxSize=(0.4, line_high * 0.4), xyOffset=(0, 0),
-                                         baseAnchor=(add_pos[0], add_pos[1]),
-                                         textAnchor=(1, 0), content=str(round(prop_data["base"])), font=hywh_font, force_size=True)
+                    bar_bg.addText(uvSize=(1, 1), boxSize=(0.4, line_high * 0.4), xyOffset=(0, 0),
+                                         basePoint=(add_pos[0], add_pos[1]),
+                                         selfPoint=(1, 0), text=str(round(prop_data["base"])), font=hywh_font, force_size=True)
                 elif prop_data["type"] == "int2":
-                    await bar_bg.addText(uvSize=(1, 1), boxSize=(0.4, line_high * 0.6), xyOffset=(0, 0),
-                                         baseAnchor=(end_line_x, start_line_y + line * (prop_line_distance + line_high)),
-                                         textAnchor=(1, 0.5), content=str(round(prop_data["value"])), font=hywh_font, force_size=True)
+                    bar_bg.addText(uvSize=(1, 1), boxSize=(0.4, line_high * 0.6), xyOffset=(0, 0),
+                                         basePoint=(end_line_x, start_line_y + line * (prop_line_distance + line_high)),
+                                         selfPoint=(1, 0.5), text=str(round(prop_data["value"])), font=hywh_font, force_size=True)
                 elif prop_data["type"] == "percent":
-                    await bar_bg.addText(uvSize=(1, 1), boxSize=(0.4, line_high * 0.6), xyOffset=(0, 0),
-                                         baseAnchor=(end_line_x, start_line_y + line * (prop_line_distance + line_high)),
-                                         textAnchor=(1, 0.5), content=str(round(prop_data["value"] * 100, prop_data.get("accuracy", 0))) + "%", font=hywh_font, force_size=True)
+                    bar_bg.addText(uvSize=(1, 1), boxSize=(0.4, line_high * 0.6), xyOffset=(0, 0),
+                                         basePoint=(end_line_x, start_line_y + line * (prop_line_distance + line_high)),
+                                         selfPoint=(1, 0.5), text=str(round(prop_data["value"] * 100, prop_data.get("accuracy", 0))) + "%", font=hywh_font, force_size=True)
                 else:
                     pass
 
@@ -706,11 +705,11 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
 
                 artifact_bg = Cardimage(Image.open(os.path.join(Path.res, "textures", "genshin", "artifact_bg.png")))
                 # 圣遗物贴图
-                artifact_texture_pos = await artifact_bg.addImage(uvSize=(1, 1), boxSize=(0.5, 1), xyOffset=(0, 0),
+                artifact_texture_pos = artifact_bg.addImage(uvSize=(1, 1), boxSize=(0.5, 1), xyOffset=(0, 0),
                                                                   basePoint=(0, 0),
                                                                   selfPoint=(0, 0),
-                                                                  img=Image.open(os.path.join(Path.res, "textures", "genshin", "%s.png" % artifact["flat"]["icon"])))
-                await artifact_bg.addImage(uvSize=(1, 1), boxSize=(0.5, 0.2), xyOffset=(0, 0),
+                                                                  img=Image.open(os.path.join(Path.cache, "genshin", "%s.png" % artifact["flat"]["icon"])))
+                artifact_bg.addImage(uvSize=(1, 1), boxSize=(0.5, 0.2), xyOffset=(0, 0),
                                            basePoint=((artifact_texture_pos[0] + artifact_texture_pos[2]) / 2, artifact_texture_pos[3] - 0.09),
                                            selfPoint=(0.5, 1),
                                            img=Image.open(os.path.join(Path.res, "textures", "genshin", "star_%s.png" % artifact["flat"]["rankLevel"])))
@@ -721,17 +720,17 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
                 else:
                     value = str(main_attr_value)
 
-                await artifact_bg.addImage(uvSize=(1, 1), boxSize=(0.5, 0.25), xyOffset=(0, 0),
+                artifact_bg.addImage(uvSize=(1, 1), boxSize=(0.5, 0.25), xyOffset=(0, 0),
                                            basePoint=(0.25, 0.185), selfPoint=(0, 0),
                                            img=Image.open(os.path.join(Path.res, "textures", "genshin", "%s.png" % main_attr)))
-                await artifact_bg.addText(uvSize=(1, 1), boxSize=(0.5, 0.2), xyOffset=(0, 0),
-                                          baseAnchor=(0.25, 0.65), textAnchor=(0, 0), content=value, font=hywh_font, force_size=True)
-                await artifact_bg.drawLine(uvSize=(1, 1), p1=(0.465, 0.12), p2=(0.465, 0.88), color=(80, 80, 80, 255), width=3)
-                await artifact_bg.drawLine(uvSize=(1, 1), p1=(0.48, 0.44), p2=(0.95, 0.44), color=(80, 80, 80, 255), width=3)
-                await artifact_bg.drawLine(uvSize=(1, 1), p1=(0.48, 0.9), p2=(0.95, 0.9), color=(80, 80, 80, 255), width=3)
-                await artifact_bg.drawLine(uvSize=(1, 1), p1=(0.45, 0.5), p2=(0.25, 0.5), color=(80, 80, 80, 255), width=3)
-                await artifact_bg.addText(uvSize=(1, 1), boxSize=(0.5, 0.18), xyOffset=(0, 0), baseAnchor=(0.33, 0.17),
-                                          textAnchor=(0, 0), content="+" + str(artifact["reliquary"]["level"] - 1), font=hywh_font, force_size=True)
+                artifact_bg.addText(uvSize=(1, 1), boxSize=(0.5, 0.2), xyOffset=(0, 0),
+                                          basePoint=(0.25, 0.65), selfPoint=(0, 0), text=value, font=hywh_font, force_size=True)
+                artifact_bg.drawLine(uvSize=(1, 1), p1=(0.465, 0.12), p2=(0.465, 0.88), color=(80, 80, 80, 255), width=3)
+                artifact_bg.drawLine(uvSize=(1, 1), p1=(0.48, 0.44), p2=(0.95, 0.44), color=(80, 80, 80, 255), width=3)
+                artifact_bg.drawLine(uvSize=(1, 1), p1=(0.48, 0.9), p2=(0.95, 0.9), color=(80, 80, 80, 255), width=3)
+                artifact_bg.drawLine(uvSize=(1, 1), p1=(0.45, 0.5), p2=(0.25, 0.5), color=(80, 80, 80, 255), width=3)
+                artifact_bg.addText(uvSize=(1, 1), boxSize=(0.5, 0.18), xyOffset=(0, 0), basePoint=(0.33, 0.17),
+                                          selfPoint=(0, 0), text="+" + str(artifact["reliquary"]["level"] - 1), font=hywh_font, force_size=True)
                 x10 = 0.5
                 y10 = 0.19
                 dx = 0.25
@@ -745,14 +744,14 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
                         value = str(sub_value) + "%"
                     else:
                         value = str(sub_value)
-                    await artifact_bg.addImage(uvSize=(1, 1), boxSize=(0.5, 0.2), xyOffset=(0, 0),
+                    artifact_bg.addImage(uvSize=(1, 1), boxSize=(0.5, 0.2), xyOffset=(0, 0),
                                                basePoint=(x, y), selfPoint=(0, 0),
                                                img=Image.open(os.path.join(Path.res, "textures", "genshin", "%s.png" % sub_attr)))
-                    await artifact_bg.addText(uvSize=(1, 1), boxSize=(0.5, 0.2), xyOffset=(0, 0),
-                                              baseAnchor=(x + 0.07, y), textAnchor=(0, 0), content=value, font=hywh_font, force_size=True)
+                    artifact_bg.addText(uvSize=(1, 1), boxSize=(0.5, 0.2), xyOffset=(0, 0),
+                                              basePoint=(x + 0.07, y), selfPoint=(0, 0), text=value, font=hywh_font, force_size=True)
 
                 # 上大图
-                artifact_pos = await bar_bg.addImage(uvSize=(1, 1), boxSize=(0.30612, 0.14), xyOffset=(0, 0),
+                artifact_pos = bar_bg.addImage(uvSize=(1, 1), boxSize=(0.30612, 0.14), xyOffset=(0, 0),
                                                      basePoint=(x0, y0 + artifact_i * artifact_distance),
                                                      selfPoint=(0, 0), img=artifact_bg.baseImg)
             artifact_set_words = []
@@ -772,29 +771,29 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
             # 套装效果
 
             for w_i, word in enumerate(artifact_set_words):
-                await set_word.addText(uvSize=(1, 1), boxSize=(0.8, 0.2), xyOffset=(0, 0),
-                                       baseAnchor=(0.3, w_i * 0.26 + 0.1), textAnchor=(0, 0),
-                                       content=get_lang_word(word[0], lang, file_pool["loc.json"]) + ": " + str(word[1]),
+                set_word.addText(uvSize=(1, 1), boxSize=(0.8, 0.2), xyOffset=(0, 0),
+                                       basePoint=(0.3, w_i * 0.26 + 0.1), selfPoint=(0, 0),
+                                       text=get_lang_word(word[0], lang, file_pool["loc.json"]) + ": " + str(word[1]),
                                        font=hywh_font, color=Cardimage.hex2dec("FF44ff00"))
-            await set_word.addImage(uvSize=(1, 1), boxSize=(0.8, 0.8), xyOffset=(0, 0),
+            set_word.addImage(uvSize=(1, 1), boxSize=(0.8, 0.8), xyOffset=(0, 0),
                                     basePoint=(0.04, 0.5), selfPoint=(0, 0.5),
                                     img=Image.open(os.path.join(Path.res, "textures", "genshin", "flower.png")))
-            await bar_bg.addImage(uvSize=(1, 1), boxSize=(0.30612, 0.14), xyOffset=(0, 0),
+            bar_bg.addImage(uvSize=(1, 1), boxSize=(0.30612, 0.14), xyOffset=(0, 0),
                                   basePoint=(artifact_pos[0], artifact_pos[1] + artifact_distance), selfPoint=(0, 0),
                                   img=set_word.baseImg)
 
             # 签名 UID上图
             times = "%s-%s-%s %s:%s" % tuple(list(time.localtime())[0:5])
-            await bar_bg.addText(uvSize=(1, 1), boxSize=(0.5, 0.025), xyOffset=(0, 0),
-                                 baseAnchor=(0.99, 0.99),
-                                 textAnchor=(1, 1), content="%s    Language: %s    %s    UID： %s" % (times, lang, player_data["playerInfo"]["nickname"], uid), font=hywh_font,
+            bar_bg.addText(uvSize=(1, 1), boxSize=(0.5, 0.025), xyOffset=(0, 0),
+                                 basePoint=(0.99, 0.99),
+                                 selfPoint=(1, 1), text="%s    Language: %s    %s    UID： %s" % (times, lang, player_data["playerInfo"]["nickname"], uid), font=hywh_font,
                                  force_size=True)
-            await bar_bg.addText(uvSize=(1, 1), boxSize=(0.5, 0.025), xyOffset=(0, 0),
-                                 baseAnchor=(0.01, 0.99),
-                                 textAnchor=(0, 1), content=liteyuki_sign, font=hywh_font, force_size=True)
-            await bar_bg.convert("RGB")
-            await character_bar.send(MessageSegment.image(file="file:///%s" % await bar_bg.getPath()))
-            await bar_bg.delete()
+            bar_bg.addText(uvSize=(1, 1), boxSize=(0.5, 0.025), xyOffset=(0, 0),
+                                 basePoint=(0.01, 0.99),
+                                 selfPoint=(0, 1), text=liteyuki_sign, font=hywh_font, force_size=True)
+            bar_bg.convert("RGB")
+            await character_bar.send(MessageSegment.image(file="file:///%s" % bar_bg.getPath()))
+            print(bar_bg)
             await bot.delete_msg(message_id=msg_id)
         except BaseException as e:
             await bot.delete_msg(message_id=msg_id)

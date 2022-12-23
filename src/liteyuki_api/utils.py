@@ -2,7 +2,7 @@ import os
 from typing import Tuple, Dict
 
 import requests
-
+from .canvas import Text
 
 def clamp(x, _min, _max):
     if x < _min:
@@ -19,6 +19,8 @@ def download_file(url, file, chunk_size=4096):
     file: 文件另存为路径
     chunk_size: chunk size
     """
+    if not os.path.exists(os.path.dirname(file)):
+        os.makedirs(os.path.dirname(file))
     response_data_file = requests.get(url, stream=True)
     with open(file, 'wb') as f:
         for chunk in response_data_file.iter_content(chunk_size=chunk_size):
