@@ -1,7 +1,6 @@
-from typing import Any
-
+from typing import Any, Union
 import nonebot
-
+from nonebot.adapters.onebot.v11.event import GroupMessageEvent, PrivateMessageEvent
 from .config import config_data
 import pymongo
 
@@ -14,7 +13,13 @@ class Data:
     groups = "groups"
     globals = "globals"
 
-    def __init__(self, database_name, _id):
+    def __init__(self, database_name,  _id=0):
+        """
+        可以仅传入event
+
+        :param database_name: 数据库名
+        :param _id:
+        """
         self.database_name = database_name
         self._id = _id
 
@@ -32,3 +37,15 @@ class Data:
     def set_data(self, key, value):
         key = key.replace(".", "_")
         LiteyukiDB[self.database_name].update_one({"_id": self._id}, {"$set": {key: value}}, upsert=True)
+
+    def __str__(self):
+        return "Database: %s-%s" % (self.database_name, self._id)
+
+    @staticmethod
+    def get_type_id(event: Union[GroupMessageEvent, PrivateMessageEvent]):
+        if event.message_type == "group":
+            return Data.groups, event.group_id
+        elif event.message_type == "private":
+            return Data.users, event.user_id
+        else:
+            return Data.globals, 0
