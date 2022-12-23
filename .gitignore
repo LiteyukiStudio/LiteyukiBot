@@ -151,3 +151,10 @@ dmypy.json
 /src/nonebot_plugins/snowykami_genshin/__init__.py
 /src/nonebot_plugins/snowykami_genshin/character_card.py
 /src/nonebot_plugins/snowykami_genshin/config/manifest.json
+/src/resource/.idea/.gitignore
+/src/resource/.idea/misc.xml
+/src/resource/.idea/modules.xml
+/src/resource/.idea/inspectionProfiles/profiles_settings.xml
+/src/resource/.idea/inspectionProfiles/Project_Default.xml
+/src/resource/.idea/resource.iml
+/src/resource/.idea/vcs.xml
