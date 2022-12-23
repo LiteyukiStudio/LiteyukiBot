@@ -5,5 +5,11 @@
         "src/data",
         "src/cache",
         "src/config"
-    ]
+    ],
+    "init_env": {
+        "PORT": "",
+        "COMMAND_START": "[\"\"]",
+        "DEBUG": "false",
+        "FASTAPI_RELOAD": "false"
+    }
 }
