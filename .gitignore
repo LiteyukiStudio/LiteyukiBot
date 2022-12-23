@@ -148,5 +148,5 @@ dmypy.json
 # End of https://www.toptal.com/developers/gitignore/api/python
 /src/nonebot_plugins/snowykami_genshin/config/docs.txt
 /src/nonebot_plugins/snowykami_genshin/__init__.py
-/src/nonebot_plugins/snowykami_genshin/character_bar.py
+/src/nonebot_plugins/snowykami_genshin/character_card.py
 /src/nonebot_plugins/snowykami_genshin/config/manifest.json
