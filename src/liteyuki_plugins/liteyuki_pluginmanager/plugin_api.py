@@ -2,8 +2,6 @@ import math
 import random
 from typing import Union
 
-import poetry_plugin_export.walker
-
 from ...liteyuki_api.data import Data
 from ...liteyuki_api.canvas import *
 from nonebot.plugin import Plugin
