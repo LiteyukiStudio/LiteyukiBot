@@ -4,6 +4,7 @@ from nonebot import on_command
 from nonebot.adapters.onebot.v11 import Message, GroupMessageEvent, PrivateMessageEvent, Bot
 from nonebot.params import CommandArg
 from nonebot.permission import SUPERUSER
+from .resource import resource
 
 echo = on_command(cmd="echo", permission=SUPERUSER)
 liteyuki = on_command(cmd="liteyuki", permission=SUPERUSER)
@@ -24,6 +25,7 @@ __plugin_meta__ = PluginMetadata(
     description="以维持轻雪的正常运行，无法关闭",
     usage="无",
     extra={
-        "liteyuki_plugin": True
+        "liteyuki_plugin": True,
+        "liteyuki_resource": resource
     }
 )

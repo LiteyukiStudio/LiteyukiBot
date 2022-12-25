@@ -80,8 +80,13 @@ def generate_plugin_image() -> Canvas:
     plugin_count = len(loaded_plugins)
     show_line_count = math.ceil(plugin_count / 2)
     bg_color = random.choice(["FFEC82F6", "FF82D1F6", "FF82F6A7", "FFF4F682"])
+    width = 800
+    head_height = 300
     line_height = 80
     side_width = 20
-    help_canvas = Canvas(Image.new("RGBA", (800 + 2*side_width, 300 + show_line_count * line_height + 2 * side_width), Color.hex2dec(bg_color)))
-
+    content_width = width + 2 * side_width
+    hywh_font = os.path.join(Path.res, "fonts/hywh.ttf")
+    help_canvas = Canvas(Image.new("RGBA", (width + 2 * side_width, head_height + show_line_count * line_height + 2 * side_width), Color.hex2dec(bg_color)))
+    help_canvas.head = Panel(uv_size=(1, 1), box_size=(1, (300 + line_height) / help_canvas.base_img.size[1]), parent_point=(0.5, 0), point=(0.5, 0))
+    help_canvas.head.title = Text(uv_size=(1, 1), box_size=(content_width/width, 0.2), parent_point=(0.5, 0.3), point=(0.5, 0.5), text="轻雪插件列表/菜单", font=hywh_font)
     return help_canvas
