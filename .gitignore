@@ -10,7 +10,8 @@ __pycache__/
 # Liteyuki ignore
 .idea
 .env
-
+# nonebot
+data/
 # C extensions
 *.so
 # liteyuki
