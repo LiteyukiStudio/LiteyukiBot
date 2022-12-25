@@ -6,7 +6,7 @@ from ...liteyuki_api.data import Data
 from nonebot.plugin import Plugin
 from nonebot.plugin.plugin import plugins
 from nonebot.plugin import get_loaded_plugins
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, MessageSegment
 
 
 def search_for_plugin(keyword: str) -> Union[Plugin, None]:
@@ -72,3 +72,7 @@ def check_enabled_stats(event: Union[GroupMessageEvent, PrivateMessageEvent], pl
         return True
     else:
         return False
+
+
+def generate_plugin_image() -> MessageSegment.image:
+    pass
