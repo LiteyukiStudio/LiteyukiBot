@@ -1,7 +1,7 @@
 from typing import Union
 
 from nonebot import on_command
-from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEvent, Message, GROUP_OWNER, GROUP_ADMIN
+from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEvent, Message, GROUP_OWNER, GROUP_ADMIN, PRIVATE_FRIEND
 from nonebot.params import CommandArg
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
@@ -9,18 +9,30 @@ from nonebot import plugin
 from .plugin_api import *
 
 bot_help = on_command(cmd="help", aliases={"帮助", "列出插件"})
-enable_plugin = on_command(cmd="启用", aliases={"停用"}, permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN)
+enable_plugin = on_command(cmd="启用", aliases={"停用"}, permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | PRIVATE_FRIEND)
 
 
 @bot_help.handle()
-async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
-    msg = "插件列表如下"
-    for p in plugin.get_loaded_plugins():
-        if p.metadata is not None:
-            msg += "\n[%s]%s" % ("启用" if check_enabled_stats(event, p.name) else "停用", p.metadata.name)
+async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
+    if str(arg).strip() == "":
+        msg = "插件列表如下"
+        for p in plugin.get_loaded_plugins():
+            if p.metadata is not None:
+                msg += "\n•[%s]%s" % ("启用" if check_enabled_stats(event, p.name) else "停用", p.metadata.name)
+            else:
+                msg += "\n•[%s]%s" % ("启用" if check_enabled_stats(event, p.name) else "停用", p.name)
+        msg += "\n•使用「help插件名」来获取对应插件的使用方法\n"
+        await bot_help.send(message=msg)
+    else:
+        plugin_name_input = str(arg).strip()
+        plugin_ = search_for_plugin(plugin_name_input)
+        if plugin_ is None:
+            await bot_help.finish("插件不存在", at_sender=True)
         else:
-            msg += "\n[%s]%s" % ("启用" if check_enabled_stats(event, p.name) else "停用", p.name)
-    await bot_help.send(message=msg)
+            if plugin_.metadata is not None and str(plugin_.metadata.usage) != "":
+                await bot_help.finish("•%s\n「%s」\n==========\n使用方法\n%s" % (plugin_.metadata.name, plugin_.metadata.description, str(plugin_.metadata.usage)))
+            else:
+                await bot_help.finish("%s还没有编写使用方法" % plugin_.name)
 
 
 @enable_plugin.handle()

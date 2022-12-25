@@ -117,7 +117,6 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
 .venv
 env/
 venv/
@@ -158,3 +157,4 @@ dmypy.json
 /src/resource/.idea/inspectionProfiles/Project_Default.xml
 /src/resource/.idea/resource.iml
 /src/resource/.idea/vcs.xml
+

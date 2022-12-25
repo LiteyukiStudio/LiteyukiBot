@@ -21,6 +21,6 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args
 
 __plugin_meta__ = PluginMetadata(
     name="轻雪底层插件",
-    description="以维持轻雪的正常运行",
+    description="以维持轻雪的正常运行，无法关闭",
     usage="无"
 )

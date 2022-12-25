@@ -28,6 +28,14 @@ def download_file(url, file, chunk_size=4096):
                 f.write(chunk)
 
 
+def hex2dec(colorHex: str) -> Tuple[int, int, int, int]:
+    """
+    :param colorHex: FFFFFFFF （ARGB）-> (R, G, B, A)
+    :return:
+    """
+    return int(colorHex[2:4], 16), int(colorHex[4:6], 16), int(colorHex[6:8], 16), int(colorHex[0:2], 16)
+
+
 class Command:
 
     @staticmethod
