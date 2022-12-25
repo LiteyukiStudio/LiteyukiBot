@@ -1,5 +1,4 @@
 resource = {
-    "src/resource/fonts/hywh.ttf": "https://gitee.com/snowykami/liteyuki-resource/raw/master/fonts/hywh.ttf",
 
     "src/resource/textures/genshin/weapon_bar_star_1.png": "https://gitee.com/snowykami/liteyuki-resource/raw/master/textures/genshin/weapon_bar_star_1.png",
     "src/resource/textures/genshin/weapon_bar_star_2.png": "https://gitee.com/snowykami/liteyuki-resource/raw/master/textures/genshin/weapon_bar_star_2.png",

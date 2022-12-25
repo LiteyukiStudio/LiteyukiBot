@@ -16,7 +16,7 @@ def clamp(x, _min, _max):
         return _max
 
 
-def download_file(url, file, chunk_size=4096):
+def download_file(url, file, chunk_size=1024):
     """
     url: file url
     file: 文件另存为路径
