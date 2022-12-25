@@ -1,6 +1,7 @@
 from .manager import *
 from .autorun import *
 from nonebot import on_message
+from .resource import resource
 from nonebot.plugin.plugin import plugins, PluginMetadata
 
 __plugin_meta__ = PluginMetadata(
@@ -11,6 +12,8 @@ __plugin_meta__ = PluginMetadata(
           "•「help插件名」获取插件使用方法\n"
           "•「启用/停用xxx」插件开关\n",
     extra={
-        "force_enable": True
+        "force_enable": True,
+        "liteyuki_resource": resource,
+        "liteyuki_plugin": True
     }
 )

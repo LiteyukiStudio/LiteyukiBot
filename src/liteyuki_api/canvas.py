@@ -3,7 +3,9 @@ import uuid
 from typing import Tuple, Union, List
 from PIL import Image, ImageFont, ImageDraw
 
-from src.liteyuki_api.config import Path
+from .config import Path
+
+default_color = (255, 255, 255, 255)
 
 
 class BasePanel:
@@ -97,9 +99,9 @@ class Canvas(BasePanel):
     def delete(self):
         os.remove(self.file)
 
-    def get_actual_size(self, path: str) -> Union[None, Tuple[float, float, float, float]]:
+    def get_actual_box(self, path: str) -> Union[None, Tuple[float, float, float, float]]:
         """
-        获取控件实际大小
+        获取控件实际相对大小
         函数执行时间较长
 
         :param path: 控件路径
@@ -114,7 +116,45 @@ class Canvas(BasePanel):
         except KeyError:
             raise KeyError("检查一下是不是控件路径写错力")
 
-    def get_parent_size(self, path: str) -> Union[None, Tuple[float, float, float, float]]:
+    def get_actual_pixel_size(self, path: str) -> Union[None, Tuple[int, int]]:
+        """
+        获取控件实际像素长宽
+        函数执行时间较长
+        :param path: 控件路径
+        :return:
+        """
+        sub_obj = self
+        self.save_as((0, 0, 1, 1), True)
+        try:
+            for i, seq in enumerate(path.split(".")):
+                sub_obj = sub_obj.__dict__[seq]
+            dx = int(sub_obj.canvas.base_img.size[0] * (sub_obj.actual_pos[2] - sub_obj.actual_pos[0]))
+            dy = int(sub_obj.canvas.base_img.size[1] * (sub_obj.actual_pos[3] - sub_obj.actual_pos[1]))
+            return dx, dy
+        except KeyError:
+            raise KeyError("检查一下是不是控件路径写错力")
+
+    def get_actual_pixel_box(self, path: str) -> Union[None, Tuple[int, int, int, int]]:
+        """
+        获取控件实际像素大小盒子
+        函数执行时间较长
+        :param path: 控件路径
+        :return:
+        """
+        sub_obj = self
+        self.save_as((0, 0, 1, 1), True)
+        try:
+            for i, seq in enumerate(path.split(".")):
+                sub_obj = sub_obj.__dict__[seq]
+            x1 = int(sub_obj.canvas.base_img.size[0] * sub_obj.actual_pos[0])
+            y1 = int(sub_obj.canvas.base_img.size[1] * sub_obj.actual_pos[1])
+            x2 = int(sub_obj.canvas.base_img.size[2] * sub_obj.actual_pos[2])
+            y2 = int(sub_obj.canvas.base_img.size[3] * sub_obj.actual_pos[3])
+            return x1, y1, x2, y2
+        except KeyError:
+            raise KeyError("检查一下是不是控件路径写错力")
+
+    def get_parent_box(self, path: str) -> Union[None, Tuple[float, float, float, float]]:
         """
                 获取控件在父节点的大小
                 函数执行时间较长
@@ -152,7 +192,7 @@ class Canvas(BasePanel):
         :param p2:
         :return:
         """
-        ac_pos = self.get_actual_size(path)
+        ac_pos = self.get_actual_box(path)
         control = self.get_control_by_path(path)
         dx = ac_pos[2] - ac_pos[0]
         dy = ac_pos[3] - ac_pos[1]
@@ -229,8 +269,10 @@ class Img(BasePanel):
         super(Img, self).__init__(uv_size, box_size, parent_point, point)
 
     def load(self, only_calculate=False):
+        self.preprocess()
         self.img = self.img.convert("RGBA")
-        limited_size = int((self.canvas_box[2] - self.canvas_box[0]) * self.canvas.base_img.size[0]), int((self.canvas_box[3] - self.canvas_box[1]) * self.canvas.base_img.size[1])
+        limited_size = int((self.canvas_box[2] - self.canvas_box[0]) * self.canvas.base_img.size[0]), \
+                       int((self.canvas_box[3] - self.canvas_box[1]) * self.canvas.base_img.size[1])
 
         if self.keep_ratio:
             """保持比例"""
@@ -249,7 +291,7 @@ class Img(BasePanel):
                 )
 
         else:
-            """保持比例"""
+            """不保持比例"""
             self.img = self.img.resize(limited_size)
 
         # 占比长度
@@ -274,3 +316,96 @@ class Img(BasePanel):
         )
         if not only_calculate:
             self.canvas.base_img.paste(self.img, start_point, alpha)
+
+    def preprocess(self):
+        pass
+
+
+class Rectangle(Img):
+    def __init__(self, uv_size, box_size, parent_point, point, fillet: Union[int, float]=0, img: Union[Image.Image]=None, keep_ratio=True,
+                 color=default_color, outline_width=0, outline_color=default_color):
+        """
+        圆角图
+        :param uv_size:
+        :param box_size:
+        :param parent_point:
+        :param point:
+        :param fillet:
+        :param img:
+        :param keep_ratio:
+        """
+        self.fillet = fillet
+        self.color = color
+        self.outline_width = outline_width
+        self.outline_color = outline_color
+        super(Rectangle, self).__init__(uv_size, box_size, parent_point, point, img, keep_ratio)
+
+    def preprocess(self):
+        limited_size = (int(self.canvas.base_img.size[0] * (self.canvas_box[2] - self.canvas_box[0])),
+                        int(self.canvas.base_img.size[1] * (self.canvas_box[3] - self.canvas_box[1])))
+        if not self.keep_ratio and self.img is not None and self.img.size[0]/self.img.size[1] != limited_size[0]/limited_size[1]:
+            self.img = self.img.resize(limited_size)
+        self.img = Graphical.rectangle(size=limited_size, fillet=self.fillet, color=self.color, outline_width=self.outline_width, outline_color=self.outline_color, img=self.img)
+
+
+class Color:
+    GREY = (128, 128, 128, 255)
+    RED = (255, 0, 0, 255)
+    GREEN = (0, 255, 0, 255)
+    BLUE = (0, 0, 255, 255)
+    YELLOW = (255, 255, 0, 0)
+    PURPLE = (255, 0, 255, 0)
+    CYAN = (0, 255, 255, 0)
+    WHITE = (255, 255, 255, 255)
+    BLACK = (0, 0, 0, 255)
+
+    @staticmethod
+    def hex2dec(colorHex: str) -> Tuple[int, int, int, int]:
+        """
+        :param colorHex: FFFFFFFF （ARGB）-> (R, G, B, A)
+        :return:
+        """
+        return int(colorHex[2:4], 16), int(colorHex[4:6], 16), int(colorHex[6:8], 16), int(colorHex[0:2], 16)
+
+
+class Graphical:
+
+    @staticmethod
+    def circular(r, color=default_color, outline_width=0, outline_color=default_color, img=None) -> Image.Image:
+        base = img
+        if img is None:
+            base = Image.new(mode="RGBA", color=(0, 0, 0, 0), size=(r, r))
+        draw = ImageDraw.Draw(base)
+        draw.ellipse(xy=(0, 0, r, r), fill=color, width=outline_width, outline=outline_color)
+        return base
+
+    @staticmethod
+    def ellipse(size, color=default_color, outline_width=0, outline_color=default_color, img=None) -> Image.Image:
+        base = img
+        if img is None:
+            base = Image.new(mode="RGBA", color=(0, 0, 0, 0), size=size)
+        draw = ImageDraw.Draw(base)
+        draw.ellipse(xy=(0, 0, size[0], size[1]), fill=color, width=outline_width, outline=outline_color)
+        return base
+
+    @staticmethod
+    def rectangle(size, fillet: Union[int, float] = 0.0, color=default_color, outline_width=0, outline_color=default_color, img=None):
+        """
+        :param img:
+        :param size:
+        :param fillet: 圆角半径可以为0-1浮点或者整数,浮点时取宽高中最小值计算半径
+        :param color:
+        :param outline_width:
+        :param outline_color:
+        :return:
+        """
+        base = img
+        if img is None:
+            base = Image.new(mode="RGBA", color=(0, 0, 0, 0), size=size)
+        draw = ImageDraw.Draw(base)
+        if isinstance(fillet, float) and 0 <= fillet <= 0.5:
+            r = min(size[0], size[1]) * fillet
+        else:
+            r = fillet
+        draw.rounded_rectangle(xy=(0, 0, size[0], size[1]), radius=r, fill=color, width=outline_width, outline=outline_color)
+        return base

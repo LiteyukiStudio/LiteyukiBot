@@ -1,8 +1,11 @@
 import os
+import traceback
 from typing import Tuple, Dict
 
+import nonebot
 import requests
 from .canvas import Text
+
 
 def clamp(x, _min, _max):
     if x < _min:
@@ -19,21 +22,17 @@ def download_file(url, file, chunk_size=4096):
     file: 文件另存为路径
     chunk_size: chunk size
     """
-    if not os.path.exists(os.path.dirname(file)):
-        os.makedirs(os.path.dirname(file))
-    response_data_file = requests.get(url, stream=True)
-    with open(file, 'wb') as f:
-        for chunk in response_data_file.iter_content(chunk_size=chunk_size):
-            if chunk:
-                f.write(chunk)
-
-
-def hex2dec(colorHex: str) -> Tuple[int, int, int, int]:
-    """
-    :param colorHex: FFFFFFFF （ARGB）-> (R, G, B, A)
-    :return:
-    """
-    return int(colorHex[2:4], 16), int(colorHex[4:6], 16), int(colorHex[6:8], 16), int(colorHex[0:2], 16)
+    try:
+        if not os.path.exists(os.path.dirname(file)):
+            os.makedirs(os.path.dirname(file))
+        response_data_file = requests.get(url, stream=True)
+        with open(file, 'wb') as f:
+            for chunk in response_data_file.iter_content(chunk_size=chunk_size):
+                if chunk:
+                    f.write(chunk)
+        nonebot.logger.info("下载成功： %s" % url)
+    except BaseException as e:
+        nonebot.logger.warning("下载失败: %s\n%s" % (url, traceback.format_exception(e)))
 
 
 class Command:

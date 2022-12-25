@@ -1,11 +1,21 @@
+import os
 from typing import Union
 
+import nonebot
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEvent, Message, GROUP_OWNER, GROUP_ADMIN, PRIVATE_FRIEND
 from nonebot.params import CommandArg
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 from nonebot import plugin
+
+from nonebot import get_driver
+from nonebot.utils import run_sync
+
+from ...liteyuki_api.config import Path
+from ...liteyuki_api.utils import download_file
+
+driver = get_driver()
 from .plugin_api import *
 
 bot_help = on_command(cmd="help", aliases={"帮助", "列出插件"})
@@ -72,3 +82,18 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
             await enable_plugin.finish("%s%s成功" % (show_name, "启用" if enable else "停用"), at_sender=True)
     else:
         await enable_plugin.finish("插件不存在", at_sender=True)
+
+
+@driver.on_startup
+async def detect_liteyuki_resource():
+    """
+    检测轻雪插件的资源，不存在就下载
+
+    :return:
+    """
+    for _plugin in get_loaded_plugins():
+        if _plugin.metadata is not None and _plugin.metadata.extra.get("liteyuki_plugin", False):
+            _resource = _plugin.metadata.extra.get("liteyuki_resource", {})
+            for root_path, url in _resource.items():
+                if not os.path.exists(os.path.join(Path.root, root_path)):
+                    await run_sync(download_file)(file=os.path.join(Path.root, root_path), url=url)

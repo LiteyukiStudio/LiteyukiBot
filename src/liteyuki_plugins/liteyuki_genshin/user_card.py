@@ -15,7 +15,7 @@ from ...liteyuki_api.config import Path
 from ...liteyuki_api.data import Data
 from ...liteyuki_api.utils import Command
 
-user_card = on_command(cmd="面板", aliases={"原神数据", "更新面板", "更新数据"})
+user_card = on_command(cmd="面板", aliases={"原神数据", "更新面板", "更新数据", "#更新面板"})
 
 
 @user_card.handle()
@@ -39,7 +39,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args
             uid = int(args[0])
     else:
         uid = db.get_data(key="genshin.uid", default=None)
-    async with aiohttp.request("GET", url="https://enka.network/u/%s/__data.json" % uid) as resp:
+    async with aiohttp.request("GET", url="https://enka.microgg.cn/u/%s" % uid) as resp:
         player_data = json.loads(await resp.text())
         info_lang = {
             "zh-CN": {

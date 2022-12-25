@@ -11,7 +11,7 @@ from .character_card import *
 from .utils import *
 from .resource import *
 
-set_uid = on_command(cmd="绑定uid", aliases={"#绑定uid"}, block=True)
+set_uid = on_command(cmd="绑定uid", aliases={"#绑定uid", "绑定UID", "#绑定UID"}, block=True)
 hid_uid = on_command(cmd="遮挡uid", block=True)
 update_resource = on_command(cmd="原神资源更新", block=True, permission=SUPERUSER)
 add_aliases = on_command(cmd="添加别称", block=True, permission=SUPERUSER)
@@ -24,7 +24,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args
         await set_uid.finish("uid格式错误", at_sender=True)
     else:
         uid = int(args[0])
-        async with aiohttp.request("GET", url="https://enka.network/u/%s/__data.json" % uid) as resp:
+        async with aiohttp.request("GET", url="https://enka.microgg.cn/u/%s" % uid) as resp:
             player_data = await resp.json()
 
             if len(player_data) == 0:
@@ -35,7 +35,10 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args
 
                 Data(Data.users, event.user_id).set_data(key="genshin.uid", value=uid)
                 Data(Data.users, event.user_id).set_data(key="genshin.lang", value=lang)
-                await set_uid.finish("绑定成功：%s（%s  Lv.%s）" % (playerInfo["nickname"], servers.get(str(uid)[0], "Unknown Server"), playerInfo["level"]))
+                await set_uid.finish("绑定成功：%s（%s  Lv.%s）" % (playerInfo["nickname"], servers.get(str(uid)[0], "Unknown Server"), playerInfo["level"]), at_sender=True)
+                if len(player_data.get("avatarInfoList", [])) > 0:
+                    player_data["time"] = tuple(list(time.localtime())[0:5])
+                    Data(Data.globals, "genshin_player_data").set_data(str(uid), player_data)
 
 
 @hid_uid.handle()
@@ -121,6 +124,8 @@ __plugin_meta__ = PluginMetadata(
           "•可在「xxx面板」、「xx角色数据]空格后接「hd=true」来生成高清面板\n"
           "•可在「xxx面板」、「xx角色数据]空格后接「uid=000000000」来指定uid\n",
     extra={
-        "default_enable": True
+        "default_enable": True,
+        "liteyuki_resource": resource,
+        "liteyuki_plugin": True
     }
 )
