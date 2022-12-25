@@ -9,7 +9,7 @@
     "init_env": {
         "NICKNAME": "[\"轻雪\"]",
         "SUPERUSERS": "[123456,114514]",
-        "PORT": "",
+        "PORT": "11451",
         "COMMAND_START": "[\"\"]",
         "DEBUG": "false",
         "FASTAPI_RELOAD": "false"
