@@ -1,4 +1,5 @@
 import os
+import traceback
 from typing import Union
 
 import nonebot
@@ -13,19 +14,20 @@ from nonebot import get_driver
 from nonebot.utils import run_sync
 
 from ...liteyuki_api.config import Path
-from ...liteyuki_api.utils import download_file
+from ...liteyuki_api.utils import download_file, Command
 
 driver = get_driver()
 from .plugin_api import *
 
-bot_help = on_command(cmd="help", aliases={"帮助", "列出插件"})
+bot_help = on_command(cmd="help", aliases={"帮助", "列出插件", "插件列表"})
 enable_plugin = on_command(cmd="启用", aliases={"停用"}, permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | PRIVATE_FRIEND)
+add_meta_data = on_command(cmd="添加插件元数据", permission=SUPERUSER)
 
 
 @bot_help.handle()
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
     if str(arg).strip() == "":
-        canvas = generate_plugin_image()
+        canvas = generate_plugin_image(event)
         file = canvas.export_cache()
         try:
             msg = MessageSegment.image(file="file:///%s" % file)
@@ -48,7 +50,9 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
         if plugin_ is None:
             await bot_help.finish("插件不存在", at_sender=True)
         else:
-            if plugin_.metadata is not None and str(plugin_.metadata.usage) != "":
+            if plugin_.metadata is not None or metadata_db.get_data(plugin_.name) is not None:
+                if plugin_.metadata is None and metadata_db.get_data(plugin_.name) is not None:
+                    plugin_.metadata = PluginMetadata(**metadata_db.get_data(plugin_.name))
                 await bot_help.finish("•%s\n「%s」\n==========\n使用方法\n%s" % (plugin_.metadata.name, plugin_.metadata.description, str(plugin_.metadata.usage)))
             else:
                 await bot_help.finish("%s还没有编写使用方法" % plugin_.name)
@@ -91,6 +95,24 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
             await enable_plugin.finish("%s%s成功" % (show_name, "启用" if enable else "停用"), at_sender=True)
     else:
         await enable_plugin.finish("插件不存在", at_sender=True)
+
+
+@add_meta_data.handle()
+async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
+    try:
+        arg = Command.escape(str(arg))
+        arg_line = arg.splitlines()
+        plugin_name_input = arg_line[0]
+        _plugin = search_for_plugin(plugin_name_input)
+        if _plugin is None:
+            await add_meta_data.finish("插件不存在", at_sender=True)
+        if _plugin.metadata is not None:
+            await add_meta_data.finish("插件源码中已存在元数据", at_sender=True)
+        meta_data = {"name": arg_line[1], "description": arg_line[2], "usage": "\n".join(arg_line[3:])}
+        Data(Data.globals, "plugin_metadata").set_data(_plugin.name, meta_data)
+        await add_meta_data.finish("%s元数据设置成功" % _plugin.name, at_sender=True)
+    except BaseException as e:
+        await add_meta_data.finish("元数据添加失败", at_sender=True)
 
 
 @driver.on_startup

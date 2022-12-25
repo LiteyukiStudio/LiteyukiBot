@@ -119,7 +119,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
     """英语元素转希腊语元素"""
     greece_element = elements.get(enka_character_data["Element"], "Unknown")
     """汉仪文黑字体路径"""
-    hywh_font = os.path.join(Path.res, "fonts", "hywh.ttf")
+    hywh_font = os.path.join(Path.res, "fonts/hywh-85w.ttf")
     msg_id = (await character_card.send("面板正在生成，请稍等几秒...", at_sender=True))["message_id"]
     """数据赋值处理部分"""
     """============="""
@@ -229,7 +229,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
                 "accuracy": 1,
                 "value": fight_prop[str(fight_prop_id)]
             }
-        if times >= 4:
+        if times >= 3:
             break
 
     try:
@@ -273,7 +273,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
                                             point=(0, 1), text="(%s)" % character_name_input, font=hywh_font, color=(180, 180, 180, 255), force_size=True)
         """等级基础值"""
         canvas.part_1.level = Text(uv_size=(1, 1), box_size=(0.9, 0.04), parent_point=(0.03061 * 3, 0.17), point=(0, 0),
-                                   text="%s %s/" % (get_lang_word("level", lang, file_pool["loc.json"]), player_character_data["propMap"]["4001"]["val"]),
+                                   text=("%s %s/" % (get_lang_word("level", lang, file_pool["loc.json"]), player_character_data["propMap"]["4001"]["val"])),
                                    font=hywh_font, force_size=True)
         level_pos = await run_sync(canvas.get_actual_box)("part_1.level")
         """等级最大值"""
@@ -433,7 +433,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
                                                 font=hywh_font, force_size=True, color=Color.hex2dec("FFFFEE00" if refine == 4 else "FFFFFFFF"))
         line = 0
         prop_line_distance = 0.06
-        prop_start_y = 0.4
+        prop_start_y = 0.35
         alpha = 80
         """角色详细属性部分"""
         """属性浅色底图"""

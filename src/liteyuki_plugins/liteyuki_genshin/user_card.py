@@ -66,7 +66,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args
             iconName = file_pool["characters.json"].get(str(icon_avatar_id), {"iconName": "unknown"})["iconName"]
             await run_sync(resource_detect)(iconName)
             """检测字体"""
-            hywh_font = os.path.join(Path.res, "fonts/hywh.ttf")
+            hywh_font = os.path.join(Path.res, "fonts/hywh-85w.ttf")
             if not os.path.exists(hywh_font):
                 await user_card.finish(data_lost)
             card.icon = Img(uv_size=(1, 1), box_size=(0.15, 0.15), parent_point=(0.04, 0.04), point=(0, 0),

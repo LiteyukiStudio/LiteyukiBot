@@ -1,5 +1,6 @@
 import os
 import uuid
+import textwrap
 from typing import Tuple, Union, List
 from PIL import Image, ImageFont, ImageDraw
 
@@ -171,7 +172,7 @@ class Canvas(BasePanel):
         )
         return on_parent_pos
 
-    def get_control_by_path(self, path: str):
+    def get_control_by_path(self, path: str) -> Union[BasePanel, "Img", "Rectangle", "Text"]:
         sub_obj = self
         self.save_as((0, 0, 1, 1), True)
         try:
@@ -207,14 +208,32 @@ class Panel(BasePanel):
         super(Panel, self).__init__(uv_size, box_size, parent_point, point)
 
 
+class TextSegment:
+    def __init__(self, text, **kwargs):
+        self.text = text
+        self.color = kwargs.get("color", None)
+        self.font = kwargs.get("font", None)
+
+    @staticmethod
+    def text2text_segment_list(text: str):
+        """
+        暂时没写好
+
+        :param text: %FFFFFFFF%1123%FFFFFFFF%21323
+        :return:
+        """
+        pass
+
+
 class Text(BasePanel):
-    def __init__(self, uv_size, box_size, parent_point, point, text, font, color=(255, 255, 255, 255), vertical=False, line_feed=False, force_size=False, dp: int = 5):
+    def __init__(self, uv_size, box_size, parent_point, point, text: Union[str, list], font=os.path.join(Path.res, "fonts/default.ttf"), color=(255, 255, 255, 255), vertical=False,
+                 line_feed=False, force_size=False, font_size=None, dp: int = 5):
         """
         :param uv_size:
         :param box_size:
         :param parent_point:
         :param point:
-        :param text:
+        :param text: list[{"text": "A", "color":(200,200,200,200)}]
         :param font:
         :param color:
         :param vertical: 是否竖直
@@ -229,18 +248,26 @@ class Text(BasePanel):
         self.vertical = vertical
         self.line_feed = line_feed
         self.dp = dp
+        self.font_size = font_size
         super(Text, self).__init__(uv_size, box_size, parent_point, point)
 
     def load(self, only_calculate=False):
         """限制区域像素大小"""
+        if isinstance(self.text, str):
+            self.text = [
+                TextSegment(text=self.text, color=self.color, font=self.font)
+            ]
+        all_text = str()
+        for text in self.text:
+            all_text += text.text
         limited_size = int((self.canvas_box[2] - self.canvas_box[0]) * self.canvas.base_img.size[0]), int((self.canvas_box[3] - self.canvas_box[1]) * self.canvas.base_img.size[1])
-        font_size = limited_size[1]
+        font_size = limited_size[1] if self.font_size is None else self.font_size
         image_font = ImageFont.truetype(self.font, font_size)
-        actual_size = image_font.getsize(self.text)
+        actual_size = image_font.getsize(all_text)
         while (actual_size[0] > limited_size[0] or actual_size[1] > limited_size[1]) and not self.force_size:
             font_size -= self.dp
             image_font = ImageFont.truetype(self.font, font_size)
-            actual_size = image_font.getsize(self.text)
+            actual_size = image_font.getsize(all_text)
         draw = ImageDraw.Draw(self.canvas.base_img)
         if isinstance(self.parent, Img) or isinstance(self.parent, Text):
             self.parent.canvas_box = self.parent.actual_pos
@@ -248,18 +275,27 @@ class Text(BasePanel):
         dy0 = self.parent.canvas_box[3] - self.parent.canvas_box[1]
         dx1 = actual_size[0] / self.canvas.base_img.size[0]
         dy1 = actual_size[1] / self.canvas.base_img.size[1]
-        start_point = (
+        start_point = [
             int((self.parent.canvas_box[0] + dx0 * self.parent_point[0] - dx1 * self.point[0]) * self.canvas.base_img.size[0]),
             int((self.parent.canvas_box[1] + dy0 * self.parent_point[1] - dy1 * self.point[1]) * self.canvas.base_img.size[1])
-        )
+        ]
         self.actual_pos = (
             start_point[0] / self.canvas.base_img.size[0],
             start_point[1] / self.canvas.base_img.size[1],
             (start_point[0] + actual_size[0]) / self.canvas.base_img.size[0],
             (start_point[1] + actual_size[1]) / self.canvas.base_img.size[1],
         )
+        self.font_size = font_size
         if not only_calculate:
-            draw.text(start_point, self.text, self.color, font=image_font)
+            for text_segment in self.text:
+                if text_segment.color is None:
+                    text_segment.color = self.color
+                if text_segment.font is None:
+                    text_segment.font = self.font
+                image_font = ImageFont.truetype(font=text_segment.font, size=font_size)
+                draw.text(start_point, text_segment.text, text_segment.color, font=image_font)
+                text_width = image_font.getsize(text_segment.text)
+                start_point[0] += text_width[0]
 
 
 class Img(BasePanel):
@@ -322,7 +358,7 @@ class Img(BasePanel):
 
 
 class Rectangle(Img):
-    def __init__(self, uv_size, box_size, parent_point, point, fillet: Union[int, float]=0, img: Union[Image.Image]=None, keep_ratio=True,
+    def __init__(self, uv_size, box_size, parent_point, point, fillet: Union[int, float] = 0, img: Union[Image.Image] = None, keep_ratio=True,
                  color=default_color, outline_width=0, outline_color=default_color):
         """
         圆角图
@@ -343,7 +379,7 @@ class Rectangle(Img):
     def preprocess(self):
         limited_size = (int(self.canvas.base_img.size[0] * (self.canvas_box[2] - self.canvas_box[0])),
                         int(self.canvas.base_img.size[1] * (self.canvas_box[3] - self.canvas_box[1])))
-        if not self.keep_ratio and self.img is not None and self.img.size[0]/self.img.size[1] != limited_size[0]/limited_size[1]:
+        if not self.keep_ratio and self.img is not None and self.img.size[0] / self.img.size[1] != limited_size[0] / limited_size[1]:
             self.img = self.img.resize(limited_size)
         self.img = Graphical.rectangle(size=limited_size, fillet=self.fillet, color=self.color, outline_width=self.outline_width, outline_color=self.outline_color, img=self.img)
 

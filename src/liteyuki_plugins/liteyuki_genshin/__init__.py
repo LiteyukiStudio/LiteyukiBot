@@ -14,6 +14,7 @@ from .resource import *
 set_uid = on_command(cmd="绑定uid", aliases={"#绑定uid", "绑定UID", "#绑定UID"}, block=True)
 hid_uid = on_command(cmd="遮挡uid", block=True)
 update_resource = on_command(cmd="原神资源更新", block=True, permission=SUPERUSER)
+character_img = on_message(rule=args_end_with("立绘"), block=True)
 add_aliases = on_command(cmd="添加别称", block=True, permission=SUPERUSER)
 
 
@@ -109,6 +110,52 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args
         await add_aliases.finish("请至少添加一个别称", at_sender=True)
 
 
+@character_img.handle()
+async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
+    file_pool = {}
+    for f in resource_pool.keys():
+        if os.path.exists(os.path.join(Path.data, "genshin", f)):
+            file_pool[f] = json.load(open(os.path.join(Path.data, "genshin", f), encoding="utf-8"))
+        else:
+            await character_card.finish(data_lost, at_sender=True)
+    args, kwargs = Command.formatToCommand(event.raw_message)
+    character_name_input = args[0].strip().replace("立绘", "").replace("#", "")
+    if character_name_input == "更新":
+        raise IgnoredException
+    _break = False
+    lang = "zh-CN"
+    hd = kwargs.get("hd", "false")
+    hash_id = str()
+    entry = str()
+
+    """旅行者判定"""
+    if character_name_input in ["荧", "空"]:
+        character_name_input = "旅行者"
+
+    """遍历loc.json从输入的角色名查询词条的hash_id"""
+    for lang, lang_data in file_pool["loc.json"].items():
+        for hash_id, entry in lang_data.items():
+            if character_name_input == entry:
+                chinese_name = file_pool["loc.json"]["zh-CN"].get(str(hash_id))
+                _break = True
+                break
+        if _break:
+            break
+    else:
+        """从别称数据中查找hash_id"""
+        for hash_id, aliases_list in Data(Data.globals, "genshin_game_data").get_data(key="character_aliases", default={}).items():
+            if character_name_input in aliases_list:
+                chinese_name = file_pool["loc.json"]["zh-CN"].get(str(hash_id))
+                break
+        else:
+            if os.path.exists(os.path.join(Path.res, "textures/genshin/%s.png" % character_name_input)):
+                chinese_name = character_name_input
+            else:
+                await character_img.finish("角色名不存在或资源未更新", at_sender=True)
+
+    await character_img.finish(MessageSegment.image(file="file:///%s" % os.path.join(Path.res, "textures/genshin/%s.png" % chinese_name)))
+
+
 __plugin_meta__ = PluginMetadata(
     name="原神查询",
     description="原神角色面板查询",
@@ -119,10 +166,11 @@ __plugin_meta__ = PluginMetadata(
           "•「原神数据 [uid]」更新原神角色展示框中的数据,默认为绑定的uid\n"
           "•「绑定uid 000000000」绑定自己的uid\n"
           "•「添加别称 角色名 别称1 别称2...」在查询面板时可以用别称查询\n"
+          "•「xx立绘」获取角色立绘图\n"
           "•可以在「绑定uid」空格后接「lang=xx」来指定语言，可选的语言有：\n"
           "en ru vi th pt ko ja id fr es de zh-TW zh-CN it tr\n"
-          "•可在「xxx面板」、「xx角色数据]空格后接「hd=true」来生成高清面板\n"
-          "•可在「xxx面板」、「xx角色数据]空格后接「uid=000000000」来指定uid\n",
+          "•可在「xx面板」、「xx角色数据]空格后接「hd=true」来生成高清面板\n"
+          "•可在「xx面板」、「xx角色数据]空格后接「uid=000000000」来指定uid\n",
     extra={
         "default_enable": True,
         "liteyuki_resource": resource,
