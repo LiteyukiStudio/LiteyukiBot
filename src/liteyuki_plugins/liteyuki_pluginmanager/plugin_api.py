@@ -1,8 +1,11 @@
+import math
+import random
 from typing import Union
 
 import poetry_plugin_export.walker
 
 from ...liteyuki_api.data import Data
+from ...liteyuki_api.canvas import *
 from nonebot.plugin import Plugin
 from nonebot.plugin.plugin import plugins
 from nonebot.plugin import get_loaded_plugins
@@ -74,5 +77,13 @@ def check_enabled_stats(event: Union[GroupMessageEvent, PrivateMessageEvent], pl
         return False
 
 
-def generate_plugin_image() -> MessageSegment.image:
-    pass
+def generate_plugin_image() -> Canvas:
+    loaded_plugins = get_loaded_plugins()
+    plugin_count = len(loaded_plugins)
+    show_line_count = math.ceil(plugin_count / 2)
+    bg_color = random.choice(["FFEC82F6", "FF82D1F6", "FF82F6A7", "FFF4F682"])
+    line_height = 80
+    side_width = 20
+    help_canvas = Canvas(Image.new("RGBA", (800 + 2*side_width, 300 + show_line_count * line_height + 2 * side_width), Color.hex2dec(bg_color)))
+
+    return help_canvas

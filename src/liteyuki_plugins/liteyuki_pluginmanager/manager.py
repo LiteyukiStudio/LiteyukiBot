@@ -25,14 +25,23 @@ enable_plugin = on_command(cmd="启用", aliases={"停用"}, permission=SUPERUSE
 @bot_help.handle()
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
     if str(arg).strip() == "":
-        msg = "插件列表如下"
-        for p in plugin.get_loaded_plugins():
-            if p.metadata is not None:
-                msg += "\n•[%s]%s" % ("启用" if check_enabled_stats(event, p.name) else "停用", p.metadata.name)
-            else:
-                msg += "\n•[%s]%s" % ("启用" if check_enabled_stats(event, p.name) else "停用", p.name)
-        msg += "\n•使用「help插件名」来获取对应插件的使用方法\n"
-        await bot_help.send(message=msg)
+        canvas = generate_plugin_image()
+        file = canvas.export_cache()
+        try:
+            msg = MessageSegment.image(file="file:///%s" % file)
+
+            await bot_help.send(message=msg)
+            canvas.delete()
+        except BaseException as e:
+            print(e.__repr__())
+            msg = "插件列表如下"
+            for p in plugin.get_loaded_plugins():
+                if p.metadata is not None:
+                    msg += "\n•[%s]%s" % ("启用" if check_enabled_stats(event, p.name) else "停用", p.metadata.name)
+                else:
+                    msg += "\n•[%s]%s" % ("启用" if check_enabled_stats(event, p.name) else "停用", p.name)
+            msg += "\n•使用「help插件名」来获取对应插件的使用方法\n"
+            await bot_help.send(message=msg)
     else:
         plugin_name_input = str(arg).strip()
         plugin_ = search_for_plugin(plugin_name_input)

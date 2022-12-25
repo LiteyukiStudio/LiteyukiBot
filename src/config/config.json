@@ -11,5 +11,6 @@
         "COMMAND_START": "[\"\"]",
         "DEBUG": "false",
         "FASTAPI_RELOAD": "false"
-    }
+    },
+    "pyproject": "[tool.poetry]\nname = \"Liteyuki4\"\nversion = \"0.1.0\"\ndescription = \"Liteyuki4\"\nauthors = []\nreadme = \"README.md\"\n\n[tool.poetry.dependencies]\npython = \"^3.7.3\"\nnonebot2 = \"^2.0.0-beta.1\"\n\n[tool.poetry.dev-dependencies]\nnb-cli = \"^0.6.0\"\n\n[tool.nonebot]\nplugins = []\nplugin_dirs = [\"src/nonebot_plugins\", \"src/liteyuki_plugins\"]\n\n[build-system]\nrequires = [\"poetry_core>=1.0.0\"]\nbuild-backend = \"poetry.core.masonry.api\"\n"
 }
