@@ -18,8 +18,11 @@ config_data = json.load(open(os.path.join(Path.config, "config.json"), encoding=
 
 
 def init():
-
     if not os.path.exists(os.path.join(Path.root, ".env")):
+        f = open(os.path.join(Path.root, ".env"), "w", encoding="utf-8")
+        for k, v in config_data.get("init_env", {}).items():
+            f.write("%s=%s\n" % (k, v))
+        f.close()
         nonebot.logger.info(".env文件已生成，请自行修改配置后重启本程序")
         input()
 

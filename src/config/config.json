@@ -7,6 +7,8 @@
         "src/config"
     ],
     "init_env": {
+        "NICKNAME": "[\"轻雪\"]",
+        "SUPERUSERS": "[123456,114514]",
         "PORT": "",
         "COMMAND_START": "[\"\"]",
         "DEBUG": "false",
