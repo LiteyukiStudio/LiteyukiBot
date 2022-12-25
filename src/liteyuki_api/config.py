@@ -15,6 +15,7 @@ class Path:
 
 config_data = json.load(open(os.path.join(Path.config, "config.json"), encoding="utf-8"))
 
+
 def init():
     for f in config_data.get("necessary_path", []):
         if not os.path.exists(os.path.join(Path.root, f)):
@@ -26,5 +27,3 @@ def init():
         f.write(config_data.get("pyproject", ""))
         f.close()
     nonebot.logger.info("轻雪初始化完成")
-
-
