@@ -102,7 +102,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
         await enable_plugin.finish("插件不存在", at_sender=True)
 
 
-@add_meta_data.handle()
+@add_meta_data.handle() 
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
     try:
         arg = Command.escape(str(arg))
