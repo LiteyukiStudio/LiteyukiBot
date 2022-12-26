@@ -23,9 +23,10 @@ def download_file(url, file, chunk_size=1024):
     chunk_size: chunk size
     """
     try:
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.66 Safari/537.36'}
         if not os.path.exists(os.path.dirname(file)):
             os.makedirs(os.path.dirname(file))
-        response_data_file = requests.get(url, stream=True)
+        response_data_file = requests.get(url, stream=True, headers=headers)
         with open(file, 'wb') as f:
             for chunk in response_data_file.iter_content(chunk_size=chunk_size):
                 if chunk:
