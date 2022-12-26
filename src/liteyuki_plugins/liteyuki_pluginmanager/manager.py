@@ -20,29 +20,33 @@ from ...liteyuki_api.utils import download_file, Command
 driver = get_driver()
 from .plugin_api import *
 
-bot_help = on_command(cmd="help", aliases={"帮助", "列出插件", "插件列表"})
+bot_help = on_command(cmd="help", aliases={"帮助", "列出插件", "插件列表", "全部插件"})
 enable_plugin = on_command(cmd="启用", aliases={"停用"}, permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | PRIVATE_FRIEND)
 add_meta_data = on_command(cmd="添加插件元数据", permission=SUPERUSER)
+hidden_plugin = on_command(cmd="隐藏插件", permission=SUPERUSER)
 
 
 @bot_help.handle()
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
     if str(arg).strip() == "":
-        canvas = generate_plugin_image(event)
-        file = canvas.export_cache()
         try:
+            if event.raw_message.strip() == "全部插件":
+                raise KeyError("全部插件")
+            canvas = generate_plugin_image(event)
+            file = canvas.export_cache()
             msg = MessageSegment.image(file="file:///%s" % file)
-
             await bot_help.send(message=msg)
             canvas.delete()
         except BaseException as e:
             print(e.__repr__())
+            traceback.format_exception(e)
+            _hidden_plugin = Data(Data.globals, "plugin_data").get_data(key="hidden_plugin", default=[])
             msg = "插件列表如下"
             for p in plugin.get_loaded_plugins():
                 if p.metadata is not None:
-                    msg += "\n•[%s]%s" % ("启用" if check_enabled_stats(event, p.name) else "停用", p.metadata.name)
+                    msg += "\n•[%s%s]%s" % ("开" if check_enabled_stats(event, p.name) else "关", " | 隐" if p.name in _hidden_plugin else " | 显", p.metadata.name)
                 else:
-                    msg += "\n•[%s]%s" % ("启用" if check_enabled_stats(event, p.name) else "停用", p.name)
+                    msg += "\n•[%s%s]%s" % ("开" if check_enabled_stats(event, p.name) else "关", " | 隐" if p.name in _hidden_plugin else " | 显", p.name)
             msg += "\n•使用「help插件名」来获取对应插件的使用方法\n"
             await bot_help.send(message=msg)
     else:
@@ -98,7 +102,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
         await enable_plugin.finish("插件不存在", at_sender=True)
 
 
-@add_meta_data.handle()
+@add_meta_data.handle() 
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
     try:
         arg = Command.escape(str(arg))
@@ -106,14 +110,32 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
         plugin_name_input = arg_line[0]
         _plugin = search_for_plugin(plugin_name_input)
         if _plugin is None:
-            await add_meta_data.finish("插件不存在", at_sender=True)
+            await add_meta_data.send("插件不存在", at_sender=True)
         if _plugin.metadata is not None:
-            await add_meta_data.finish("插件源码中已存在元数据", at_sender=True)
+            await add_meta_data.send("插件源码中已存在元数据", at_sender=True)
         meta_data = {"name": arg_line[1], "description": arg_line[2], "usage": "\n".join(arg_line[3:])}
         Data(Data.globals, "plugin_metadata").set_data(_plugin.name, meta_data)
-        await add_meta_data.finish("%s元数据设置成功" % _plugin.name, at_sender=True)
+        await add_meta_data.send("%s元数据设置成功" % _plugin.name, at_sender=True)
     except BaseException as e:
         await add_meta_data.finish("元数据添加失败", at_sender=True)
+
+
+@hidden_plugin.handle()
+async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
+    try:
+        arg = Command.escape(str(arg))
+        plugin_name_input = arg
+        _plugin = search_for_plugin(plugin_name_input)
+        if _plugin is None:
+            await hidden_plugin.finish("插件不存在", at_sender=True)
+        else:
+            _hidden_plugin = Data(Data.globals, "plugin_data").get_data(key="hidden_plugin", default=[])
+            _hidden_plugin.append(_plugin.name)
+            _hidden_plugin = set(_hidden_plugin)
+            Data(Data.globals, "plugin_data").set_data(key="hidden_plugin", value=list(_hidden_plugin))
+            await hidden_plugin.send("%s隐藏成功" % _plugin.name, at_sender=True)
+    except BaseException as e:
+        await hidden_plugin.finish("添加隐藏插件失败", at_sender=True)
 
 
 @driver.on_startup
@@ -123,9 +145,10 @@ async def detect_liteyuki_resource():
 
     :return:
     """
+    mirror = "https://ghproxy.com/https://raw.githubusercontent.com/snowyfirefly/Liteyuki-Resource/master/"
     for _plugin in get_loaded_plugins():
         if _plugin.metadata is not None and _plugin.metadata.extra.get("liteyuki_plugin", False):
             _resource = _plugin.metadata.extra.get("liteyuki_resource", {})
-            for root_path, url in _resource.items():
+            for root_path, pos in _resource.items():
                 if not os.path.exists(os.path.join(Path.root, root_path)):
-                    await run_sync(download_file)(file=os.path.join(Path.root, root_path), url=url)
+                    await run_sync(download_file)(file=os.path.join(Path.root, root_path), url=mirror + pos)
