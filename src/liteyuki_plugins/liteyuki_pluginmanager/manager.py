@@ -129,4 +129,3 @@ async def detect_liteyuki_resource():
             for root_path, url in _resource.items():
                 if not os.path.exists(os.path.join(Path.root, root_path)):
                     await run_sync(download_file)(file=os.path.join(Path.root, root_path), url=url)
-                    await asyncio.sleep(2)
