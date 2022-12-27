@@ -56,7 +56,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args
             },
         }
         if "playerInfo" not in player_data:
-            await user_card.finish("uid信息不存在", at_sender=True)
+            await user_card.finish(uid_info_error, at_sender=True)
         else:
             playerInfo = player_data["playerInfo"]
             card = Canvas(Image.open(os.path.join(Path.res, "textures", "genshin", "stats_bg.png")))

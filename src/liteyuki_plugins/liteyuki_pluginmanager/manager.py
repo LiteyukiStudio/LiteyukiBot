@@ -23,6 +23,7 @@ from .plugin_api import *
 bot_help = on_command(cmd="help", aliases={"帮助", "列出插件", "插件列表", "全部插件"})
 enable_plugin = on_command(cmd="启用", aliases={"停用"}, permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | PRIVATE_FRIEND)
 add_meta_data = on_command(cmd="添加插件元数据", permission=SUPERUSER)
+del_meta_data = on_command(cmd="删除插件元数据", permission=SUPERUSER)
 hidden_plugin = on_command(cmd="隐藏插件", permission=SUPERUSER)
 
 
@@ -41,12 +42,16 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
             print(e.__repr__())
             traceback.format_exception(e)
             _hidden_plugin = Data(Data.globals, "plugin_data").get_data(key="hidden_plugin", default=[])
-            msg = "插件列表如下"
+            msg = "插件数：%s" % len(plugin.get_loaded_plugins())
             for p in plugin.get_loaded_plugins():
                 if p.metadata is not None:
-                    msg += "\n•[%s%s]%s" % ("开" if check_enabled_stats(event, p.name) else "关", " | 隐" if p.name in _hidden_plugin else " | 显", p.metadata.name)
+                    p_name = p.metadata.name
                 else:
-                    msg += "\n•[%s%s]%s" % ("开" if check_enabled_stats(event, p.name) else "关", " | 隐" if p.name in _hidden_plugin else " | 显", p.name)
+                    if metadata_db.get_data(p.name) is not None:
+                        p_name = PluginMetadata(**metadata_db.get_data(p.name)).name
+                    else:
+                        p_name = p.name
+                msg += "\n•[%s%s]%s" % ("开" if check_enabled_stats(event, p.name) else "关", " | 隐" if p_name in _hidden_plugin else " | 显", p_name)
             msg += "\n•使用「help插件名」来获取对应插件的使用方法\n"
             await bot_help.send(message=msg)
     else:
@@ -56,7 +61,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
             await bot_help.finish("插件不存在", at_sender=True)
         else:
             if plugin_.metadata is not None or metadata_db.get_data(plugin_.name) is not None:
-                if plugin_.metadata is None and metadata_db.get_data(plugin_.name) is not None:
+                if metadata_db.get_data(plugin_.name) is not None:
                     plugin_.metadata = PluginMetadata(**metadata_db.get_data(plugin_.name))
                 await bot_help.finish("•%s\n「%s」\n==========\n使用方法\n%s" % (plugin_.metadata.name, plugin_.metadata.description, str(plugin_.metadata.usage)))
             else:
@@ -72,14 +77,18 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
         if searched_plugin.metadata is None:
             show_name = searched_plugin.name
             force_enable = False
+            if metadata_db.get_data(searched_plugin.name) is not None:
+                custom_plugin_metadata = PluginMetadata(**metadata_db.get_data(searched_plugin.name))
+                show_name = custom_plugin_metadata.name
+                force_enable = custom_plugin_metadata.extra.get("force_enable", False)
         else:
             show_name = searched_plugin.metadata.name
             force_enable = searched_plugin.metadata.extra.get("force_enable", False)
         stats = check_enabled_stats(event, searched_plugin.name)
         if force_enable:
-            await enable_plugin.finish("%s处于强制启用状态，无法更改" % show_name, at_sender=True)
+            await enable_plugin.finish("「%s」处于强制启用状态，无法更改" % show_name, at_sender=True)
         if stats == enable:
-            await enable_plugin.finish("%s处于%s状态，无需重复操作" % (show_name, "启用" if stats else "停用"), at_sender=True)
+            await enable_plugin.finish("「%s」处于%s状态，无需重复操作" % (show_name, "启用" if stats else "停用"), at_sender=True)
         else:
             db = Data(*Data.get_type_id(event))
             enabled_plugin = db.get_data("enabled_plugin", [])
@@ -97,45 +106,53 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
                     enabled_plugin.remove(searched_plugin.name)
             db.set_data(key="enabled_plugin", value=enabled_plugin)
             db.set_data(key="disabled_plugin", value=disabled_plugin)
-            await enable_plugin.finish("%s%s成功" % (show_name, "启用" if enable else "停用"), at_sender=True)
+            await enable_plugin.finish("「%s」%s成功" % (show_name, "启用" if enable else "停用"), at_sender=True)
     else:
         await enable_plugin.finish("插件不存在", at_sender=True)
 
 
 @add_meta_data.handle() 
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
-    try:
-        arg = Command.escape(str(arg))
-        arg_line = arg.splitlines()
-        plugin_name_input = arg_line[0]
-        _plugin = search_for_plugin(plugin_name_input)
-        if _plugin is None:
-            await add_meta_data.send("插件不存在", at_sender=True)
-        if _plugin.metadata is not None:
-            await add_meta_data.send("插件源码中已存在元数据", at_sender=True)
-        meta_data = {"name": arg_line[1], "description": arg_line[2], "usage": "\n".join(arg_line[3:])}
-        Data(Data.globals, "plugin_metadata").set_data(_plugin.name, meta_data)
-        await add_meta_data.send("%s元数据设置成功" % _plugin.name, at_sender=True)
-    except BaseException as e:
-        await add_meta_data.finish("元数据添加失败", at_sender=True)
+    arg = Command.escape(str(arg))
+    arg_line = arg.splitlines()
+    plugin_name_input = arg_line[0]
+    _plugin = search_for_plugin(plugin_name_input)
+    if _plugin is None:
+        await add_meta_data.send("插件不存在", at_sender=True)
+    if _plugin.metadata is not None:
+        await add_meta_data.send("插件源码中已存在元数据", at_sender=True)
+    meta_data = {"name": arg_line[1], "description": arg_line[2], "usage": "\n".join(arg_line[3:])}
+    Data(Data.globals, "plugin_metadata").set_data(_plugin.name, meta_data)
+    await add_meta_data.send("「%s」元数据添加成功" % _plugin.name, at_sender=True)
+
+@del_meta_data.handle()
+async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
+    arg = Command.escape(str(arg))
+    _plugin = search_for_plugin(arg)
+    if _plugin is None:
+        await del_meta_data.send("插件不存在", at_sender=True)
+    elif _plugin.metadata is not None:
+        await del_meta_data.send("插件源码中已存在元数据", at_sender=True)
+    elif metadata_db.get_data(_plugin.name) is None:
+        await del_meta_data.send("插件中不存在自定义元数据", at_sender=True)
+    else:
+        metadata_db.del_data(_plugin.name)
+        await del_meta_data.send("「%s」元数据删除成功" % _plugin.name, at_sender=True)
 
 
 @hidden_plugin.handle()
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
-    try:
-        arg = Command.escape(str(arg))
-        plugin_name_input = arg
-        _plugin = search_for_plugin(plugin_name_input)
-        if _plugin is None:
-            await hidden_plugin.finish("插件不存在", at_sender=True)
-        else:
-            _hidden_plugin = Data(Data.globals, "plugin_data").get_data(key="hidden_plugin", default=[])
-            _hidden_plugin.append(_plugin.name)
-            _hidden_plugin = set(_hidden_plugin)
-            Data(Data.globals, "plugin_data").set_data(key="hidden_plugin", value=list(_hidden_plugin))
-            await hidden_plugin.send("%s隐藏成功" % _plugin.name, at_sender=True)
-    except BaseException as e:
-        await hidden_plugin.finish("添加隐藏插件失败", at_sender=True)
+    arg = Command.escape(str(arg))
+    plugin_name_input = arg
+    _plugin = search_for_plugin(plugin_name_input)
+    if _plugin is None:
+        await hidden_plugin.finish("插件不存在", at_sender=True)
+    else:
+        _hidden_plugin = Data(Data.globals, "plugin_data").get_data(key="hidden_plugin", default=[])
+        _hidden_plugin.append(_plugin.name)
+        _hidden_plugin = set(_hidden_plugin)
+        Data(Data.globals, "plugin_data").set_data(key="hidden_plugin", value=list(_hidden_plugin))
+        await hidden_plugin.send("「%s」隐藏成功" % _plugin.name, at_sender=True)
 
 
 @driver.on_startup

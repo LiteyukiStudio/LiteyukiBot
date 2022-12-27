@@ -34,7 +34,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
     if character_name_input == "更新":
         raise IgnoredException
     _break = False
-    lang = "zh-CN"
+    lang = "en"
     hd = kwargs.get("hd", "false")
     hash_id = str()
     entry = str()
@@ -58,7 +58,8 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
                 break
         else:
             await character_card.finish("角色名不存在或资源未更新", at_sender=True)
-    lang = kwargs.get("lang", Data(Data.users, event.user_id).get_data(key="genshin.lang", default=lang))
+    """语言"""
+    lang = kwargs.get("lang", Data(Data.users, event.user_id).get_data(key="genshin_lang", default=lang))
     character_hash_id = hash_id
 
     character_id = 0
@@ -72,7 +73,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
         await character_card.finish("角色名不存在或资源未更新", at_sender=True)
 
     """uid判定"""
-    uid = kwargs.get("uid", Data(Data.users, event.user_id).get_data(key="genshin.uid", default=None))
+    uid = kwargs.get("uid", Data(Data.users, event.user_id).get_data(key="genshin_uid", default=None))
     if uid is None:
         await character_card.finish("命令参数中未包含uid且未绑定过uid", at_sender=True)
     else:
@@ -90,7 +91,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
 
     """uid真实性判定"""
     if "playerInfo" not in player_data:
-        await character_card.finish("uid信息不存在", at_sender=True)
+        await character_card.finish(uid_info_error, at_sender=True)
     """角色展示判定i"""
     if "avatarInfoList" not in player_data:
         await character_card.finish(
@@ -273,13 +274,10 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
                                             point=(0, 1), text="(%s)" % character_name_input, font=hywh_font, color=(180, 180, 180, 255), force_size=True)
         """等级基础值"""
         canvas.part_1.level = Text(uv_size=(1, 1), box_size=(0.9, 0.04), parent_point=(0.03061 * 3, 0.17), point=(0, 0),
-                                   text=("%s %s/" % (get_lang_word("level", lang, file_pool["loc.json"]), player_character_data["propMap"]["4001"]["val"])),
+                                   text=("%s %s/%s" % (get_lang_word("level", lang, file_pool["loc.json"]), player_character_data["propMap"]["4001"]["val"],
+                                                       rank_level[int(player_character_data["propMap"]["1002"].get("val", 0))])),
                                    font=hywh_font, force_size=True)
         level_pos = await run_sync(canvas.get_actual_box)("part_1.level")
-        """等级最大值"""
-        canvas.part_1.level_max = Text(uv_size=(1, 1), box_size=(0.9, 0.04), parent_point=(level_pos[2] * 3, 0.17), point=(0, 0),
-                                       text="%s" % rank_level[int(player_character_data["propMap"]["1002"].get("val", 0))],
-                                       font=hywh_font, color=(180, 180, 180, 255), force_size=True)
 
         canvas.part_1.love_icon = Img(uv_size=(1, 1), box_size=(0.9, 0.05), parent_point=(0.0306 * 3, 0.24),
                                       point=(0, 0), img=Image.open(os.path.join(Path.res, "textures", "genshin", "love.png")))
@@ -413,13 +411,9 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
         """武器等级"""
         canvas.part_2.weapon_info.level = Text(uv_size=(1, 1), box_size=(0.5, 0.2), parent_point=(x0 - 0.05, y1),
                                                point=(0, 0.5),
-                                               text="%s %s/" % (get_lang_word("level", lang, file_pool["loc.json"]), weapon["weapon"]["level"],),
+                                               text="%s %s/%s" % (
+                                               get_lang_word("level", lang, file_pool["loc.json"]), weapon["weapon"]["level"], rank_level[weapon["weapon"].get("promoteLevel", 0)]),
                                                font=hywh_font, force_size=True)
-        weapon_level_pos = await run_sync(canvas.get_parent_box)("part_2.weapon_info.level")
-        canvas.part_2.weapon_info.level_max = Text(uv_size=(1, 1), box_size=(0.5, 0.2), parent_point=(weapon_level_pos[2], weapon_level_pos[1]),
-                                                   point=(0, 0),
-                                                   text="%s" % rank_level[weapon["weapon"].get("promoteLevel", 0)],
-                                                   font=hywh_font, force_size=True, color=(180, 180, 180, 255))
         refine = 0
         if "affixMap" in weapon["weapon"]:
             for v in weapon["weapon"]["affixMap"].values():
@@ -452,11 +446,11 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
                                                                                             parent_point=(0, line * len(prop_dict) ** -1), point=(0, 0),
                                                                                             color=(0, 0, 0, alpha), fillet=base_fillet, keep_ratio=False)
             """属性材质图标"""
-            prop_base.prop_icon = Img(uv_size=(1, 1), box_size=(0.5, 0.5), parent_point=(0.02, 0.5), point=(0, 0.5),
+            prop_base.prop_icon = Img(uv_size=(1, 1), box_size=(0.5, 0.5), parent_point=(0.05, 0.5), point=(0.5, 0.5),
                                       img=Image.open(os.path.join(Path.res, "textures", "genshin", "%s.png" % prop_name)))
             """属性可读名称"""
             prop_base.prop_show_name = Text(uv_size=(1, 1), box_size=(0.8, 0.5), parent_point=(0.1, 0.5), point=(0, 0.5), font=hywh_font, dp=1, force_size=True,
-                                            text=file_pool["loc.json"].get(lang, file_pool["loc.json"]["zh-CN"]).get(prop_name, prop_name))
+                                            text=file_pool["loc.json"].get(lang, file_pool["loc.json"]["en"]).get(prop_name, prop_name))
             if prop_data["type"] == "int1":
                 prop_base.value = Text(uv_size=(1, 1), box_size=(0.6, 0.4), parent_point=(0.98, 0.32), point=(1, 0.5), font=hywh_font, force_size=True, dp=1,
                                        text=str(int(prop_data["value"])))
