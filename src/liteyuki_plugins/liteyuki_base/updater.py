@@ -37,7 +37,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
         local_version_name: str = config_data.get("version_name", None)
         resp = await run_sync(simple_request)(check_url)
         resp_data = resp.json()
-        await update.send("开始更新:\n本地：%s(%s)\n仓库：%s(%s)" % (local_version_name, local_version_id, resp_data.get("version_name"), resp_data.get("version_id")), at_sender=True)
+        await update.send("开始更新:\n当前：%s(%s)\n更新：%s(%s)" % (local_version_name, local_version_id, resp_data.get("version_name"), resp_data.get("version_id")), at_sender=True)
         await run_sync(os.system)("git pull --force https://gitee.com/snowykami/liteyuki-bot.git")
         await update.send("更新完成，正在重启", at_sender=True)
         restart_bot()
