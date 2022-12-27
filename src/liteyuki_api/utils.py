@@ -4,6 +4,8 @@ from typing import Tuple, Dict
 
 import nonebot
 import requests
+from requests import Response
+
 from .canvas import Text
 
 
@@ -34,6 +36,11 @@ def download_file(url, file, chunk_size=1024):
         nonebot.logger.info("下载成功： %s" % url)
     except BaseException as e:
         nonebot.logger.warning("下载失败: %s\n%s" % (url, traceback.format_exception(e)))
+
+
+def simple_request(url, **kwargs) -> Response:
+    resp = requests.get(url, **kwargs)
+    return resp
 
 
 class Command:

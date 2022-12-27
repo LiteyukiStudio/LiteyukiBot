@@ -8,8 +8,8 @@
 2.使用```git clone https://gitee.com/snowykami/liteyuki-bot/tree/master``` 命令可直接安装
 
 #### **方法二（九分推荐）**
-[轻雪安装器](../../../../TimeRainStarSky/TRSS_Liteyuki)
-
+[轻雪安装器](../../../../TimeRainStarSky/TRSS_Liteyuki)<br>
+注意：安装器自带更新功能，轻雪内置的更新功能需要git
 #### **方法三（十分甚至九分不推荐，因为更新极为麻烦）**
 点击```克隆/下载```下载zip文件解压即可<br> 
 注意：此方法无法使用轻雪内置的更新功能

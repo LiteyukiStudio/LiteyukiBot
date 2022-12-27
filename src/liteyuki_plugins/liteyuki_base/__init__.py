@@ -26,15 +26,17 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args
 
 @download_resource.handle()
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
-    await run_sync(os.system)("git pull")
+    pass
 
 
 __plugin_meta__ = PluginMetadata(
-    name="轻雪底层插件",
+    name="轻雪底层基础",
     description="以维持轻雪的正常运行，无法关闭",
-    usage="·使用'liteyuki'来测试Bot\n"
-          "·使用'echo'来使Bot复读\n"
-          "·使用'下载资源/更新资源'来解决自动资源下载失败的问题",
+    usage='•「liteyuki」测试Bot\n\n'
+          '•「echo 消息」Bot复读\n\n'
+          '•「下载资源/更新资源」解决自动资源下载失败的问题\n\n'
+          '•「检查更新」检查当前版本是否为最新\n\n'
+          '•「启用/停用自动更新」管理自动更新',
     extra={
         "liteyuki_plugin": True,
         "liteyuki_resource": resource
