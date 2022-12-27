@@ -21,7 +21,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args
 
 @liteyuki.handle()
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args: Message = CommandArg()):
-    await liteyuki.finish("轻雪测试成功：%s" % event.user_id)
+    await liteyuki.finish("轻雪测试成功：%s" % bot.self_id)
 
 
 @download_resource.handle()
@@ -36,7 +36,8 @@ __plugin_meta__ = PluginMetadata(
           '•「echo 消息」Bot复读\n\n'
           '•「下载资源/更新资源」解决自动资源下载失败的问题\n\n'
           '•「检查更新」检查当前版本是否为最新\n\n'
-          '•「启用/停用自动更新」管理自动更新',
+          '•「启用/停用自动更新」管理自动更新\n\n'
+          '•「update BotQQ号」手动更新',
     extra={
         "liteyuki_plugin": True,
         "liteyuki_resource": resource
