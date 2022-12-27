@@ -13,7 +13,7 @@ class Data:
     groups = "groups"
     globals = "globals"
 
-    def __init__(self, database_name,  _id=0):
+    def __init__(self, database_name, _id=0):
         """
         可以仅传入event
 
@@ -37,6 +37,18 @@ class Data:
     def set_data(self, key, value):
         key = key.replace(".", "_")
         LiteyukiDB[self.database_name].update_one({"_id": self._id}, {"$set": {key: value}}, upsert=True)
+
+    def del_data(self, key):
+        key = key.replace(".", "_")
+        LiteyukiDB[self.database_name].update_one({"_id": self._id}, {"$unset": {key: 1}})
+
+    def delete(self):
+        """
+        慎用 删除集合中的文档
+
+        :return:
+        """
+        LiteyukiDB[self.database_name].delete_one({"id": self._id})
 
     def __str__(self):
         return "Database: %s-%s" % (self.database_name, self._id)

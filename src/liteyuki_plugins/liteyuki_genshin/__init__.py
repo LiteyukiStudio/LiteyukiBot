@@ -28,8 +28,8 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], args
         async with aiohttp.request("GET", url="https://enka.microgg.cn/u/%s" % uid) as resp:
             player_data = await resp.json()
 
-            if len(player_data) == 0:
-                await set_uid.finish("uid信息不存在", at_sender=True)
+            if "playerInfo" not in player_data:
+                await set_uid.finish(uid_info_error, at_sender=True)
             else:
                 playerInfo = player_data["playerInfo"]
                 lang = kwargs.get("lang", "zh-CN")

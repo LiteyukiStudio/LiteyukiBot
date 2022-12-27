@@ -23,11 +23,14 @@ def search_for_plugin(keyword: str) -> Union[Plugin, None]:
     """
     # 精准搜搜
     for p in get_loaded_plugins():
+        """关键词==插件id名"""
         if keyword == p.name:
             return p
+        # 关键词==配置插件名
         elif p.metadata is not None:
             if keyword == p.metadata.name:
                 return p
+        # 关键词==自定义元数据插件名
         elif metadata_db.get_data(p.name) is not None:
             if keyword == PluginMetadata(**metadata_db.get_data(p.name)).name:
                 return p
