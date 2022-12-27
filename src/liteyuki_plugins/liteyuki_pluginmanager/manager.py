@@ -155,7 +155,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
         await hidden_plugin.send("「%s」隐藏成功" % _plugin.name, at_sender=True)
 
 
-@driver.on_startup
+@driver.on_bot_connect
 async def detect_liteyuki_resource():
     """
     检测轻雪插件的资源，不存在就下载
