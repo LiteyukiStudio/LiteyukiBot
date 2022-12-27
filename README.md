@@ -29,7 +29,8 @@ LiteyukiBot使用的是MongoDB数据库，从[MongoDB官网](https://www.mongodb
 
 ### 首次启动配置
 1.Windows可以点击```run.cmd```来启动Bot<br>
-2.在```bot.py```所在目录下用```nb run```命令启动
+2.在```bot.py```所在目录下用```python bot.py```命令启动<br>
+_注意：轻雪不支持```nb run```启动_
 
 Bot第一次启动会在目录下生成```.env```和```pyproject.toml```，此时打开```.env```，按照提示修改以下项
 ```dotenv

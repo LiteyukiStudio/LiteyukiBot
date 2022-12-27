@@ -1,1 +1,1 @@
-nb run
+python bot.py
