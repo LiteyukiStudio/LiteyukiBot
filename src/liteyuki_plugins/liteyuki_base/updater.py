@@ -22,5 +22,5 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
     resp_data = resp.json()
     msg = "当前版本：%s(%s)\n仓库版本：%s(%s)" % (local_version_name, local_version_id, resp_data.get("version_name"), resp_data.get("version_id"))
     if resp_data.get("version_id") > local_version_id:
-        msg += "\n检测到新版本：请使用「update BotQQ号」命令更新"
+        msg += "\n检测到新版本：\n请使用「update BotQQ号」命令更新"
     await check_update.send(msg)
