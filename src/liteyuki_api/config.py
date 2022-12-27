@@ -25,6 +25,7 @@ def init():
         f.close()
         nonebot.logger.info(".env文件已生成，请自行修改配置后重启本程序")
         input()
+        sys.exit(0)
 
     for f in config_data.get("necessary_path", []):
         if not os.path.exists(os.path.join(Path.root, f)):
