@@ -4,4 +4,3 @@ aiofiles
 aiohttp
 Pillow
 pydantic
-nonebot-plugin-reboot
