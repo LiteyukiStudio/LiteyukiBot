@@ -30,6 +30,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
 @update.handle()
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
     if str(arg).strip() == str(bot.self_id):
+        await update.send("开始更新", at_sender=True)
         await run_sync(os.system)("git pull https://gitee.com/snowykami/liteyuki-bot.git")
     else:
         await update.send("账号验证失败，无法更新", at_sender=True)
