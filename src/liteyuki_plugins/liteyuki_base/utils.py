@@ -1,7 +1,8 @@
 from nonebot import require
-from .nonebot_plugin_reboot import Reloader
+from .reloader import Reloader
 
- # 可选参数 5秒后触发重启
+
+# 可选参数 5秒后触发重启
 
 
 def restart_bot():
