@@ -24,7 +24,7 @@ def init():
             f.write("%s=%s\n" % (k, v))
         f.close()
         nonebot.logger.info(".env文件已生成，请自行修改配置后重启本程序")
-        input()
+        input("按回车或关掉窗口退出本程序...")
         sys.exit(0)
 
     for f in config_data.get("necessary_path", []):
