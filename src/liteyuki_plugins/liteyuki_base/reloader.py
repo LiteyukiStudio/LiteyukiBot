@@ -4,7 +4,6 @@ from multiprocessing import get_context
 import nonebot
 from nonebot import logger
 
-from .config import plugin_config
 
 _nb_run = nonebot.run
 
@@ -45,10 +44,10 @@ def run(*args, **kwargs):
             if event.wait(1):
                 logger.info("Receive reboot event")
                 process.terminate()
-                process.join(plugin_config.reboot_grace_time_limit)
+                process.join(0)
                 if process.is_alive():
                     logger.warning(
-                        f"Cannot shutdown gracefully in {plugin_config.reboot_grace_time_limit} second, force kill process."
+                        f"Cannot shutdown gracefully in {0} second, force kill process."
                     )
                     process.kill()
                 break
