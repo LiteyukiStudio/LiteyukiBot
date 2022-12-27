@@ -1,6 +1,7 @@
 pymongo~=4.2.0
 nonebot~=1.9.1
-aiofiles~=0.8.0
-aiohttp~=3.8.1
-Pillow~=9.0.1
+aiofiles
+aiohttp
+Pillow
 pydantic
+nonebot-plugin-reboot

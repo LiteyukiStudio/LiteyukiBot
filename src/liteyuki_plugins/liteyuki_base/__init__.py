@@ -37,7 +37,8 @@ __plugin_meta__ = PluginMetadata(
           '•「下载资源/更新资源」解决自动资源下载失败的问题\n\n'
           '•「检查更新」检查当前版本是否为最新\n\n'
           '•「启用/停用自动更新」管理自动更新\n\n'
-          '•「update BotQQ号」手动更新',
+          '•「#update BotQQ号」手动更新\n\n'
+          '•「#restart BotQQ号」手动重启\n\n',
     extra={
         "liteyuki_plugin": True,
         "liteyuki_resource": resource
