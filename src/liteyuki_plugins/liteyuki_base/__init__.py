@@ -7,7 +7,7 @@ from nonebot.params import CommandArg
 from nonebot.permission import SUPERUSER
 from nonebot.utils import run_sync
 from .updater import *
-from .resource import resource
+from .resource import resource_git
 
 echo = on_command(cmd="echo", permission=SUPERUSER)
 liteyuki = on_command(cmd="liteyuki", permission=SUPERUSER)
@@ -41,6 +41,6 @@ __plugin_meta__ = PluginMetadata(
           '•「#restart BotQQ号」手动重启\n\n',
     extra={
         "liteyuki_plugin": True,
-        "liteyuki_resource": resource
+        "liteyuki_resource_git": resource_git
     }
 )

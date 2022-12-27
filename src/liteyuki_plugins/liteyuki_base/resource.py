@@ -1,4 +1,4 @@
-resource = {
+resource_git = {
     "src/resource/fonts/hywh-85w.ttf": "fonts/hywh-85w.ttf",
     "src/resource/fonts/MiSans-Bold.ttf": "fonts/MiSans-Bold.ttf",
     "src/resource/fonts/MiSans-Demibold.ttf": "fonts/MiSans-Demibold.ttf",

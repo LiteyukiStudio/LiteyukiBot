@@ -34,6 +34,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
         await update.send("开始更新", at_sender=True)
         await run_sync(os.system)("git pull --force https://gitee.com/snowykami/liteyuki-bot.git")
         await update.send("更新完成，正在重启", at_sender=True)
+        restart_bot()
     else:
         await update.send("账号验证失败，无法更新", at_sender=True)
 

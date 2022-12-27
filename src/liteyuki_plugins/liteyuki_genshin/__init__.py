@@ -51,7 +51,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
 
 @update_resource.handle()
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
-    for res_file in resource.items():
+    for res_file in resource_git.items():
         if not os.path.exists(os.path.join(Path.root, res_file[0])):
             print("正在下载：%s" % res_file[0])
             await run_sync(download_file)(res_file[1], os.path.join(Path.root, res_file[0]))
@@ -173,7 +173,7 @@ __plugin_meta__ = PluginMetadata(
           "•可在「xx面板」、「xx角色数据]空格后接「uid=000000000」来指定uid\n",
     extra={
         "default_enable": True,
-        "liteyuki_resource": resource,
+        "liteyuki_resource_git": resource_git,
         "liteyuki_plugin": True
     }
 )

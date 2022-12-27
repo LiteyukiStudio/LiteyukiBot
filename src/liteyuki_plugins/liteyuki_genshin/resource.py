@@ -1,4 +1,4 @@
-resource = {
+resource_git = {
     "src/resource/textures/genshin/weapon_bar_star_1.png": "textures/genshin/weapon_bar_star_1.png",
     "src/resource/textures/genshin/weapon_bar_star_2.png": "textures/genshin/weapon_bar_star_2.png",
     "src/resource/textures/genshin/weapon_bar_star_3.png": "textures/genshin/weapon_bar_star_3.png",

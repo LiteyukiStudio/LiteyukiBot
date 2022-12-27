@@ -1,7 +1,7 @@
 from .manager import *
 from .autorun import *
 from nonebot import on_message
-from .resource import resource
+from .resource import resource_git
 from nonebot.plugin.plugin import plugins, PluginMetadata
 
 __plugin_meta__ = PluginMetadata(
@@ -15,7 +15,7 @@ __plugin_meta__ = PluginMetadata(
           "•「隐藏插件xxx」将部分后台插件隐藏起来，可使用「全部插件」查看所有插件",
     extra={
         "force_enable": True,
-        "liteyuki_resource": resource,
+        "liteyuki_resource_git": resource_git,
         "liteyuki_plugin": True
     }
 )
