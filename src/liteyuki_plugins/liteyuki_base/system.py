@@ -67,4 +67,4 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
             else:
                 await install_plugin.send("插件安装失败:%s" % result)
         except BaseException as e:
-            await install_plugin.send("安装%s出现错误:%s" % (plugin_name, traceback.format_exc(e)))
+            await install_plugin.send("安装%s出现错误:%s" % (plugin_name, traceback.format_exc()))
