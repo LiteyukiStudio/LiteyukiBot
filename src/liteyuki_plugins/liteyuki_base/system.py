@@ -60,6 +60,8 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
     for collection_name in LiteyukiDB.list_collection_names():
         export_db[collection_name] = []
         for document in LiteyukiDB[collection_name].find():
+            for k, v in document.items():
+                print(type(k), type(v))
             export_db[collection_name].append(document)
     f_path = os.path.join(Path.cache, "liteyuki.json")
 
