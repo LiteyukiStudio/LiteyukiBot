@@ -23,6 +23,8 @@ class Data:
         self.database_name = database_name
         self._id = _id
 
+        self.collection = LiteyukiDB[self.database_name]
+
     def get_data(self, key, default=None) -> Any:
         key = key.replace(".", "_")
         if self.database_name not in LiteyukiDB.list_collection_names():
@@ -36,11 +38,11 @@ class Data:
 
     def set_data(self, key, value):
         key = key.replace(".", "_")
-        LiteyukiDB[self.database_name].update_one({"_id": self._id}, {"$set": {key: value}}, upsert=True)
+        self.collection.update_one({"_id": self._id}, {"$set": {key: value}}, upsert=True)
 
     def del_data(self, key):
         key = key.replace(".", "_")
-        LiteyukiDB[self.database_name].update_one({"_id": self._id}, {"$unset": {key: 1}})
+        self.collection.update_one({"_id": self._id}, {"$unset": {key: 1}})
 
     def delete(self):
         """
@@ -48,7 +50,7 @@ class Data:
 
         :return:
         """
-        LiteyukiDB[self.database_name].delete_one({"id": self._id})
+        self.collection.delete_one({"id": self._id})
 
     def __str__(self):
         return "Database: %s-%s" % (self.database_name, self._id)

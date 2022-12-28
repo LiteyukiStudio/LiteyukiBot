@@ -1,4 +1,6 @@
+import json
 import os
+import time
 import traceback
 from typing import Union
 
@@ -6,6 +8,7 @@ from nonebot.params import CommandArg
 from nonebot.utils import run_sync
 from .utils import *
 from ...liteyuki_api.config import *
+from ...liteyuki_api.data import LiteyukiDB
 from nonebot import *
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Message
 from nonebot.permission import SUPERUSER
@@ -14,10 +17,11 @@ from ...liteyuki_api.utils import simple_request
 
 check_update = on_command("检查更新", permission=SUPERUSER)
 set_auto_update = on_command("启用自动更新", aliases={"停用自动更新"}, permission=SUPERUSER)
-update = on_command("#update", permission=SUPERUSER)
-restart = on_command("#restart", permission=SUPERUSER)
-install_plugin = on_command("#install", permission=SUPERUSER)
-uninstall_plugin = on_command("#uninstall", permission=SUPERUSER)
+update = on_command("#update", aliases={"#轻雪更新"}, permission=SUPERUSER)
+restart = on_command("#restart", aliases={"#轻雪重启"}, permission=SUPERUSER)
+install_plugin = on_command("#install", aliases={"#安装插件"}, permission=SUPERUSER)
+uninstall_plugin = on_command("#uninstall", aliases={"#卸载插件"}, permission=SUPERUSER)
+export_database = on_command("#export", aliases={"#导出数据"}, permission=SUPERUSER)
 
 
 @check_update.handle()
@@ -67,3 +71,22 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
                 await install_plugin.send("安装过程可能出现错误，请检查：%s" % result)
         except BaseException as e:
             await install_plugin.send("安装%s出现错误:%s" % (plugin_name, traceback.format_exc()))
+
+
+@export_database.handle()
+async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
+    export_db = {"export_time": tuple(time.localtime())[0:6]}
+    for collection_name in LiteyukiDB.list_collection_names():
+        export_db[collection_name] = []
+        for document in LiteyukiDB[collection_name].find():
+            export_db[collection_name].append(document)
+    f_path = os.path.join(Path.cache, "liteyuki.json")
+
+    def export():
+        f = open(f_path, "w", encoding="utf-8")
+        json.dump(export_db, f, indent=4, ensure_ascii=False)
+        f.close()
+
+    await run_sync(export)()
+    datetime = "%s-%s-%s-%s-%s-%s" % tuple(time.localtime())[0:6]
+    await bot.call_api("upload_private_file", user_id=event.user_id, file=f_path, name="liteyuki_%s.json" % datetime)
