@@ -61,7 +61,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
     for plugin_name in args:
         try:
             await install_plugin.send("正在尝试安装%s" % plugin_name)
-            result = await run_sync(os.popen)("nb plugin install %s" % plugin_name)
+            result = (await run_sync(os.popen)("nb plugin install %s" % plugin_name)).read()
             if "Successfully installed" in result.splitlines()[-1]:
                 await install_plugin.send("%s安装成功" % plugin_name)
             else:
