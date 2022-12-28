@@ -12,7 +12,7 @@ from ...liteyuki_api.data import LiteyukiDB
 from nonebot import *
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Message
 from nonebot.permission import SUPERUSER
-
+import pickle
 from ...liteyuki_api.utils import simple_request
 
 check_update = on_command("检查更新", permission=SUPERUSER)
@@ -61,13 +61,13 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
         export_db[collection_name] = []
         for document in LiteyukiDB[collection_name].find():
             export_db[collection_name].append(document)
-    f_path = os.path.join(Path.cache, "liteyuki.json")
+    f_path = os.path.join(Path.cache, "liteyuki.db")
 
     def export():
-        f = open(f_path, "w", encoding="utf-8")
-        json.dump(export_db, f, indent=4, ensure_ascii=False)
+        f = open(f_path, "wb")
+        pickle.dump(export_db, f)
         f.close()
 
     await run_sync(export)()
     datetime = "%s-%s-%s-%s-%s-%s" % tuple(time.localtime())[0:6]
-    await bot.call_api("upload_private_file", user_id=event.user_id, file=f_path, name="liteyuki_%s.json" % datetime)
+    await bot.call_api("upload_private_file", user_id=event.user_id, file=f_path, name="liteyuki_%s.db" % datetime)
