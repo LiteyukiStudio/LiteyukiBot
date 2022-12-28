@@ -1,5 +1,5 @@
 from nonebot import require
-from .reloader import Reloader
+from ...liteyuki_api.reloader import Reloader
 
 
 # 可选参数 5秒后触发重启

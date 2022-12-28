@@ -19,8 +19,6 @@ check_update = on_command("检查更新", permission=SUPERUSER)
 set_auto_update = on_command("启用自动更新", aliases={"停用自动更新"}, permission=SUPERUSER)
 update = on_command("#update", aliases={"#轻雪更新"}, permission=SUPERUSER)
 restart = on_command("#restart", aliases={"#轻雪重启"}, permission=SUPERUSER)
-install_plugin = on_command("#install", aliases={"#安装插件"}, permission=SUPERUSER)
-uninstall_plugin = on_command("#uninstall", aliases={"#卸载插件"}, permission=SUPERUSER)
 export_database = on_command("#export", aliases={"#导出数据"}, permission=SUPERUSER)
 
 
@@ -54,23 +52,6 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
     await restart.send("正在重启", at_sender=True)
     restart_bot()
-
-
-@install_plugin.handle()
-async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
-    args = str(arg).strip().split()
-    for plugin_name in args:
-        try:
-            await install_plugin.send("正在尝试安装%s" % plugin_name)
-            result = (await run_sync(os.popen)("nb plugin install %s" % plugin_name)).read()
-            if "Successfully installed" in result.splitlines()[-1]:
-                await install_plugin.send("%s安装成功" % plugin_name)
-            elif "Requirement already satisfied" in result.splitlines()[-1]:
-                await install_plugin.send("之前已安装过%s，无法重复安装" % plugin_name)
-            else:
-                await install_plugin.send("安装过程可能出现错误，请检查：%s" % result)
-        except BaseException as e:
-            await install_plugin.send("安装%s出现错误:%s" % (plugin_name, traceback.format_exc()))
 
 
 @export_database.handle()

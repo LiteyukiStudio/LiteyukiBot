@@ -1,20 +1,13 @@
-import asyncio
-import os
 import traceback
-from typing import Union
-
-import nonebot
-from nonebot import on_command
-from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEvent, Message, GROUP_OWNER, GROUP_ADMIN, PRIVATE_FRIEND
-from nonebot.params import CommandArg
-from nonebot.permission import SUPERUSER
-from nonebot.typing import T_State
-from nonebot import plugin
 
 from nonebot import get_driver
+from nonebot import on_command
+from nonebot import plugin
+from nonebot.adapters.onebot.v11 import Bot, Message, GROUP_OWNER, GROUP_ADMIN, PRIVATE_FRIEND
+from nonebot.params import CommandArg
+from nonebot.permission import SUPERUSER
 from nonebot.utils import run_sync
-
-from ...liteyuki_api.config import Path
+from ...liteyuki_api.reloader import Reloader
 from ...liteyuki_api.utils import download_file, Command
 
 driver = get_driver()
@@ -25,6 +18,8 @@ enable_plugin = on_command(cmd="启用", aliases={"停用"}, permission=SUPERUSE
 add_meta_data = on_command(cmd="添加插件元数据", permission=SUPERUSER)
 del_meta_data = on_command(cmd="删除插件元数据", permission=SUPERUSER)
 hidden_plugin = on_command(cmd="隐藏插件", permission=SUPERUSER)
+install_plugin = on_command("#install", aliases={"#安装插件"}, permission=SUPERUSER)
+uninstall_plugin = on_command("#uninstall", aliases={"#卸载插件"}, permission=SUPERUSER)
 
 
 @bot_help.handle()
@@ -153,6 +148,28 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
         _hidden_plugin = set(_hidden_plugin)
         Data(Data.globals, "plugin_data").set_data(key="hidden_plugin", value=list(_hidden_plugin))
         await hidden_plugin.send("「%s」隐藏成功" % _plugin.name, at_sender=True)
+
+
+@install_plugin.handle()
+async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
+    args = str(arg).strip().split()
+    suc = False
+    for plugin_name in args:
+        try:
+            await install_plugin.send("正在尝试安装%s" % plugin_name)
+            result = (await run_sync(os.popen)("nb plugin install %s" % plugin_name)).read()
+            if "Successfully installed" in result.splitlines()[-1]:
+                await install_plugin.send("%s安装成功" % plugin_name)
+                suc = True
+            elif "Requirement already satisfied" in result.splitlines()[-1]:
+                await install_plugin.send("之前已安装过%s，无法重复安装" % plugin_name)
+            else:
+                await install_plugin.send("安装过程可能出现错误，请检查：%s" % result)
+        except BaseException as e:
+            await install_plugin.send("安装%s出现错误:%s" % (plugin_name, traceback.format_exc()))
+    if suc:
+        await install_plugin.send("安装过程结束，正在重启...")
+        Reloader.reload()
 
 
 @driver.on_bot_connect
