@@ -6,7 +6,7 @@ from nonebot.adapters.onebot.v11 import Message, GroupMessageEvent, PrivateMessa
 from nonebot.params import CommandArg
 from nonebot.permission import SUPERUSER
 from nonebot.utils import run_sync
-from .updater import *
+from .system import *
 from .resource import resource_git
 
 echo = on_command(cmd="echo", permission=SUPERUSER)
