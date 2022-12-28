@@ -39,8 +39,8 @@ __plugin_meta__ = PluginMetadata(
           '•「启用/停用自动更新」管理自动更新\n\n'
           '•「#轻雪更新」手动更新\n\n'
           '•「#轻雪重启」手动重启\n\n'
-          '•「#导出数据」仅私聊生效，导出liteyuki.json的数据库\n\n'
-          '•「liteyuki.json」将此文件发送给Bot导入数据',
+          '•「#导出数据」仅私聊生效，导出liteyuki.db的数据库文件\n\n'
+          '•「liteyuki.db」将此文件发送给Bot导入数据',
     extra={
         "liteyuki_plugin": True,
         "liteyuki_resource_git": resource_git
