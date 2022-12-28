@@ -47,8 +47,5 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
 
 @restart.handle()
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
-    if str(arg).strip() == str(bot.self_id):
-        await restart.send("正在重启", at_sender=True)
-        restart_bot()
-    else:
-        await restart.send("账号验证失败，无法重启", at_sender=True)
+    await restart.send("正在重启", at_sender=True)
+    restart_bot()
