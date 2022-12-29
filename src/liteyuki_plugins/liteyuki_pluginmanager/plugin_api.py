@@ -227,6 +227,7 @@ def search_plugin_info_online(plugin_name) -> List[Dict] | None:
         return None
     else:
         for plugin_text in res.splitlines():
+            print(plugin_text.split("- "))
             plugin_data = {
                 "name": plugin_text.split(" (")[0],
                 "description": plugin_text.split("- ")[1],
