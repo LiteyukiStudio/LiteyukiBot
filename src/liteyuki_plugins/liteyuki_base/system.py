@@ -5,12 +5,14 @@ import traceback
 from typing import Union
 
 from nonebot.params import CommandArg
+from nonebot.typing import T_State
 from nonebot.utils import run_sync
 from .utils import *
 from ...liteyuki_api.config import *
 from ...liteyuki_api.data import LiteyukiDB
+from ...liteyuki_api.utils import *
 from nonebot import *
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Message
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Message, NoticeEvent, Bot
 from nonebot.permission import SUPERUSER
 import pickle
 from ...liteyuki_api.utils import simple_request
@@ -20,6 +22,8 @@ set_auto_update = on_command("启用自动更新", aliases={"停用自动更新"
 update = on_command("#update", aliases={"#轻雪更新"}, permission=SUPERUSER)
 restart = on_command("#restart", aliases={"#轻雪重启"}, permission=SUPERUSER)
 export_database = on_command("#export", aliases={"#导出数据"}, permission=SUPERUSER)
+
+data_importer = on_notice()
 
 
 @check_update.handle()
@@ -71,3 +75,23 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
     await run_sync(export)()
     datetime = "%s-%s-%s-%s-%s-%s" % tuple(time.localtime())[0:6]
     await bot.call_api("upload_private_file", user_id=event.user_id, file=f_path, name="liteyuki_%s.db" % datetime)
+
+
+@data_importer.handle()
+async def _(bot: Bot, event: NoticeEvent, state: T_State):
+    eventData = event.dict()
+    if str(eventData.get("user_id", None)) in bot.config.superusers:
+        if event.notice_type == "offline_file":
+            file = eventData["file"]
+            name: str = file.get("name", "")
+            if name.startswith("liteyuki") and name.endswith(".db"):
+                url = file.get("url", "")
+                path = os.path.join(Path.cache, name)
+                await run_sync(download_file)(url, path)
+                liteyuki_db = pickle.load(open(path, "rb"))
+                for collection_name, collection_data in liteyuki_db.items():
+                    collection = LiteyukiDB[collection_name]
+                    for document in collection_data:
+                        for key, value in document.items():
+                            collection.update_one(filter={"_id": document.get("_id")}, update={"$set": {key: value}}, upsert=True)
+                await bot.send_private_msg(user_id=eventData.get("user_id"), message="数据库合并完成")
