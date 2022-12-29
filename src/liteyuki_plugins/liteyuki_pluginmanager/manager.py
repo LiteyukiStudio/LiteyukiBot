@@ -202,5 +202,5 @@ async def update_metadata():
             plugin_data = await run_sync(search_plugin_info_online)(p.name)
             if plugin_data is not None:
                 plugin_data = plugin_data[0]
-                metadata_db.set_data(p.name, {"name": plugin_data["name"], "description": plugin_data["description"]})
+                metadata_db.set_data(p.name, {"name": plugin_data["name"], "description": plugin_data["description"], "usage": ""})
                 nonebot.logger.info("已从Nonebot插件商店中更新本地插件%s（%s）的信息" % (plugin_data["name"], p.name))
