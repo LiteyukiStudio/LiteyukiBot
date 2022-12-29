@@ -1,6 +1,6 @@
 import math
 import random
-from typing import Union
+from typing import Union, Dict
 
 from ...liteyuki_api.data import Data
 from ...liteyuki_api.canvas import *
@@ -212,3 +212,26 @@ def generate_plugin_image(event) -> Canvas:
             uv_size=(1, 1), box_size=(0.3, 0.618), parent_point=(0.95, 0.5), point=(1, 0.5), img=Image.open(os.path.join(Path.res, "textures/liteyuki/state_%s.png" % state))
         )
     return help_canvas
+
+
+def search_plugin_info_online(plugin_name) -> List[Dict] | None:
+    """
+    在线搜索插件信息
+
+    :param plugin_name:
+    :return:
+    """
+    data = []
+    res = os.popen("nb plugin search %s" % plugin_name).read()
+    if res == "":
+        return None
+    else:
+        for plugin_text in res.splitlines():
+            plugin_data = {
+                "name": plugin_text.split(" (")[0],
+                "description": plugin_text.split("- ")[1],
+                "id": plugin_text.split("(")[1].split(")")[0]
+            }
+            data.append(plugin_data)
+        return data
+

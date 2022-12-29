@@ -1,5 +1,6 @@
 import traceback
 
+import nonebot
 from nonebot import get_driver
 from nonebot import on_command
 from nonebot import plugin
@@ -20,6 +21,7 @@ del_meta_data = on_command(cmd="删除插件元数据", permission=SUPERUSER)
 hidden_plugin = on_command(cmd="隐藏插件", permission=SUPERUSER)
 install_plugin = on_command("#install", aliases={"#安装插件"}, permission=SUPERUSER)
 uninstall_plugin = on_command("#uninstall", aliases={"#卸载插件"}, permission=SUPERUSER)
+update_metadata = on_command("#更新元数据", permission=SUPERUSER)
 
 
 @bot_help.handle()
@@ -106,7 +108,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
         await enable_plugin.finish("插件不存在", at_sender=True)
 
 
-@add_meta_data.handle() 
+@add_meta_data.handle()
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
     arg = Command.escape(str(arg))
     arg_line = arg.splitlines()
@@ -119,6 +121,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
     meta_data = {"name": arg_line[1], "description": arg_line[2], "usage": "\n".join(arg_line[3:])}
     Data(Data.globals, "plugin_metadata").set_data(_plugin.name, meta_data)
     await add_meta_data.send("「%s」元数据添加成功" % _plugin.name, at_sender=True)
+
 
 @del_meta_data.handle()
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
@@ -176,7 +179,6 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
 async def detect_liteyuki_resource():
     """
     检测轻雪插件的资源，不存在就下载
-
     :return:
     """
     mirror = "https://ghproxy.com/https://raw.githubusercontent.com/snowyfirefly/Liteyuki-Resource/master/"
@@ -186,3 +188,19 @@ async def detect_liteyuki_resource():
             for root_path, pos in _resource.items():
                 if not os.path.exists(os.path.join(Path.root, root_path)):
                     await run_sync(download_file)(file=os.path.join(Path.root, root_path), url=mirror + pos)
+
+
+@driver.on_bot_connect
+async def update_metadata():
+    """
+    联网在nb商店中获取插件元数据
+
+    :return:
+    """
+    for p in get_loaded_plugins():
+        if p.metadata is None and metadata_db.get_data(p.name) is None:
+            plugin_data = await run_sync(search_plugin_info_online)(p.name)
+            if plugin_data is not None:
+                plugin_data = plugin_data[0]
+                metadata_db.set_data(p.name, {"name": plugin_data["name"], "description": plugin_data["description"]})
+                nonebot.logger.info("已从Nonebot插件商店中更新本地插件%s（%s）的信息" % (plugin_data["name"], p.name))
