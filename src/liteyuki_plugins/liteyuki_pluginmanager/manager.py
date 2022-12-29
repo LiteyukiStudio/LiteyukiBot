@@ -206,4 +206,4 @@ async def update_metadata():
                     metadata_db.set_data(p.name, {"name": plugin_data["name"], "description": plugin_data["description"], "usage": ""})
                     nonebot.logger.info("已从Nonebot插件商店中更新本地插件%s（%s）的信息" % (plugin_data["name"], p.name))
         except BaseException as e:
-            nonebot.logger.info("更新插件%s信息时出现错误" % p.name)
+            nonebot.logger.info("更新插件%s信息时出现错误:%s" % (p.name, traceback.format_exception(e)))
