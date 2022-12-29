@@ -91,6 +91,8 @@ async def _(bot: Bot, event: NoticeEvent, state: T_State):
                 liteyuki_db = pickle.load(open(path, "rb"))
                 for collection_name, collection_data in liteyuki_db.items():
                     collection = LiteyukiDB[collection_name]
+                    if collection_name == "export_time":
+                        continue
                     for document in collection_data:
                         for key, value in document.items():
                             collection.update_one(filter={"_id": document.get("_id")}, update={"$set": {key: value}}, upsert=True)
