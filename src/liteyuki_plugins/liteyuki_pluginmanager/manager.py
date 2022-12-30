@@ -191,10 +191,14 @@ async def detect_liteyuki_resource():
     mirror = "https://ghproxy.com/https://github.com/"
     for _plugin in get_loaded_plugins():
         if _plugin.metadata is not None and _plugin.metadata.extra.get("liteyuki_plugin", False):
-            _resource = _plugin.metadata.extra.get("liteyuki_resource_git", {})
-            for root_path, pos in _resource.items():
+            git_resource = _plugin.metadata.extra.get("liteyuki_resource_git", {})
+            for root_path, url in git_resource.items():
                 if not os.path.exists(os.path.join(Path.root, root_path)):
-                    await run_sync(download_file)(file=os.path.join(Path.root, root_path), url=mirror + pos)
+                    await run_sync(download_file)(file=os.path.join(Path.root, root_path), url=mirror + url)
+            normal_resource = _plugin.metadata.extra.get("liteyuki_resource", {})
+            for root_path, url in git_resource.items():
+                if not os.path.exists(os.path.join(Path.root, root_path)):
+                    await run_sync(download_file)(file=os.path.join(Path.root, root_path), url=url)
 
 
 @driver.on_bot_connect
