@@ -196,7 +196,9 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
     times = 0
     if str(arg).strip() == "":
         searched_plugin_data_list = await run_sync(get_online_plugin_list)()
+        sub_text = "插件商店总览"
     else:
+        sub_text = "插件商店中“%s”搜索结果" % str(arg).strip()
         r1 = await run_sync(search_plugin_info_online)(str(arg).strip())
         if r1 is None:
             msg += "\n未搜索到任何内容"
@@ -211,9 +213,9 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
     bg = Canvas(base_img=Image.new(mode="RGBA", size=(width, head_high + line_high * len(searched_plugin_data_list) + int(side * width)), color=(80, 80, 80, 255)))
     bg.title = Panel(uv_size=(1, 1), box_size=(1, head_high / bg.base_img.size[1]), parent_point=(0.5, 0), point=(0.5, 0))
     bg.title.text = Text(uv_size=(1, 1), box_size=(0.618, 0.5), parent_point=(0.5, 0.3), point=(0.5, 0.5), text=[
-        TextSegment("N", color=(255, 0, 0, 255)), TextSegment("none"), TextSegment("B", color=(255, 0, 0, 255)), TextSegment("ot")
+        TextSegment("N", color=(255, 0, 0, 255)), TextSegment("one"), TextSegment("B", color=(255, 0, 0, 255)), TextSegment("ot")
     ])
-    bg.title.text2 = Text(uv_size=(1, 1), box_size=(0.618, 0.3), parent_point=(0.5, 0.69), point=(0.5, 0.5), text="插件商店")
+    bg.title.text2 = Text(uv_size=(1, 1), box_size=(0.618, 0.3), parent_point=(0.5, 0.72), point=(0.5, 0.5), text=sub_text)
     bg.plugin_bg = Rectangle(
         uv_size=(1, 1), box_size=(1 - 2 * side, line_high * len(searched_plugin_data_list) / bg.base_img.size[1]),
         parent_point=(0.5, head_high / bg.base_img.size[1]), point=(0.5, 0),
@@ -221,7 +223,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
     )
     plugin_bg_size = bg.get_actual_pixel_size("plugin_bg")
     for i, _plugin in enumerate(searched_plugin_data_list):
-        rectangle = bg.plugin_bg.__dict__["plugin_bg_%s" % i] = Rectangle(uv_size=(1, 1), box_size=(1, line_high / bg.base_img.size[1]),
+        rectangle = bg.plugin_bg.__dict__["plugin_bg_%s" % i] = Rectangle(uv_size=(1, 1), box_size=(1, line_high / plugin_bg_size[1]),
                                                                           parent_point=(0.5, i*line_high/plugin_bg_size[1]), point=(0.5, 0),
                                                                           fillet=0, color=(0, 0, 0, 80 if i % 2 == 0 else 0))
         rectangle.show_name = Text(
