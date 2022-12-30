@@ -188,7 +188,7 @@ async def detect_liteyuki_resource():
     检测轻雪插件的资源，不存在就下载
     :return:
     """
-    mirror = "https://ghproxy.com/https://raw.githubusercontent.com/https://github.com/"
+    mirror = "https://ghproxy.com/https://github.com/"
     for _plugin in get_loaded_plugins():
         if _plugin.metadata is not None and _plugin.metadata.extra.get("liteyuki_plugin", False):
             _resource = _plugin.metadata.extra.get("liteyuki_resource_git", {})
