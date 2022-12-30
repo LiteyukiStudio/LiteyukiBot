@@ -366,7 +366,7 @@ class Rectangle(Img):
         :param box_size:
         :param parent_point:
         :param point:
-        :param fillet:
+        :param fillet: 圆角半径浮点或整数
         :param img:
         :param keep_ratio:
         """

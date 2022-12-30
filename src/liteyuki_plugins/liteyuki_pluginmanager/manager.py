@@ -195,22 +195,49 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
     msg = "Nonebot插件商店内容：\n"
     times = 0
     if str(arg).strip() == "":
-        r = await run_sync(get_online_plugin_list)()
+        searched_plugin_data_list = await run_sync(get_online_plugin_list)()
     else:
         r1 = await run_sync(search_plugin_info_online)(str(arg).strip())
         if r1 is None:
             msg += "\n未搜索到任何内容"
             await online_plugin.finish(msg)
-            r = []
+            searched_plugin_data_list = []
         else:
-            r = r1
-    for i, _plugin in enumerate(r):
-        msg += "%s%s%s(%s)" % ("•" if times == 0 else "\n•", ("[已安装]" if _plugin["id"] in loaded_plugin_id_list else ""), _plugin["name"], _plugin["id"])
-        times += 1
-        if times == 30 or i == len(r) - 1:
-            times = 0
-            await online_plugin.send(msg)
-            msg = ""
+            searched_plugin_data_list = r1
+    width = 1000
+    line_high = 80
+    head_high = 300
+    side = 0.025
+    bg = Canvas(base_img=Image.new(mode="RGBA", size=(width, head_high + line_high * len(searched_plugin_data_list) + int(side * width)), color=(80, 80, 80, 255)))
+    bg.title = Panel(uv_size=(1, 1), box_size=(1, head_high / bg.base_img.size[1]), parent_point=(0.5, 0), point=(0.5, 0))
+    bg.title.text = Text(uv_size=(1, 1), box_size=(0.618, 0.5), parent_point=(0.5, 0.3), point=(0.5, 0.5), text=[
+        TextSegment("N", color=(255, 0, 0, 255)), TextSegment("none"), TextSegment("B", color=(255, 0, 0, 255)), TextSegment("ot")
+    ])
+    bg.title.text2 = Text(uv_size=(1, 1), box_size=(0.618, 0.3), parent_point=(0.5, 0.69), point=(0.5, 0.5), text="插件商店")
+    bg.plugin_bg = Rectangle(
+        uv_size=(1, 1), box_size=(1 - 2 * side, line_high * len(searched_plugin_data_list) / bg.base_img.size[1]),
+        parent_point=(0.5, head_high / bg.base_img.size[1]), point=(0.5, 0),
+        fillet=0, color=(0, 0, 0, 128)
+    )
+    plugin_bg_size = bg.get_actual_pixel_size("plugin_bg")
+    for i, _plugin in enumerate(searched_plugin_data_list):
+        rectangle = bg.plugin_bg.__dict__["plugin_bg_%s" % i] = Rectangle(uv_size=(1, 1), box_size=(1, line_high / bg.base_img.size[1]),
+                                                                          parent_point=(0.5, i*line_high/plugin_bg_size[1]), point=(0.5, 0),
+                                                                          fillet=0, color=(0, 0, 0, 80 if i % 2 == 0 else 0))
+        rectangle.show_name = Text(
+            uv_size=(1, 1), box_size=(0.5, 0.45), parent_point=(0.05, 0.5), point=(0, 0.5), text=_plugin["name"], dp=1
+        )
+        rectangle.id_name = Text(
+            uv_size=(1, 1), box_size=(0.4, 0.45), parent_point=(0.5, 0.5), point=(0, 0.5), text=_plugin["id"], dp=1
+        )
+
+    await online_plugin.send(MessageSegment.image(file="file:///%s" % await run_sync(bg.export_cache)()))
+    # msg += "%s%s%s(%s)" % ("•" if times == 0 else "\n•", ("[已安装]" if _plugin["id"] in loaded_plugin_id_list else ""), _plugin["name"], _plugin["id"])
+    # times += 1
+    # if times == 30 or i == len(searched_plugin_data_list) - 1:
+    #     times = 0
+    #     await online_plugin.send(msg)
+    #     msg = ""
 
 
 @driver.on_bot_connect
