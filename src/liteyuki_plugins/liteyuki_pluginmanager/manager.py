@@ -14,16 +14,18 @@ from ...liteyuki_api.utils import download_file, Command
 driver = get_driver()
 from .plugin_api import *
 
-bot_help = on_command(cmd="help", aliases={"帮助", "列出插件", "插件列表", "全部插件"})
-enable_plugin = on_command(cmd="启用", aliases={"停用"}, permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | PRIVATE_FRIEND)
-add_meta_data = on_command(cmd="添加插件元数据", permission=SUPERUSER)
-del_meta_data = on_command(cmd="删除插件元数据", permission=SUPERUSER)
-hidden_plugin = on_command(cmd="隐藏插件", permission=SUPERUSER)
+bot_help = on_command(cmd="help", aliases={"#帮助", "#列出插件", "#插件列表", "#全部插件", "帮助"})
+enable_plugin = on_command(cmd="#启用", aliases={"#停用"}, permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN | PRIVATE_FRIEND)
+add_meta_data = on_command(cmd="#添加插件元数据", permission=SUPERUSER)
+del_meta_data = on_command(cmd="#删除插件元数据", permission=SUPERUSER)
+hidden_plugin = on_command(cmd="#隐藏插件", permission=SUPERUSER)
 install_plugin = on_command("#install", aliases={"#安装插件"}, permission=SUPERUSER)
 uninstall_plugin = on_command("#uninstall", aliases={"#卸载插件"}, permission=SUPERUSER)
 update_metadata = on_command("#更新元数据", permission=SUPERUSER)
+online_plugin = on_command("#插件商店")
 
 
+# help菜单
 @bot_help.handle()
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
     if str(arg).strip() == "":
@@ -66,7 +68,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
             else:
                 await bot_help.finish("%s还没有编写使用方法" % plugin_.name)
 
-
+# 启用插件
 @enable_plugin.handle()
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
     plugin_name_input = str(arg)
@@ -109,7 +111,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
     else:
         await enable_plugin.finish("插件不存在", at_sender=True)
 
-
+# 添加元数据
 @add_meta_data.handle()
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
     arg = Command.escape(str(arg))
@@ -124,7 +126,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
     Data(Data.globals, "plugin_metadata").set_data(_plugin.name, meta_data)
     await add_meta_data.send("「%s」元数据添加成功" % _plugin.name, at_sender=True)
 
-
+# 删除元数据
 @del_meta_data.handle()
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
     arg = Command.escape(str(arg))
@@ -139,7 +141,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
         metadata_db.del_data(_plugin.name)
         await del_meta_data.send("「%s」元数据删除成功" % _plugin.name, at_sender=True)
 
-
+# 隐藏插件
 @hidden_plugin.handle()
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
     arg = Command.escape(str(arg))
@@ -152,16 +154,16 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
         _hidden_plugin.append(_plugin.name)
         _hidden_plugin = set(_hidden_plugin)
         Data(Data.globals, "plugin_data").set_data(key="hidden_plugin", value=list(_hidden_plugin))
-        await hidden_plugin.send("「%s」隐藏成功" % _plugin.name, at_sender=True)
+        await hidden_plugin.send("插件：%s隐藏成功" % _plugin.name, at_sender=True)
 
-
+# 安装插件
 @install_plugin.handle()
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
     args = str(arg).strip().split()
     suc = False
     for plugin_name in args:
         try:
-            _plugins = search_plugin_info_online(plugin_name)
+            _plugins = await run_sync(search_plugin_info_online)(plugin_name)
             if _plugins is None:
                 await install_plugin.send("在Nonebot商店中找不到插件：%s" % plugin_name)
             else:
@@ -180,6 +182,25 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
     if suc:
         await install_plugin.send("安装过程结束，正在重启...")
         Reloader.reload()
+
+
+@online_plugin.handle()
+async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
+    loaded_plugin_id_list = [_plugin.name for _plugin in get_loaded_plugins()]
+    msg = "Nonebot插件商店内容："
+    if str(arg).strip() == "":
+
+        for _plugin in await run_sync(get_online_plugin_list)():
+            msg += "\n%s%s" % (_plugin["name"], ("[已安装]" if _plugin["id"] in loaded_plugin_id_list else "[未安装]"))
+    else:
+        r = await run_sync(search_plugin_info_online)(str(arg).strip())
+        if r is None:
+            msg += "\n未搜索到任何内容"
+        else:
+            for _plugin in r:
+                msg += "\n%s%s" % (_plugin["name"], ("[已安装]" if _plugin["id"] in loaded_plugin_id_list else "[未安装]"))
+    await online_plugin.send(msg)
+
 
 
 @driver.on_bot_connect
