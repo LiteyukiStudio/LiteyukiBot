@@ -89,16 +89,19 @@ def generate_plugin_image(event) -> Canvas:
     """排序，把轻雪插件排到前面来"""
     loaded_plugins = get_loaded_plugins()
 
-    hidden_plugins = Data(Data.globals, "plugin_data").get_data("hidden_plugin", [])
+    hidden_plugins_store = Data(Data.globals, "plugin_data").get_data("hidden_plugin", [])
+    hidden_plugins_loaded = []
     loaded_plugins_sorted = []
     for _plugin in loaded_plugins:
-        if _plugin.metadata is not None and _plugin.metadata.extra.get("liteyuki_plugin", False) and _plugin.name not in hidden_plugins:
+        if _plugin.name in hidden_plugins_store:
+            hidden_plugins_loaded.append(_plugin)
+        if _plugin.metadata is not None and _plugin.metadata.extra.get("liteyuki_plugin", False) and _plugin.name not in hidden_plugins_store:
             loaded_plugins_sorted.append(_plugin)
     for _plugin in loaded_plugins:
         if _plugin.metadata is not None and _plugin.metadata.extra.get("liteyuki_plugin", False):
             pass
         else:
-            if _plugin.name not in hidden_plugins:
+            if _plugin.name not in hidden_plugins_store:
                 loaded_plugins_sorted.append(_plugin)
     plugin_count = len(loaded_plugins_sorted)
     """每行有多少插件"""
@@ -154,7 +157,7 @@ def generate_plugin_image(event) -> Canvas:
     )
     help_canvas.content.tips.loaded_plugin.text = Text(
         uv_size=(1, 1), box_size=(10, 0.5), parent_point=(0.5, 0.5), point=(0.5, 0.5), color=(255, 255, 255, 255), font=Font.MiSans_Demibold,
-        text=[TextSegment("已加载%s个插件" % len(loaded_plugins)), TextSegment("    隐藏%s个" % (len(loaded_plugins) - plugin_count))],
+        text=[TextSegment("已加载%s个插件" % len(loaded_plugins)), TextSegment("    隐藏%s个" % len(hidden_plugins_loaded))],
     )
     font_size = help_canvas.get_control_by_path("content.tips.loaded_plugin.text").font_size
     # 提示使用方法
@@ -221,18 +224,24 @@ def search_plugin_info_online(plugin_name) -> List[Dict] | None:
     :param plugin_name:
     :return:
     """
+    lines = []
     data = []
-    res = os.popen("nb plugin search %s" % plugin_name).read()
-    if res == "":
+    res = os.popen("nb plugin search %s" % plugin_name)
+    text = res.read()
+    if text == "":
         return None
     else:
-        for plugin_text in res.splitlines():
-            print(plugin_text.split("- "))
-            plugin_data = {
-                "name": plugin_text.split(" (")[0],
-                "description": plugin_text.split("- ")[1],
-                "id": plugin_text.split("(")[1].split(")")[0]
-            }
-            data.append(plugin_data)
+        for text_line in text.splitlines():
+            if "- " in text_line:
+                lines.append(text_line)
+            else:
+                lines[-1] += text_line
+        for plugin_text in lines:
+            data.append(
+                {
+                    "name": plugin_text.split(" (")[0],
+                    "description": plugin_text.split("- ")[1],
+                    "id": plugin_text.split(" (")[1].split(")")[0],
+                }
+            )
         return data
-

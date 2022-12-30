@@ -39,16 +39,18 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
             print(e.__repr__())
             traceback.format_exception(e)
             _hidden_plugin = Data(Data.globals, "plugin_data").get_data(key="hidden_plugin", default=[])
-            msg = "插件数：%s" % len(plugin.get_loaded_plugins())
-            for p in plugin.get_loaded_plugins():
-                if p.metadata is not None:
-                    p_name = p.metadata.name
+            msg = "加载插件数：%s" % len(plugin.get_loaded_plugins())
+            for _plugin in plugin.get_loaded_plugins():
+                hidden_stats = "隐" if _plugin.name in _hidden_plugin else "显"
+                enable_stats = "开" if check_enabled_stats(event, _plugin.name) else "关"
+                if _plugin.metadata is not None:
+                    p_name = _plugin.metadata.name
                 else:
-                    if metadata_db.get_data(p.name) is not None:
-                        p_name = PluginMetadata(**metadata_db.get_data(p.name)).name
+                    if metadata_db.get_data(_plugin.name) is not None:
+                        p_name = PluginMetadata(**metadata_db.get_data(_plugin.name)).name
                     else:
-                        p_name = p.name
-                msg += "\n•[%s%s]%s" % ("开" if check_enabled_stats(event, p.name) else "关", " | 隐" if p_name in _hidden_plugin else " | 显", p_name)
+                        p_name = _plugin.name
+                msg += "\n[%s|%s]%s" % (enable_stats, hidden_stats, p_name)
             msg += "\n•使用「help插件名」来获取对应插件的使用方法\n"
             await bot_help.send(message=msg)
     else:
@@ -159,17 +161,22 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
     suc = False
     for plugin_name in args:
         try:
-            await install_plugin.send("正在尝试安装%s" % plugin_name)
-            result = (await run_sync(os.popen)("nb plugin install %s" % plugin_name)).read()
-            if "Successfully installed" in result.splitlines()[-1]:
-                await install_plugin.send("%s安装成功" % plugin_name)
-                suc = True
-            elif "Requirement already satisfied" in result.splitlines()[-1]:
-                await install_plugin.send("之前已安装过%s，无法重复安装" % plugin_name)
+            _plugins = search_plugin_info_online(plugin_name)
+            if _plugins is None:
+                await install_plugin.send("在Nonebot商店中找不到插件：%s" % plugin_name)
             else:
-                await install_plugin.send("安装过程可能出现错误，请检查：%s" % result)
+                _plugin = _plugins[0]
+                await install_plugin.send("正在尝试安装插件：%s(%s)" % (_plugin["name"], _plugin["id"]))
+                result = (await run_sync(os.popen)("nb plugin install %s" % _plugin["id"])).read()
+                if "Successfully installed" in result.splitlines()[-1]:
+                    await install_plugin.send("插件：%s(%s)安装成功" % (_plugin["name"], _plugin["id"]))
+                    suc = True
+                elif "Requirement already satisfied" in result.splitlines()[-1]:
+                    await install_plugin.send("已安装过%s(%s)，无法重复安装" % (_plugin["name"], _plugin["id"]))
+                else:
+                    await install_plugin.send("安装过程可能出现问题：%s" % result)
         except BaseException as e:
-            await install_plugin.send("安装%s出现错误:%s" % (plugin_name, traceback.format_exc()))
+            await install_plugin.send("安装%s时出现错误:%s" % (plugin_name, traceback.format_exc()))
     if suc:
         await install_plugin.send("安装过程结束，正在重启...")
         Reloader.reload()
@@ -181,7 +188,7 @@ async def detect_liteyuki_resource():
     检测轻雪插件的资源，不存在就下载
     :return:
     """
-    mirror = "https://ghproxy.com/https://raw.githubusercontent.com/snowyfirefly/Liteyuki-Resource/master/"
+    mirror = "https://ghproxy.com/https://raw.githubusercontent.com/"
     for _plugin in get_loaded_plugins():
         if _plugin.metadata is not None and _plugin.metadata.extra.get("liteyuki_plugin", False):
             _resource = _plugin.metadata.extra.get("liteyuki_resource_git", {})
