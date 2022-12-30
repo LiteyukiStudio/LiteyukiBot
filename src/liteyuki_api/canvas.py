@@ -5,6 +5,7 @@ from typing import Tuple, Union, List
 from PIL import Image, ImageFont, ImageDraw
 
 from .config import Path
+from .resource import Font
 
 default_color = (255, 255, 255, 255)
 
@@ -226,7 +227,7 @@ class TextSegment:
 
 
 class Text(BasePanel):
-    def __init__(self, uv_size, box_size, parent_point, point, text: Union[str, list], font=os.path.join(Path.res, "fonts/default.ttf"), color=(255, 255, 255, 255), vertical=False,
+    def __init__(self, uv_size, box_size, parent_point, point, text: Union[str, list], font=os.path.join(Path.res, Font.MiSans_Medium), color=(255, 255, 255, 255), vertical=False,
                  line_feed=False, force_size=False, font_size=None, dp: int = 5):
         """
         :param uv_size:
