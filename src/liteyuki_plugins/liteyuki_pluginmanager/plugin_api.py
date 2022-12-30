@@ -228,6 +228,7 @@ def search_plugin_info_online(plugin_name) -> List[Dict] | None:
     data = []
     res = os.popen("nb plugin search %s" % plugin_name)
     text = res.read()
+    print(text)
     if text == "":
         return None
     else:
@@ -255,7 +256,7 @@ def get_online_plugin_list() -> List[Dict] | None:
     """
     lines = []
     data = []
-    res = os.popen("nb plugin search list")
+    res = os.popen("nb plugin list")
     text = res.read()
     if text == "":
         return None
