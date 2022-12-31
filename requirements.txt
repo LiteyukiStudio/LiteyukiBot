@@ -1,6 +1,0 @@
-pymongo~=4.2.0
-nonebot~=1.9.1
-aiofiles
-aiohttp
-Pillow
-pydantic

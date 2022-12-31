@@ -22,6 +22,7 @@ set_auto_update = on_command("启用自动更新", aliases={"停用自动更新"
 update = on_command("#update", aliases={"#轻雪更新"}, permission=SUPERUSER)
 restart = on_command("#restart", aliases={"#轻雪重启"}, permission=SUPERUSER)
 export_database = on_command("#export", aliases={"#导出数据"}, permission=SUPERUSER)
+liteyuki_bot_info = on_command("#info", aliases={"#轻雪信息", "#轻雪状态"}, permission=SUPERUSER)
 
 data_importer = on_notice()
 
@@ -97,3 +98,21 @@ async def _(bot: Bot, event: NoticeEvent, state: T_State):
                         for key, value in document.items():
                             collection.update_one(filter={"_id": document.get("_id")}, update={"$set": {key: value}}, upsert=True)
                 await bot.send_private_msg(user_id=eventData.get("user_id"), message="数据库合并完成")
+
+
+@liteyuki_bot_info.handle()
+async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent]):
+    msg = "轻雪状态："
+    stats = await bot.call_api("get_status")
+    print(json.dumps(stats, indent=4))
+    prop = {
+        "Bot昵称": "、".join(bot.config.nickname if len(bot.config.nickname) else ["Bot还没有名字哦"]),
+        "状态": "在线" if stats.get("online") else "离线",
+        "群聊数": len(await bot.get_group_list()),
+        "好友数": len(await bot.get_friend_list()),
+        "收/发消息数": "%s/%s" % (stats.get("stat").get("message_received"), stats.get("stat").get("message_sent")),
+        "收/发数据包数": "%s/%s" % (stats.get("stat").get("packet_received"), stats.get("stat").get("packet_sent"))
+    }
+    for prop_name, prop_value in prop.items():
+        msg += "\n%s: %s" % (prop_name, prop_value)
+    await liteyuki_bot_info.send(msg)
