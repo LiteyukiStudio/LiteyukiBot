@@ -20,6 +20,7 @@ src/cache/
 src/data/
 src/resource/
 src/nonebot_plugins/
+pyproject.toml
 # Distribution / packaging
 .Python
 build/
