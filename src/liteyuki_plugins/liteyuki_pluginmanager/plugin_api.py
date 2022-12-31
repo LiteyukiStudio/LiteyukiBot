@@ -224,28 +224,14 @@ def search_plugin_info_online(plugin_name) -> List[Dict] | None:
     :param plugin_name:
     :return:
     """
-    lines = []
     data = []
-    res = os.popen("nb plugin search %s" % plugin_name)
-    text = res.read()
-    if text == "":
-        return None
-    else:
-        for text_line in text.splitlines():
-            if "- " in text_line:
-                lines.append(text_line)
-            else:
-                lines[-1] += text_line
-        for plugin_text in lines:
-            data.append(
-                {
-                    "name": plugin_text.split(" (")[0],
-                    "description": plugin_text.split("- ")[1],
-                    "id": plugin_text.split(" (")[1].split(")")[0],
-                }
-            )
+    for plugin_data in get_online_plugin_list():
+        if plugin_name in plugin_data["name"] or plugin_name in plugin_data["id"]:
+            data.append(plugin_data)
+    if len(data) > 0:
         return data
-
+    else:
+        return None
 
 def get_online_plugin_list() -> List[Dict] | None:
     """

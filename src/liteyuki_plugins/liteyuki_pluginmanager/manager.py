@@ -72,7 +72,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
 # 启用插件
 @enable_plugin.handle()
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
-    plugin_name_input = str(arg)
+    plugin_name_input = str(arg).strip()
     enable = True if "#启用" in event.raw_message.replace(plugin_name_input, "") else False
     searched_plugin = search_for_plugin(plugin_name_input)
     if searched_plugin is not None:
@@ -192,6 +192,7 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
 @online_plugin.handle()
 async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg: Message = CommandArg()):
     loaded_plugin_id_list = [_plugin.name for _plugin in get_loaded_plugins()]
+    print(loaded_plugin_id_list)
     msg = "Nonebot插件商店内容：\n"
     times = 0
     if str(arg).strip() == "":
@@ -219,18 +220,21 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
     bg.plugin_bg = Rectangle(
         uv_size=(1, 1), box_size=(1 - 2 * side, line_high * len(searched_plugin_data_list) / bg.base_img.size[1]),
         parent_point=(0.5, head_high / bg.base_img.size[1]), point=(0.5, 0),
-        fillet=0, color=(0, 0, 0, 128)
+        fillet=0, color=(0, 0, 0, 88)
     )
     plugin_bg_size = bg.get_actual_pixel_size("plugin_bg")
     for i, _plugin in enumerate(searched_plugin_data_list):
         rectangle = bg.plugin_bg.__dict__["plugin_bg_%s" % i] = Rectangle(uv_size=(1, 1), box_size=(1, line_high / plugin_bg_size[1]),
                                                                           parent_point=(0.5, i*line_high/plugin_bg_size[1]), point=(0.5, 0),
                                                                           fillet=0, color=(0, 0, 0, 80 if i % 2 == 0 else 0))
+        installed = _plugin["id"].replace("-", "_") in loaded_plugin_id_list
+        install_stats = "[已安装]" if installed else ""
+        install_color = (0, 255, 0, 255) if installed else (255, 255, 255, 255)
         rectangle.show_name = Text(
-            uv_size=(1, 1), box_size=(0.5, 0.45), parent_point=(0.05, 0.5), point=(0, 0.5), text=_plugin["name"], dp=1
+            uv_size=(1, 1), box_size=(0.5, 0.45), parent_point=(0.05, 0.5), point=(0, 0.5), text=install_stats + _plugin["name"], dp=1, color=install_color
         )
         rectangle.id_name = Text(
-            uv_size=(1, 1), box_size=(0.4, 0.45), parent_point=(0.5, 0.5), point=(0, 0.5), text=_plugin["id"], dp=1
+            uv_size=(1, 1), box_size=(0.4, 0.45), parent_point=(0.5, 0.5), point=(0, 0.5), text=_plugin["id"], dp=1, color=install_color
         )
 
     await online_plugin.send(MessageSegment.image(file="file:///%s" % await run_sync(bg.export_cache)()))
