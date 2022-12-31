@@ -3,7 +3,6 @@ import nonebot
 from nonebot.adapters.onebot.v11.event import GroupMessageEvent, PrivateMessageEvent
 from .config import config_data
 import pymongo
-
 LiteyukiDB = pymongo.MongoClient(config_data["mongodb"])["liteyuki"]
 nonebot.logger.info("已连接到数据库：%s" % config_data["mongodb"])
 

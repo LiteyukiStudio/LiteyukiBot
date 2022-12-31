@@ -15,6 +15,7 @@ data/
 # C extensions
 *.so
 # liteyuki
+liteyuki_dev.md
 src/cache/
 src/data/
 src/resource/
