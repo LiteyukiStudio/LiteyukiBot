@@ -220,13 +220,13 @@ async def _(bot: Bot, event: Union[GroupMessageEvent, PrivateMessageEvent], arg:
     bg.plugin_bg = Rectangle(
         uv_size=(1, 1), box_size=(1 - 2 * side, line_high * len(searched_plugin_data_list) / bg.base_img.size[1]),
         parent_point=(0.5, head_high / bg.base_img.size[1]), point=(0.5, 0),
-        fillet=0, color=(0, 0, 0, 88)
+        fillet=0, color=(0, 0, 0, 68)
     )
     plugin_bg_size = bg.get_actual_pixel_size("plugin_bg")
     for i, _plugin in enumerate(searched_plugin_data_list):
         rectangle = bg.plugin_bg.__dict__["plugin_bg_%s" % i] = Rectangle(uv_size=(1, 1), box_size=(1, line_high / plugin_bg_size[1]),
                                                                           parent_point=(0.5, i*line_high/plugin_bg_size[1]), point=(0.5, 0),
-                                                                          fillet=0, color=(0, 0, 0, 80 if i % 2 == 0 else 0))
+                                                                          fillet=0, color=(0, 0, 0, 128 if i % 2 == 0 else 0))
         installed = _plugin["id"].replace("-", "_") in loaded_plugin_id_list
         install_stats = "[已安装]" if installed else ""
         install_color = (0, 255, 0, 255) if installed else (255, 255, 255, 255)
