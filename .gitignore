@@ -20,7 +20,6 @@ src/cache/
 src/data/
 src/resource/
 src/nonebot_plugins/
-pyproject.toml
 # Distribution / packaging
 .Python
 build/
@@ -159,5 +158,3 @@ dmypy.json
 /src/resource/.idea/inspectionProfiles/Project_Default.xml
 /src/resource/.idea/resource.iml
 /src/resource/.idea/vcs.xml
-
-/pyproject.toml

@@ -5,7 +5,7 @@
 
 #### **方法一（十分推荐）**
 - 1.先安装git<br>
-- 2.使用```git clone https://gitee.com/snowykami/liteyuki-bot/tree/master``` 命令可直接安装
+- 2.使用```git clone https://gitee.com/snowykami/liteyuki-bot``` 命令可直接安装
 
 #### **方法二（九分推荐）**
 - [轻雪安装器](../../../../TimeRainStarSky/TRSS_Liteyuki)<br>

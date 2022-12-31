@@ -31,9 +31,4 @@ def init():
         if not os.path.exists(os.path.join(Path.root, f)):
             os.makedirs(os.path.join(Path.root, f))
 
-    pyproject_toml = os.path.join(Path.root, "pyproject.toml")
-    if not os.path.exists(pyproject_toml):
-        f = open(pyproject_toml, "w", encoding="utf-8")
-        f.write(config_data.get("pyproject", ""))
-        f.close()
     nonebot.logger.info("轻雪初始化完成")
