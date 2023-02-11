@@ -96,7 +96,7 @@ class Data:
                     document[key] = value
                     break
             else:
-                json_data.append({key: value})
+                json_data.append({"_id": self._id, key: value})
             await run_sync(json.dump)(json_data, open(self.collection, "w", encoding="utf-8"), indent=4, ensure_ascii=True)
 
     async def set_many(self, data: dict):
@@ -113,6 +113,7 @@ class Data:
                 if ("_id", self._id) in document.items():
                     document.update(data)
             else:
+                data.update({"_id": self._id})
                 json_data.append(data)
             await run_sync(json.dump)(json_data, open(self.collection, "w", encoding="utf-8"), indent=4, ensure_ascii=True)
 
