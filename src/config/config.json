@@ -1,0 +1,22 @@
+{
+    "version_name": "4.1.1",
+    "version_id": 4024,
+    "version_description": "修复自动更新bug",
+    "mongodb": "mongodb://localhost:27017",
+    "necessary_path": [
+        "src/data",
+        "src/cache",
+        "src/config",
+        "src/nonebot_plugins",
+        "src/data/liteyuki/drawing",
+        "src/data/liteyuki/ads"
+    ],
+    "init_env": {
+        "NICKNAME": "[\"轻雪\"]",
+        "SUPERUSERS": "[123456,114514]",
+        "PORT": "11451",
+        "COMMAND_START": "[\"\"]",
+        "DEBUG": "false",
+        "FASTAPI_RELOAD": "false"
+    }
+}

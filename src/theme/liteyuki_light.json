@@ -1,0 +1,8 @@
+{
+    "name": "轻雪日间主题",
+    "default":{
+        "font": "src/resource/fonts/hywh-85w.ttf",
+        "background_color": "#FFFFFFFF"
+    },
+    "weather_icon_color": "raw"
+}
