@@ -1,6 +1,6 @@
 {
-    "version_name": "4.1.1",
-    "version_id": 4024,
+    "version_name": "4.1.2",
+    "version_id": 4025,
     "version_description": "修复自动更新bug",
     "mongodb": "mongodb://localhost:27017",
     "necessary_path": [
