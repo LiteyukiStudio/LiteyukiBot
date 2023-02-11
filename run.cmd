@@ -1,4 +1,4 @@
 pip install poetry
-poetry install
+poetry update
 poetry run python bot.py
 pause
