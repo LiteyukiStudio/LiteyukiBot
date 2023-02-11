@@ -83,6 +83,7 @@ def download_file(url, file, chunk_size=1024, force=False):
     """
     if os.path.exists(file) and not force:
         nonebot.logger.info(f"File already exist: {file}, Skip download.")
+        return 0
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.66 Safari/537.36'}
         if not os.path.exists(os.path.dirname(file)):
