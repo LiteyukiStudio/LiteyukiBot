@@ -25,7 +25,7 @@ def load_text_hash_map() -> dict:
             if file.endswith(".json") and os.path.isfile(whole_path):
                 language_data = json.load(open(whole_path, encoding="utf-8"))
                 text_language_map[file.replace(".json", "")] = language_data
-                logger.success(f"Successfully load language: {file.replace('.json', '')}-{language_data.get('name', 'Unknown')}")
+                logger.success(f"Successfully load language: {language_data.get('name', 'Unknown')}({file.replace('.json', '')})")
         except:
             logger.error(f"Load language file failed: {whole_path}")
 load_text_hash_map()
