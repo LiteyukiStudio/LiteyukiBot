@@ -15,7 +15,7 @@ def update_resource():
         os.system(f"cd src/resource ; pwd ; "
                   f"git fetch --all & "
                   f"git reset --hard origin/master & "
-                  f"git pull https://gitee.com/snowykami/liteyuki-resource ")
+                  f"git pull https://gitee.com/snowykami/liteyuki-resource")
     else:
         logger.info("Not Found Liteyuki, Resource, Cloning...")
         os.system(f"git clone https://gitee.com/snowykami/liteyuki-resource src/resource")

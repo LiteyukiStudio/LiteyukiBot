@@ -20,6 +20,7 @@ config_data = json.load(open(os.path.join(Path.config, "config.json"), encoding=
 
 
 def init():
+    os.system("git config pull.rebase false")
     for f in config_data.get("necessary_path", []):
         if not os.path.exists(os.path.join(Path.root, f)):
             os.makedirs(os.path.join(Path.root, f))
