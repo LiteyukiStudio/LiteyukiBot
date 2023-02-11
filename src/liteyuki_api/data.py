@@ -11,13 +11,13 @@ from .config import config_data, Path
 
 LiteyukiDB = pymongo.MongoClient(config_data["mongodb"])["liteyuki"]
 try:
-    nonebot.logger.info(f'Connecting to MongoDB: {config_data["mongodb"]}')
+    nonebot.logger.info(f'Trying to connect to MongoDB: {config_data["mongodb"]}...')
     LiteyukiDB["globals"].update_one({"_id": "write_test"}, {"$set": {"key": "value"}}, upsert=True)
-    nonebot.logger.success(f'Connected to MongoDB successfully: {config_data["mongodb"]}')
+    nonebot.logger.success(f'Connected to MongoDB successfully: {config_data["mongodb"]}!')
     mongo = True
 except:
-    nonebot.logger.error(f'Can not connect to MongoDB: {config_data["mongodb"]}')
-    nonebot.logger.error("Liteyuki has not connect to MongoDB, change to json, this map affect performance")
+    nonebot.logger.error(f'Can not connect to MongoDB: {config_data["mongodb"]}!')
+    nonebot.logger.info("Data will be stored in json files, the running speed will be slowed down!")
     mongo = False
     if not os.path.exists(os.path.join(Path.data, "database")):
         os.makedirs(os.path.join(Path.data, "database"))
