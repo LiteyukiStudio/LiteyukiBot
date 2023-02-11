@@ -178,8 +178,8 @@ async def generate_state_card(matcher, bot, event):
     for part_i, sub_part in enumerate(hardware_part):
         arc_color = get_usage_percent_color(sub_part["percent"])
         point_x = (part_i * 2 + 1) / (len(hardware_part) * 2)
-        arc_bg = await run_sync(Graphical.arc)(160, 0, 360, width=50, color=usage_base_color)
-        arc_up = await run_sync(Graphical.arc)(160, 0, 360 * sub_part["percent"] / 100, width=50, color=arc_color)
+        arc_bg = await run_sync(Graphical.arc)(160, 0, 360, width=45, color=usage_base_color)
+        arc_up = await run_sync(Graphical.arc)(160, 0, 360 * sub_part["percent"] / 100, width=45, color=arc_color)
 
         part = hardware.__dict__[f"part_{part_i}"] = Panel(
             uv_size=(1, 1), box_size=(1 / len(hardware_part), 1), parent_point=(point_x, 0.4), point=(0.5, 0.5)
