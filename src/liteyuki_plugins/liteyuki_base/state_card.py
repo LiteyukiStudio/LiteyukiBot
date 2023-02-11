@@ -78,7 +78,7 @@ async def generate_state_card(matcher, bot, event):
     part_3_prop_high = 70
     distance_of_part_3_sub_part = 20
     part_3_high = len(part_3_prop) * part_3_prop_high + (
-                len(part_3_prop) + 1) * distance_of_part_3_sub_part + disk_distance
+            len(part_3_prop) + 1) * distance_of_part_3_sub_part + disk_distance
     if platform.system() != "Linux":
         part_3_high += disk_distance * disk_count + single_disk_high * disk_count
 
@@ -164,15 +164,17 @@ async def generate_state_card(matcher, bot, event):
                 f"{await get_text_by_language('51', event.user_id)} {size_text(psutil.virtual_memory().free)}",
                 f"{await get_text_by_language('52', event.user_id)} {size_text(psutil.virtual_memory().total)}"
             ]
+        },
+        {
+            "name": "SWAP",
+            "percent": psutil.swap_memory().used / psutil.swap_memory().total * 100,
+            "sub_prop": [
+                f"{await get_text_by_language('50', event.user_id)} {size_text(psutil.swap_memory().used)}",
+                f"{await get_text_by_language('51', event.user_id)} {size_text(psutil.swap_memory().free)}",
+                f"{await get_text_by_language('52', event.user_id)} {size_text(psutil.swap_memory().total)}"
+            ]
         }
     ]
-    if platform.system() == "Linux":
-        hardware_part.append(
-            {
-                "name": "SWAP",
-                "percent": psutil.swap_memory().used / psutil.swap_memory().total * 100
-            }
-        )
     for part_i, sub_part in enumerate(hardware_part):
         arc_color = get_usage_percent_color(sub_part["percent"])
         point_x = (part_i * 2 + 1) / (len(hardware_part) * 2)
@@ -242,7 +244,7 @@ async def generate_state_card(matcher, bot, event):
             except:
                 pass
     point_y += (((len(psutil.disk_partitions()) * (
-                single_disk_high + disk_distance)) if platform.system() != "Linux" else 0) + distance_of_part_3_sub_part) / \
+            single_disk_high + disk_distance)) if platform.system() != "Linux" else 0) + distance_of_part_3_sub_part) / \
                part_3_pixel_size[1]
     for prop_i, prop_dict in enumerate(part_3_prop.items()):
         prop_panel = part_3.__dict__[f"prop_panel_{prop_i}"] = Panel(
