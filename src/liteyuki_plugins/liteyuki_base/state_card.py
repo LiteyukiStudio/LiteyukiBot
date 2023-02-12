@@ -184,11 +184,11 @@ async def generate_state_card(matcher, bot, event):
         part = hardware.__dict__[f"part_{part_i}"] = Panel(
             uv_size=(1, 1), box_size=(1 / len(hardware_part), 1), parent_point=(point_x, 0.4), point=(0.5, 0.5)
         )
-        part.arc_bg = Img(uv_size=(1, 1), box_size=(0.6, 0.5), parent_point=(0.5, 0.4), point=(0.5, 0.5), img=arc_bg)
+        part.arc_bg = Img(uv_size=(1, 1), box_size=(0.75, 0.8), parent_point=(0.5, 0.4), point=(0.5, 0.5), img=arc_bg)
 
         part.arc_bg.arc_up = Img(uv_size=(1, 1), box_size=(1, 1), parent_point=(0.5, 0.5), point=(0.5, 0.5), img=arc_up)
         part.arc_bg.percent_text = Text(
-            uv_size=(1, 1), box_size=(0.54, 0.12), parent_point=(0.5, 0.5), point=(0.5, 0.5),
+            uv_size=(1, 1), box_size=(0.4, 0.08), parent_point=(0.5, 0.5), point=(0.5, 0.5),
             text="%.1f" % sub_part["percent"] + "%", font=default_font, dp=1, force_size=True
         )
         arc_pos = info_canvas.get_parent_box(f"content.hardware.part_{part_i}.arc_bg")
