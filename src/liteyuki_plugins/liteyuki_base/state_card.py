@@ -176,6 +176,7 @@ async def generate_state_card(matcher, bot, event):
         }
     ]
     for part_i, sub_part in enumerate(hardware_part):
+
         arc_color = get_usage_percent_color(sub_part["percent"])
         point_x = (part_i * 2 + 1) / (len(hardware_part) * 2)
         arc_bg = await run_sync(Graphical.arc)(180, 0, 360, width=45, color=usage_base_color)
