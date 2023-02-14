@@ -26,7 +26,7 @@ async def _(matcher: Matcher, event: Union[GroupMessageEvent, PrivateMessageEven
         if await check_enabled_stats(event, matcher.plugin_name):
             pass
         else:
-            raise IgnoredException
+            raise IgnoredException("Plugin not Enable")
     else:
         pass
 
