@@ -21,7 +21,7 @@ require("nonebot_plugin_apscheduler")
 driver = get_driver()
 
 
-# 保存启动时间和下载资源
+# 轻雪仓库资源管理
 @driver.on_startup
 async def _():
     await Data(Data.globals, "liteyuki").set("start_time", list(time.localtime())[0:6])
@@ -33,7 +33,7 @@ async def _():
         await run_sync(os.system)(f"git clone https://gitee.com/snowykami/liteyuki-resource src/resource")
 
 
-# 通知用户Bot连接
+# 通知超级用户Bot连接
 @driver.on_bot_connect
 async def _(bot: Bot):
     await broad_to_all_superusers(message=(await get_text_by_language("2")).format(BOT_ID=bot.self_id))
@@ -48,7 +48,7 @@ async def _(bot: Bot, matcher: Matcher, event: Union[GroupMessageEvent]):
         if await Data(Data.groups, event.group_id).get("enable", True):
             pass
         else:
-            if re.search("(#群聊启用)|(#群聊停用)|(#group-enable)|(group-disable)") and str(event.user_id) in bot.config.superusers:
+            if re.search("(#群聊启用)|(#群聊停用)|(#group-enable)|(group-disable)", event.raw_message) and str(event.user_id) in bot.config.superusers:
                 pass
             else:
                 raise IgnoredException("Session do not enable Bot")

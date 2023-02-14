@@ -17,7 +17,7 @@ from .state_card import generate_state_card
 from .utils import *
 from ...liteyuki_api.canvas import *
 from ...liteyuki_api.config import *
-from ...liteyuki_api.data import LiteyukiDB, Data
+from ...liteyuki_api.data import LiteyukiDB, Data, mongo
 from ...liteyuki_api.update import update_liteyuki, update_resource
 from ...liteyuki_api.utils import *
 
@@ -40,7 +40,7 @@ call_api = on_command("#api", permission=SUPERUSER)
 set_bot_language = on_command("#设置默认语言", aliases={"#set-default-language"}, permission=SUPERUSER)
 set_user_language = on_command("#设置语言", aliases={"#设置用户语言", "#set-language"})
 
-data_importer = on_notice()
+file_receiver = on_notice()
 
 
 @check_update.handle()
@@ -92,10 +92,20 @@ async def _(event: MessageEvent):
 @export_database.handle()
 async def _(bot: Bot, event: PrivateMessageEvent):
     export_db = {"export_time": tuple(time.localtime())[0:6]}
-    for collection_name in LiteyukiDB.list_collection_names():
-        export_db[collection_name] = []
-        for document in LiteyukiDB[collection_name].find():
-            export_db[collection_name].append(document)
+    if mongo:
+        for collection_name in LiteyukiDB.list_collection_names():
+            export_db[collection_name] = []
+            for document in LiteyukiDB[collection_name].find():
+                export_db[collection_name].append(document)
+    else:
+        for file in os.listdir(os.path.join(Path.data, "database")):
+            try:
+                collections = json.load(open(os.path.join(Path.data, f"database/{file}"), "r", encoding="utf-8"))
+                collection_name = file.replace(".json", "")
+                export_db[collection_name] = collections
+            except:
+                pass
+
     f_path = os.path.join(Path.cache, "liteyuki.db")
 
     def export():
@@ -233,7 +243,7 @@ async def __(event: Union[GroupMessageEvent, PrivateMessageEvent], bot: Bot, arg
                                                                                               STATE=state_text))
 
 
-@data_importer.handle()
+@file_receiver.handle()
 async def _(bot: Bot, event: NoticeEvent):
     eventData = event.dict()
     if str(eventData.get("user_id", None)) in bot.config.superusers:
@@ -246,15 +256,14 @@ async def _(bot: Bot, event: NoticeEvent):
                 # 导数据
                 url = file.get("url", "")
                 path = os.path.join(Path.cache, name)
-                await run_sync(download_file)(url, path)
+                await run_sync(download_file)(url, path, True)
                 liteyuki_db = pickle.load(open(path, "rb"))
                 for collection_name, collection_data in liteyuki_db.items():
-                    collection = LiteyukiDB[collection_name]
+                    database = Data(collection_name)
                     if collection_name == "export_time":
                         continue
                     for document in collection_data:
-                        for key, value in document.items():
-                            collection.update_one(filter={"_id": document.get("_id")}, update={"$set": {key: value}}, upsert=True)
+                        database.set_many(document)
                 await bot.send_private_msg(user_id=eventData.get("user_id"), message=await get_text_by_language("10000040", eventData.get("user_id")))
             else:
                 # 存文件

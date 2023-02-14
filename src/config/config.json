@@ -1,7 +1,7 @@
 {
-    "version_name": "4.1.2",
-    "version_id": 4025,
-    "version_description": "修复自动更新bug",
+    "version_name": "4.1.3",
+    "version_id": 4026,
+    "version_description": "修复会话启用bug",
     "mongodb": "mongodb://localhost:27017",
     "necessary_path": [
         "src/data",
@@ -9,7 +9,8 @@
         "src/config",
         "src/nonebot_plugins",
         "src/data/liteyuki/drawing",
-        "src/data/liteyuki/ads"
+        "src/data/liteyuki/ads",
+        "src/data/resource"
     ],
     "init_env": {
         "NICKNAME": "[\"轻雪\"]",

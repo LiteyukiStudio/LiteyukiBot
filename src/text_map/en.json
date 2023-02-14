@@ -1,5 +1,6 @@
 {
     "name": "English",
+    "000001": "Default language is {LANG_NAME}",
     "1": "Update completed, restarting...",
     "2": "Liteyuki: {BOT_ID} connected open",
     "3": "Default language has been set to {LANG_NAME}",
