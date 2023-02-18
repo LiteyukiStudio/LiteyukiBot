@@ -21,16 +21,7 @@ require("nonebot_plugin_apscheduler")
 driver = get_driver()
 
 
-# 轻雪仓库资源管理
-@driver.on_startup
-async def _():
-    await Data(Data.globals, "liteyuki").set("start_time", list(time.localtime())[0:6])
-    if await Data(Data.globals, "liteyuki").get("liteyuki_id") is None:
-        await Data(Data.globals, "liteyuki").set("liteyuki_id", str(uuid.uuid4()))
 
-    # 没有就克隆
-    if not os.path.exists(os.path.join(Path.res, ".git")) or not os.path.exists(os.path.join(Path.res, "version.json")):
-        await run_sync(os.system)(f"git clone https://gitee.com/snowykami/liteyuki-resource {os.path.join(Path.res)}")
 
 
 # 通知超级用户Bot连接
@@ -70,25 +61,5 @@ async def _(event: MessageEvent):
 async def _():
     pass
 
-# 自动更新
-@scheduler.scheduled_job("cron", hour=4, minute=0, second=0)
-async def auto_update():
-    nonebot.logger.info("Start to check for update")
-    local_version_name, local_version_id, local_resource_id = get_local_version()
-    online_version_name, online_version_id, online_resource_id = get_depository_version()
-    reload = False
-    if online_resource_id > local_resource_id:
-        nonebot.logger.info(f"Updating resource: {local_version_name}.{local_resource_id} -> {online_version_name}.{online_resource_id}")
-        await run_sync(update_resource)()
-        reload = True
-    if online_version_id > local_version_id:
-        nonebot.logger.info(f"Updating Liteyuki: {local_version_name}.{local_version_id} -> {online_version_name}.{online_version_id}")
-        await run_sync(update_liteyuki)()
-        await run_sync(update_resource)()
-        reload = True
 
-    if reload:
-        nonebot.logger.success(await get_text_by_language("10000009"))
-        await broad_to_all_superusers(await get_text_by_language("10000009"))
-        Reloader().reload()
 
