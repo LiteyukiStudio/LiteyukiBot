@@ -11,7 +11,7 @@ class Path:
     src = os.path.join(root, "src")
     config = os.path.join(src, "config")
     data = os.path.join(src, "data")
-    res = os.path.join(src, "resource")
+    res = os.path.join(src, "data/resource_packs/liteyuki")
     cache = os.path.join(src, "cache")
 
 

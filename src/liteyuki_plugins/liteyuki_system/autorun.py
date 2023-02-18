@@ -30,7 +30,7 @@ async def _():
 
     # 没有就克隆
     if not os.path.exists(os.path.join(Path.res, ".git")) or not os.path.exists(os.path.join(Path.res, "version.json")):
-        await run_sync(os.system)(f"git clone https://gitee.com/snowykami/liteyuki-resource src/resource")
+        await run_sync(os.system)(f"git clone https://gitee.com/snowykami/liteyuki-resource {os.path.join(Path.res)}")
 
 
 # 通知超级用户Bot连接
