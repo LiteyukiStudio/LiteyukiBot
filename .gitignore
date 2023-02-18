@@ -7,16 +7,17 @@
 __pycache__/
 *.py[cod]
 *$py.class
-# Liteyuki ignore
-.idea
-.env
+
 .liteyuki-resource
 # nonebot
 data/
 # C extensions
 *.so
-# liteyuki
+# project liteyuki
+.idea
+.env
 liteyuki_dev.md
+poetry.lock
 src/cache/
 src/data/
 src/resource/
