@@ -1,5 +1,5 @@
 from nonebot.plugin.plugin import PluginMetadata
-from autorun import *
+from .autorun import *
 
 
 __plugin_meta__ = PluginMetadata(
