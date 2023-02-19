@@ -19,7 +19,6 @@ require("nonebot_plugin_apscheduler")
 driver = get_driver()
 
 
-
 # 资源初始化
 @driver.on_startup
 async def _():
