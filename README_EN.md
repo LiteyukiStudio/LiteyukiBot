@@ -6,44 +6,44 @@
 
 ### Brand new Liteyuki bot
 
-####  **Because of coder is preparing for College Entrance Examination, this project has been paused in April 2023, and will be restart in July 2023** 
+####  **Because the author is busy preparing for the Universty Entrance Exam, the development of this project has been paused in April 2023, and will be restarted in July 2023**
 
-#### QQ bot based on [Nonebot2](https://v2.nonebot.dev/) 
+#### This QQ bot is based on [Nonebot2](https://v2.nonebot.dev/) 
 
 </div>
 
-## Introduce
+## Introduction
 
-- International, support many language, self-define language
+- International, support multiple languages and self-define languages
 
-- Intergrate some aesthetic and useful functions, such as plugins management, group management, weathers and so on
+- Intergrate some aesthetic and useful functions, including plugins management, group management, and weather checking
 
-- Most of the operation can control by QQ, and avoid user changes operration file by themselves.
+- Most of the configurations can be set on QQ, avoiding the manual setting of the configuation files.
 
-- Only needs to use QQ command when install plugins
+- Using QQ commands only to install plugins
 
-- Stable and convinient auto-upgrade
+- Stable, convenient, and automatic upgrade
 
-- Lightweight, independence, high-stability
+- Lightweight, independent, and high-stability
 
-- use poetry to build virtual environment, easy to management
+- Easy to manage due to the use of **poetry** to build virtual environment
 
 
 <div align="center">
 
-### [1.Install](src/docs/install.md)
+### [1.Installation](src/docs/install.md)
 
-### [2.Guide](src/docs/usage.md)
+### [2.User Guide](src/docs/usage.md)
 
 </div>
 
 
 ## Other
 ### Announcement
-- Liyuki Bot is a non-, non-bussiness project.
-- Liyuki inbuilt [nonebot_plugin_reboot](https://github.com/18870/nonebot-plugin-reboot) plugin, can`t booting by ```nb run```, But it`s more convinient, Thanks to the coder of this plugin
-- Liyuki using the MiSans font and 汉仪文黑-85w as default font source (non-bussiness)
-- This project is my own interests, Because of the time and ability is limited, You can advices to somewhere not well
+- Liyuki Bot is a non-profit, non-commercial project.
+- Liyuki **CANNOT** be booted using ```nb run``` due to the inbuild of [nonebot_plugin_reboot](https://github.com/18870/nonebot-plugin-reboot) plugin which increases the convenience thanks to the author of this plugin
+- Liyuki uses the MiSans font and 汉仪文黑-85w as the default font (non-commercial)
+- This project is developed of interest, due to limitation of my time and ability, please feel free to make suggestions on anywhere i didn't do well.
 ### 联系方式 Contact
 
 - Liteyuki轻雪交流群：[775840726(十分推荐)](https://jq.qq.com/?_wv=1027&k=AkaMlHVt)
