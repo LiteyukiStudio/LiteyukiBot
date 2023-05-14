@@ -4,9 +4,9 @@
 
 <img src="https://gitee.com/snowykami/liteyuki-resource/raw/master/liteyuki_logo.png" width=300 alt="Liteyukilogo">
 
-### Brand new Liteyuki bot
+### New Liteyuki bot
  
-####  **Because of coder is preparing for gaokao, this project has been paused in April 2023, and will be restart in July 2023** 
+####  **Because of coder is preparing for CEE, this project has been paused in April 2023, and will be restart in July 2023** 
 
 #### QQ bot based on [Nonebot2](https://v2.nonebot.dev/) 
 
