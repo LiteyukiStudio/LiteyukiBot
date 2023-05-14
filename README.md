@@ -21,7 +21,7 @@
 - International, support multiple languages and self-define languages
 
 - 集成了一些美观且实用的功能，如插件管理，群聊管理，天气查看等
-- Intergrate some aesthetic and useful functions, including plugins management, group management, and weathers checking
+- Intergrate some aesthetic and useful functions, including plugins management, group management, and weather checking
 
 - 绝大多数配置操作可以通过QQ交互，避免对配置文件的手动修改
 - Most of the configurations can be set on QQ, avoiding the manual setting of the configuation files.
