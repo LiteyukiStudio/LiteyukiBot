@@ -44,10 +44,10 @@
 - Liyuki **CANNOT** be booted using ```nb run``` due to the inbuild of [nonebot_plugin_reboot](https://github.com/18870/nonebot-plugin-reboot) plugin which increases the convenience thanks to the author of this plugin
 - Liyuki uses the MiSans font and 汉仪文黑-85w as the default font (non-commercial)
 - This project is developed of interest, due to limitation of my time and ability, please feel free to make suggestions on anywhere i didn't do well.
-### 联系方式 Contact
 
-- Liteyuki轻雪交流群：[775840726(十分推荐)](https://jq.qq.com/?_wv=1027&k=AkaMlHVt)
-- QQ：[2751454815(九分推荐)](https://qm.qq.com/cgi-bin/qm/qr?k=3RVhi_oPP2Yq-uhb0mHW1tipHcy8S8y8&noverify=0&personal_qrcode_source=4)
-- 邮箱：snowykami@outlook.com
-- 爱发电：[SnowyKami](https://afdian.net/a/snowykami)
+### Contact
 
+- Liteyuki QQ group：[775840726(Very command)](https://jq.qq.com/?_wv=1027&k=AkaMlHVt)
+- QQ：[2751454815(Very command)](https://qm.qq.com/cgi-bin/qm/qr?k=3RVhi_oPP2Yq-uhb0mHW1tipHcy8S8y8&noverify=0&personal_qrcode_source=4)
+- e-mail：snowykami@outlook.com
+- AiFaDian：[SnowyKami](https://afdian.net/a/snowykami)
