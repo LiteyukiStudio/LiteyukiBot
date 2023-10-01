@@ -1,0 +1,41 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="HtmlUnknownAttribute" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="myValues">
+        <value>
+          <list size="1">
+            <item index="0" class="java.lang.String" itemvalue="color" />
+          </list>
+        </value>
+      </option>
+      <option name="myCustomValuesEnabled" value="true" />
+    </inspection_tool>
+    <inspection_tool class="PyBroadExceptionInspection" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <value>
+          <list size="16">
+            <item index="0" class="java.lang.String" itemvalue="nonebot" />
+            <item index="1" class="java.lang.String" itemvalue="keyvalue-sqlite" />
+            <item index="2" class="java.lang.String" itemvalue="GitPython" />
+            <item index="3" class="java.lang.String" itemvalue="pydantic" />
+            <item index="4" class="java.lang.String" itemvalue="nonebot2" />
+            <item index="5" class="java.lang.String" itemvalue="nonebot-adapter-onebot" />
+            <item index="6" class="java.lang.String" itemvalue="nonebot-adapter-telegram" />
+            <item index="7" class="java.lang.String" itemvalue="PyYAML" />
+            <item index="8" class="java.lang.String" itemvalue="aiofiles" />
+            <item index="9" class="java.lang.String" itemvalue="nonebot-adapter-github" />
+            <item index="10" class="java.lang.String" itemvalue="psutil" />
+            <item index="11" class="java.lang.String" itemvalue="gputil" />
+            <item index="12" class="java.lang.String" itemvalue="nb-cli" />
+            <item index="13" class="java.lang.String" itemvalue="nonebot_plugin_htmlrender" />
+            <item index="14" class="java.lang.String" itemvalue="pillow" />
+            <item index="15" class="java.lang.String" itemvalue="aiohttp" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="ReassignedToPlainText" enabled="false" level="WARNING" enabled_by_default="false" />
+  </profile>
+</component>
