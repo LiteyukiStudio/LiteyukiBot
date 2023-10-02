@@ -1,8 +1,26 @@
+import os.path
 import threading
 import nonebot
 import yaml
 
-config = yaml.safe_load(open('config.yml', encoding='UTF-8'))
+if not os.path.exists('config.yml'):
+    f = open('config.yml', 'w', encoding='utf-8')
+    yaml.dump(
+        {
+            'liteyuki': {
+                
+            },
+            'nonebot': {
+
+            }
+        },
+        f,
+        yaml.Dumper
+    )
+
+config = yaml.safe_load(open('config.yml', encoding='utf-8'))
+if not isinstance(config, dict):
+    config = dict()
 
 class Liteyuki:
     def __init__(self, params=None):
@@ -27,4 +45,7 @@ class Liteyuki:
         nonebot.load_plugin('src.builtin.liteyuki_main')
 
     def stop(self):
+        pass
+
+    def reboot(self):
         pass
