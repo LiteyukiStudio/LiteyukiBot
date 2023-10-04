@@ -1,2 +1,6 @@
 config.yml
 .idea/
+plugins/
+!plugins/.keep
+data/
+!data/.keep
