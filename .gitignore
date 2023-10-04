@@ -3,4 +3,3 @@ config.yml
 plugins/
 !plugins/.keep
 data/
-!data/.keep
