@@ -1,0 +1,2 @@
+send_group_msg message=欢迎新成员[CQ:at,qq=USER_ID]
+send_group_msg message=[CQ:poke,qq=USER_ID]

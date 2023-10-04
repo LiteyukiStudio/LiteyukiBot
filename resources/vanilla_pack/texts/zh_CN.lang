@@ -1,0 +1,17 @@
+lang.en_US.name=英语（美国）
+lang.en_GB.name=英语（英国）
+lang.ja_JP.name=日语（日本）
+lang.zh_CN.name=简体中文
+lang.zh_TW.name=繁体中文
+
+log.main.res_name_not_found=资源名称未定义
+log.main.suc_to_load_resource=成功加载资源包：{NAME}
+log.main.no_superusers=<r>当前没有超级用户，请通过QQ发送 {CS}<y>SU{AUTH_CODE}</y> 以注册为超级用户</r>
+log.main.suc_to_reg_su=<g>超级用户 <y>{USER_ID}</y> 注册成功</g>
+log.main.fail_to_reg_su=<r>超级用户 <y>{USER_ID}</y> 注册失败，验证码错误</r>
+
+msg.main.suc_to_reg_su=超级用户「{USER_ID}」注册成功
+msg.main.fail_to_reg_su=超级用户「{USER_ID}」注册失败，验证码错误
+
+text.weather.name=轻雪天气
+text.weather.description=轻雪内置的一个天气插件，很精准

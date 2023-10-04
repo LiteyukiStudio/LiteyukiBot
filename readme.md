@@ -21,7 +21,7 @@
 
 1.安装Git，使用命令`git clone https://gitee.com/snowykami/liteyuki-bot` 克隆项目至本地
 
-2.切换到轻雪目录，使用`pip install -r requirements.txt`
+2.切换到轻雪目录，使用`pip install -r r.txt`
 
 3.`python main.py`！启动！
 
@@ -35,7 +35,7 @@ echo 正在克隆项目...
 git clone https://gitee.com/snowykami/liteyuki-bot
 cd liteyuki-bot
 echo 正在安装依赖...
-pip install -r requirements.txt
+pip install -r r.txt
 echo python main.py > run.bat
 echo pause >> run.bat
 echo 启动脚本"run.bat"已创建，点击即可启动
