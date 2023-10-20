@@ -22,6 +22,7 @@ load_resource_from_index()
 async def detect_superuser(bot: Bot):
     db = Data('common', 'config')
     db.remove('auth_code')
+    # print a data to detect if there is superusers
     if not len(bot.config.superusers):
         auth_code = str(random.randint(1000, 9999))
         db.set('auth_code', auth_code)
@@ -47,6 +48,42 @@ async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg(), ):
             logger.opt(colors=True).warning(Language().get('log.main.fail_to_reg_su', USER_ID=event.user_id))
 
 
+@echo.handle()
+async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg(), ):
+    await echo.send(arg)
+
+
 @su_test.handle()
 async def _():
     await su_test.send('suc')
+
+
+@ban.handle()
+async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg(), ):
+    await bot.call_api('set_group_ban', group_id=event.group_id, user_id=int(arg), duration=60 * 60 * 24 * 365 * 10)
+    await ban.send('suc')
+
+
+def decode_text(text: str):
+    # input a string, output a string
+    # transfer cqcode to text
+    replace_data = {
+        '&amp;': '&',
+        '&#91;': '[',
+        '&#93;': ']',
+        '&#44;': ',',
+        '%20': ' '
+    }
+    for old, new in replace_data.items():
+        text = text.replace(old, new)
+    return text
+
+
+def list_all_folder(path: str):
+    # input a path, output a list
+    # list all folder in the path
+    folder_list = []
+    for folder in os.listdir(path):
+        if os.path.isdir(os.path.join(path, folder)):
+            folder_list.append(folder)
+    return folder_list
