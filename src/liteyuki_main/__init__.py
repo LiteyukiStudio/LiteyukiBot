@@ -48,21 +48,10 @@ async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg(), ):
             logger.opt(colors=True).warning(Language().get('log.main.fail_to_reg_su', USER_ID=event.user_id))
 
 
-@echo.handle()
-async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg(), ):
-    await echo.send(arg)
-
 
 @su_test.handle()
 async def _():
     await su_test.send('suc')
-
-
-@ban.handle()
-async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg(), ):
-    await bot.call_api('set_group_ban', group_id=event.group_id, user_id=int(arg), duration=60 * 60 * 24 * 365 * 10)
-    await ban.send('suc')
-
 
 def decode_text(text: str):
     # input a string, output a string

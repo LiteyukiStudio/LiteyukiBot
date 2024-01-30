@@ -1,5 +1,5 @@
 <div align="center">
-    <img src="docs/img/snowy.png" style="width: 30%; margin-top:10%;">
+    <img src="https://nya.liteyuki.icu:809/static/img/liteyuki_icon.png" style="width: 30%; margin-top:10%;">
 </div>
 <div align=center>
     <h2>
@@ -15,7 +15,7 @@
 
 - 基于[Nonebot2]("https://github.com/nonebot/nonebot2")，有良好的生态支持
 - 集成了上一代轻雪的优点和~~缺点~~
-- 支持QQ/Telegram/Github通信，后续会支持更多的平台
+- 支持Telegram/Github通信，后续会支持更多的平台
 
 ## 手动安装和部署
 
