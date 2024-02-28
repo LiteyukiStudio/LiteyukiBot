@@ -1,2 +1,12 @@
-.idea
-plugin
+# idea
+plugin/
+
+# config
+config.yml
+
+# external plugins
+/plugins/
+
+# pyc/pyo
+**/*.pyc
+**/*.pyo
