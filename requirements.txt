@@ -1,3 +1,1 @@
-
 nonebot2[fastapi]
-watchdog==2.1.6

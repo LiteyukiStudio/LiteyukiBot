@@ -19,11 +19,31 @@
 
 ## 手动安装和部署
 
-1.安装Git，使用命令`git clone https://gitee.com/snowykami/liteyuki-bot` 克隆项目至本地
+1.安装Git，使用命令`git clone https://github.com/snowykami/LiteyukiBot` 克隆项目至本地
 
 2.切换到轻雪目录，使用`pip install -r r.txt`
 
 3.`python main.py`！启动！
+
+## 一键部署脚本
+### Windows
+```bash
+chcp 65001
+git clone https://github.com/snowykami/LiteyukiBot
+cd LiteyukiBot
+pip install -r requirements.txt
+echo python main.py > start.bat
+echo Install finished! Please run start.bat to start the bot!
+```
+### Linux
+```bash
+git clone https://github.com/snowykami/LiteyukiBot
+cd LiteyukiBot
+pip install -r requirements.txt
+echo python main.py > start.sh
+chmod +x start.sh
+echo Install finished! Please run start.sh to start the bot!
+```
 
 ## 注意事项
 
