@@ -10,3 +10,7 @@ config.yml
 # pyc/pyo
 **/*.pyc
 **/*.pyo
+
+# data
+/data/
+```

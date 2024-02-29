@@ -1,4 +1,7 @@
 from src.liteyuki import *
+from pymongo import MongoClient
+
+a = MongoClient("mongodb://localhost:27017/")
 
 if __name__ == '__main__':
     liteyuki = Liteyuki()

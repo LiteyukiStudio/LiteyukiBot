@@ -1,9 +1,9 @@
 from typing import Any, Optional
-from nonebot import DOTENV_TYPE
 import nonebot
-from nonebot import logger
+from nonebot import DOTENV_TYPE
 from nonebot.adapters.onebot.v11 import Adapter as OnebotV11Adapter
 from nonebot.adapters.onebot.v12 import Adapter as OnebotV12Adapter
+from sqlalchemy import create_engine
 
 from src.api.utils import load_config
 
@@ -36,9 +36,9 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/ ''
     def run(self, *args, **kwargs):
         for adapter in adapters:
             self.driver.register_adapter(adapter)
-        self.nonebot.load_plugin('src.liteyuki_main')
-        self.nonebot.load_plugins('src/builtin')
-        self.nonebot.load_plugins('plugins')
+        self.nonebot.load_plugin('src.liteyuki_main')  # Load main plugin
+        self.nonebot.load_plugins('src/builtin')  # Load builtin plugins
+        self.nonebot.load_plugins('plugins')  # Load custom plugins
         # Todo: load from database
         self.nonebot.run(*args, **kwargs)
 
