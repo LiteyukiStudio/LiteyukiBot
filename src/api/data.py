@@ -1,12 +1,9 @@
 import json
 import sqlite3
 import types
-import typing
 from abc import ABC
 from collections.abc import Iterable
-from copy import deepcopy
 from typing import Any
-
 from pydantic import BaseModel
 
 BaseIterable = list | tuple | set | dict
@@ -291,7 +288,8 @@ class SqliteORMAdapter(BaseORMAdapter):
                 new_d = {}
                 for k, v in d.items():
                     if k.startswith(self.FOREIGNID):
-                        new_d[k.replace(self.FOREIGNID, '')] = load(dict(self.cursor.execute(f'SELECT * FROM {v.split(":")[1]} WHERE id = ?', (v.split(":")[2],)).fetchone()))
+                        new_d[k.replace(self.FOREIGNID, '')] = load(
+                            dict(self.cursor.execute(f'SELECT * FROM {v.split(":")[1]} WHERE id = ?', (v.split(":")[2],)).fetchone()))
                     elif k.startswith(self.JSON):
                         new_d[k.replace(self.JSON, '')] = load(json.loads(v))
                     else:
