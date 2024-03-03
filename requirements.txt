@@ -1,2 +1,5 @@
 nonebot2[fastapi]
 nonebot-adapter-onebot==2.4.1
+pydantic==1.10.8
+yaml==0.2.5
+pyyaml==6.0

@@ -3,7 +3,6 @@ import nonebot
 from nonebot import DOTENV_TYPE
 from nonebot.adapters.onebot.v11 import Adapter as OnebotV11Adapter
 from nonebot.adapters.onebot.v12 import Adapter as OnebotV12Adapter
-from sqlalchemy import create_engine
 
 from src.api.utils import load_config
 
