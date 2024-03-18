@@ -69,8 +69,8 @@ class BaseORMAdapter(ABC):
         raise NotImplementedError
 
 
-class SqliteORMAdapter(BaseORMAdapter):
-    """SQLiteORM适配器，严禁使用FORIEGNID和JSON作为主键前缀，严禁使用$ID:作为字符串值前缀
+class SqliteORMDatabase(BaseORMAdapter):
+    """SQLiteORM适配器，严禁使用`FORIEGNID`和`JSON`作为主键前缀，严禁使用`$ID:`作为字符串值前缀
 
     Attributes:
 
@@ -167,7 +167,7 @@ class SqliteORMAdapter(BaseORMAdapter):
                     value_list.append(f'{self.ID}:{value.__class__.__name__}:{self.save(value)}')
                 elif isinstance(value, BaseIterable):
                     key_list.append(f'{self.JSON}{field}')
-                    value_list.append(self.flat(value))
+                    value_list.append(self._flat(value))
                 else:
                     key_list.append(field)
                     value_list.append(value)
@@ -178,7 +178,7 @@ class SqliteORMAdapter(BaseORMAdapter):
         self.conn.commit()
         return ids[0] if len(ids) == 1 else tuple(ids)
 
-    def flat(self, data: Iterable) -> str:
+    def _flat(self, data: Iterable) -> str:
         """扁平化数据，返回扁平化对象
 
         Args:
@@ -192,7 +192,7 @@ class SqliteORMAdapter(BaseORMAdapter):
                 if isinstance(v, LiteModel):
                     return_data[f'{self.FOREIGNID}{k}'] = f'{self.ID}:{v.__class__.__name__}:{self.save(v)}'
                 elif isinstance(v, BaseIterable):
-                    return_data[f'{self.JSON}{k}'] = self.flat(v)
+                    return_data[f'{self.JSON}{k}'] = self._flat(v)
                 else:
                     return_data[k] = v
 
@@ -202,7 +202,7 @@ class SqliteORMAdapter(BaseORMAdapter):
                 if isinstance(v, LiteModel):
                     return_data.append(f'{self.ID}:{v.__class__.__name__}:{self.save(v)}')
                 elif isinstance(v, BaseIterable):
-                    return_data.append(self.flat(v))
+                    return_data.append(self._flat(v))
                 else:
                     return_data.append(v)
         else:

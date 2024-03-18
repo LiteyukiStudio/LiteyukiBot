@@ -1,7 +1,16 @@
-from src.liteyuki import *
+import nonebot
 
+from nonebot.adapters.onebot import v11, v12
+from src.utils.config import load_from_yaml
 
-if __name__ == '__main__':
-    liteyuki = Liteyuki()
-    app = liteyuki.get_asgi()
-    liteyuki.run(app="main:app")
+nonebot.init(**load_from_yaml("config.yml").get("nonebot", {}))
+
+adapters = [v11.Adapter, v12.Adapter]
+driver = nonebot.get_driver()
+for adapter in adapters:
+    driver.register_adapter(adapter)
+
+nonebot.load_plugin("src.plugins.liteyuki_plugin_main")
+
+if __name__ == "__main__":
+    nonebot.run()

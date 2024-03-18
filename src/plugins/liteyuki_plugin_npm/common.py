@@ -1,0 +1,1 @@
+LNPM_COMMAND_START = "lnpm"

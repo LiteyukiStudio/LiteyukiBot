@@ -1,16 +1,7 @@
-# idea
-plugin/
+.venv/
 
-# config
+.cache/
+data/
+
 config.yml
-
-# external plugins
-/plugins/
-
-# pyc/pyo
-**/*.pyc
-**/*.pyo
-
-# data
-/data/
-```
+config.example.yml

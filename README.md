@@ -19,11 +19,10 @@
 
 ## 手动安装和部署
 
-1. 安装`Git`和`Python3.10+`后，使用命令`git clone https://github.com/snowykami/LiteyukiBot` 克隆项目至本地。
-  一定要安装Git，Bot自带功能需要git支持
-2. 切换到轻雪目录，使用`pip install -r requirements.txt`安装依赖
-
-3. `python main.py`启动！
+1. 前置：`Git`和`Python3.10+`
+2. 使用命令`git clone https://github.com/snowykami/LiteyukiBot`
+3. 切换到轻雪目录，使用`pip install -r requirements.txt`安装依赖
+4. `python main.py`启动！
 
 ## 一键部署脚本(复制到本地保存执行)
 
