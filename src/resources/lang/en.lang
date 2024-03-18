@@ -1,0 +1,16 @@
+language.name=English
+
+main.current_language=Current system language: {LANG}
+main.enable_webdash=Web dashboard is enabled: {URL}
+main.monitor.title=Liteyuki Monitor
+main.monitor.description=Monitor your server with Liteyuki Monitor
+main.monitor.cpu=CPU
+main.monitor.memory=MEM
+main.monitor.swap=SWAP
+main.monitor.disk=Disk
+main.monitor.usage=Usage
+
+npm.loaded_plugins=Loaded plugins
+
+user.profile_manager.query=Your {ATTR} is {VALUE}
+user.profile_manager.set=Your {ATTR} has been set to {VALUE}

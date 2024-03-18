@@ -19,10 +19,11 @@
 
 ## 手动安装和部署
 
-1. 前置：`Git`和`Python3.10+`
-2. 使用命令`git clone https://github.com/snowykami/LiteyukiBot`
-3. 切换到轻雪目录，使用`pip install -r requirements.txt`安装依赖
-4. `python main.py`启动！
+1. 安装`Git`和`Python3.10+`
+2. 克隆项目到本地`git clone https://github.com/snowykami/LiteyukiBot`
+3. 切换到轻雪目录`cd LiteyukiBot`
+4. 安装依赖`pip install -r requirements.txt`
+5. 启动`python main.py`
 
 ## 一键部署脚本(复制到本地保存执行)
 
@@ -36,7 +37,7 @@ git clone https://github.com/snowykami/LiteyukiBot
 cd LiteyukiBot
 pip install -r requirements.txt
 echo python3 main.py > start.bat
-echo Install finished! Please run start.bat to start the bot!
+echo Install finished! Please click "start.bat" to start the bot!
 ```
 
 #### Linux
@@ -47,12 +48,10 @@ cd LiteyukiBot
 pip install -r requirements.txt
 echo python3 main.py > start.sh
 chmod +x start.sh
-echo Install finished! Please run start.sh to start the bot!
+echo Install finished! Please run "sh start.sh" to start the bot!
 ```
 
 ## 注意事项
-
-- 尽可能不要去动配置文件，通过与bot交互进行配置即可，若仍然想自定义配置请在`config.yml`中修改
 
 - 首次启动会提醒用户注册超级用户
 
@@ -60,20 +59,18 @@ echo Install finished! Please run start.sh to start the bot!
 
 ### Onebot实现端配置
 
-| 字段 | 参考值                           | 说明                      |
-|----|-------------------------------|-------------------------|
-| 协议 | 反向WebSocket                   | 轻雪使用反向ws协议进行通信，即轻雪作为服务端 |
-| 地址 | ws://`host`:`port`/onebot/v11 | 地址取决于配置文件，默认为`20216`端口  |
+| 字段 | 参考值                           | 说明                        |
+|----|-------------------------------|---------------------------|
+| 协议 | 反向WebSocket                   | 轻雪默认使用反向ws协议进行通信，即轻雪作为服务端 |
+| 地址 | ws://`host`:`port`/onebot/v11 | 地址取决于配置文件，默认为`20216`端口    |
 
-### 推荐方案 
+### 推荐方案(QQ)
 1. 使用`Lagrange.Core`，`Lagrange.Core`支持多种协议
 2. 云崽的`icqq-plugin`和`ws-plugin`进行通信
 3. `Go-cqhttp`（目前已经半死不活了）
 4. 人工实现的`Onebot`协议，自己整一个WebSocket客户端，看着QQ的消息，然后给轻雪传输数据
+### 推荐方案(Minecraft)
+1. 我们有专门为Minecraft开发的服务器Bot，支持OnebotV11/12标准，详细请看[MinecraftOneBot](https://github.com/snowykami/MinecraftOnebot)
 
 请先自行查阅文档，若有困难请联系相关开发者而不是Liteyuki的开发者
 ## 鸣谢
-
-- html转图片使用的[kexue-z](https://github.com/kexue-z)的[nonebot-plugin-htmlrender](https://github.com/kexue-z/nonebot-plugin-htmlrender)插件的部分代码
-- 重启方案用的[18870](https://github.com/18870)的[Nonebot-plugin-reboot](https://github.com/18870/nonebot-plugin-reboot)插件的部分代码
-- Lagrange.Core的测试环境支持

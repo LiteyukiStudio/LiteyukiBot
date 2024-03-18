@@ -1,5 +1,8 @@
 import nonebot
 from nonebot.plugin import PluginMetadata
+from src.utils.language import get_system_lang
+from .loader import *
+from .webdash import *
 
 __author__ = "snowykami"
 __plugin_meta__ = PluginMetadata(
@@ -9,11 +12,8 @@ __plugin_meta__ = PluginMetadata(
     homepage="https://github.com/snowykami/LiteyukiBot",
 )
 
-fastapi_app = nonebot.get_app()
+from src.utils.config import config
 
-
-@fastapi_app.get("/")
-async def root():
-    return {
-            "message": "Hello LiteyukiBot!",
-    }
+sys_lang = get_system_lang()
+nonebot.logger.info(sys_lang.get("main.current_language", LANG=sys_lang.get("language.name")))
+nonebot.logger.info(sys_lang.get("main.enable_webdash", URL=f"http://{config['nonebot']['host']}:{config['nonebot']['port']}"))

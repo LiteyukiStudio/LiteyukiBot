@@ -1,9 +1,12 @@
 import json
+import os
 import sqlite3
 import types
 from abc import ABC
 from collections.abc import Iterable
 from typing import Any
+
+import nonebot
 from pydantic import BaseModel
 
 BaseIterable = list | tuple | set | dict
@@ -89,6 +92,8 @@ class SqliteORMDatabase(BaseORMAdapter):
 
     def __init__(self, db_name: str):
         super().__init__()
+        if not os.path.exists(os.path.dirname(db_name)):
+            os.makedirs(os.path.dirname(db_name))
         self.conn = sqlite3.connect(db_name)
         self.conn.row_factory = sqlite3.Row
         self.cursor = self.conn.cursor()
@@ -136,12 +141,13 @@ class SqliteORMDatabase(BaseORMAdapter):
             # 检测新字段
             for field, type_ in zip(model_fields, model_types):
                 if field not in table_fields:
-                    print(f'ALTER TABLE {table_name} ADD COLUMN {field} {type_}')
+                    nonebot.logger.debug(f'ALTER TABLE {table_name} ADD COLUMN {field} {type_}')
                     self.cursor.execute(f'ALTER TABLE {table_name} ADD COLUMN {field} {type_}')
 
             # 检测多余字段，除了id字段
             for field in table_fields:
                 if field not in model_fields and field != 'id':
+                    nonebot.logger.debug(f'ALTER TABLE {table_name} DROP COLUMN {field}')
                     self.cursor.execute(f'ALTER TABLE {table_name} DROP COLUMN {field}')
 
         self.conn.commit()
@@ -172,6 +178,7 @@ class SqliteORMDatabase(BaseORMAdapter):
                     key_list.append(field)
                     value_list.append(value)
             # 更新或插入数据，用?占位
+            nonebot.logger.debug(f'INSERT OR REPLACE INTO {table_name} ({",".join(key_list)}) VALUES ({",".join(["?" for _ in key_list])})')
             self.cursor.execute(f'INSERT OR REPLACE INTO {table_name} ({",".join(key_list)}) VALUES ({",".join(["?" for _ in key_list])})', value_list)
 
             ids.append(self.cursor.lastrowid)
@@ -223,8 +230,9 @@ class SqliteORMDatabase(BaseORMAdapter):
         """
         table_name = model.__name__
         self.cursor.execute(f'SELECT * FROM {table_name} WHERE {conditions}', args)
-        data = dict(self.cursor.fetchone())
-        return model(**self.convert_to_dict(data)) if data else default
+        if data := self.cursor.fetchone():
+            return model(**self.convert_to_dict(data))
+        return default
 
     def all(self, model: type(LiteModel), conditions, *args, default: Any = None) -> list[LiteModel] | None:
         """查询所有数据
@@ -254,6 +262,7 @@ class SqliteORMDatabase(BaseORMAdapter):
 
         """
         table_name = model.__name__
+        nonebot.logger.debug(f'DELETE FROM {table_name} WHERE {conditions}')
         self.cursor.execute(f'DELETE FROM {table_name} WHERE {conditions}', args)
         self.conn.commit()
 
@@ -270,6 +279,7 @@ class SqliteORMDatabase(BaseORMAdapter):
 
         """
         table_name = model.__name__
+        nonebot.logger.debug(f'UPDATE {table_name} SET {operation} WHERE {conditions}')
         self.cursor.execute(f'UPDATE {table_name} SET {operation} WHERE {conditions}', args)
         self.conn.commit()
 
