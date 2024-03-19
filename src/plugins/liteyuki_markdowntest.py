@@ -27,4 +27,4 @@ async def _(bot: T_Bot, event: T_MessageEvent, arg: v11.Message = CommandArg()):
         bot,
         message_type=event.message_type,
         session_id=event.user_id if event.message_type == "private" else event.group_id
-    )
+)
