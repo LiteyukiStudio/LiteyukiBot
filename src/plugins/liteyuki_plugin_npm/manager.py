@@ -2,7 +2,7 @@ import nonebot.plugin
 from nonebot import on_command
 from nonebot.permission import SUPERUSER
 
-from src.utils.adapter import MessageEvent
+from src.utils.adapter import T_MessageEvent
 from src.utils.language import get_user_lang
 
 list_plugins = on_command("list-plugin", aliases={"列出插件"}, priority=0)
@@ -10,7 +10,7 @@ toggle_plugin = on_command("enable-plugin", aliases={"启用插件", "禁用插�
 
 
 @list_plugins.handle()
-async def _(event: MessageEvent):
+async def _(event: T_MessageEvent):
     lang = get_user_lang(str(event.user_id))
     reply = lang.get("npm.loaded_plugins")
     for plugin in nonebot.get_loaded_plugins():

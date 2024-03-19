@@ -12,7 +12,7 @@ class BasicConfig(BaseModel):
     port: int = 20216
     superusers: list[str] = []
     command_start: list[str] = ["/", ""]
-    nickname: set[str] = {"Liteyuki"}
+    nickname: list[str] = ["liteyuki"]
 
 
 def load_from_yaml(file: str) -> dict:

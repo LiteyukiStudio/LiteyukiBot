@@ -10,7 +10,7 @@ driver = nonebot.get_driver()
 for adapter in adapters:
     driver.register_adapter(adapter)
 
-nonebot.load_plugin("src.plugins.liteyuki_plugin_main")
+nonebot.load_plugin("src.liteyuki_main")
 
 if __name__ == "__main__":
     nonebot.run()

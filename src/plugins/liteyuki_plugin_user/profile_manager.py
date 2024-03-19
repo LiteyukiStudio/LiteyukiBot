@@ -1,7 +1,7 @@
 from nonebot import on_command
 from nonebot.params import CommandArg
 
-from src.utils.adapter import Bot, Message, MessageEvent
+from src.utils.adapter import T_Bot, T_Message, T_MessageEvent
 from src.utils.data_manager import User, user_db
 from src.utils.language import get_user_lang
 
@@ -16,7 +16,7 @@ attr_cmd = on_command("profile", aliases={"个人设置"}, priority=0)
 
 
 @attr_cmd.handle()
-async def _(bot: Bot, event: MessageEvent, args: Message = CommandArg()):
+async def _(bot: T_Bot, event: T_MessageEvent, args: T_Message = CommandArg()):
     user = user_db.first(User, "user_id = ?", str(event.user_id), default=User(user_id=str(event.user_id)))
     ulang = get_user_lang(str(event.user_id))
 
