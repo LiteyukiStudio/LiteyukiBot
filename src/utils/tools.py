@@ -29,3 +29,16 @@ def convert_size(size: int, precision: int = 2, add_unit: bool = True, suffix: s
         return f"{size:.{precision}f} Y" + suffix
     else:
         return f"{size:.{precision}f}"
+
+
+def de_escape(text: str) -> str:
+    str_map = {
+        "&#91;": "[",
+        "&#93;": "]",
+        "&amp;": "&",
+        "&#44;": ",",
+    }
+    for k, v in str_map.items():
+        text = text.replace(k, v)
+
+    return text

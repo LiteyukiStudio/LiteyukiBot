@@ -1,7 +1,7 @@
 from nonebot import on_command
 from nonebot.params import CommandArg
 
-from src.utils.adapter import T_Bot, T_Message, T_MessageEvent
+from src.utils.typing import T_Bot, T_Message, T_MessageEvent
 from src.utils.data_manager import User, user_db
 from src.utils.language import get_user_lang
 

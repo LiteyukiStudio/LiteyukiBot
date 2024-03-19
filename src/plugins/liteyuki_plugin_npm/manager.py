@@ -2,7 +2,7 @@ import nonebot.plugin
 from nonebot import on_command
 from nonebot.permission import SUPERUSER
 
-from src.utils.adapter import T_MessageEvent
+from src.utils.typing import T_MessageEvent
 from src.utils.language import get_user_lang
 
 list_plugins = on_command("list-plugin", aliases={"列出插件"}, priority=0)
