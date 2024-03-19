@@ -4,6 +4,7 @@ from dash import Dash, Input, Output, dcc, html
 from starlette.middleware.wsgi import WSGIMiddleware
 
 from src.utils.language import Language
+from src.utils.tools import convert_size
 
 app = nonebot.get_app()
 
@@ -22,19 +23,20 @@ def get_system_info():
 async def system_info():
     return get_system_info()
 
+
 lang = Language()
 dash_app = Dash(__name__)
 dash_app.layout = dash_app.layout = html.Div(children=[
-    html.H1(children=lang.get("main.monitor.title"), style={
-        'textAlign': 'center'
-    }),
+        html.H1(children=lang.get("main.monitor.title"), style={
+                'textAlign': 'center'
+        }),
 
-    dcc.Graph(id='live-update-graph'),
-    dcc.Interval(
-        id='interval-component',
-        interval=1 * 1000,  # in milliseconds
-        n_intervals=0
-    )
+        dcc.Graph(id='live-update-graph'),
+        dcc.Interval(
+            id='interval-component',
+            interval=1 * 1000,  # in milliseconds
+            n_intervals=0
+        )
 ])
 
 
@@ -51,20 +53,23 @@ def update_graph_live(n):
             dcc.Graph(id='live-update-graph'),
             dcc.Interval(
                 id='interval-component',
-                interval=1 * 1000,  # in milliseconds
+                interval=2 * 1000,  # in milliseconds
                 n_intervals=0
             )
     ])
+    mem = psutil.virtual_memory()
+    cpu_f = psutil.cpu_freq()
     figure = {
             'data'  : [
                     {
-                            'x'   : [lang.get('main.monitor.cpu')],
+                            'x'   : [f"{cpu_f.current / 1000:.2f}GHz {psutil.cpu_count(logical=False)}c{psutil.cpu_count()}t"],
                             'y'   : [system_inf['cpu_percent']],
                             'type': 'bar',
                             'name': f"{lang.get('main.monitor.cpu')} {lang.get('main.monitor.usage')}"
+
                     },
                     {
-                            'x'   : [lang.get('main.monitor.memory')],
+                            'x'   : [f"{convert_size(mem.used, add_unit=False)}/{convert_size(mem.total)}({mem.used / mem.total * 100:.2f}%)"],
                             'y'   : [system_inf['memory_percent']],
                             'type': 'bar',
                             'name': f"{lang.get('main.monitor.memory')} {lang.get('main.monitor.usage')}"
@@ -72,6 +77,12 @@ def update_graph_live(n):
             ],
             'layout': {
                     'title': lang.get('main.monitor.description'),
+                    # 'xaxis': {
+                    #         'range': [0, 10]
+                    #         },  # 设置x轴的范围
+                    'yaxis': {
+                            'range': [0, 100]
+                    },  # 设置y轴的范围
             }
     }
     return figure

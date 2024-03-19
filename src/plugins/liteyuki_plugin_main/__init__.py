@@ -16,4 +16,4 @@ from src.utils.config import config
 
 sys_lang = get_system_lang()
 nonebot.logger.info(sys_lang.get("main.current_language", LANG=sys_lang.get("language.name")))
-nonebot.logger.info(sys_lang.get("main.enable_webdash", URL=f"http://{config['nonebot']['host']}:{config['nonebot']['port']}"))
+nonebot.logger.info(sys_lang.get("main.enable_webdash", URL=f"http://127.0.0.1:{config.get('port', 8080)}"))

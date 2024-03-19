@@ -3,7 +3,7 @@ import nonebot
 from nonebot.adapters.onebot import v11, v12
 from src.utils.config import load_from_yaml
 
-nonebot.init(**load_from_yaml("config.yml").get("nonebot", {}))
+nonebot.init(**load_from_yaml("config.yml"))
 
 adapters = [v11.Adapter, v12.Adapter]
 driver = nonebot.get_driver()

@@ -3,5 +3,5 @@
 .cache/
 data/
 
-config.yml
+_config.yml
 config.example.yml
