@@ -12,6 +12,9 @@ main.monitor.usage=Usage
 
 npm.loaded_plugins=Loaded plugins
 npm.total=Total {TOTAL}
+npm.disable=Disable
+npm.enable=Enable
+npm.no_description=No description
 
 user.profile_manager.query=Your {ATTR} is {VALUE}
 user.profile_manager.set=Your {ATTR} has been set to {VALUE}

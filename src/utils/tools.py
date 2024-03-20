@@ -1,3 +1,6 @@
+from urllib.parse import quote
+
+
 def convert_size(size: int, precision: int = 2, add_unit: bool = True, suffix: str = "iB") -> str:
     """把字节数转换为人类可读的字符串，计算正负
 
@@ -33,12 +36,16 @@ def convert_size(size: int, precision: int = 2, add_unit: bool = True, suffix: s
 
 def de_escape(text: str) -> str:
     str_map = {
-        "&#91;": "[",
-        "&#93;": "]",
-        "&amp;": "&",
-        "&#44;": ",",
+            "&#91;": "[",
+            "&#93;": "]",
+            "&amp;": "&",
+            "&#44;": ",",
     }
     for k, v in str_map.items():
         text = text.replace(k, v)
 
     return text
+
+
+def encode_url(text: str) -> str:
+    return quote(text, safe="")

@@ -2,7 +2,7 @@ import nonebot.plugin
 from nonebot import on_command
 from nonebot.permission import SUPERUSER
 
-from src.utils.message import send_markdown
+from src.utils.message import button, send_markdown
 from src.utils.typing import T_Bot, T_MessageEvent
 from src.utils.language import get_user_lang
 
@@ -17,7 +17,9 @@ async def _(event: T_MessageEvent, bot: T_Bot):
     for plugin in nonebot.get_loaded_plugins():
         # 检查是否有 metadata 属性
         if plugin.metadata:
-            reply += f"\n- **{plugin.metadata.name}**".replace('_', r'\_')
+            reply += (f"\n{button(lang.get('npm.disable'), 'disable-plugin %s' % plugin.name, False, False)} **{plugin.metadata.name}**\n"
+                      f"\n > {plugin.metadata.description}\n\n***\n")
         else:
-            reply += f"\n- **{plugin.name}**".replace('_', r'\_')
+            reply += (f"\n{button(lang.get('npm.disable'), 'disable-plugin %s' % plugin.name, False, False)} **{plugin.name}**\n"
+                      f"\n > {lang.get('npm.no_description')}\n\n***\n")
     await send_markdown(reply, bot, event=event)

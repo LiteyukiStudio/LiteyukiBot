@@ -10,3 +10,4 @@ compile.bat
 # nuitka
 main.build/
 main.exe
+main.cmd

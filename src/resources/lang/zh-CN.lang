@@ -12,6 +12,9 @@ main.monitor.usage=使用率
 
 npm.loaded_plugins=已加载插件
 npm.total=总计 {TOTAL}
+npm.disable=停用
+npm.enable=启用
+npm.no_description=无描述
 
 user.profile_manager.query=你的个人信息 {ATTR} 为 {VALUE}
 user.profile_manager.set=你的个人信息 {ATTR} 已设置为 {VALUE}

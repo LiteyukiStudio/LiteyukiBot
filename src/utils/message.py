@@ -2,11 +2,11 @@ import nonebot
 from nonebot.adapters.onebot import v11, v12
 from typing_extensions import Any
 
-from .tools import de_escape
+from .tools import de_escape, encode_url
 from .typing import T_Bot, T_MessageEvent
 
 
-async def send_markdown(markdown: str, bot: T_Bot, *,  message_type: str=None, session_id: str | int=None, event: T_MessageEvent=None) -> dict[str, Any]:
+async def send_markdown(markdown: str, bot: T_Bot, *, message_type: str = None, session_id: str | int = None, event: T_MessageEvent = None) -> dict[str, Any]:
     formatted_md = de_escape(markdown).replace("\n", r"\n").replace("\"", r'\\\"')
     if event is not None and message_type is None:
         message_type = event.message_type
@@ -71,3 +71,18 @@ async def send_markdown(markdown: str, bot: T_Bot, *,  message_type: str=None, s
             nonebot.logger.error("send_markdown: bot type not supported")
             data = {}
     return data
+
+
+def button(name: str, cmd: str, reply: bool = False, enter: bool = True) -> str:
+    """生成点击按钮的链接
+    Args:
+        name:
+        cmd:
+        reply: 是否以回复的方式发送消息
+        enter: 自动发送消息则为True
+
+    Returns:
+        markdown格式的链接
+
+    """
+    return f"[{name}](mqqapi://aio/inlinecmd?command={encode_url(cmd)}&reply={str(reply).lower()}&enter={str(enter).lower()})"
