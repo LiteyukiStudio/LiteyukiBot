@@ -2,21 +2,22 @@ import nonebot.plugin
 from nonebot import on_command
 from nonebot.permission import SUPERUSER
 
-from src.utils.typing import T_MessageEvent
+from src.utils.message import send_markdown
+from src.utils.typing import T_Bot, T_MessageEvent
 from src.utils.language import get_user_lang
 
-list_plugins = on_command("list-plugin", aliases={"列出插件"}, priority=0)
-toggle_plugin = on_command("enable-plugin", aliases={"启用插件", "禁用插件", "disable-plugin"}, priority=0)
+list_plugins = on_command("list-plugin", aliases={"列出插件"}, priority=0, permission=SUPERUSER)
+toggle_plugin = on_command("enable-plugin", aliases={"启用插件", "禁用插件", "disable-plugin"}, priority=0, permission=SUPERUSER)
 
 
 @list_plugins.handle()
-async def _(event: T_MessageEvent):
+async def _(event: T_MessageEvent, bot: T_Bot):
     lang = get_user_lang(str(event.user_id))
-    reply = lang.get("npm.loaded_plugins")
+    reply = f"# {lang.get('npm.loaded_plugins')} | {lang.get('npm.total', TOTAL=len(nonebot.get_loaded_plugins()))} \n***"
     for plugin in nonebot.get_loaded_plugins():
         # 检查是否有 metadata 属性
         if plugin.metadata:
-            reply += f"\n- {plugin.metadata.name}"
+            reply += f"\n- **{plugin.metadata.name}**".replace('_', r'\_')
         else:
-            reply += f"\n- {plugin.name}"
-    await list_plugins.finish(reply)
+            reply += f"\n- **{plugin.name}**".replace('_', r'\_')
+    await send_markdown(reply, bot, event=event)

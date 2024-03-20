@@ -3,6 +3,7 @@ from typing import Optional
 import nonebot
 from nonebot import on_message
 from arclet.alconna import Arparma, Alconna, Args, Option, Subcommand, Arg
+from nonebot.plugin import PluginMetadata
 from nonebot_plugin_alconna import on_alconna
 from src.utils.data import LiteModel
 from src.utils.message import send_markdown
@@ -34,7 +35,7 @@ alc = Alconna(
         "add",
         Args["source", str],
         Args["target", str],
-        Option("-b", Args["bidirectional", bool])
+        Option("bidirectional", Args["bidirectional", bool])
     ),
     Subcommand(
         "rm",
@@ -105,5 +106,14 @@ async def _(event: T_MessageEvent, bot: T_Bot):
             push_message = (
                 f"> From {event.sender.nickname}@{push.source.session_type}.{push.source.session_id}\n> Bot {bot.self_id}\n\n"
                 f"{msg_formatted}")
-            await send_markdown(push_message, bot2, push.target.session_type, push.target.session_id)
+            await send_markdown(push_message, bot2, event=event)
     return
+
+
+__author__ = "snowykami"
+__plugin_meta__ = PluginMetadata(
+    name="轻雪事件推送",
+    description="事件推送插件，支持单向和双向推送，支持跨Bot推送",
+    usage="",
+    homepage="https://github.com/snowykami/LiteyukiBot",
+)

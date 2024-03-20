@@ -11,6 +11,7 @@ main.monitor.disk=Disk
 main.monitor.usage=Usage
 
 npm.loaded_plugins=Loaded plugins
+npm.total=Total {TOTAL}
 
 user.profile_manager.query=Your {ATTR} is {VALUE}
 user.profile_manager.set=Your {ATTR} has been set to {VALUE}
