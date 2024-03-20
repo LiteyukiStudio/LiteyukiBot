@@ -6,7 +6,7 @@ from .tools import de_escape
 from .typing import T_Bot
 
 
-async def send_markdown(markdown: str, bot: T_Bot, message_type: str, session_id: str | int) -> dict[str, Any]:
+async def send_markdown(markdown: str, bot: T_Bot, message_type: str, session_id: str | int) -> tuple[dict[str, Any], dict[str, Any]]:
     formatted_md = de_escape(markdown).replace("\n", r"\n").replace("\"", r'\\\"')
     try:
         forward_data = await bot.call_api(
@@ -67,4 +67,4 @@ async def send_markdown(markdown: str, bot: T_Bot, message_type: str, session_id
         else:
             nonebot.logger.error("send_markdown: bot type not supported")
             data = {}
-    return data
+    return data, forward_data

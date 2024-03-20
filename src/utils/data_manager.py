@@ -1,6 +1,6 @@
 import os
 
-from src.utils.data import LiteModel, SqliteORMDatabase as DB
+from src.utils.data import LiteModel, Database as DB
 
 DATA_PATH = "data/liteyuki"
 
