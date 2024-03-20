@@ -115,7 +115,7 @@ async def npm_update() -> bool:
                     async with aiofiles.open("data/liteyuki/plugins.json", "wb") as f:
                         data = await resp.read()
                         await f.write(data)
-                        nonebot.logger.info()
+
                     return True
     return False
 
