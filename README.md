@@ -73,4 +73,8 @@ echo Install finished! Please run "sh start.sh" to start the bot!
 1. 我们有专门为Minecraft开发的服务器Bot，支持OnebotV11/12标准，详细请看[MinecraftOneBot](https://github.com/snowykami/MinecraftOnebot)
 
 请先自行查阅文档，若有困难请联系相关开发者而不是Liteyuki的开发者
+
+## 其他
+- 有一个用`Nuitka`编译的C语言版本可用
+
 ## 鸣谢

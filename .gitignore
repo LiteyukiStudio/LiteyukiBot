@@ -5,3 +5,8 @@ data/
 plugins/
 _config.yml
 config.example.yml
+compile.bat
+
+# nuitka
+main.build/
+main.exe
