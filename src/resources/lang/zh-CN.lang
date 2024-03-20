@@ -12,9 +12,21 @@ main.monitor.usage=使用率
 
 npm.loaded_plugins=已加载插件
 npm.total=总计 {TOTAL}
+npm.help=帮助
 npm.disable=停用
 npm.enable=启用
+npm.install=安装
+npm.uninstall=卸载
 npm.no_description=无描述
+npm.store_update_success=插件商店数据更新成功
+npm.store_update_failed=插件商店数据更新失败
+npm.search_result=搜索结果
+npm.search_no_result=无搜索结果
+npm.too_many_results=搜索结果过多，请翻页查看
+npm.author=作者
+npm.homepage=主页
+npm.next_page=下一页
+npm.prev_page=上一页
 
 user.profile_manager.query=你的个人信息 {ATTR} 为 {VALUE}
 user.profile_manager.set=你的个人信息 {ATTR} 已设置为 {VALUE}

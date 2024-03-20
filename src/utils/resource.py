@@ -2,11 +2,12 @@ import os
 
 import nonebot
 import yaml
+from typing_extensions import Any
 
 from src.utils.data import LiteModel
 
 _resource_data = {}
-_loaded_resource_packs = [] # 按照加载顺序排序
+_loaded_resource_packs = []  # 按照加载顺序排序
 
 
 class ResourceMetadata(LiteModel):
@@ -41,3 +42,14 @@ def load_resource_from_dir(path: str):
         from src.utils.language import load_from_dir
         load_from_dir(os.path.join(path, "lang"))
     _loaded_resource_packs.append(ResourceMetadata(**metadata))
+
+
+def get_res(path: str, default: Any = None) -> str | Any:
+    """
+    获取资源包中的文件
+    Args:
+        default: 默认
+        path: 文件相对路径
+    Returns: 文件绝对路径
+    """
+    return _resource_data.get(path, default)

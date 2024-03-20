@@ -12,9 +12,21 @@ main.monitor.usage=Usage
 
 npm.loaded_plugins=Loaded plugins
 npm.total=Total {TOTAL}
+npm.help=Help
 npm.disable=Disable
 npm.enable=Enable
+npm.install=Install
+npm.uninstall=Uninstall
 npm.no_description=No description
+npm.store_update_success=Plugin store data updated successfully
+npm.store_update_failed=Plugin store data update failed
+npm.search_result=Search results
+npm.search_no_result=No result found
+npm.too_many_results=Too many results found
+npm.author=Author
+npm.homepage=Homepage
+npm.next_page=Next
+npm.prev_page=Prev
 
 user.profile_manager.query=Your {ATTR} is {VALUE}
 user.profile_manager.set=Your {ATTR} has been set to {VALUE}

@@ -74,15 +74,15 @@ async def send_markdown(markdown: str, bot: T_Bot, *, message_type: str = None, 
 
 
 def button(name: str, cmd: str, reply: bool = False, enter: bool = True) -> str:
-    """生成点击按钮的链接
+    """生成点击按钮
     Args:
-        name:
-        cmd:
+        name: 按钮显示内容
+        cmd: 发送的命令，已在函数内url编码，不需要再次编码
         reply: 是否以回复的方式发送消息
-        enter: 自动发送消息则为True
+        enter: 自动发送消息则为True，否则填充到输入框
 
     Returns:
-        markdown格式的链接
+        markdown格式的可点击回调按钮
 
     """
     return f"[{name}](mqqapi://aio/inlinecmd?command={encode_url(cmd)}&reply={str(reply).lower()}&enter={str(enter).lower()})"

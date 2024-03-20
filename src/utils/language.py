@@ -5,7 +5,7 @@
 import json
 import locale
 import os
-from typing import Any
+from typing_extensions import Any
 
 import nonebot
 

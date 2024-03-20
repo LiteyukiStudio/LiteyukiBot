@@ -1,3 +1,5 @@
+aiohttp==3.9.3
+aiofiles==23.2.1
 arclet-alconna==1.8.5
 arclet-alconna-tools==0.7.0
 dash==2.16.1

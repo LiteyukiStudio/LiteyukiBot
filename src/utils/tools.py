@@ -49,3 +49,26 @@ def de_escape(text: str) -> str:
 
 def encode_url(text: str) -> str:
     return quote(text, safe="")
+
+
+def keywords_in_text(keywords: list[str], text: str, all_matched: bool) -> bool:
+    """
+    检查关键词是否在文本中
+    Args:
+        keywords: 关键词列表
+        text: 文本
+        all_matched: 是否需要全部匹配
+
+    Returns:
+
+    """
+    if all_matched:
+        for keyword in keywords:
+            if keyword not in text:
+                return False
+        return True
+    else:
+        for keyword in keywords:
+            if keyword in text:
+                return True
+        return False
