@@ -69,7 +69,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
     ulang = get_user_lang(str(event.user_id))
 
     if not os.path.exists("data/liteyuki/plugins.json"):
-        shutil.move(get_res('unsorted/plugins.json'), "data/liteyuki/plugins.json")
+        shutil.copy(get_res('unsorted/plugins.json'), "data/liteyuki/plugins.json")
         nonebot.logger.info("Please update plugin store data file.")
 
     if result.subcommands.get("update"):
