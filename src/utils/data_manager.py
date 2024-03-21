@@ -5,6 +5,7 @@ from src.utils.data import LiteModel, Database as DB
 DATA_PATH = "data/liteyuki"
 
 user_db = DB(os.path.join(DATA_PATH, 'users.ldb'))
+plugin_db = DB(os.path.join(DATA_PATH, 'plugins.ldb'))
 
 
 class User(LiteModel):

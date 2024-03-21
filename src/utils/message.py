@@ -73,16 +73,31 @@ async def send_markdown(markdown: str, bot: T_Bot, *, message_type: str = None, 
     return data
 
 
-def button(name: str, cmd: str, reply: bool = False, enter: bool = True) -> str:
-    """生成点击按钮
-    Args:
-        name: 按钮显示内容
-        cmd: 发送的命令，已在函数内url编码，不需要再次编码
-        reply: 是否以回复的方式发送消息
-        enter: 自动发送消息则为True，否则填充到输入框
+class Markdown:
+    @staticmethod
+    def button(name: str, cmd: str, reply: bool = False, enter: bool = True) -> str:
+        """生成点击按钮
+        Args:
+            name: 按钮显示内容
+            cmd: 发送的命令，已在函数内url编码，不需要再次编码
+            reply: 是否以回复的方式发送消息
+            enter: 自动发送消息则为True，否则填充到输入框
 
-    Returns:
-        markdown格式的可点击回调按钮
+        Returns:
+            markdown格式的可点击回调按钮
 
-    """
-    return f"[{name}](mqqapi://aio/inlinecmd?command={encode_url(cmd)}&reply={str(reply).lower()}&enter={str(enter).lower()})"
+        """
+        return f"[{name}](mqqapi://aio/inlinecmd?command={encode_url(cmd)}&reply={str(reply).lower()}&enter={str(enter).lower()})"
+
+    @staticmethod
+    def link(name: str, url: str) -> str:
+        """生成链接
+        Args:
+            name: 链接显示内容
+            url: 链接地址
+
+        Returns:
+            markdown格式的链接
+
+        """
+        return f"[链接{name}]({encode_url(url)})"
