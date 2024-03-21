@@ -8,4 +8,7 @@ __plugin_meta__ = PluginMetadata(
     description="用户管理插件",
     usage="",
     homepage="https://github.com/snowykami/LiteyukiBot",
+    extra={
+            "liteyuki_plugin": True,
+    }
 )

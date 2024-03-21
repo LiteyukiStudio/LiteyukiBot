@@ -1,8 +1,10 @@
 import nonebot
 from nonebot.plugin import PluginMetadata
 from src.utils.language import get_system_lang
+from src.utils.data_manager import *
 from .loader import *
 from .webdash import *
+from src.utils.config import config
 
 __author__ = "snowykami"
 __plugin_meta__ = PluginMetadata(
@@ -10,9 +12,12 @@ __plugin_meta__ = PluginMetadata(
     description="轻雪主程序插件，包含了许多初始化的功能",
     usage="",
     homepage="https://github.com/snowykami/LiteyukiBot",
+    extra={
+            "liteyuki_plugin": True,
+    }
 )
 
-from src.utils.config import config
+auto_migrate()
 
 sys_lang = get_system_lang()
 nonebot.logger.info(sys_lang.get("main.current_language", LANG=sys_lang.get("language.name")))

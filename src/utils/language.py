@@ -9,6 +9,7 @@ from typing_extensions import Any
 
 import nonebot
 
+from src.utils.config import config
 from src.utils.data_manager import User, user_db
 
 _default_lang_code = "en"
@@ -133,7 +134,10 @@ def get_user_lang(user_id: str) -> Language:
     """
     获取用户的语言代码
     """
-    user = user_db.first(User, "user_id = ?", user_id, default=User(user_id=user_id, username="Unknown", lang="en"))
+    user = user_db.first(User, "user_id = ?", user_id, default=User(
+        user_id=user_id,
+        username="Unknown",
+        lang=config.get("default_language", get_system_lang_code())))
     return Language(user.lang)
 
 

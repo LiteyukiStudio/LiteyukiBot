@@ -3,7 +3,6 @@ from .manager import *
 from .installer import *
 from .helper import *
 
-
 __author__ = "snowykami"
 __plugin_meta__ = PluginMetadata(
     name="轻雪插件管理",
@@ -16,4 +15,7 @@ __plugin_meta__ = PluginMetadata(
     ),
     type="application",
     homepage="https://github.com/snowykami/LiteyukiBot",
+    extra={
+            "liteyuki_plugin": True,
+    }
 )

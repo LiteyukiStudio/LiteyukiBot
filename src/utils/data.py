@@ -88,11 +88,10 @@ class Database(BaseORMAdapter):
     }
 
     DEFAULT_TYPE = {
-        'TEXT': '',
-        'INTEGER': 0,
-        'REAL': 0.0
+            'TEXT'   : '',
+            'INTEGER': 0,
+            'REAL'   : 0.0
     }
-
 
     FOREIGNID = 'FOREIGNID'
     JSON = 'JSON'
@@ -115,6 +114,7 @@ class Database(BaseORMAdapter):
         Returns:
 
         """
+        table_name = ''
         for model in args:
             model: type(LiteModel)
             # 检测并创建表，若模型未定义id字段则使用自增主键，有定义的话使用id字段，且id有可能为字符串
@@ -161,6 +161,7 @@ class Database(BaseORMAdapter):
                     self.cursor.execute(f'ALTER TABLE {table_name} DROP COLUMN {field}')
 
         self.conn.commit()
+        nonebot.logger.success(f'Table {table_name} migrated successfully')
 
     def save(self, *models: LiteModel) -> int | tuple:
         """存储数据，检查id字段，如果有id字段则更新，没有则插入
@@ -171,9 +172,12 @@ class Database(BaseORMAdapter):
         Returns:
             id: 数据id，如果有多个数据则返回id元组
         """
+
         ids = []
         for model in models:
             table_name = model.__class__.__name__
+            if not self._detect_for_table(table_name):
+                raise ValueError(f'表{table_name}不存在，请先迁移')
             key_list = []
             value_list = []
             # 处理外键，添加前缀'$IDFieldName'
@@ -227,6 +231,17 @@ class Database(BaseORMAdapter):
 
         return json.dumps(return_data)
 
+    def _detect_for_table(self, table_name: str) -> bool:
+        """在进行增删查改前检测表是否存在
+
+        Args:
+            table_name: 表名
+
+        Returns:
+
+        """
+        return self.cursor.execute(f'SELECT * FROM sqlite_master WHERE type = "table" AND name = ?', (table_name,)).fetchone()
+
     def first(self, model: type(LiteModel), conditions, *args, default: Any = None) -> LiteModel | None:
         """查询第一条数据
 
@@ -239,6 +254,10 @@ class Database(BaseORMAdapter):
         Returns: 数据
         """
         table_name = model.__name__
+
+        if not self._detect_for_table(table_name):
+            return default
+
         self.cursor.execute(f'SELECT * FROM {table_name} WHERE {conditions}', args)
         if row_data := self.cursor.fetchone():
             data = dict(row_data)
@@ -258,7 +277,8 @@ class Database(BaseORMAdapter):
         """
         table_name = model.__name__
 
-        # 检测表是否存在，否则返回None
+        if not self._detect_for_table(table_name):
+            return default
 
         if conditions:
             self.cursor.execute(f'SELECT * FROM {table_name} WHERE {conditions}', args)
@@ -281,25 +301,11 @@ class Database(BaseORMAdapter):
 
         """
         table_name = model.__name__
+
+        if not self._detect_for_table(table_name):
+            return
         nonebot.logger.debug(f'DELETE FROM {table_name} WHERE {conditions}')
         self.cursor.execute(f'DELETE FROM {table_name} WHERE {conditions}', args)
-        self.conn.commit()
-
-    def update(self, model: type(LiteModel), conditions: str, *args, operation: str):
-        """更新数据
-
-        Args:
-            model: 模型
-            conditions: 查询条件
-            *args: 参数化查询条件参数
-            operation: 更新操作
-
-        Returns:
-
-        """
-        table_name = model.__name__
-        nonebot.logger.debug(f'UPDATE {table_name} SET {operation} WHERE {conditions}')
-        self.cursor.execute(f'UPDATE {table_name} SET {operation} WHERE {conditions}', args)
         self.conn.commit()
 
     def convert_to_dict(self, data: dict) -> dict:
@@ -318,7 +324,7 @@ class Database(BaseORMAdapter):
                 for k, v in d.items():
                     if k.startswith(self.FOREIGNID):
                         new_d[k.replace(self.FOREIGNID, '')] = load(
-                            dict(self.cursor.execute(f'SELECT * FROM {v.split(":",2)[1]} WHERE id = ?', (v.split(":",2)[2],)).fetchone()))
+                            dict(self.cursor.execute(f'SELECT * FROM {v.split(":", 2)[1]} WHERE id = ?', (v.split(":", 2)[2],)).fetchone()))
                     elif k.startswith(self.JSON):
                         new_d[k.replace(self.JSON, '')] = load(json.loads(v))
                     else:
@@ -327,7 +333,7 @@ class Database(BaseORMAdapter):
                 new_d = []
                 for i, v in enumerate(d):
                     if isinstance(v, str) and v.startswith(self.ID):
-                        new_d.append(load(dict(self.cursor.execute(f'SELECT * FROM {v.split(":",2)[1]} WHERE id = ?', (v.split(":",2)[2],)).fetchone())))
+                        new_d.append(load(dict(self.cursor.execute(f'SELECT * FROM {v.split(":", 2)[1]} WHERE id = ?', (v.split(":", 2)[2],)).fetchone())))
                     elif isinstance(v, BaseIterable):
                         new_d.append(load(v))
             else:

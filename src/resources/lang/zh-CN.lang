@@ -10,6 +10,8 @@ main.monitor.swap=交换空间
 main.monitor.disk=磁盘
 main.monitor.usage=使用率
 
+data_manager.migrate_success=数据模型{NAME}迁移成功
+
 npm.loaded_plugins=已加载插件
 npm.total=总计 {TOTAL}
 npm.help=帮助
@@ -17,16 +19,22 @@ npm.disable=停用
 npm.enable=启用
 npm.install=安装
 npm.uninstall=卸载
+npm.installing=正在安装 {NAME}
+npm.cannot_uninstall=无法卸载
 npm.no_description=无描述
 npm.store_update_success=插件商店数据更新成功
 npm.store_update_failed=插件商店数据更新失败
 npm.search_result=搜索结果
 npm.search_no_result=无搜索结果
-npm.too_many_results=搜索结果过多，请限制关键字
+npm.too_many_results=搜索结果过多，{HIDE_NUM}已隐藏，请限制关键字
 npm.install_success={NAME} 安装成功
 npm.install_failed={NAME} 安装失败
+npm.remove_success={NAME} 卸载成功
+npm.remove_failed={NAME} 卸载失败
+npm.plugin_not_installed={NAME} 未安装
+npm.plugin_already_installed={NAME} 已安装，请勿重复安装
 npm.author=作者
-npm.homepage=主页
+npm.homepage=项目主页
 npm.next_page=下一页
 npm.prev_page=上一页
 

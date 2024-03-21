@@ -104,8 +104,8 @@ async def _(event: T_MessageEvent, bot: T_Bot):
             for l in str(event.message).split("\n"):
                 msg_formatted += f"**{l.strip()}**\n"
             push_message = (
-                f"> From {event.sender.nickname}@{push.source.session_type}.{push.source.session_id}\n> Bot {bot.self_id}\n\n"
-                f"{msg_formatted}")
+                    f"> From {event.sender.nickname}@{push.source.session_type}.{push.source.session_id}\n> Bot {bot.self_id}\n\n"
+                    f"{msg_formatted}")
             await send_markdown(push_message, bot2, event=event)
     return
 
@@ -116,4 +116,7 @@ __plugin_meta__ = PluginMetadata(
     description="事件推送插件，支持单向和双向推送，支持跨Bot推送",
     usage="",
     homepage="https://github.com/snowykami/LiteyukiBot",
+    extra={
+            "liteyuki_plugin": True,
+    }
 )

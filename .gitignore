@@ -2,6 +2,7 @@
 
 .cache/
 data/
+db/
 plugins/
 _config.yml
 config.example.yml

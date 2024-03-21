@@ -14,4 +14,10 @@ class User(LiteModel):
     lang: str = "en"
 
 
-user_db.auto_migrate(User)
+class InstalledPlugin(LiteModel):
+    module_name: str
+
+
+def auto_migrate():
+    user_db.auto_migrate(User)
+    plugin_db.auto_migrate(InstalledPlugin)
