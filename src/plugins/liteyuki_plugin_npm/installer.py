@@ -105,7 +105,6 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
     elif result.subcommands.get("install"):
         plugin_name: str = result.subcommands["install"].args.get("plugin_name")
         r, log = npm_install(plugin_name)
-        log = log.replace("\\", "/")
         if r:
             nonebot.load_plugin(plugin_name)
             installed_plugin = InstalledPlugin(module_name=plugin_name)

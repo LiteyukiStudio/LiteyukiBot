@@ -100,4 +100,4 @@ class Markdown:
             markdown格式的链接
 
         """
-        return f"[🔗{name}]({encode_url(url)})"
+        return f"[🔗{name}]({url})"
