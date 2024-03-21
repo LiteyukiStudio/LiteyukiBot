@@ -214,6 +214,7 @@ def npm_install(plugin_module_name) -> tuple[bool, str]:
 
     mirrors = [
             "https://pypi.tuna.tsinghua.edu.cn/simple",
+            "https://pypi.mirrors.cqupt.edu.cn/simple/",
             "https://pypi.org/simple",
     ]
 
