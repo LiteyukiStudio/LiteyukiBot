@@ -14,10 +14,11 @@ __plugin_meta__ = PluginMetadata(
     homepage="https://github.com/snowykami/LiteyukiBot",
     extra={
             "liteyuki_plugin": True,
+            "toggleable": False,
     }
 )
 
-auto_migrate()
+auto_migrate()  # 自动迁移数据库
 
 sys_lang = get_system_lang()
 nonebot.logger.info(sys_lang.get("main.current_language", LANG=sys_lang.get("language.name")))

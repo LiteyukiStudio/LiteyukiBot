@@ -53,6 +53,6 @@ __plugin_meta__ = PluginMetadata(
     usage="",
     homepage="https://github.com/snowykami/LiteyukiBot",
     extra={
-            "liteyuki_plugin": True,
+            "liteyuki": True,
     }
 )

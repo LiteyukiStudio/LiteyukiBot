@@ -76,7 +76,7 @@ async def send_markdown(markdown: str, bot: T_Bot, *, message_type: str = None, 
 class Markdown:
     @staticmethod
     def button(name: str, cmd: str, reply: bool = False, enter: bool = True) -> str:
-        """生成点击按钮
+        """生成点击回调按钮
         Args:
             name: 按钮显示内容
             cmd: 发送的命令，已在函数内url编码，不需要再次编码
@@ -91,7 +91,7 @@ class Markdown:
 
     @staticmethod
     def link(name: str, url: str) -> str:
-        """生成链接
+        """生成点击链接按钮
         Args:
             name: 链接显示内容
             url: 链接地址
@@ -101,3 +101,18 @@ class Markdown:
 
         """
         return f"[🔗{name}]({url})"
+
+    @staticmethod
+    def escape(text: str) -> str:
+        """转义特殊字符
+        Args:
+            text: 需要转义的文本，请勿直接把整个markdown文本传入，否则会转义掉所有字符
+
+        Returns:
+            转义后的文本
+
+        """
+        chars = "*[]()~_-`>#+-=|{}.!"
+        for char in chars:
+            text = text.replace(char, f"\\\\{char}")
+        return text

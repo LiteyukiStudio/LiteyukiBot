@@ -22,7 +22,7 @@ from src.utils.data_manager import InstalledPlugin
 
 npm_alc = on_alconna(
     Alconna(
-        ["lnpm", "插件管理"],
+        ["npm", "插件"],
         Subcommand(
             "update",
             alias=["u"],
@@ -42,28 +42,16 @@ npm_alc = on_alconna(
             Args["plugin_name", str],
             alias=["rm", "移除", "卸载"],
         ),
+        Subcommand(
+            "list",
+            alias=["l", "ls", "列表"],
+        )
     ),
     permission=SUPERUSER
 )
 
 
-class PluginTag(LiteModel):
-    label: str
-    color: str = '#000000'
 
-
-class StorePlugin(LiteModel):
-    name: str
-    desc: str
-    module_name: str
-    project_link: str = ''
-    homepage: str = ''
-    author: str = ''
-    type: str | None = None
-    version: str | None = ''
-    time: str = ''
-    tags: list[PluginTag] = []
-    is_official: bool = False
 
 
 @npm_alc.handle()
@@ -88,12 +76,15 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
         if len(rs):
             reply = f"{ulang.get('npm.search_result')} | {ulang.get('npm.total', TOTAL=len(rs))}\n***"
             for plugin in rs[:min(max_show, len(rs))]:
-                btn_install = md.button(ulang.get('npm.install'), 'lnpm install %s' % plugin.module_name)
+                btn_install = md.button(ulang.get('npm.install'), 'npm install %s' % plugin.module_name)
                 link_page = md.link(ulang.get('npm.homepage'), plugin.homepage)
+                link_pypi = md.link(ulang.get('npm.pypi'), plugin.homepage)
 
-                reply += (f"\n{btn_install}  **{plugin.name}**\n"
-                          f"\n > **{plugin.desc}**\n"
-                          f"\n > {ulang.get('npm.author')}: {plugin.author}  {link_page}\n\n***\n")
+                reply += (f"\n# **{plugin.name}**\n"
+                          f"\n> **{plugin.desc}**\n"
+                          f"\n> {ulang.get('npm.author')}: {plugin.author}"
+                          f"\n> *{md.escape(plugin.module_name)}*"
+                          f"\n> {btn_install}    {link_page}    {link_pypi}\n\n***\n")
             if len(rs) > max_show:
                 reply += f"\n{ulang.get('npm.too_many_results', HIDE_NUM=len(rs) - max_show)}"
         else:
@@ -102,27 +93,43 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
 
     elif result.subcommands.get("install"):
         plugin_module_name: str = result.subcommands["install"].args.get("plugin_name")
+        store_plugin = await get_store_plugin(plugin_module_name)
         await npm_alc.send(ulang.get("npm.installing", NAME=plugin_module_name))
         r, log = npm_install(plugin_module_name)
         log = log.replace("\\", "/")
+
+        if not store_plugin:
+            await npm_alc.finish(ulang.get("npm.plugin_not_found", NAME=plugin_module_name))
+
+        homepage_btn = md.button(ulang.get('npm.homepage'), store_plugin.homepage)
         if r:
-            nonebot.load_plugin(plugin_module_name)  # 加载插件
+
+            r_load = nonebot.load_plugin(plugin_module_name)  # 加载插件
             installed_plugin = InstalledPlugin(module_name=plugin_module_name)  # 构造插件信息模型
-            store_plugin = await get_store_plugin(plugin_module_name)  # 获取商店中的插件信息
             found_in_db_plugin = plugin_db.first(InstalledPlugin, "module_name = ?", plugin_module_name)  # 查询数据库中是否已经安装
-            if found_in_db_plugin is None:
-                plugin_db.save(installed_plugin)
-                info = ulang.get('npm.install_success', NAME=store_plugin.name).replace('_', r'\\_')  # markdown转义
+
+            if r_load:
+                if found_in_db_plugin is None:
+                    plugin_db.save(installed_plugin)
+                    info = ulang.get('npm.install_success', NAME=store_plugin.name).replace('_', r'\\_')  # markdown转义
+                    await send_markdown(
+                        f"{info}\n\n"
+                        f"```\n{log}\n```",
+                        bot,
+                        event=event
+                    )
+                else:
+                    await npm_alc.finish(ulang.get('npm.plugin_already_installed', NAME=store_plugin.name))
+            else:
+                info = ulang.get('npm.load_failed', NAME=plugin_module_name, HOMEPAGE=homepage_btn).replace('_', r'\\_')
                 await send_markdown(
                     f"{info}\n\n"
-                    f"```\n{log}\n```",
+                    f"```\n{log}\n```\n",
                     bot,
                     event=event
                 )
-            else:
-                await npm_alc.finish(ulang.get('npm.plugin_already_installed', NAME=store_plugin.name))
         else:
-            info = ulang.get('npm.install_failed', NAME=plugin_module_name).replace('_', r'\\_')
+            info = ulang.get('npm.install_failed', NAME=plugin_module_name, HOMEPAGE=homepage_btn).replace('_', r'\\_')
             await send_markdown(
                 f"{info}\n\n"
                 f"```\n{log}\n```",
@@ -192,22 +199,7 @@ async def npm_search(keywords: list[str]) -> list[StorePlugin]:
     return results
 
 
-async def get_store_plugin(plugin_module_name: str) -> Optional[StorePlugin]:
-    """
-    获取插件信息
 
-    Args:
-        plugin_module_name (str): 插件模块名
-
-    Returns:
-        Optional[StorePlugin]: 插件信息
-    """
-    async with aiofiles.open("data/liteyuki/plugins.json", "r", encoding="utf-8") as f:
-        plugins: list[StorePlugin] = [StorePlugin(**pobj) for pobj in json.loads(await f.read())]
-    for plugin in plugins:
-        if plugin.module_name == plugin_module_name:
-            return plugin
-    return None
 
 
 def npm_install(plugin_module_name) -> tuple[bool, str]:

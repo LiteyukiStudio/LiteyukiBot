@@ -2,6 +2,7 @@ from nonebot.plugin import PluginMetadata
 from .manager import *
 from .installer import *
 from .helper import *
+from .permission import *
 
 __author__ = "snowykami"
 __plugin_meta__ = PluginMetadata(
@@ -16,6 +17,8 @@ __plugin_meta__ = PluginMetadata(
     type="application",
     homepage="https://github.com/snowykami/LiteyukiBot",
     extra={
-            "liteyuki_plugin": True,
+            "liteyuki": True,
+            "toggleable"     : False,
+            "default_enable" : True,
     }
 )
