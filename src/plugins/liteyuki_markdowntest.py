@@ -38,11 +38,12 @@ last_sent = None
 
 
 @md_conv.handle()
-async def _(bot: v11.Bot, event: v11.MessageEvent, arg: v11.Message = CommandArg()):
+async def _(bot: v11.Bot, event: T_MessageEvent, arg: v11.Message = CommandArg()):
     if str(event.user_id) == str(bot.self_id) and str(bot.self_id) in ["2751454815"]:
         nonebot.logger.info("开始处理：%s" % str(event.message_id))
 
-        data = await send_markdown(str(arg), bot, event=event)
+        data = await send_markdown(str(arg), bot, message_type=event.message_type,
+                                   session_id=event.user_id if event.message_type == "private" else event.group_id)
         await bot.delete_msg(message_id=event.message_id)
 
 
