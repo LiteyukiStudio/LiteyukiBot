@@ -49,6 +49,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
             # TODO
             pass
 
+
         user.profile[result.args["key"]] = result.args["value"]
 
     elif result.subcommands.get("get"):
