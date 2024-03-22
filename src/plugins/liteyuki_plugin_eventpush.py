@@ -106,7 +106,7 @@ async def _(event: T_MessageEvent, bot: T_Bot):
             push_message = (
                     f"> From {event.sender.nickname}@{push.source.session_type}.{push.source.session_id}\n> Bot {bot.self_id}\n\n"
                     f"{msg_formatted}")
-            await send_markdown(push_message, bot2, event=event)
+            await send_markdown(push_message, bot2, message_type=push.target.session_type, session_id=push.target.session_id)
     return
 
 
