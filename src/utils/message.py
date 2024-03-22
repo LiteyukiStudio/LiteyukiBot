@@ -6,7 +6,7 @@ from .tools import de_escape, encode_url
 from .typing import T_Bot, T_MessageEvent
 
 
-async def send_markdown(markdown: str, bot: T_Bot, *, message_type: str = None, session_id: str | int = None, event: T_MessageEvent = None) -> dict[str, Any]:
+async def send_markdown(markdown: str, bot: T_Bot, *, message_type: str = None, session_id: str | int = None, event: T_MessageEvent = None, **kwargs) -> dict[str, Any]:
     formatted_md = de_escape(markdown).replace("\n", r"\n").replace("\"", r'\\\"')
     if event is not None and message_type is None:
         message_type = event.message_type
@@ -45,6 +45,7 @@ async def send_markdown(markdown: str, bot: T_Bot, *, message_type: str = None, 
                         }
                     ),
             ],
+            **kwargs
 
         )
     except Exception as e:
@@ -54,7 +55,8 @@ async def send_markdown(markdown: str, bot: T_Bot, *, message_type: str = None, 
                 message_type=message_type,
                 message=markdown,
                 user_id=int(session_id),
-                group_id=int(session_id)
+                group_id=int(session_id),
+                **kwargs
             )
         elif isinstance(bot, v12.Bot):
             data = await bot.send_message(
@@ -65,7 +67,8 @@ async def send_markdown(markdown: str, bot: T_Bot, *, message_type: str = None, 
                     )
                 ),
                 user_id=str(session_id),
-                group_id=str(session_id)
+                group_id=str(session_id),
+                **kwargs
             )
         else:
             nonebot.logger.error("send_markdown: bot type not supported")

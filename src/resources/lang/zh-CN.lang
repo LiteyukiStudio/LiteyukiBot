@@ -47,5 +47,12 @@ npm.plugin_cannot_be_toggled=插件 {NAME} 无法被启用或停用
 npm.plugin_already=插件 {NAME} 已经是 {STATUS} 状态，无需重复操作
 npm.toggle_failed=插件 {NAME} {STATUS} 失败: {ERROR}
 
+user.profile.edit=修改
 user.profile_manager.query=你的个人信息 {ATTR} 为 {VALUE}
 user.profile_manager.set=你的个人信息 {ATTR} 已设置为 {VALUE}
+user.profile.settings=个人设置
+user.profile.lang=语言
+user.profile.timezone=时区
+user.profile.theme=主题
+user.profile.location=位置
+user.profile.nickname=称呼

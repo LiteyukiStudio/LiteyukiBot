@@ -1,3 +1,5 @@
+import os
+
 import nonebot.plugin
 from nonebot import on_command
 from nonebot.internal.matcher import Matcher
@@ -11,7 +13,7 @@ from src.utils.permission import GROUP_ADMIN, GROUP_OWNER
 from src.utils.typing import T_Bot, T_MessageEvent
 from src.utils.language import get_user_lang
 from .common import get_plugin_can_be_toggle, get_plugin_current_enable, get_plugin_default_enable
-from .installer import get_store_plugin
+from .installer import get_store_plugin, npm_update
 
 list_plugins = on_command("list-plugin", aliases={"列出插件", "插件列表"}, priority=0)
 # toggle_plugin = on_command("enable-plugin", aliases={"启用插件", "停用插件", "disable-plugin"}, priority=0)
@@ -25,6 +27,8 @@ toggle_plugin = on_alconna(
 
 @list_plugins.handle()
 async def _(event: T_MessageEvent, bot: T_Bot):
+    if not os.path.exists("data/liteyuki/plugins.json"):
+        await npm_update()
     lang = get_user_lang(str(event.user_id))
     reply = f"# {lang.get('npm.loaded_plugins')} | {lang.get('npm.total', TOTAL=len(nonebot.get_loaded_plugins()))} \n***\n"
     for plugin in nonebot.get_loaded_plugins():
@@ -71,6 +75,8 @@ async def _(event: T_MessageEvent, bot: T_Bot):
 
 @toggle_plugin.handle()
 async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
+    if not os.path.exists("data/liteyuki/plugins.json"):
+        await npm_update()
     # 判断会话类型
     ulang = get_user_lang(str(event.user_id))
     plugin_module_name = result.args.get("plugin_name")

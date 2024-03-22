@@ -3,7 +3,7 @@
 .cache/
 data/
 db/
-plugins/
+/plugins/
 _config.yml
 config.yml
 config.example.yml

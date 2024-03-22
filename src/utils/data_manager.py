@@ -12,7 +12,7 @@ plugin_db = DB(os.path.join(DATA_PATH, 'plugins.ldb'))
 class User(LiteModel):
     user_id: str
     username: str = ""
-    lang: str = "en"
+    profile: dict = {}
     enabled_plugins: list[str] = []
     disabled_plugins: list[str] = []
 

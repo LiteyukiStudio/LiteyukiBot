@@ -46,5 +46,12 @@ npm.prev_page=Prev
 npm.plugin_cannot_be_toggled=This plugin {NAME} cannot be toggled
 npm.toggle_failed=Failed to {STATUS} {NAME}: {ERROR}
 
+user.profile.edit=Edit
 user.profile_manager.query=Your {ATTR} is {VALUE}
-user.profile_manager.set=Your {ATTR} has been set to {VALUE}
+user.profile_manager.set=Yours {ATTR} has been set to {VALUE}
+user.profile.settings=Personal settings
+user.profile.lang=Language
+user.profile.timezone=Timezone
+user.profile.theme=Theme
+user.profile.location=Location
+user.profile.nickname=Nickname

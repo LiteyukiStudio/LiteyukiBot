@@ -136,9 +136,10 @@ def get_user_lang(user_id: str) -> Language:
     """
     user = user_db.first(User, "user_id = ?", user_id, default=User(
         user_id=user_id,
-        username="Unknown",
-        lang=config.get("default_language", get_system_lang_code())))
-    return Language(user.lang)
+        username="Unknown"
+    ))
+
+    return Language(user.profile.get('lang',config.get("default_language", get_system_lang_code()) ))
 
 
 def get_system_lang_code() -> str:
