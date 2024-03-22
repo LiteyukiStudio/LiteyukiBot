@@ -48,11 +48,22 @@ npm.plugin_already=插件 {NAME} 已经是 {STATUS} 状态，无需重复操作
 npm.toggle_failed=插件 {NAME} {STATUS} 失败: {ERROR}
 
 user.profile.edit=修改
+user.profile.set=设置
 user.profile_manager.query=你的个人信息 {ATTR} 为 {VALUE}
 user.profile_manager.set=你的个人信息 {ATTR} 已设置为 {VALUE}
-user.profile.settings=个人设置
+user.profile.settings=设置
+user.profile.info=个人信息
 user.profile.lang=语言
+user.profile.lang.desc=设置用户语言
 user.profile.timezone=时区
+user.profile.timezone.desc=设置用户当前时区
 user.profile.theme=主题
+user.profile.theme.desc=设置用户界面主题
 user.profile.location=位置
+user.profile.location.desc=设置用户位置信息
 user.profile.nickname=称呼
+user.profile.nickname.desc=设置Bot对用户的称呼
+
+user.profile.input_value=请输入 {ATTR} 的值
+user.profile.set_success=成功将 {ATTR} 设置为 {VALUE}
+user.profile.set_failed=设置 {ATTR} 失败，请检查输入是否合法

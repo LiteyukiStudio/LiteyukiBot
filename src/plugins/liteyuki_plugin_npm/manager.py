@@ -66,7 +66,7 @@ async def _(event: T_MessageEvent, bot: T_Bot):
                         md.button(lang.get('npm.uninstall'), f'npm remove {plugin.module_name}')) if plugin_in_database else lang.get(
                     'npm.uninstall')
                 btn_toggle_global = lang.get('npm.disable') if plugin.metadata and not plugin.metadata.extra.get('toggleable') \
-                    else md.button(lang.get('npm.disable_global'), f'disable-plugin {plugin.module_name} global')
+                    else md.button(lang.get('npm.disable_global'), f'disable-plugin {plugin.module_name} true')
                 reply += f"  {btn_remove}  {btn_toggle_global}"
 
         reply += "\n\n***\n"

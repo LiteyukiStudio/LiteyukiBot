@@ -8,7 +8,7 @@ from nonebot_plugin_alconna import on_alconna, Alconna, Args, Arparma, Option, S
 from src.utils.data import LiteModel
 from src.utils.typing import T_Bot, T_Message, T_MessageEvent
 from src.utils.data_manager import User, user_db
-from src.utils.language import get_user_lang
+from src.utils.language import Language, get_all_lang, get_user_lang
 from src.utils.message import Markdown as md, send_markdown
 
 profile_alc = on_alconna(
@@ -16,7 +16,7 @@ profile_alc = on_alconna(
         ["profile", "个人信息"],
         Subcommand(
             "set",
-            Args["key", str]["value", str, Optional],
+            Args["key", str]["value", str, None],
             alias=["s", "设置"],
         ),
         Subcommand(
@@ -42,13 +42,27 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
     ulang = get_user_lang(str(event.user_id))
     if result.subcommands.get("set"):
         if result.subcommands["set"].args.get("value"):
-            # TODO
-            pass
+            # 对合法性进行校验后设置
+            r = set_profile(result.args["key"], result.args["value"])
+            if r:
+                user.profile[result.args["key"]] = result.args["value"]
+                user_db.save(user)  # 数据库保存
+                await profile_alc.finish(
+                    ulang.get(
+                        "user.profile.set_success",
+                        ATTR=ulang.get(f"user.profile.{result.args['key']}"),
+                        VALUE=result.args["value"]
+                    )
+                )
+            else:
+                await profile_alc.finish(ulang.get("user.profile.set_failed", ATTR=ulang.get(f"user.profile.{result.args['key']}")))
         else:
-            # 没有值尝试呼出菜单，若菜单为none则提示用户输入值再次尝试
-            # TODO
-            pass
-
+            # 未输入值，尝试呼出菜单
+            menu = get_profile_menu(result.args["key"], ulang)
+            if menu:
+                await send_markdown(menu, bot, event=event)
+            else:
+                await profile_alc.finish(ulang.get("user.profile.input_value", ATTR=ulang.get(f"user.profile.{result.args['key']}")))
 
         user.profile[result.args["key"]] = result.args["value"]
 
@@ -60,10 +74,10 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
     else:
         profile = Profile(**user.profile)
 
-        for k, v in user.profile:
+        for k, v in user.profile.items():
             profile.__setattr__(k, v)
 
-        reply = f"# {ulang.get("user.profile.settings")}\n***\n"
+        reply = f"# {ulang.get('user.profile.info')}\n***\n"
 
         hidden_attr = ["id"]
         enter_attr = ["lang", "timezone"]
@@ -80,14 +94,29 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
         await send_markdown(reply, bot, event=event)
 
 
-def get_profile_menu(key: str) -> str:
+def get_profile_menu(key: str, ulang: Language) -> Optional[str]:
     """获取属性的markdown菜单
     Args:
-        key:
+        ulang: 用户语言
+        key: 属性键
 
     Returns:
 
     """
+    setting_name = ulang.get(f"user.profile.{key}")
+
+    no_menu = ["id", "nickname", "location"]
+
+    if key in no_menu:
+        return None
+
+    reply = f"{setting_name} {ulang.get('user.profile.settings')}\n***\n"
+    if key == "lang":
+        for lang_code, lang_name in get_all_lang().items():
+            btn_set = md.button(ulang.get('user.profile.set'), f"profile set {key} {lang_code}")
+            reply += (f"\n**{lang_name}**    **{lang_code}**\n"
+                      f"\n> {btn_set}\n\n***")
+    return reply
 
 
 def set_profile(key: str, value: str) -> bool:
@@ -100,3 +129,10 @@ def set_profile(key: str, value: str) -> bool:
         是否成功设置，输入合法性不通过返回False
 
     """
+    if key == 'lang':
+        if value in get_all_lang():
+            return True
+        return False
+    elif key == 'timezone':
+        # TODO
+        pass

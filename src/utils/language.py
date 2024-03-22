@@ -154,3 +154,15 @@ def get_system_lang() -> Language:
     获取系统语言
     """
     return Language(get_system_lang_code())
+
+
+def get_all_lang() -> dict[str, str]:
+    """
+    获取所有语言
+    Returns
+        {'en': 'English'}
+    """
+    d = {}
+    for key in _language_data:
+        d[key] = _language_data[key].get("language.name", key)
+    return d

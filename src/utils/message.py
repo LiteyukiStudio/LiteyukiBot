@@ -115,7 +115,7 @@ class Markdown:
             转义后的文本
 
         """
-        chars = "*[]()~_-`>#+-=|{}.!"
+        chars = "*[]()~_`>#+=|{}.!"
         for char in chars:
             text = text.replace(char, f"\\\\{char}")
         return text

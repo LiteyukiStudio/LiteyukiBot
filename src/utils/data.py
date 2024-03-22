@@ -141,10 +141,10 @@ class Database(BaseORMAdapter):
                 if isinstance(r_type, type(LiteModel)):
                     model_fields.append(f'{self.FOREIGNID}{field}')
                     model_types.append('TEXT')
-                elif isinstance(r_type, list):
+                elif r_type in [list[str], list[int], list[float], list[bool], list]:
                     model_fields.append(f'{self.LIST}{field}')
                     model_types.append('TEXT')
-                elif isinstance(r_type, dict):
+                elif r_type in [dict[str, str], dict[str, int], dict[str, float], dict[str, bool], dict]:
                     model_fields.append(f'{self.DICT}{field}')
                     model_types.append('TEXT')
                 elif isinstance(r_type, types.GenericAlias):
@@ -155,12 +155,12 @@ class Database(BaseORMAdapter):
                     model_types.append(self.type_map.get(r_type, 'TEXT'))
 
             # 检测新字段或字段类型是否有变化，有则增删字段，已经加了前缀类型
-            for field, type_, r_type in zip(model_fields, model_types, raw_types):
-                if field not in table_fields:
-                    nonebot.logger.debug(f'ALTER TABLE {table_name} ADD COLUMN {field} {type_}')
-                    self.cursor.execute(f'ALTER TABLE {table_name} ADD COLUMN {field} {type_}')
+            for field_changed, type_, r_type in zip(model_fields, model_types, raw_types):
+                if field_changed not in table_fields:
+                    nonebot.logger.debug(f'ALTER TABLE {table_name} ADD COLUMN {field_changed} {type_}')
+                    self.cursor.execute(f'ALTER TABLE {table_name} ADD COLUMN {field_changed} {type_}')
                     # 在原有的行中添加新字段对应类型的默认值，从DEFAULT_TYPE中获取
-                    self.cursor.execute(f'UPDATE {table_name} SET {field} = ? WHERE {field} IS NULL', (self.DEFAULT_VALUE.get(type_, ""),))
+                    self.cursor.execute(f'UPDATE {table_name} SET {field_changed} = ? WHERE {field_changed} IS NULL', (self.DEFAULT_VALUE.get(type_, ""),))
 
             # 检测多余字段，除了id字段
             for field in table_fields:
@@ -193,6 +193,12 @@ class Database(BaseORMAdapter):
                 if isinstance(value, LiteModel):
                     key_list.append(f'{self.FOREIGNID}{field}')
                     value_list.append(f'{self.ID}:{value.__class__.__name__}:{self.save(value)}')
+                elif isinstance(value, list):
+                    key_list.append(f'{self.LIST}{field}')
+                    value_list.append(self._flat(value))
+                elif isinstance(value, dict):
+                    key_list.append(f'{self.DICT}{field}')
+                    value_list.append(self._flat(value))
                 elif isinstance(value, BaseIterable):
                     key_list.append(f'{self.JSON}{field}')
                     value_list.append(self._flat(value))
@@ -220,6 +226,10 @@ class Database(BaseORMAdapter):
             for k, v in data.items():
                 if isinstance(v, LiteModel):
                     return_data[f'{self.FOREIGNID}{k}'] = f'{self.ID}:{v.__class__.__name__}:{self.save(v)}'
+                elif isinstance(v, list):
+                    return_data[f'{self.LIST}{k}'] = self._flat(v)
+                elif isinstance(v, dict):
+                    return_data[f'{self.DICT}{k}'] = self._flat(v)
                 elif isinstance(v, BaseIterable):
                     return_data[f'{self.JSON}{k}'] = self._flat(v)
                 else:
@@ -230,6 +240,10 @@ class Database(BaseORMAdapter):
             for v in data:
                 if isinstance(v, LiteModel):
                     return_data.append(f'{self.ID}:{v.__class__.__name__}:{self.save(v)}')
+                elif isinstance(v, list):
+                    return_data.append(self._flat(v))
+                elif isinstance(v, dict):
+                    return_data.append(self._flat(v))
                 elif isinstance(v, BaseIterable):
                     return_data.append(self._flat(v))
                 else:
@@ -333,15 +347,16 @@ class Database(BaseORMAdapter):
                     if k.startswith(self.FOREIGNID):
                         new_d[k.replace(self.FOREIGNID, '')] = load(
                             dict(self.cursor.execute(f'SELECT * FROM {v.split(":", 2)[1]} WHERE id = ?', (v.split(":", 2)[2],)).fetchone()))
-                    elif k.startswith(self.JSON):
-                        if v == '': v = '[]'
-                        new_d[k.replace(self.JSON, '')] = load(json.loads(v))
+
                     elif k.startswith(self.LIST):
                         if v == '': v = '[]'
                         new_d[k.replace(self.LIST, '')] = load(json.loads(v))
                     elif k.startswith(self.DICT):
                         if v == '': v = '{}'
                         new_d[k.replace(self.DICT, '')] = load(json.loads(v))
+                    elif k.startswith(self.JSON):
+                        if v == '': v = '[]'
+                        new_d[k.replace(self.JSON, '')] = load(json.loads(v))
                     else:
                         new_d[k] = v
             elif isinstance(d, list | tuple | set):
