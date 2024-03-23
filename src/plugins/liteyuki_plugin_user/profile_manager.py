@@ -1,14 +1,11 @@
 from typing import Optional
 
-from arclet.alconna import Arparma
-from nonebot import on_command
-from nonebot.params import CommandArg
-from nonebot_plugin_alconna import on_alconna, Alconna, Args, Arparma, Option, Subcommand
+from nonebot_plugin_alconna import Alconna, Args, Arparma, Subcommand, on_alconna
 
 from src.utils.data import LiteModel
-from src.utils.typing import T_Bot, T_Message, T_MessageEvent
 from src.utils.data_manager import User, user_db
 from src.utils.language import Language, get_all_lang, get_user_lang
+from src.utils.ly_typing import T_Bot, T_MessageEvent
 from src.utils.message import Markdown as md, send_markdown
 
 profile_alc = on_alconna(
@@ -134,5 +131,5 @@ def set_profile(key: str, value: str) -> bool:
             return True
         return False
     elif key == 'timezone':
-        # TODO
+        # TODO 其他个人信息项目的实现
         pass

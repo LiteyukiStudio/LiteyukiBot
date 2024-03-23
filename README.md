@@ -14,18 +14,19 @@
 <div align=center><h4>轻量，高效，易于扩展</h4></div>
 
 - 基于[Nonebot2]("https://github.com/nonebot/nonebot2")，有良好的生态支持
-- 集成了上一代轻雪的优点和~~缺点~~
+- 开箱即用，无需复杂配置
+- 新的点击交互模式，拒绝手打指令
 - 支持一切Onebot标准通信，后续会支持更多的平台
 
 ## 手动安装和部署
 
 1. 安装`Git`和`Python3.10+`
-2. 克隆项目到本地`git clone https://github.com/snowykami/LiteyukiBot`
-3. 切换到轻雪目录`cd LiteyukiBot`
-4. 安装依赖`pip install -r requirements.txt`
+2. 克隆项目`git clone https://github.com/snowykami/LiteyukiBot`
+3. 切换目录`cd LiteyukiBot`
+4. 安装依赖`pip install -r requirements.txt`(如果多个Python环境请指定后安装`pythonx -m pip install -r requirements.txt`)
 5. 启动`python main.py`
 
-## 一键部署脚本(复制到本地保存执行)
+## 一键部署脚本
 
 #### 提前部署好`Python3.10+`环境和`Git`环境
 
@@ -41,12 +42,11 @@ echo Install finished! Please click "start.bat" to start the bot!
 ```
 
 #### Linux
-
 ```bash
 git clone https://github.com/snowykami/LiteyukiBot
 cd LiteyukiBot
 pip install -r requirements.txt
-echo python3 main.py > start.sh
+echo python3.10 main.py > start.sh
 chmod +x start.sh
 echo Install finished! Please run "sh start.sh" to start the bot!
 ```
@@ -65,7 +65,7 @@ echo Install finished! Please run "sh start.sh" to start the bot!
 | 地址 | ws://`host`:`port`/onebot/v11 | 地址取决于配置文件，默认为`20216`端口    |
 
 ### 推荐方案(QQ)
-1. 使用`Lagrange.Core`，`Lagrange.Core`支持多种协议
+1. 使用`Lagrange.OneBot`，点按交互目前仅支持`Lagrange.OneBot`，详细请看[Lagrange.OneBot]()
 2. 云崽的`icqq-plugin`和`ws-plugin`进行通信
 3. `Go-cqhttp`（目前已经半死不活了）
 4. 人工实现的`Onebot`协议，自己整一个WebSocket客户端，看着QQ的消息，然后给轻雪传输数据

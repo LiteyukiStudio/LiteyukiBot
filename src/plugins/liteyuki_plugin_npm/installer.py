@@ -1,11 +1,7 @@
-import json
 import os.path
-import shutil
 import sys
 from io import StringIO
-from typing import Optional
 
-import aiofiles
 import aiohttp
 import nonebot
 import pip
@@ -14,11 +10,9 @@ from nonebot.permission import SUPERUSER
 from nonebot_plugin_alconna import Alconna, Args, Subcommand, on_alconna
 
 from src.utils.language import get_user_lang
+from src.utils.ly_typing import T_Bot
 from src.utils.message import Markdown as md, send_markdown
-from src.utils.resource import get_res
-from src.utils.typing import T_Bot, T_MessageEvent
 from .common import *
-from src.utils.data_manager import InstalledPlugin
 
 npm_alc = on_alconna(
     Alconna(
@@ -38,7 +32,7 @@ npm_alc = on_alconna(
             alias=["i", "安装"],
         ),
         Subcommand(
-            "remove",
+            "uninstall",
             Args["plugin_name", str],
             alias=["rm", "移除", "卸载"],
         ),
@@ -136,12 +130,12 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
                 event=event
             )
 
-    elif result.subcommands.get("remove"):
-        plugin_module_name: str = result.subcommands["remove"].args.get("plugin_name")
+    elif result.subcommands.get("uninstall"):
+        plugin_module_name: str = result.subcommands["uninstall"].args.get("plugin_name")
         found_installed_plugin: InstalledPlugin = plugin_db.first(InstalledPlugin, "module_name = ?", plugin_module_name)
         if found_installed_plugin:
             plugin_db.delete(InstalledPlugin, "module_name = ?", plugin_module_name)
-            reply = f"{ulang.get('npm.remove_success', NAME=found_installed_plugin.module_name)}"
+            reply = f"{ulang.get('npm.uninstall_success', NAME=found_installed_plugin.module_name)}"
             await npm_alc.finish(reply)
         else:
             await npm_alc.finish(ulang.get("npm.plugin_not_installed", NAME=plugin_module_name))

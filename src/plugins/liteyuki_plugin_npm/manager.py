@@ -2,6 +2,7 @@ import os
 
 import nonebot.plugin
 from nonebot import on_command
+from nonebot.exception import FinishedException
 from nonebot.internal.matcher import Matcher
 from nonebot.message import run_preprocessor
 from nonebot.permission import SUPERUSER
@@ -10,7 +11,7 @@ from nonebot_plugin_alconna import on_alconna, Alconna, Args, Arparma
 from src.utils.data_manager import GroupChat, InstalledPlugin, User, group_db, plugin_db, user_db
 from src.utils.message import Markdown as md, send_markdown
 from src.utils.permission import GROUP_ADMIN, GROUP_OWNER
-from src.utils.typing import T_Bot, T_MessageEvent
+from src.utils.ly_typing import T_Bot, T_MessageEvent
 from src.utils.language import get_user_lang
 from .common import get_plugin_can_be_toggle, get_plugin_current_enable, get_plugin_default_enable
 from .installer import get_store_plugin, npm_update
@@ -62,12 +63,12 @@ async def _(event: T_MessageEvent, bot: T_Bot):
             if await SUPERUSER(bot, event):
                 plugin_in_database = plugin_db.first(InstalledPlugin, 'module_name = ?', plugin.module_name)
                 # 添加移除插件
-                btn_remove = (
-                        md.button(lang.get('npm.uninstall'), f'npm remove {plugin.module_name}')) if plugin_in_database else lang.get(
+                btn_uninstall = (
+                        md.button(lang.get('npm.uninstall'), f'npm uninstall {plugin.module_name}')) if plugin_in_database else lang.get(
                     'npm.uninstall')
                 btn_toggle_global = lang.get('npm.disable') if plugin.metadata and not plugin.metadata.extra.get('toggleable') \
                     else md.button(lang.get('npm.disable_global'), f'disable-plugin {plugin.module_name} true')
-                reply += f"  {btn_remove}  {btn_toggle_global}"
+                reply += f"  {btn_uninstall}  {btn_toggle_global}"
 
         reply += "\n\n***\n"
     await send_markdown(reply, bot, event=event)
@@ -100,7 +101,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
         if await GROUP_ADMIN(bot, event) or await GROUP_OWNER(bot, event) or await SUPERUSER(bot, event):
             session = group_db.first(GroupChat, "group_id = ?", event.group_id, default=GroupChat(group_id=event.group_id))
         else:
-            return
+            raise FinishedException(ulang.get("Permission Denied"))
     # 启用 已停用的默认启用插件 将其从停用列表移除
     # 启用 已停用的默认停用插件 将其放到启用列表
     # 停用 已启用的默认启用插件 将其放到停用列表
@@ -134,4 +135,5 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
 @run_preprocessor
 async def _(event: T_MessageEvent, matcher: Matcher):
     plugin = matcher.plugin
+    # TODO 插件启用/停用检查hook
     nonebot.logger.info(f"Plugin: {plugin.module_name}")

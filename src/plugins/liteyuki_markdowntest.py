@@ -7,7 +7,7 @@ from nonebot.permission import SUPERUSER
 from nonebot.plugin import PluginMetadata
 
 from src.utils.message import send_markdown
-from src.utils.typing import T_Message, T_Bot, v11, T_MessageEvent
+from src.utils.ly_typing import T_Message, T_Bot, v11, T_MessageEvent
 
 md_test = on_command("mdts", aliases={"会话md"}, permission=SUPERUSER)
 md_group = on_command("mdg", aliases={"群md"}, permission=SUPERUSER)

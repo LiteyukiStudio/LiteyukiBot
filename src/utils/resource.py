@@ -2,7 +2,7 @@ import os
 
 import nonebot
 import yaml
-from typing_extensions import Any
+from typing import Any
 
 from src.utils.data import LiteModel
 

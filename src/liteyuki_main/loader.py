@@ -3,7 +3,6 @@ import os
 import nonebot.plugin
 
 from src.utils.data_manager import InstalledPlugin, plugin_db
-from src.utils.language import load_from_dir
 from src.utils.resource import load_resource_from_dir
 
 THIS_PLUGIN_NAME = os.path.basename(os.path.dirname(__file__))

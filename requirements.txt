@@ -11,6 +11,4 @@ psutil==5.9.8
 pydantic==2.6.4
 pytz==2024.1
 PyYAML~=6.0.1
-typing_extensions~=4.10.0
 starlette~=0.36.3
-pip==24.0

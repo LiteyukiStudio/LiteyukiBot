@@ -6,7 +6,7 @@ import nonebot.plugin
 
 from src.utils.data import Database, LiteModel
 from src.utils.data_manager import GroupChat, InstalledPlugin, User, group_db, plugin_db, user_db
-from src.utils.typing import T_MessageEvent
+from src.utils.ly_typing import T_MessageEvent
 
 LNPM_COMMAND_START = "lnpm"
 

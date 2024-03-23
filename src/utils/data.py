@@ -7,7 +7,7 @@ from collections.abc import Iterable
 
 import nonebot
 from pydantic import BaseModel
-from typing_extensions import Any
+from typing import Any
 
 BaseIterable = list | tuple | set | dict
 

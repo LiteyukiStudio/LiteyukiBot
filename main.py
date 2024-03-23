@@ -1,12 +1,16 @@
 import nonebot
 
 from nonebot.adapters.onebot import v11, v12
+
+from src.utils import logger
 from src.utils.config import load_from_yaml
 
+nonebot.logger = logger
 nonebot.init(**load_from_yaml("config.yml"))
 
 adapters = [v11.Adapter, v12.Adapter]
 driver = nonebot.get_driver()
+
 for adapter in adapters:
     driver.register_adapter(adapter)
 

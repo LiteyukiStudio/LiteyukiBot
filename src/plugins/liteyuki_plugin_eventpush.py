@@ -7,7 +7,7 @@ from nonebot.plugin import PluginMetadata
 from nonebot_plugin_alconna import on_alconna
 from src.utils.data import LiteModel
 from src.utils.message import send_markdown
-from src.utils.typing import T_Bot, T_MessageEvent
+from src.utils.ly_typing import T_Bot, T_MessageEvent
 from src.utils.data import Database
 
 
