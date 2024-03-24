@@ -116,7 +116,6 @@ class Database(BaseORMAdapter):
         Returns:
 
         """
-        nonebot.logger.warning("Database.auto_migrate is deprecated, use Database.migrate instead")
         table_name = ''
         for model in args:
             model: type(LiteModel)
