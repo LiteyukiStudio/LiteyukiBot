@@ -1,32 +1,13 @@
 import sys
-import logging
-from typing import TYPE_CHECKING
-from .language import get_default_lang
 import loguru
+from typing import TYPE_CHECKING
+from .config import config, load_from_yaml
 
+logger = loguru.logger
 if TYPE_CHECKING:
+    # avoid sphinx autodoc resolve annotation failed
+    # because loguru module do not have `Logger` class actually
     from loguru import Logger, Record
-
-logger: "Logger" = loguru.logger
-
-
-class LoguruHandler(logging.Handler):  # pragma: no cover
-    """logging 与 loguru 之间的桥梁，将 logging 的日志转发到 loguru。"""
-
-    def emit(self, record: logging.LogRecord):
-        try:
-            level = logger.level(record.levelname).name
-        except ValueError:
-            level = record.levelno
-
-        frame, depth = sys._getframe(6), 6
-        while frame and frame.f_code.co_filename == logging.__file__:
-            frame = frame.f_back
-            depth += 1
-
-        logger.opt(depth=depth, exception=record.exc_info).log(
-            level, record.getMessage()
-        )
 
 
 def default_filter(record: "Record"):
@@ -36,13 +17,31 @@ def default_filter(record: "Record"):
     return record["level"].no >= levelno
 
 
-default_format: str = (
+# DEBUG日志格式
+debug_format: str = (
         "<c>{time:YYYY-MM-DD}</c> <blue>{time:HH:mm:ss}</blue> "
+        "<lvl>[{level.icon}]</lvl> "
+        "<c><{name}.{module}.{function}:{line}></c> "
+        "{message}"
+)
+
+# 默认日志格式
+default_format: str = (
+        "<c>{time:MM-DD}</c> <blue>{time:HH:mm:ss}</blue> "
         "<lvl>[{level.icon}]</lvl> "
         "<c><{name}></c> "
         "{message}"
 )
-"""默认日志格式"""
+
+
+def get_format(level: str) -> str:
+    if level == "DEBUG":
+        return debug_format
+    else:
+        return default_format
+
+
+logger = loguru.logger.bind(get_format=get_format)
 
 logger.remove()
 logger_id = logger.add(
@@ -50,17 +49,12 @@ logger_id = logger.add(
     level=0,
     diagnose=False,
     filter=default_filter,
-    format=default_format,
+    format=get_format(load_from_yaml('config.yml').get("log_level", "INFO")),
 )
-slang = get_default_lang()
-logger.level("DEBUG", color="<blue>", icon=f"*️⃣ DDDEBUG")
-logger.level("INFO", color="<white>", icon=f"ℹ️ IIIINFO")
-logger.level("SUCCESS", color="<green>", icon=f"✅ SUCCESS")
-logger.level("WARNING", color="<yellow>", icon=f"⚠️ WARNING")
-logger.level("ERROR", color="<red>", icon=f"⭕ EEERROR")
 
-"""默认日志处理器 id"""
 
-__autodoc__ = {
-        "logger_id": False
-}
+logger.level("DEBUG", color="<blue>", icon=f"*️⃣==DEBUG")
+logger.level("INFO", color="<white>", icon=f"ℹ️===INFO")
+logger.level("SUCCESS", color="<green>", icon=f"✅SUCCESS")
+logger.level("WARNING", color="<yellow>", icon=f"⚠️WARNING")
+logger.level("ERROR", color="<red>", icon=f"⭕==ERROR")
