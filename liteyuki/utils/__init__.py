@@ -7,7 +7,7 @@ import sys
 import pickle
 
 __NAME__ = "LiteyukiBot"
-__VERSION__ = "6.2.3"  # 60201
+__VERSION__ = "6.2.4"  # 60201
 
 import psutil
 import requests
@@ -25,6 +25,7 @@ def register_bot():
             "version"  : __VERSION__,
             "version_i": __VERSION_I__,
             "python"   : f"{platform.python_implementation()} {platform.python_version()}",
+            "os"       : f"{platform.system()} {platform.version()} {platform.machine()}"
     }
     try:
         nonebot.logger.info("Waiting for register to Liteyuki...")

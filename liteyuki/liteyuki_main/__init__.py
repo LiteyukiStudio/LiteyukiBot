@@ -4,6 +4,7 @@ from liteyuki.utils.language import get_default_lang
 from liteyuki.utils.data_manager import *
 from .loader import *
 from .webdash import *
+from .core import *
 from liteyuki.utils.config import config
 
 __author__ = "snowykami"
@@ -13,7 +14,7 @@ __plugin_meta__ = PluginMetadata(
     usage="",
     homepage="https://github.com/snowykami/LiteyukiBot",
     extra={
-            "liteyuki": True,
+            "liteyuki"  : True,
             "toggleable": False,
     }
 )

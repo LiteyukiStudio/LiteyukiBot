@@ -52,7 +52,7 @@ async def _(event: T_MessageEvent, bot: T_Bot):
 
         session_enable = get_plugin_session_enable(event, plugin.module_name)
         default_enable = get_plugin_default_enable(plugin.module_name)
-        print(session_enable, default_enable, plugin.module_name)
+
 
         if store_plugin:
             btn_homepage = md.link(lang.get('npm.homepage'), store_plugin.homepage)
@@ -115,7 +115,8 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
     plugin_module_name = result.args.get("plugin_name")
 
     toggle = result.header_result == 'enable-plugin'  # 判断是启用还是停用
-    current_enable = get_plugin_session_enable(event, plugin_module_name)  # 获取插件当前状态
+
+    session_enable = get_plugin_session_enable(event, plugin_module_name)  # 获取插件当前状态
 
     default_enable = get_plugin_default_enable(plugin_module_name)  # 获取插件默认状态
 
@@ -124,7 +125,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
     if not can_be_toggled:
         await toggle_plugin.finish(ulang.get("npm.plugin_cannot_be_toggled", NAME=plugin_module_name))
 
-    if current_enable == toggle:
+    if session_enable == toggle:
         await toggle_plugin.finish(
             ulang.get("npm.plugin_already", NAME=plugin_module_name, STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable")))
 
@@ -146,7 +147,13 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
                 session.disabled_plugins.append(plugin_module_name)
             else:
                 session.enabled_plugins.remove(plugin_module_name)
+        if event.message_type == "private":
+            print("已保存")
+            user_db.upsert(session)
+        else:
+            group_db.upsert(session)
     except Exception as e:
+        print(e)
         await toggle_plugin.finish(
             ulang.get(
                 "npm.toggle_failed",
@@ -161,11 +168,6 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
             NAME=plugin_module_name,
             STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable"))
     )
-
-    if event.message_type == "private":
-        user_db.upsert(session)
-    else:
-        group_db.upsert(session)
 
 
 @run_preprocessor
