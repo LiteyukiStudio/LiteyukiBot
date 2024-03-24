@@ -39,7 +39,7 @@ class GlobalPlugin(LiteModel):
 
 
 def auto_migrate():
-    user_db.auto_migrate(User())
-    group_db.auto_migrate(GroupChat())
-    plugin_db.auto_migrate(InstalledPlugin())
-    common_db.auto_migrate(GlobalPlugin())
+    user_db.auto_migrate(User)
+    group_db.auto_migrate(GroupChat)
+    plugin_db.auto_migrate(InstalledPlugin)
+    common_db.auto_migrate(GlobalPlugin)
