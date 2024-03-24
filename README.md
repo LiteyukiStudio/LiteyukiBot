@@ -27,21 +27,25 @@
 4. 安装依赖`pip install -r requirements.txt`(如果多个Python环境请指定后安装`pythonx -m pip install -r requirements.txt`)
 5. 启动`python main.py`
 
-
 ## 2. 配置
 
-### 轻雪配置项(Nonebot插件配置项也可以写在此)
+### 轻雪配置项(Nonebot插件配置项也可以写在此，与dotenv格式不同，应为小写)
+
+如果不确定字段的含义，请不要修改（部分在自动生成配置文件中未列出，需手动添加）
+
 ```yaml
-# 配置项，如果不确定字段的含义，请不要修改
+# 生成文件的配置项
 command_start: [ "/", " " ] # 指令前缀
-host: 127.0.0.1 # 反向监听地址
+host: 127.0.0.1 # 监听地址
 port: 20216 # 绑定端口
 nickname: [ "liteyuki" ]  # 机器人昵称
 superusers: [ "1919810" ]  # 超级用户
+# 未列出的配置项（如要自定义请手动修改）
+onebot_access_token: "" # Onebot访问令牌[具体请看](https://onebot.adapters.nonebot.dev/docs/guide/configuration)
 default_language: "zh-CN" # 默认语言
-log_icon: true # 是否显示日志等级图标（某些控制台不可用）
-auto_report: true # 是否自动上报设备信息给轻雪服务器，该信息仅包含硬件信息和运行软件版本
 log_level: "INFO" # 日志等级
+log_icon: true # 是否显示日志等级图标（某些控制台不可用）
+auto_report: true # 是否自动上报问题给轻雪服务器，仅包含硬件信息和运行软件版本
 
 # 其他Nonebot插件的配置项
 custom_config_1: "custom_value1"
@@ -49,6 +53,7 @@ custom_config_1: "custom_value1"
 ```
 
 ### Onebot实现端配置
+
 不同的实现端给出的字段可能不同，但是基本上都是一样的，这里给出一个参考值
 
 | 字段          | 参考值                      | 说明                               |
@@ -57,30 +62,34 @@ custom_config_1: "custom_value1"
 | 地址          | ws://`addrss`/onebot/v11 | 地址取决于配置文件，本机默认为`127.0.0.1:20216` |
 | AccessToken | `""`                     | 如果你给轻雪配置了`AccessToken`，请在此填写相同的值 |
 
+## 3.其他
+
+### 常见问题
+
+- 设备上Python环境太乱了，pip和python不对应怎么办？
+    - 请使用`/path/to/python -m pip install -r requirements.txt`来安装依赖，
+      然后用`/path/to/python main.py`来启动Bot，
+      其中`/path/to/python`是你要用来运行Bot可执行文件
+- 为什么我启动后机器人没有反应？
+    - 请检查配置文件的`command_start`或`superusers`，确认你有权限使用命令并按照正确的命令发送
+
+- 怎么登录QQ等聊天平台
+    - 你有这个问题说明你不是很了解这个项目，本项目不负责实现登录功能，只负责处理消息
+      你需要使用Onebot标准的实现端来连接到轻雪并将消息上报给轻雪，下面已经列出一些推荐的实现端
+
 #### 推荐方案(QQ)
 
-1. 使用`Lagrange.OneBot`，点按交互目前仅支持`Lagrange.OneBot`，详细请看[Lagrange.OneBot](https://github.com/KonataDev/Lagrange.Core)
-2. 云崽的`icqq-plugin`和`ws-plugin`进行通信
-3. `Go-cqhttp`（目前已经半死不活了）
-4. 人工实现的`Onebot`协议，自己整一个WebSocket客户端，看着QQ的消息，然后给轻雪传输数据
+1. [Lagrange.OneBot](https://github.com/KonataDev/Lagrange.Core)，目前点按交互目前仅支持Lagrange
+2. [LiteLoaderQQNT OneBot](https://github.com/LLOneBot/LLOneBot)，基于NTQQ的Onebot实现
+3. 云崽的`icqq-plugin`和`ws-plugin`进行通信
+4. `Go-cqhttp`（目前已经半死不活了）
+5. 人工实现的`Onebot`协议，自己整一个WebSocket客户端，看着QQ的消息，然后给轻雪传输数据
 
 #### 推荐方案(Minecraft)
 
 1. 我们有专门为Minecraft开发的服务器Bot，支持OnebotV11/12标准，详细请看[MinecraftOneBot](https://github.com/snowykami/MinecraftOnebot)
 
-请先自行查阅文档，若有困难请联系相关开发者而不是Liteyuki的开发者
-
-## 3.其他
-### 常见问题
-- 设备上Python环境太乱了，pip和python不对应怎么办？
-  - 请使用`/path/to/python -m pip install -r requirements.txt`来安装依赖，
-然后用`/path/to/python main.py`来启动Bot，
-其中`/path/to/python`是你要用来运行Bot可执行文件
-- 为什么我启动后机器人没有反应？
-  - 请检查配置文件的`command_start`，并按照正确的命令发送
-
-### 注意事项
-- 非本项目的问题以及部署方式请勿在本项目提问，否则将会被直接关闭
+使用其他项目连接请先自行查阅文档，若有困难请联系对应开发者而不是Liteyuki的开发者
 
 ## 4.用户协议
 
