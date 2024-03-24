@@ -1,14 +1,18 @@
 from typing import Optional
 
 import nonebot
-from nonebot import on_message
-from arclet.alconna import Arparma, Alconna, Args, Option, Subcommand, Arg
+from nonebot import on_message, require
+
 from nonebot.plugin import PluginMetadata
-from nonebot_plugin_alconna import on_alconna
+
 from liteyuki.utils.data import LiteModel
 from liteyuki.utils.message import send_markdown
 from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
 from liteyuki.utils.data import Database
+
+require("nonebot_plugin_alconna")
+from nonebot_plugin_alconna import on_alconna
+from arclet.alconna import Arparma, Alconna, Args, Option, Subcommand, Arg
 
 
 class Node(LiteModel):
