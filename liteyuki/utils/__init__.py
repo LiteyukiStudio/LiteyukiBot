@@ -10,7 +10,8 @@ __VERSION__ = "6.2.4"  # 60201
 
 import requests
 
-from liteyuki.utils.config import load_from_yaml
+from liteyuki.utils.config import load_from_yaml, config
+from .log import init_log
 
 major, minor, patch = map(int, __VERSION__.split("."))
 __VERSION_I__ = major * 10000 + minor * 100 + patch
@@ -51,9 +52,9 @@ def init():
     if sys.version_info < (3, 10):
         nonebot.logger.error("This project requires Python3.10+ to run, please upgrade your Python Environment.")
         exit(1)
-
-    load_from_yaml("config.yml")
-    from .log import logger
+    # 在加载完成语言后再初始化日志
+    init_log()
+    nonebot.logger.info("Liteyuki is initializing...")
 
     if not os.path.exists("data/liteyuki/liteyuki.json"):
         register_bot()
@@ -73,5 +74,4 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
         f"Run Liteyuki with Python{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} "
         f"at {sys.executable}"
     )
-
     nonebot.logger.info(f"{__NAME__} {__VERSION__}({__VERSION_I__}) is running")

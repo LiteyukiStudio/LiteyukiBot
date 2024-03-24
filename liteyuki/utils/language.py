@@ -9,8 +9,8 @@ from typing import Any
 
 import nonebot
 
-from liteyuki.utils.config import config
-from liteyuki.utils.data_manager import User, user_db
+from .config import config
+from .data_manager import User, user_db
 
 _default_lang_code = "en"
 _language_data = {
@@ -62,7 +62,6 @@ def load_from_json(file_path: str, lang_code: str = None):
             if lang_code not in _language_data:
                 _language_data[lang_code] = {}
             _language_data[lang_code].update(data)
-            nonebot.logger.debug(f"Loaded language data from {file_path}")
     except Exception as e:
         nonebot.logger.error(f"Failed to load language data from {file_path}: {e}")
 
@@ -113,20 +112,23 @@ class Language:
         Args:
             item:   文本键
             *args:  格式化参数
+            **kwargs: 格式化参数
 
         Returns:
             str: 当前语言的文本
 
         """
+        default = kwargs.pop("default", None)
+
         try:
             if self.lang_code in _language_data and item in _language_data[self.lang_code]:
                 return _language_data[self.lang_code][item].format(*args, **kwargs)
             if self.fallback_lang_code in _language_data and item in _language_data[self.fallback_lang_code]:
                 return _language_data[self.fallback_lang_code][item].format(*args, **kwargs)
-            return item
+            return default or item
         except Exception as e:
             nonebot.logger.error(f"Failed to get language text or format: {e}")
-            return item
+            return default or item
 
 
 def get_user_lang(user_id: str) -> Language:
@@ -150,7 +152,7 @@ def get_system_lang_code() -> str:
 
 def get_default_lang() -> Language:
     """
-    获取默认/系统语言
+    获取配置默认/系统语言
     """
     return Language(config.get("default_language", get_system_lang_code()))
 

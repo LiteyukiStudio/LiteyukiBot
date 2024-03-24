@@ -1,7 +1,8 @@
 import sys
 import loguru
 from typing import TYPE_CHECKING
-from .config import config, load_from_yaml
+from .config import load_from_yaml
+from .language import Language, get_default_lang
 
 logger = loguru.logger
 if TYPE_CHECKING:
@@ -41,20 +42,33 @@ def get_format(level: str) -> str:
         return default_format
 
 
-logger = loguru.logger.bind(get_format=get_format)
+logger = loguru.logger.bind()
 
-logger.remove()
-logger_id = logger.add(
-    sys.stdout,
-    level=0,
-    diagnose=False,
-    filter=default_filter,
-    format=get_format(config.get("log_level", "INFO")),
-)
 
-show_icon = config.get("show_icon", True)
-logger.level("DEBUG", color="<blue>", icon=f"*️⃣==DEBUG")
-logger.level("INFO", color="<white>", icon=f"ℹ️===INFO")
-logger.level("SUCCESS", color="<green>", icon=f"✅SUCCESS")
-logger.level("WARNING", color="<yellow>", icon=f"⚠️WARNING")
-logger.level("ERROR", color="<red>", icon=f"⭕==ERROR")
+def init_log():
+    global logger
+
+    config = load_from_yaml("config.yml")
+
+    logger.remove()
+    logger.add(
+        sys.stdout,
+        level=0,
+        diagnose=False,
+        filter=default_filter,
+        format=get_format(config.get("log_level", "INFO")),
+    )
+    show_icon = config.get("log_icon", True)
+    lang = Language(config.get("default_language", "en"))
+
+    debug = lang.get('log.debug', default="==DEBUG")
+    info = lang.get('log.info', default="===INFO")
+    success = lang.get('log.success', default="SUCCESS")
+    warning = lang.get('log.warning', default="WARNING")
+    error = lang.get('log.error', default="==ERROR")
+
+    logger.level("DEBUG", color="<blue>", icon=f"{'*️⃣' if show_icon else ''}{debug}")
+    logger.level("INFO", color="<white>", icon=f"{'ℹ️' if show_icon else ''}{info}")
+    logger.level("SUCCESS", color="<green>", icon=f"{'✅' if show_icon else ''}{success}")
+    logger.level("WARNING", color="<yellow>", icon=f"{'⚠️' if show_icon else ''}{warning}")
+    logger.level("ERROR", color="<red>", icon=f"{'⭕' if show_icon else ''}{error}")

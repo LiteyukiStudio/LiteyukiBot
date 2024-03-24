@@ -2,6 +2,7 @@ import os
 
 import nonebot.plugin
 
+from liteyuki.utils import init_log
 from liteyuki.utils.data_manager import InstalledPlugin, plugin_db
 from liteyuki.utils.resource import load_resource_from_dir
 from liteyuki.utils.tools import check_for_package
@@ -12,6 +13,8 @@ load_resource_from_dir(RESOURCE_PATH)
 
 nonebot.plugin.load_plugins("liteyuki/plugins")
 nonebot.plugin.load_plugins("plugins")
+
+init_log()
 
 installed_plugins = plugin_db.all(InstalledPlugin)
 if installed_plugins:

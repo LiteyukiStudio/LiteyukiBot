@@ -1,9 +1,9 @@
 language.name=简体中文(轻雪版)
 
-log.debug=调试
-log.info=信息
-log.warning=有问题哦
-log.error=出错啦
+log.debug=调试中
+log.info=是信息
+log.warning=有问题
+log.error=出错辣
 log.success=成功啦
 
 main.current_language=现在系统用的语言是：{LANG} 喔！

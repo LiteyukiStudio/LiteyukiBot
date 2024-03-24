@@ -4,7 +4,7 @@ import nonebot
 import yaml
 from pydantic import BaseModel
 
-config = {}
+config = {}  # 全局配置
 
 
 class BasicConfig(BaseModel):
@@ -16,8 +16,8 @@ class BasicConfig(BaseModel):
 
 
 def load_from_yaml(file: str) -> dict:
-    nonebot.logger.debug("Loading config from %s" % file)
     global config
+    nonebot.logger.debug("Loading config from %s" % file)
     if not os.path.exists(file):
         nonebot.logger.warning(f'Config file {file} not found, created default config, please modify it and restart')
         with open(file, 'w', encoding='utf-8') as f:

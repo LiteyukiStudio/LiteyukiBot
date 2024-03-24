@@ -1,6 +1,6 @@
 import nonebot
 from nonebot.adapters.onebot import v11, v12
-from liteyuki.utils.config import load_from_yaml
+from liteyuki.utils.config import config, load_from_yaml
 from liteyuki.utils import init
 
 init()

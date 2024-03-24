@@ -32,16 +32,15 @@
 
 ### 轻雪配置项(Nonebot插件配置项也可以写在此)
 ```yaml
-# 建议修改的配置项目
+# 配置项，如果不确定字段的含义，请不要修改
 command_start: [ "/", " " ] # 指令前缀
 host: 127.0.0.1 # 反向监听地址
 port: 20216 # 绑定端口
 nickname: [ "liteyuki" ]  # 机器人昵称
 superusers: [ "1919810" ]  # 超级用户
-show_icon: true # 是否显示日志等级图标（某些控制台不可用）
+default_language: "zh-CN" # 默认语言
+log_icon: true # 是否显示日志等级图标（某些控制台不可用）
 auto_report: true # 是否自动上报设备信息给轻雪服务器，该信息仅包含硬件信息和运行软件版本
-
-# 下面是不建议修改，且默认没有列出的配置项，除非你有特殊需求
 log_level: "INFO" # 日志等级
 
 # 其他Nonebot插件的配置项
