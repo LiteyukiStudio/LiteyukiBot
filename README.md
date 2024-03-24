@@ -39,7 +39,7 @@ port: 20216 # 绑定端口
 nickname: [ "liteyuki" ]  # 机器人昵称
 superusers: [ "1919810" ]  # 超级用户
 show_icon: true # 是否显示日志等级图标（某些控制台不可用）
-auto_report: true # 是否自动上报设备信息给轻雪服务器，该信息仅包含设备型号和系统版本
+auto_report: true # 是否自动上报设备信息给轻雪服务器，该信息仅包含硬件信息和运行软件版本
 
 # 下面是不建议修改，且默认没有列出的配置项，除非你有特殊需求
 log_level: "INFO" # 日志等级
