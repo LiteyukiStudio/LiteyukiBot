@@ -49,10 +49,10 @@ logger_id = logger.add(
     level=0,
     diagnose=False,
     filter=default_filter,
-    format=get_format(load_from_yaml('config.yml').get("log_level", "INFO")),
+    format=get_format(config.get("log_level", "INFO")),
 )
 
-
+show_icon = config.get("show_icon", True)
 logger.level("DEBUG", color="<blue>", icon=f"*️⃣==DEBUG")
 logger.level("INFO", color="<white>", icon=f"ℹ️===INFO")
 logger.level("SUCCESS", color="<green>", icon=f"✅SUCCESS")

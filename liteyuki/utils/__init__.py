@@ -1,12 +1,45 @@
-import nonebot
+import json
+import os.path
+import platform
 
-from .log import logger
+import nonebot
 import sys
+import pickle
 
 __NAME__ = "LiteyukiBot"
-__VERSION__ = "6.2.1"   # 60201
+__VERSION__ = "6.2.3"  # 60201
+
+import psutil
+import requests
+
+from liteyuki.utils.config import load_from_yaml
+
 major, minor, patch = map(int, __VERSION__.split("."))
 __VERSION_I__ = major * 10000 + minor * 100 + patch
+
+
+def register_bot():
+    url = "https://api.liteyuki.icu/register"
+    data = {
+            "name"     : __NAME__,
+            "version"  : __VERSION__,
+            "version_i": __VERSION_I__,
+            "python"   : f"{platform.python_implementation()} {platform.python_version()}",
+    }
+    try:
+        nonebot.logger.info("Waiting for register to Liteyuki...")
+        resp = requests.post(url, json=data)
+        if resp.status_code == 200:
+            data = resp.json()
+            if liteyuki_id := data.get("liteyuki_id"):
+                with open("data/liteyuki/liteyuki.json", "wb") as f:
+                    f.write(json.dumps(data).encode("utf-8"))
+                nonebot.logger.success(f"Register {liteyuki_id} to Liteyuki successfully")
+            else:
+                raise ValueError(f"Register to Liteyuki failed: {data}")
+
+    except Exception as e:
+        nonebot.logger.warning(f"Register to Liteyuki failed, but it's no matter: {e}")
 
 
 def init():
@@ -19,6 +52,12 @@ def init():
     if sys.version_info < (3, 10):
         nonebot.logger.error("This project requires Python3.10+ to run, please upgrade your Python Environment.")
         exit(1)
+
+    load_from_yaml("config.yml")
+    from .log import logger
+
+    if not os.path.exists("data/liteyuki/liteyuki.json"):
+        register_bot()
 
     print("\033[34m" + r"""
  __        ______  ________  ________  __      __  __    __  __    __  ______ 
