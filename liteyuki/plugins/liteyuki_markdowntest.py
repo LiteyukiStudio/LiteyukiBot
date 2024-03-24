@@ -1,13 +1,11 @@
 import nonebot
-from nonebot import on_command, on_message
-from nonebot.adapters.onebot.v11 import MessageSegment
-from nonebot.exception import FinishedException
+from nonebot import on_command
 from nonebot.params import CommandArg
 from nonebot.permission import SUPERUSER
 from nonebot.plugin import PluginMetadata
 
+from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent, v11
 from liteyuki.utils.message import send_markdown
-from liteyuki.utils.ly_typing import T_Message, T_Bot, v11, T_MessageEvent
 
 md_test = on_command("mdts", aliases={"会话md"}, permission=SUPERUSER)
 md_group = on_command("mdg", aliases={"群md"}, permission=SUPERUSER)

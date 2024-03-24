@@ -1,12 +1,11 @@
 import os
 
 import nonebot.plugin
-from nonebot import on_command
+from nonebot import on_command, require
 from nonebot.exception import FinishedException
 from nonebot.internal.matcher import Matcher
 from nonebot.message import run_preprocessor
 from nonebot.permission import SUPERUSER
-from nonebot_plugin_alconna import on_alconna, Alconna, Args, Arparma
 
 from liteyuki.utils.data_manager import GroupChat, InstalledPlugin, User, group_db, plugin_db, user_db
 from liteyuki.utils.message import Markdown as md, send_markdown
@@ -15,6 +14,9 @@ from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
 from liteyuki.utils.language import get_user_lang
 from .common import get_plugin_can_be_toggle, get_plugin_global_enable, get_plugin_session_enable, get_plugin_default_enable
 from .installer import get_store_plugin, npm_update
+
+require("nonebot_plugin_alconna")
+from nonebot_plugin_alconna import on_alconna, Alconna, Args, Arparma
 
 list_plugins = on_alconna(
     Alconna(
@@ -52,7 +54,6 @@ async def _(event: T_MessageEvent, bot: T_Bot):
 
         session_enable = get_plugin_session_enable(event, plugin.module_name)
         default_enable = get_plugin_default_enable(plugin.module_name)
-
 
         if store_plugin:
             btn_homepage = md.link(lang.get('npm.homepage'), store_plugin.homepage)

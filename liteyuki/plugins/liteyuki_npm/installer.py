@@ -6,13 +6,15 @@ import aiohttp
 import nonebot
 import pip
 from arclet.alconna import Arparma, MultiVar
+from nonebot import require
 from nonebot.permission import SUPERUSER
-from nonebot_plugin_alconna import Alconna, Args, Subcommand, on_alconna
-
 from liteyuki.utils.language import get_user_lang
 from liteyuki.utils.ly_typing import T_Bot
 from liteyuki.utils.message import Markdown as md, send_markdown
 from .common import *
+
+require("nonebot_plugin_alconna")
+from nonebot_plugin_alconna import Alconna, Args, Subcommand, on_alconna
 
 npm_alc = on_alconna(
     Alconna(
