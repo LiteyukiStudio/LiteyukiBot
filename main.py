@@ -1,11 +1,9 @@
 import nonebot
-
 from nonebot.adapters.onebot import v11, v12
+from liteyuki.utils.config import load_from_yaml
+from liteyuki.utils import init
 
-from src.utils import logger
-from src.utils.config import load_from_yaml
-
-nonebot.logger = logger
+init()
 nonebot.init(**load_from_yaml("config.yml"))
 
 adapters = [v11.Adapter, v12.Adapter]
@@ -14,7 +12,7 @@ driver = nonebot.get_driver()
 for adapter in adapters:
     driver.register_adapter(adapter)
 
-nonebot.load_plugin("src.liteyuki_main")
+nonebot.load_plugin("liteyuki.liteyuki_main")
 
 if __name__ == "__main__":
     nonebot.run()

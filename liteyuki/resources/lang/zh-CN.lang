@@ -1,0 +1,76 @@
+language.name=简体中文
+
+log.debug=调试
+log.info=信息
+log.warning=警告
+log.error=错误
+log.success=成功
+
+main.current_language=当前配置语言为: {LANG}
+main.enable_webdash=已启用网页监控面板: {URL}
+main.monitor.title=轻雪监控面板
+main.monitor.description=轻雪机器人监控面板
+main.monitor.cpu=处理器
+main.monitor.memory=内存
+main.monitor.swap=交换空间
+main.monitor.disk=磁盘
+main.monitor.usage=使用率
+
+data_manager.migrate_success=数据模型{NAME}迁移成功
+
+npm.loaded_plugins=已加载插件
+npm.total=总计 {TOTAL}
+npm.help=帮助
+npm.usage=用法
+npm.disable=停用
+npm.disable_global=全局停用
+npm.enable=启用
+npm.enable_global=全局启用
+npm.install=安装
+npm.uninstall=卸载
+npm.installing=正在安装 {NAME}
+npm.cannot_uninstall=无法卸载
+npm.no_description=无描述
+npm.store_update_success=插件商店数据更新成功
+npm.store_update_failed=插件商店数据更新失败
+npm.search_result=搜索结果
+npm.search_no_result=无搜索结果
+npm.too_many_results=内容过多，{HIDE_NUM}项已隐藏，请限制关键字搜索
+npm.install_success={NAME} 安装成功
+npm.install_failed={NAME} 安装失败，请查看日志获取详细信息，如不能解决，请访问{HOMEPAGE}寻求帮助
+npm.uninstall_success={NAME} 卸载成功，下次重启生效
+npm.uninstall_failed={NAME} 卸载失败
+npm.load_failed={NAME} 加载失败，请在控制台查看详细信息，检查依赖或配置是否正确，如不能解决，请访问{HOMEPAGE}寻求帮助
+npm.plugin_not_found=未在商店中找到 {NAME}，请尝试更新商店信息或检查拼写
+npm.plugin_not_installed={NAME} 未安装
+npm.plugin_already_installed={NAME} 已安装，请勿重复安装
+npm.author=作者
+npm.homepage=主页
+npm.pypi=PyPI
+npm.next_page=下一页
+npm.prev_page=上一页
+npm.plugin_cannot_be_toggled=插件 {NAME} 无法被启用或停用
+npm.plugin_already=插件 {NAME} 已经是 {STATUS} 状态，无需重复操作
+npm.toggle_failed=插件 {NAME} {STATUS} 失败: {ERROR}
+npm.toggle_success=插件 {NAME} {STATUS} 成功
+
+user.profile.edit=修改
+user.profile.set=设置
+user.profile_manager.query=你的个人信息 {ATTR} 为 {VALUE}
+user.profile_manager.set=你的个人信息 {ATTR} 已设置为 {VALUE}
+user.profile.settings=设置
+user.profile.info=个人信息
+user.profile.lang=语言
+user.profile.lang.desc=设置用户语言
+user.profile.timezone=时区
+user.profile.timezone.desc=设置用户当前时区
+user.profile.theme=主题
+user.profile.theme.desc=设置用户界面主题
+user.profile.location=位置
+user.profile.location.desc=设置用户位置信息
+user.profile.nickname=称呼
+user.profile.nickname.desc=设置Bot对用户的称呼
+
+user.profile.input_value=请输入 {ATTR} 的值
+user.profile.set_success=成功将 {ATTR} 设置为 {VALUE}
+user.profile.set_failed=设置 {ATTR} 失败，请检查输入是否合法
