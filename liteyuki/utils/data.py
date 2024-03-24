@@ -217,6 +217,7 @@ class Database(BaseORMAdapter):
         """扁平化数据，返回扁平化对象
 
         Args:
+
             data: 数据，可迭代对象
 
         Returns: json字符串

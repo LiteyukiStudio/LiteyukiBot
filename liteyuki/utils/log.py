@@ -2,7 +2,7 @@ import sys
 import loguru
 from typing import TYPE_CHECKING
 from .config import load_from_yaml
-from .language import Language, get_default_lang
+from .language import Language, get_default_lang, get_system_lang_code
 
 logger = loguru.logger
 if TYPE_CHECKING:
@@ -59,7 +59,7 @@ def init_log():
         format=get_format(config.get("log_level", "INFO")),
     )
     show_icon = config.get("log_icon", True)
-    lang = Language(config.get("default_language", "en"))
+    lang = Language(config.get("default_language", get_system_lang_code()))
 
     debug = lang.get('log.debug', default="==DEBUG")
     info = lang.get('log.info', default="===INFO")
