@@ -1,15 +1,13 @@
 import json
 import os.path
 import platform
+import sys
 
 import nonebot
-import sys
-import pickle
 
 __NAME__ = "LiteyukiBot"
 __VERSION__ = "6.2.4"  # 60201
 
-import psutil
 import requests
 
 from liteyuki.utils.config import load_from_yaml

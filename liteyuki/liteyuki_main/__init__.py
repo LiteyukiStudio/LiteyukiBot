@@ -6,6 +6,9 @@ from .loader import *
 from .webdash import *
 from .core import *
 from liteyuki.utils.config import config
+from liteyuki.utils.liteyuki_api import liteyuki_api
+
+liteyuki_api.bug_report("test")
 
 __author__ = "snowykami"
 __plugin_meta__ = PluginMetadata(
