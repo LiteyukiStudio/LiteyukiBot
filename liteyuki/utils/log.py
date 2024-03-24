@@ -1,7 +1,6 @@
 import sys
 import logging
 from typing import TYPE_CHECKING
-from colored import fg
 from .language import get_default_lang
 import loguru
 
