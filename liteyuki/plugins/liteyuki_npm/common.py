@@ -75,9 +75,9 @@ def get_plugin_session_enable(event: T_MessageEvent, plugin_module_name: str) ->
         bool: 插件当前状态
     """
     if event.message_type == "group":
-        session: GroupChat = group_db.first(GroupChat, 'group_id = ?', event.group_id, default=GroupChat(group_id=event.group_id))
+        session: GroupChat = group_db.first(GroupChat, 'group_id = ?', event.group_id, default=GroupChat(group_id=str(event.group_id)))
     else:
-        session: User = user_db.first(User, 'user_id = ?', event.user_id, default=User(user_id=event.user_id))
+        session: User = user_db.first(User, 'user_id = ?', event.user_id, default=User(user_id=str(event.user_id)))
     # 默认停用插件在启用列表内表示启用
     # 默认停用插件不在启用列表内表示停用
     # 默认启用插件在停用列表内表示停用

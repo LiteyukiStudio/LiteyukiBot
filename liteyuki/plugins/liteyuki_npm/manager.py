@@ -132,7 +132,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
         session = user_db.first(User, "user_id = ?", event.user_id, default=User(user_id=event.user_id))
     else:
         if await GROUP_ADMIN(bot, event) or await GROUP_OWNER(bot, event) or await SUPERUSER(bot, event):
-            session = group_db.first(GroupChat, "group_id = ?", event.group_id, default=GroupChat(group_id=event.group_id))
+            session = group_db.first(GroupChat, "group_id = ?", event.group_id, default=GroupChat(group_id=str(event.group_id)))
         else:
             raise FinishedException(ulang.get("Permission Denied"))
     try:
