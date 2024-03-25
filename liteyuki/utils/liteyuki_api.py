@@ -7,7 +7,7 @@ import psutil
 import requests
 
 from . import __VERSION_I__, __VERSION__, __NAME__
-from .config import config
+from .config import config, load_from_yaml
 
 
 class LiteyukiAPI:
@@ -17,7 +17,7 @@ class LiteyukiAPI:
             with open("data/liteyuki/liteyuki.json", "rb") as f:
                 self.data = json.loads(f.read())
                 self.liteyuki_id = self.data.get("liteyuki_id")
-        self.report = config.get("auto_report", True)
+        self.report = load_from_yaml("config.yml").get("auto_report", True)
         if self.report:
             nonebot.logger.info("Auto bug report is enabled")
 
