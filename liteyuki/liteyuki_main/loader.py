@@ -19,7 +19,7 @@ init_log()
 installed_plugins: list[InstalledPlugin] = plugin_db.all(InstalledPlugin())
 if installed_plugins:
     for installed_plugin in installed_plugins:
-        if not installed_plugin.liteyuki and not check_for_package(installed_plugin.module_name):
+        if not check_for_package(installed_plugin.module_name):
             nonebot.logger.error(f"{installed_plugin.module_name} not installed, but in loading database. please run `npm fixup` in chat to reinstall it.")
         else:
             nonebot.load_plugin(installed_plugin.module_name)

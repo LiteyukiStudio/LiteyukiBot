@@ -31,8 +31,6 @@ class Group(LiteModel):
 
 
 class InstalledPlugin(LiteModel):
-    liteyuki: bool = Field(True, alias="liteyuki") # 是否为LiteYuki插件
-    enabled: bool = Field(True, alias="enabled") # 全局启用
     TABLE_NAME = "installed_plugin"
     module_name: str = Field(str(), alias="module_name")
     version: str = Field(str(), alias="version")
@@ -40,6 +38,7 @@ class InstalledPlugin(LiteModel):
 
 class GlobalPlugin(LiteModel):
     TABLE_NAME = "global_plugin"
+    liteyuki: bool = Field(True, alias="liteyuki")  # 是否为LiteYuki插件
     module_name: str = Field(str(), alias="module_name")
     enabled: bool = Field(True, alias="enabled")
 
@@ -48,5 +47,5 @@ def auto_migrate():
     print("Migrating databases...")
     user_db.auto_migrate(User())
     group_db.auto_migrate(Group())
-    plugin_db.auto_migrate(InstalledPlugin())
+    plugin_db.auto_migrate(InstalledPlugin(), GlobalPlugin())
     common_db.auto_migrate(GlobalPlugin())

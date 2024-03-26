@@ -5,7 +5,7 @@ import aiofiles
 import nonebot.plugin
 
 from liteyuki.utils.data import Database, LiteModel
-from liteyuki.utils.data_manager import Group, InstalledPlugin, User, group_db, plugin_db, user_db
+from liteyuki.utils.data_manager import GlobalPlugin, Group, InstalledPlugin, User, group_db, plugin_db, user_db
 from liteyuki.utils.ly_typing import T_MessageEvent
 
 LNPM_COMMAND_START = "lnpm"
@@ -90,11 +90,12 @@ def get_plugin_session_enable(event: T_MessageEvent, plugin_module_name: str) ->
 
 
 def get_plugin_global_enable(plugin_module_name: str) -> bool:
+    loaded_plugin = nonebot.plugin.get_plugin_by_module_name(plugin_module_name)
     return plugin_db.first(
-        InstalledPlugin(),
+        GlobalPlugin(),
         "module_name = ?",
         plugin_module_name,
-        default=InstalledPlugin(module_name=plugin_module_name, enabled=True)).enabled
+        default=GlobalPlugin(module_name=plugin_module_name, enabled=True)).enabled
 
 
 def get_plugin_can_be_toggle(plugin_module_name: str) -> bool:

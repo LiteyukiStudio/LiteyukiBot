@@ -1,18 +1,21 @@
 import os
 
 import nonebot.plugin
-from nonebot import on_command, require
-from nonebot.exception import FinishedException
+from nonebot import require
+from nonebot.exception import FinishedException, IgnoredException
+from nonebot.internal.adapter import Event
 from nonebot.internal.matcher import Matcher
+from nonebot.adapters import Bot
 from nonebot.message import run_preprocessor
 from nonebot.permission import SUPERUSER
+from nonebot.plugin import Plugin
 
-from liteyuki.utils.data_manager import Group, InstalledPlugin, User, group_db, plugin_db, user_db
+from liteyuki.utils.data_manager import GlobalPlugin, Group, InstalledPlugin, User, group_db, plugin_db, user_db
+from liteyuki.utils.language import get_user_lang
+from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
 from liteyuki.utils.message import Markdown as md, send_markdown
 from liteyuki.utils.permission import GROUP_ADMIN, GROUP_OWNER
-from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
-from liteyuki.utils.language import get_user_lang
-from .common import get_plugin_can_be_toggle, get_plugin_global_enable, get_plugin_session_enable, get_plugin_default_enable
+from .common import get_plugin_can_be_toggle, get_plugin_default_enable, get_plugin_global_enable, get_plugin_session_enable
 from .installer import get_store_plugin, npm_update
 
 require("nonebot_plugin_alconna")
@@ -197,7 +200,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
             ulang.get("npm.plugin_already", NAME=plugin_module_name, STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable")))
 
     try:
-        plugin = plugin_db.first(InstalledPlugin(), "module_name = ?", plugin_module_name, default=InstalledPlugin(module_name=plugin_module_name))
+        plugin = plugin_db.first(GlobalPlugin(), "module_name = ?", plugin_module_name, default=GlobalPlugin(module_name=plugin_module_name))
         if toggle:
             plugin.enabled = True
         else:
@@ -220,8 +223,20 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
             STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable"))
     )
 
+
 @run_preprocessor
-async def _(event: T_MessageEvent, matcher: Matcher):
-    plugin = matcher.plugin
+async def pre_handle(event: Event, matcher: Matcher):
+    plugin: Plugin = matcher.plugin
+    plugin_global_enable = get_plugin_global_enable(plugin.module_name)
+    if not plugin_global_enable:
+        raise IgnoredException("Plugin disabled globally")
+    if event.get_type() == "message":
+        plugin_session_enable = get_plugin_session_enable(event, plugin.module_name)
+        if not plugin_session_enable:
+            raise IgnoredException("Plugin disabled in session")
+
+
+@Bot.on_calling_api
+async def _(bot: Bot, api: str, data: dict[str, any]):
     # TODO 插件启用/停用检查hook
-    nonebot.logger.info(f"Plugin Callapi: {plugin.module_name}")
+    nonebot.logger.info(f"Plugin Callapi: {api}: {data}")
