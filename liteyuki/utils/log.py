@@ -20,7 +20,7 @@ def default_filter(record: "Record"):
 
 # DEBUG日志格式
 debug_format: str = (
-        "<c>{time:YYYY-MM-DD}</c> <blue>{time:HH:mm:ss}</blue> "
+        "<c>{time:YYYY-MM-DD HH:mm:ss}</c> "
         "<lvl>[{level.icon}]</lvl> "
         "<c><{name}.{module}.{function}:{line}></c> "
         "{message}"
@@ -28,7 +28,7 @@ debug_format: str = (
 
 # 默认日志格式
 default_format: str = (
-        "<c>{time:MM-DD}</c> <blue>{time:HH:mm:ss}</blue> "
+        "<c>{time:MM-DD HH:mm:ss}</c> "
         "<lvl>[{level.icon}]</lvl> "
         "<c><{name}></c> "
         "{message}"
