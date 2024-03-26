@@ -4,7 +4,7 @@ import nonebot.plugin
 from nonebot import require
 from nonebot.exception import FinishedException, IgnoredException
 from nonebot.internal.adapter import Event
-from nonebot.internal.matcher import Matcher
+from nonebot.internal.matcher import Matcher, current_matcher
 from nonebot.adapters import Bot
 from nonebot.message import run_preprocessor
 from nonebot.permission import SUPERUSER
@@ -236,7 +236,8 @@ async def pre_handle(event: Event, matcher: Matcher):
             raise IgnoredException("Plugin disabled in session")
 
 
-# @Bot.on_calling_api
-# async def _(bot: Bot, api: str, data: dict[str, any]):
-#     # TODO 插件启用/停用检查hook
-#     nonebot.logger.info(f"Plugin Callapi: {api}: {data}")
+@Bot.on_calling_api
+async def _(bot: Bot, api: str, data: dict[str, any]):
+    # TODO 插件启用/停用检查hook
+    plugin = current_plugin
+    nonebot.logger.info(f"Plugin Callapi: {api}: {data}")
