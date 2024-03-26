@@ -110,11 +110,11 @@ def get_profile_menu(key: str, ulang: Language) -> Optional[str]:
     if key in no_menu:
         return None
 
-    reply = f"{setting_name} {ulang.get('user.profile.settings')}\n***\n"
+    reply = f"**{setting_name} {ulang.get('user.profile.settings')}**\n***\n"
     if key == "lang":
         for lang_code, lang_name in get_all_lang().items():
             btn_set = md.button(ulang.get('user.profile.set'), f"profile set {key} {lang_code}")
-            reply += f"\n{btn_set}  **{lang_name}**    **{lang_code}**\n"
+            reply += f"\n{btn_set}  **{lang_name}**    **{lang_code}**\n***\n"
     return reply
 
 
