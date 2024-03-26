@@ -72,7 +72,7 @@ custom_config_2: "custom_value2"
 #### 推荐方案(QQ)
 
 1. [Lagrange.OneBot](https://github.com/KonataDev/Lagrange.Core)，目前点按交互目前仅支持Lagrange
-2. [LiteLoaderQQNT OneBot](https://github.com/LLOneBot/LLOneBot)，基于NTQQ的Onebot实现
+2. [LiteLoaderNTQQ+LLOneBot](https://github.com/LLOneBot/LLOneBot)，基于NTQQ的Onebot实现
 3. 云崽的`icqq-plugin`和`ws-plugin`进行通信
 4. `Go-cqhttp`（目前已经半死不活了）
 5. 人工实现的`Onebot`协议，自己整一个WebSocket客户端，看着QQ的消息，然后给轻雪传输数据
