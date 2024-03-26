@@ -8,7 +8,7 @@ log.success=Success
 
 liteyuki.restart=Restart
 liteyuki.restart_now=Restart now
-liteyuki.update_restart=Update completely, You can {RESTART} the server now or later
+liteyuki.update_restart=Update completely, You can {RESTART} or later to apply the changes
 
 main.current_language=Current config language: {LANG}
 main.enable_webdash=Web dashboard is enabled: {URL}
