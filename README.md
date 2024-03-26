@@ -1,16 +1,5 @@
-<div align="center">
-    <img src="https://ks.liteyuki.icu:809/static/img/liteyuki_icon.png" style="width: 30%; margin-top:10%;" alt="a">
-</div>
-<div align=center>
-    <h2>
-        <font color="#d0e9ff">
-            轻雪
-        </font>
-        <font color="#a2d8f4">
-            6.0
-        </font>
-    </h2>
-</div>
+<div align="center"><img src="https://cdn.liteyuki.icu/static/img/logo.png" style="width: 60%; margin-top:10%;" alt="a"></div>
+<div align=center><h2><font color="#d0e9ff">轻雪</font><font color="#a2d8f4">6.2</font></h2></div>
 <div align=center><h4>轻量，高效，易于扩展</h4></div>
 
 - 基于[Nonebot2]("https://github.com/nonebot/nonebot2")，有良好的生态支持
