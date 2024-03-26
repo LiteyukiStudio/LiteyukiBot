@@ -7,6 +7,7 @@ log.error=错误
 log.success=成功
 
 liteyuki.restart=重启
+liteyuki.restart_now=立即重启
 liteyuki.update_restart=更新完成，你可以立即{RESTART}或稍后手动重启以应用这些更新
 
 main.current_language=当前配置语言为: {LANG}

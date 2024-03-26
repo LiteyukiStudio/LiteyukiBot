@@ -7,6 +7,7 @@ log.error=Error
 log.success=Success
 
 liteyuki.restart=Restart
+liteyuki.restart_now=Restart now
 liteyuki.update_restart=Update completely, You can {RESTART} the server now or later
 
 main.current_language=Current config language: {LANG}

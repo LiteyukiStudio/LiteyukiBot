@@ -55,7 +55,7 @@ async def _(bot: T_Bot, event: T_MessageEvent):
     logs = repo.index.diff()
     reply = "Liteyuki updated!\n"
     reply += f"```\n{logs}\n```\n"
-    btn_restart = md.button(ulang.get("liteyuki.restart"), "restart-liteyuki")
+    btn_restart = md.button(ulang.get("liteyuki.restart_now"), "restart-liteyuki")
     reply += f"{ulang.get('liteyuki.update_restart', RESTART=btn_restart)}"
     await send_markdown(reply, bot, event=event, at_sender=False)
 
