@@ -1,0 +1,76 @@
+language.name=Español
+
+log.debug=Depurar
+log.info=Información
+log.warning=Advertencia
+log.error=Error
+log.success=Éxito
+
+main.current_language=El idioma configurado actualmente es: {LANG}
+main.enable_webdash=Panel de control web habilitado: {URL}
+main.monitor.title=Panel de monitoreo de Qingshu
+main.monitor.description=Panel de monitoreo de robots de Qingshu
+main.monitor.cpu=Procesador
+main.monitor.memory=Memoria
+main.monitor.swap=Intercambio
+main.monitor.disk=Disco
+main.monitor.usage=Uso
+
+data_manager.migrate_success=Éxito en la migración del modelo de datos {NAME}
+
+npm.loaded_plugins=Plugins cargados
+npm.total=Total {TOTAL}
+npm.help=Ayuda
+npm.usage=Uso
+npm.disable=Desactivar
+npm.disable_global=Desactivar globalmente
+npm.enable=Habilitar
+npm.enable_global=Habilitar globalmente
+npm.install=Instalar
+npm.uninstall=Desinstalar
+npm.installing=Instalando {NAME}
+npm.cannot_uninstall=No se puede desinstalar
+npm.no_description=Sin descripción
+npm.store_update_success=Actualización exitosa de los datos de la tienda de plugins
+npm.store_update_failed=Fallo en la actualización de los datos de la tienda de plugins
+npm.search_result=Resultado de la búsqueda
+npm.search_no_result=Sin resultados de búsqueda
+npm.too_many_results=Demasiados resultados, {HIDE_NUM} elementos ocultos. Por favor, limite la búsqueda con palabras clave.
+npm.install_success=Instalación de {NAME} exitosa
+npm.install_failed=Fallo en la instalación de {NAME}. Por favor, revise los registros para obtener más información. Si no puede resolver el problema, visite {HOMEPAGE} para obtener ayuda.
+npm.uninstall_success=Desinstalación de {NAME} exitosa. Los cambios se aplicarán después de reiniciar.
+npm.uninstall_failed=Fallo en la desinstalación de {NAME}
+npm.load_failed=Fallo en la carga de {NAME}. Por favor, revise los detalles en la consola, asegúrese de que las dependencias o configuraciones sean correctas. Si no puede resolver el problema, visite {HOMEPAGE} para obtener ayuda.
+npm.plugin_not_found=No se encontró {NAME} en la tienda. Intente actualizar la información de la tienda o verifique la ortografía.
+npm.plugin_not_installed={NAME} no instalado
+npm.plugin_already_installed={NAME} ya instalado. Por favor, no lo instale nuevamente.
+npm.author=Autor
+npm.homepage=Página principal
+npm.pypi=PyPI
+npm.next_page=Siguiente página
+npm.prev_page=Página anterior
+npm.plugin_cannot_be_toggled=El plugin {NAME} no puede ser activado o desactivado
+npm.plugin_already=El plugin {NAME} ya está {STATUS}. Por favor, no repita la operación.
+npm.toggle_failed=Fallo al {STATUS} el plugin {NAME}: {ERROR}
+npm.toggle_success={STATUS} del plugin {NAME} exitoso
+
+user.profile.edit=Editar
+user.profile.set=Establecer
+user.profile_manager.query=Tu información personal {ATTR} es {VALUE}
+user.profile_manager.set=Tu información personal {ATTR} se ha establecido como {VALUE}
+user.profile.settings=Configuración
+user.profile.info=Información personal
+user.profile.lang=Idioma
+user.profile.lang.desc=Establecer el idioma del usuario
+user.profile.timezone=Zona horaria
+user.profile.timezone.desc=Establecer la zona horaria actual del usuario
+user.profile.theme=Tema
+user.profile.theme.desc=Establecer el tema de la interfaz de usuario del usuario
+user.profile.location=Ubicación
+user.profile.location.desc=Establecer la información de ubicación del usuario
+user.profile.nickname=Apodo
+user.profile.nickname.desc=Establecer cómo el bot debe llamar al usuario
+
+user.profile.input_value=Ingrese un valor para {ATTR}
+user.profile.set_success=Se ha establecido correctamente {ATTR} como {VALUE}
+user.profile.set_failed=Fallo al establecer {ATTR}. Por favor, verifique la entrada.
