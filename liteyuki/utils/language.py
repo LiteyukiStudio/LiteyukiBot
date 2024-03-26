@@ -135,7 +135,7 @@ def get_user_lang(user_id: str) -> Language:
     """
     获取用户的语言代码
     """
-    user = user_db.first(User, "user_id = ?", user_id, default=User(
+    user = user_db.first(User(), "user_id = ?", user_id, default=User(
         user_id=user_id,
         username="Unknown"
     ))

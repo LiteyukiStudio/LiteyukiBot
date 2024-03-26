@@ -12,6 +12,7 @@ import requests
 
 from liteyuki.utils.config import load_from_yaml, config
 from .log import init_log
+from .data_manager import auto_migrate
 
 major, minor, patch = map(int, __VERSION__.split("."))
 __VERSION_I__ = major * 10000 + minor * 100 + patch
@@ -52,6 +53,7 @@ def init():
     if sys.version_info < (3, 10):
         nonebot.logger.error("This project requires Python3.10+ to run, please upgrade your Python Environment.")
         exit(1)
+    auto_migrate()
     # 在加载完成语言后再初始化日志
     init_log()
     nonebot.logger.info("Liteyuki is initializing...")

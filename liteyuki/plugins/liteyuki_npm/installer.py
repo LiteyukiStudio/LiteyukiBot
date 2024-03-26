@@ -98,7 +98,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
 
             r_load = nonebot.load_plugin(plugin_module_name)  # 加载插件
             installed_plugin = InstalledPlugin(module_name=plugin_module_name)  # 构造插件信息模型
-            found_in_db_plugin = plugin_db.first(InstalledPlugin, "module_name = ?", plugin_module_name)  # 查询数据库中是否已经安装
+            found_in_db_plugin = plugin_db.first(InstalledPlugin(), "module_name = ?", plugin_module_name)  # 查询数据库中是否已经安装
 
             if r_load:
                 if found_in_db_plugin is None:
@@ -131,7 +131,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
 
     elif result.subcommands.get("uninstall"):
         plugin_module_name: str = result.subcommands["uninstall"].args.get("plugin_name")
-        found_installed_plugin: InstalledPlugin = plugin_db.first(InstalledPlugin, "module_name = ?", plugin_module_name)
+        found_installed_plugin: InstalledPlugin = plugin_db.first(InstalledPlugin(), "module_name = ?", plugin_module_name)
         if found_installed_plugin:
             plugin_db.delete(InstalledPlugin, "module_name = ?", plugin_module_name)
             reply = f"{ulang.get('npm.uninstall_success', NAME=found_installed_plugin.module_name)}"

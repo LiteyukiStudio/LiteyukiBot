@@ -40,7 +40,7 @@ class Profile(LiteModel):
 
 @profile_alc.handle()
 async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
-    user: User = user_db.first(User, "user_id = ?", event.user_id, default=User(user_id=str(event.user_id)))
+    user: User = user_db.first(User(), "user_id = ?", event.user_id, default=User(user_id=str(event.user_id)))
     ulang = get_user_lang(str(event.user_id))
     if result.subcommands.get("set"):
         if result.subcommands["set"].args.get("value"):

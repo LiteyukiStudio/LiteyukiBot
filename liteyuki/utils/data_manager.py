@@ -13,6 +13,7 @@ common_db = DB(os.path.join(DATA_PATH, "common.ldb"))
 
 
 class User(LiteModel):
+    TABLE_NAME = "user"
     user_id: str = Field(str(), alias="user_id")
     username: str = Field(str(), alias="username")
     profile: dict[str, str] = Field(dict(), alias="profile")
@@ -20,7 +21,8 @@ class User(LiteModel):
     disabled_plugins: list[str] = Field(list(), alias="disabled_plugins")
 
 
-class GroupChat(LiteModel):
+class Group(LiteModel):
+    TABLE_NAME = "group_chat"
     # Group是一个关键字，所以这里用GroupChat
     group_id: str = Field(str(), alias="group_id")
     group_name: str = Field(str(), alias="group_name")
@@ -29,17 +31,22 @@ class GroupChat(LiteModel):
 
 
 class InstalledPlugin(LiteModel):
+    liteyuki: bool = Field(True, alias="liteyuki") # 是否为LiteYuki插件
+    enabled: bool = Field(True, alias="enabled") # 全局启用
+    TABLE_NAME = "installed_plugin"
     module_name: str = Field(str(), alias="module_name")
     version: str = Field(str(), alias="version")
 
 
 class GlobalPlugin(LiteModel):
+    TABLE_NAME = "global_plugin"
     module_name: str = Field(str(), alias="module_name")
     enabled: bool = Field(True, alias="enabled")
 
 
 def auto_migrate():
-    user_db.auto_migrate(User)
-    group_db.auto_migrate(GroupChat)
-    plugin_db.auto_migrate(InstalledPlugin)
-    common_db.auto_migrate(GlobalPlugin)
+    print("Migrating databases...")
+    user_db.auto_migrate(User())
+    group_db.auto_migrate(Group())
+    plugin_db.auto_migrate(InstalledPlugin())
+    common_db.auto_migrate(GlobalPlugin())

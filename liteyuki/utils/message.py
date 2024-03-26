@@ -3,8 +3,6 @@ from urllib.parse import quote
 import nonebot
 from nonebot.adapters.onebot import v11, v12
 from typing import Any
-
-from .tools import encode_url
 from .ly_typing import T_Bot, T_MessageEvent
 
 

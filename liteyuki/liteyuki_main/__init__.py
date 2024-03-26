@@ -1,12 +1,10 @@
-import nonebot
 from nonebot.plugin import PluginMetadata
-from liteyuki.utils.language import get_default_lang
+
 from liteyuki.utils.data_manager import *
+from liteyuki.utils.language import get_default_lang
+from .core import *
 from .loader import *
 from .webdash import *
-from .core import *
-from liteyuki.utils.config import config
-from liteyuki.utils.liteyuki_api import liteyuki_api
 
 __author__ = "snowykami"
 __plugin_meta__ = PluginMetadata(
@@ -19,8 +17,6 @@ __plugin_meta__ = PluginMetadata(
             "toggleable": False,
     }
 )
-
-auto_migrate()  # 自动迁移数据库
 
 sys_lang = get_default_lang()
 nonebot.logger.info(sys_lang.get("main.current_language", LANG=sys_lang.get("language.name")))
