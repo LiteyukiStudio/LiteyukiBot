@@ -49,11 +49,9 @@ async def _(bot: T_Bot, event: T_MessageEvent):
             break
         except Exception as e:
             print(f"Pull from {origin} failed: {e}")
-    logs = repo.git.log('--pretty=format:%H %s')
+    logs = repo.index.diff()
     reply = "Liteyuki updated!\n"
     reply += f"```\n{logs}\n```"
-    print(list(repo.iter_commits()))
-
     await send_markdown(reply, bot, event=event, at_sender=False)
 
 
