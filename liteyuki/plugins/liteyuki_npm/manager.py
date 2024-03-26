@@ -20,21 +20,21 @@ from nonebot_plugin_alconna import on_alconna, Alconna, Args, Arparma
 
 list_plugins = on_alconna(
     Alconna(
-        ['list-plugins', "插件列表", "列出插件"],
+        ["list-plugins", "插件列表", "列出插件"],
     )
 )
 
 toggle_plugin = on_alconna(
     Alconna(
-        ['enable-plugin', 'disable-plugin'],
-        Args['plugin_name', str],
+        ["enable-plugin", "disable-plugin"],
+        Args["plugin_name", str],
     )
 )
 
 global_toggle = on_alconna(
     Alconna(
-        ['toggle-global'],
-        Args['plugin_name', str],
+        ["toggle-global"],
+        Args["plugin_name", str],
     ),
     permission=SUPERUSER
 )
@@ -49,27 +49,27 @@ async def _(event: T_MessageEvent, bot: T_Bot):
     for plugin in nonebot.get_loaded_plugins():
         # 检查是否有 metadata 属性
         # 添加帮助按钮
-        btn_usage = md.button(lang.get('npm.usage'), f'help {plugin.module_name}', False)
+        btn_usage = md.button(lang.get("npm.usage"), f"help {plugin.module_name}", False)
         store_plugin = await get_store_plugin(plugin.module_name)
 
         session_enable = get_plugin_session_enable(event, plugin.module_name)
         default_enable = get_plugin_default_enable(plugin.module_name)
 
         if store_plugin:
-            btn_homepage = md.link(lang.get('npm.homepage'), store_plugin.homepage)
+            btn_homepage = md.link(lang.get("npm.homepage"), store_plugin.homepage)
             show_name = store_plugin.name
             show_desc = store_plugin.desc
         elif plugin.metadata:
-            if plugin.metadata.extra.get('liteyuki'):
-                btn_homepage = md.link(lang.get('npm.homepage'), "https://github.com/snowykami/LiteyukiBot")
+            if plugin.metadata.extra.get("liteyuki"):
+                btn_homepage = md.link(lang.get("npm.homepage"), "https://github.com/snowykami/LiteyukiBot")
             else:
-                btn_homepage = lang.get('npm.homepage')
+                btn_homepage = lang.get("npm.homepage")
             show_name = plugin.metadata.name
             show_desc = plugin.metadata.description
         else:
-            btn_homepage = lang.get('npm.homepage')
+            btn_homepage = lang.get("npm.homepage")
             show_name = plugin.name
-            show_desc = lang.get('npm.no_description')
+            show_desc = lang.get("npm.no_description")
 
         if plugin.metadata:
             reply += (f"\n**{md.escape(show_name)}**\n"
@@ -83,22 +83,22 @@ async def _(event: T_MessageEvent, bot: T_Bot):
         if await GROUP_ADMIN(bot, event) or await GROUP_OWNER(bot, event) or await SUPERUSER(bot, event):
             # 添加启用/停用插件按钮
             cmd_toggle = f"{'disable' if session_enable else 'enable'}-plugin {plugin.module_name}"
-            text_toggle = lang.get('npm.disable' if session_enable else 'npm.enable')
+            text_toggle = lang.get("npm.disable" if session_enable else "npm.enable")
             can_be_toggle = get_plugin_can_be_toggle(plugin.module_name)
             btn_toggle = text_toggle if not can_be_toggle else md.button(text_toggle, cmd_toggle)
 
             reply += f"  {btn_toggle}"
 
             if await SUPERUSER(bot, event):
-                plugin_in_database = plugin_db.first(InstalledPlugin, 'module_name = ?', plugin.module_name)
+                plugin_in_database = plugin_db.first(InstalledPlugin, "module_name = ?", plugin.module_name)
                 # 添加移除插件和全局切换按钮
                 global_enable = get_plugin_global_enable(plugin.module_name)
                 btn_uninstall = (
-                        md.button(lang.get('npm.uninstall'), f'npm uninstall {plugin.module_name}')) if plugin_in_database else lang.get(
+                        md.button(lang.get("npm.uninstall"), f'npm uninstall {plugin.module_name}')) if plugin_in_database else lang.get(
                     'npm.uninstall')
 
-                btn_toggle_global_text = lang.get('npm.disable_global' if global_enable else 'npm.enable_global')
-                cmd_toggle_global = f'npm toggle-global {plugin.module_name}'
+                btn_toggle_global_text = lang.get("npm.disable_global" if global_enable else "npm.enable_global")
+                cmd_toggle_global = f"npm toggle-global {plugin.module_name}"
                 btn_toggle_global = btn_toggle_global_text if not can_be_toggle else md.button(btn_toggle_global_text, cmd_toggle_global)
 
                 reply += f"  {btn_uninstall}  {btn_toggle_global}"
@@ -115,7 +115,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
     ulang = get_user_lang(str(event.user_id))
     plugin_module_name = result.args.get("plugin_name")
 
-    toggle = result.header_result == 'enable-plugin'  # 判断是启用还是停用
+    toggle = result.header_result == "enable-plugin"  # 判断是启用还是停用
 
     session_enable = get_plugin_session_enable(event, plugin_module_name)  # 获取插件当前状态
 
@@ -149,7 +149,6 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
             else:
                 session.enabled_plugins.remove(plugin_module_name)
         if event.message_type == "private":
-            print("已保存")
             user_db.upsert(session)
         else:
             group_db.upsert(session)

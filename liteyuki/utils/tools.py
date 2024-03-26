@@ -35,23 +35,6 @@ def convert_size(size: int, precision: int = 2, add_unit: bool = True, suffix: s
         return f"{size:.{precision}f}"
 
 
-def de_escape(text: str) -> str:
-    str_map = {
-            "&#91;": "[",
-            "&#93;": "]",
-            "&amp;": "&",
-            "&#44;": ",",
-    }
-    for k, v in str_map.items():
-        text = text.replace(k, v)
-
-    return text
-
-
-def encode_url(text: str) -> str:
-    return quote(text, safe="")
-
-
 def keywords_in_text(keywords: list[str], text: str, all_matched: bool) -> bool:
     """
     检查关键词是否在文本中

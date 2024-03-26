@@ -28,31 +28,31 @@ lang = Language()
 dash_app = Dash(__name__)
 dash_app.layout = dash_app.layout = html.Div(children=[
         html.H1(children=lang.get("main.monitor.title"), style={
-                'textAlign': 'center'
+                "textAlign": "center"
         }),
 
-        dcc.Graph(id='live-update-graph'),
+        dcc.Graph(id="live-update-graph"),
         dcc.Interval(
-            id='interval-component',
+            id="interval-component",
             interval=1 * 1000,  # in milliseconds
             n_intervals=0
         )
 ])
 
 
-@dash_app.callback(Output('live-update-graph', 'figure'),
-                   [Input('interval-component', 'n_intervals')])
+@dash_app.callback(Output("live-update-graph", "figure"),
+                   [Input("interval-component", "n_intervals")])
 def update_graph_live(n):
     lang = Language()
     system_inf = get_system_info()
     dash_app.layout = html.Div(children=[
             html.H1(children=lang.get("main.monitor.title"), style={
-                    'textAlign': 'center'
+                    "textAlign": "center"
             }),
 
-            dcc.Graph(id='live-update-graph'),
+            dcc.Graph(id="live-update-graph"),
             dcc.Interval(
-                id='interval-component',
+                id="interval-component",
                 interval=2 * 1000,  # in milliseconds
                 n_intervals=0
             )
@@ -60,28 +60,28 @@ def update_graph_live(n):
     mem = psutil.virtual_memory()
     cpu_f = psutil.cpu_freq()
     figure = {
-            'data'  : [
+            "data"  : [
                     {
-                            'x'   : [f"{cpu_f.current / 1000:.2f}GHz {psutil.cpu_count(logical=False)}c{psutil.cpu_count()}t"],
-                            'y'   : [system_inf['cpu_percent']],
-                            'type': 'bar',
-                            'name': f"{lang.get('main.monitor.cpu')} {lang.get('main.monitor.usage')}"
+                            "x"   : [f"{cpu_f.current / 1000:.2f}GHz {psutil.cpu_count(logical=False)}c{psutil.cpu_count()}t"],
+                            "y"   : [system_inf["cpu_percent"]],
+                            "type": "bar",
+                            "name": f"{lang.get('main.monitor.cpu')} {lang.get('main.monitor.usage')}"
 
                     },
                     {
-                            'x'   : [f"{convert_size(mem.used, add_unit=False)}/{convert_size(mem.total)}({mem.used / mem.total * 100:.2f}%)"],
-                            'y'   : [system_inf['memory_percent']],
-                            'type': 'bar',
-                            'name': f"{lang.get('main.monitor.memory')} {lang.get('main.monitor.usage')}"
+                            "x"   : [f"{convert_size(mem.used, add_unit=False)}/{convert_size(mem.total)}({mem.used / mem.total * 100:.2f}%)"],
+                            "y"   : [system_inf["memory_percent"]],
+                            "type": "bar",
+                            "name": f"{lang.get('main.monitor.memory')} {lang.get('main.monitor.usage')}"
                     },
             ],
-            'layout': {
-                    'title': lang.get('main.monitor.description'),
-                    # 'xaxis': {
-                    #         'range': [0, 10]
+            "layout": {
+                    "title": lang.get("main.monitor.description"),
+                    # "xaxis": {
+                    #         "range": [0, 10]
                     #         },  # 设置x轴的范围
-                    'yaxis': {
-                            'range': [0, 100]
+                    "yaxis": {
+                            "range": [0, 100]
                     },  # 设置y轴的范围
             }
     }

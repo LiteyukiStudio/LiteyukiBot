@@ -116,7 +116,7 @@ def get_profile_menu(key: str, ulang: Language) -> Optional[str]:
     reply = f"**{setting_name} {ulang.get('user.profile.settings')}**\n***\n"
     if key == "lang":
         for lang_code, lang_name in get_all_lang().items():
-            btn_set = md.button(ulang.get('user.profile.set'), f"profile set {key} {lang_code}")
+            btn_set = md.button(ulang.get("user.profile.set"), f"profile set {key} {lang_code}")
             reply += f"\n{btn_set} | **{lang_name}** - {lang_code}\n***\n"
     elif key == "timezone":
         for tz in representative_timezones_list:
@@ -135,9 +135,9 @@ def set_profile(key: str, value: str) -> bool:
         是否成功设置，输入合法性不通过返回False
 
     """
-    if key == 'lang':
+    if key == "lang":
         if value in get_all_lang():
             return True
-    elif key == 'timezone':
+    elif key == "timezone":
         if value in pytz.all_timezones:
             return True

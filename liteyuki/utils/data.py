@@ -226,13 +226,13 @@ class Database(BaseORMAdapter):
             return_data = {}
             for k, v in data.items():
                 if isinstance(v, LiteModel):
-                    return_data[f'{self.FOREIGNID}{k}'] = f'{self.ID}:{v.__class__.__name__}:{self.upsert(v)}'
+                    return_data[f"{self.FOREIGNID}{k}"] = f"{self.ID}:{v.__class__.__name__}:{self.upsert(v)}"
                 elif isinstance(v, list):
-                    return_data[f'{self.LIST}{k}'] = self._flat(v)
+                    return_data[f"{self.LIST}{k}"] = self._flat(v)
                 elif isinstance(v, dict):
-                    return_data[f'{self.DICT}{k}'] = self._flat(v)
+                    return_data[f"{self.DICT}{k}"] = self._flat(v)
                 elif isinstance(v, BaseIterable):
-                    return_data[f'{self.JSON}{k}'] = self._flat(v)
+                    return_data[f"{self.JSON}{k}"] = self._flat(v)
                 else:
                     return_data[k] = v
 
@@ -240,7 +240,7 @@ class Database(BaseORMAdapter):
             return_data = []
             for v in data:
                 if isinstance(v, LiteModel):
-                    return_data.append(f'{self.ID}:{v.__class__.__name__}:{self.upsert(v)}')
+                    return_data.append(f"{self.ID}:{v.__class__.__name__}:{self.upsert(v)}")
                 elif isinstance(v, list):
                     return_data.append(self._flat(v))
                 elif isinstance(v, dict):
@@ -250,7 +250,7 @@ class Database(BaseORMAdapter):
                 else:
                     return_data.append(v)
         else:
-            raise ValueError('数据类型错误')
+            raise ValueError("数据类型错误")
 
         return json.dumps(return_data)
 
@@ -263,7 +263,7 @@ class Database(BaseORMAdapter):
         Returns:
 
         """
-        return self.cursor.execute(f'SELECT * FROM sqlite_master WHERE type = "table" AND name = ?', (table_name,)).fetchone()
+        return self.cursor.execute(f"SELECT * FROM sqlite_master WHERE type = 'table' AND name = ?", (table_name,)).fetchone()
 
     def first(self, model: type(LiteModel), conditions, *args, default: Any = None) -> LiteModel | None:
         """查询第一条数据
@@ -281,7 +281,7 @@ class Database(BaseORMAdapter):
         if not self._detect_for_table(table_name):
             return default
 
-        self.cursor.execute(f'SELECT * FROM {table_name} WHERE {conditions}', args)
+        self.cursor.execute(f"SELECT * FROM {table_name} WHERE {conditions}", args)
         if row_data := self.cursor.fetchone():
             data = dict(row_data)
             return model(**self.convert_to_dict(data))
@@ -304,9 +304,9 @@ class Database(BaseORMAdapter):
             return default
 
         if conditions:
-            self.cursor.execute(f'SELECT * FROM {table_name} WHERE {conditions}', args)
+            self.cursor.execute(f"SELECT * FROM {table_name} WHERE {conditions}", args)
         else:
-            self.cursor.execute(f'SELECT * FROM {table_name}')
+            self.cursor.execute(f"SELECT * FROM {table_name}")
         if row_datas := self.cursor.fetchall():
             datas = [dict(row_data) for row_data in row_datas]
             return [model(**self.convert_to_dict(d)) for d in datas] if datas else default
@@ -327,8 +327,8 @@ class Database(BaseORMAdapter):
 
         if not self._detect_for_table(table_name):
             return
-        nonebot.logger.debug(f'DELETE FROM {table_name} WHERE {conditions}')
-        self.cursor.execute(f'DELETE FROM {table_name} WHERE {conditions}', args)
+        nonebot.logger.debug(f"DELETE FROM {table_name} WHERE {conditions}")
+        self.cursor.execute(f"DELETE FROM {table_name} WHERE {conditions}", args)
         self.conn.commit()
 
     def convert_to_dict(self, data: dict) -> dict:
@@ -346,8 +346,8 @@ class Database(BaseORMAdapter):
                 new_d = {}
                 for k, v in d.items():
                     if k.startswith(self.FOREIGNID):
-                        new_d[k.replace(self.FOREIGNID, '')] = load(
-                            dict(self.cursor.execute(f'SELECT * FROM {v.split(":", 2)[1]} WHERE id = ?', (v.split(":", 2)[2],)).fetchone()))
+                        new_d[k.replace(self.FOREIGNID, "")] = load(
+                            dict(self.cursor.execute(f"SELECT * FROM {v.split(':', 2)[1]} WHERE id = ?", (v.split(":", 2)[2],)).fetchone()))
 
                     elif k.startswith(self.LIST):
                         if v == '': v = '[]'

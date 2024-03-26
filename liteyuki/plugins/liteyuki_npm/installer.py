@@ -68,9 +68,9 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
         if len(rs):
             reply = f"{ulang.get('npm.search_result')} | {ulang.get('npm.total', TOTAL=len(rs))}\n***"
             for plugin in rs[:min(max_show, len(rs))]:
-                btn_install = md.button(ulang.get('npm.install'), 'npm install %s' % plugin.module_name)
-                link_page = md.link(ulang.get('npm.homepage'), plugin.homepage)
-                link_pypi = md.link(ulang.get('npm.pypi'), plugin.homepage)
+                btn_install = md.button(ulang.get("npm.install"), "npm install %s" % plugin.module_name)
+                link_page = md.link(ulang.get("npm.homepage"), plugin.homepage)
+                link_pypi = md.link(ulang.get("npm.pypi"), plugin.homepage)
 
                 reply += (f"\n# **{plugin.name}**\n"
                           f"\n> **{plugin.desc}**\n"
@@ -93,7 +93,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
         if not store_plugin:
             await npm_alc.finish(ulang.get("npm.plugin_not_found", NAME=plugin_module_name))
 
-        homepage_btn = md.button(ulang.get('npm.homepage'), store_plugin.homepage)
+        homepage_btn = md.button(ulang.get("npm.homepage"), store_plugin.homepage)
         if r:
 
             r_load = nonebot.load_plugin(plugin_module_name)  # 加载插件
@@ -103,7 +103,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
             if r_load:
                 if found_in_db_plugin is None:
                     plugin_db.upsert(installed_plugin)
-                    info = ulang.get('npm.install_success', NAME=store_plugin.name).replace('_', r'\\_')  # markdown转义
+                    info = md.escape(ulang.get("npm.install_success", NAME=store_plugin.name))  # markdown转义
                     await send_markdown(
                         f"{info}\n\n"
                         f"```\n{log}\n```",
@@ -111,9 +111,9 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
                         event=event
                     )
                 else:
-                    await npm_alc.finish(ulang.get('npm.plugin_already_installed', NAME=store_plugin.name))
+                    await npm_alc.finish(ulang.get("npm.plugin_already_installed", NAME=store_plugin.name))
             else:
-                info = ulang.get('npm.load_failed', NAME=plugin_module_name, HOMEPAGE=homepage_btn).replace('_', r'\\_')
+                info = ulang.get("npm.load_failed", NAME=plugin_module_name, HOMEPAGE=homepage_btn).replace("_", r"\\_")
                 await send_markdown(
                     f"{info}\n\n"
                     f"```\n{log}\n```\n",
@@ -121,7 +121,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
                     event=event
                 )
         else:
-            info = ulang.get('npm.install_failed', NAME=plugin_module_name, HOMEPAGE=homepage_btn).replace('_', r'\\_')
+            info = ulang.get("npm.install_failed", NAME=plugin_module_name, HOMEPAGE=homepage_btn).replace("_", r"\\_")
             await send_markdown(
                 f"{info}\n\n"
                 f"```\n{log}\n```",
@@ -216,7 +216,7 @@ def npm_install(plugin_module_name) -> tuple[bool, str]:
     for mirror in mirrors:
         try:
             nonebot.logger.info(f"npm_install try mirror: {mirror}")
-            result = pip.main(['install', plugin_module_name, "-i", mirror])
+            result = pip.main(["install", plugin_module_name, "-i", mirror])
             success = result == 0
             if success:
                 break

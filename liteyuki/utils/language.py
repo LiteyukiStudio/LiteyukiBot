@@ -30,14 +30,14 @@ def load_from_lang(file_path: str, lang_code: str = None):
     """
     try:
         if lang_code is None:
-            lang_code = os.path.basename(file_path).split('.')[0]
-        with open(file_path, 'r', encoding='utf-8') as file:
+            lang_code = os.path.basename(file_path).split(".")[0]
+        with open(file_path, "r", encoding="utf-8") as file:
             data = {}
             for line in file:
                 line = line.strip()
-                if not line or line.startswith('#'):  # 空行或注释
+                if not line or line.startswith("#"):  # 空行或注释
                     continue
-                key, value = line.split('=', 1)
+                key, value = line.split("=", 1)
                 data[key.strip()] = value.strip()
             if lang_code not in _language_data:
                 _language_data[lang_code] = {}
@@ -56,8 +56,8 @@ def load_from_json(file_path: str, lang_code: str = None):
     """
     try:
         if lang_code is None:
-            lang_code = os.path.basename(file_path).split('.')[0]
-        with open(file_path, 'r', encoding='utf-8') as file:
+            lang_code = os.path.basename(file_path).split(".")[0]
+        with open(file_path, "r", encoding="utf-8") as file:
             data = json.load(file)
             if lang_code not in _language_data:
                 _language_data[lang_code] = {}
@@ -77,9 +77,9 @@ def load_from_dir(dir_path: str):
         try:
             file_path = os.path.join(dir_path, file)
             if os.path.isfile(file_path):
-                if file.endswith('.lang'):
+                if file.endswith(".lang"):
                     load_from_lang(file_path)
-                elif file.endswith('.json'):
+                elif file.endswith(".json"):
                     load_from_json(file_path)
         except Exception as e:
             nonebot.logger.error(f"Failed to load language data from {file}: {e}")
@@ -140,7 +140,7 @@ def get_user_lang(user_id: str) -> Language:
         username="Unknown"
     ))
 
-    return Language(user.profile.get('lang', config.get("default_language", get_system_lang_code())))
+    return Language(user.profile.get("lang", config.get("default_language", get_system_lang_code())))
 
 
 def get_system_lang_code() -> str:

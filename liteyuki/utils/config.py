@@ -19,14 +19,14 @@ def load_from_yaml(file: str) -> dict:
     global config
     nonebot.logger.debug("Loading config from %s" % file)
     if not os.path.exists(file):
-        nonebot.logger.warning(f'Config file {file} not found, created default config, please modify it and restart')
-        with open(file, 'w', encoding='utf-8') as f:
+        nonebot.logger.warning(f"Config file {file} not found, created default config, please modify it and restart")
+        with open(file, "w", encoding="utf-8") as f:
             yaml.dump(BasicConfig().dict(), f, default_flow_style=False)
 
-    with open(file, 'r', encoding='utf-8') as f:
+    with open(file, "r", encoding="utf-8") as f:
         conf = yaml.load(f, Loader=yaml.FullLoader)
         config = conf
         if conf is None:
-            nonebot.logger.warning(f'Config file {file} is empty, use default config. please modify it and restart')
+            nonebot.logger.warning(f"Config file {file} is empty, use default config. please modify it and restart")
             conf = BasicConfig().dict()
         return conf

@@ -1,20 +1,11 @@
-import copy
-import json
 import os
 import pickle
 import sqlite3
-import types
 from types import NoneType
-from collections.abc import Iterable
-from pydantic import BaseModel, Field
 from typing import Any
 
-LOG_OUT = True
-
-
-def log(*args, **kwargs):
-    if LOG_OUT:
-        print(*args, **kwargs)
+import pydantic
+from pydantic import BaseModel
 
 
 class LiteModel(BaseModel):
@@ -85,7 +76,12 @@ class Database:
             elif model.TABLE_NAME not in table_list:
                 raise ValueError(f"数据模型 {model.__class__.__name__} 的表 {model.TABLE_NAME} 不存在，请先迁移")
             else:
-                self._save(model.model_dump(by_alias=True))
+                if pydantic.__version__ < "1.8.2":
+                    # 兼容pydantic 1.8.2以下版本
+                    model_dict = model.dict(by_alias=True)
+                else:
+                    model_dict = model.model_dump(by_alias=True)
+                self._save(model_dict)
 
     def _save(self, obj: Any) -> Any:
         # obj = copy.deepcopy(obj)

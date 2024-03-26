@@ -1,14 +1,16 @@
+from urllib.parse import quote
+
 import nonebot
 from nonebot.adapters.onebot import v11, v12
 from typing import Any
 
-from .tools import de_escape, encode_url
+from .tools import encode_url
 from .ly_typing import T_Bot, T_MessageEvent
 
 
 async def send_markdown(markdown: str, bot: T_Bot, *, message_type: str = None, session_id: str | int = None, event: T_MessageEvent = None, **kwargs) -> dict[
-    str, Any]:
-    formatted_md = de_escape(markdown).replace("\n", r"\n").replace("\"", r'\\\"')
+        str, Any]:
+    formatted_md = v11.unescape(markdown).replace("\n", r"\n").replace("\"", r'\\\"')
     if event is not None and message_type is None:
         message_type = event.message_type
         session_id = event.user_id if event.message_type == "private" else event.group_id
@@ -89,7 +91,7 @@ class Markdown:
             markdown格式的可点击回调按钮
 
         """
-        return f"[{name}](mqqapi://aio/inlinecmd?command={encode_url(cmd)}&reply={str(reply).lower()}&enter={str(enter).lower()})"
+        return f"[{name}](mqqapi://aio/inlinecmd?command={quote(cmd)}&reply={str(reply).lower()}&enter={str(enter).lower()})"
 
     @staticmethod
     def link(name: str, url: str) -> str:

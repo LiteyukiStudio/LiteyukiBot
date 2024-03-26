@@ -61,11 +61,11 @@ def init_log():
     show_icon = config.get("log_icon", True)
     lang = Language(config.get("default_language", get_system_lang_code()))
 
-    debug = lang.get('log.debug', default="==DEBUG")
-    info = lang.get('log.info', default="===INFO")
-    success = lang.get('log.success', default="SUCCESS")
-    warning = lang.get('log.warning', default="WARNING")
-    error = lang.get('log.error', default="==ERROR")
+    debug = lang.get("log.debug", default="==DEBUG")
+    info = lang.get("log.info", default="===INFO")
+    success = lang.get("log.success", default="SUCCESS")
+    warning = lang.get("log.warning", default="WARNING")
+    error = lang.get("log.error", default="==ERROR")
 
     logger.level("DEBUG", color="<blue>", icon=f"{'*️⃣' if show_icon else ''}{debug}")
     logger.level("INFO", color="<white>", icon=f"{'ℹ️' if show_icon else ''}{info}")
