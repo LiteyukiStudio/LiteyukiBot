@@ -5,8 +5,10 @@ from git import Repo
 from liteyuki.utils.config import config
 from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
 
+from liteyuki.utils.language import get_user_lang
+from liteyuki.utils.message import Markdown as md, send_markdown
+
 from .reloader import Reloader
-from ..utils.message import send_markdown
 
 require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import on_alconna, Alconna
@@ -27,7 +29,7 @@ update_liteyuki = on_alconna(
 
 reload_liteyuki = on_alconna(
     Alconna(
-        ["reload-liteyuki", "重启轻雪"]
+        ["reload-liteyuki", "restart-liteyuki", "重启轻雪"]
     ),
     permission=SUPERUSER
 )
@@ -41,6 +43,7 @@ async def _(bot: T_Bot):
 @update_liteyuki.handle()
 async def _(bot: T_Bot, event: T_MessageEvent):
     # 使用git pull更新
+    ulang = get_user_lang(str(event.user_id))
     origins = ["origin", "origin2"]
     repo = Repo(".")
     for origin in origins:
@@ -51,7 +54,9 @@ async def _(bot: T_Bot, event: T_MessageEvent):
             print(f"Pull from {origin} failed: {e}")
     logs = repo.index.diff()
     reply = "Liteyuki updated!\n"
-    reply += f"```\n{logs}\n```"
+    reply += f"```\n{logs}\n```\n"
+    btn_restart = md.button(ulang.get("liteyuki.restart"), "restart-liteyuki")
+    reply += f"{ulang.get('liteyuki.update_restart', RESTART=btn_restart)}"
     await send_markdown(reply, bot, event=event, at_sender=False)
 
 

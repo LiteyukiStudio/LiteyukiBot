@@ -6,6 +6,9 @@ log.warning=WARN
 log.error=Error
 log.success=Success
 
+liteyuki.restart=Restart
+liteyuki.update_restart=Update completely, You can {RESTART} the server now or later
+
 main.current_language=Current config language: {LANG}
 main.enable_webdash=Web dashboard is enabled: {URL}
 main.monitor.title=Liteyuki Monitor
