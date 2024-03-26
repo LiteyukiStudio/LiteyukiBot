@@ -1,5 +1,6 @@
 from typing import Optional
 
+import pytz
 from nonebot import require
 
 from liteyuki.utils.data import LiteModel
@@ -7,6 +8,7 @@ from liteyuki.utils.data_manager import User, user_db
 from liteyuki.utils.language import Language, get_all_lang, get_user_lang
 from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
 from liteyuki.utils.message import Markdown as md, send_markdown
+from .const import representative_timezones_list
 
 require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import Alconna, Args, Arparma, Subcommand, on_alconna
@@ -90,7 +92,8 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
             btn_set = md.button(ulang.get("user.profile.edit"), f"profile set {key}",
                                 enter=True if key in enter_attr else False)
             reply += (f"\n**{key_text}**    **{val}**\n"
-                      f"\n > {btn_set}  {ulang.get(f'user.profile.{key}.desc')}\n\n***\n")
+                      f"\n> {ulang.get(f'user.profile.{key}.desc')}"
+                      f"\n> {btn_set}  \n\n***\n")
         await send_markdown(reply, bot, event=event)
 
 
@@ -115,6 +118,10 @@ def get_profile_menu(key: str, ulang: Language) -> Optional[str]:
         for lang_code, lang_name in get_all_lang().items():
             btn_set = md.button(ulang.get('user.profile.set'), f"profile set {key} {lang_code}")
             reply += f"\n{btn_set} | **{lang_name}** - {lang_code}\n***\n"
+    elif key == "timezone":
+        for tz in representative_timezones_list:
+            btn_set_tz = md.button(tz, f"profile set {key} {tz}")
+            reply += f"{btn_set_tz}\n"
     return reply
 
 
@@ -131,7 +138,6 @@ def set_profile(key: str, value: str) -> bool:
     if key == 'lang':
         if value in get_all_lang():
             return True
-        return False
     elif key == 'timezone':
-        # TODO 其他个人信息项目的实现
-        pass
+        if value in pytz.all_timezones:
+            return True
