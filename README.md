@@ -40,6 +40,7 @@ auto_report: true # 是否自动上报问题给轻雪服务器，仅包含硬件
 
 # 其他Nonebot插件的配置项
 custom_config_1: "custom_value1"
+custom_config_2: "custom_value2"
 ...
 ```
 
