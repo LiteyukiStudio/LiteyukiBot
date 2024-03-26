@@ -236,7 +236,7 @@ async def pre_handle(event: Event, matcher: Matcher):
             raise IgnoredException("Plugin disabled in session")
 
 
-@Bot.on_calling_api
-async def _(bot: Bot, api: str, data: dict[str, any]):
-    # TODO 插件启用/停用检查hook
-    nonebot.logger.info(f"Plugin Callapi: {api}: {data}")
+# @Bot.on_calling_api
+# async def _(bot: Bot, api: str, data: dict[str, any]):
+#     # TODO 插件启用/停用检查hook
+#     nonebot.logger.info(f"Plugin Callapi: {api}: {data}")

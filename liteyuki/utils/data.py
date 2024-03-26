@@ -238,9 +238,9 @@ class Database:
             # 检测缺失字段，由于SQLite是动态类型，所以不需要检测类型
             for n_field, n_type in new_structure.items():
                 if n_field not in existing_structure.keys() and n_field.lower() not in ["id", "table_name"]:
-                    print(n_type, self.DEFAULT_MAPPING.get(n_type, ''))
+                    default_value = self.DEFAULT_MAPPING.get(n_type, "''")
                     self.cursor.execute(
-                        f"ALTER TABLE '{model.TABLE_NAME}' ADD COLUMN {n_field} {n_type} DEFAULT {self.DEFAULT_MAPPING.get(n_type, '')}"
+                        f"ALTER TABLE '{model.TABLE_NAME}' ADD COLUMN {n_field} {n_type} DEFAULT {self.DEFAULT_MAPPING.get(n_type, default_value)}"
                     )
 
             # 检测多余字段进行删除
