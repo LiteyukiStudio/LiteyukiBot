@@ -81,7 +81,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
 
         reply = f"# {ulang.get('user.profile.info')}\n***\n"
 
-        hidden_attr = ["id"]
+        hidden_attr = ["id", "TABLE_NAME"]
         enter_attr = ["lang", "timezone"]
 
         for key in sorted(profile.dict().keys()):
