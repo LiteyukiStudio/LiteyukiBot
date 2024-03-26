@@ -29,22 +29,14 @@ list_plugins = on_alconna(
 
 toggle_plugin = on_alconna(
     Alconna(
-        ["enable", "disable"],
+        ["enable", "disable", "启用", "停用"],
         Args["plugin_name", str],
     )
 )
 
 toggle_plugin_global = on_alconna(
     Alconna(
-        ["enable-global", "disable-global"],
-        Args["plugin_name", str],
-    ),
-    permission=SUPERUSER
-)
-
-global_toggle = on_alconna(
-    Alconna(
-        ["toggle-global"],
+        ["enable-global", "disable-global", "全局启用", "全局停用"],
         Args["plugin_name", str],
     ),
     permission=SUPERUSER
@@ -126,7 +118,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
     ulang = get_user_lang(str(event.user_id))
     plugin_module_name = result.args.get("plugin_name")
 
-    toggle = result.header_result == "enable-plugin"  # 判断是启用还是停用
+    toggle = result.header_result in ["enable-plugin", "启用"]  # 判断是启用还是停用
 
     session_enable = get_plugin_session_enable(event, plugin_module_name)  # 获取插件当前状态
 
@@ -189,7 +181,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
     ulang = get_user_lang(str(event.user_id))
     plugin_module_name = result.args.get("plugin_name")
 
-    toggle = result.header_result == "enable-global"
+    toggle = result.header_result in ["enable-global", "全局启用"]
     can_be_toggled = get_plugin_can_be_toggle(plugin_module_name)
     if not can_be_toggled:
         await toggle_plugin_global.finish(ulang.get("npm.plugin_cannot_be_toggled", NAME=plugin_module_name))
@@ -238,6 +230,4 @@ async def pre_handle(event: Event, matcher: Matcher):
 
 @Bot.on_calling_api
 async def _(bot: Bot, api: str, data: dict[str, any]):
-    # TODO 插件启用/停用检查hook
-    plugin = current_plugin
     nonebot.logger.info(f"Plugin Callapi: {api}: {data}")
