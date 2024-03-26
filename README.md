@@ -1,5 +1,5 @@
 <div align="center">
-    <img src="https://cdn.liteyuki.icu/static/img/logo.png" style="width: 30%; margin-top:10%;" alt="a">
+    <img src="https://cdn.liteyuki.icu/static/img/logo.png" style="width: 50%; margin-top:10%;" alt="a">
 </div>
 <div align=center>
     <h2>
