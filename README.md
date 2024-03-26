@@ -2,7 +2,7 @@
 <div align=center><h2><font color="#d0e9ff">轻雪</font><font color="#a2d8f4">6.2</font></h2></div>
 <div align=center><h4>轻量，高效，易于扩展</h4></div>
 
-- 基于[Nonebot2]("https://github.com/nonebot/nonebot2")，有良好的生态支持
+- 基于[Nonebot2](https://github.com/nonebot/nonebot2)，有良好的生态支持
 - 开箱即用，无需复杂配置
 - 新的点击交互模式，拒绝手打指令
 - 全新可视化`npm`包管理，支持一键安装插件
@@ -47,7 +47,7 @@ custom_config_1: "custom_value1"
 
 | 字段          | 参考值                      | 说明                               |
 |-------------|--------------------------|----------------------------------|
-| 协议          | 反向WebSocket              | 轻雪默认使用反向ws协议进行通信，即轻雪作为服务端        |
+| 协议          | 反向WebSocket              | 推荐使用反向ws协议进行通信，即轻雪作为服务端        |
 | 地址          | ws://`addrss`/onebot/v11 | 地址取决于配置文件，本机默认为`127.0.0.1:20216` |
 | AccessToken | `""`                     | 如果你给轻雪配置了`AccessToken`，请在此填写相同的值 |
 
