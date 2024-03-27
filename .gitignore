@@ -4,6 +4,7 @@
 node_modules/
 data/
 db/
+__pycache__/
 /plugins/
 _config.yml
 config.yml
