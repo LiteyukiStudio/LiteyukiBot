@@ -141,3 +141,5 @@ def set_profile(key: str, value: str) -> bool:
     elif key == "timezone":
         if value in pytz.all_timezones:
             return True
+    elif key == "nickname":
+        return True
