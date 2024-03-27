@@ -52,7 +52,7 @@ async def _(bot: T_Bot, event: T_MessageEvent):
             break
         except Exception as e:
             print(f"Pull from {origin} failed: {e}")
-    logs = repo.index.diff()
+    logs = repo.index
     reply = "Liteyuki updated!\n"
     reply += f"```\n{logs}\n```\n"
     btn_restart = md.button(ulang.get("liteyuki.restart_now"), "restart-liteyuki")
