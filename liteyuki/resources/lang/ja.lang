@@ -6,6 +6,10 @@ log.warning=警告
 log.error=エラー
 log.success=成功
 
+iteyuki.restart=再起動
+liteyuki.restart_now=今すぐ再起動
+liteyuki.update_restart=更新完了、{RESTART}または後で変更を適用できます
+
 main.current_language = 現在のシステム言語: {LANG}
 main.enable_webdash = ウェブダッシュボードが有効になりました: {URL}
 main.monitor.title = Liteyukiモニタリングパネル

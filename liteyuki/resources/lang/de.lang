@@ -6,6 +6,10 @@ log.warning=Warnung
 log.error=Fehler
 log.success=Erfolg
 
+liteyuki.restart=Neustart
+liteyuki.restart_now=Jetzt neustarten
+liteyuki.update_restart=Aktualisierung vollständig, Sie können {RESTART} oder später durchführen, um die Änderungen anzuwenden
+
 main.current_language=Aktuell konfigurierte Sprache: {LANG}
 main.enable_webdash=Web-Dashboard ist aktiviert: {URL}
 main.monitor.title=Qingshu Überwachungspanel
