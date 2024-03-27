@@ -19,5 +19,7 @@ if __name__ == "__main__":
     try:
         nonebot.run()
     except BaseException as e:
-        nonebot.logger.error(f"An error occurred: {e}, Bug will be reported automatically.")
-        liteyuki_api.bug_report(str(e.__repr__()))
+        # 排除键盘中断
+        if not isinstance(e, KeyboardInterrupt):
+            nonebot.logger.error(f"An error occurred: {e}, Bug will be reported automatically.")
+            liteyuki_api.bug_report(str(e.__repr__()))
