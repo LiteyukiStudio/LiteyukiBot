@@ -5,6 +5,10 @@ node_modules/
 data/
 db/
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyw
 /plugins/
 _config.yml
 config.yml
@@ -12,7 +16,6 @@ config.example.yml
 compile.bat
 # vuepress
 docs/.github
-
 
 # nuitka
 main.build/
