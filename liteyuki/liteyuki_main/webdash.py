@@ -10,7 +10,7 @@ app = nonebot.get_app()
 
 
 def get_system_info():
-    cpu_percent = psutil.cpu_percent()
+    cpu_percent = psutil.cpu_percent(interval=0.1)
     memory_info = psutil.virtual_memory()
     memory_percent = memory_info.percent
     return {

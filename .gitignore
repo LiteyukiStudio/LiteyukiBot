@@ -1,6 +1,7 @@
 .venv/
 .idea/
 .cache/
+node_modules/
 data/
 db/
 /plugins/
