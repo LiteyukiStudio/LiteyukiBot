@@ -181,8 +181,6 @@ async def npm_search(keywords: list[str]) -> list[StorePlugin]:
                     plugin.desc,
                     plugin.author,
                     plugin.module_name,
-                    plugin.project_link,
-                    plugin.homepage,
                     ' '.join([tag.label for tag in plugin.tags])
             ]
         )
