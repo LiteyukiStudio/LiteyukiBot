@@ -1,4 +1,4 @@
-<div style="text-align: center;">
+<div align="center">
 <img  src="https://cdn.liteyuki.icu/static/img/logo.png" style="align-content: center; width: 50%; margin-top:10%;" alt="a">
 <h2> <span style="color: #a2d8f4">轻雪</span> <span style="color: #d0e9ff">6.2</span></h2>
 <h4> <span style="color: #a2d8f4"> 轻量，高效，易于扩展</span></h4>
