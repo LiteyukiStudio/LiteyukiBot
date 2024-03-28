@@ -35,7 +35,9 @@ jobs:
           cd docs
           pnpm run docs:build
           ls -al
-          cd .vuepress/dist
+          cd .vuepress
+          ls -al
+          cd dist
           ls -al
           > .vuepress/dist/.nojekyll
 
