@@ -28,7 +28,7 @@ jobs:
           version: 8
 
       - name: 切换工作目录
-        run: cd docs
+        run: echo "Switching to docs directory"
         working-directory: docs
 
 
