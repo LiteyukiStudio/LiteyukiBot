@@ -1,4 +1,5 @@
 from nonebot.plugin import PluginMetadata
+from .minesweeper import *
 
 __plugin_meta__ = PluginMetadata(
     name="轻雪小游戏",
