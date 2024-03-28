@@ -11,7 +11,15 @@ export default defineUserConfig({
     head: [
 // 设置 favor.ico，.vuepress/public 下
         [
-            'link', {rel: 'icon', href: 'https://cdn.liteyuki.icu/favicon.ico'}
+            'link', {rel: 'icon', href: 'https://cdn.liteyuki.icu/favicon.ico'},
+
+        ],
+        [
+            "meta",
+            {
+                name: "viewport",
+                content: "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no",
+            },
         ]
     ],
 
