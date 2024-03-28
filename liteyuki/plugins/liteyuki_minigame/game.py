@@ -13,7 +13,7 @@ class Dot(BaseModel):
 
 class Minesweeper:
     # 0-8: number of mines around, 9: mine, -1: undefined
-    NUMS = "⓪①②③④⑤⑥⑦⑧🅑"
+    NUMS = "⓪①②③④⑤⑥⑦⑧🅑⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳"
     MASK = "🅜"
     FLAG = "🅕"
     MINE = "🅑"
