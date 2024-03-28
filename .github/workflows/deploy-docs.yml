@@ -24,22 +24,14 @@ jobs:
           version: 8
 
       - name: 切换工作目录并设置Node.js
+        env:
+          NODE_OPTIONS: --max_old_space_size=8192
         run: |
           cd docs
           pnpm install
-
-      - name: 构建文档
-        env:
-          NODE_OPTIONS: --max_old_space_size=8192
-        run: |-
-          cd docs
           pnpm run docs:build
-          ls -al
-          cd .vuepress
-          ls -al
-          cd dist
-          ls -al
           > .vuepress/dist/.nojekyll
+   
 
       - name: 部署文档
         uses: JamesIves/github-pages-deploy-action@v4
