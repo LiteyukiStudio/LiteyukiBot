@@ -133,7 +133,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
         plugin_module_name: str = result.subcommands["uninstall"].args.get("plugin_name")
         found_installed_plugin: InstalledPlugin = plugin_db.first(InstalledPlugin(), "module_name = ?", plugin_module_name)
         if found_installed_plugin:
-            plugin_db.delete(InstalledPlugin, "module_name = ?", plugin_module_name)
+            plugin_db.delete(InstalledPlugin(), "module_name = ?", plugin_module_name)
             reply = f"{ulang.get('npm.uninstall_success', NAME=found_installed_plugin.module_name)}"
             await npm_alc.finish(reply)
         else:
