@@ -26,11 +26,15 @@ jobs:
       - name: 切换工作目录
         run: cd docs
 
+      - name: 显示当前目录内容
+        run: ls -al
+
       - name: 设置 Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 20
           cache: pnpm
+          lockfile: pnpm-lock.yaml # 指定正确的路径
 
       - name: 构建文档
         env:
