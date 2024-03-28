@@ -145,14 +145,15 @@ class Minesweeper:
         Returns:
         """
         dis = " "
-        text = self.NUMS[0] + dis*2
+        start = "> " if self.col >= 10 else ""
+        text = start + self.NUMS[0] + dis*2
         # 横向两个雷之间的间隔字符
         # 生成横向索引
         for i in range(self.cols):
             text += f"{self.NUMS[i]}" + dis
         text += "\n\n"
         for i, row in enumerate(self.board):
-            text += f"{self.NUMS[i]}" + dis*2
+            text += start + f"{self.NUMS[i]}" + dis*2
             print([d.value for d in row])
             for dot in row:
                 if dot.mask and not dot.flagged:
