@@ -1,15 +1,21 @@
-import { defineUserConfig } from "vuepress";
+import {defineUserConfig} from "vuepress";
 import theme from "./theme.js";
 
 export default defineUserConfig({
-  base: "/",
+    base: "/",
 
-  lang: "zh-CN",
-  title: "LiteyukiBot",
-  description: "vuepress-theme-hope 的文档演示",
+    lang: "zh-CN",
+    title: "LiteyukiBot",
+    description: "An OneBot Standard ChatBot",
+    head: [
+// 设置 favor.ico，.vuepress/public 下
+        [
+            'link', {rel: 'icon', href: 'https://cdn.liteyuki.icu/favicon.ico'}
+        ]
+    ],
 
-  theme,
+    theme,
 
-  // 和 PWA 一起启用
-  // shouldPrefetch: false,
+    // 和 PWA 一起启用
+    // shouldPrefetch: false,
 });

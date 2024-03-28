@@ -12,7 +12,7 @@ tagline: 基于Nonebot2的OneBot标准聊天机器人，不仅仅局限于OneBot
 actions:
   - text: 使用指南
     icon: lightbulb
-    link: ./demo/
+    link: ./usage/
     type: primary
 
   - text: 文档
@@ -25,7 +25,7 @@ actions:
 #5. 启动`python main.py`
 
 highlights:
-  - header: 易于安装
+  - header: 快速部署
     image: /assets/image/box.svg
     bgImage: https://theme-hope-assets.vuejs.press/bg/3-light.svg
     bgImageDark: https://theme-hope-assets.vuejs.press/bg/3-dark.svg
