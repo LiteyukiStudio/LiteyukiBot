@@ -3,20 +3,20 @@ home: true
 icon: home
 title: 首页
 heroImage: https://cdn.liteyuki.icu/static/img/logo.png
-bgImage: https://theme-hope-assets.vuejs.press/bg/6-light.svg
-bgImageDark: https://theme-hope-assets.vuejs.press/bg/6-dark.svg
+bgImage: 
+bgImageDark: 
 bgImageStyle:
   background-attachment: fixed
 heroText: LiteyukiBot 6
 tagline: 基于Nonebot2的OneBot标准聊天机器人，不仅仅局限于OneBot
 actions:
-  - text: 使用指南
+  - text: 部署
     icon: lightbulb
-    link: ./usage/
+    link: ./deployment/
     type: primary
 
-  - text: 文档
-    link: ./guide/
+  - text: 使用手册
+    link: ./usage/
 
 #1. 安装 `Git` 和 `Python3.10+` 环境
 #2. 克隆项目 `git clone https://github.com/snowykami/LiteyukiBot` (无法连接可以用`https://gitee.com/snowykami/LiteyukiBot`)
@@ -38,5 +38,4 @@ highlights:
         details: 如果你有多个 Python 环境，请使用 <code>pythonx -m pip install -r requirements.txt</code>。
       - title: 使用 <code>python main.py</code> 启动项目。
 copyright: false
-footer: 使用 <a href="https://theme-hope.vuejs.press/zh/" target="_blank">VuePress Theme Hope</a> 主题 | MIT 协议, 版权所有 © 2019-present Mr.Hope
 ---
