@@ -23,28 +23,22 @@ jobs:
           run_install: true
           version: 8
 
-      - name: 切换工作目录
+      - name: 切换工作目录并设置Node.js
         run: cd docs
-
-      - name: 显示当前目录内容
-        run: ls -al
-
-      - name: 设置 Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 20
           cache: pnpm
-          lockfile: pnpm-lock.yaml # 指定正确的路径
 
       - name: 构建文档
         env:
           NODE_OPTIONS: --max_old_space_size=8192
         run: |-
           pnpm run docs:build
-          > .vuepress/dist/.nojekyll
+          > docs/.vuepress/dist/.nojekyll
 
       - name: 部署文档
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
-          folder: .vuepress/dist
+          folder: docs/.vuepress/dist
