@@ -27,9 +27,6 @@ jobs:
         run: |
           cd docs
           pnpm install
-        with:
-          node-version: 20
-          cache: pnpm
 
       - name: 构建文档
         env:
