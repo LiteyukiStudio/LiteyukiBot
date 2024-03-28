@@ -24,6 +24,6 @@ main.cmdY
 docs/.vuepress/.cache/
 docs/.vuepress/.temp/
 docs/.vuepress/dist/
-package.json
-pnpm-lock.yaml
-tsconfig.json
+docs/package.json
+docs/pnpm-lock.yaml
+docs/tsconfig.json
