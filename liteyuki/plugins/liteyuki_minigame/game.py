@@ -145,7 +145,7 @@ class Minesweeper:
         Returns:
         """
         dis = " "
-        start = "> " if self.col >= 10 else ""
+        start = "> " if self.cols >= 10 else ""
         text = start + self.NUMS[0] + dis*2
         # 横向两个雷之间的间隔字符
         # 生成横向索引
