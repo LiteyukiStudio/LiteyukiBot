@@ -20,4 +20,7 @@ docs/.github
 # nuitka
 main.build/
 main.exe
-main.cmd
+main.cmdY
+docs/.vuepress/.cache/
+docs/.vuepress/.temp/
+docs/.vuepress/dist/
