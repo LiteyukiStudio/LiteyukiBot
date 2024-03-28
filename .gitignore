@@ -15,7 +15,7 @@ config.yml
 config.example.yml
 compile.bat
 # vuepress
-docs/.github
+.github
 
 # nuitka
 main.build/
