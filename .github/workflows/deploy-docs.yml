@@ -29,6 +29,7 @@ jobs:
 
       - name: 切换工作目录
         run: cd docs
+        working-directory: docs
 
 
       - name: 设置 Node.js
