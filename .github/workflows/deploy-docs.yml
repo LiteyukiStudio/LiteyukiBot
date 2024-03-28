@@ -35,7 +35,9 @@ jobs:
           cd docs
           pnpm run docs:build
           ls -al
-          > /.vuepress/dist/.nojekyll
+          cd .vuepress/dist
+          ls -al
+          > .vuepress/dist/.nojekyll
 
       - name: 部署文档
         uses: JamesIves/github-pages-deploy-action@v4
