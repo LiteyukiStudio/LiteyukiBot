@@ -29,10 +29,11 @@ jobs:
 
       - name: 切换工作目录
         run: echo "Switching to docs directory"
-        working-directory: ./docs
+
 
       - name: 设置 Node.js
         uses: actions/setup-node@v3
+        run: cd docs
         with:
           node-version: 20
           cache: pnpm
