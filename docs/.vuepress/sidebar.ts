@@ -4,22 +4,18 @@ export default sidebar({
   "/": [
     "",
     {
-      text: "案例",
+      text: "项目部署",
       icon: "laptop-code",
-      prefix: "demo/",
-      link: "demo/",
+      prefix: "deployment/",
+      link: "deployment/",
       children: "structure",
     },
     {
-      text: "文档",
-      icon: "book",
-      prefix: "guide/",
+      text: "使用手册",
+      icon: "laptop-code",
+      prefix: "usage/",
+      link: "usage/",
       children: "structure",
-    },
-    {
-      text: "幻灯片",
-      icon: "person-chalkboard",
-      link: "https://plugin-md-enhance.vuejs.press/zh/guide/content/revealjs/demo.html",
     },
   ],
 });

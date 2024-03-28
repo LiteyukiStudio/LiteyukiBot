@@ -6,4 +6,4 @@ category:
   - 使用指南
 ---
 
-<Catalog />
+<Catalog>a</Catalog>
