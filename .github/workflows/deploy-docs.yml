@@ -29,7 +29,6 @@ jobs:
 
 
       - name: 设置 Node.js
-        uses: actions/setup-node@v3
         run: |-
           cd docs
           pnpm install
