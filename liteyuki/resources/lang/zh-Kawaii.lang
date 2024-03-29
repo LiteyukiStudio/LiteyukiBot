@@ -1,7 +1,7 @@
 language.name=简体中文(轻雪版)
 
 log.debug=调试中
-log.info=信息
+log.info=是信息
 log.warning=有问题
 log.error=出错辣
 log.success=成功啦

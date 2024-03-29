@@ -9,7 +9,6 @@ from liteyuki.utils.liteyuki_api import liteyuki_api
 init()
 
 store_config: dict = common_db.first(StoredConfig(), default=StoredConfig()).config
-print("Stored config loaded.", store_config)
 
 static_config = load_from_yaml("config.yml")
 store_config.update(static_config)
