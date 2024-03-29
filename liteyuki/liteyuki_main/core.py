@@ -1,23 +1,22 @@
-import json
 from typing import Any
 
-import aiofiles
-import yaml
-from nonebot import require
-from nonebot.permission import SUPERUSER
+import nonebot
 from git import Repo
+from nonebot import require, get_driver
+from nonebot.permission import SUPERUSER
 
 from liteyuki.utils.config import config, load_from_yaml
-from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
-
-from liteyuki.utils.language import get_user_lang
-from liteyuki.utils.message import Markdown as md, send_markdown
-
-from .reloader import Reloader
 from liteyuki.utils.data_manager import StoredConfig, common_db
+from liteyuki.utils.language import get_user_lang
+from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
+from liteyuki.utils.message import Markdown as md, send_markdown
+from .reloader import Reloader
+from liteyuki.utils.htmlrender import launch_browser, stop_browser
 
 require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import on_alconna, Alconna, Args, Subcommand, Arparma
+
+driver = get_driver()
 
 cmd_liteyuki = on_alconna(
     Alconna(
@@ -121,3 +120,15 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
                     reply += f"\n{k}={v}"
                 reply += "\n```"
         await send_markdown(reply, bot, event=event)
+
+
+@driver.on_startup
+async def on_startup():
+    await launch_browser()
+    nonebot.logger.info("Browser Started.")
+
+
+@driver.on_shutdown
+async def on_shutdown():
+    await stop_browser()
+    nonebot.logger.info("Browser Stopped.")
