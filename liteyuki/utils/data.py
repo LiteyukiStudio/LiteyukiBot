@@ -15,9 +15,9 @@ class LiteModel(BaseModel):
 
     def dump(self, *args, **kwargs):
         if pydantic.__version__ < "1.8.2":
-            return self.dict(by_alias=True)
+            return self.dict(*args, **kwargs)
         else:
-            return self.model_dump(by_alias=True)
+            return self.model_dump(*args, **kwargs)
 
 
 class Database:
@@ -30,7 +30,7 @@ class Database:
         self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
 
-    def first(self, model: LiteModel, condition: str, *args: Any, default: Any = None) -> LiteModel | Any | None:
+    def first(self, model: LiteModel, condition: str = "", *args: Any, default: Any = None) -> LiteModel | Any | None:
         """查询第一个
         Args:
             model: 数据模型实例

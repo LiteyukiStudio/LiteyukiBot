@@ -8,7 +8,7 @@ from .ly_typing import T_Bot, T_MessageEvent
 
 async def send_markdown(markdown: str, bot: T_Bot, *, message_type: str = None, session_id: str | int = None, event: T_MessageEvent = None, **kwargs) -> dict[
         str, Any]:
-    formatted_md = v11.unescape(markdown).replace("\n", r"\n").replace("\"", r'\\\"')
+    formatted_md = v11.unescape(markdown).replace("\n", r"\n").replace('"', r'\\\"')
     if event is not None and message_type is None:
         message_type = event.message_type
         session_id = event.user_id if event.message_type == "private" else event.group_id

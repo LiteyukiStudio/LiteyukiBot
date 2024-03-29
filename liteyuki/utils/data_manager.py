@@ -43,9 +43,14 @@ class GlobalPlugin(LiteModel):
     enabled: bool = Field(True, alias="enabled")
 
 
+class StoredConfig(LiteModel):
+    TABLE_NAME = "stored_config"
+    config: dict = {}
+
+
 def auto_migrate():
-    print("Migrating databases...")
     user_db.auto_migrate(User())
     group_db.auto_migrate(Group())
     plugin_db.auto_migrate(InstalledPlugin(), GlobalPlugin())
-    common_db.auto_migrate(GlobalPlugin())
+    common_db.auto_migrate(GlobalPlugin(), StoredConfig())
+
