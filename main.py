@@ -1,11 +1,19 @@
 import nonebot
 from nonebot.adapters.onebot import v11, v12
-from liteyuki.utils.config import config, load_from_yaml
+
 from liteyuki.utils import init
+from liteyuki.utils.config import load_from_yaml
+from liteyuki.utils.data_manager import StoredConfig, common_db
 from liteyuki.utils.liteyuki_api import liteyuki_api
 
 init()
-nonebot.init(**load_from_yaml("config.yml"))
+
+store_config: dict = common_db.first(StoredConfig(), default=StoredConfig()).config
+print("Stored config loaded.", store_config)
+
+static_config = load_from_yaml("config.yml")
+store_config.update(static_config)
+nonebot.init(**store_config)
 
 adapters = [v11.Adapter, v12.Adapter]
 driver = nonebot.get_driver()
