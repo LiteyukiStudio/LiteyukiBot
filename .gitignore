@@ -20,7 +20,7 @@ compile.bat
 # nuitka
 main.build/
 main.exe
-main.cmdY
+main.cmd
 docs/.vuepress/.cache/
 docs/.vuepress/.temp/
 docs/.vuepress/dist/
