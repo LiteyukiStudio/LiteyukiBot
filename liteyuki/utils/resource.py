@@ -43,12 +43,13 @@ def load_resource_from_dir(path: str):
     _loaded_resource_packs.append(ResourceMetadata(**metadata))
 
 
-def get(path: str, default: Any = None) -> str | Any:
+def get_path(path: str, abs_path: bool = False, default: Any = None) -> str | Any:
     """
     获取资源包中的文件
     Args:
+        abs_path:
         default: 默认
         path: 文件相对路径
     Returns: 文件绝对路径
     """
-    return _resource_data.get(path, default)
+    return _resource_data.get(path, default) if not abs_path else os.path.abspath(_resource_data.get(path, default))

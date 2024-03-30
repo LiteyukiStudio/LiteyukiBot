@@ -1,3 +1,4 @@
+import os.path
 from os import getcwd
 from pathlib import Path
 from typing import Literal, Optional, Union
@@ -204,7 +205,6 @@ async def html_to_pic(
 
 async def template_to_pic(
     template_path: str,
-    template_name: str,
     templates: dict,
     pages: Optional[dict] = None,
     wait: int = 0,
@@ -216,7 +216,6 @@ async def template_to_pic(
 
     Args:
         template_path (str): 模板路径
-        template_name (str): 模板名
         templates (dict): 模板内参数 如: {"name": "abc"}
         pages (dict): 网页参数 Defaults to
             {"base_url": f"file://{getcwd()}", "viewport": {"width": 500, "height": 10}}
@@ -234,10 +233,10 @@ async def template_to_pic(
         }
 
     template_env = jinja2.Environment(  # noqa: S701
-        loader=jinja2.FileSystemLoader(template_path),
+        loader=jinja2.FileSystemLoader(os.path.dirname(template_path)),
         enable_async=True,
     )
-    template = template_env.get_template(template_name)
+    template = template_env.get_template(os.path.basename(template_path))
 
     return await html_to_pic(
         template_path=f"file://{template_path}",

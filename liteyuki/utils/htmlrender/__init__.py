@@ -1,6 +1,7 @@
 import nonebot
 from nonebot.log import logger
 from nonebot.plugin import PluginMetadata
+from playwright.async_api import Browser
 
 from .browser import (
     get_browser as get_browser,
@@ -25,36 +26,4 @@ __plugin_meta__ = PluginMetadata(
     extra={},
 )
 
-driver = nonebot.get_driver()
-
-
-@driver.on_startup
-async def init(**kwargs):
-    """Start Browser
-
-    Returns:
-        Browser: Browser
-    """
-    browser = await get_browser(**kwargs)
-    logger.info("Browser Started.")
-    return browser
-
-
-@driver.on_shutdown
-async def shutdown():
-    await shutdown_browser()
-    logger.info("Browser Stopped.")
-
-
-browser_init = init
-
-__all__ = [
-    "browser_init",
-    "capture_element",
-    "get_new_page",
-    "html_to_pic",
-    "md_to_pic",
-    "template_to_html",
-    "template_to_pic",
-    "text_to_pic",
-]
+browser: Browser
