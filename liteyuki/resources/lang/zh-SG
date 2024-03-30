@@ -1,0 +1,94 @@
+language.name=简体中文（新加坡）
+
+log.debug=调试一下
+log.info=资讯
+log.warning=警告
+log.error=出错啦
+log.success=成功了
+
+liteyuki.restart=重新启动
+liteyuki.restart_now=现在就重启
+liteyuki.update_restart=更新已完成，你可以{RESTART}或稍后手动重新启动来应用这些更新
+liteyuki.current_config=目前的设定
+liteyuki.static_config=静态档案设定
+liteyuki.stored_config=存储的设定
+liteyuki.config_set_success=设定 {KEY}={VAL} 设置成功
+liteyuki.stats.group=群组
+liteyuki.stats.user=好友
+liteyuki.stats.plugin=插件
+liteyuki.stats.sent=发出
+liteyuki.stats.received=收到
+liteyuki.stats.run_time=运行时间
+liteyuki.stats.groups=群组
+liteyuki.stats.friends=好友
+
+main.current_language=目前语言设定为：{LANG}
+main.enable_webdash=网页监控板已启用：{URL}
+main.monitor.title=LiteYuki监控面板
+main.monitor.description=LiteYuki机器人监控面板
+main.monitor.cpu=处理器
+main.monitor.memory=内存
+main.monitor.swap=交换区
+main.monitor.disk=磁盘
+main.monitor.usage=使用率
+main.monitor.total=总共
+main.monitor.used=已使用
+
+data_manager.migrate_success=数据模型{NAME}迁移成功
+
+npm.loaded_plugins=已加载插件
+npm.total=总数 {TOTAL}
+npm.help=帮助
+npm.usage=使用方法
+npm.disable=停用
+npm.disable_global=全局停用
+npm.enable=启用
+npm.enable_global=全局启用
+npm.install=安装
+npm.uninstall=卸载
+npm.installing=正在安装 {NAME}
+npm.cannot_uninstall=无法卸载
+npm.no_description=无描述
+npm.store_update_success=插件商店数据更新成功
+npm.store_update_failed=插件商店数据更新失败
+npm.search_result=搜索结果
+npm.search_no_result=无搜索结果
+npm.too_many_results=结果过多，已隐藏 {HIDE_NUM} 项，请缩小关键字搜索范围
+npm.install_success={NAME} 安装成功
+npm.install_failed={NAME} 安装失败，请查看日志以获取详细信息，如果无法解决，请访问 {HOMEPAGE} 寻求帮助
+npm.uninstall_success={NAME} 卸载成功，将在下次重启生效
+npm.uninstall_failed={NAME} 卸载失败
+npm.load_failed={NAME} 加载失败，请在控制台查看详细信息，检查依赖或配置是否正确，如果无法解决，请访问 {HOMEPAGE} 寻求帮助
+npm.plugin_not_found=在商店中未找到 {NAME}，请尝试更新商店信息或检查拼写
+npm.plugin_not_installed={NAME} 未安装
+npm.plugin_already_installed={NAME} 已安装，请勿重复安装
+npm.author=作者
+npm.homepage=主页
+npm.pypi=PyPI
+npm.next_page=下一页
+npm.prev_page=上一页
+npm.plugin_cannot_be_toggled=插件 {NAME} 无法启用或停用
+npm.plugin_already=插件 {NAME} 已处于 {STATUS} 状态，无需重复操作
+npm.toggle_failed=插件 {NAME} {STATUS} 失败：{ERROR}
+npm.toggle_success=插件 {NAME} {STATUS} 成功
+
+user.profile.edit=修改
+user.profile.set=设定
+user.profile_manager.query=你的个人资料 {ATTR} 为 {VALUE}
+user.profile_manager.set=你的个人资料 {ATTR} 已设定为 {VALUE}
+user.profile.settings=设置
+user.profile.info=个人资料
+user.profile.lang=语言
+user.profile.lang.desc=设定用户语言
+user.profile.timezone=时区
+user.profile.timezone.desc=设定用户当前时区
+user.profile.theme=主题
+user.profile.theme.desc=设定用户界面主题
+user.profile.location=位置
+user.profile.location.desc=设定用户位置信息
+user.profile.nickname=昵称
+user.profile.nickname.desc=设定Bot对用户的称呼
+
+user.profile.input_value=请输入 {ATTR} 的值
+user.profile.set_success=成功将 {ATTR} 设定为 {VALUE}
+user.profile.set_failed=设定 {ATTR} 失败，请检查输入是否合法
