@@ -130,6 +130,20 @@ class Language:
             nonebot.logger.error(f"Failed to get language text or format: {e}")
             return default or item
 
+    def get_many(self, *args) -> dict[str, str]:
+        """
+        获取多个文本
+        Args:
+            *args: 文本键
+
+        Returns:
+            dict: 文本字典
+        """
+        d = {}
+        for item in args:
+            d[item] = self.get(item)
+        return d
+
 
 def get_user_lang(user_id: str) -> Language:
     """

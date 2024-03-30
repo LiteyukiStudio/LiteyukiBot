@@ -7,7 +7,7 @@ from liteyuki.utils.data import LiteModel
 from liteyuki.utils.data_manager import User, user_db
 from liteyuki.utils.language import Language, get_all_lang, get_user_lang
 from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
-from liteyuki.utils.message import Markdown as md, send_markdown
+from liteyuki.utils.message import Markdown as md
 from .const import representative_timezones_list
 
 require("nonebot_plugin_alconna")
@@ -62,7 +62,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
             # 未输入值，尝试呼出菜单
             menu = get_profile_menu(result.args["key"], ulang)
             if menu:
-                await send_markdown(menu, bot, event=event)
+                await md.send_md(menu, bot, event=event)
             else:
                 await profile_alc.finish(ulang.get("user.profile.input_value", ATTR=ulang.get(f"user.profile.{result.args['key']}")))
 
@@ -94,7 +94,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
             reply += (f"\n**{key_text}**    **{val}**\n"
                       f"\n> {ulang.get(f'user.profile.{key}.desc')}"
                       f"\n> {btn_set}  \n\n***\n")
-        await send_markdown(reply, bot, event=event)
+        await md.send_md(reply, bot, event=event)
 
 
 def get_profile_menu(key: str, ulang: Language) -> Optional[str]:

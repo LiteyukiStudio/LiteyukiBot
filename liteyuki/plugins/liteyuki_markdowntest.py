@@ -5,7 +5,7 @@ from nonebot.permission import SUPERUSER
 from nonebot.plugin import PluginMetadata
 
 from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent, v11
-from liteyuki.utils.message import send_markdown
+from liteyuki.utils.message import Markdown as md
 
 md_test = on_command("mdts", aliases={"会话md"}, permission=SUPERUSER)
 md_group = on_command("mdg", aliases={"群md"}, permission=SUPERUSER)
@@ -23,7 +23,7 @@ placeholder = {
 
 @md_test.handle()
 async def _(bot: T_Bot, event: T_MessageEvent, arg: v11.Message = CommandArg()):
-    await send_markdown(
+    await md.send_md(
         str(arg),
         bot,
         message_type=event.message_type,
@@ -40,8 +40,8 @@ async def _(bot: v11.Bot, event: T_MessageEvent, arg: v11.Message = CommandArg()
     if str(event.user_id) == str(bot.self_id) and str(bot.self_id) in ["2751454815"]:
         nonebot.logger.info("开始处理：%s" % str(event.message_id))
 
-        data = await send_markdown(str(arg), bot, message_type=event.message_type,
-                                   session_id=event.user_id if event.message_type == "private" else event.group_id)
+        data = await md.send_md(str(arg), bot, message_type=event.message_type,
+                                session_id=event.user_id if event.message_type == "private" else event.group_id)
         await bot.delete_msg(message_id=event.message_id)
 
 

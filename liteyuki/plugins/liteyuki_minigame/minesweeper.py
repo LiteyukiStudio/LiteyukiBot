@@ -1,7 +1,7 @@
 from nonebot import require
 
 from ...utils.ly_typing import T_Bot, T_MessageEvent
-from ...utils.message import send_markdown
+from ...utils.message import Markdown as md
 
 require("nonebot_plugin_alconna")
 from .game import Minesweeper
@@ -63,7 +63,7 @@ async def _(event: T_MessageEvent, result: Arparma, bot: T_Bot):
                 )
                 minesweeper_cache.append(new_game)
                 await minesweeper.send("游戏开始")
-                await send_markdown(new_game.board_markdown(), bot, event=event)
+                await md.send_md(new_game.board_markdown(), bot, event=event)
             except AssertionError:
                 await minesweeper.finish("参数错误")
     elif result.subcommands.get("end"):
@@ -82,9 +82,9 @@ async def _(event: T_MessageEvent, result: Arparma, bot: T_Bot):
                 await minesweeper.finish("参数错误")
             if not game.reveal(row, col):
                 minesweeper_cache.remove(game)
-                await send_markdown(game.board_markdown(), bot, event=event)
+                await md.send_md(game.board_markdown(), bot, event=event)
                 await minesweeper.finish("游戏结束")
-            await send_markdown(game.board_markdown(), bot, event=event)
+            await md.send_md(game.board_markdown(), bot, event=event)
             if game.is_win():
                 minesweeper_cache.remove(game)
                 await minesweeper.finish("游戏胜利")
@@ -97,6 +97,6 @@ async def _(event: T_MessageEvent, result: Arparma, bot: T_Bot):
             if not (0 <= row < game.rows and 0 <= col < game.cols):
                 await minesweeper.finish("参数错误")
             game.board[row][col].flagged = not game.board[row][col].flagged
-            await send_markdown(game.board_markdown(), bot, event=event)
+            await md.send_md(game.board_markdown(), bot, event=event)
     else:
         await minesweeper.finish("参数错误")

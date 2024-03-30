@@ -47,9 +47,21 @@ def get_path(path: str, abs_path: bool = False, default: Any = None) -> str | An
     """
     获取资源包中的文件
     Args:
-        abs_path:
+        abs_path: 是否返回绝对路径
         default: 默认
         path: 文件相对路径
     Returns: 文件绝对路径
     """
     return _resource_data.get(path, default) if not abs_path else os.path.abspath(_resource_data.get(path, default))
+
+
+def get_files(path: str, abs_path: bool = False) -> list[str]:
+    """
+    获取资源包中一个文件夹的所有文件
+    Args:
+        abs_path:
+        path: 文件夹相对路径
+    Returns: 文件绝对路径
+    """
+    return [os.path.abspath(file) for file in _resource_data if file.startswith(path)] if abs_path else [
+        file for file in _resource_data if file.startswith(path)]

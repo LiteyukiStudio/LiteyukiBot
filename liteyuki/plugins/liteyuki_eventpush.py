@@ -4,7 +4,7 @@ from nonebot.plugin import PluginMetadata
 
 from liteyuki.utils.data import Database, LiteModel
 from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
-from liteyuki.utils.message import send_markdown
+from liteyuki.utils.message import Markdown as md
 
 require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import on_alconna
@@ -108,7 +108,7 @@ async def _(event: T_MessageEvent, bot: T_Bot):
             push_message = (
                     f"> From {event.sender.nickname}@{push.source.session_type}.{push.source.session_id}\n> Bot {bot.self_id}\n\n"
                     f"{msg_formatted}")
-            await send_markdown(push_message, bot2, message_type=push.target.session_type, session_id=push.target.session_id)
+            await md.send_md(push_message, bot2, message_type=push.target.session_type, session_id=push.target.session_id)
     return
 
 

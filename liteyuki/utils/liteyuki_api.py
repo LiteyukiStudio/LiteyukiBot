@@ -2,9 +2,11 @@ import json
 import os.path
 import platform
 
+import aiohttp
 import nonebot
 import psutil
 import requests
+from aiohttp import FormData
 
 from . import __VERSION_I__, __VERSION__, __NAME__
 from .config import config, load_from_yaml
@@ -65,6 +67,32 @@ class LiteyukiAPI:
                 nonebot.logger.error(f"Bug report failed: {resp.text}")
         else:
             nonebot.logger.warning(f"Bug report is disabled: {content}")
+
+    async def upload_image(self, image: bytes) -> str | None:
+        """
+        上传图片到图床
+        Args:
+            image:
+
+        Returns:
+            图片url
+        """
+        assert self.liteyuki_id, "Liteyuki ID is not set"
+        assert isinstance(image, bytes), "Image must be bytes"
+        url = "https://api.liteyuki.icu/upload_image"
+        data = FormData()
+        data.add_field("liteyuki_id", self.liteyuki_id)
+        data.add_field('image', image, filename='image', content_type='application/octet-stream')
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                    url,
+                    data=data
+            ) as resp:
+                if resp.status == 200:
+                    return (await resp.json()).get("url")
+                else:
+                    nonebot.logger.error(f"Upload image failed: {await resp.text()}")
+                    return None
 
 
 liteyuki_api = LiteyukiAPI()

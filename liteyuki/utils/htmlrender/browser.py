@@ -20,7 +20,7 @@ from playwright.async_api import Browser, Error, Page, Playwright, async_playwri
 from .config import Config
 import asyncio
 
-config = get_plugin_config(Config)
+config = Config()
 
 _browser: Optional[Browser] = None
 _playwright: Optional[Playwright] = None

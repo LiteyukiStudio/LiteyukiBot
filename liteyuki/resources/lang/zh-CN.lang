@@ -13,6 +13,14 @@ liteyuki.current_config=当前配置项如下
 liteyuki.static_config=静态文件配置项
 liteyuki.stored_config=储存的配置项
 liteyuki.config_set_success=配置项 {KEY}={VAL} 设置成功
+liteyuki.stats.group=群
+liteyuki.stats.user=好友
+liteyuki.stats.plugin=插件
+liteyuki.stats.sent=发送
+liteyuki.stats.received=接收
+liteyuki.stats.run_time=运行时间
+liteyuki.stats.groups=群
+liteyuki.stats.friends=好友
 
 main.current_language=当前配置语言为: {LANG}
 main.enable_webdash=已启用网页监控面板: {URL}
@@ -23,6 +31,8 @@ main.monitor.memory=内存
 main.monitor.swap=交换空间
 main.monitor.disk=磁盘
 main.monitor.usage=使用率
+main.monitor.total=总计
+main.monitor.used=已用
 
 data_manager.migrate_success=数据模型{NAME}迁移成功
 

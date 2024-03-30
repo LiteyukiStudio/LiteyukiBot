@@ -13,7 +13,7 @@ from nonebot.plugin import Plugin
 from liteyuki.utils.data_manager import GlobalPlugin, Group, InstalledPlugin, User, group_db, plugin_db, user_db
 from liteyuki.utils.language import get_user_lang
 from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
-from liteyuki.utils.message import Markdown as md, send_markdown
+from liteyuki.utils.message import Markdown as md
 from liteyuki.utils.permission import GROUP_ADMIN, GROUP_OWNER
 from .common import get_plugin_can_be_toggle, get_plugin_default_enable, get_plugin_global_enable, get_plugin_session_enable
 from .installer import get_store_plugin, npm_update
@@ -107,7 +107,7 @@ async def _(event: T_MessageEvent, bot: T_Bot):
                 reply += f"  {btn_uninstall}  {btn_toggle_global}"
 
         reply += "\n\n***\n"
-    await send_markdown(reply, bot, event=event)
+    await md.send_md(reply, bot, event=event)
 
 
 @toggle_plugin.handle()
@@ -228,6 +228,6 @@ async def pre_handle(event: Event, matcher: Matcher):
             raise IgnoredException("Plugin disabled in session")
 
 
-@Bot.on_calling_api
-async def _(bot: Bot, api: str, data: dict[str, any]):
-    nonebot.logger.info(f"Plugin Callapi: {api}: {data}")
+# @Bot.on_calling_api
+# async def _(bot: Bot, api: str, data: dict[str, any]):
+#     nonebot.logger.info(f"Plugin Callapi: {api}: {data}")

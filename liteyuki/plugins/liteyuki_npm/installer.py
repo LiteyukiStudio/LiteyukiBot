@@ -10,7 +10,7 @@ from nonebot import require
 from nonebot.permission import SUPERUSER
 from liteyuki.utils.language import get_user_lang
 from liteyuki.utils.ly_typing import T_Bot
-from liteyuki.utils.message import Markdown as md, send_markdown
+from liteyuki.utils.message import Markdown as md
 from .common import *
 
 require("nonebot_plugin_alconna")
@@ -81,7 +81,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
                 reply += f"\n{ulang.get('npm.too_many_results', HIDE_NUM=len(rs) - max_show)}"
         else:
             reply = ulang.get("npm.search_no_result")
-        await send_markdown(reply, bot, event=event)
+        await md.send_md(reply, bot, event=event)
 
     elif result.subcommands.get("install"):
         plugin_module_name: str = result.subcommands["install"].args.get("plugin_name")
@@ -104,7 +104,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
                 if found_in_db_plugin is None:
                     plugin_db.upsert(installed_plugin)
                     info = md.escape(ulang.get("npm.install_success", NAME=store_plugin.name))  # markdown转义
-                    await send_markdown(
+                    await md.send_md(
                         f"{info}\n\n"
                         f"```\n{log}\n```",
                         bot,
@@ -114,7 +114,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
                     await npm_alc.finish(ulang.get("npm.plugin_already_installed", NAME=store_plugin.name))
             else:
                 info = ulang.get("npm.load_failed", NAME=plugin_module_name, HOMEPAGE=homepage_btn).replace("_", r"\\_")
-                await send_markdown(
+                await md.send_md(
                     f"{info}\n\n"
                     f"```\n{log}\n```\n",
                     bot,
@@ -122,7 +122,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
                 )
         else:
             info = ulang.get("npm.install_failed", NAME=plugin_module_name, HOMEPAGE=homepage_btn).replace("_", r"\\_")
-            await send_markdown(
+            await md.send_md(
                 f"{info}\n\n"
                 f"```\n{log}\n```",
                 bot,

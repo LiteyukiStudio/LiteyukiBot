@@ -9,7 +9,7 @@ from liteyuki.utils.config import config, load_from_yaml
 from liteyuki.utils.data_manager import StoredConfig, common_db
 from liteyuki.utils.language import get_user_lang
 from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
-from liteyuki.utils.message import Markdown as md, send_markdown
+from liteyuki.utils.message import Markdown as md
 from .reloader import Reloader
 from liteyuki.utils import htmlrender
 
@@ -80,7 +80,7 @@ async def _(bot: T_Bot, event: T_MessageEvent):
     reply += f"```\n{logs}\n```\n"
     btn_restart = md.button(ulang.get("liteyuki.restart_now"), "restart-liteyuki")
     reply += f"{ulang.get('liteyuki.update_restart', RESTART=btn_restart)}"
-    await send_markdown(reply, bot, event=event, at_sender=False)
+    await md.send_md(reply, bot, event=event, at_sender=False)
 
 
 @reload_liteyuki.handle()
@@ -119,7 +119,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
                 for k, v in stored_config.config.items():
                     reply += f"\n{k}={v}"
                 reply += "\n```"
-        await send_markdown(reply, bot, event=event)
+        await md.send_md(reply, bot, event=event)
 
 
 @driver.on_startup

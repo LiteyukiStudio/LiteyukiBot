@@ -1,12 +1,236 @@
 <!DOCTYPE html>
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
-    <title></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="css/fonts.css">
+    <style>
+
+        body {
+            font-family: 'MiSans', serif;
+            /* 使背景图不重复 */
+            background-repeat: repeat-y;
+            /* 设置背景图居中裁剪 */
+            background-size: cover;
+            /* 使背景图相对于视窗居中 */
+            background-position: center;
+            /* 设置背景图 */
+            background-image: url('img/bg1.jpg');
+            color: white;
+            // 上10px，左右10px，下0px
+            margin: 10px 10px 0;
+
+
+        }
+        
+        .info-box {
+            border-radius: 10px;
+            padding: 15px;
+            backdrop-filter: blur(30px);
+            background-color: rgba(0, 0, 0, 0.3);
+            display: flex;
+            margin-bottom: 10px;
+        }
+
+        #cpu-chart, #mem-chart, #swap-chart {
+            height: 150px;
+            width: 100px;
+            margin: -10px 15px;
+        }
+
+        #bot-info {
+            // 垂直方向居中
+            align-items: center;
+        }
+
+        #hardware-info {
+            justify-content: center;
+            text-align: center;
+        }
+
+        #bot-icon {
+            border-radius: 50%;
+            width: 100px;
+            height: 100px;
+        }
+
+        #bot-name, #bot-tag {
+            margin-left: 20px;
+        }
+
+        #bot-name {
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        #bot-id {
+            margin-left: 10px;
+            font-size: 18px;
+            font-weight: normal;
+        }
+
+        #bot-tag {
+            /* 这将使标签在容器宽度满时自动换行 */
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .chart-label {
+            font-size: 15px;
+        }
+
+        .tag {
+            font-size: 15px;
+        }
+
+        .tag::after {
+            content: "|";
+            display: inline-block;
+            margin: 0 5px;
+            height: 50%; /* 调整这个值来改变竖线的高度 */
+            line-height: 50%; /* 使竖线垂直居中 */
+            color: #aaa;
+        }
+    
+    </style>
+    <script type="text/javascript" src="js/echarts.js"></script>
 </head>
 
 <body>
-<div>
-<!--    横向放置三个饼图，分别表示CPU/内存/SWAP占用-->
+
+<div class="info-box" id="bot-info">
+    <span>
+        <img id="bot-icon" src="https://q.qlogo.cn/g?b=qq&nk={{BOT_ID}}}&s=640" alt="BotIcon">
+    </span>
+    <span>
+        <span id="bot-name">
+            {{ BOT_NAME }}
+        </span>
+        <span id="bot-id">
+            {{ BOT_ID }}
+        </span>
+        <div id="bot-tag"></div>
+    </span>
 </div>
+
+<div class="info-box" id="hardware-info">
+    <div id="cpu-info">
+        <div id="cpu-chart"></div>
+    </div>
+    <div id="mem-info">
+        <div id="mem-chart"></div>
+    </div>
+    <div id="swap-info">
+        <div id="swap-chart"></div>
+    </div>
+</div>
+
+<div id="cpuData" style="display: none;">{{ CPUDATA | tojson }}</div>
+<div id="memData" style="display: none;">{{ MEMDATA | tojson }}</div>
+<div id="swapData" style="display: none;">{{ SWAPDATA | tojson }}</div>
+<div id="botTag" style="display: none;">{{ BOT_TAGS | tojson }}</div>
+<div id="cpuTag" style="display: none;">{{ CPU_TAGS | tojson }}</div>
+<div id="memTag" style="display: none;">{{ MEM_TAGS | tojson }}</div>
+<div id="swapTag" style="display: none;">{{ SWAP_TAGS | tojson }}</div>
+
+<script>
+    // 环形图
+    {
+        let bgs = ["bg1.jpg"]
+        // 随机选择背景图片
+        document.body.style.backgroundImage = `url(./img/${bgs[Math.floor(Math.random() * bgs.length)]})`;
+
+        let botTags = JSON.parse(document.getElementById('botTag').innerText);
+        // 获取tag，是字符串数组，将其处理后变成一个一个的span标签，并且class为tag
+        botTags.forEach(tag => {
+            let tagSpan = document.createElement('span');
+            tagSpan.innerText = tag;
+            tagSpan.className = 'tag';
+            document.getElementById('bot-tag').appendChild(tagSpan);
+        });
+        
+        
+        let cpuInfo = echarts.init(document.getElementById('cpu-chart'));
+        let memInfo = echarts.init(document.getElementById('mem-chart'));
+        let swapInfo = echarts.init(document.getElementById('swap-chart'));
+        let cpuData = JSON.parse(document.getElementById('cpuData').innerText);
+        let memData = JSON.parse(document.getElementById('memData').innerText);
+        let swapData = JSON.parse(document.getElementById('swapData').innerText);
+
+        sub_tag_data = {
+            cpu: JSON.parse(document.getElementById('cpuTag').innerText),
+            mem: JSON.parse(document.getElementById('memTag').innerText),
+            swap: JSON.parse(document.getElementById('swapTag').innerText)
+        }
+        // 遍历key和value，key是cpu，mem，swap，value是对应的tag数组，添加div标签class为chart-label
+        for (let key in sub_tag_data) {
+            let infoDiv = document.getElementById(key + '-info');
+            sub_tag_data[key].forEach(tag => {
+                let tagSpan = document.createElement('div');
+                tagSpan.innerText = tag;
+                tagSpan.className = 'chart-label';
+                infoDiv.appendChild(tagSpan);
+            });
+        }
+        
+        function getOption(title, data) {
+            return {
+                animation: false,
+                title: {
+                    text: title,
+                    left: 'center',
+                    top: 'center',
+                    textStyle: {
+                        //文字颜色
+                        color: '#fff',
+                        fontSize: 15
+                    }
+                },
+                tooltip: {
+                    show: true,
+                    trigger: "item",
+                    backgroundColor: "#ffffff00",
+                    // {a}（系列名称），{b}（数据项名称），{c}（数值）, {d}（百分比）
+                },
+                color: ['#a2d8f4', "#ffffff44", '#00a6ff'],
+                series: [
+                    {
+                        name: 'info',
+                        type: 'pie',
+                        radius: ['80%', '100%'],
+                        center: ['50%', '50%'],
+                        itemStyle: {
+                            normal: {
+                                label: {
+                                    show: false
+                                },
+                                labelLine: {
+                                    show: false
+                                }
+                            },
+                            emphasis: {
+                                label: {
+                                    show: true,
+                                    textStyle: {
+                                        fontSize: '25',
+                                        fontWeight: 'bold'
+                                    }
+                                }
+                            }
+                        },
+                        data: data
+                    }
+                ]
+            };
+        }
+        
+        cpuInfo.setOption(getOption("{{ CPU }}", cpuData));
+        memInfo.setOption(getOption('{{ MEM }}', memData));
+        swapInfo.setOption(getOption('{{ SWAP }}', swapData));
+    }
+</script>
 </body>
+</html>
