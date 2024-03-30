@@ -124,7 +124,6 @@ async def _(bot: T_Bot, event: T_MessageEvent):
     image_bytes = await template_to_pic(
         template_path=get_path("templates/stats.html", abs_path=True),
         templates=templ,
-        wait=1,
         device_scale_factor=4,
     )
     # await md.send_image(image_bytes, bot, event=event)
