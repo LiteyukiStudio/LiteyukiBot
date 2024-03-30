@@ -1,6 +1,7 @@
 from typing import Any
 
 import nonebot
+import pip
 from git import Repo
 from nonebot import require, get_driver
 from nonebot.permission import SUPERUSER
@@ -79,6 +80,7 @@ async def _(bot: T_Bot, event: T_MessageEvent):
     reply = "Liteyuki updated!\n"
     reply += f"```\n{logs}\n```\n"
     btn_restart = md.button(ulang.get("liteyuki.restart_now"), "restart-liteyuki")
+    pip.main(["install", "-r", "requirements.txt"])
     reply += f"{ulang.get('liteyuki.update_restart', RESTART=btn_restart)}"
     await md.send_md(reply, bot, event=event, at_sender=False)
 
