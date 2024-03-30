@@ -26,13 +26,13 @@ main.current_language=现行言语策划为: {LANG}
 main.enable_webdash=网络监视版已启动: {URL}
 main.monitor.title=LiteYuki监视面板
 main.monitor.description=LiteYuki机器人监视面板
-main.monitor.cpu=中央处理单位
+main.monitor.cpu=中国药科大学
 main.monitor.memory=回忆
 main.monitor.swap=互换
 main.monitor.disk=存储磁盘
-main.monitor.usage=运用程度
-main.monitor.total=整体数量
-main.monitor.used=运用过的
+main.monitor.usage=运用
+main.monitor.total=整体
+main.monitor.used=用过的
 
 data_manager.migrate_success=资料编排 {NAME} 搬迁成功执行
 
@@ -42,7 +42,7 @@ npm.help=资助
 npm.usage=使用
 npm.disable=缺阵
 npm.disable_global=全面缺阵
-npm.enable=启用
+npm.enable=使能
 npm.enable_global=全面启用
 npm.install=装备
 npm.uninstall=卸除
