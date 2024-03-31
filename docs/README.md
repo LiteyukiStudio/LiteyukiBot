@@ -8,7 +8,7 @@ bgImageDark:
 bgImageStyle:
   background-attachment: fixed
 heroText: LiteyukiBot 6
-tagline: 基于Nonebot2的OneBot标准聊天机器人，不仅仅局限于OneBot
+tagline: 轻雪机器人，一个以轻量和简洁为设计理念基于Nonebot2的OneBot标准聊天机器人
 
 actions:
   - text: 快速开始
@@ -48,7 +48,7 @@ highlights:
       - title: 点击交互
         icon: mouse-pointer
         details: 新的点击交互模式，拒绝手打指令
-        
+
       - title: 主题支持
         icon: paint-brush
         details: 支持多种主题，可自定义资源包，满足你的审美需求
@@ -76,15 +76,15 @@ highlights:
         icon: link
         details: 使用Alconna实现高效命令解析
         link: https://github.com/nonebot/plugin-alconna
-        
+
       - title: 便捷更新
         icon: cloud-download
         details: 聊天窗口命令更新，无需手动下载
-        
+
       - title: 服务支持
         icon: server
         details: 内置轻雪API，可自动收集错误，提供图床服务
-      
+
       - title: 开源
         icon: code
         details: 项目遵循MIT协议开源，欢迎各位的贡献

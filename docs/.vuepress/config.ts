@@ -6,8 +6,8 @@ export default defineUserConfig({
     base: "/",
 
     lang: "zh-CN",
-    title: "LiteyukiBot",
-    description: "An OneBot Standard ChatBot",
+    title: "LiteyukiBot 轻雪机器人",
+    description: "LiteyukiBot | 轻雪机器人 | An OneBot Standard ChatBot | 一个OneBot标准的聊天机器人",
     head: [
 // 设置 favor.ico，.vuepress/public 下
         [
