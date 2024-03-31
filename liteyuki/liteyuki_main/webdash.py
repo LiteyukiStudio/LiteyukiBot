@@ -1,20 +1,17 @@
-import json
-import random
+import platform
 
+import nonebot
 import psutil
-import requests
-from PIL import Image
+from cpuinfo import get_cpu_info
+from nonebot import on_command
 from nonebot.adapters.onebot.v11 import MessageSegment
 from nonebot.permission import SUPERUSER
-from liteyuki.utils.htmlrender import template_to_pic, html_to_pic
-from liteyuki.utils.language import get_user_lang
-from liteyuki.utils.liteyuki_api import liteyuki_api
-from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
-from liteyuki.utils.message import Markdown as md
-from liteyuki.utils.resource import get_path
-from nonebot import on_command
-from cpuinfo import get_cpu_info
 
+from liteyuki.utils import __NAME__, __VERSION__
+from liteyuki.utils.htmlrender import template_to_pic
+from liteyuki.utils.language import get_user_lang
+from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
+from liteyuki.utils.resource import get_path
 from liteyuki.utils.tools import convert_size
 
 stats = on_command("stats", aliases={"状态"}, priority=5, permission=SUPERUSER)
@@ -100,8 +97,10 @@ async def _(bot: T_Bot, event: T_MessageEvent):
                     protocol_names.get(version_info.get("protocol_name"), "Linux"), version_info.get("app_name"), version_info.get("app_version"),
                     f"{ulang.get('liteyuki.stats.groups')} {groups}", f"{ulang.get('liteyuki.stats.friends')} {friends}",
                     f"{ulang.get('liteyuki.stats.sent')} {statistics.get('message_sent', 0)}",
-                    f"{ulang.get('liteyuki.stats.received')} {statistics.get('message_received', 0)}" \
-                ],
+                    f"{ulang.get('liteyuki.stats.received')} {statistics.get('message_received', 0)}",
+                    f"{platform.python_implementation()} {platform.python_version()}",
+                    f"Nonebot {nonebot.__version__}", f"{__NAME__} {__VERSION__}"
+            ],
             "CPU_TAGS" : [
                     f"{brand} {cpu_info.get('arch', 'Unknown')}",
                     f"{fake_device_info.get('cpu', {}).get('cores', psutil.cpu_count(logical=False))}C "

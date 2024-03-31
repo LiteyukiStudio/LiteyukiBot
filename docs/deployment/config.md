@@ -15,7 +15,7 @@ tag:
 
 ```yaml
 # 生成文件的配置项
-command_start: [ "/", " " ] # 指令前缀
+command_start: [ "/", "" ] # 指令前缀，若没有""，请开启alconna_use_command_start
 host: 127.0.0.1 # 监听地址，默认为本机，若要对外开放请填写0.0.0.0或者你的公网IP
 port: 20216 # 绑定端口
 nickname: [ "liteyuki" ]  # 机器人昵称
@@ -35,6 +35,8 @@ fake_device_info: # 统计卡片显示的虚假设备信息，用于保护隐私
     frequency: 3600 # CPU主频：MHz
   mem:
     total: 32768000000  # 内存总数：字节
+alconna_use_command_start: false # alconna是否使用默认指令前缀，默认false
+alconna_auto_completion: false # alconna是否自动补全指令，默认false，建议开启
 
 # 其他Nonebot插件的配置项
 custom_config_1: "custom_value1"

@@ -9,8 +9,11 @@ import nonebot
 from nonebot.adapters.onebot import v11, v12
 from typing import Any
 
+from . import load_from_yaml
 from .liteyuki_api import liteyuki_api
 from .ly_typing import T_Bot, T_MessageEvent
+
+config = load_from_yaml("config.yml")
 
 
 class Markdown:
@@ -143,6 +146,8 @@ class Markdown:
             markdown格式的可点击回调按钮
 
         """
+        if "" not in config.get("command_start", ["/"]):
+            cmd = f"{config['command_start'][0]}{cmd}"
         return f"[{name}](mqqapi://aio/inlinecmd?command={quote(cmd)}&reply={str(reply).lower()}&enter={str(enter).lower()})"
 
     @staticmethod
