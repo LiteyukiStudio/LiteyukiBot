@@ -23,23 +23,26 @@ from nonebot_plugin_alconna import on_alconna, Alconna, Args, Arparma
 
 list_plugins = on_alconna(
     Alconna(
-        ["list-plugins", "插件列表", "列出插件"],
-    )
+        "list-plugin",
+    ),
+    aliases={"列出插件", "插件列表", "菜单"}
 )
 
 toggle_plugin = on_alconna(
     Alconna(
-        ["enable", "disable", "启用", "停用"],
+        "enable",
         Args["plugin_name", str],
-    )
+    ),
+    aliases={"disable", "启用", "停用"}
 )
 
 toggle_plugin_global = on_alconna(
     Alconna(
-        ["enable-global", "disable-global", "全局启用", "全局停用"],
+        "enable-global",
         Args["plugin_name", str],
     ),
-    permission=SUPERUSER
+    permission=SUPERUSER,
+    aliases={"disable-global", "全局启用", "全局停用"}
 )
 
 
@@ -117,8 +120,8 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
     # 判断会话类型
     ulang = get_user_lang(str(event.user_id))
     plugin_module_name = result.args.get("plugin_name")
-
-    toggle = result.header_result in ["enable-plugin", "启用"]  # 判断是启用还是停用
+    # 支持对自定义command_start的判断
+    toggle = result.header_result in [prefix+header for prefix in bot.config.command_start for header in ["enable-plugin", "启用"]]  # 判断是启用还是停用
 
     session_enable = get_plugin_session_enable(event, plugin_module_name)  # 获取插件当前状态
 
@@ -180,8 +183,8 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
     # 判断会话类型
     ulang = get_user_lang(str(event.user_id))
     plugin_module_name = result.args.get("plugin_name")
-
-    toggle = result.header_result in ["enable-global", "全局启用"]
+    # 支持对自定义command_start的判断
+    toggle = result.header_result in [prefix + header for prefix in bot.config.command_start for header in ["enable-global", "全局启用"]]
     can_be_toggled = get_plugin_can_be_toggle(plugin_module_name)
     if not can_be_toggled:
         await toggle_plugin_global.finish(ulang.get("npm.plugin_cannot_be_toggled", NAME=plugin_module_name))
@@ -226,7 +229,6 @@ async def pre_handle(event: Event, matcher: Matcher):
         plugin_session_enable = get_plugin_session_enable(event, plugin.module_name)
         if not plugin_session_enable:
             raise IgnoredException("Plugin disabled in session")
-
 
 # @Bot.on_calling_api
 # async def _(bot: Bot, api: str, data: dict[str, any]):

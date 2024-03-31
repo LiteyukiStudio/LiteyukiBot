@@ -8,8 +8,6 @@ from liteyuki.utils.data import Database, LiteModel
 from liteyuki.utils.data_manager import GlobalPlugin, Group, InstalledPlugin, User, group_db, plugin_db, user_db
 from liteyuki.utils.ly_typing import T_MessageEvent
 
-LNPM_COMMAND_START = "lnpm"
-
 
 class PluginTag(LiteModel):
     label: str

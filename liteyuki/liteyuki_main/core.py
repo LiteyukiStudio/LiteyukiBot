@@ -27,22 +27,25 @@ cmd_liteyuki = on_alconna(
 )
 
 update_liteyuki = on_alconna(
-    Alconna(
-        ["update-liteyuki", "更新轻雪"]
+    aliases={"更新轻雪"},
+    command=Alconna(
+        "update-liteyuki"
     ),
     permission=SUPERUSER
 )
 
 reload_liteyuki = on_alconna(
-    Alconna(
-        ["reload-liteyuki", "restart-liteyuki", "重启轻雪"]
+    aliases={"重启轻雪"},
+    command=Alconna(
+        "reload-liteyuki"
     ),
     permission=SUPERUSER
 )
 
 cmd_config = on_alconna(
-    Alconna(
-        ["config", "配置"],
+    aliases={"配置"},
+    command=Alconna(
+        "config",
         Subcommand(
             "set",
             Args["key", str]["value", Any],

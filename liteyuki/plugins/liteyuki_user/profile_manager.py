@@ -15,7 +15,7 @@ from nonebot_plugin_alconna import Alconna, Args, Arparma, Subcommand, on_alconn
 
 profile_alc = on_alconna(
     Alconna(
-        ["profile", "个人信息"],
+        "profile",
         Subcommand(
             "set",
             Args["key", str]["value", str, None],
@@ -26,7 +26,8 @@ profile_alc = on_alconna(
             Args["key", str],
             alias=["g", "查询"],
         ),
-    )
+    ),
+    aliases={"用户信息"}
 )
 
 

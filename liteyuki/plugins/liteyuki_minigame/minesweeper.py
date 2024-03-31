@@ -9,8 +9,9 @@ from .game import Minesweeper
 from nonebot_plugin_alconna import Alconna, on_alconna, Subcommand, Args, Arparma
 
 minesweeper = on_alconna(
-    Alconna(
-        ["minesweeper", "扫雷"],
+    aliases={"扫雷"},
+    command=Alconna(
+        "minesweeper",
         Subcommand(
             "start",
             Args["row", int, 8]["col", int, 8]["mines", int, 10],

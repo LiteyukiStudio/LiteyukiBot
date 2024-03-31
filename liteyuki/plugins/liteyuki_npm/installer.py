@@ -18,7 +18,7 @@ from nonebot_plugin_alconna import Alconna, Args, Subcommand, on_alconna
 
 npm_alc = on_alconna(
     Alconna(
-        ["npm", "插件"],
+        "npm",
         Subcommand(
             "update",
             alias=["u"],
@@ -43,8 +43,10 @@ npm_alc = on_alconna(
             alias=["l", "ls", "列表"],
         )
     ),
-    permission=SUPERUSER
+    aliases={"插件"},
+    permission=SUPERUSER,
 )
+
 
 @npm_alc.handle()
 async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
