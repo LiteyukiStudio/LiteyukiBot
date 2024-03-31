@@ -15,7 +15,7 @@ tag:
 
 ```yaml
 # 生成文件的配置项
-command_start: [ "/", "" ] # 指令前缀，若没有""，请开启alconna_use_command_start
+command_start: [ "/", "" ] # 指令前缀，若没有""空命令头，请开启alconna_use_command_start保证alconna解析正常
 host: 127.0.0.1 # 监听地址，默认为本机，若要对外开放请填写0.0.0.0或者你的公网IP
 port: 20216 # 绑定端口
 nickname: [ "liteyuki" ]  # 机器人昵称
