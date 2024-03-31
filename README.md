@@ -23,7 +23,10 @@
 </iframe>
 
 <div align="center">
-    <h3>👇所有内容已迁移至👇</h3><a href="https://bot.liteyuki.icu/"><h2>LiteyukiBot主页</h2></a>
+    <h3>👇所有内容已迁移至👇</h3>
+<a href="https://bot.liteyuki.icu">
+<h2>Liteyuki 6.2</h2>
+</a>
 </div>
 
 
