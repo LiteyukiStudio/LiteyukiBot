@@ -26,14 +26,16 @@ tag:
 
 #### 推荐方案(QQ)
 
-1. [Lagrange.OneBot](https://github.com/KonataDev/Lagrange.Core)，目前Markdown点按交互目前仅支持Lagrange
-2. [LiteLoaderNTQQ+LLOneBot](https://github.com/LLOneBot/LLOneBot)，基于NTQQ的Onebot实现
-3. 云崽的`icqq-plugin`和`ws-plugin`进行通信
-4. `Go-cqhttp`（目前已经半死不活了）
-5. 人工实现的`Onebot`协议，自己整一个WebSocket客户端，看着QQ的消息，然后给轻雪传输数据
+1. [Lagrange.OneBot](https://github.com/KonataDev/Lagrange.Core)，基于NTQQ的OneBot实现，目前Markdown消息支持Lagrange
+2. [LLOneBot](https://github.com/LLOneBot/LLOneBot)，NTQQ的OneBot插件，需要安装NTQQ
+3. [OpenShamrock](https://github.com/whitechi73/OpenShamrock)，基于Lsposed的OneBot11实现
+4. [TRSS-Yunzai](https://github.com/TimeRainStarSky/Yunzai)，基于`node.js`，可使用`ws-plugin`进行通信
+5. [go-cqhttp](https://github.com/Mrs4s/go-cqhttp)，`go`语言实现的OneBot11实现端，目前可用性较低
+6. [Gensokyo](https://github.com/Hoshinonyaruko/Gensokyo)，基于 OneBot QQ官方机器人Api Golang 原生实现，需要官方机器人权限
+7. 人工实现的`Onebot`协议，自己整一个WebSocket客户端，看着QQ的消息，然后给轻雪传输数据
 
 #### 推荐方案(Minecraft)
 
-1. 我们有专门为Minecraft开发的服务器Bot，支持OnebotV11/12标准，详细请看[MinecraftOneBot](https://github.com/snowykami/MinecraftOnebot)
+1. [MinecraftOneBot](https://github.com/snowykami/MinecraftOnebot)，我们专门为Minecraft开发的服务器Bot，支持OneBotV11标准
 
 使用其他项目连接请先自行查阅文档，若有困难请联系对应开发者而不是Liteyuki的开发者
