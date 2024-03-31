@@ -19,6 +19,13 @@
 - 全新可视化`npm`包管理，支持一键安装插件
 - 支持OneBotv11/12标准通信，且使用`Alconna`命令解析，不再局限于OneBot
 
+<iframe src="https://bot.liteyuki.icu" width="100%" height="300px">
+</iframe>
+
+<div align="center">
+    <h3>👇所有内容已迁移至👇</h3><a href="https://bot.liteyuki.icu/"><h2>LiteyukiBot主页</h2></a>
+</div>
+
 
 [OneBot]: https://img.shields.io/badge/OneBot-11/12-blue?style=for-the-badge
 [Nonebot2]: https://img.shields.io/badge/Nonebot-2-red?style=for-the-badge
