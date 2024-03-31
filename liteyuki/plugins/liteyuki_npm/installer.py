@@ -46,7 +46,6 @@ npm_alc = on_alconna(
     permission=SUPERUSER
 )
 
-
 @npm_alc.handle()
 async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
     ulang = get_user_lang(str(event.user_id))

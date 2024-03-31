@@ -24,9 +24,15 @@ def load_from_yaml(file: str) -> dict:
             yaml.dump(BasicConfig().dict(), f, default_flow_style=False)
 
     with open(file, "r", encoding="utf-8") as f:
-        conf = yaml.load(f, Loader=yaml.FullLoader)
+        conf = init_conf(yaml.load(f, Loader=yaml.FullLoader))
         config = conf
         if conf is None:
             nonebot.logger.warning(f"Config file {file} is empty, use default config. please modify it and restart")
             conf = BasicConfig().dict()
         return conf
+
+
+def init_conf(conf: dict) -> dict:
+    if "" not in conf.get("command_start", []):
+        conf["alconna_use_command_start"] = True
+    return conf

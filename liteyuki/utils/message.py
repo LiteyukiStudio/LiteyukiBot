@@ -146,7 +146,7 @@ class Markdown:
             markdown格式的可点击回调按钮
 
         """
-        if "" not in config.get("command_start", ["/"]):
+        if "" not in config.get("command_start", ["/"]) and config.get("alconna_use_command_start", False):
             cmd = f"{config['command_start'][0]}{cmd}"
         return f"[{name}](mqqapi://aio/inlinecmd?command={quote(cmd)}&reply={str(reply).lower()}&enter={str(enter).lower()})"
 
