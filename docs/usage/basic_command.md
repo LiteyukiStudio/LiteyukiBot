@@ -1,6 +1,6 @@
 ---
 title: 基础命令
-icon: laptop-code
+icon: comment
 order: 1
 category: 使用手册
 ---

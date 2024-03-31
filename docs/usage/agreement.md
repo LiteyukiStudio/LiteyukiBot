@@ -1,6 +1,6 @@
 ---
 title: 用户协议
-icon: laptop-code
+icon: user-secret
 order: 3
 category: 使用手册
 ---

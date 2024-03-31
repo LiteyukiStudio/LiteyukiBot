@@ -1,6 +1,6 @@
 ---
 title: 答疑
-icon: object-group
+icon: question
 order: 3
 category: 使用指南
 tag:
@@ -39,3 +39,7 @@ tag:
 1. [MinecraftOneBot](https://github.com/snowykami/MinecraftOnebot)，我们专门为Minecraft开发的服务器Bot，支持OneBotV11标准
 
 使用其他项目连接请先自行查阅文档，若有困难请联系对应开发者而不是Liteyuki的开发者
+
+### 鸣谢
+- 此项目使用了[nonebot-plugin-htmlrender](https://github.com/kexue-z/nonebot-plugin-htmlrender/tree/master)作为内置html渲染插件
+- TRSS_Liteyuki轻雪机器人管理脚本

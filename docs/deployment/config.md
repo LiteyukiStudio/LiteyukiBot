@@ -1,6 +1,6 @@
 ---
 title: 配置
-icon: object-group
+icon: cog
 order: 2
 category: 使用指南
 tag:
