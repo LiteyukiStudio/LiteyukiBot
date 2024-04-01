@@ -137,11 +137,15 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
 
 @switch_image_mode.handle()
 async def _(bot: T_Bot, event: T_MessageEvent):
+    # 切换图片模式，False以图片形式发送，True以markdown形式发送
     ulang = get_user_lang(str(event.user_id))
     stored_config: StoredConfig = common_db.first(StoredConfig(), default=StoredConfig())
-    stored_config.config["markdown_image"] = not stored_config.config.get("markdownimage", False)
+    stored_config.config["markdown_image"] = not stored_config.config.get("markdown_image", False)
     common_db.upsert(stored_config)
-    await switch_image_mode.finish(f"{ulang.get('liteyuki.image_mode_switched', MODE=ulang.get('liteyuki.image_mode_on') if stored_config.config.get('image_mode') else ulang.get('liteyuki.image_mode_off'))}")
+    await switch_image_mode.finish(
+        f"{ulang.get('liteyuki.image_mode_switched', MODE=ulang.get('liteyuki.image_mode_on') 
+            if stored_config.config.get('image_mode') else ulang.get('liteyuki.image_mode_off'))}")
+
 
 @driver.on_startup
 async def on_startup():

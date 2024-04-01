@@ -7,8 +7,8 @@ bgImage:
 bgImageDark:
 bgImageStyle:
   background-attachment: fixed
-heroText: LiteyukiBot 666
-tagline: 轻雪机器人，一个以笨重和复杂为设计理念基于Nonebot114514的OneBotv1919810标准聊天机器人，可用于雪地清扫
+heroText: HeavyyukiBot666   # LiteyukiBot 6
+tagline: 重雪机器人，一个以笨重和复杂为设计理念基于Nonebot114514的OneBotv1919810标准聊天机器人，可用于雪地清扫
 #tagline: 轻雪机器人，一个以轻量和简洁为设计理念基于Nonebot2的OneBot标准聊天机器人
 
 actions:
