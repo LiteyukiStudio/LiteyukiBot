@@ -7,16 +7,17 @@ bgImage:
 bgImageDark:
 bgImageStyle:
   background-attachment: fixed
-heroText: LiteyukiBot 6
-tagline: 轻雪机器人，一个以轻量和简洁为设计理念基于Nonebot2的OneBot标准聊天机器人
+heroText: LiteyukiBot 666
+tagline: 轻雪机器人，一个以笨重和复杂为设计理念基于Nonebot114514的OneBotv1919810标准聊天机器人，可用于雪地清扫
+#tagline: 轻雪机器人，一个以轻量和简洁为设计理念基于Nonebot2的OneBot标准聊天机器人
 
 actions:
-  - text: 快速开始
+  - text: 快速结束  # 快速开始
     icon: lightbulb
     link: ./deployment/install.html
     type: primary
 
-  - text: 使用手册
+  - text: 小册子   # 使用手册
     icon: book
     link: ./usage/basic_command.html
 
@@ -28,7 +29,7 @@ actions:
 
 highlights:
 
-  - header: 简洁至上
+  - header: 简洁至下 # 简洁至上
     image: /assets/image/layout.svg
     bgImage: https://theme-hope-assets.vuejs.press/bg/2-light.svg
     bgImageDark: https://theme-hope-assets.vuejs.press/bg/2-dark.svg
