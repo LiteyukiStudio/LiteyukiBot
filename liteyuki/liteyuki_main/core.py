@@ -1,9 +1,11 @@
+import base64
 from typing import Any
 
 import nonebot
 import pip
 from git import Repo
-from nonebot import require, get_driver
+from nonebot import Bot, require, get_driver
+from nonebot.exception import MockApiException
 from nonebot.permission import SUPERUSER
 
 from liteyuki.utils.config import config, load_from_yaml
@@ -13,11 +15,14 @@ from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
 from liteyuki.utils.message import Markdown as md
 from .reloader import Reloader
 from liteyuki.utils import htmlrender
+from ..utils.liteyuki_api import liteyuki_api
 
 require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import on_alconna, Alconna, Args, Subcommand, Arparma
 
 driver = get_driver()
+
+markdown_image = False
 
 cmd_liteyuki = on_alconna(
     Alconna(
@@ -137,14 +142,43 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
 
 @switch_image_mode.handle()
 async def _(bot: T_Bot, event: T_MessageEvent):
+    global markdown_image
     # 切换图片模式，False以图片形式发送，True以markdown形式发送
     ulang = get_user_lang(str(event.user_id))
     stored_config: StoredConfig = common_db.first(StoredConfig(), default=StoredConfig())
     stored_config.config["markdown_image"] = not stored_config.config.get("markdown_image", False)
+    markdown_image = stored_config.config["markdown_image"]
     common_db.upsert(stored_config)
-    await switch_image_mode.finish(
-        f"{ulang.get('liteyuki.image_mode_switched', MODE=ulang.get('liteyuki.image_mode_on') 
-            if stored_config.config.get('image_mode') else ulang.get('liteyuki.image_mode_off'))}")
+    await switch_image_mode.finish(ulang.get("liteyuki.image_mode_on" if stored_config.config["markdown_image"] else "liteyuki.image_mode_off"))
+
+
+# system hook
+
+@Bot.on_calling_api
+async def test_for_md_image(bot: T_Bot, api: str, data: dict):
+    if api in ["send_msg", "send_private_msg", "send_group_msg"] and markdown_image:
+        if api == "send_msg" and data.get("message_type") == "private" or api == "send_private_msg":
+            session_type = "private"
+            session_id = data.get("user_id")
+        elif api == "send_msg" and data.get("message_type") == "group" or api == "send_group_msg":
+            session_type = "group"
+            session_id = data.get("group_id")
+        else:
+            return
+        if len(data.get("message", [])) == 1 and data["message"][0].get("type") == "image":
+            file: str = data["message"][0].data.get("file")
+            # file:// http:// base64://
+            if file.startswith("http"):
+                result = await md.send_md(await md.image_async(file), bot, message_type=session_type, session_id=session_id)
+            elif file.startswith("file"):
+                file = file.replace("file://", "")
+                result = await md.send_image(open(file, "rb").read(), bot, message_type=session_type, session_id=session_id)
+            elif file.startswith("base64"):
+                file_bytes = base64.b64decode(file.replace("base64://", ""))
+                result = await md.send_image(file_bytes, bot, message_type=session_type, session_id=session_id)
+            else:
+                return
+            raise MockApiException(result=result)
 
 
 @driver.on_startup

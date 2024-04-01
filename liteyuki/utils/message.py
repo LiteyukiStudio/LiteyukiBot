@@ -165,7 +165,7 @@ class Markdown:
 
     @staticmethod
     def image(url: str, size: tuple[int, int]) -> str:
-        """生成图片
+        """构建图片链接
         Args:
             size:
             url: 图片链接
@@ -178,12 +178,12 @@ class Markdown:
 
     @staticmethod
     async def image_async(url: str) -> str:
-        """获取图片，自动获取大小
+        """获取图片，自动请求获取大小，异步
         Args:
             url: 图片链接
 
         Returns:
-            图片bytes
+            图片Markdown语法: ![image #{width}px #{height}px](link)
 
         """
         try:

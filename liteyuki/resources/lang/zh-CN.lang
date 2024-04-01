@@ -93,6 +93,5 @@ user.profile.input_value=请输入 {ATTR} 的值
 user.profile.set_success=成功将 {ATTR} 设置为 {VALUE}
 user.profile.set_failed=设置 {ATTR} 失败，请检查输入是否合法
 
-liteyuki.image_mode_switched=图片模式已切换为 {MODE}
 liteyuki.image_mode_on=开启Markdown图片模式
 liteyuki.image_mode_off=关闭Markdown图片模式
