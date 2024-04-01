@@ -22,7 +22,7 @@ from nonebot_plugin_alconna import on_alconna, Alconna, Args, Subcommand, Arparm
 
 driver = get_driver()
 
-markdown_image = False
+markdown_image = common_db.first(StoredConfig(), default=StoredConfig()).config.get("markdown_image", False)
 
 cmd_liteyuki = on_alconna(
     Alconna(
@@ -156,7 +156,7 @@ async def _(bot: T_Bot, event: T_MessageEvent):
 
 @Bot.on_calling_api
 async def test_for_md_image(bot: T_Bot, api: str, data: dict):
-    if api in ["send_msg", "send_private_msg", "send_group_msg"] and markdown_image:
+    if api in ["send_msg", "send_private_msg", "send_group_msg"] and markdown_image and data.get("user_id") != bot.self_id:
         if api == "send_msg" and data.get("message_type") == "private" or api == "send_private_msg":
             session_type = "private"
             session_id = data.get("user_id")

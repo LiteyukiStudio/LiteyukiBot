@@ -17,7 +17,7 @@ category: 使用手册
 [S]liteyuki # 查看轻雪信息
 [S]config set <key> value  # 添加配置项，若存在则会覆盖，输入值会被执行，以便于转换为正确的值，"10"和10是不一样的
 [S]config get [key]  # 查询配置项，不带key返回配置项列表，推荐私聊使用
-[S]switch-image-mode  # 切换图片模式，在普通图片和Markdown图片之间切换，后者更大但有失败的可能
+[S]switch-image-mode  # 切换图片模式，该功能需要commit:44477b9及以后的Lagrange.OneBot版本，在普通图片和Markdown图片之间切换，后者更大但有失败的可能
 # 上述两个命令修改的配置项在数据库中保存，但是优先级低于配置文件，如果配置文件中存在相同的配置项，将会使用配置文件中的配置
 ------
 别名: reload-liteyuki 重启轻雪, update-liteyuki 更新轻雪, config 配置， set 设置， get 查询

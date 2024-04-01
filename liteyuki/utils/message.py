@@ -114,14 +114,30 @@ class Markdown:
             dict: response data
 
         """
+        print("\n\n\n发送图片\n\n\n")
         if isinstance(image, str):
             async with aiofiles.open(image, "rb") as f:
                 image = await f.read()
-
+        # 1.轻雪图床方案
         image_url = await liteyuki_api.upload_image(image)
         image_size = Image.open(io.BytesIO(image)).size
         image_md = Markdown.image(image_url, image_size)
         return await Markdown.send_md(image_md, bot, message_type=message_type, session_id=session_id, event=event, **kwargs)
+
+        # 2.此方案等林文轩修好后再用QQ图床，再嵌入markdown发送
+        # image_message_id = (await bot.send_private_msg(
+        #     user_id=bot.self_id,
+        #     message=[
+        #         v11.MessageSegment.image(file=image)
+        #     ]
+        # ))["message_id"]
+        # await asyncio.sleep(3)
+        # await bot.delete_msg(message_id=image_message_id)
+        # image_message = await bot.get_msg(message_id=image_message_id)
+        # image_url = (await bot.get_msg(message_id=image_message_id))["message"][0]["data"]["url"]
+        # image_size = Image.open(io.BytesIO(image)).size
+        # image_md = Markdown.image(image_url, image_size)
+        # return await Markdown.send_md(image_md, bot, message_type=message_type, session_id=session_id, event=event, **kwargs)
 
     @staticmethod
     async def get_image_url(image: bytes | str, bot: T_Bot) -> str:
