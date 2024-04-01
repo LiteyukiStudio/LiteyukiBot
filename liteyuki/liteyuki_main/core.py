@@ -95,7 +95,7 @@ async def _(bot: T_Bot, event: T_MessageEvent):
     logs = repo.index
     reply = "Liteyuki updated!\n"
     reply += f"```\n{logs}\n```\n"
-    btn_restart = md.button(ulang.get("liteyuki.restart_now"), "restart-liteyuki")
+    btn_restart = md.button(ulang.get("liteyuki.restart_now"), "reload-liteyuki")
     pip.main(["install", "-r", "requirements.txt"])
     reply += f"{ulang.get('liteyuki.update_restart', RESTART=btn_restart)}"
     await md.send_md(reply, bot, event=event, at_sender=False)
