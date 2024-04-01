@@ -21,6 +21,7 @@ liteyuki.stats.received=接收
 liteyuki.stats.run_time=运行时间
 liteyuki.stats.groups=群
 liteyuki.stats.friends=好友
+liteyuki.stats.plugins=插件
 
 main.current_language=当前配置语言为: {LANG}
 main.enable_webdash=已启用网页监控面板: {URL}

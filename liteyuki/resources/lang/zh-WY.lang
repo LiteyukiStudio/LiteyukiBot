@@ -21,6 +21,7 @@ liteyuki.stats.received=受
 liteyuki.stats.run_time=動時
 liteyuki.stats.groups=群
 liteyuki.stats.friends=友
+liteyuki.stats.plugins=巢
 
 main.current_language=當前言之: {LANG}
 main.enable_webdash=以啟網言見板: {URL}

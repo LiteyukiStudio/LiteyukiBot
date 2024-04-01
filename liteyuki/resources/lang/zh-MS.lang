@@ -21,6 +21,7 @@ liteyuki.stats.received=接收
 liteyuki.stats.run_time=执行时间
 liteyuki.stats.groups=团体
 liteyuki.stats.friends=伙伴
+liteyuki.stats.plugins=器械
 
 main.current_language=现行言语策划为: {LANG}
 main.enable_webdash=网络监视版已启动: {URL}

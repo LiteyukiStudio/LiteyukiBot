@@ -21,6 +21,7 @@ liteyuki.stats.received=受信
 liteyuki.stats.run_time=実行時間
 liteyuki.stats.groups=グループ
 liteyuki.stats.friends=友達
+liteyuki.stats.plugins=プラグイン
 
 main.current_language=現在の言語: {LANG}
 main.enable_webdash=Web監視パネルが有効になりました: {URL}

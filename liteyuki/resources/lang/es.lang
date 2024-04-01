@@ -21,6 +21,7 @@ liteyuki.stats.received=Recibido
 liteyuki.stats.run_time=Tiempo de Ejecución
 liteyuki.stats.groups=Grupos
 liteyuki.stats.friends=Amigos
+liteyuki.stats.plugins=Plugins
 
 main.current_language=Idioma actual: {LANG}
 main.enable_webdash=Panel de monitoreo web habilitado: {URL}

@@ -21,6 +21,7 @@ liteyuki.stats.received=받은
 liteyuki.stats.run_time=실행 시간
 liteyuki.stats.groups=그룹
 liteyuki.stats.friends=친구
+liteyuki.stats.plugins=플러그인
 
 main.current_language=현재 언어: {LANG}
 main.enable_webdash=웹 대시보드가 활성화되었습니다: {URL}

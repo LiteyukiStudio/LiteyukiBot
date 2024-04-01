@@ -13,14 +13,15 @@ liteyuki.current_config=Current Configuration
 liteyuki.static_config=Static File Configuration
 liteyuki.stored_config=Stored Configuration
 liteyuki.config_set_success=Configuration item {KEY}={VAL} set successfully.
-liteyuki.stats.group=Group
-liteyuki.stats.user=User
-liteyuki.stats.plugin=Plugin
+liteyuki.stats.group=Group(s)
+liteyuki.stats.user=User(s)
+liteyuki.stats.plugin=Plugin(s)
 liteyuki.stats.sent=Sent
 liteyuki.stats.received=Received
 liteyuki.stats.run_time=Run Time
-liteyuki.stats.groups=Groups
-liteyuki.stats.friends=Friends
+liteyuki.stats.groups=Group(s)
+liteyuki.stats.friends=Friend(s)
+liteyuki.stats.plugins=Plugin(s)
 
 main.current_language=Current language: {LANG}
 main.enable_webdash=Web monitoring panel enabled: {URL}

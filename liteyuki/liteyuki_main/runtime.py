@@ -94,12 +94,16 @@ async def _(bot: T_Bot, event: T_MessageEvent):
             "BOT_ID"   : bot.self_id,
             "BOT_NAME" : (await bot.get_login_info())["nickname"],
             "BOT_TAGS" : [
-                    protocol_names.get(version_info.get("protocol_name"), "Linux"), version_info.get("app_name"), version_info.get("app_version"),
-                    f"{ulang.get('liteyuki.stats.groups')} {groups}", f"{ulang.get('liteyuki.stats.friends')} {friends}",
+                    protocol_names.get(version_info.get("protocol_name"), "Online"),
+                    f"{ulang.get('liteyuki.stats.plugins')} {len(nonebot.get_loaded_plugins())}",
+                    f"{ulang.get('liteyuki.stats.groups')} {groups}",
+                    f"{ulang.get('liteyuki.stats.friends')} {friends}",
                     f"{ulang.get('liteyuki.stats.sent')} {statistics.get('message_sent', 0)}",
                     f"{ulang.get('liteyuki.stats.received')} {statistics.get('message_received', 0)}",
+                    f"{__NAME__} {__VERSION__}",
+                    f"Nonebot {nonebot.__version__}",
                     f"{platform.python_implementation()} {platform.python_version()}",
-                    f"Nonebot {nonebot.__version__}", f"{__NAME__} {__VERSION__}"
+                    version_info.get("app_name"),
             ],
             "CPU_TAGS" : [
                     f"{brand} {cpu_info.get('arch', 'Unknown')}",
