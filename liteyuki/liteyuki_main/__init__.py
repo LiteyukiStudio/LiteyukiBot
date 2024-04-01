@@ -3,7 +3,7 @@ from nonebot.plugin import PluginMetadata
 from liteyuki.utils.language import get_default_lang
 from .core import *
 from .loader import *
-from .webdash import *
+from .runtime import *
 
 __author__ = "snowykami"
 __plugin_meta__ = PluginMetadata(

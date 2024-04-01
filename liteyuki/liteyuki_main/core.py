@@ -61,6 +61,14 @@ cmd_config = on_alconna(
     permission=SUPERUSER
 )
 
+switch_image_mode = on_alconna(
+    aliases={"切换图片模式"},
+    command=Alconna(
+        "switch-image-mode"
+    ),
+    permission=SUPERUSER
+)
+
 
 @cmd_liteyuki.handle()
 async def _(bot: T_Bot):
@@ -126,6 +134,14 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
                 reply += "\n```"
         await md.send_md(reply, bot, event=event)
 
+
+@switch_image_mode.handle()
+async def _(bot: T_Bot, event: T_MessageEvent):
+    ulang = get_user_lang(str(event.user_id))
+    stored_config: StoredConfig = common_db.first(StoredConfig(), default=StoredConfig())
+    stored_config.config["markdown_image"] = not stored_config.config.get("markdownimage", False)
+    common_db.upsert(stored_config)
+    await switch_image_mode.finish(f"{ulang.get('liteyuki.image_mode_switched', MODE=ulang.get('liteyuki.image_mode_on') if stored_config.config.get('image_mode') else ulang.get('liteyuki.image_mode_off'))}")
 
 @driver.on_startup
 async def on_startup():
