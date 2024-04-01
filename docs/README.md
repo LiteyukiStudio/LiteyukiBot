@@ -8,7 +8,7 @@ bgImageDark:
 bgImageStyle:
   background-attachment: fixed
 heroText: HeavyyukiBot666   # LiteyukiBot 6
-tagline: 重雪机器人，一个以笨重和复杂为设计理念基于Koishi114514的OneBotv1919810标准聊天机器人，可用于雪地清扫
+tagline: 重雪机器人，一个以笨重和复杂为设计理念基于Koishi114514的OneBotv1919810标准聊天机器人，可用于雪地清扫，使用Typethon编写
 #tagline: 轻雪机器人，一个以轻量和简洁为设计理念基于Nonebot2的OneBot标准聊天机器人
 
 actions:
