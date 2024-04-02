@@ -3,6 +3,7 @@ import time
 from os import getcwd
 
 import aiofiles
+import nonebot
 from nonebot import require
 
 require("nonebot_plugin_htmlrender")
