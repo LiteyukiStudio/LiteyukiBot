@@ -4,8 +4,7 @@ import nonebot.plugin
 from nonebot import require
 from nonebot.exception import FinishedException, IgnoredException
 from nonebot.internal.adapter import Event
-from nonebot.internal.matcher import Matcher, current_matcher
-from nonebot.adapters import Bot
+from nonebot.internal.matcher import Matcher
 from nonebot.message import run_preprocessor
 from nonebot.permission import SUPERUSER
 from nonebot.plugin import Plugin
@@ -17,6 +16,7 @@ from liteyuki.utils.message import Markdown as md
 from liteyuki.utils.permission import GROUP_ADMIN, GROUP_OWNER
 from .common import get_plugin_can_be_toggle, get_plugin_default_enable, get_plugin_global_enable, get_plugin_session_enable
 from .installer import get_store_plugin, npm_update
+from ...utils.tools import clamp
 
 require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import on_alconna, Alconna, Args, Arparma
@@ -24,8 +24,9 @@ from nonebot_plugin_alconna import on_alconna, Alconna, Args, Arparma
 list_plugins = on_alconna(
     Alconna(
         "list-plugin",
+        Args["page", int, 1]["num", int, 10],
     ),
-    aliases={"列出插件", "插件列表", "菜单"}
+    aliases={"列出插件", "插件列表"}
 )
 
 toggle_plugin = on_alconna(
@@ -47,42 +48,48 @@ toggle_plugin_global = on_alconna(
 
 
 @list_plugins.handle()
-async def _(event: T_MessageEvent, bot: T_Bot):
+async def _(event: T_MessageEvent, bot: T_Bot, result: Arparma):
+    lang = get_user_lang(str(event.user_id))
     if not os.path.exists("data/liteyuki/plugins.json"):
         await npm_update()
-    lang = get_user_lang(str(event.user_id))
-    reply = f"# {lang.get('npm.loaded_plugins')} | {lang.get('npm.total', TOTAL=len(nonebot.get_loaded_plugins()))} \n***\n"
-    for plugin in nonebot.get_loaded_plugins():
+
+    loaded_plugin_list = sorted(nonebot.get_loaded_plugins(), key=lambda x: x.module_name)
+    num_per_page = result.args.get("num")
+    total = len(loaded_plugin_list) // num_per_page + (1 if len(loaded_plugin_list) % num_per_page else 0)
+
+    page = clamp(result.args.get("page"), 1, total)
+
+    # 已加载插件 | 总计10 | 第1/3页
+    reply = (f"# {lang.get('npm.loaded_plugins')} | "
+             f"{lang.get('npm.total', TOTAL=len(nonebot.get_loaded_plugins()))} | "
+             f"{lang.get('npm.page', PAGE=page, TOTAL=total)} \n***\n")
+
+    for plugin in loaded_plugin_list[(page - 1) * num_per_page: min(page * num_per_page, len(loaded_plugin_list))]:
         # 检查是否有 metadata 属性
         # 添加帮助按钮
         btn_usage = md.button(lang.get("npm.usage"), f"help {plugin.module_name}", False)
         store_plugin = await get_store_plugin(plugin.module_name)
 
         session_enable = get_plugin_session_enable(event, plugin.module_name)
-        default_enable = get_plugin_default_enable(plugin.module_name)
 
         if store_plugin:
             btn_homepage = md.link(lang.get("npm.homepage"), store_plugin.homepage)
             show_name = store_plugin.name
-            show_desc = store_plugin.desc
         elif plugin.metadata:
             if plugin.metadata.extra.get("liteyuki"):
                 btn_homepage = md.link(lang.get("npm.homepage"), "https://github.com/snowykami/LiteyukiBot")
             else:
                 btn_homepage = lang.get("npm.homepage")
             show_name = plugin.metadata.name
-            show_desc = plugin.metadata.description
         else:
             btn_homepage = lang.get("npm.homepage")
             show_name = plugin.name
-            show_desc = lang.get("npm.no_description")
+            lang.get("npm.no_description")
 
         if plugin.metadata:
-            reply += (f"\n**{md.escape(show_name)}**\n"
-                      f"\n > {md.escape(show_desc)}\n")
+            reply += f"\n**{md.escape(show_name)}**\n"
         else:
-            reply += (f"**{md.escape(show_name)}**\n"
-                      f"\n > {md.escape(show_desc)}\n")
+            reply += f"**{md.escape(show_name)}**\n"
 
         reply += f"\n > {btn_usage}  {btn_homepage}"
 
@@ -121,7 +128,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
     ulang = get_user_lang(str(event.user_id))
     plugin_module_name = result.args.get("plugin_name")
     # 支持对自定义command_start的判断
-    toggle = result.header_result in [prefix+header for prefix in bot.config.command_start for header in ["enable-plugin", "启用"]]  # 判断是启用还是停用
+    toggle = result.header_result in [prefix + header for prefix in bot.config.command_start for header in ["enable-plugin", "启用"]]  # 判断是启用还是停用
 
     session_enable = get_plugin_session_enable(event, plugin_module_name)  # 获取插件当前状态
 

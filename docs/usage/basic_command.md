@@ -39,7 +39,7 @@ category: 使用手册
 [SOA]disable <plugin_name>  # 禁用插件
 [S]enable-global <plugin_name>  # 全局启用插件
 [S]disable-global <plugin_name>  # 全局禁用插件
-list-plugin # 列出所有插件
+list-plugin [page] [num] # 列出所有插件 page为页数，num为每页显示数量
 # 受限于Nonebot的钩子函数，目前只能阻断消息事件的传入，对于主动推送消息的插件，无法将其阻止
 ------
 别名: enable 启用, disable 停用, enable-global 全局启用, disable-global 全局停用, list-plugin 列出插件/插件列表

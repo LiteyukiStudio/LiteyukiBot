@@ -16,40 +16,44 @@
             background-image: url('img/bg1.jpg');
             color: white;
             // 上10px，左右10px，下0px
-            margin: 10px 10px 0;
+            margin: 24px;
 
 
         }
         
         .info-box {
-            border-radius: 10px;
-            padding: 15px;
+            border-radius: 30px;
+            padding: 30px;
             backdrop-filter: blur(30px);
             background-color: rgba(0, 0, 0, 0.3);
             display: flex;
-            margin-bottom: 10px;
+            margin: 0 24px 24px;
         }
 
         #cpu-chart, #mem-chart, #swap-chart {
-            height: 150px;
-            width: 100px;
-            margin: -10px 15px;
+            height: 240px;
+            width: 240px;
+            margin-bottom: 20px;
+        }
+
+        #cpu-info, #mem-info, #swap-info {
+            margin: 0 40px;
+            align-items: center;
         }
 
         #bot-info {
+            margin-top: 24px;
             align-items: center;
         }
 
         #hardware-info {
             justify-content: center;
             text-align: center;
-            align-items: center;
         }
 
         #bot-icon {
             border-radius: 50%;
-            width: 100px;
-            height: 100px;
+            height: 200px;
         }
 
         #bot-name, #bot-tag {
@@ -57,28 +61,22 @@
         }
 
         #bot-name {
-            font-size: 22px;
+            font-size: 42px;
             font-weight: bold;
         }
 
-        #bot-id {
-            margin-left: 10px;
-            font-size: 18px;
-            font-weight: normal;
-        }
 
         #bot-tag {
             margin-top: 10px;
-            display: flex;
-            flex-wrap: wrap;
         }
 
         .chart-label {
-            font-size: 15px;
+            font-size: 30px;
+            max-width: 240px;
         }
 
         .tag {
-            font-size: 15px;
+            font-size: 27px;
         }
 
         .tag::after {
@@ -178,7 +176,7 @@
                     textStyle: {
                         //文字颜色
                         color: '#fff',
-                        fontSize: 15
+                        fontSize: 30
                     }
                 },
                 tooltip: {
@@ -207,7 +205,7 @@
                                 label: {
                                     show: true,
                                     textStyle: {
-                                        fontSize: '25',
+                                        fontSize: '50',
                                         fontWeight: 'bold'
                                     }
                                 }

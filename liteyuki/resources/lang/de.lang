@@ -93,3 +93,8 @@ user.profile.nickname.desc=Spitzname des Bots für den Benutzer festlegen
 user.profile.input_value=Bitte geben Sie {ATTR} ein
 user.profile.set_success={ATTR} erfolgreich auf {VALUE} festgelegt
 user.profile.set_failed={ATTR} festlegen fehlgeschlagen. Bitte überprüfen Sie, ob die Eingabe gültig ist.
+
+liteyuki.image_mode_on=Markdown-Bild
+liteyuki.image_mode_off=Markdown-Link
+
+npm.page=Page {PAGE}/{TOTAL}

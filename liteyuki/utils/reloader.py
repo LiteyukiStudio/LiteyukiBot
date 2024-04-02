@@ -3,11 +3,6 @@ from multiprocessing import get_context
 
 import nonebot
 from nonebot import logger
-from typing import List, Optional
-
-from nonebot import get_driver
-from pydantic import BaseSettings
-
 
 reboot_grace_time_limit: int = 20
 
@@ -60,7 +55,6 @@ def run(*args, **kwargs):
             elif process.is_alive():
                 continue
             else:
-                # Process stoped without setting event
                 should_exit = True
 
 

@@ -1,5 +1,18 @@
 from importlib.metadata import PackageNotFoundError, version
-from urllib.parse import quote
+
+
+def clamp(value: float, min_value: float, max_value: float) -> float | int:
+    """将值限制在最小值和最大值之间
+
+    Args:
+        value (float): 要限制的值
+        min_value (float): 最小值
+        max_value (float): 最大值
+
+    Returns:
+        float: 限制后的值
+    """
+    return max(min(value, max_value), min_value)
 
 
 def convert_size(size: int, precision: int = 2, add_unit: bool = True, suffix: str = "iB") -> str:

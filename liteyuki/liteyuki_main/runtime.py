@@ -127,7 +127,8 @@ async def _(bot: T_Bot, event: T_MessageEvent):
     image_bytes = await template2image(
         template=get_path("templates/stats.html", abs_path=True),
         templates=templ,
-        scale_factor=4,
+        scale_factor=1,
+        debug=True
     )
     # await md.send_image(image_bytes, bot, event=event)
     await stats.finish(MessageSegment.image(image_bytes))

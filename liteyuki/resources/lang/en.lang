@@ -93,3 +93,8 @@ user.profile.nickname.desc=Set Bot's nickname for the user
 user.profile.input_value=Please enter {ATTR}
 user.profile.set_success={ATTR} set successfully to {VALUE}
 user.profile.set_failed=Setting {ATTR} failed. Please check if the input is valid.
+
+liteyuki.image_mode_on=Enable markdown image
+liteyuki.image_mode_off=Closed markdown image
+
+npm.page=Page {PAGE}/{TOTAL}

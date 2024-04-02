@@ -100,11 +100,14 @@ def load_from_dict(data: dict, lang_code: str):
 
 
 class Language:
-    def __init__(self, lang_code: str = None, fallback_lang_code: str = "en"):
+    def __init__(self, lang_code: str = None, fallback_lang_code: str = None):
         if lang_code is None:
-            lang_code = get_system_lang_code()
+            lang_code = config.get("default_language", get_default_lang())
         self.lang_code = lang_code
         self.fallback_lang_code = fallback_lang_code
+
+        if self.fallback_lang_code is None:
+            self.fallback_lang_code = config.get("default_language", get_system_lang_code())
 
     def get(self, item: str, *args, **kwargs) -> str | Any:
         """
@@ -154,7 +157,7 @@ def get_user_lang(user_id: str) -> Language:
         username="Unknown"
     ))
 
-    return Language(user.profile.get("lang", config.get("default_language", get_system_lang_code())))
+    return Language(user.profile.get("lang", get_default_lang()))
 
 
 def get_system_lang_code() -> str:
