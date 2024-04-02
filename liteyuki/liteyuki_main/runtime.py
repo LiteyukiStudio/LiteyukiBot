@@ -8,7 +8,7 @@ from nonebot.adapters.onebot.v11 import MessageSegment
 from nonebot.permission import SUPERUSER
 
 from liteyuki.utils import __NAME__, __VERSION__
-from liteyuki.utils.htmlrender import template_to_pic
+from liteyuki.utils.htmlrender import template2image
 from liteyuki.utils.language import get_user_lang
 from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
 from liteyuki.utils.resource import get_path
@@ -124,10 +124,10 @@ async def _(bot: T_Bot, event: T_MessageEvent):
             "MEM"      : ulang.get("main.monitor.memory"),
             "SWAP"     : ulang.get("main.monitor.swap"),
     }
-    image_bytes = await template_to_pic(
-        template_path=get_path("templates/stats.html", abs_path=True),
+    image_bytes = await template2image(
+        template=get_path("templates/stats.html", abs_path=True),
         templates=templ,
-        device_scale_factor=4,
+        scale_factor=4,
     )
     # await md.send_image(image_bytes, bot, event=event)
     await stats.finish(MessageSegment.image(image_bytes))

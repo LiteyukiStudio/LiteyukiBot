@@ -204,9 +204,12 @@ class Database:
         table_name = model.TABLE_NAME
         if not table_name:
             raise ValueError(f"数据模型{model.__class__.__name__}未提供表名")
+        if model.id is not None:
+            condition = f"id = {model.id}"
         if not condition and not allow_empty:
             raise ValueError("删除操作必须提供条件")
         self.cursor.execute(f"DELETE FROM {table_name} WHERE {condition}", args)
+        self.conn.commit()
 
     def auto_migrate(self, *args: LiteModel):
 

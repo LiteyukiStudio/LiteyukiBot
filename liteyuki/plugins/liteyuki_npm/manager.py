@@ -79,10 +79,10 @@ async def _(event: T_MessageEvent, bot: T_Bot):
 
         if plugin.metadata:
             reply += (f"\n**{md.escape(show_name)}**\n"
-                      f"\n > {md.escape(show_desc)}")
+                      f"\n > {md.escape(show_desc)}\n")
         else:
             reply += (f"**{md.escape(show_name)}**\n"
-                      f"\n > {md.escape(show_desc)}")
+                      f"\n > {md.escape(show_desc)}\n")
 
         reply += f"\n > {btn_usage}  {btn_homepage}"
 

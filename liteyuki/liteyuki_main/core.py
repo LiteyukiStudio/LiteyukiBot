@@ -15,10 +15,10 @@ from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
 from liteyuki.utils.message import Markdown as md
 from .reloader import Reloader
 from liteyuki.utils import htmlrender
-from ..utils.liteyuki_api import liteyuki_api
 
-require("nonebot_plugin_alconna")
+require("nonebot_plugin_alconna"), require("nonebot_plugin_htmlrender")
 from nonebot_plugin_alconna import on_alconna, Alconna, Args, Subcommand, Arparma
+from nonebot_plugin_htmlrender import html_to_pic
 
 driver = get_driver()
 
@@ -183,11 +183,9 @@ async def test_for_md_image(bot: T_Bot, api: str, data: dict):
 
 @driver.on_startup
 async def on_startup():
-    htmlrender.browser = await htmlrender.get_browser()
-    nonebot.logger.info("Browser Started.")
+    pass
 
 
 @driver.on_shutdown
 async def on_shutdown():
-    await htmlrender.shutdown_browser()
-    nonebot.logger.info("Browser Stopped.")
+    pass

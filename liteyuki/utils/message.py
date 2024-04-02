@@ -6,6 +6,7 @@ import aiofiles
 from PIL import Image
 import aiohttp
 import nonebot
+from nonebot import require
 from nonebot.adapters.onebot import v11, v12
 from typing import Any
 
@@ -13,8 +14,12 @@ from . import load_from_yaml
 from .liteyuki_api import liteyuki_api
 from .ly_typing import T_Bot, T_MessageEvent
 
+require("nonebot_plugin_htmlrender")
+from nonebot_plugin_htmlrender import md_to_pic
+
 config = load_from_yaml("config.yml")
 
+can_send_markdown={}    # 用于存储机器人是否支持发送markdown消息，id->bool
 
 class Markdown:
     @staticmethod
@@ -24,72 +29,82 @@ class Markdown:
             message_type: str = None,
             session_id: str | int = None,
             event: T_MessageEvent = None,
+            retry_as_image: bool = True,
             **kwargs
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | None:
+        """
+        发送Markdown消息，支持自动转为图片发送
+        Args:
+            markdown:
+            bot:
+            message_type:
+            session_id:
+            event:
+            retry_as_image: 发送失败后是否尝试以图片形式发送，否则失败返回None
+            **kwargs:
+
+        Returns:
+
+        """
         formatted_md = v11.unescape(markdown).replace("\n", r"\n").replace('"', r'\\\"')
         if event is not None and message_type is None:
             message_type = event.message_type
             session_id = event.user_id if event.message_type == "private" else event.group_id
         try:
+            # 构建Markdown消息并获取转发消息ID
             forward_id = await bot.call_api(
                 api="send_forward_msg",
                 messages=[
-                        v11.MessageSegment(
-                            type="node",
-                            data={
-                                    "name"   : "Liteyuki.OneBot",
-                                    "uin"    : bot.self_id,
-                                    "content": [
-                                            {
-                                                    "type": "markdown",
-                                                    "data": {
-                                                            "content": '{"content":"%s"}' % formatted_md
-                                                    }
-                                            },
-                                    ]
-                            },
-                        )
+                    v11.MessageSegment(
+                        type="node",
+                        data={
+                            "name": "Liteyuki.OneBot",
+                            "uin": bot.self_id,
+                            "content": [
+                                {
+                                    "type": "markdown",
+                                    "data": {
+                                        "content": '{"content":"%s"}' % formatted_md
+                                    }
+                                },
+                            ]
+                        },
+                    )
                 ]
             )
+            # 发送Markdown longmsg并获取相应数据
             data = await bot.send_msg(
                 user_id=session_id,
                 group_id=session_id,
                 message_type=message_type,
                 message=[
-                        v11.MessageSegment(
-                            type="longmsg",
-                            data={
-                                    "id": forward_id
-                            }
-                        ),
+                    v11.MessageSegment(
+                        type="longmsg",
+                        data={
+                            "id": forward_id
+                        }
+                    ),
                 ],
                 **kwargs
             )
-        except Exception as e:
-            nonebot.logger.warning("send_markdown error, send as plain text: %s" % e.__repr__())
-            if isinstance(bot, v11.Bot):
-                data = await bot.send_msg(
-                    message_type=message_type,
-                    message=markdown,
-                    user_id=int(session_id),
-                    group_id=int(session_id),
-                    **kwargs
-                )
-            elif isinstance(bot, v12.Bot):
-                data = await bot.send_message(
-                    detail_type=message_type,
-                    message=v12.Message(
-                        v12.MessageSegment.text(
-                            text=markdown
-                        )
-                    ),
-                    user_id=str(session_id),
-                    group_id=str(session_id),
-                    **kwargs
-                )
-            else:
-                nonebot.logger.error("send_markdown: bot type not supported")
-                data = {}
+        except BaseException as e:
+            nonebot.logger.error(f"send markdown error, retry as image: {e}")
+            # 发送失败，渲染为图片发送
+            if not retry_as_image:
+                return None
+
+            plain_markdown = markdown.replace("🔗", "")
+            md_image_bytes = await md_to_pic(
+                md=plain_markdown,
+                width=540,
+                device_scale_factor=4
+            )
+            data = await bot.send_msg(
+                message_type=message_type,
+                group_id=session_id,
+                user_id=session_id,
+                message=v11.MessageSegment.image(md_image_bytes),
+            )
         return data
 
     @staticmethod
@@ -114,7 +129,6 @@ class Markdown:
             dict: response data
 
         """
-        print("\n\n\n发送图片\n\n\n")
         if isinstance(image, str):
             async with aiofiles.open(image, "rb") as f:
                 image = await f.read()
@@ -122,7 +136,10 @@ class Markdown:
         image_url = await liteyuki_api.upload_image(image)
         image_size = Image.open(io.BytesIO(image)).size
         image_md = Markdown.image(image_url, image_size)
-        return await Markdown.send_md(image_md, bot, message_type=message_type, session_id=session_id, event=event, **kwargs)
+        data = await Markdown.send_md(image_md, bot, message_type=message_type, session_id=session_id, event=event,
+                                      retry_as_image=False,
+                                      **kwargs)
+
 
         # 2.此方案等林文轩修好后再用QQ图床，再嵌入markdown发送
         # image_message_id = (await bot.send_private_msg(
@@ -138,6 +155,15 @@ class Markdown:
         # image_size = Image.open(io.BytesIO(image)).size
         # image_md = Markdown.image(image_url, image_size)
         # return await Markdown.send_md(image_md, bot, message_type=message_type, session_id=session_id, event=event, **kwargs)
+        if data is None:
+            data = await bot.send_msg(
+                message_type=message_type,
+                group_id=session_id,
+                user_id=session_id,
+                message=v11.MessageSegment.image(image),
+                **kwargs
+            )
+        return data
 
     @staticmethod
     async def get_image_url(image: bytes | str, bot: T_Bot) -> str:
