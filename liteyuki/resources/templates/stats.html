@@ -10,13 +10,9 @@
 
         body {
             font-family: 'MiSans', serif;
-            /* 使背景图不重复 */
             background-repeat: repeat-y;
-            /* 设置背景图居中裁剪 */
             background-size: cover;
-            /* 使背景图相对于视窗居中 */
             background-position: center;
-            /* 设置背景图 */
             background-image: url('img/bg1.jpg');
             color: white;
             // 上10px，左右10px，下0px
@@ -41,7 +37,6 @@
         }
 
         #bot-info {
-            // 垂直方向居中
             align-items: center;
         }
 
@@ -73,7 +68,6 @@
         }
 
         #bot-tag {
-            /* 这将使标签在容器宽度满时自动换行 */
             margin-top: 10px;
             display: flex;
             flex-wrap: wrap;
@@ -91,8 +85,8 @@
             content: "|";
             display: inline-block;
             margin: 0 5px;
-            height: 50%; /* 调整这个值来改变竖线的高度 */
-            line-height: 50%; /* 使竖线垂直居中 */
+            height: 50%;
+            line-height: 50%;
             color: #aaa;
         }
     
@@ -142,7 +136,7 @@
         document.body.style.backgroundImage = `url(./img/${bgs[Math.floor(Math.random() * bgs.length)]})`;
 
         let botTags = JSON.parse(document.getElementById('botTag').innerText);
-        // 获取tag，是字符串数组，将其处理后变成一个一个的span标签，并且class为tag
+        
         botTags.forEach(tag => {
             let tagSpan = document.createElement('span');
             tagSpan.innerText = tag;
