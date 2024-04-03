@@ -72,7 +72,7 @@ highlights:
         details: 支持OneBotv11/12标准的四种通信协议
         link: https://onebot.dev/
 
-      - title: Alconna
+      - title: Alconna命令解析
         icon: link
         details: 使用Alconna实现高效命令解析
         link: https://github.com/nonebot/plugin-alconna

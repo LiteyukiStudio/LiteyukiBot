@@ -41,5 +41,6 @@ tag:
 使用其他项目连接请先自行查阅文档，若有困难请联系对应开发者而不是Liteyuki的开发者
 
 ### 鸣谢
-- 此项目使用了[nonebot-plugin-htmlrender](https://github.com/kexue-z/nonebot-plugin-htmlrender/tree/master)作为内置html渲染插件
-- TRSS_Liteyuki轻雪机器人管理脚本
+- [Nonebot2](https://nonebot.dev)提供的框架支持
+- [nonebot-plugin-htmlrender](https://github.com/kexue-z/nonebot-plugin-htmlrender/tree/master)提供的渲染功能
+- [nonebot-plugin-alconna](https://github.com/ArcletProject/nonebot-plugin-alconna)提供的命令解析功能
