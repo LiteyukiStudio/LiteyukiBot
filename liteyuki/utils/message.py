@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import io
 from urllib.parse import quote
 
@@ -19,7 +20,8 @@ from nonebot_plugin_htmlrender import md_to_pic
 
 config = load_from_yaml("config.yml")
 
-can_send_markdown={}    # 用于存储机器人是否支持发送markdown消息，id->bool
+can_send_markdown = {}  # 用于存储机器人是否支持发送markdown消息，id->bool
+
 
 class Markdown:
     @staticmethod
@@ -55,21 +57,21 @@ class Markdown:
             forward_id = await bot.call_api(
                 api="send_forward_msg",
                 messages=[
-                    v11.MessageSegment(
-                        type="node",
-                        data={
-                            "name": "Liteyuki.OneBot",
-                            "uin": bot.self_id,
-                            "content": [
-                                {
-                                    "type": "markdown",
-                                    "data": {
-                                        "content": '{"content":"%s"}' % formatted_md
-                                    }
-                                },
-                            ]
-                        },
-                    )
+                        v11.MessageSegment(
+                            type="node",
+                            data={
+                                    "name"   : "Liteyuki.OneBot",
+                                    "uin"    : bot.self_id,
+                                    "content": [
+                                            {
+                                                    "type": "markdown",
+                                                    "data": {
+                                                            "content": '{"content":"%s"}' % formatted_md
+                                                    }
+                                            },
+                                    ]
+                            },
+                        )
                 ]
             )
             # 发送Markdown longmsg并获取相应数据
@@ -78,12 +80,12 @@ class Markdown:
                 group_id=session_id,
                 message_type=message_type,
                 message=[
-                    v11.MessageSegment(
-                        type="longmsg",
-                        data={
-                            "id": forward_id
-                        }
-                    ),
+                        v11.MessageSegment(
+                            type="longmsg",
+                            data={
+                                    "id": forward_id
+                            }
+                        ),
                 ],
                 **kwargs
             )
@@ -132,29 +134,36 @@ class Markdown:
         if isinstance(image, str):
             async with aiofiles.open(image, "rb") as f:
                 image = await f.read()
+        method = 2
         # 1.轻雪图床方案
-        image_url = await liteyuki_api.upload_image(image)
-        image_size = Image.open(io.BytesIO(image)).size
-        image_md = Markdown.image(image_url, image_size)
-        data = await Markdown.send_md(image_md, bot, message_type=message_type, session_id=session_id, event=event,
-                                      retry_as_image=False,
-                                      **kwargs)
+        # if method == 1:
+        #     image_url = await liteyuki_api.upload_image(image)
+        #     image_size = Image.open(io.BytesIO(image)).size
+        #     image_md = Markdown.image(image_url, image_size)
+        #     data = await Markdown.send_md(image_md, bot, message_type=message_type, session_id=session_id, event=event,
+        #                                   retry_as_image=False,
+        #                                   **kwargs)
 
+        # Lagrange.OneBot方案
+        if method == 2:
+            base64_string = base64.b64encode(image).decode("utf-8")
+            data = await bot.call_api("upload_image", file=f"base64://{base64_string}")
+            await Markdown.send_md(Markdown.image(data, Image.open(io.BytesIO(image)).size), bot, event=event, message_type=message_type,
+                                   session_id=session_id, **kwargs)
 
-        # 2.此方案等林文轩修好后再用QQ图床，再嵌入markdown发送
-        # image_message_id = (await bot.send_private_msg(
-        #     user_id=bot.self_id,
-        #     message=[
-        #         v11.MessageSegment.image(file=image)
-        #     ]
-        # ))["message_id"]
-        # await asyncio.sleep(3)
-        # await bot.delete_msg(message_id=image_message_id)
-        # image_message = await bot.get_msg(message_id=image_message_id)
-        # image_url = (await bot.get_msg(message_id=image_message_id))["message"][0]["data"]["url"]
-        # image_size = Image.open(io.BytesIO(image)).size
-        # image_md = Markdown.image(image_url, image_size)
-        # return await Markdown.send_md(image_md, bot, message_type=message_type, session_id=session_id, event=event, **kwargs)
+        # 其他实现端方案
+        else:
+            image_message_id = (await bot.send_private_msg(
+                user_id=bot.self_id,
+                message=[
+                        v11.MessageSegment.image(file=image)
+                ]
+            ))["message_id"]
+            image_url = (await bot.get_msg(message_id=image_message_id))["message"][0]["data"]["url"]
+            image_size = Image.open(io.BytesIO(image)).size
+            image_md = Markdown.image(image_url, image_size)
+            return await Markdown.send_md(image_md, bot, message_type=message_type, session_id=session_id, event=event, **kwargs)
+
         if data is None:
             data = await bot.send_msg(
                 message_type=message_type,

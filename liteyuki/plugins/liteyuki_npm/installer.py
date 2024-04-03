@@ -66,6 +66,8 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
         keywords: list[str] = result.subcommands["search"].args.get("keywords")
         rs = await npm_search(keywords)
         max_show = 10
+        for p in rs:
+            print(p.module_name, p.homepage)
         if len(rs):
             reply = f"{ulang.get('npm.search_result')} | {ulang.get('npm.total', TOTAL=len(rs))}\n***"
             for plugin in rs[:min(max_show, len(rs))]:
