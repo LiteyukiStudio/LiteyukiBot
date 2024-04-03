@@ -83,6 +83,22 @@ async def _(bot: T_Bot, event: T_MessageEvent):
     ulang = get_user_lang(str(event.user_id))
     origins = ["origin", "origin2"]
     repo = Repo(".")
+
+    # Get the current HEAD commit
+    current_head_commit = repo.head.commit
+
+    # Fetch the latest information from the cloud
+    repo.remotes.origin.fetch()
+
+    # Get the latest HEAD commit
+    new_head_commit = repo.commit('origin/main')
+
+    # If the new HEAD commit is different from the current HEAD commit, there is a new commit
+    diffs = current_head_commit.diff(new_head_commit)
+    logs = ""
+    for diff in diffs.iter_change_type('M'):
+        logs += f"\n{diff.a_path}"
+
     for origin in origins:
         try:
             repo.remotes[origin].pull()
