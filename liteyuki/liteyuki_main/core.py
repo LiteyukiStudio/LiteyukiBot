@@ -1,6 +1,7 @@
 import base64
 from typing import Any
 
+import nonebot
 import pip
 from git import Repo
 from nonebot import Bot, require, get_driver
@@ -104,8 +105,7 @@ async def _(bot: T_Bot, event: T_MessageEvent):
             repo.remotes[origin].pull()
             break
         except Exception as e:
-            print(f"Pull from {origin} failed: {e}")
-    logs = repo.index
+            nonebot.logger.error(f"Pull from {origin} failed: {e}")
     reply = "Liteyuki updated!\n"
     reply += f"```\n{logs}\n```\n"
     btn_restart = md.button(ulang.get("liteyuki.restart_now"), "reload-liteyuki")
