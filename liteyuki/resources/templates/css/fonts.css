@@ -2,14 +2,32 @@
 
 @font-face {
     font-family: 'MiSans';
+    src: url('../fonts/MiSans/MiSans-Light.woff2') format('truetype');
+    font-weight: 200;
+}
+
+@font-face {
+    font-family: 'MiSans';
     src: url('../fonts/MiSans/MiSans-Normal.woff2') format('truetype');
-    font-weight: normal;
+    font-weight: 400;
+}
+
+@font-face {
+    font-family: 'MiSans';
+    src: url('../fonts/MiSans/MiSans-Semibold.woff2') format('truetype');
+    font-weight: 500;
 }
 
 @font-face {
     font-family: 'MiSans';
     src: url('../fonts/MiSans/MiSans-Bold.woff2') format('truetype');
-    font-weight: bold;
+    font-weight: 700;
+}
+
+@font-face {
+    font-family: 'MiSans';
+    src: url('../fonts/MiSans/MiSans-Heavy.woff2') format('truetype');
+    font-weight: 900;
 }
 
 /*MapleMono*/
@@ -51,4 +69,8 @@
     src: url('../fonts/MapleMono/MapleMono-BoldItalic.woff2') format('truetype');
     font-weight: 700;
     font-style: italic;
+}
+
+body {
+    font-family: 'MapleMono', 'MiSans', sans-serif;
 }
