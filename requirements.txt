@@ -25,5 +25,4 @@ importlib_metadata==7.0.2
 requests==2.31.0
 pillow==10.2.0
 pyppeteer==2.0.0
-pip==24.0
 weasyprint==61.2
