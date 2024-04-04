@@ -93,3 +93,9 @@ user.profile.nickname.desc=Establecer el apodo del Bot para el usuario
 user.profile.input_value=Por favor ingresa {ATTR}
 user.profile.set_success={ATTR} establecido correctamente a {VALUE}
 user.profile.set_failed=Fallo al establecer {ATTR}. Por favor, verifica si la entrada es válida.
+
+liteyuki.image_mode_on=Markdown de imagen abierta
+liteyuki.image_mode_off=Markdown de imagen cerrada
+
+npm.page=Página {PAGE}/{TOTAL}
+main.monitor.free=Libre

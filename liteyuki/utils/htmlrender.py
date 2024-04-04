@@ -31,6 +31,21 @@ from nonebot_plugin_htmlrender import *
 #     """
 #     return await html_to_pic(html, wait=wait, template_path=template_path, scale_factor=scale_factor)
 
+async def template2html(
+        template: str,
+        templates: dict,
+) -> str:
+    """
+    Args:
+        template: str: 模板文件
+        **templates: dict: 模板参数
+    Returns:
+        HTML 正文
+    """
+    template_path = os.path.dirname(template)
+    template_name = os.path.basename(template)
+    return await template_to_html(template_path, template_name, **templates)
+
 
 async def template2image(
         template: str,
@@ -81,3 +96,32 @@ async def template2image(
         wait=wait,
         device_scale_factor=scale_factor,
     )
+
+
+async def url2image(
+        url: str,
+        wait: int = 0,
+        scale_factor: float = 1,
+        type: str = "png",
+        quality: int = 100,
+        **kwargs
+) -> bytes:
+    """
+    Args:
+        quality:
+        type:
+        url: str: URL
+        wait: int: 等待时间
+        scale_factor: float: 缩放因子
+        **kwargs: page 参数
+    Returns:
+        图片二进制数据
+    """
+    async with get_new_page(scale_factor) as page:
+        await page.goto(url)
+        await page.wait_for_timeout(wait)
+        return await page.screenshot(
+            full_page=True,
+            type=type,
+            quality=quality
+        )

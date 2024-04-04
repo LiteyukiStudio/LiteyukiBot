@@ -93,3 +93,6 @@ user.profile.nickname.desc=Définir le pseudo du Bot pour l'utilisateur
 user.profile.input_value=Veuillez entrer {ATTR}
 user.profile.set_success={ATTR} défini avec succès sur {VALUE}
 user.profile.set_failed=Échec de la définition de {ATTR}. Veuillez vérifier si l'entrée est valide.
+
+liteyuki.image_mode_on=Ouvert markdown image
+liteyuki.image_mode_off=Fermé markdown image

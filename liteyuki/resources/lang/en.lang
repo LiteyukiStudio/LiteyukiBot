@@ -1,10 +1,10 @@
 language.name=English
 
-log.debug=Debug
-log.info=Info
-log.warning=Warning
-log.error=Error
-log.success=Success
+log.debug=DEBUG
+log.info=INFO
+log.warning=WARNING
+log.error=ERROR
+log.success=SUCCESS
 
 liteyuki.restart=Restart
 liteyuki.restart_now=Restart Now
@@ -98,3 +98,4 @@ liteyuki.image_mode_on=Enable markdown image
 liteyuki.image_mode_off=Closed markdown image
 
 npm.page=Page {PAGE}/{TOTAL}
+main.monitor.free=Free

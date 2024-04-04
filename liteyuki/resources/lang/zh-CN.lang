@@ -98,3 +98,4 @@ liteyuki.image_mode_on=开启Markdown图片模式
 liteyuki.image_mode_off=关闭Markdown图片模式
 
 npm.page=第{PAGE}/{TOTAL}页
+main.monitor.free=空闲

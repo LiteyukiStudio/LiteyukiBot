@@ -1,13 +1,54 @@
+/*MiSans*/
+
 @font-face {
     font-family: 'MiSans';
-    src: url('../../fonts/normal.ttf') format('truetype');
+    src: url('../fonts/MiSans/MiSans-Normal.woff2') format('truetype');
     font-weight: normal;
-    font-style: normal;
 }
 
 @font-face {
     font-family: 'MiSans';
-    src: url('../../fonts/bold.ttf') format('truetype');
+    src: url('../fonts/MiSans/MiSans-Bold.woff2') format('truetype');
     font-weight: bold;
-    font-style: normal;
+}
+
+/*MapleMono*/
+@font-face {
+    font-family: 'MapleMono';
+    src: url('../fonts/MapleMono/MapleMono-Light.woff2') format('truetype');
+    font-weight: 200;
+}
+
+@font-face {
+    font-family: 'MapleMono';
+    src: url('../fonts/MapleMono/MapleMono-LightItalic.woff2') format('truetype');
+    font-weight: 200;
+    font-style: italic;
+}
+
+
+@font-face {
+    font-family: 'MapleMono';
+    src: url('../fonts/MapleMono/MapleMono-Regular.woff2') format('truetype');
+    font-weight: 400;
+}
+
+@font-face {
+    font-family: 'MapleMono';
+    src: url('../fonts/MapleMono/MapleMono-Italic.woff2') format('truetype');
+    font-weight: 400;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'MapleMono';
+    src: url('../fonts/MapleMono/MapleMono-Bold.woff2') format('truetype');
+    font-weight: 700;
+}
+
+@font-face {
+    font-family: 'MapleMono';
+    src: url('../fonts/MapleMono/MapleMono-BoldItalic.woff2') format('truetype');
+    font-weight: 700;
+    font-style: italic;
 }

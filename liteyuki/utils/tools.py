@@ -15,13 +15,13 @@ def clamp(value: float, min_value: float, max_value: float) -> float | int:
     return max(min(value, max_value), min_value)
 
 
-def convert_size(size: int, precision: int = 2, add_unit: bool = True, suffix: str = "iB") -> str:
+def convert_size(size: int, precision: int = 2, add_unit: bool = True, suffix: str = " XiB") -> str | float:
     """把字节数转换为人类可读的字符串，计算正负
 
     Args:
 
         add_unit:  是否添加单位，False后则suffix无效
-        suffix: iB或B
+        suffix: XiB或XB
         precision: 浮点数的小数点位数
         size (int): 字节数
 
@@ -29,23 +29,18 @@ def convert_size(size: int, precision: int = 2, add_unit: bool = True, suffix: s
 
         str: The human-readable string, e.g. "1.23 GB".
     """
-    is_negative = False
-    if size < 0:
-        is_negative = True
-        size = -size
-
-    for unit in ["", "K", "M", "G", "T", "P", "E", "Z", "Y"]:
+    is_negative = size < 0
+    size = abs(size)
+    for unit in ("", "K", "M", "G", "T", "P", "E", "Z"):
         if size < 1024:
-            if add_unit:
-                result = f"{size:.{precision}f} {unit}" + suffix
-                return f"-{result}" if is_negative else result
-            else:
-                return f"{size:.{precision}f}"
+            break
         size /= 1024
+    if is_negative:
+        size = -size
     if add_unit:
-        return f"{size:.{precision}f} Y" + suffix
+        return f"{size:.{precision}f}{suffix.replace('X', unit)}"
     else:
-        return f"{size:.{precision}f}"
+        return size
 
 
 def keywords_in_text(keywords: list[str], text: str, all_matched: bool) -> bool:

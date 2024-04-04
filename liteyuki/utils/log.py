@@ -67,8 +67,8 @@ def init_log():
     warning = lang.get("log.warning", default="WARNING")
     error = lang.get("log.error", default="==ERROR")
 
-    logger.level("DEBUG", color="<blue>", icon=f"{'*️⃣' if show_icon else ''}{debug}")
-    logger.level("INFO", color="<white>", icon=f"{'ℹ️' if show_icon else ''}{info}")
+    logger.level("DEBUG", color="<blue>", icon=f"{'🐛' if show_icon else ''}{debug}")
+    logger.level("INFO", color="<normal>", icon=f"{'ℹ️' if show_icon else ''}{info}")
     logger.level("SUCCESS", color="<green>", icon=f"{'✅' if show_icon else ''}{success}")
     logger.level("WARNING", color="<yellow>", icon=f"{'⚠️' if show_icon else ''}{warning}")
     logger.level("ERROR", color="<red>", icon=f"{'⭕' if show_icon else ''}{error}")
