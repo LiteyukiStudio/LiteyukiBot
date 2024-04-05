@@ -67,7 +67,7 @@ async def _(event: T_MessageEvent, bot: T_Bot, result: Arparma):
     for plugin in loaded_plugin_list[(page - 1) * num_per_page: min(page * num_per_page, len(loaded_plugin_list))]:
         # 检查是否有 metadata 属性
         # 添加帮助按钮
-        btn_usage = md.button(lang.get("npm.usage"), f"help {plugin.module_name}", False)
+        btn_usage = md.cmd(lang.get("npm.usage"), f"help {plugin.module_name}", False)
         store_plugin = await get_store_plugin(plugin.module_name)
 
         session_enable = get_plugin_session_enable(event, plugin.module_name)
@@ -98,7 +98,7 @@ async def _(event: T_MessageEvent, bot: T_Bot, result: Arparma):
             cmd_toggle = f"{'disable' if session_enable else 'enable'} {plugin.module_name}"
             text_toggle = lang.get("npm.disable" if session_enable else "npm.enable")
             can_be_toggle = get_plugin_can_be_toggle(plugin.module_name)
-            btn_toggle = text_toggle if not can_be_toggle else md.button(text_toggle, cmd_toggle)
+            btn_toggle = text_toggle if not can_be_toggle else md.cmd(text_toggle, cmd_toggle)
 
             reply += f"  {btn_toggle}"
 
@@ -107,12 +107,12 @@ async def _(event: T_MessageEvent, bot: T_Bot, result: Arparma):
                 # 添加移除插件和全局切换按钮
                 global_enable = get_plugin_global_enable(plugin.module_name)
                 btn_uninstall = (
-                        md.button(lang.get("npm.uninstall"), f'npm uninstall {plugin.module_name}')) if plugin_in_database else lang.get(
+                        md.cmd(lang.get("npm.uninstall"), f'npm uninstall {plugin.module_name}')) if plugin_in_database else lang.get(
                     'npm.uninstall')
 
                 btn_toggle_global_text = lang.get("npm.disable_global" if global_enable else "npm.enable_global")
                 cmd_toggle_global = f"{'disable-global' if global_enable else 'enable-global'} {plugin.module_name}"
-                btn_toggle_global = btn_toggle_global_text if not can_be_toggle else md.button(btn_toggle_global_text, cmd_toggle_global)
+                btn_toggle_global = btn_toggle_global_text if not can_be_toggle else md.cmd(btn_toggle_global_text, cmd_toggle_global)
 
                 reply += f"  {btn_uninstall}  {btn_toggle_global}"
 

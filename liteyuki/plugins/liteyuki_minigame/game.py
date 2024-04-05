@@ -157,14 +157,14 @@ class Minesweeper:
             print([d.value for d in row])
             for dot in row:
                 if dot.mask and not dot.flagged:
-                    text += md.button(self.MASK, f"minesweeper reveal {dot.row} {dot.col}")
+                    text += md.cmd(self.MASK, f"minesweeper reveal {dot.row} {dot.col}")
                 elif dot.flagged:
-                    text += md.button(self.FLAG, f"minesweeper mark {dot.row} {dot.col}")
+                    text += md.cmd(self.FLAG, f"minesweeper mark {dot.row} {dot.col}")
                 else:
                     text += self.NUMS[dot.value]
                 text += dis
             text += "\n"
-        btn_mark = md.button("标记", f"minesweeper mark ", enter=False)
-        btn_end = md.button("结束", "minesweeper end", enter=True)
+        btn_mark = md.cmd("标记", f"minesweeper mark ", enter=False)
+        btn_end = md.cmd("结束", "minesweeper end", enter=True)
         text += f"    {btn_mark}   {btn_end}"
         return text

@@ -7,7 +7,7 @@ from cpuinfo import get_cpu_info
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import MessageSegment
 from nonebot.permission import SUPERUSER
-
+from playwright.async_api import async_playwright
 from liteyuki.utils import __NAME__, __VERSION__, load_from_yaml
 from liteyuki.utils.htmlrender import template2image
 from liteyuki.utils.language import Language, get_default_lang, get_user_lang
@@ -29,6 +29,8 @@ protocol_names = {
 }
 
 
+
+
 @stats.handle()
 async def _(bot: T_Bot, event: T_MessageEvent):
     ulang = get_user_lang(str(event.user_id))
@@ -36,7 +38,7 @@ async def _(bot: T_Bot, event: T_MessageEvent):
         get_path("templates/stats.html", abs_path=True),
         {
                 "data": await get_stats_data(bot.self_id, ulang.lang_code)
-                },
+        },
         debug=True
     )
     await stats.finish(MessageSegment.image(image))

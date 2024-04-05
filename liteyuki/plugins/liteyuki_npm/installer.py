@@ -71,7 +71,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
         if len(rs):
             reply = f"{ulang.get('npm.search_result')} | {ulang.get('npm.total', TOTAL=len(rs))}\n***"
             for plugin in rs[:min(max_show, len(rs))]:
-                btn_install = md.button(ulang.get("npm.install"), "npm install %s" % plugin.module_name)
+                btn_install = md.cmd(ulang.get("npm.install"), "npm install %s" % plugin.module_name)
                 link_page = md.link(ulang.get("npm.homepage"), plugin.homepage)
                 link_pypi = md.link(ulang.get("npm.pypi"), plugin.homepage)
 
@@ -96,7 +96,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
         if not store_plugin:
             await npm_alc.finish(ulang.get("npm.plugin_not_found", NAME=plugin_module_name))
 
-        homepage_btn = md.button(ulang.get("npm.homepage"), store_plugin.homepage)
+        homepage_btn = md.cmd(ulang.get("npm.homepage"), store_plugin.homepage)
         if r:
 
             r_load = nonebot.load_plugin(plugin_module_name)  # 加载插件

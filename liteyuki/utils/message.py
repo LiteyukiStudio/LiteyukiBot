@@ -185,7 +185,7 @@ class Markdown:
         # 等林文轩修好Lagrange.OneBot再说
 
     @staticmethod
-    def button(name: str, cmd: str, reply: bool = False, enter: bool = True) -> str:
+    def cmd(name: str, cmd: str, reply: bool = False, enter: bool = True) -> str:
         """生成点击回调按钮
         Args:
             name: 按钮显示内容
