@@ -16,6 +16,7 @@ tag:
       其中`/path/to/python`是你要用来运行Bot的可执行文件
 - 为什么我启动后机器人没有反应？
     - 请检查配置文件的`command_start`或`superusers`，确认你有权限使用命令并按照正确的命令发送
+    - 确认命令头没有和`nickname{}`冲突，例如一个命令是`help`，但是`Bot`昵称有一个`help`，那么将会被解析为nickname而不是命令
 
 - 怎么登录聊天平台，例如QQ？
     - 你有这个问题说明你不是很了解这个项目，本项目不负责实现登录功能，只负责处理和回应消息，登录功能由实现端（协议端）提供，
@@ -41,6 +42,7 @@ tag:
 使用其他项目连接请先自行查阅文档，若有困难请联系对应开发者而不是Liteyuki的开发者
 
 ### 鸣谢
+
 - [Nonebot2](https://nonebot.dev)提供的框架支持
 - [nonebot-plugin-htmlrender](https://github.com/kexue-z/nonebot-plugin-htmlrender/tree/master)提供的渲染功能
 - [nonebot-plugin-alconna](https://github.com/ArcletProject/nonebot-plugin-alconna)提供的命令解析功能

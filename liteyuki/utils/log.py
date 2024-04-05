@@ -46,6 +46,11 @@ logger = loguru.logger.bind()
 
 
 def init_log():
+    """
+    在语言加载完成后执行
+    Returns:
+
+    """
     global logger
 
     config = load_from_yaml("config.yml")

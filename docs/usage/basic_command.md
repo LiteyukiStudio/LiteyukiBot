@@ -14,7 +14,7 @@ category: 使用手册
 ```shell
 [S]reload-liteyuki  # 重载轻雪
 [S]update-liteyuki  # 更新轻雪
-[S]liteyuki # 查看轻雪信息
+[S]liteecho # 查看当前bot
 [S]config set <key> value  # 添加配置项，若存在则会覆盖，输入值会被执行，以便于转换为正确的值，"10"和10是不一样的
 [S]config get [key]  # 查询配置项，不带key返回配置项列表，推荐私聊使用
 [S]switch-image-mode  # 切换图片模式，该功能需要commit:505468b及以后的Lagrange.OneBot，在普通图片和Markdown图片之间切换，后者更大但有失败的可能

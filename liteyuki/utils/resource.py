@@ -35,7 +35,8 @@ def load_resource_from_dir(path: str):
         with open(os.path.join(path, "metadata.yml"), "r", encoding="utf-8") as f:
             metadata = yaml.safe_load(f)
     else:
-        metadata = ResourceMetadata()
+        # 没有metadata.yml文件，不是一个资源包
+        return
     metadata["path"] = path
     if os.path.exists(os.path.join(path, "lang")):
         from liteyuki.utils.language import load_from_dir
@@ -64,4 +65,4 @@ def get_files(path: str, abs_path: bool = False) -> list[str]:
     Returns: 文件绝对路径
     """
     return [os.path.abspath(file) for file in _resource_data if file.startswith(path)] if abs_path else [
-        file for file in _resource_data if file.startswith(path)]
+            file for file in _resource_data if file.startswith(path)]

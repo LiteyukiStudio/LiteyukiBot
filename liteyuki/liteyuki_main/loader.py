@@ -1,4 +1,4 @@
-import os
+import os.path
 
 import nonebot.plugin
 
@@ -7,15 +7,19 @@ from liteyuki.utils.data_manager import InstalledPlugin, plugin_db
 from liteyuki.utils.resource import load_resource_from_dir
 from liteyuki.utils.tools import check_for_package
 
-THIS_PLUGIN_NAME = os.path.basename(os.path.dirname(__file__))
+# 加载默认资源和语言
 RESOURCE_PATH = "liteyuki/resources"
 load_resource_from_dir(RESOURCE_PATH)
+init_log()
+# 加载其他资源包
+if os.path.exists("resources"):
+    for resource in os.listdir("resources"):
+        load_resource_from_dir(os.path.join("resources", resource))
 
 nonebot.plugin.load_plugins("liteyuki/plugins")
 nonebot.plugin.load_plugins("plugins")
 
-init_log()
-
+# 从数据库读取已安装的插件
 installed_plugins: list[InstalledPlugin] = plugin_db.all(InstalledPlugin())
 if installed_plugins:
     for installed_plugin in installed_plugins:

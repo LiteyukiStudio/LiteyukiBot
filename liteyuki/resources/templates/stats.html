@@ -6,29 +6,9 @@
     <meta name="viewport" content="width=1080, initial-scale=1.0">
     <title>Liteyuki Stats</title>
     <link rel="stylesheet" href="css/fonts.css">
+    <link rel="stylesheet" href="css/style.css">
 
     <style>
-
-        body {
-            background-repeat: repeat-y;
-            background-size: cover;
-            background-position: center;
-            background-image: url('img/bg1.jpg');
-            color: white;
-            // 上10px，左右10px，下0px
-            //margin: 24px;
-            margin: 20px;
-
-        }
-        
-        .info-box {
-            border-radius: 30px;
-            padding: 30px;
-            backdrop-filter: blur(60px);
-            background-color: rgba(0, 0, 0, 0.3);
-            margin-bottom: 20px;
-        }
-
         .pie-chart {
             height: 240px;
             width: 240px;
@@ -141,7 +121,8 @@
 
 <!--储存数据div，不显示-->
 <div id="data" style="display: none">{{ data | tojson }}</div>
+<script src="js/bg.js"></script>
 <script src="js/motto.js"></script>
-<script type="text/javascript" src="js/stats.js"></script>
+<script src="js/style.js"></script>
 </body>
 </html>

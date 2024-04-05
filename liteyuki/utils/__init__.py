@@ -55,7 +55,6 @@ def init():
         exit(1)
     auto_migrate()
     # 在加载完成语言后再初始化日志
-    init_log()
     nonebot.logger.info("Liteyuki is initializing...")
 
     if not os.path.exists("data/liteyuki/liteyuki.json"):

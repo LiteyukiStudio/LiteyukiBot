@@ -1,3 +1,4 @@
+import random
 from importlib.metadata import PackageNotFoundError, version
 
 
@@ -72,3 +73,27 @@ def check_for_package(package_name: str) -> bool:
         return True
     except PackageNotFoundError:
         return False
+
+
+def random_ascii_string(length: int) -> str:
+    """
+    生成随机ASCII字符串
+    Args:
+        length:
+
+    Returns:
+
+    """
+    return "".join([chr(random.randint(33, 126)) for _ in range(length)])
+
+
+def random_hex_string(length: int) -> str:
+    """
+    生成随机十六进制字符串
+    Args:
+        length:
+
+    Returns:
+
+    """
+    return "".join([random.choice("0123456789abcdef") for _ in range(length)])

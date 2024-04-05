@@ -4,7 +4,9 @@ import nonebot
 import yaml
 from pydantic import BaseModel
 
-config = {}  # 全局配置
+from liteyuki.utils.tools import random_hex_string
+
+config = {}  # 全局配置，确保加载后读取
 
 
 class BasicConfig(BaseModel):
@@ -12,7 +14,7 @@ class BasicConfig(BaseModel):
     port: int = 20216
     superusers: list[str] = []
     command_start: list[str] = ["/", ""]
-    nickname: list[str] = ["liteyuki"]
+    nickname: list[str] = [f"LiteyukiBot-{random_hex_string(6)}"]
 
 
 def load_from_yaml(file: str) -> dict:
