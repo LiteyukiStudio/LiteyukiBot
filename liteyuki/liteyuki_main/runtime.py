@@ -93,6 +93,7 @@ async def get_bots_data(ulang: Language, self_id: "") -> list:
                         f"{ulang.get('liteyuki.stats.plugins')} {len(nonebot.get_loaded_plugins())}",
                         f"Nonebot {nonebot.__version__}",
                         f"{platform.python_implementation()} {platform.python_version()}",
+                        f"{platform.system()} {platform.release()}",
                 ]
         }
     )
