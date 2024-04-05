@@ -181,6 +181,10 @@
     }
 
     function getBarOption(title, percent) {
+        let fillet = 0
+        if (percent < 15){
+            fillet = 50
+        }
         // data为百分比，最大值为100
         return {
             background: '#d0e9ff',
@@ -234,7 +238,7 @@
                     itemStyle: {
                         normal: {
                             color: '#d0e9ff',
-                            barBorderRadius: [0, 50, 50, 0]
+                            barBorderRadius: [fillet, 50, 50, fillet]
                         }
                     },
                 }
