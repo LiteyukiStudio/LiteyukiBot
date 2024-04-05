@@ -128,14 +128,15 @@ async def get_stats_data(self_id: str = None, lang: str = None):
         disk_usage = psutil.disk_usage(disk.mountpoint)
         disk_total_show = convert_size(disk_usage.total, 1)
         disk_free_show = convert_size(disk_usage.free, 1)
-        disk_data.append(
-            {
-                    "name"   : disk.device,
-                    "total"  : disk_total_show,
-                    "free"   : disk_free_show,
-                    "percent": disk_usage.percent,
-            }
-        )
+        if disk_usage.total > 0:
+            disk_data.append(
+                {
+                        "name"   : disk.device,
+                        "total"  : disk_total_show,
+                        "free"   : disk_free_show,
+                        "percent": disk_usage.percent,
+                }
+            )
 
     cpu_info = get_cpu_info()
     if "AMD" in cpu_info.get("brand_raw", ""):
@@ -191,7 +192,7 @@ async def get_stats_data(self_id: str = None, lang: str = None):
                     f"{brand} {cpu_info.get('arch', 'Unknown')}",
                     f"{fake_device_info.get('cpu', {}).get('cores', psutil.cpu_count(logical=False))}C "
                     f"{fake_device_info.get('cpu', {}).get('logical_cores', psutil.cpu_count(logical=True))}T",
-                    f"{fake_device_info.get('cpu', {}).get('frequency', psutil.cpu_freq().current) / 1000}GHz"
+                    f"{'%.2f' % (fake_device_info.get('cpu', {}).get('frequency', psutil.cpu_freq().current) / 1000)}GHz"
             ],
             "memTags"    : [
                     f"Bot {mem_used_bot_show}",
