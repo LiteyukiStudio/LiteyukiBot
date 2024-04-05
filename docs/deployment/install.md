@@ -9,7 +9,7 @@ tag:
 
 ### 设备要求
 - Windows系统版本最低`Windows10+`/`Windows Server 2019+`
-- Linux系统要支持Python3.10+，推荐`Ubuntu 20.04+`/`CentOS 8+`
+- Linux系统要支持Python3.10+，推荐`Ubuntu 20.04+`/`CentOS 8+`(~~别用你那b CentOS~~)
 - CPU: 至少`1vCPU`
 - 内存: Bot无其他插件会占用`100MB`，其他插件占用视具体插件而定，建议`1GB`以上
 - 硬盘: 至少`1GB`空间

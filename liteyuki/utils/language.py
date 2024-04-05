@@ -42,6 +42,7 @@ def load_from_lang(file_path: str, lang_code: str = None):
             if lang_code not in _language_data:
                 _language_data[lang_code] = {}
             _language_data[lang_code].update(data)
+        nonebot.logger.debug(f"Loaded language data from {file_path}")
     except Exception as e:
         nonebot.logger.error(f"Failed to load language data from {file_path}: {e}")
 
@@ -62,6 +63,7 @@ def load_from_json(file_path: str, lang_code: str = None):
             if lang_code not in _language_data:
                 _language_data[lang_code] = {}
             _language_data[lang_code].update(data)
+        nonebot.logger.debug(f"Loaded language data from {file_path}")
     except Exception as e:
         nonebot.logger.error(f"Failed to load language data from {file_path}: {e}")
 

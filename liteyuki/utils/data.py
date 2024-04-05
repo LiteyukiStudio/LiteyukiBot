@@ -12,7 +12,6 @@ from pydantic import BaseModel
 class LiteModel(BaseModel):
     TABLE_NAME: str = None
     id: int = None
-
     def dump(self, *args, **kwargs):
         if pydantic.__version__ < "1.8.2":
             return self.dict(*args, **kwargs)
@@ -88,7 +87,7 @@ class Database:
             if not model.TABLE_NAME:
                 raise ValueError(f"数据模型 {model.__class__.__name__} 未提供表名")
             elif model.TABLE_NAME not in table_list:
-                raise ValueError(f"数据模型 {model.__class__.__name__} 的表 {model.TABLE_NAME} 不存在，请先迁移")
+                raise ValueError(f"数据模型 {model.__class__.__name__} 表 {model.TABLE_NAME} 不存在，请先迁移")
             else:
                 self._save(model.dump(by_alias=True))
 
