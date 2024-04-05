@@ -102,7 +102,7 @@ def load_from_dict(data: dict, lang_code: str):
 
 
 class Language:
-    def __init__(self, lang_code: str = None, fallback_lang_code: str = None):
+    def __init__(self, lang_code: str = None, fallback_lang_code: str = "en"):
         if lang_code is None:
             lang_code = config.get("default_language", get_default_lang())
         self.lang_code = lang_code
