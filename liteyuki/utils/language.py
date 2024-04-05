@@ -127,10 +127,10 @@ class Language:
         try:
             if self.lang_code in _language_data and item in _language_data[self.lang_code]:
                 return _language_data[self.lang_code][item].format(*args, **kwargs)
-            nonebot.logger.warning(f"Language text not found: {self.lang_code}.{item}")
+            nonebot.logger.debug(f"Language text not found: {self.lang_code}.{item}")
             if self.fallback_lang_code in _language_data and item in _language_data[self.fallback_lang_code]:
                 return _language_data[self.fallback_lang_code][item].format(*args, **kwargs)
-            nonebot.logger.warning(f"Language text not found in fallback language: {self.fallback_lang_code}.{item}")
+            nonebot.logger.debug(f"Language text not found in fallback language: {self.fallback_lang_code}.{item}")
             return default or item
         except Exception as e:
             nonebot.logger.error(f"Failed to get language text or format: {e}")
