@@ -182,7 +182,7 @@
 
     function getBarOption(title, percent) {
         let fillet = 0
-        if (percent < 15){
+        if (percent < 5){
             fillet = 50
         }
         // data为百分比，最大值为100

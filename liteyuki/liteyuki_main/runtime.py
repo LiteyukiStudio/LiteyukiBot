@@ -29,8 +29,6 @@ protocol_names = {
 }
 
 
-
-
 @stats.handle()
 async def _(bot: T_Bot, event: T_MessageEvent):
     ulang = get_user_lang(str(event.user_id))
@@ -100,7 +98,7 @@ async def get_bots_data(ulang: Language, self_id: "") -> list:
     return bots_data
 
 
-async def get_stats_data(self_id: str = None, lang: str = None):
+async def get_stats_data(self_id: str = None, lang: str = None) -> dict:
     if self_id is None:
         self_id = list(nonebot.get_bots().keys())[0] if len(nonebot.get_bots()) > 0 else "liteyuki"
     if lang is None:
@@ -116,11 +114,25 @@ async def get_stats_data(self_id: str = None, lang: str = None):
     convert_size(mem_total, 1, False)
     mem_total_show = convert_size(mem_total, 1)  # 格式化带单位
 
-    mem_used_bot = psutil.Process().memory_info().rss
+    # 获取当前进程包括所有子进程占用
+    all_processes = psutil.Process().children(recursive=True)
+    all_processes.append(psutil.Process())
+
+    mem_used_bot = 0
+    process_mem = {}
+    for process in all_processes:
+        try:
+            ps_name = process.name().replace(".exe", "")
+            if ps_name not in process_mem:
+                process_mem[ps_name] = 0
+            process_mem[ps_name] += process.memory_info().rss
+            mem_used_bot += process.memory_info().rss
+        except Exception:
+            pass
     mem_used_bot_show = convert_size(mem_used_bot, 1)
     mem_used_other = mem_info.used - mem_used_bot
     mem_free = mem_total - mem_info.used
-    mem_used_show = convert_size(mem_total - mem_used_bot - mem_used_other, 1)  # 计算已用格式化带单位
+    mem_used_show = convert_size(mem_used_bot + mem_used_other, 1)  # 计算已用格式化带单位
 
     swap_info = psutil.swap_memory()
 
@@ -198,13 +210,13 @@ async def get_stats_data(self_id: str = None, lang: str = None):
             "memTags"    : [
                     f"Bot {mem_used_bot_show}",
                     f"{ulang.get('main.monitor.used')} {mem_used_show}",
-                    f"{ulang.get('main.monitor.total')} {mem_total_show}",
                     f"{ulang.get('main.monitor.free')} {convert_size(mem_free, 1)}",
+                    f"{ulang.get('main.monitor.total')} {mem_total_show}",
             ],
             "swapTags"   : [
                     f"{ulang.get('main.monitor.used')} {convert_size(swap_info.used, 1)}",
-                    f"{ulang.get('main.monitor.total')} {convert_size(swap_info.total, 1)}",
                     f"{ulang.get('main.monitor.free')} {convert_size(swap_info.free, 1)}",
+                    f"{ulang.get('main.monitor.total')} {convert_size(swap_info.total, 1)}",
             ],
             "cpu_trans"  : ulang.get("main.monitor.cpu"),
             "mem_trans"  : ulang.get("main.monitor.memory"),
@@ -213,4 +225,11 @@ async def get_stats_data(self_id: str = None, lang: str = None):
             "free_trans" : ulang.get("main.monitor.free"),
             "total_trans": ulang.get("main.monitor.total"),
     }
+
+    # for ps_name, ps_mem in process_mem.items():
+    #     templ["memTags"].insert(
+    #         0,
+    #         f"{ps_name} {convert_size(ps_mem, 1)}"
+    #     )
+
     return templ
