@@ -27,6 +27,3 @@ main.cmd
 docs/.vuepress/.cache/
 docs/.vuepress/.temp/
 docs/.vuepress/dist/
-docs/package.json
-docs/pnpm-lock.yaml
-docs/tsconfig.json
