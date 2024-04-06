@@ -7,7 +7,7 @@ category: 使用手册
 
 ## 基础插件命令
 
-#### 命令前有[S]的表示仅超级用户可用，[O]和[A]分别为群主和群管可用
+#### 命令前有[S]的表示仅超级用户可用，[O]和[A]分别为群主和群管可用，[P]为私聊可用
 
 ### 轻雪`liteyuki`
 
@@ -19,31 +19,43 @@ category: 使用手册
 [S]config get [key]  # 查询配置项，不带key返回配置项列表，推荐私聊使用
 [S]reload-resources  # 重载资源
 [S]switch-image-mode  # 切换图片模式，该功能需要commit:505468b及以后的Lagrange.OneBot，在普通图片和Markdown图片之间切换，后者更大但有失败的可能
+liteyuki-docs  # 查看轻雪文档
 # 上述两个命令修改的配置项在数据库中保存，但是优先级低于配置文件，如果配置文件中存在相同的配置项，将会使用配置文件中的配置
 ------
-别名: reload-liteyuki 重启轻雪, update-liteyuki 更新轻雪, reload-resources 重载资源, config 配置， set 设置， get 查询
+别名: reload-liteyuki 重启轻雪, update-liteyuki 更新轻雪, reload-resources 重载资源, config 配置, set 设置, get 查询, 
+switch-image-mode 切换图片模式, liteyuki-docs 轻雪文档
 ```
 
-### 轻雪Nonebot插件管理 `liteyuki_npm`
+### 轻雪包管理器 `liteyuki_npm`
 
 ```shell
-[S]npm update  # 更新插件索引
-[S]npm install <plugin_name>  # 安装插件
-[S]npm uninstall <plugin_name>  # 卸载插件
-[S]npm search <keywords...>  # 通过关键词搜索插件
+[S]nps update  # 更新插件索引
+[S]nps install <plugin_name>  # 安装插件
+[S]nps uninstall <plugin_name>  # 卸载插件
+[S]nps search <keywords...>  # 通过关键词搜索插件
 ------
-别名: npm 插件, update 更新, install 安装, uninstall 卸载, search 搜索
+[AOSP]npm enable <plugin_name>  # 当前会话启用插件
+[AOSP]npm disable <plugin_name>  # 当前会话禁用插件
+[S]npm enable-global <plugin_name>  # 全局启用插件
+[S]npm disable-global <plugin_name>  # 全局禁用插件
+list-plugin [page] [num] # 列出所有插件 page为页数，num为每页显示数量
+------
+[S]rpm list [page] [num]  # 列出所有资源包 page为页数，num为每页显示数量
+[S]rpm load <resource_pack_name>  # 加载资源包
+[S]rpm unload <resource_pack_name>  # 卸载资源包
+[S]rpm change <resource_pack_name>  # 修改优先级
+[S]rpm reload # 重载所有资源包
+------
+别名: nps 插件商店, npm 插件管理, update 更新, install 安装, uninstall 卸载, search 搜索,
+enable 启用, disable 停用, enable-global 全局启用, disable-global 全局停用, list-plugin 列出插件/插件列表,
+rpm 资源包, load 加载, unload 卸载, change 更改, reload 重载, list 列表/列出
 ```
 
 ```shell
-[SOA]enable <plugin_name>  # 启用插件
-[SOA]disable <plugin_name>  # 禁用插件
-[S]enable-global <plugin_name>  # 全局启用插件
-[S]disable-global <plugin_name>  # 全局禁用插件
-list-plugin [page] [num] # 列出所有插件 page为页数，num为每页显示数量
+
 # 受限于Nonebot的钩子函数，目前只能阻断消息事件的传入，对于主动推送消息的插件，无法将其阻止
 ------
-别名: enable 启用, disable 停用, enable-global 全局启用, disable-global 全局停用, list-plugin 列出插件/插件列表
+
 ```
 
 ### 轻雪用户管理`liteyuki_user`

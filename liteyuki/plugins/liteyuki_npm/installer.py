@@ -16,9 +16,9 @@ from .common import *
 require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import Alconna, Args, Subcommand, on_alconna
 
-npm_alc = on_alconna(
+nps = on_alconna(
     Alconna(
-        "npm",
+        "nps",
         Subcommand(
             "update",
             alias=["u"],
@@ -36,19 +36,15 @@ npm_alc = on_alconna(
         Subcommand(
             "uninstall",
             Args["plugin_name", str],
-            alias=["rm", "移除", "卸载"],
-        ),
-        Subcommand(
-            "list",
-            alias=["l", "ls", "列表"],
+            alias=["r", "rm", "卸载"],
         )
     ),
-    aliases={"插件"},
+    aliases={"插件商店"},
     permission=SUPERUSER,
 )
 
 
-@npm_alc.handle()
+@nps.handle()
 async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
     ulang = get_user_lang(str(event.user_id))
 
@@ -58,9 +54,9 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
     if result.subcommands.get("update"):
         r = await npm_update()
         if r:
-            await npm_alc.finish(ulang.get("npm.store_update_success"))
+            await nps.finish(ulang.get("npm.store_update_success"))
         else:
-            await npm_alc.finish(ulang.get("npm.store_update_failed"))
+            await nps.finish(ulang.get("npm.store_update_failed"))
 
     elif result.subcommands.get("search"):
         keywords: list[str] = result.subcommands["search"].args.get("keywords")
@@ -71,9 +67,9 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
         if len(rs):
             reply = f"{ulang.get('npm.search_result')} | {ulang.get('npm.total', TOTAL=len(rs))}\n***"
             for plugin in rs[:min(max_show, len(rs))]:
-                btn_install = md.cmd(ulang.get("npm.install"), "npm install %s" % plugin.module_name)
-                link_page = md.link(ulang.get("npm.homepage"), plugin.homepage)
-                link_pypi = md.link(ulang.get("npm.pypi"), plugin.homepage)
+                btn_install = md.btn_cmd(ulang.get("npm.install"), "npm install %s" % plugin.module_name)
+                link_page = md.btn_link(ulang.get("npm.homepage"), plugin.homepage)
+                link_pypi = md.btn_link(ulang.get("npm.pypi"), plugin.homepage)
 
                 reply += (f"\n# **{plugin.name}**\n"
                           f"\n> **{plugin.desc}**\n"
@@ -89,14 +85,14 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
     elif result.subcommands.get("install"):
         plugin_module_name: str = result.subcommands["install"].args.get("plugin_name")
         store_plugin = await get_store_plugin(plugin_module_name)
-        await npm_alc.send(ulang.get("npm.installing", NAME=plugin_module_name))
+        await nps.send(ulang.get("npm.installing", NAME=plugin_module_name))
         r, log = npm_install(plugin_module_name)
         log = log.replace("\\", "/")
 
         if not store_plugin:
-            await npm_alc.finish(ulang.get("npm.plugin_not_found", NAME=plugin_module_name))
+            await nps.finish(ulang.get("npm.plugin_not_found", NAME=plugin_module_name))
 
-        homepage_btn = md.cmd(ulang.get("npm.homepage"), store_plugin.homepage)
+        homepage_btn = md.btn_cmd(ulang.get("npm.homepage"), store_plugin.homepage)
         if r:
 
             r_load = nonebot.load_plugin(plugin_module_name)  # 加载插件
@@ -114,7 +110,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
                         event=event
                     )
                 else:
-                    await npm_alc.finish(ulang.get("npm.plugin_already_installed", NAME=store_plugin.name))
+                    await nps.finish(ulang.get("npm.plugin_already_installed", NAME=store_plugin.name))
             else:
                 info = ulang.get("npm.load_failed", NAME=plugin_module_name, HOMEPAGE=homepage_btn).replace("_", r"\\_")
                 await md.send_md(
@@ -138,9 +134,9 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
         if found_installed_plugin:
             plugin_db.delete(InstalledPlugin(), "module_name = ?", plugin_module_name)
             reply = f"{ulang.get('npm.uninstall_success', NAME=found_installed_plugin.module_name)}"
-            await npm_alc.finish(reply)
+            await nps.finish(reply)
         else:
-            await npm_alc.finish(ulang.get("npm.plugin_not_installed", NAME=plugin_module_name))
+            await nps.finish(ulang.get("npm.plugin_not_installed", NAME=plugin_module_name))
 
 
 async def npm_update() -> bool:

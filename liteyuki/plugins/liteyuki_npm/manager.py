@@ -19,7 +19,7 @@ from .installer import get_store_plugin, npm_update
 from ...utils.tools import clamp
 
 require("nonebot_plugin_alconna")
-from nonebot_plugin_alconna import on_alconna, Alconna, Args, Arparma
+from nonebot_plugin_alconna import on_alconna, Alconna, Args, Arparma, Subcommand
 
 list_plugins = on_alconna(
     Alconna(
@@ -29,27 +29,40 @@ list_plugins = on_alconna(
     aliases={"列出插件", "插件列表"}
 )
 
-toggle_plugin = on_alconna(
-    Alconna(
-        "enable",
-        Args["plugin_name", str],
-    ),
-    aliases={"disable", "启用", "停用"}
-)
+npm = on_alconna(
+    aliases={"插件管理"},
+    command=Alconna(
+        "npm",
+        # Args["plugin_name", str],
+        Subcommand(
+            "enable",
+            Args["plugin_name", str],
+            alias=["启用"],
 
-toggle_plugin_global = on_alconna(
-    Alconna(
-        "enable-global",
-        Args["plugin_name", str],
+        ),
+        Subcommand(
+            "disable",
+            Args["plugin_name", str],
+            alias=["停用"],
+        ),
+        Subcommand(
+            "global-enable",
+            Args["plugin_name", str],
+            alias=["全局启用"],
+        ),
+        Subcommand(
+            "global-disable",
+            Args["plugin_name", str],
+            alias=["全局停用"],
+        ),
     ),
-    permission=SUPERUSER,
-    aliases={"disable-global", "全局启用", "全局停用"}
+
 )
 
 
 @list_plugins.handle()
 async def _(event: T_MessageEvent, bot: T_Bot, result: Arparma):
-    lang = get_user_lang(str(event.user_id))
+    ulang = get_user_lang(str(event.user_id))
     if not os.path.exists("data/liteyuki/plugins.json"):
         await npm_update()
 
@@ -60,31 +73,29 @@ async def _(event: T_MessageEvent, bot: T_Bot, result: Arparma):
     page = clamp(result.args.get("page"), 1, total)
 
     # 已加载插件 | 总计10 | 第1/3页
-    reply = (f"# {lang.get('npm.loaded_plugins')} | "
-             f"{lang.get('npm.total', TOTAL=len(nonebot.get_loaded_plugins()))} | "
-             f"{lang.get('npm.page', PAGE=page, TOTAL=total)} \n***\n")
+    reply = (f"# {ulang.get('npm.loaded_plugins')} | "
+             f"{ulang.get('npm.total', TOTAL=len(nonebot.get_loaded_plugins()))} | "
+             f"{ulang.get('npm.page', PAGE=page, TOTAL=total)} \n***\n")
 
     for plugin in loaded_plugin_list[(page - 1) * num_per_page: min(page * num_per_page, len(loaded_plugin_list))]:
         # 检查是否有 metadata 属性
         # 添加帮助按钮
-        btn_usage = md.cmd(lang.get("npm.usage"), f"help {plugin.module_name}", False)
+        btn_usage = md.btn_cmd(ulang.get("npm.usage"), f"help {plugin.module_name}", False)
         store_plugin = await get_store_plugin(plugin.module_name)
-
         session_enable = get_plugin_session_enable(event, plugin.module_name)
-
         if store_plugin:
-            btn_homepage = md.link(lang.get("npm.homepage"), store_plugin.homepage)
+            btn_homepage = md.btn_link(ulang.get("npm.homepage"), store_plugin.homepage)
             show_name = store_plugin.name
         elif plugin.metadata:
             if plugin.metadata.extra.get("liteyuki"):
-                btn_homepage = md.link(lang.get("npm.homepage"), "https://github.com/snowykami/LiteyukiBot")
+                btn_homepage = md.btn_link(ulang.get("npm.homepage"), "https://github.com/snowykami/LiteyukiBot")
             else:
-                btn_homepage = lang.get("npm.homepage")
+                btn_homepage = ulang.get("npm.homepage")
             show_name = plugin.metadata.name
         else:
-            btn_homepage = lang.get("npm.homepage")
+            btn_homepage = ulang.get("npm.homepage")
             show_name = plugin.name
-            lang.get("npm.no_description")
+            ulang.get("npm.no_description")
 
         if plugin.metadata:
             reply += f"\n**{md.escape(show_name)}**\n"
@@ -95,11 +106,10 @@ async def _(event: T_MessageEvent, bot: T_Bot, result: Arparma):
 
         if await GROUP_ADMIN(bot, event) or await GROUP_OWNER(bot, event) or await SUPERUSER(bot, event):
             # 添加启用/停用插件按钮
-            cmd_toggle = f"{'disable' if session_enable else 'enable'} {plugin.module_name}"
-            text_toggle = lang.get("npm.disable" if session_enable else "npm.enable")
+            cmd_toggle = f"npm {'disable' if session_enable else 'enable'} {plugin.module_name}"
+            text_toggle = ulang.get("npm.disable" if session_enable else "npm.enable")
             can_be_toggle = get_plugin_can_be_toggle(plugin.module_name)
-            btn_toggle = text_toggle if not can_be_toggle else md.cmd(text_toggle, cmd_toggle)
-
+            btn_toggle = text_toggle if not can_be_toggle else md.btn_cmd(text_toggle, cmd_toggle)
             reply += f"  {btn_toggle}"
 
             if await SUPERUSER(bot, event):
@@ -107,20 +117,18 @@ async def _(event: T_MessageEvent, bot: T_Bot, result: Arparma):
                 # 添加移除插件和全局切换按钮
                 global_enable = get_plugin_global_enable(plugin.module_name)
                 btn_uninstall = (
-                        md.cmd(lang.get("npm.uninstall"), f'npm uninstall {plugin.module_name}')) if plugin_in_database else lang.get(
+                        md.btn_cmd(ulang.get("npm.uninstall"), f'npm uninstall {plugin.module_name}')) if plugin_in_database else ulang.get(
                     'npm.uninstall')
-
-                btn_toggle_global_text = lang.get("npm.disable_global" if global_enable else "npm.enable_global")
-                cmd_toggle_global = f"{'disable-global' if global_enable else 'enable-global'} {plugin.module_name}"
-                btn_toggle_global = btn_toggle_global_text if not can_be_toggle else md.cmd(btn_toggle_global_text, cmd_toggle_global)
+                btn_toggle_global_text = ulang.get("npm.disable_global" if global_enable else "npm.enable_global")
+                cmd_toggle_global = f"npm {'global-disable' if global_enable else 'global-enable'} {plugin.module_name}"
+                btn_toggle_global = btn_toggle_global_text if not can_be_toggle else md.btn_cmd(btn_toggle_global_text, cmd_toggle_global)
 
                 reply += f"  {btn_uninstall}  {btn_toggle_global}"
-
         reply += "\n\n***\n"
     await md.send_md(reply, bot, event=event)
 
 
-@toggle_plugin.handle()
+@npm.handle()
 async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
     if not os.path.exists("data/liteyuki/plugins.json"):
         await npm_update()
@@ -128,102 +136,95 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
     ulang = get_user_lang(str(event.user_id))
     plugin_module_name = result.args.get("plugin_name")
     # 支持对自定义command_start的判断
-    toggle = result.header_result in [prefix + header for prefix in bot.config.command_start for header in ["enable-plugin", "启用"]]  # 判断是启用还是停用
+    if result.subcommands.get("enable") or result.subcommands.get("disable"):
 
-    session_enable = get_plugin_session_enable(event, plugin_module_name)  # 获取插件当前状态
+        toggle = result.subcommands.get("enable") is not None
 
-    default_enable = get_plugin_default_enable(plugin_module_name)  # 获取插件默认状态
+        session_enable = get_plugin_session_enable(event, plugin_module_name)  # 获取插件当前状态
 
-    can_be_toggled = get_plugin_can_be_toggle(plugin_module_name)  # 获取插件是否可以被启用/停用
+        default_enable = get_plugin_default_enable(plugin_module_name)  # 获取插件默认状态
 
-    if not can_be_toggled:
-        await toggle_plugin.finish(ulang.get("npm.plugin_cannot_be_toggled", NAME=plugin_module_name))
+        can_be_toggled = get_plugin_can_be_toggle(plugin_module_name)  # 获取插件是否可以被启用/停用
 
-    if session_enable == toggle:
-        await toggle_plugin.finish(
-            ulang.get("npm.plugin_already", NAME=plugin_module_name, STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable")))
+        if not can_be_toggled:
+            await npm.finish(ulang.get("npm.plugin_cannot_be_toggled", NAME=plugin_module_name))
 
-    if event.message_type == "private":
-        session = user_db.first(User(), "user_id = ?", event.user_id, default=User(user_id=event.user_id))
-    else:
-        if await GROUP_ADMIN(bot, event) or await GROUP_OWNER(bot, event) or await SUPERUSER(bot, event):
-            session = group_db.first(Group(), "group_id = ?", event.group_id, default=Group(group_id=str(event.group_id)))
-        else:
-            raise FinishedException(ulang.get("Permission Denied"))
-    try:
-        if toggle:
-            if default_enable:
-                session.disabled_plugins.remove(plugin_module_name)
-            else:
-                session.enabled_plugins.append(plugin_module_name)
-        else:
-            if default_enable:
-                session.disabled_plugins.append(plugin_module_name)
-            else:
-                session.enabled_plugins.remove(plugin_module_name)
+        if session_enable == toggle:
+            await npm.finish(
+                ulang.get("npm.plugin_already", NAME=plugin_module_name, STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable")))
+
         if event.message_type == "private":
-            user_db.upsert(session)
+            session = user_db.first(User(), "user_id = ?", event.user_id, default=User(user_id=event.user_id))
         else:
-            group_db.upsert(session)
-    except Exception as e:
-        print(e)
-        await toggle_plugin.finish(
+            if await GROUP_ADMIN(bot, event) or await GROUP_OWNER(bot, event) or await SUPERUSER(bot, event):
+                session = group_db.first(Group(), "group_id = ?", event.group_id, default=Group(group_id=str(event.group_id)))
+            else:
+                raise FinishedException(ulang.get("Permission Denied"))
+        try:
+            if toggle:
+                if default_enable:
+                    session.disabled_plugins.remove(plugin_module_name)
+                else:
+                    session.enabled_plugins.append(plugin_module_name)
+            else:
+                if default_enable:
+                    session.disabled_plugins.append(plugin_module_name)
+                else:
+                    session.enabled_plugins.remove(plugin_module_name)
+            if event.message_type == "private":
+                user_db.upsert(session)
+            else:
+                group_db.upsert(session)
+        except Exception as e:
+            print(e)
+            await npm.finish(
+                ulang.get(
+                    "npm.toggle_failed",
+                    NAME=plugin_module_name,
+                    STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable"),
+                    ERROR=str(e))
+            )
+
+        await npm.finish(
             ulang.get(
-                "npm.toggle_failed",
+                "npm.toggle_success",
                 NAME=plugin_module_name,
-                STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable"),
-                ERROR=str(e))
+                STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable"))
         )
+    elif result.subcommands.get("global-enable") or result.subcommands.get("global-disable") and await SUPERUSER(bot, event):
+        toggle = result.subcommands.get("global-enable") is not None
+        can_be_toggled = get_plugin_can_be_toggle(plugin_module_name)
+        if not can_be_toggled:
+            await npm.finish(ulang.get("npm.plugin_cannot_be_toggled", NAME=plugin_module_name))
 
-    await toggle_plugin.finish(
-        ulang.get(
-            "npm.toggle_success",
-            NAME=plugin_module_name,
-            STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable"))
-    )
+        global_enable = get_plugin_global_enable(plugin_module_name)
+        if global_enable == toggle:
+            await npm.finish(
+                ulang.get("npm.plugin_already", NAME=plugin_module_name, STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable")))
 
+        try:
+            plugin = plugin_db.first(GlobalPlugin(), "module_name = ?", plugin_module_name, default=GlobalPlugin(module_name=plugin_module_name))
+            if toggle:
+                plugin.enabled = True
+            else:
+                plugin.enabled = False
+            plugin_db.upsert(plugin)
+        except Exception as e:
+            print(e)
+            await npm.finish(
+                ulang.get(
+                    "npm.toggle_failed",
+                    NAME=plugin_module_name,
+                    STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable"),
+                    ERROR=str(e))
+            )
 
-@toggle_plugin_global.handle()
-async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
-    if not os.path.exists("data/liteyuki/plugins.json"):
-        await npm_update()
-    # 判断会话类型
-    ulang = get_user_lang(str(event.user_id))
-    plugin_module_name = result.args.get("plugin_name")
-    # 支持对自定义command_start的判断
-    toggle = result.header_result in [prefix + header for prefix in bot.config.command_start for header in ["enable-global", "全局启用"]]
-    can_be_toggled = get_plugin_can_be_toggle(plugin_module_name)
-    if not can_be_toggled:
-        await toggle_plugin_global.finish(ulang.get("npm.plugin_cannot_be_toggled", NAME=plugin_module_name))
-
-    global_enable = get_plugin_global_enable(plugin_module_name)
-    if global_enable == toggle:
-        await toggle_plugin_global.finish(
-            ulang.get("npm.plugin_already", NAME=plugin_module_name, STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable")))
-
-    try:
-        plugin = plugin_db.first(GlobalPlugin(), "module_name = ?", plugin_module_name, default=GlobalPlugin(module_name=plugin_module_name))
-        if toggle:
-            plugin.enabled = True
-        else:
-            plugin.enabled = False
-        plugin_db.upsert(plugin)
-    except Exception as e:
-        print(e)
-        await toggle_plugin_global.finish(
+        await npm.finish(
             ulang.get(
-                "npm.toggle_failed",
+                "npm.toggle_success",
                 NAME=plugin_module_name,
-                STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable"),
-                ERROR=str(e))
+                STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable"))
         )
-
-    await toggle_plugin_global.finish(
-        ulang.get(
-            "npm.toggle_success",
-            NAME=plugin_module_name,
-            STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable"))
-    )
 
 
 @run_preprocessor

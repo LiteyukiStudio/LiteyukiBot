@@ -90,8 +90,8 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
                 continue
             val = profile.dict()[key]
             key_text = ulang.get(f"user.profile.{key}")
-            btn_set = md.cmd(ulang.get("user.profile.edit"), f"profile set {key}",
-                             enter=True if key in enter_attr else False)
+            btn_set = md.btn_cmd(ulang.get("user.profile.edit"), f"profile set {key}",
+                                 enter=True if key in enter_attr else False)
             reply += (f"\n**{key_text}**    **{val}**\n"
                       f"\n> {ulang.get(f'user.profile.{key}.desc')}"
                       f"\n> {btn_set}  \n\n***\n")
@@ -117,11 +117,11 @@ def get_profile_menu(key: str, ulang: Language) -> Optional[str]:
     reply = f"**{setting_name} {ulang.get('user.profile.settings')}**\n***\n"
     if key == "lang":
         for lang_code, lang_name in get_all_lang().items():
-            btn_set = md.cmd(ulang.get("user.profile.set"), f"profile set {key} {lang_code}")
+            btn_set = md.btn_cmd(ulang.get("user.profile.set"), f"profile set {key} {lang_code}")
             reply += f"\n{btn_set} | **{lang_name}** - {lang_code}\n***\n"
     elif key == "timezone":
         for tz in representative_timezones_list:
-            btn_set_tz = md.cmd(tz, f"profile set {key} {tz}")
+            btn_set_tz = md.btn_cmd(tz, f"profile set {key} {tz}")
             reply += f"{btn_set_tz}\n"
     return reply
 

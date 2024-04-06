@@ -37,7 +37,8 @@ async def _(bot: T_Bot, event: T_MessageEvent):
         {
                 "data": await get_stats_data(bot.self_id, ulang.lang_code)
         },
-        debug=True
+        debug=True,
+        wait=1
     )
     await stats.finish(MessageSegment.image(image))
 
@@ -232,11 +233,5 @@ async def get_stats_data(self_id: str = None, lang: str = None) -> dict:
             "free_trans" : ulang.get("main.monitor.free"),
             "total_trans": ulang.get("main.monitor.total"),
     }
-
-    # for ps_name, ps_mem in process_mem.items():
-    #     templ["memTags"].insert(
-    #         0,
-    #         f"{ps_name} {convert_size(ps_mem, 1)}"
-    #     )
 
     return templ

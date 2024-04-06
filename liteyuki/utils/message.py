@@ -185,7 +185,7 @@ class Markdown:
         # 等林文轩修好Lagrange.OneBot再说
 
     @staticmethod
-    def cmd(name: str, cmd: str, reply: bool = False, enter: bool = True) -> str:
+    def btn_cmd(name: str, cmd: str, reply: bool = False, enter: bool = True) -> str:
         """生成点击回调按钮
         Args:
             name: 按钮显示内容
@@ -202,7 +202,7 @@ class Markdown:
         return f"[{name}](mqqapi://aio/inlinecmd?command={quote(cmd)}&reply={str(reply).lower()}&enter={str(enter).lower()})"
 
     @staticmethod
-    def link(name: str, url: str) -> str:
+    def btn_link(name: str, url: str) -> str:
         """生成点击链接按钮
         Args:
             name: 链接显示内容

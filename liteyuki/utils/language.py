@@ -12,7 +12,6 @@ import nonebot
 from .config import config
 from .data_manager import User, user_db
 
-_default_lang_code = "en"
 _language_data = {
         "en": {
                 "name": "English",
@@ -102,7 +101,7 @@ def load_from_dict(data: dict, lang_code: str):
 
 
 class Language:
-    def __init__(self, lang_code: str = None, fallback_lang_code: str = "en"):
+    def __init__(self, lang_code: str = None, fallback_lang_code: str = "zh-CN"):
         if lang_code is None:
             lang_code = config.get("default_language", get_default_lang())
         self.lang_code = lang_code

@@ -6,6 +6,7 @@ import pip
 from git import Repo
 from nonebot import Bot, require, get_driver
 from nonebot.exception import MockApiException
+from nonebot.internal.matcher import Matcher
 from nonebot.permission import SUPERUSER
 
 from liteyuki.utils.config import config, load_from_yaml
@@ -23,71 +24,23 @@ driver = get_driver()
 
 markdown_image = common_db.first(StoredConfig(), default=StoredConfig()).config.get("markdown_image", False)
 
-liteyuki = on_alconna(
+@on_alconna(
     command=Alconna(
         "liteecho",
     ),
     permission=SUPERUSER
-)
+).handle()
+async def _(bot: T_Bot, matcher: Matcher):
+    await matcher.finish(f"Hello, Liteyuki!\nBot {bot.self_id}")
 
-update_liteyuki = on_alconna(
+
+@on_alconna(
     aliases={"更新轻雪"},
     command=Alconna(
         "update-liteyuki"
     ),
     permission=SUPERUSER
-)
-
-reload_liteyuki = on_alconna(
-    aliases={"重启轻雪"},
-    command=Alconna(
-        "reload-liteyuki"
-    ),
-    permission=SUPERUSER
-)
-
-reload_resources = on_alconna(
-    aliases={"重载资源"},
-    command=Alconna(
-        "reload-resources"
-    ),
-    permission=SUPERUSER
-)
-
-cmd_config = on_alconna(
-    aliases={"配置"},
-    command=Alconna(
-        "config",
-        Subcommand(
-            "set",
-            Args["key", str]["value", Any],
-            alias=["设置"],
-
-        ),
-        Subcommand(
-            "get",
-            Args["key", str, None],
-            alias=["查询"]
-        )
-    ),
-    permission=SUPERUSER
-)
-
-switch_image_mode = on_alconna(
-    aliases={"切换图片模式"},
-    command=Alconna(
-        "switch-image-mode"
-    ),
-    permission=SUPERUSER
-)
-
-
-@liteyuki.handle()
-async def _(bot: T_Bot):
-    await liteyuki.finish(f"Hello, Liteyuki!\nBot {bot.self_id}")
-
-
-@update_liteyuki.handle()
+).handle()
 async def _(bot: T_Bot, event: T_MessageEvent):
     # 使用git pull更新
     ulang = get_user_lang(str(event.user_id))
@@ -117,20 +70,43 @@ async def _(bot: T_Bot, event: T_MessageEvent):
             nonebot.logger.error(f"Pull from {origin} failed: {e}")
     reply = "Liteyuki updated!\n"
     reply += f"```\n{logs}\n```\n"
-    btn_restart = md.cmd(ulang.get("liteyuki.restart_now"), "reload-liteyuki")
+    btn_restart = md.btn_cmd(ulang.get("liteyuki.restart_now"), "reload-liteyuki")
     pip.main(["install", "-r", "requirements.txt"])
     reply += f"{ulang.get('liteyuki.update_restart', RESTART=btn_restart)}"
     await md.send_md(reply, bot, event=event, at_sender=False)
 
 
-@reload_liteyuki.handle()
-async def _():
-    await reload_liteyuki.send("Liteyuki reloading")
+@on_alconna(
+    aliases={"重启轻雪"},
+    command=Alconna(
+        "reload-liteyuki"
+    ),
+    permission=SUPERUSER
+).handle()
+async def _(matcher: Matcher):
+    await matcher.send("Liteyuki reloading")
     Reloader.reload(3)
 
 
-@cmd_config.handle()
-async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
+@on_alconna(
+    aliases={"配置"},
+    command=Alconna(
+        "config",
+        Subcommand(
+            "set",
+            Args["key", str]["value", Any],
+            alias=["设置"],
+
+        ),
+        Subcommand(
+            "get",
+            Args["key", str, None],
+            alias=["查询"]
+        )
+    ),
+    permission=SUPERUSER
+).handle()
+async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, matcher: Matcher):
     ulang = get_user_lang(str(event.user_id))
     stored_config: StoredConfig = common_db.first(StoredConfig(), default=StoredConfig())
     if result.subcommands.get("set"):
@@ -141,7 +117,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
             pass
         stored_config.config[key] = value
         common_db.upsert(stored_config)
-        await cmd_config.finish(f"{ulang.get('liteyuki.config_set_success', KEY=key, VAL=value)}")
+        await matcher.finish(f"{ulang.get('liteyuki.config_set_success', KEY=key, VAL=value)}")
     elif result.subcommands.get("get"):
         key = result.subcommands.get("get").args.get("key")
         file_config = load_from_yaml("config.yml")
@@ -162,19 +138,14 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
         await md.send_md(reply, bot, event=event)
 
 
-@reload_resources.handle()
-async def _(event: T_MessageEvent):
-    ulang = get_user_lang(str(event.user_id))
-    load_resources()
-    await reload_resources.finish(
-        ulang.get("liteyuki.reload_resources_success",
-                  NUM=len(get_loaded_resource_packs())
-                  )
-    )
-
-
-@switch_image_mode.handle()
-async def _(bot: T_Bot, event: T_MessageEvent):
+@on_alconna(
+    aliases={"切换图片模式"},
+    command=Alconna(
+        "switch-image-mode"
+    ),
+    permission=SUPERUSER
+).handle()
+async def _(event: T_MessageEvent, matcher: Matcher):
     global markdown_image
     # 切换图片模式，False以图片形式发送，True以markdown形式发送
     ulang = get_user_lang(str(event.user_id))
@@ -182,12 +153,20 @@ async def _(bot: T_Bot, event: T_MessageEvent):
     stored_config.config["markdown_image"] = not stored_config.config.get("markdown_image", False)
     markdown_image = stored_config.config["markdown_image"]
     common_db.upsert(stored_config)
-    await switch_image_mode.finish(ulang.get("liteyuki.image_mode_on" if stored_config.config["markdown_image"] else "liteyuki.image_mode_off"))
+    await matcher.finish(ulang.get("liteyuki.image_mode_on" if stored_config.config["markdown_image"] else "liteyuki.image_mode_off"))
 
+
+@on_alconna(
+    command=Alconna(
+        "liteyuki-docs",
+    ),
+    aliases={"轻雪文档"},
+).handle()
+async def _(matcher: Matcher):
+    matcher.finish("https://bot.liteyuki.icu/usage")
 
 # system hook
-
-@Bot.on_calling_api
+@Bot.on_calling_api     # 图片模式检测
 async def test_for_md_image(bot: T_Bot, api: str, data: dict):
     if api in ["send_msg", "send_private_msg", "send_group_msg"] and markdown_image and data.get("user_id") != bot.self_id:
         if api == "send_msg" and data.get("message_type") == "private" or api == "send_private_msg":
