@@ -3,6 +3,7 @@ import navbar from "./navbar.js";
 import sidebar from "./sidebar.js";
 
 export default hopeTheme({
+
   hostname: "https://vuepress-theme-hope-docs-demo.netlify.app",
 
   author: {
@@ -45,7 +46,10 @@ export default hopeTheme({
 
   // 在这里配置主题提供的插件
   plugins: {
-    // 你应该自行生成自己的评论服务
+    searchPro: true,
+    // search: true,
+
+    blog: true,
     comment: {
       provider: "Giscus",
       repo: "snowykami/LiteyukiBot",
@@ -63,6 +67,7 @@ export default hopeTheme({
       align: true,
       attrs: true,
       codetabs: true,
+      footnote: true,
       component: true,
       demo: true,
       figure: true,
@@ -87,6 +92,7 @@ export default hopeTheme({
       sup: true,
       tabs: true,
       vPre: true,
+
 
       // 在启用之前安装 chart.js
       // chart: true,
