@@ -99,3 +99,5 @@ liteyuki.image_mode_off=关闭Markdown图片模式
 
 npm.page=第{PAGE}/{TOTAL}页
 main.monitor.free=空闲
+
+liteyuki.reload_resources_success=资源重载成功，共计{NUM}个资源包

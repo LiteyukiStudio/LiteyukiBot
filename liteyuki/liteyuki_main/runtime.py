@@ -144,10 +144,13 @@ async def get_stats_data(self_id: str = None, lang: str = None) -> dict:
         if disk_usage.total > 0:
             disk_data.append(
                 {
-                        "name"   : disk.device,
-                        "total"  : disk_total_show,
-                        "free"   : disk_free_show,
-                        "percent": disk_usage.percent,
+                        "name"      : disk.device,
+                        "total"     : disk_total_show,
+                        "free"      : disk_free_show,
+                        "percent"   : disk_usage.percent,
+                        "usedValue" : disk_usage.used,
+                        "freeValue" : disk_usage.free,
+                        "totalValue": disk_usage.total,
                 }
             )
 
@@ -164,14 +167,17 @@ async def get_stats_data(self_id: str = None, lang: str = None) -> dict:
 
     cpu_info = get_cpu_info()
     templ = {
+            "plugin"     : len(nonebot.get_loaded_plugins()),
+            "version"    : __VERSION__,
+            "system"     : platform.platform(),
             "cpu"        : [
                     {
                             "name" : "USED",
-                            "value": psutil.cpu_percent(interval=1)
+                            "value": psutil.cpu_percent()
                     },
                     {
                             "name" : "FREE",
-                            "value": 100 - psutil.cpu_percent(interval=1)
+                            "value": 100 - psutil.cpu_percent()
                     }
             ],
             "mem"        : [
@@ -221,6 +227,7 @@ async def get_stats_data(self_id: str = None, lang: str = None) -> dict:
             "cpu_trans"  : ulang.get("main.monitor.cpu"),
             "mem_trans"  : ulang.get("main.monitor.memory"),
             "swap_trans" : ulang.get("main.monitor.swap"),
+            "disk_trans" : ulang.get("main.monitor.disk"),
             "used_trans" : ulang.get("main.monitor.used"),
             "free_trans" : ulang.get("main.monitor.free"),
             "total_trans": ulang.get("main.monitor.total"),

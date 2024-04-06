@@ -2,6 +2,7 @@ from nonebot.plugin import PluginMetadata
 from .manager import *
 from .installer import *
 from .helper import *
+from .rpm import *
 
 __author__ = "snowykami"
 __plugin_meta__ = PluginMetadata(

@@ -11,5 +11,10 @@ export default navbar([
         text: "使用手册",
         link: "/usage/",
         prefix: "usage/",
+    },
+    {
+        text: "主题商店",
+        link: "/store/",
+        prefix: "store/",
     }
 ]);

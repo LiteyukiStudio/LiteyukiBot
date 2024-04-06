@@ -14,6 +14,7 @@ from liteyuki.utils.language import get_user_lang
 from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
 from liteyuki.utils.message import Markdown as md
 from liteyuki.utils.reloader import Reloader
+from liteyuki.utils.resource import get_loaded_resource_packs, load_resources
 
 require("nonebot_plugin_alconna"), require("nonebot_plugin_htmlrender")
 from nonebot_plugin_alconna import on_alconna, Alconna, Args, Subcommand, Arparma
@@ -41,6 +42,14 @@ reload_liteyuki = on_alconna(
     aliases={"重启轻雪"},
     command=Alconna(
         "reload-liteyuki"
+    ),
+    permission=SUPERUSER
+)
+
+reload_resources = on_alconna(
+    aliases={"重载资源"},
+    command=Alconna(
+        "reload-resources"
     ),
     permission=SUPERUSER
 )
@@ -151,6 +160,17 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
                     reply += f"\n{k}={v}"
                 reply += "\n```"
         await md.send_md(reply, bot, event=event)
+
+
+@reload_resources.handle()
+async def _(event: T_MessageEvent):
+    ulang = get_user_lang(str(event.user_id))
+    load_resources()
+    await reload_resources.finish(
+        ulang.get("liteyuki.reload_resources_success",
+                  NUM=len(get_loaded_resource_packs())
+                  )
+    )
 
 
 @switch_image_mode.handle()

@@ -1,6 +1,5 @@
 from nonebot.plugin import PluginMetadata
 
-from liteyuki.utils.language import get_default_lang
 from .core import *
 from .loader import *
 from .runtime import *

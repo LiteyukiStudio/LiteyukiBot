@@ -19,6 +19,10 @@ actions:
   - text: 使用手册
     icon: book
     link: ./usage/basic_command.html
+    
+  - text: 主题商店
+    icon: paint-brush
+    link: ./theme/theme_store.html
 
 #1. 安装 `Git` 和 `Python3.10+` 环境
 #2. 克隆项目 `git clone https://github.com/snowykami/LiteyukiBot` (无法连接可以用`https://gitee.com/snowykami/LiteyukiBot`)

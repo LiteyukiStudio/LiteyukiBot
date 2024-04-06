@@ -4,6 +4,7 @@
 node_modules/
 data/
 db/
+/resources/
 __pycache__/
 *.pyc
 *.pyo
