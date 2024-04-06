@@ -1,0 +1,39 @@
+[
+    {
+        "name": "KawaiiStatus",
+        "author": "SnowyKami",
+        "description": "可爱的状态卡片，仿照koishi的制作",
+        "link": "https://cdn.liteyuki.icu/static/lrp/KawaiiStatus.zip",
+        "icon": "https://cdn.jsdelivr.net/gh/SnowyKami/CDN/img/KawaiiStatus.png"
+    },
+    {
+        "name": "MiSans字体包",
+        "author": "SnowyKami",
+        "description": "小米官方字体MiSans",
+        "link": "https://cdn.liteyuki.icu/static/lrp/MiSansFonts.zip"
+    },
+    {
+        "name": "MapleMono字体包",
+        "author": "SnowyKami",
+        "description": "适用于字母的字体包",
+        "link": "https://cdn.liteyuki.icu/static/lrp/MapleMonoFonts.zip"
+    },
+    {
+        "name": "示例包1",
+        "author": "SnowyKami",
+        "description": "A simple bot that shows the status of the bot and the server.",
+        "link": ""
+    },
+    {
+        "name": "示例包2",
+        "author": "SnowyKami",
+        "description": "A simple bot that shows the status of the bot and the server.",
+        "link": ""
+    },
+    {
+        "name": "示例包3",
+        "author": "SnowyKami",
+        "description": "A simple bot that shows the status of the bot and the server.",
+        "link": ""
+    }
+]
