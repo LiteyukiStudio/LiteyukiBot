@@ -12,8 +12,6 @@ export default defineUserConfig({
 // 设置 favor.ico，.vuepress/public 下
         ['link', {rel: 'icon', href: 'https://cdn.liteyuki.icu/favicon.ico'},],
 
-        ['link', {rel: 'stylesheet', href: 'https://fonts.cdnfonts.com/css/colortube-2'}],
-
         ['link', {rel: 'stylesheet', href: 'https://cdn.bootcdn.net/ajax/libs/firacode/6.2.0/fira_code.min.css'}],
 
         [

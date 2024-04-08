@@ -1,9 +1,14 @@
 // place your custom styles here
 
 #main-title {
-  font-family: "ColorTube", serif;
+  font-family: "ColorTube", "Fira Code", serif;
   color: #ff0000 !important; /* 你想要的颜色 */
   line-height: 2;
+}
+
+@font-face {
+  font-family: ColorTube;
+    src: url(assets/fonts/ColorTube.woff) format("woff")
 }
 
 code {
