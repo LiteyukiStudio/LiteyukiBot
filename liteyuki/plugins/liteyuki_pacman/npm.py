@@ -77,7 +77,7 @@ disable = "disable"
         ),
         Subcommand(
             "list",
-            Args["num", int, 10]["page", int, 1],
+            Args["page", int, 1]["num", int, 10],
             alias=["ls", "列表"],
         ),
         Subcommand(
