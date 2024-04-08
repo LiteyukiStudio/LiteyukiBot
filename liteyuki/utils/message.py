@@ -12,7 +12,7 @@ from nonebot.adapters.onebot import v11, v12
 from typing import Any
 
 from . import load_from_yaml
-from .liteyuki_api import liteyuki_api
+from .ly_api import liteyuki_api
 from .ly_typing import T_Bot, T_MessageEvent
 
 require("nonebot_plugin_htmlrender")

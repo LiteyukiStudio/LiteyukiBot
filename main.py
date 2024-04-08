@@ -4,7 +4,7 @@ from nonebot.adapters.onebot import v11, v12
 from liteyuki.utils import init
 from liteyuki.utils.config import load_from_yaml
 from liteyuki.utils.data_manager import StoredConfig, common_db
-from liteyuki.utils.liteyuki_api import liteyuki_api
+from liteyuki.utils.ly_api import liteyuki_api
 
 init()
 
