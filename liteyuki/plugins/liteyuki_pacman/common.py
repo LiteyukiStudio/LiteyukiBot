@@ -56,7 +56,7 @@ async def get_store_plugin(plugin_name: str) -> Optional[StorePlugin]:
     async with aiofiles.open("data/liteyuki/plugins.json", "r", encoding="utf-8") as f:
         plugins: list[StorePlugin] = [StorePlugin(**pobj) for pobj in json.loads(await f.read())]
     for plugin in plugins:
-        if plugin.name == plugin_name:
+        if plugin.module_name == plugin_name:
             return plugin
     return None
 
