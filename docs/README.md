@@ -7,7 +7,7 @@ bgImage:
 bgImageDark:
 bgImageStyle:
   background-attachment: fixed
-heroText: LiteyukiBot 6
+heroText: LiteyukiBot
 tagline: 轻雪机器人，一个以轻量和简洁为设计理念基于Nonebot2的OneBot标准聊天机器人
 
 actions:

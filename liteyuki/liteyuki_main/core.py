@@ -24,6 +24,7 @@ driver = get_driver()
 
 markdown_image = common_db.first(StoredConfig(), default=StoredConfig()).config.get("markdown_image", False)
 
+
 @on_alconna(
     command=Alconna(
         "liteecho",
@@ -165,8 +166,9 @@ async def _(event: T_MessageEvent, matcher: Matcher):
 async def _(matcher: Matcher):
     matcher.finish("https://bot.liteyuki.icu/usage")
 
+
 # system hook
-@Bot.on_calling_api     # 图片模式检测
+@Bot.on_calling_api  # 图片模式检测
 async def test_for_md_image(bot: T_Bot, api: str, data: dict):
     if api in ["send_msg", "send_private_msg", "send_group_msg"] and markdown_image and data.get("user_id") != bot.self_id:
         if api == "send_msg" and data.get("message_type") == "private" or api == "send_private_msg":

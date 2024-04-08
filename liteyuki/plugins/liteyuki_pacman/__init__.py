@@ -1,7 +1,5 @@
 from nonebot.plugin import PluginMetadata
-from .manager import *
-from .installer import *
-from .helper import *
+from .npm import *
 from .rpm import *
 
 __author__ = "snowykami"

@@ -139,21 +139,24 @@ async def get_stats_data(self_id: str = None, lang: str = None) -> dict:
 
     disk_data = []
     for disk in psutil.disk_partitions(all=True):
-        disk_usage = psutil.disk_usage(disk.mountpoint)
-        disk_total_show = convert_size(disk_usage.total, 1)
-        disk_free_show = convert_size(disk_usage.free, 1)
-        if disk_usage.total > 0:
-            disk_data.append(
-                {
-                        "name"      : disk.device,
-                        "total"     : disk_total_show,
-                        "free"      : disk_free_show,
-                        "percent"   : disk_usage.percent,
-                        "usedValue" : disk_usage.used,
-                        "freeValue" : disk_usage.free,
-                        "totalValue": disk_usage.total,
-                }
-            )
+        try:
+            disk_usage = psutil.disk_usage(disk.mountpoint)
+            disk_total_show = convert_size(disk_usage.total, 1)
+            disk_free_show = convert_size(disk_usage.free, 1)
+            if disk_usage.total > 0:
+                disk_data.append(
+                    {
+                            "name"      : disk.device,
+                            "total"     : disk_total_show,
+                            "free"      : disk_free_show,
+                            "percent"   : disk_usage.percent,
+                            "usedValue" : disk_usage.used,
+                            "freeValue" : disk_usage.free,
+                            "totalValue": disk_usage.total,
+                    }
+                )
+        except Exception:
+            pass
 
     cpu_info = get_cpu_info()
     if "AMD" in cpu_info.get("brand_raw", ""):

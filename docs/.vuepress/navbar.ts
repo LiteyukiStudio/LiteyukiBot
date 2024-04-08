@@ -13,7 +13,7 @@ export default navbar([
         prefix: "usage/",
     },
     {
-        text: "主题商店",
+        text: "资源商店",
         link: "/store/",
         prefix: "store/",
     }

@@ -13,7 +13,8 @@ from liteyuki.utils.resource import (ResourceMetadata, add_resource_pack, change
 require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import Alconna, Args, on_alconna, Arparma, Subcommand
 
-rpm = on_alconna(
+
+@on_alconna(
     aliases={"资源包"},
     command=Alconna(
         "rpm",
@@ -53,10 +54,7 @@ rpm = on_alconna(
         ),
     ),
     permission=SUPERUSER
-)
-
-
-@rpm.handle()
+).handle()
 async def _(bot: T_Bot, event: T_MessageEvent, result: Arparma):
     ulang = get_user_lang(str(event.user_id))
     reply = ""
