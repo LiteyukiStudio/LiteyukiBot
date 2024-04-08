@@ -67,7 +67,7 @@ rpm reload # 重载所有资源包
 
 ```shell
 npm 插件管理 | update 更新 | install 安装 | uninstall 卸载 | search 搜索
-enable 启用 | disable 停用 | enable-global 全局启用 | disable-global 全局停用 | list-plugin 插件列表
+enable 启用 | disable 停用 | enable-global 全局启用 | disable-global 全局停用
 rpm 资源包 | load 加载 | unload 卸载 | change 更改 | reload 重载 | list 列表
 ```
 
