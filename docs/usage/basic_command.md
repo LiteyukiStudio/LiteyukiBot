@@ -10,7 +10,7 @@ category: 使用手册
 ### **轻雪 `liteyuki`**
 
 ```shell
-仅超级用户
+# 仅超级用户
 reload-liteyuki  # 重载轻雪
 update-liteyuki  # 更新轻雪
 liteecho # 查看当前bot
@@ -18,7 +18,7 @@ config set <key> value  # 添加配置项，若存在则会覆盖，输入值会
 config get [key]  # 查询配置项，不带key返回配置项列表，推荐私聊使用
 switch-image-mode  # 在普通图片和Markdown大图之间切换，该功能需要commit:505468b及以后的Lagrange.OneBot，
 
-所有人可用
+# 所有人可用
 liteyuki-docs  # 查看轻雪文档
 ```
 
@@ -81,6 +81,7 @@ rpm 资源包 | load 加载 | unload 卸载 | change 更改 | reload 重载 | li
 ### **用户管理`liteyuki_user`**
 
 ```shell
+# 所有人可用
 profile  # 查看用户信息菜单
 profile set <key> [value]  # 设置用户信息或打开属性设置菜单
 profile get <key>  # 获取用户信息
