@@ -40,11 +40,11 @@ const props = defineProps({
 }
 
 .item-card:hover {
-  border: 2px solid #00a6ff;
+  border: 2px solid $themeColor;
 }
 
 .item-name {
-  color: #00a6ff;
+  color: $themeColor;
   font-size: 20px;
   margin-bottom: 10px;
 }
@@ -58,7 +58,7 @@ const props = defineProps({
 .icon {
   width: 20px;
   height: 20px;
-  color: #00000055;
+  color: $themeColor;
 }
 
 .author-info {

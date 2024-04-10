@@ -58,3 +58,4 @@ custom_config_2: "custom_value2"
 - 实现端与轻雪的通信方式不局限为反向WebSocket，但是推荐使用反向WebSocket。
 - 反向WebSocket的优点是轻雪作为服务端，可以更好的控制连接，适用于生产环境。
 - 在某些情况下，你也可以使用正向WebSocket，比如你在开发轻雪插件时，可以使用正向WebSocket主动连接实现端
+- 有更多疑问请访问[OneBot Adapter](https://onebot.adapters.nonebot.dev/)获取详细信息

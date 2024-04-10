@@ -260,3 +260,58 @@ class Markdown:
         for char in chars:
             text = text.replace(char, f"\\\\{char}")
         return text
+
+    @staticmethod
+    def H1(text: str, end="\n") -> str:
+        """H1标题"""
+        return f"# {text}{end}"
+
+    @staticmethod
+    def H2(text: str, end="\n") -> str:
+        """H2标题"""
+        return f"## {text}{end}"
+
+    @staticmethod
+    def H3(text: str, end="\n") -> str:
+        """H3标题"""
+        return f"### {text}{end}"
+
+    @staticmethod
+    def H4(text: str, end="\n") -> str:
+        """H4标题"""
+        return f"#### {text}{end}"
+
+    @staticmethod
+    def H5(text: str, end="\n") -> str:
+        """H5标题"""
+        return f"##### {text}{end}"
+
+    @staticmethod
+    def H6(text: str, end="\n") -> str:
+        """H6标题"""
+        return f"###### {text}{end}"
+
+    @staticmethod
+    def Bold(text: str) -> str:
+        """加粗"""
+        return f"**{text}**"
+
+    @staticmethod
+    def Italic(text: str) -> str:
+        """斜体"""
+        return f"*{text}*"
+
+    @staticmethod
+    def BoldItalic(text: str) -> str:
+        """粗斜体"""
+        return f"***{text}***"
+
+    @staticmethod
+    def Underline(text: str) -> str:
+        """下划线"""
+        return f"__{text}__"
+
+    @staticmethod
+    def Strike(text: str) -> str:
+        """删除线"""
+        return f"~~{text}~~"

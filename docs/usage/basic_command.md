@@ -73,12 +73,8 @@ enable 启用 | disable 停用 | enable-global 全局启用 | disable-global 全
 rpm 资源包 | load 加载 | unload 卸载 | change 更改 | reload 重载 | list 列表
 ```
 
-```shell
-
-# 受限于Nonebot的钩子函数，目前只能阻断消息事件的传入，对于主动推送消息的插件，无法将其阻止
-------
-
-```
+> [!warning]
+> 受限于NoneBot2钩子函数的依赖注入参数，插件停用只能阻断传入响应，对于主动推送的插件不生效，请阅读插件主页的说明。
 
 ### **用户管理`liteyuki_user`**
 
@@ -95,6 +91,7 @@ profile get <key>  # 获取用户信息
 profile 个人信息 | set 设置 | get 查询
 ```
 
-**参数**：`<param>`为必填参数，`[option]`为可选参数。
-
-**命令别名**：配置了命令别名的命令可以使用别名代替原命令，例如`npm install ~`可以使用`插件 安装 ~`代替。
+> [!tip]
+> **参数**：`<param>`为必填参数，`[option]`为可选参数。
+> 
+> **命令别名**：配置了命令别名的命令可以使用别名代替原命令，例如`npm install ~`可以使用`插件 安装 ~`代替。
