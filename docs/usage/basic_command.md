@@ -14,6 +14,7 @@ category: 使用手册
 reload-liteyuki  # 重载轻雪
 update-liteyuki  # 更新轻雪
 liteecho # 查看当前bot
+stats  # 查看统计信息和状态
 config set <key> value  # 添加配置项，若存在则会覆盖，输入值会被执行以转换为正确的类型，"10"和10是不一样的
 config get [key]  # 查询配置项，不带key返回配置项列表，推荐私聊使用
 switch-image-mode  # 在普通图片和Markdown大图之间切换，该功能需要commit:505468b及以后的Lagrange.OneBot，
@@ -25,6 +26,7 @@ liteyuki-docs  # 查看轻雪文档
 命令别名
 
 ```shell
+stats status 状态,
 reload-liteyuki 重启轻雪, 
 update-liteyuki 更新轻雪, 
 reload-resources 重载资源, 
