@@ -427,9 +427,10 @@ def npm_install(plugin_package_name) -> tuple[bool, str]:
         plugin_package_name:
 
     Returns:
-        tuple[bool, str]:
+        tuple[bool, str]: 是否成功，输出信息
 
     """
+    # 重定向标准输出
     buffer = StringIO()
     sys.stdout = buffer
     sys.stderr = buffer
@@ -456,9 +457,8 @@ def npm_install(plugin_package_name) -> tuple[bool, str]:
             if success:
                 break
             else:
-                nonebot.logger.warning(f"npm_install failed, try next mirror.")
+                nonebot.logger.warning(f"pip install failed, try next mirror.")
         except Exception as e:
-
             success = False
             continue
 
