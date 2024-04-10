@@ -1,21 +1,22 @@
+import asyncio
 import base64
+import time
 from typing import Any
 
 import nonebot
 import pip
 from git import Repo
-from nonebot import Bot, require, get_driver
+from nonebot import Bot, get_driver, require
 from nonebot.exception import MockApiException
 from nonebot.internal.matcher import Matcher
 from nonebot.permission import SUPERUSER
 
-from liteyuki.utils.config import config, load_from_yaml
-from liteyuki.utils.data_manager import StoredConfig, common_db
+from liteyuki.utils.config import load_from_yaml
+from liteyuki.utils.data_manager import StoredConfig, TempConfig, common_db
 from liteyuki.utils.language import get_user_lang
 from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
 from liteyuki.utils.message import Markdown as md
 from liteyuki.utils.reloader import Reloader
-from liteyuki.utils.resource import get_loaded_resource_packs, load_resources
 
 require("nonebot_plugin_alconna"), require("nonebot_plugin_htmlrender")
 from nonebot_plugin_alconna import on_alconna, Alconna, Args, Subcommand, Arparma
@@ -84,9 +85,17 @@ async def _(bot: T_Bot, event: T_MessageEvent):
     ),
     permission=SUPERUSER
 ).handle()
-async def _(matcher: Matcher):
+async def _(matcher: Matcher, bot: T_Bot, event: T_MessageEvent):
     await matcher.send("Liteyuki reloading")
-    Reloader.reload(3)
+    temp_data = common_db.first(TempConfig(), default=TempConfig())
+    temp_data.data["reload"] = True
+    temp_data.data["reload_time"] = time.time()
+    temp_data.data["reload_bot_id"] = bot.self_id
+    temp_data.data["reload_session_type"] = event.message_type
+    temp_data.data["reload_session_id"] = event.group_id if event.message_type == "group" else event.user_id
+    temp_data.data["delta_time"] = 0
+    common_db.upsert(temp_data)
+    Reloader.reload(0)
 
 
 @on_alconna(
@@ -197,9 +206,34 @@ async def test_for_md_image(bot: T_Bot, api: str, data: dict):
 
 @driver.on_startup
 async def on_startup():
-    pass
+    temp_data = common_db.first(TempConfig(), default=TempConfig())
+    if temp_data.data.get("reload", False):
+        delta_time = time.time() - temp_data.data.get("reload_time", 0)
+        temp_data.data["delta_time"] = delta_time
+        common_db.upsert(temp_data)  # 更新数据
 
 
 @driver.on_shutdown
 async def on_shutdown():
     pass
+
+
+@driver.on_bot_connect
+async def _(bot: T_Bot):
+    temp_data = common_db.first(TempConfig(), default=TempConfig())
+    if temp_data.data.get("reload", False):
+        temp_data.data["reload"] = False
+        reload_bot_id = temp_data.data.get("reload_bot_id", 0)
+        if reload_bot_id != bot.self_id:
+            return
+        reload_session_type = temp_data.data.get("reload_session_type", "private")
+        reload_session_id = temp_data.data.get("reload_session_id", 0)
+        delta_time = temp_data.data.get("delta_time", 0)
+        common_db.upsert(temp_data)  # 更新数据
+        await bot.call_api(
+            "send_msg",
+            message_type=reload_session_type,
+            user_id=reload_session_id,
+            group_id=reload_session_id,
+            message="Liteyuki reloaded in %.2f s" % delta_time
+        )

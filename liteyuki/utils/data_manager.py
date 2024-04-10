@@ -48,9 +48,14 @@ class StoredConfig(LiteModel):
     config: dict = {}
 
 
+class TempConfig(LiteModel):
+    """储存临时键值对的表"""
+    TABLE_NAME = "temp_data"
+    data: dict = {}
+
+
 def auto_migrate():
     user_db.auto_migrate(User())
     group_db.auto_migrate(Group())
     plugin_db.auto_migrate(InstalledPlugin(), GlobalPlugin())
-    common_db.auto_migrate(GlobalPlugin(), StoredConfig())
-
+    common_db.auto_migrate(GlobalPlugin(), StoredConfig(), TempConfig())
