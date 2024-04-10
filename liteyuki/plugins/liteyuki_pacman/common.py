@@ -30,7 +30,7 @@ class StorePlugin(LiteModel):
 
 def get_plugin_exist(plugin_name: str) -> bool:
     """
-    获取插件是否存在
+    获取插件是否存在于加载列表
     Args:
         plugin_name:
 

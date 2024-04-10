@@ -213,7 +213,10 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
         if len(rs):
             reply = f"{ulang.get('npm.search_result')} | {ulang.get('npm.total', TOTAL=len(rs))}\n***"
             for storePlugin in rs[:min(max_show, len(rs))]:
-                btn_install = md.btn_cmd(ulang.get("npm.install"), "npm install %s" % storePlugin.module_name)
+                btn_install_or_update = md.btn_cmd(
+                    ulang.get("npm.update") if get_plugin_exist(storePlugin.module_name) else ulang.get("npm.install"),
+                    "npm install %s" % storePlugin.module_name
+                )
                 link_page = md.btn_link(ulang.get("npm.homepage"), storePlugin.homepage)
                 link_pypi = md.btn_link(ulang.get("npm.pypi"), storePlugin.homepage)
 
@@ -221,7 +224,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
                           f"\n> **{storePlugin.desc}**\n"
                           f"\n> {ulang.get('npm.author')}: {storePlugin.author}"
                           f"\n> *{md.escape(storePlugin.module_name)}*"
-                          f"\n> {btn_install}    {link_page}    {link_pypi}\n\n***\n")
+                          f"\n> {btn_install_or_update}    {link_page}    {link_pypi}\n\n***\n")
             if len(rs) > max_show:
                 reply += f"\n{ulang.get('npm.too_many_results', HIDE_NUM=len(rs) - max_show)}"
         else:
@@ -431,10 +434,12 @@ def npm_install(plugin_package_name) -> tuple[bool, str]:
     sys.stdout = buffer
     sys.stderr = buffer
 
+    update = False
+    if get_plugin_exist(plugin_package_name):
+        update = True
+
     mirrors = [
             "https://pypi.tuna.tsinghua.edu.cn/simple",  # 清华大学
-            "https://pypi.mirrors.cqupt.edu.cn/simple",  # 重庆邮电大学
-            "https://pypi.liteyuki.icu/simple",  # 轻雪代理镜像
             "https://pypi.org/simple",  # 官方源
     ]
 
@@ -442,8 +447,11 @@ def npm_install(plugin_package_name) -> tuple[bool, str]:
     success = False
     for mirror in mirrors:
         try:
-            nonebot.logger.info(f"npm_install try mirror: {mirror}")
-            result = pip.main(["install", plugin_package_name, "-i", mirror])
+            nonebot.logger.info(f"pip install try mirror: {mirror}")
+            if update:
+                result = pip.main(["install", "--upgrade", plugin_package_name, "-i", mirror])
+            else:
+                result = pip.main(["install", plugin_package_name, "-i", mirror])
             success = result == 0
             if success:
                 break

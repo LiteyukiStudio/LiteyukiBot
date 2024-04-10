@@ -120,3 +120,5 @@ liteyuki.change_priority_failed=资源包 {NAME} 优先级修改失败
 rpm.move_up=上移
 rpm.move_down=下移
 rpm.move_top=置顶
+
+npm.update=更新
