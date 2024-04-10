@@ -15,7 +15,7 @@ from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
 from liteyuki.utils.resource import get_path
 from liteyuki.utils.tools import convert_size
 
-stats = on_command("stats", aliases={"状态"}, priority=5, permission=SUPERUSER)
+stats = on_command("status", aliases={"状态"}, priority=5, permission=SUPERUSER)
 
 config = load_from_yaml("config.yml")
 
