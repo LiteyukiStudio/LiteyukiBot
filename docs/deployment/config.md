@@ -21,12 +21,13 @@ nickname: [ "liteyuki" ]  # 机器人昵称
 superusers: [ "1919810" ]  # 超级用户
 
 # 未列出的配置项（如要自定义请手动修改）
-onebot_access_token: "" # 访问令牌，对公网开放时建议设置
-default_language: "zh-CN" # 默认语言，支持i18n部分语言和自行扩展的语言代码
+onebot_access_token: "" # 访问令牌，对公开放时建议设置
+default_language: "zh-CN" # 默认语言
 log_level: "INFO" # 日志等级
 log_icon: true # 是否显示日志等级图标（某些控制台字体不可用）
-auto_report: true # 是否自动上报问题给轻雪服务器，仅包含硬件信息和运行软件版本
-fake_device_info: # 统计卡片显示的虚假设备信息，用于保护隐私
+auto_report: true # 是否自动上报问题给轻雪服务器
+auto_update: true # 是否自动更新轻雪，每天4点检查更新
+fake_device_info: # 用于保护设备隐私
   cpu:
     brand: AMD
     cores: 16 # 物理核心数

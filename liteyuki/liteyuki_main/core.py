@@ -1,25 +1,25 @@
-import asyncio
 import base64
 import time
 from typing import Any
 
 import nonebot
 import pip
-from git import Repo
 from nonebot import Bot, get_driver, require
 from nonebot.exception import MockApiException
 from nonebot.internal.matcher import Matcher
 from nonebot.permission import SUPERUSER
 
-from liteyuki.utils.config import load_from_yaml
+from liteyuki.utils.config import get_config, load_from_yaml
 from liteyuki.utils.data_manager import StoredConfig, TempConfig, common_db
 from liteyuki.utils.language import get_user_lang
 from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
 from liteyuki.utils.message import Markdown as md
 from liteyuki.utils.reloader import Reloader
+from .api import update_liteyuki
 
-require("nonebot_plugin_alconna"), require("nonebot_plugin_htmlrender")
+require("nonebot_plugin_alconna"), require("nonebot_plugin_apscheduler")
 from nonebot_plugin_alconna import on_alconna, Alconna, Args, Subcommand, Arparma
+from nonebot_plugin_apscheduler import scheduler
 
 driver = get_driver()
 
@@ -46,30 +46,7 @@ async def _(bot: T_Bot, matcher: Matcher):
 async def _(bot: T_Bot, event: T_MessageEvent):
     # 使用git pull更新
     ulang = get_user_lang(str(event.user_id))
-    origins = ["origin", "origin2"]
-    repo = Repo(".")
-
-    # Get the current HEAD commit
-    current_head_commit = repo.head.commit
-
-    # Fetch the latest information from the cloud
-    repo.remotes.origin.fetch()
-
-    # Get the latest HEAD commit
-    new_head_commit = repo.commit('origin/main')
-
-    # If the new HEAD commit is different from the current HEAD commit, there is a new commit
-    diffs = current_head_commit.diff(new_head_commit)
-    logs = ""
-    for diff in diffs.iter_change_type('M'):
-        logs += f"\n{diff.a_path}"
-
-    for origin in origins:
-        try:
-            repo.remotes[origin].pull()
-            break
-        except Exception as e:
-            nonebot.logger.error(f"Pull from {origin} failed: {e}")
+    success, logs = update_liteyuki()
     reply = "Liteyuki updated!\n"
     reply += f"```\n{logs}\n```\n"
     btn_restart = md.btn_cmd(ulang.get("liteyuki.restart_now"), "reload-liteyuki")
@@ -173,7 +150,7 @@ async def _(event: T_MessageEvent, matcher: Matcher):
     aliases={"轻雪文档"},
 ).handle()
 async def _(matcher: Matcher):
-    matcher.finish("https://bot.liteyuki.icu/usage")
+    await matcher.finish("https://bot.liteyuki.icu/usage")
 
 
 # system hook
@@ -240,3 +217,15 @@ async def _(bot: T_Bot):
             group_id=reload_session_id,
             message="Liteyuki reloaded in %.2f s" % delta_time
         )
+
+
+# 每天4点更新
+@scheduler.scheduled_job("cron", hour=4)
+async def every_day_update():
+    if get_config("auto_update", True):
+        result, logs = update_liteyuki()
+        if result:
+            nonebot.logger.info(f"Liteyuki updated: {logs}")
+            Reloader.reload(1)
+        else:
+            nonebot.logger.info(logs)
