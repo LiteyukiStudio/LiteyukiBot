@@ -3,7 +3,7 @@
 [//]: # (<img  src="https://cdn.liteyuki.icu/static/img/logo.png" style="align-content: center; width: 50%; margin-top:10%;" alt="a">)
 [![][banner]][lightyuki-link]
 <h2><a href="https://bot.liteyuki.icu"> <span style="color: #a2d8f4">轻雪</span> <span style="color: #d0e9ff">6</span></a></h2>
-<h4> <span style="color: #a2d8f4"> 轻量，高效，易于扩展</span></h4>
+<h4> <span style="color: #a2d8f4">✨ 轻量，高效，易于扩展✨</span></h4>
 
 [![][OneBot]][onebot-link]
 [![][Nonebot2]][nonebot-link]
