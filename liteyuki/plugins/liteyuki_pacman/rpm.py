@@ -1,10 +1,12 @@
 # 轻雪资源包管理器
 import os
 
+import nonebot
 import yaml
 from nonebot import require
 from nonebot.permission import SUPERUSER
 
+from liteyuki.utils.config import get_config
 from liteyuki.utils.language import get_user_lang
 from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
 from liteyuki.utils.message import Markdown as md

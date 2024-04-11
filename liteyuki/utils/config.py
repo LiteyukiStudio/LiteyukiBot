@@ -4,6 +4,8 @@ import nonebot
 import yaml
 from pydantic import BaseModel
 
+from liteyuki.utils.data_manager import StoredConfig, common_db
+from liteyuki.utils.ly_typing import T_Bot
 from liteyuki.utils.tools import random_hex_string
 
 config = {}  # 全局配置，确保加载后读取
@@ -32,6 +34,28 @@ def load_from_yaml(file: str) -> dict:
             nonebot.logger.warning(f"Config file {file} is empty, use default config. please modify it and restart")
             conf = BasicConfig().dict()
         return conf
+
+
+def get_config(key: str, bot: T_Bot = None, default=None):
+    """获取配置项，优先级：bot > config > db > yaml"""
+    if bot is None:
+        bot_config = {}
+    else:
+        bot_config = bot.config.dict()
+    if key in bot_config:
+        return bot_config[key]
+
+    elif key in config:
+        return config[key]
+
+    elif key in common_db.first(StoredConfig(), default=StoredConfig()).config:
+        return common_db.first(StoredConfig(), default=StoredConfig()).config[key]
+
+    elif key in load_from_yaml("config.yml"):
+        return load_from_yaml("config.yml")[key]
+
+    else:
+        return default
 
 
 def init_conf(conf: dict) -> dict:

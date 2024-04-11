@@ -1,4 +1,6 @@
 from nonebot.plugin import PluginMetadata
+from .qweather import *
+
 
 __plugin_meta__ = PluginMetadata(
     name="轻雪天气",

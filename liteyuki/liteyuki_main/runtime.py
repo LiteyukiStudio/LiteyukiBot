@@ -33,7 +33,7 @@ protocol_names = {
 async def _(bot: T_Bot, event: T_MessageEvent):
     ulang = get_user_lang(str(event.user_id))
     image = await template2image(
-        get_path("templates/stats.html", abs_path=True),
+        get_path("templates/stats.html", abs_path=True, debug=True),
         {
                 "data": await get_stats_data(bot.self_id, ulang.lang_code)
         },

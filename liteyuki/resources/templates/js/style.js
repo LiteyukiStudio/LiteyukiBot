@@ -123,16 +123,30 @@
     mottoAuthor.style.textAlign = 'right';
     mottoDiv.appendChild(mottoAuthor);
 
+    function getPieUsage(data){
+        let total = 0
+        let used = 0
+        data.forEach(item => {
+            total += item.value
+            if(item.name === 'FREE'){
+                used += item.value
+            }
+        })
+        console.log(used, total)
+        return used / total * 100
+    }
+
 
     function getPieOption(title, data) {
         return {
             animation: false,
             title: {
-                text: title,
+                text: title + '\n' + getPieUsage(data).toFixed(1) + '%',
                 left: 'center',
                 top: 'center',
                 textStyle: {
                     //文字颜色
+                    lineHeight: 36,
                     color: '#fff',
                     fontSize: 30
                 }

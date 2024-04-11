@@ -47,15 +47,19 @@ def load_resource_from_dir(path: str):
     _loaded_resource_packs.insert(0, ResourceMetadata(**metadata))
 
 
-def get_path(path: str, abs_path: bool = False, default: Any = None) -> str | Any:
+def get_path(path: str, abs_path: bool = False, default: Any = None, debug: bool=False) -> str | Any:
     """
     获取资源包中的文件
     Args:
+        debug: 启用调试，每次都会先重载资源
         abs_path: 是否返回绝对路径
         default: 默认
         path: 文件相对路径
     Returns: 文件绝对路径
     """
+    if debug:
+        nonebot.logger.debug("Enable resource debug, Reloading resources")
+        load_resources()
     resource_relative_path = os.path.join(temp_resource_root, path)
     if os.path.exists(resource_relative_path):
         return os.path.abspath(resource_relative_path) if abs_path else resource_relative_path
