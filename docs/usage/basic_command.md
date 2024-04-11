@@ -18,7 +18,8 @@ status  # 查看统计信息和状态
 config set <key> value  # 添加配置项，若存在则会覆盖，输入值会被执行以转换为正确的类型，"10"和10是不一样的
 config get [key]  # 查询配置项，不带key返回配置项列表，推荐私聊使用
 switch-image-mode  # 在普通图片和Markdown大图之间切换，该功能需要commit:505468b及以后的Lagrange.OneBot，
-
+# 仅超级用户，群聊仅群主、管理员、超级用户可用
+group enable/disable [group_id]   # 在群聊启用/停用机器人，group_id仅超级用户可用
 # 所有人可用
 liteyuki-docs  # 查看轻雪文档
 ```
@@ -33,6 +34,7 @@ reload-resources 重载资源,
 config 配置 | set 设置 | get 查询, 
 switch-image-mode 切换图片模式, 
 liteyuki-docs 轻雪文档
+group 群聊 | enable 启用 | disable 停用
 ```
 
 ### **插件/包管理器 `liteyuki_pacman`**
@@ -45,12 +47,10 @@ npm update  # 更新插件商店索引
 npm install <plugin_name>  # 安装插件
 npm uninstall <plugin_name>  # 卸载插件
 npm search <keywords...>  # 通过关键词搜索插件
-npm enable-global <plugin_name>  # 全局启用插件
-npm disable-global <plugin_name>  # 全局禁用插件
+npm enable-global/disable-global <plugin_name>  # 全局启用/停用插件
 
 # 群聊仅群主、管理员、超级用户可用，私聊所有人可用
-npm enable <plugin_name>  # 当前会话启用插件
-npm disable <plugin_name>  # 当前会话禁用插件
+npm enable/disable <plugin_name>  # 当前会话启用/停用插件
 npm list [page] [num] # 列出所有插件 page为页数，num为每页显示数量
 ```
 

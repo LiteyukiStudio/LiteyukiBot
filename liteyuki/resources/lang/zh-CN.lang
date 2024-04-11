@@ -22,6 +22,28 @@ liteyuki.stats.run_time=运行时间
 liteyuki.stats.groups=群
 liteyuki.stats.friends=好友
 liteyuki.stats.plugins=插件
+liteyuki.image_mode_on=开启Markdown图片模式
+liteyuki.image_mode_off=关闭Markdown图片模式
+liteyuki.invalid_command=无效的命令或参数
+liteyuki.reload_resources=重载资源
+liteyuki.list_resources=资源包列表
+liteyuki.reload_resources_success=资源重载成功，共计 {NUM} 个资源包
+liteyuki.loaded_resources=已加载 {NUM} 个资源包，按照优先级排序
+liteyuki.unloaded_resources=未加载资源包
+liteyuki.load_resource_success=资源包 {NAME} 加载成功
+liteyuki.unload_resource_success=资源包 {NAME} 卸载成功
+liteyuki.load_resource_failed=资源包 {NAME} 加载失败
+liteyuki.unload_resource_failed=资源包 {NAME} 卸载失败
+liteyuki.resource_not_found=资源包 {NAME} 不存在或不可操作
+liteyuki.resource_already_loaded=资源包 {NAME} 已加载，请勿重复操作
+liteyuki.resource_already_unloaded=资源包 {NAME} 已卸载，请勿重复操作
+liteyuki.need_reload=请{BTN}重载以应用这些更新
+liteyuki.dont_repeat=请勿重复操作
+liteyuki.change_priority_success=资源包 {NAME} 优先级修改成功
+liteyuki.change_priority_failed=资源包 {NAME} 优先级修改失败
+liteyuki.group_already=群 {GROUP} 已经是 {STATUS} 状态，无需重复操作
+liteyuki.group_success=群 {GROUP} {STATUS} 成功
+liteyuki.permission_denied=权限不足
 
 main.current_language=当前配置语言为: {LANG}
 main.enable_webdash=已启用网页监控面板: {URL}
@@ -34,6 +56,7 @@ main.monitor.disk=磁盘
 main.monitor.usage=使用率
 main.monitor.total=总计
 main.monitor.used=已用
+main.monitor.free=空闲
 
 data_manager.migrate_success=数据模型{NAME}迁移成功
 
@@ -68,10 +91,12 @@ npm.homepage=主页
 npm.pypi=PyPI
 npm.next_page=下一页
 npm.prev_page=上一页
+npm.update=更新
 npm.plugin_cannot_be_toggled=插件 {NAME} 无法被启用或停用
 npm.plugin_already=插件 {NAME} 已经是 {STATUS} 状态，无需重复操作
 npm.toggle_failed=插件 {NAME} {STATUS} 失败: {ERROR}
 npm.toggle_success=插件 {NAME} {STATUS} 成功
+npm.page=第{PAGE}/{TOTAL}页
 
 user.profile.edit=修改
 user.profile.set=设置
@@ -89,39 +114,10 @@ user.profile.location=位置
 user.profile.location.desc=设置用户位置信息
 user.profile.nickname=称呼
 user.profile.nickname.desc=设置Bot对用户的称呼
-
 user.profile.input_value=请输入 {ATTR} 的值
 user.profile.set_success=成功将 {ATTR} 设置为 {VALUE}
 user.profile.set_failed=设置 {ATTR} 失败，请检查输入是否合法
 
-liteyuki.image_mode_on=开启Markdown图片模式
-liteyuki.image_mode_off=关闭Markdown图片模式
-
-npm.page=第{PAGE}/{TOTAL}页
-main.monitor.free=空闲
-
-liteyuki.invalid_command=无效的命令或参数
-liteyuki.reload_resources=重载资源
-liteyuki.list_resources=资源包列表
-liteyuki.reload_resources_success=资源重载成功，共计 {NUM} 个资源包
-liteyuki.loaded_resources=已加载 {NUM} 个资源包，按照优先级排序
-liteyuki.unloaded_resources=未加载资源包
-liteyuki.load_resource_success=资源包 {NAME} 加载成功
-liteyuki.unload_resource_success=资源包 {NAME} 卸载成功
-liteyuki.load_resource_failed=资源包 {NAME} 加载失败
-liteyuki.unload_resource_failed=资源包 {NAME} 卸载失败
-liteyuki.resource_not_found=资源包 {NAME} 不存在或不可操作
-liteyuki.resource_already_loaded=资源包 {NAME} 已加载，请勿重复操作
-liteyuki.resource_already_unloaded=资源包 {NAME} 已卸载，请勿重复操作
-liteyuki.need_reload=请{BTN}重载以应用这些更新
-liteyuki.dont_repeat=请勿重复操作
-liteyuki.change_priority_success=资源包 {NAME} 优先级修改成功
-liteyuki.change_priority_failed=资源包 {NAME} 优先级修改失败
 rpm.move_up=上移
 rpm.move_down=下移
 rpm.move_top=置顶
-
-npm.update=更新
-
-liteyuki.group_already=群 {GROUP} 已经是 {STATUS} 状态，无需重复操作
-liteyuki.group_success=群 {GROUP} {STATUS} 成功

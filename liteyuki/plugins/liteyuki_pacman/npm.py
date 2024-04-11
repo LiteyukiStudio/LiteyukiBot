@@ -366,11 +366,16 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
             alias=["d", "停用"],
         ),
     ),
+    permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN
 ).handle()
-async def _(event: T_MessageEvent, gm: Matcher, result: Arparma):
+async def _(bot: T_Bot, event: T_MessageEvent, gm: Matcher, result: Arparma):
     ulang = get_user_lang(str(event.user_id))
     to_enable = result.subcommands.get(enable) is not None
-    group_id = result.subcommands.get(enable, result.subcommands.get(disable)).args.get("group_id")
+    group_id = None
+    if await SUPERUSER(bot, event):
+        # 仅超级用户可以自定义群号
+        group_id = result.subcommands.get(enable, result.subcommands.get(disable)).args.get("group_id")
+
     if group_id is None and event.message_type == "group":
         group_id = str(event.group_id)
     else:
@@ -378,7 +383,8 @@ async def _(event: T_MessageEvent, gm: Matcher, result: Arparma):
 
     enabled = get_group_enable(group_id)
     if enabled == to_enable:
-        await gm.finish(ulang.get("liteyuki.group_already", STATUS=ulang.get("npm.enable") if to_enable else ulang.get("npm.disable"), GROUP=group_id), liteyuki_pass=True)
+        await gm.finish(ulang.get("liteyuki.group_already", STATUS=ulang.get("npm.enable") if to_enable else ulang.get("npm.disable"), GROUP=group_id),
+                        liteyuki_pass=True)
     else:
         group: Group = group_db.first(Group(), "group_id = ?", group_id, default=Group(group_id=group_id))
         if to_enable:
