@@ -222,7 +222,7 @@ async def _(bot: T_Bot):
 # 每天4点更新
 @scheduler.scheduled_job("cron", hour=4)
 async def every_day_update():
-    if get_config("auto_update", True):
+    if get_config("auto_update"):
         result, logs = update_liteyuki()
         if result:
             await broadcast_to_superusers(f"Liteyuki updated: ```\n{logs}\n```")
