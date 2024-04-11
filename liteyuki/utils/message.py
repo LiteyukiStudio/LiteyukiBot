@@ -13,7 +13,7 @@ from typing import Any
 
 from . import load_from_yaml
 from .ly_api import liteyuki_api
-from .ly_typing import T_Bot, T_MessageEvent
+from .ly_typing import T_Bot, T_Message, T_MessageEvent
 
 require("nonebot_plugin_htmlrender")
 from nonebot_plugin_htmlrender import md_to_pic
@@ -21,6 +21,16 @@ from nonebot_plugin_htmlrender import md_to_pic
 config = load_from_yaml("config.yml")
 
 can_send_markdown = {}  # 用于存储机器人是否支持发送markdown消息，id->bool
+
+
+async def broadcast_to_superusers(message: str | T_Message, markdown: bool = False):
+    """广播消息给超级用户"""
+    for bot in nonebot.get_bots().values():
+        for user_id in config.get("superusers", []):
+            if markdown:
+                await Markdown.send_md(message, bot, message_type="private", session_id=user_id)
+            else:
+                await bot.send_private_msg(user_id=user_id, message=message)
 
 
 class Markdown:

@@ -13,7 +13,7 @@ from liteyuki.utils.config import get_config, load_from_yaml
 from liteyuki.utils.data_manager import StoredConfig, TempConfig, common_db
 from liteyuki.utils.language import get_user_lang
 from liteyuki.utils.ly_typing import T_Bot, T_MessageEvent
-from liteyuki.utils.message import Markdown as md
+from liteyuki.utils.message import Markdown as md, broadcast_to_superusers
 from liteyuki.utils.reloader import Reloader
 from .api import update_liteyuki
 
@@ -225,6 +225,7 @@ async def every_day_update():
     if get_config("auto_update", True):
         result, logs = update_liteyuki()
         if result:
+            await broadcast_to_superusers(f"Liteyuki updated: ```\n{logs}\n```")
             nonebot.logger.info(f"Liteyuki updated: {logs}")
             Reloader.reload(1)
         else:
