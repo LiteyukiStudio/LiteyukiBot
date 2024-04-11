@@ -1,0 +1,18 @@
+#data-storage {
+    display: none;
+}
+
+body {
+    background-repeat: repeat-y;
+    background-size: cover;
+    background-position: center;
+    margin: 20px;
+}
+
+.info-box {
+    border-radius: 30px;
+    padding: 30px;
+    backdrop-filter: blur(10px);
+    background-color: rgba(0, 0, 0, 0.5);
+    margin-bottom: 20px;
+}

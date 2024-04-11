@@ -123,3 +123,17 @@ def get_plugin_can_be_toggle(plugin_name: str) -> bool:
     """
     plug = nonebot.plugin.get_plugin(plugin_name)
     return plug.metadata.extra.get("toggleable", True) if plug and plug.metadata else True
+
+
+def get_group_enable(group_id: str) -> bool:
+    """
+    获取群组是否启用插机器人
+
+    Args:
+        group_id (str): 群组ID
+
+    Returns:
+        bool: 群组是否启用插件
+    """
+    session: Group = group_db.first(Group(), "group_id = ?", group_id, default=Group(group_id=group_id))
+    return session.enable

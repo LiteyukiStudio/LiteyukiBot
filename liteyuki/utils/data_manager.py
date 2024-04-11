@@ -28,6 +28,7 @@ class Group(LiteModel):
     group_name: str = Field(str(), alias="group_name")
     enabled_plugins: list[str] = Field([], alias="enabled_plugins")
     disabled_plugins: list[str] = Field([], alias="disabled_plugins")
+    enable: bool = Field(True, alias="enable")  # 群聊全局机器人是否启用
 
 
 class InstalledPlugin(LiteModel):

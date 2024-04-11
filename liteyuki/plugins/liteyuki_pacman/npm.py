@@ -5,8 +5,8 @@ import nonebot.plugin
 import pip
 from io import StringIO
 from arclet.alconna import MultiVar
-from nonebot import require
-from nonebot.exception import FinishedException, IgnoredException
+from nonebot import Bot, require
+from nonebot.exception import FinishedException, IgnoredException, MockApiException
 from nonebot.internal.adapter import Event
 from nonebot.internal.matcher import Matcher
 from nonebot.message import run_preprocessor
@@ -37,32 +37,31 @@ disable = "disable"
         Subcommand(
             "enable",
             Args["plugin_name", str],
-            alias=["启用"],
-
+            alias=["e", "启用"],
         ),
         Subcommand(
             "disable",
             Args["plugin_name", str],
-            alias=["停用"],
+            alias=["d", "停用"],
         ),
         Subcommand(
             enable_global,
             Args["plugin_name", str],
-            alias=["全局启用"],
+            alias=["eg", "全局启用"],
         ),
         Subcommand(
             disable_global,
             Args["plugin_name", str],
-            alias=["全局停用"],
+            alias=["dg", "全局停用"],
         ),
         # 安装部分
         Subcommand(
             "update",
-            alias=["u"],
+            alias=["u", "更新"],
         ),
         Subcommand(
             "search",
-            Args["keywords", MultiVar(str)]["show_num", int, 15],
+            Args["keywords", MultiVar(str)],
             alias=["s", "搜索"],
         ),
         Subcommand(
@@ -79,11 +78,6 @@ disable = "disable"
             "list",
             Args["page", int, 1]["num", int, 10],
             alias=["ls", "列表"],
-        ),
-        Subcommand(
-            "usage",
-            Args["plugin_name", str],
-            alias=["详情"],
         )
     )
 ).handle()
@@ -93,8 +87,8 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
     # 判断会话类型
     ulang = get_user_lang(str(event.user_id))
     plugin_name = result.args.get("plugin_name")
-    sc = result.subcommands # 获取子命令
-    perm_s = await SUPERUSER(bot, event)    # 判断是否为超级用户
+    sc = result.subcommands  # 获取子命令
+    perm_s = await SUPERUSER(bot, event)  # 判断是否为超级用户
     # 支持对自定义command_start的判断
     if sc.get("enable") or result.subcommands.get("disable"):
 
@@ -306,7 +300,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
             # 检查是否有 metadata 属性
             # 添加帮助按钮
 
-            btn_usage = md.btn_cmd(ulang.get("npm.usage"), f"npm usage {storePlugin.name}", False)
+            btn_usage = md.btn_cmd(ulang.get("npm.usage"), f"help {storePlugin.name}", False)
             store_plugin = await get_store_plugin(storePlugin.name)
             session_enable = get_plugin_session_enable(event, storePlugin.name)
             if store_plugin:
@@ -353,11 +347,49 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
             reply += "\n\n***\n"
         await md.send_md(reply, bot, event=event)
 
-    elif sc.get("usage"):
-        # TODO
-        pass
     else:
-        pass
+        await npm.finish(ulang.get("liteyuki.invalid_command"))
+
+
+@on_alconna(
+    aliases={"群聊"},
+    command=Alconna(
+        "gm",
+        Subcommand(
+            enable,
+            Args["group_id", str, None],
+            alias=["e", "启用"],
+        ),
+        Subcommand(
+            disable,
+            Args["group_id", str, None],
+            alias=["d", "停用"],
+        ),
+    ),
+).handle()
+async def _(event: T_MessageEvent, gm: Matcher, result: Arparma):
+    ulang = get_user_lang(str(event.user_id))
+    to_enable = result.subcommands.get(enable) is not None
+    group_id = result.subcommands.get(enable, result.subcommands.get(disable)).args.get("group_id")
+    if group_id is None and event.message_type == "group":
+        group_id = str(event.group_id)
+    else:
+        await gm.finish(ulang.get("liteyuki.invalid_command"), liteyuki_pass=True)
+
+    enabled = get_group_enable(group_id)
+    if enabled == to_enable:
+        await gm.finish(ulang.get("liteyuki.group_already", STATUS=ulang.get("npm.enable") if to_enable else ulang.get("npm.disable"), GROUP=group_id), liteyuki_pass=True)
+    else:
+        group: Group = group_db.first(Group(), "group_id = ?", group_id, default=Group(group_id=group_id))
+        if to_enable:
+            group.enable = True
+        else:
+            group.enable = False
+        group_db.upsert(group)
+        await gm.finish(
+            ulang.get("liteyuki.group_success", STATUS=ulang.get("npm.enable") if to_enable else ulang.get("npm.disable"), GROUP=group_id),
+            liteyuki_pass=True
+        )
 
 
 @run_preprocessor
@@ -370,6 +402,15 @@ async def pre_handle(event: Event, matcher: Matcher):
         plugin_session_enable = get_plugin_session_enable(event, plugin.name)
         if not plugin_session_enable:
             raise IgnoredException("Plugin disabled in session")
+
+
+@Bot.on_calling_api
+async def block_disable_session(bot: Bot, api: str, args: dict):
+    if "group_id" in args and not args.get("liteyuki_pass", False):
+        group_id = args["group_id"]
+        if not get_group_enable(group_id):
+            nonebot.logger.debug(f"Group {group_id} disabled")
+            raise MockApiException(f"Group {group_id} disabled")
 
 
 async def npm_update() -> bool:

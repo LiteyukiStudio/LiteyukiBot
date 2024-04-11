@@ -132,8 +132,7 @@
                 used += item.value
             }
         })
-        console.log(used, total)
-        return used / total * 100
+        return (1 - used / total) * 100
     }
 
 
@@ -146,6 +145,7 @@
                 top: 'center',
                 textStyle: {
                     //文字颜色
+
                     lineHeight: 36,
                     color: '#fff',
                     fontSize: 30

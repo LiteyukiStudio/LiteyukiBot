@@ -179,6 +179,7 @@ async def _(matcher: Matcher):
 # system hook
 @Bot.on_calling_api  # 图片模式检测
 async def test_for_md_image(bot: T_Bot, api: str, data: dict):
+    # 截获大图发送，转换为markdown发送
     if api in ["send_msg", "send_private_msg", "send_group_msg"] and markdown_image and data.get("user_id") != bot.self_id:
         if api == "send_msg" and data.get("message_type") == "private" or api == "send_private_msg":
             session_type = "private"
@@ -207,6 +208,7 @@ async def test_for_md_image(bot: T_Bot, api: str, data: dict):
 @driver.on_startup
 async def on_startup():
     temp_data = common_db.first(TempConfig(), default=TempConfig())
+    # 储存重启信息
     if temp_data.data.get("reload", False):
         delta_time = time.time() - temp_data.data.get("reload_time", 0)
         temp_data.data["delta_time"] = delta_time
@@ -221,6 +223,7 @@ async def on_shutdown():
 @driver.on_bot_connect
 async def _(bot: T_Bot):
     temp_data = common_db.first(TempConfig(), default=TempConfig())
+    # 用于重启计时
     if temp_data.data.get("reload", False):
         temp_data.data["reload"] = False
         reload_bot_id = temp_data.data.get("reload_bot_id", 0)

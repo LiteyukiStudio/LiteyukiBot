@@ -122,3 +122,6 @@ rpm.move_down=下移
 rpm.move_top=置顶
 
 npm.update=更新
+
+liteyuki.group_already=群 {GROUP} 已经是 {STATUS} 状态，无需重复操作
+liteyuki.group_success=群 {GROUP} {STATUS} 成功
