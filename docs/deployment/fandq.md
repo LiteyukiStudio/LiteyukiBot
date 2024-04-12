@@ -8,7 +8,7 @@ tag:
   - 部署
 ---
 
-### 常见问题
+## **常见问题**
 
 - 设备上Python环境太乱了，pip和python不对应怎么办？
     - 请使用`/path/to/python -m pip install -r requirements.txt`来安装依赖，
@@ -31,7 +31,7 @@ tag:
 - 其他问题
     - 加入QQ群[775840726](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=SzmDYbfR6jY94o9KFNon7AwelRyI6M_u&authKey=ygeBdEmdFNyCWuNR4w0M1M8%2B5oDg7k%2FDfN0tzBkYcnbB%2FGHNnlVEnCIGbdftsnn7&noverify=0&group_code=775840726)
 
-#### 推荐方案(QQ)
+## **推荐方案(QQ)**
 
 1. [Lagrange.OneBot](https://github.com/KonataDev/Lagrange.Core)，基于NTQQ的OneBot实现，目前Markdown消息支持Lagrange
 2. [LLOneBot](https://github.com/LLOneBot/LLOneBot)，NTQQ的OneBot插件，需要安装NTQQ
@@ -41,13 +41,13 @@ tag:
 6. [Gensokyo](https://github.com/Hoshinonyaruko/Gensokyo)，基于 OneBot QQ官方机器人Api Golang 原生实现，需要官方机器人权限
 7. 人工实现的`Onebot`协议，自己整一个WebSocket客户端，看着QQ的消息，然后给轻雪传输数据
 
-#### 推荐方案(Minecraft)
+## **推荐方案(Minecraft)**
 
 1. [MinecraftOneBot](https://github.com/snowykami/MinecraftOnebot)，我们专门为Minecraft开发的服务器Bot，支持OneBotV11标准
 
 使用其他项目连接请先自行查阅文档，若有困难请联系对应开发者而不是Liteyuki的开发者
 
-### 鸣谢
+## **鸣谢**
 
 - [Nonebot2](https://nonebot.dev)提供的框架支持
 - [nonebot-plugin-htmlrender](https://github.com/kexue-z/nonebot-plugin-htmlrender/tree/master)提供的渲染功能

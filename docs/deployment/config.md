@@ -8,19 +8,22 @@ tag:
   - 部署
 ---
 
-### 轻雪配置项(Nonebot插件配置项也可以写在此，与dotenv格式不同，应为小写)
+首次运行后生成`config.yml`，你可以修改配置项后重启轻雪，绝大多数情况下，你只需要修改`superusers`和`nickname`字段即可
 
-配置文件会在首次启动后生成，你可以在`config.yml`中修改配置项后重启轻雪，绝大多数情况下，你只需要修改`superusers`和`nickname`。如果不确定字段的含义，请不要修改（部分在自动生成配置文件中未列出，需手动添加）
+## **基础配置项**
 
 ```yaml
-# 生成文件的配置项
 command_start: [ "/", "" ] # 指令前缀，若没有""空命令头，请开启alconna_use_command_start保证alconna解析正常
-host: 127.0.0.1 # 监听地址，默认为本机，若要对外开放请填写0.0.0.0或者你的公网IP
+host: 127.0.0.1 # 监听地址，默认为本机，若要接收外部请求请填写0.0.0.0
 port: 20216 # 绑定端口
-nickname: [ "liteyuki" ]  # 机器人昵称
-superusers: [ "1919810" ]  # 超级用户
+nickname: [ "liteyuki" ]  # 机器人昵称列表
+superusers: [ "1919810" ]  # 超级用户列表
+```
 
-# 未列出的配置项（如要自定义请手动修改）
+## **其他配置**
+以下为默认值，如需自定义请手动添加
+
+```yaml
 onebot_access_token: "" # 访问令牌，对公开放时建议设置
 default_language: "zh-CN" # 默认语言
 log_level: "INFO" # 日志等级
@@ -44,19 +47,21 @@ custom_config_2: "custom_value2"
 ...
 ```
 
-### Onebot实现端配置
+> [!tip]
+> 如果要使用dotenv配置文件，请自行创建`.env.{ENVIRONMENT}`，并在`config.yml`中添加`environment:{ENVIRONMENT}`字段
 
+## **OneBot实现端配置**
+
+生产环境中推荐反向WebSocket
 不同的实现端给出的字段可能不同，但是基本上都是一样的，这里给出一个参考值
 
-| 字段          | 参考值                       | 说明                               |
-|-------------|---------------------------|----------------------------------|
-| 协议          | 反向WebSocket               | 推荐使用反向ws协议进行通信，即轻雪作为服务端          |
-| 地址          | ws://`address`/onebot/v11/ws | 地址取决于配置文件，本机默认为`127.0.0.1:20216` |
-| AccessToken | `""`                      | 如果你给轻雪配置了`AccessToken`，请在此填写相同的值 |
+| 字段          | 参考值                                | 说明                               |
+|-------------|------------------------------------|----------------------------------|
+| 协议          | 反向WebSocket                        | 推荐使用反向ws协议进行通信，即轻雪作为服务端          |
+| 地址          | ws://127.0.0.1:20216/onebot/v11/ws | 地址取决于配置文件，本机默认为`127.0.0.1:20216` |
+| AccessToken | `""`                               | 如果你给轻雪配置了`AccessToken`，请在此填写相同的值 |
 
-### 其他通信方式
+## **其他**
 
-- 实现端与轻雪的通信方式不局限为反向WebSocket，但是推荐使用反向WebSocket。
-- 反向WebSocket的优点是轻雪作为服务端，可以更好的控制连接，适用于生产环境。
-- 在某些情况下，你也可以使用正向WebSocket，比如你在开发轻雪插件时，可以使用正向WebSocket主动连接实现端
-- 有更多疑问请访问[OneBot Adapter](https://onebot.adapters.nonebot.dev/)获取详细信息
+- 要使用其他通信方式请访问[OneBot Adapter](https://onebot.adapters.nonebot.dev/)获取详细信息
+- 轻雪不局限于OneBot适配器，你可以使用NoneBot2支持的任何适配器

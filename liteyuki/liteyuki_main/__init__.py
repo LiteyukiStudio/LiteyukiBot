@@ -6,7 +6,7 @@ from .runtime import *
 
 __author__ = "snowykami"
 __plugin_meta__ = PluginMetadata(
-    name="轻雪主程序",
+    name="轻雪核心插件",
     description="轻雪主程序插件，包含了许多初始化的功能",
     usage="",
     homepage="https://github.com/snowykami/LiteyukiBot",

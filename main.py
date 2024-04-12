@@ -1,3 +1,5 @@
+import os.path
+
 import nonebot
 from nonebot.adapters.onebot import v11, v12
 
@@ -21,6 +23,7 @@ for adapter in adapters:
     driver.register_adapter(adapter)
 
 nonebot.load_plugin("liteyuki.liteyuki_main")
+nonebot.load_from_toml("pyproject.toml")
 
 if __name__ == "__main__":
     try:

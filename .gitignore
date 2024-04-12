@@ -18,6 +18,7 @@ compile.bat
 liteyuki/resources/templates/latest-debug.html
 # vuepress
 .github
+pyproject.toml
 
 # nuitka
 main.build/

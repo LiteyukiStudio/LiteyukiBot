@@ -60,6 +60,10 @@ def init():
     if not os.path.exists("data/liteyuki/liteyuki.json"):
         register_bot()
 
+    if not os.path.exists("pyproject.toml"):
+        with open("pyproject.toml", "w", encoding="utf-8") as f:
+            f.write("[tool.nonebot]\n")
+
     nonebot.logger.info(
         f"Run Liteyuki with Python{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} "
         f"at {sys.executable}"
