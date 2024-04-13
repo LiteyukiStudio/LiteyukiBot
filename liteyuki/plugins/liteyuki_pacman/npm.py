@@ -203,7 +203,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
     elif sc.get("search"):
         keywords: list[str] = result.subcommands["search"].args.get("keywords")
         rs = await npm_search(keywords)
-        max_show = result.subcommands.get("search").args.get("show_num")
+        max_show = 10
         if len(rs):
             reply = f"{ulang.get('npm.search_result')} | {ulang.get('npm.total', TOTAL=len(rs))}\n***"
             for storePlugin in rs[:min(max_show, len(rs))]:
