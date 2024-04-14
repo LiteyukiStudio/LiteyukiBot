@@ -1,4 +1,3 @@
-import asyncio
 import base64
 import io
 from urllib.parse import quote
@@ -8,12 +7,14 @@ from PIL import Image
 import aiohttp
 import nonebot
 from nonebot import require
-from nonebot.adapters.onebot import v11, v12
-from typing import Any
+from nonebot.adapters.onebot import v11
+from typing import Any, Type
 
-from . import load_from_yaml
-from .ly_api import liteyuki_api
-from .ly_typing import T_Bot, T_Message, T_MessageEvent
+from nonebot.internal.adapter import MessageSegment
+from nonebot.internal.adapter.message import TM
+
+from .. import load_from_yaml
+from ..base.ly_typing import T_Bot, T_Message, T_MessageEvent
 
 require("nonebot_plugin_htmlrender")
 from nonebot_plugin_htmlrender import md_to_pic
@@ -28,12 +29,12 @@ async def broadcast_to_superusers(message: str | T_Message, markdown: bool = Fal
     for bot in nonebot.get_bots().values():
         for user_id in config.get("superusers", []):
             if markdown:
-                await Markdown.send_md(message, bot, message_type="private", session_id=user_id)
+                await MarkdownMessage.send_md(message, bot, message_type="private", session_id=user_id)
             else:
                 await bot.send_private_msg(user_id=user_id, message=message)
 
 
-class Markdown:
+class MarkdownMessage:
     @staticmethod
     async def send_md(
             markdown: str,
@@ -158,8 +159,8 @@ class Markdown:
         if method == 2:
             base64_string = base64.b64encode(image).decode("utf-8")
             data = await bot.call_api("upload_image", file=f"base64://{base64_string}")
-            await Markdown.send_md(Markdown.image(data, Image.open(io.BytesIO(image)).size), bot, event=event, message_type=message_type,
-                                   session_id=session_id, **kwargs)
+            await MarkdownMessage.send_md(MarkdownMessage.image(data, Image.open(io.BytesIO(image)).size), bot, event=event, message_type=message_type,
+                                          session_id=session_id, **kwargs)
 
         # 其他实现端方案
         else:
@@ -171,8 +172,8 @@ class Markdown:
             ))["message_id"]
             image_url = (await bot.get_msg(message_id=image_message_id))["message"][0]["data"]["url"]
             image_size = Image.open(io.BytesIO(image)).size
-            image_md = Markdown.image(image_url, image_size)
-            return await Markdown.send_md(image_md, bot, message_type=message_type, session_id=session_id, event=event, **kwargs)
+            image_md = MarkdownMessage.image(image_url, image_size)
+            return await MarkdownMessage.send_md(image_md, bot, message_type=message_type, session_id=session_id, event=event, **kwargs)
 
         if data is None:
             data = await bot.send_msg(
@@ -251,7 +252,7 @@ class Markdown:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url) as resp:
                     image = Image.open(io.BytesIO(await resp.read()))
-                    return Markdown.image(url, image.size)
+                    return MarkdownMessage.image(url, image.size)
         except Exception as e:
             nonebot.logger.error(f"get image error: {e}")
             return "[Image Error]"
@@ -270,58 +271,3 @@ class Markdown:
         for char in chars:
             text = text.replace(char, f"\\\\{char}")
         return text
-
-    @staticmethod
-    def H1(text: str, end="\n") -> str:
-        """H1标题"""
-        return f"# {text}{end}"
-
-    @staticmethod
-    def H2(text: str, end="\n") -> str:
-        """H2标题"""
-        return f"## {text}{end}"
-
-    @staticmethod
-    def H3(text: str, end="\n") -> str:
-        """H3标题"""
-        return f"### {text}{end}"
-
-    @staticmethod
-    def H4(text: str, end="\n") -> str:
-        """H4标题"""
-        return f"#### {text}{end}"
-
-    @staticmethod
-    def H5(text: str, end="\n") -> str:
-        """H5标题"""
-        return f"##### {text}{end}"
-
-    @staticmethod
-    def H6(text: str, end="\n") -> str:
-        """H6标题"""
-        return f"###### {text}{end}"
-
-    @staticmethod
-    def Bold(text: str) -> str:
-        """加粗"""
-        return f"**{text}**"
-
-    @staticmethod
-    def Italic(text: str) -> str:
-        """斜体"""
-        return f"*{text}*"
-
-    @staticmethod
-    def BoldItalic(text: str) -> str:
-        """粗斜体"""
-        return f"***{text}***"
-
-    @staticmethod
-    def Underline(text: str) -> str:
-        """下划线"""
-        return f"__{text}__"
-
-    @staticmethod
-    def Strike(text: str) -> str:
-        """删除线"""
-        return f"~~{text}~~"

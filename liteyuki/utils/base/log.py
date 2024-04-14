@@ -2,13 +2,13 @@ import sys
 import loguru
 from typing import TYPE_CHECKING
 from .config import load_from_yaml
-from .language import Language, get_default_lang
+from .language import get_default_lang
 
 logger = loguru.logger
 if TYPE_CHECKING:
     # avoid sphinx autodoc resolve annotation failed
     # because loguru module do not have `Logger` class actually
-    from loguru import Logger, Record
+    from loguru import Record
 
 
 def default_filter(record: "Record"):

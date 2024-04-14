@@ -10,9 +10,9 @@ __VERSION__ = "6.2.8"  # 60201
 
 import requests
 
-from liteyuki.utils.config import load_from_yaml, config
-from .log import init_log
-from .data_manager import auto_migrate
+from liteyuki.utils.base.config import load_from_yaml, config
+from liteyuki.utils.base.log import init_log
+from liteyuki.utils.base.data_manager import auto_migrate
 
 major, minor, patch = map(int, __VERSION__.split("."))
 __VERSION_I__ = major * 10000 + minor * 100 + patch

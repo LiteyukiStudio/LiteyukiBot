@@ -8,8 +8,8 @@ import psutil
 import requests
 from aiohttp import FormData
 
-from . import __VERSION_I__, __VERSION__, __NAME__
-from .config import config, load_from_yaml
+from .. import __VERSION_I__, __VERSION__, __NAME__
+from .config import load_from_yaml
 
 
 class LiteyukiAPI:

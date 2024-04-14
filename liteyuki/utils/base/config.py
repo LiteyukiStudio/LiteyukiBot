@@ -4,9 +4,9 @@ import nonebot
 import yaml
 from pydantic import BaseModel
 
-from liteyuki.utils.data_manager import StoredConfig, common_db
-from liteyuki.utils.ly_typing import T_Bot
-from liteyuki.utils.tools import random_hex_string
+from .data_manager import StoredConfig, common_db
+from .ly_typing import T_Bot
+from ..message.tools import random_hex_string
 
 config = {}  # 全局配置，确保加载后读取
 

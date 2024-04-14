@@ -1,10 +1,9 @@
 from nonebot import require
-from jieba import lcut
 
-from liteyuki.utils.ly_typing import T_MessageEvent
+from liteyuki.utils.base.ly_typing import T_MessageEvent
 
 require("nonebot_plugin_alconna")
-from nonebot_plugin_alconna import on_alconna, Alconna, Subcommand, Args, MultiVar, Arparma
+from nonebot_plugin_alconna import on_alconna, Alconna, Args, MultiVar, Arparma
 
 
 @on_alconna(

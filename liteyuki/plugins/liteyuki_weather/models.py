@@ -1,5 +1,4 @@
-from nonebot import on_command
-from liteyuki.utils.data import LiteModel
+from liteyuki.utils.base.data import LiteModel
 
 
 class Location(LiteModel):

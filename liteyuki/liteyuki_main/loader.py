@@ -1,12 +1,9 @@
-import os.path
-import shutil
-
 import nonebot.plugin
 
 from liteyuki.utils import init_log
-from liteyuki.utils.data_manager import InstalledPlugin, plugin_db
-from liteyuki.utils.resource import load_resource_from_dir, load_resources
-from liteyuki.utils.tools import check_for_package
+from liteyuki.utils.base.data_manager import InstalledPlugin, plugin_db
+from liteyuki.utils.base.resource import load_resources
+from liteyuki.utils.message.tools import check_for_package
 
 load_resources()
 init_log()

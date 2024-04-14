@@ -2,7 +2,7 @@ import os
 
 from pydantic import Field
 
-from liteyuki.utils.data import LiteModel, Database as DB
+from .data import LiteModel, Database as DB
 
 DATA_PATH = "data/liteyuki"
 
