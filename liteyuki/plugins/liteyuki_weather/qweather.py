@@ -25,9 +25,10 @@ from nonebot_plugin_alconna import on_alconna, Alconna, Args, MultiVar, Arparma
 async def _(result: Arparma, event: T_MessageEvent, matcher: Matcher):
     """await alconna.send("weather", city)"""
     ulang = get_user_lang(str(event.user_id))
-    qw_lang = language_map.get(ulang.lang_code, ulang.lang_code)
+    qw_lang = get_qw_lang(ulang.lang_code)
     key = get_config("weather_key")
     is_dev = get_config("weather_dev")
+
     user: User = user_db.first(User(), "user_id = ?", str(event.user_id), default=User())
 
     # params
@@ -38,7 +39,6 @@ async def _(result: Arparma, event: T_MessageEvent, matcher: Matcher):
         await matcher.finish(ulang.get("weather.no_key"))
 
     kws = result.main_args.get("keywords")
-
     if kws:
         if len(kws) >= 2:
             adm = kws[0]
@@ -53,7 +53,6 @@ async def _(result: Arparma, event: T_MessageEvent, matcher: Matcher):
             await matcher.finish(ulang.get("liteyuki.invalid_command", TEXT="location"))
         city_info = await city_lookup(stored_location, key, lang=qw_lang)
         city_name = stored_location
-
     if city_info.code == "200":
         location_data = city_info.location[0]
     else:

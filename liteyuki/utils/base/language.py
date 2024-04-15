@@ -102,9 +102,10 @@ def load_from_dict(data: dict, lang_code: str):
 
 class Language:
     def __init__(self, lang_code: str = None, fallback_lang_code: str = "zh-CN"):
-        if lang_code is None:
-            lang_code = config.get("default_language", get_default_lang())
         self.lang_code = lang_code
+        if self.lang_code is None:
+            self.lang_code = get_default_lang_code()
+
         self.fallback_lang_code = fallback_lang_code
         if self.fallback_lang_code is None:
             self.fallback_lang_code = config.get("default_language", get_system_lang_code())
@@ -159,7 +160,7 @@ def get_user_lang(user_id: str) -> Language:
         username="Unknown"
     ))
 
-    return Language(user.profile.get("lang", get_default_lang()))
+    return Language(user.profile.get("lang", get_default_lang_code()))
 
 
 def get_system_lang_code() -> str:
@@ -169,11 +170,13 @@ def get_system_lang_code() -> str:
     return locale.getdefaultlocale()[0].replace('_', '-')
 
 
-def get_default_lang() -> Language:
+def get_default_lang_code() -> str:
     """
-    获取配置默认/系统语言
+    获取默认语言代码
+    Returns:
+
     """
-    return Language(config.get("default_language", get_system_lang_code()))
+    return config.get("default_language", get_system_lang_code())
 
 
 def get_all_lang() -> dict[str, str]:

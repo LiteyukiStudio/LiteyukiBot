@@ -8,7 +8,7 @@ from nonebot.adapters.onebot.v11 import MessageSegment
 from nonebot.permission import SUPERUSER
 from liteyuki.utils import __NAME__, __VERSION__, load_from_yaml
 from liteyuki.utils.message.html_tool import template2image
-from liteyuki.utils.base.language import Language, get_default_lang, get_user_lang
+from liteyuki.utils.base.language import Language, get_default_lang_code, get_user_lang
 from liteyuki.utils.base.ly_typing import T_Bot, T_MessageEvent
 from liteyuki.utils.base.resource import get_path
 from liteyuki.utils.message.tools import convert_size
@@ -100,7 +100,7 @@ async def get_stats_data(self_id: str = None, lang: str = None) -> dict:
     if self_id is None:
         self_id = list(nonebot.get_bots().keys())[0] if len(nonebot.get_bots()) > 0 else "liteyuki"
     if lang is None:
-        ulang = get_default_lang()
+        ulang = Language(get_default_lang_code())
     else:
         ulang = Language(lang)
 

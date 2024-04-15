@@ -7,11 +7,11 @@ import nonebot
 import yaml
 
 from .data import LiteModel
-from .language import get_default_lang
+from .language import Language, get_default_lang_code
 
 _loaded_resource_packs: list["ResourceMetadata"] = []  # 按照加载顺序排序
 temp_resource_root = "data/liteyuki/resources"
-lang = get_default_lang()
+lang = Language(get_default_lang_code())
 
 
 class ResourceMetadata(LiteModel):

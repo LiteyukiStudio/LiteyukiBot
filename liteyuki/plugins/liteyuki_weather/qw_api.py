@@ -1,31 +1,20 @@
 from .qw_models import *
 import httpx
 
-language_map = {
-        "zh-CN" : "zh",
-        "zh-HK" : "zh-hant",
-        "en-US" : "en",
-        "ja-JP" : "ja",
-        "ko-KR" : "ko",
-        "fr-FR" : "fr",
-        "es-ES" : "es",
-        "de-DE" : "de",
-        "it-IT" : "it",
-        "ru-RU" : "ru",
-        "ar-SA" : "ar",
-        "pt-BR" : "pt",
-        "nl-NL" : "nl",
-        "pl-PL" : "pl",
-        "tr-TR" : "tr",
-        "th-TH" : "th",
-        "vi-VN" : "vi",
-        "id-ID" : "id",
-        "ms-MY" : "ms",
-        "fil-PH": "fil",
-}  # 其他使用默认对应
 
 dev_url = "https://devapi.qweather.com/"  # 开发HBa
 com_url = "https://api.qweather.com/"  # 正式环境
+
+
+def get_qw_lang(lang: str) -> str:
+    if lang in ["zh-HK", "zh-TW"]:
+        return "zh-hant"
+    elif lang.startswith("zh"):
+        return "zh"
+    elif lang.startswith("en"):
+        return "en"
+    else:
+        return lang
 
 
 async def city_lookup(
@@ -53,7 +42,7 @@ async def city_lookup(
             "adm"     : adm,
             "number"  : number,
             "key"     : key,
-            "lang"    : language_map.get(lang, lang),
+            "lang"    : lang,
     }
     async with httpx.AsyncClient() as client:
         resp = await client.get(url, params=params)
@@ -72,7 +61,7 @@ async def get_weather_now(
     params = {
             "location": location,
             "key"     : key,
-            "lang"    : language_map.get(lang, lang),
+            "lang"    : lang,
             "unit"    : unit,
     }
     async with httpx.AsyncClient() as client:
@@ -92,7 +81,7 @@ async def get_weather_daily(
     params = {
             "location": location,
             "key"     : key,
-            "lang"    : language_map.get(lang, lang),
+            "lang"    : lang,
             "unit"    : unit,
     }
     async with httpx.AsyncClient() as client:
@@ -112,7 +101,7 @@ async def get_weather_hourly(
     params = {
             "location": location,
             "key"     : key,
-            "lang"    : language_map.get(lang, lang),
+            "lang"    : lang,
             "unit"    : unit,
     }
     async with httpx.AsyncClient() as client:
@@ -132,11 +121,10 @@ async def get_airquality(
     url = dev_url + url_path if dev else com_url + url_path
     params = {
             "key"      : key,
-            "lang"     : language_map.get(lang, lang),
+            "lang"     : lang,
             "pollutant": pollutant,
             "station"  : station,
     }
     async with httpx.AsyncClient() as client:
         resp = await client.get(url, params=params)
         return resp.json()
-
