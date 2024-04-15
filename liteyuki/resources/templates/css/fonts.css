@@ -71,6 +71,6 @@
     font-style: italic;
 }
 
-body {
+* {
     font-family: 'MapleMono', 'MiSans', sans-serif;
 }

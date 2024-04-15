@@ -1,0 +1,83 @@
+#weather-info {
+    color: white;
+    /*justify-content: center;*/
+    /*align-items: center;*/
+    /*align-content: center;*/
+}
+
+#main-info {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#time {
+    font-size: 25px;
+    font-weight: bold;
+    font-style: italic;
+    text-align: right;
+    color: #aaa;
+
+}
+
+#adm {
+    font-size: 30px;
+    font-weight: bold;
+    text-align: center;
+    color: #aaa;
+}
+
+#city {
+    margin-top: 20px;
+    font-size: 70px;
+    font-weight: bold;
+    text-align: center;
+}
+
+#temperature {
+    display: flex;
+    align-items: baseline;
+
+}
+
+#temperature-now {
+    font-size: 70px;
+    font-weight: bold;
+}
+
+#temperature-range {
+    font-size: 40px;
+    font-weight: bold;
+    color: #aaa;
+}
+
+#description {
+    font-size: 50px;
+    font-weight: bold;
+}
+
+
+#aqi {
+    height: 50px;
+    display: flex;
+    border-radius: 60px;
+    padding: 5px;
+    font-size: 40px;
+    text-align: center;
+    align-content: center;
+    align-items: center;
+    justify-content: center;
+}
+
+#aqi-dot {
+    height: 80%;
+    aspect-ratio: 1 / 1;
+    border-radius: 50%;
+    background-color: #aaa;
+    margin-right: 20px;
+}
+
+.main-icon {
+    width: 240px;
+    height: 240px;
+}

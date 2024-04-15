@@ -12,6 +12,7 @@ from pydantic import BaseModel
 class LiteModel(BaseModel):
     TABLE_NAME: str = None
     id: int = None
+
     def dump(self, *args, **kwargs):
         if pydantic.__version__ < "1.8.2":
             return self.dict(*args, **kwargs)

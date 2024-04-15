@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>Liteyuki Status</title>
+    <link rel="stylesheet" href="./css/card.css">
+    <link rel="stylesheet" href="./css/fonts.css">
+    <link rel="stylesheet" href="./css/weather_now.css">
+</head>
+<!-- qw_icon: https://a.hecdn.net/img/common/icon/202106d/%d.png-->
+<body>
+<div class="data-storage" id="data">{{ data | tojson }}</div>
+<div class="info-box" id="weather-info">
+    <div id="detail-info">
+        <div id="time">1145-01-12 22:22:22</div>
+        <div id="adm">国家 一级 二级</div>
+        <div id="city">城市</div>
+    </div>
+    <div id="main-info">
+        <div>
+            <img class="main-icon" src="./img/qw_icon/101.png" alt="AAA">
+        </div>
+        <div>
+            <div id="temperature">
+                <div id="temperature-now">
+                    90°
+                </div>
+                <div id="temperature-range">
+                    10°~90°
+                </div>
+            </div>
+            <div id="description">
+                好天气
+            </div>
+        </div>
+    </div>
+    <div id="aqi">
+        <div id="aqi-dot"></div>
+        <div id="aqi-data"> AQI 114 优</div>
+    </div>
+</div>
+<div class="info-box" id="sub-info"></div>
+<div class="info-box" id="hours-info"></div>
+<div class="info-box" id="days-info"></div>
+
+<script src="./js/card.js"></script>
+<script src="./js/weather_now.js"></script>
+</body>

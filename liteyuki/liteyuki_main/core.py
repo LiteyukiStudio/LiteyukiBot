@@ -65,12 +65,18 @@ async def _(bot: T_Bot, event: T_MessageEvent):
 async def _(matcher: Matcher, bot: T_Bot, event: T_MessageEvent):
     await matcher.send("Liteyuki reloading")
     temp_data = common_db.first(TempConfig(), default=TempConfig())
-    temp_data.data["reload"] = True
-    temp_data.data["reload_time"] = time.time()
-    temp_data.data["reload_bot_id"] = bot.self_id
-    temp_data.data["reload_session_type"] = event.message_type
-    temp_data.data["reload_session_id"] = event.group_id if event.message_type == "group" else event.user_id
-    temp_data.data["delta_time"] = 0
+
+    temp_data.data.update(
+        {
+                "reload"             : True,
+                "reload_time"        : time.time(),
+                "reload_bot_id"      : bot.self_id,
+                "reload_session_type": event.message_type,
+                "reload_session_id"  : event.group_id if event.message_type == "group" else event.user_id,
+                "delta_time"         : 0
+        }
+    )
+
     common_db.upsert(temp_data)
     Reloader.reload(0)
 
@@ -88,7 +94,12 @@ async def _(matcher: Matcher, bot: T_Bot, event: T_MessageEvent):
         Subcommand(
             "get",
             Args["key", str, None],
-            alias=["查询"]
+            alias=["查询", "获取"]
+        ),
+        Subcommand(
+            "remove",
+            Args["key", str],
+            alias=["删除"]
         )
     ),
     permission=SUPERUSER
@@ -120,9 +131,17 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, matcher: Matcher
             if len(stored_config.config) > 0:
                 reply += f"\n{ulang.get('liteyuki.stored_config')}\n```dotenv"
                 for k, v in stored_config.config.items():
-                    reply += f"\n{k}={v}"
+                    reply += f"\n{k}={v} {type(v)}"
                 reply += "\n```"
         await md.send_md(reply, bot, event=event)
+    elif result.subcommands.get("remove"):
+        key = result.subcommands.get("remove").args.get("key")
+        if key in stored_config.config:
+            stored_config.config.pop(key)
+            common_db.upsert(stored_config)
+            await matcher.finish(f"{ulang.get('liteyuki.config_remove_success', KEY=key)}")
+        else:
+            await matcher.finish(f"{ulang.get('liteyuki.invalid_command', TEXT=key)}")
 
 
 @on_alconna(
@@ -227,6 +246,6 @@ async def every_day_update():
         if result:
             await broadcast_to_superusers(f"Liteyuki updated: ```\n{logs}\n```")
             nonebot.logger.info(f"Liteyuki updated: {logs}")
-            Reloader.reload(1)
+            Reloader.reload(5)
         else:
             nonebot.logger.info(logs)

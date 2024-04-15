@@ -19,12 +19,12 @@ class Location(LiteModel):
     license: str = ""
 
 
-class CityLookupResponse(LiteModel):
+class CityLookup(LiteModel):
     code: str = ""
-    location: Location = Location()
+    location: list[Location] = [Location()]
 
 
-class WeatherNow(LiteModel):
+class Now(LiteModel):
     obsTime: str = ""
     temp: str = ""
     feelsLike: str = ""
@@ -44,8 +44,19 @@ class WeatherNow(LiteModel):
     license: str = ""
 
 
-class WeatherNowResponse(LiteModel):
+class WeatherNow(LiteModel):
     code: str = ""
     updateTime: str = ""
     fxLink: str = ""
-    now: WeatherNow = WeatherNow()
+    now: Now = Now()
+
+
+class Daily(LiteModel):
+    pass
+
+
+class WeatherDaily(LiteModel):
+    code: str = ""
+    updateTime: str = ""
+    fxLink: str = ""
+    daily: list[str] = []

@@ -6,9 +6,12 @@ import aiofiles
 import nonebot
 from nonebot import require
 
+from liteyuki.utils.base.resource import load_resources
+
 require("nonebot_plugin_htmlrender")
 
 from nonebot_plugin_htmlrender import *
+
 
 async def template2html(
         template: str,
@@ -56,9 +59,11 @@ async def template2image(
         }
     template_path = os.path.dirname(template)
     template_name = os.path.basename(template)
-    print(template_path, template_name)
 
     if debug:
+        # 重载资源
+        load_resources()
+
         raw_html = await template_to_html(
             template_name=template_name,
             template_path=template_path,

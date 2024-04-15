@@ -24,7 +24,7 @@ liteyuki.stats.friends=好友
 liteyuki.stats.plugins=插件
 liteyuki.image_mode_on=开启Markdown图片模式
 liteyuki.image_mode_off=关闭Markdown图片模式
-liteyuki.invalid_command=无效的命令或参数
+liteyuki.invalid_command=无效的命令或参数 {TEXT}
 liteyuki.reload_resources=重载资源
 liteyuki.list_resources=资源包列表
 liteyuki.reload_resources_success=资源重载成功，共计 {NUM} 个资源包
@@ -44,6 +44,7 @@ liteyuki.change_priority_failed=资源包 {NAME} 优先级修改失败
 liteyuki.group_already=群 {GROUP} 已经是 {STATUS} 状态，无需重复操作
 liteyuki.group_success=群 {GROUP} {STATUS} 成功
 liteyuki.permission_denied=权限不足
+liteyuki.config_remove_success=配置项 {KEY} 移除成功
 
 main.current_language=当前配置语言为: {LANG}
 main.enable_webdash=已启用网页监控面板: {URL}
@@ -121,3 +122,7 @@ user.profile.set_failed=设置 {ATTR} 失败，请检查输入是否合法
 rpm.move_up=上移
 rpm.move_down=下移
 rpm.move_top=置顶
+
+weather.city_not_found=未找到城市 {CITY}
+weather.weather_not_found=未找到城市 {CITY} 的天气信息
+weather.no_key=未设置天气api key，请在配置文件添加weather-key
