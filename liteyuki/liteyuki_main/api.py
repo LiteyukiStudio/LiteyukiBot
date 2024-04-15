@@ -27,14 +27,15 @@ def update_liteyuki() -> tuple[bool, str]:
         logs = ""
         # 对每个远程仓库进行更新
         for remote_url in remote_urls:
-            logs += f"\nremote: {remote_url}"
-            repo.remotes.origin.set_url(remote_url)
-            repo.remotes.origin.pull()
-            diffs = repo.head.commit.diff("origin/main")
-
-            for diff in diffs.iter_change_type('M'):
-                logs += f"\n{diff.a_path}"
-        return True, logs
+            try:
+                logs += f"\nremote: {remote_url}"
+                repo.remotes.origin.set_url(remote_url)
+                repo.remotes.origin.pull()
+                diffs = repo.head.commit.diff("origin/main")
+                for diff in diffs.iter_change_type('M'):
+                    logs += f"\n{diff.a_path}"
+                return True, logs
+            except:
+                continue
     else:
         return False, "Nothing Changed"
-
