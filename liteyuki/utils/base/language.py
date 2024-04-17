@@ -145,20 +145,21 @@ class Language:
 
 def change_user_lang(user_id: str, lang_code: str):
     """
-    修改用户的语言
+    修改用户的语言，同时储存到数据库和内存中
     """
     user = user_db.first(User(), "user_id = ?", user_id, default=User(user_id=user_id))
     user.profile["lang"] = lang_code
     user_db.update(user, "user_id = ?", user_id)
+    _user_lang[user_id] = lang_code
 
 
 def get_user_lang(user_id: str) -> Language:
     """
     获取用户的语言实例，优先从内存中获取
     """
-    if user_id in _user_lang:
-        return Language(_user_lang[user_id])
-    else:
+    user_id = str(user_id)
+
+    if user_id not in _user_lang:
         user = user_db.first(
             User(), "user_id = ?", user_id, default=User(
                 user_id=user_id,
@@ -167,7 +168,8 @@ def get_user_lang(user_id: str) -> Language:
         )
         lang_code = user.profile.get("lang", get_default_lang_code())
         _user_lang[user_id] = lang_code
-        return Language(lang_code)
+
+    return Language(_user_lang[user_id])
 
 
 def get_system_lang_code() -> str:

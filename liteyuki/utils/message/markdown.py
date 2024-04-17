@@ -18,11 +18,10 @@ def escape_md(text: str) -> str:
     Returns:
         str: 转义后文本
     """
-    text = text.replace("\n", r"\n").replace('"', r'\\\"')
     spacial_chars = r"\`*_{}[]()#+-.!"
     for char in spacial_chars:
-        text = text.replace(char, "\\" + char)
-    return text
+        text = text.replace(char, "\\\\" + char)
+    return text.replace("\n", r"\n").replace('"', r'\\\"')
 
 
 def escape_decorator(func):
@@ -41,7 +40,6 @@ def compile_md(comps: list[str]) -> str:
     Returns:
         str: 编译后文本
     """
-    print("".join(comps))
     return "".join(comps)
 
 
@@ -80,7 +78,7 @@ class MarkdownComponent:
     @staticmethod
     def quote(text: str) -> str:
         """引用"""
-        return f"> {text}\n"
+        return f"> {text}\n\n"
 
     @staticmethod
     def link(text: str, url: str, symbol: bool = True) -> str:

@@ -8,6 +8,11 @@ from liteyuki.utils.base.data import LiteModel
 from liteyuki.utils.base.data_manager import GlobalPlugin, Group, User, group_db, plugin_db, user_db
 from liteyuki.utils.base.ly_typing import T_MessageEvent
 
+__group_data = {}  # 群数据缓存, {group_id: Group}
+__user_data = {}  # 用户数据缓存, {user_id: User}
+__default_enable = {}  # 插件默认启用状态缓存, {plugin_name: bool} static
+__global_enable = {}  # 插件全局启用状态缓存, {plugin_name: bool} dynamic
+
 
 class PluginTag(LiteModel):
     label: str
@@ -63,7 +68,7 @@ async def get_store_plugin(plugin_name: str) -> Optional[StorePlugin]:
 
 def get_plugin_default_enable(plugin_name: str) -> bool:
     """
-    获取插件默认启用状态，由插件定义，不存在则默认为启用
+    获取插件默认启用状态，由插件定义，不存在则默认为启用，优先从缓存中获取
 
     Args:
         plugin_name (str): 插件模块名
@@ -71,9 +76,12 @@ def get_plugin_default_enable(plugin_name: str) -> bool:
     Returns:
         bool: 插件默认状态
     """
-    plug = nonebot.plugin.get_plugin(plugin_name)
-    return (plug.metadata.extra.get("default_enable", True)
-            if plug.metadata else True) if plug else True
+    if plugin_name not in __default_enable:
+        plug = nonebot.plugin.get_plugin(plugin_name)
+        default_enable = (plug.metadata.extra.get("default_enable", True) if plug.metadata else True) if plug else True
+        __default_enable[plugin_name] = default_enable
+
+    return __default_enable[plugin_name]
 
 
 def get_plugin_session_enable(event: T_MessageEvent, plugin_name: str) -> bool:
@@ -88,9 +96,19 @@ def get_plugin_session_enable(event: T_MessageEvent, plugin_name: str) -> bool:
         bool: 插件当前状态
     """
     if event.message_type == "group":
-        session: Group = group_db.first(Group(), "group_id = ?", event.group_id, default=Group(group_id=str(event.group_id)))
+        group_id = str(event.group_id)
+        if group_id not in __group_data:
+            group: Group = group_db.first(Group(), "group_id = ?", group_id, default=Group(group_id=group_id))
+            __group_data[str(event.group_id)] = group
+
+        session = __group_data[group_id]
     else:
-        session: User = user_db.first(User(), "user_id = ?", event.user_id, default=User(user_id=str(event.user_id)))
+        # session: User = user_db.first(User(), "user_id = ?", event.user_id, default=User(user_id=str(event.user_id)))
+        user_id = str(event.user_id)
+        if user_id not in __user_data:
+            user: User = user_db.first(User(), "user_id = ?", user_id, default=User(user_id=user_id))
+            __user_data[user_id] = user
+        session = __user_data[user_id]
     # 默认停用插件在启用列表内表示启用
     # 默认停用插件不在启用列表内表示停用
     # 默认启用插件在停用列表内表示停用
@@ -102,13 +120,81 @@ def get_plugin_session_enable(event: T_MessageEvent, plugin_name: str) -> bool:
         return plugin_name in session.enabled_plugins
 
 
+def set_plugin_session_enable(event: T_MessageEvent, plugin_name: str, enable: bool):
+    """
+    设置插件会话启用状态，同时更新数据库和缓存
+    Args:
+        event:
+        plugin_name:
+        enable:
+
+    Returns:
+
+    """
+    if event.message_type == "group":
+        session = group_db.first(Group(), "group_id = ?", str(event.group_id), default=Group(group_id=str(event.group_id)))
+    else:
+        session = user_db.first(User(), "user_id = ?", str(event.user_id), default=User(user_id=str(event.user_id)))
+    default_enable = get_plugin_default_enable(plugin_name)
+    if default_enable:
+        if enable:
+            session.disabled_plugins.remove(plugin_name)
+        else:
+            session.disabled_plugins.append(plugin_name)
+    else:
+        if enable:
+            session.enabled_plugins.append(plugin_name)
+        else:
+            session.enabled_plugins.remove(plugin_name)
+
+    if event.message_type == "group":
+        __group_data[str(event.group_id)] = session
+        print(session)
+        group_db.upsert(session)
+    else:
+        __user_data[str(event.user_id)] = session
+        user_db.upsert(session)
+
+
 def get_plugin_global_enable(plugin_name: str) -> bool:
-    nonebot.plugin.get_plugin(plugin_name)
-    return plugin_db.first(
+    """
+    获取插件全局启用状态, 优先从缓存中获取
+    Args:
+        plugin_name:
+
+    Returns:
+
+    """
+    if plugin_name not in __global_enable:
+        plugin = plugin_db.first(
+            GlobalPlugin(),
+            "module_name = ?",
+            plugin_name,
+            default=GlobalPlugin(module_name=plugin_name, enabled=True))
+        __global_enable[plugin_name] = plugin.enabled
+
+    return __global_enable[plugin_name]
+
+
+def set_plugin_global_enable(plugin_name: str, enable: bool):
+    """
+    设置插件全局启用状态，同时更新数据库和缓存
+    Args:
+        plugin_name:
+        enable:
+
+    Returns:
+
+    """
+    plugin = plugin_db.first(
         GlobalPlugin(),
         "module_name = ?",
         plugin_name,
-        default=GlobalPlugin(module_name=plugin_name, enabled=True)).enabled
+        default=GlobalPlugin(module_name=plugin_name, enabled=True))
+    plugin.enabled = enable
+
+    plugin_db.upsert(plugin)
+    __global_enable[plugin_name] = enable
 
 
 def get_plugin_can_be_toggle(plugin_name: str) -> bool:
@@ -135,5 +221,25 @@ def get_group_enable(group_id: str) -> bool:
     Returns:
         bool: 群组是否启用插件
     """
-    session: Group = group_db.first(Group(), "group_id = ?", group_id, default=Group(group_id=group_id))
-    return session.enable
+    group_id = str(group_id)
+    if group_id not in __group_data:
+        group: Group = group_db.first(Group(), "group_id = ?", group_id, default=Group(group_id=group_id))
+        __group_data[group_id] = group
+
+    return __group_data[group_id].enable
+
+
+def set_group_enable(group_id: str, enable: bool):
+    """
+    设置群组是否启用插机器人
+
+    Args:
+        group_id (str): 群组ID
+        enable (bool): 是否启用
+    """
+    group_id = str(group_id)
+    group: Group = group_db.first(Group(), "group_id = ?", group_id, default=Group(group_id=group_id))
+    group.enable = enable
+
+    __group_data[group_id] = group
+    group_db.upsert(group)

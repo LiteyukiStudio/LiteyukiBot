@@ -5,7 +5,7 @@ from nonebot import require
 
 from liteyuki.utils.base.data import LiteModel
 from liteyuki.utils.base.data_manager import User, user_db
-from liteyuki.utils.base.language import Language, get_all_lang, get_user_lang
+from liteyuki.utils.base.language import Language, change_user_lang, get_all_lang, get_user_lang
 from liteyuki.utils.base.ly_typing import T_Bot, T_MessageEvent
 from liteyuki.utils.message.message import MarkdownMessage as md
 from .const import representative_timezones_list
@@ -46,7 +46,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
     if result.subcommands.get("set"):
         if result.subcommands["set"].args.get("value"):
             # 对合法性进行校验后设置
-            r = set_profile(result.args["key"], result.args["value"])
+            r = set_profile(result.args["key"], result.args["value"], str(event.user_id))
             if r:
                 user.profile[result.args["key"]] = result.args["value"]
                 user_db.upsert(user)  # 数据库保存
@@ -126,9 +126,10 @@ def get_profile_menu(key: str, ulang: Language) -> Optional[str]:
     return reply
 
 
-def set_profile(key: str, value: str) -> bool:
+def set_profile(key: str, value: str, user_id: str) -> bool:
     """设置属性，使用if分支对每一个合法性进行检查
     Args:
+        user_id:
         key:
         value:
 
@@ -138,6 +139,7 @@ def set_profile(key: str, value: str) -> bool:
     """
     if key == "lang":
         if value in get_all_lang():
+            change_user_lang(user_id, value)
             return True
     elif key == "timezone":
         if value in pytz.all_timezones:

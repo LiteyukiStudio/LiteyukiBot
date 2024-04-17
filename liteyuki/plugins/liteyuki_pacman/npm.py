@@ -101,8 +101,6 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
 
         session_enable = get_plugin_session_enable(event, plugin_name)  # 获取插件当前状态
 
-        default_enable = get_plugin_default_enable(plugin_name)  # 获取插件默认状态
-
         can_be_toggled = get_plugin_can_be_toggle(plugin_name)  # 获取插件是否可以被启用/停用
 
         if not plugin_exist:
@@ -123,22 +121,9 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
             else:
                 raise FinishedException(ulang.get("Permission Denied"))
         try:
-            if toggle:
-                if default_enable:
-                    session.disabled_plugins.remove(plugin_name)
-                else:
-                    session.enabled_plugins.append(plugin_name)
-            else:
-                if default_enable:
-                    session.disabled_plugins.append(plugin_name)
-                else:
-                    session.enabled_plugins.remove(plugin_name)
-            if event.message_type == "private":
-                user_db.upsert(session)
-            else:
-                group_db.upsert(session)
+            set_plugin_session_enable(event, plugin_name, toggle)
         except Exception as e:
-            print(e)
+            nonebot.logger.error(e)
             await npm.finish(
                 ulang.get(
                     "npm.toggle_failed",
@@ -173,14 +158,8 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
                 ulang.get("npm.plugin_already", NAME=plugin_name, STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable")))
 
         try:
-            storePlugin = plugin_db.first(GlobalPlugin(), "module_name = ?", plugin_name, default=GlobalPlugin(module_name=plugin_name))
-            if toggle:
-                storePlugin.enabled = True
-            else:
-                storePlugin.enabled = False
-            plugin_db.upsert(storePlugin)
+            set_plugin_global_enable(plugin_name, toggle)
         except Exception as e:
-            print(e)
             await npm.finish(
                 ulang.get(
                     "npm.toggle_failed",
@@ -348,6 +327,10 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
 
                     reply += f"  {btn_uninstall}  {btn_toggle_global}"
             reply += "\n\n***\n"
+        # 根据页数添加翻页按钮。第一页显示上一页文本而不是按钮，最后一页显示下一页文本而不是按钮
+        btn_prev = md.btn_cmd(ulang.get("npm.prev_page"), f"npm list {page - 1} {num_per_page}") if page > 1 else ulang.get("npm.prev_page")
+        btn_next = md.btn_cmd(ulang.get("npm.next_page"), f"npm list {page + 1} {num_per_page}") if page < total else ulang.get("npm.next_page")
+        reply += f"\n{btn_prev}  {page}/{total}  {btn_next}"
         await md.send_md(reply, bot, event=event)
 
     else:
@@ -385,16 +368,12 @@ async def _(bot: T_Bot, event: T_MessageEvent, gm: Matcher, result: Arparma):
         await gm.finish(ulang.get("liteyuki.invalid_command"), liteyuki_pass=True)
 
     enabled = get_group_enable(group_id)
+    print(enabled, to_enable)
     if enabled == to_enable:
         await gm.finish(ulang.get("liteyuki.group_already", STATUS=ulang.get("npm.enable") if to_enable else ulang.get("npm.disable"), GROUP=group_id),
                         liteyuki_pass=True)
     else:
-        group: Group = group_db.first(Group(), "group_id = ?", group_id, default=Group(group_id=group_id))
-        if to_enable:
-            group.enable = True
-        else:
-            group.enable = False
-        group_db.upsert(group)
+        set_group_enable(group_id, to_enable)
         await gm.finish(
             ulang.get("liteyuki.group_success", STATUS=ulang.get("npm.enable") if to_enable else ulang.get("npm.disable"), GROUP=group_id),
             liteyuki_pass=True
@@ -438,10 +417,10 @@ async def _(result: Arparma, matcher: Matcher, event: T_MessageEvent, bot: T_Bot
             reply = [
                     mdc.heading(escape_md(loaded_plugin.metadata.name)),
                     mdc.quote(mdc.bold(ulang.get("npm.author")) + " " +
-                              mdc.link(store_plugin.author, f"https://github/{store_plugin.author}") if store_plugin.author else "Unknown"),
+                              (mdc.link(store_plugin.author, f"https://github.com/{store_plugin.author}") if store_plugin.author else "Unknown")),
                     mdc.quote(mdc.bold(ulang.get("npm.description")) + " " + mdc.paragraph(max(loaded_plugin.metadata.description, store_plugin.desc))),
                     mdc.heading(ulang.get("npm.usage"), 2),
-                    mdc.paragraph(loaded_plugin.metadata.usage),
+                    mdc.paragraph(escape_md(loaded_plugin.metadata.usage)),
             ]
             await md.send_md(compile_md(reply), bot, event=event)
         else:

@@ -9,7 +9,7 @@ nb-cli==1.4.1
 nonebot2[fastapi,httpx,websockets]==2.2.1
 nonebot-plugin-htmlrender==0.3.1
 nonebot-adapter-onebot==2.4.3
-nonebot-plugin-alconna==0.42.3
+nonebot-plugin-alconna==0.42.4
 nonebot_plugin_apscheduler==0.4.0
 playwright==1.17.2
 psutil==5.9.8

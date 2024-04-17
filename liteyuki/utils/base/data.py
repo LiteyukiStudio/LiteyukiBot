@@ -57,6 +57,7 @@ class Database:
         """
         table_name = model.TABLE_NAME
         model_type = type(model)
+        nonebot.logger.debug(f"Selecting {model_type} WHERE {condition} {args}")
         if not table_name:
             raise ValueError(f"数据模型{model_type.__name__}未提供表名")
 
@@ -85,6 +86,7 @@ class Database:
         """
         table_list = [item[0] for item in self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
         for model in args:
+            nonebot.logger.debug(f"Upserting {model}")
             if not model.TABLE_NAME:
                 raise ValueError(f"数据模型 {model.__class__.__name__} 未提供表名")
             elif model.TABLE_NAME not in table_list:
@@ -164,12 +166,8 @@ class Database:
             return new_obj
         elif isinstance(obj, (list, set, tuple)):
 
-            print(" - Load as List")
-
             new_obj = []
             for item in obj:
-
-                print("   - Loading Item", item)
 
                 if isinstance(item, bytes):
 
@@ -178,8 +176,6 @@ class Database:
                         new_obj.append(self._load(pickle.loads(item)))
                     except Exception as e:
                         new_obj.append(self._load(item))
-
-                    print("     - Load as Bytes | Result:", new_obj[-1])
 
                 elif isinstance(item, str) and item.startswith(self.FOREIGN_KEY_PREFIX):
                     new_obj.append(self._load(self._get_foreign_data(item)))
@@ -202,6 +198,7 @@ class Database:
 
         """
         table_name = model.TABLE_NAME
+        nonebot.logger.debug(f"Deleting {model} WHERE {condition} {args}")
         if not table_name:
             raise ValueError(f"数据模型{model.__class__.__name__}未提供表名")
         if model.id is not None:
