@@ -36,7 +36,7 @@ def load_from_yaml(file: str) -> dict:
         return conf
 
 
-def get_config(key: str, bot: T_Bot = None, default=None):
+def get_config(key: str, *, bot: T_Bot = None, default=None):
     """获取配置项，优先级：bot > config > db > yaml"""
     if bot is None:
         bot_config = {}
@@ -59,6 +59,15 @@ def get_config(key: str, bot: T_Bot = None, default=None):
 
 
 def init_conf(conf: dict) -> dict:
+    """
+    初始化配置文件，确保配置文件中的必要字段存在，且不会冲突
+    Args:
+        conf:
+
+    Returns:
+
+    """
+    # 若command_start中无""，则添加必要命令头，开启alconna_use_command_start防止冲突
     if "" not in conf.get("command_start", []):
         conf["alconna_use_command_start"] = True
     return conf

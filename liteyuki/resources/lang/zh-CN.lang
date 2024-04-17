@@ -65,6 +65,7 @@ npm.loaded_plugins=已加载插件
 npm.total=总计 {TOTAL}
 npm.help=帮助
 npm.usage=用法
+npm.description=描述
 npm.disable=停用
 npm.disable_global=全局停用
 npm.enable=启用

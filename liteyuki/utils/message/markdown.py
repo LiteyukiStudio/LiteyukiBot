@@ -9,7 +9,7 @@ from ..base.config import get_config
 from ..base.ly_typing import T_Bot
 
 
-def markdown_escape(text: str) -> str:
+def escape_md(text: str) -> str:
     """
     转义Markdown特殊字符
     Args:
@@ -27,57 +27,62 @@ def markdown_escape(text: str) -> str:
 
 def escape_decorator(func):
     def wrapper(text: str):
-        return func(markdown_escape(text))
+        return func(escape_md(text))
 
     return wrapper
 
 
+def compile_md(comps: list[str]) -> str:
+    """
+    编译Markdown文本
+    Args:
+        comps: list[str]: 组件列表
+
+    Returns:
+        str: 编译后文本
+    """
+    print("".join(comps))
+    return "".join(comps)
+
+
 class MarkdownComponent:
     @staticmethod
-    @escape_decorator
     def heading(text: str, level: int = 1) -> str:
         """标题"""
         assert 1 <= level <= 6, "标题级别应在 1-6 之间"
-        return f"{'#' * level} {text}"
+        return f"{'#' * level} {text}\n"
 
     @staticmethod
-    @escape_decorator
     def bold(text: str) -> str:
         """粗体"""
         return f"**{text}**"
 
     @staticmethod
-    @escape_decorator
     def italic(text: str) -> str:
         """斜体"""
         return f"*{text}*"
 
     @staticmethod
-    @escape_decorator
     def strike(text: str) -> str:
         """删除线"""
         return f"~~{text}~~"
 
     @staticmethod
-    @escape_decorator
     def code(text: str) -> str:
         """行内代码"""
         return f"`{text}`"
 
     @staticmethod
-    @escape_decorator
     def code_block(text: str, language: str = "") -> str:
         """代码块"""
-        return f"```{language}\n{text}\n```"
+        return f"```{language}\n{text}\n```\n"
 
     @staticmethod
-    @escape_decorator
     def quote(text: str) -> str:
         """引用"""
-        return f"> {text}"
+        return f"> {text}\n"
 
     @staticmethod
-    @escape_decorator
     def link(text: str, url: str, symbol: bool = True) -> str:
         """
         链接
@@ -87,10 +92,9 @@ class MarkdownComponent:
             url: 链接地址
             symbol: 是否显示链接图标, mqqapi请使用False
         """
-        return f"[{'🔗' if symbol else ''}{text}]({quote(url)})"
+        return f"[{'🔗' if symbol else ''}{text}]({url})"
 
     @staticmethod
-    @escape_decorator
     def image(url: str, *, size: tuple[int, int]) -> str:
         """
         图片，本地图片不建议直接使用
@@ -104,7 +108,6 @@ class MarkdownComponent:
         return f"![image #{size[0]}px #{size[1]}px]({url})"
 
     @staticmethod
-    @escape_decorator
     async def auto_image(image: str | bytes, bot: T_Bot) -> str:
         """
         自动获取图片大小
@@ -143,7 +146,6 @@ class MarkdownComponent:
         return MarkdownComponent.image(url, size=size)
 
     @staticmethod
-    @escape_decorator
     def table(data: list[list[any]]) -> str:
         """
         表格
@@ -159,6 +161,17 @@ class MarkdownComponent:
         for row in data[1:]:
             table += "|".join(map(str, row)) + "\n"
         return table
+
+    @staticmethod
+    def paragraph(text: str) -> str:
+        """
+        段落
+        Args:
+            text: 段落内容
+        Returns:
+            markdown格式的段落
+        """
+        return f"{text}\n"
 
 
 class Mqqapi:

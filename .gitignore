@@ -20,6 +20,8 @@ liteyuki/resources/templates/latest-debug.html
 .github
 pyproject.toml
 
+test.py
+
 # nuitka
 main.build/
 main.dist/

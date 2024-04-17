@@ -11,11 +11,14 @@ from nonebot.internal.adapter import Event
 from nonebot.internal.matcher import Matcher
 from nonebot.message import run_preprocessor
 from nonebot.permission import SUPERUSER
-from nonebot.plugin import Plugin
+from nonebot.plugin import Plugin, PluginMetadata
+from nonebot.utils import run_sync
+
 from liteyuki.utils.base.data_manager import InstalledPlugin
 from liteyuki.utils.base.language import get_user_lang
 from liteyuki.utils.base.ly_typing import T_Bot
 from liteyuki.utils.message.message import MarkdownMessage as md
+from liteyuki.utils.message.markdown import MarkdownComponent as mdc, compile_md, escape_md
 from liteyuki.utils.base.permission import GROUP_ADMIN, GROUP_OWNER
 from liteyuki.utils.message.tools import clamp
 from .common import *
@@ -229,7 +232,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
         plugin_name: str = result.subcommands["install"].args.get("plugin_name")
         store_plugin = await get_store_plugin(plugin_name)
         await npm.send(ulang.get("npm.installing", NAME=plugin_name))
-        r, log = npm_install(plugin_name)
+        r, log = await npm_install(plugin_name)
         log = log.replace("\\", "/")
 
         if not store_plugin:
@@ -398,6 +401,56 @@ async def _(bot: T_Bot, event: T_MessageEvent, gm: Matcher, result: Arparma):
         )
 
 
+@on_alconna(
+    aliases={"帮助"},
+    command=Alconna(
+        "help",
+        Args["plugin_name", str, None],
+    )
+).handle()
+async def _(result: Arparma, matcher: Matcher, event: T_MessageEvent, bot: T_Bot):
+    ulang = get_user_lang(str(event.user_id))
+    plugin_name = result.main_args.get("plugin_name")
+    if plugin_name:
+        loaded_plugin = nonebot.get_plugin(plugin_name)
+
+        if loaded_plugin:
+            if loaded_plugin.metadata is None:
+                loaded_plugin.metadata = PluginMetadata(name=plugin_name, description="", usage="")
+            # 从商店获取详细信息
+            store_plugin = await get_store_plugin(plugin_name)
+            if loaded_plugin.metadata.extra.get("liteyuki"):
+                store_plugin = StorePlugin(
+                    name=loaded_plugin.metadata.name,
+                    desc=loaded_plugin.metadata.description,
+                    author="SnowyKami",
+                    module_name=plugin_name,
+                    homepage="https://github.com/snowykami/LiteyukiBot"
+                )
+            elif store_plugin is None:
+                store_plugin = StorePlugin(
+                    name=loaded_plugin.metadata.name,
+                    desc=loaded_plugin.metadata.description,
+                    author="",
+                    module_name=plugin_name,
+                    homepage=""
+                )
+            reply = [
+                    mdc.heading(escape_md(loaded_plugin.metadata.name)),
+                    mdc.quote(mdc.bold(ulang.get("npm.author")) + " " +
+                              mdc.link(store_plugin.author, f"https://github/{store_plugin.author}") if store_plugin.author else "Unknown"),
+                    mdc.quote(mdc.bold(ulang.get("npm.description")) + " " + mdc.paragraph(max(loaded_plugin.metadata.description, store_plugin.desc))),
+                    mdc.heading(ulang.get("npm.usage"), 2),
+                    mdc.paragraph(loaded_plugin.metadata.usage),
+            ]
+            await md.send_md(compile_md(reply), bot, event=event)
+        else:
+            await matcher.finish(ulang.get("npm.plugin_not_found", NAME=plugin_name))
+    else:
+        pass
+
+
+# 传入事件阻断hook
 @run_preprocessor
 async def pre_handle(event: Event, matcher: Matcher):
     plugin: Plugin = matcher.plugin
@@ -410,6 +463,7 @@ async def pre_handle(event: Event, matcher: Matcher):
             raise IgnoredException("Plugin disabled in session")
 
 
+# 群聊开关阻断hook
 @Bot.on_calling_api
 async def block_disable_session(bot: Bot, api: str, args: dict):
     if "group_id" in args and not args.get("liteyuki_pass", False):
@@ -442,7 +496,7 @@ async def npm_update() -> bool:
 
 async def npm_search(keywords: list[str]) -> list[StorePlugin]:
     """
-    搜索插件
+    在本地缓存商店数据中搜索插件
 
     Args:
         keywords (list[str]): 关键词列表
@@ -468,8 +522,10 @@ async def npm_search(keywords: list[str]) -> list[StorePlugin]:
     return results
 
 
+@run_sync
 def npm_install(plugin_package_name) -> tuple[bool, str]:
     """
+    异步安装插件，使用pip安装
     Args:
         plugin_package_name:
 

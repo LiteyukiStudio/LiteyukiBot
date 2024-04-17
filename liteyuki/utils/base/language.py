@@ -9,13 +9,17 @@ from typing import Any
 
 import nonebot
 
-from .config import config
+from .config import config, get_config
 from .data_manager import User, user_db
 
 _language_data = {
         "en": {
                 "name": "English",
         }
+}
+
+_user_lang = {
+        "user_id": "zh-CN"
 }
 
 
@@ -101,8 +105,11 @@ def load_from_dict(data: dict, lang_code: str):
 
 
 class Language:
-    def __init__(self, lang_code: str = None, fallback_lang_code: str = "zh-CN"):
+    # 三重fallback
+    # 用户语言 > 默认语言/系统语言 > zh-CN
+    def __init__(self, lang_code: str = None, fallback_lang_code: str = None):
         self.lang_code = lang_code
+
         if self.lang_code is None:
             self.lang_code = get_default_lang_code()
 
@@ -112,7 +119,7 @@ class Language:
 
     def get(self, item: str, *args, **kwargs) -> str | Any:
         """
-        获取当前语言文本
+        获取当前语言文本，kwargs中的default参数为默认文本
         Args:
             item:   文本键
             *args:  格式化参数
@@ -123,44 +130,44 @@ class Language:
 
         """
         default = kwargs.pop("default", None)
+        fallback = (self.lang_code, self.fallback_lang_code, "zh-CN")
 
-        try:
-            if self.lang_code in _language_data and item in _language_data[self.lang_code]:
-                return _language_data[self.lang_code][item].format(*args, **kwargs)
-            nonebot.logger.debug(f"Language text not found: {self.lang_code}.{item}")
-            if self.fallback_lang_code in _language_data and item in _language_data[self.fallback_lang_code]:
-                return _language_data[self.fallback_lang_code][item].format(*args, **kwargs)
-            nonebot.logger.debug(f"Language text not found in fallback language: {self.fallback_lang_code}.{item}")
-            return default or item
-        except Exception as e:
-            nonebot.logger.error(f"Failed to get language text or format: {e}")
-            return default or item
+        for lang_code in fallback:
+            if lang_code in _language_data and item in _language_data[lang_code]:
+                trans: str = _language_data[lang_code][item]
+                try:
+                    return trans.format(*args, **kwargs)
+                except Exception as e:
+                    nonebot.logger.warning(f"Failed to format language data: {e}")
+                    return trans
+        return default or item
 
-    def get_many(self, *args) -> dict[str, str]:
-        """
-        获取多个文本
-        Args:
-            *args: 文本键
 
-        Returns:
-            dict: 文本字典
-        """
-        d = {}
-        for item in args:
-            d[item] = self.get(item)
-        return d
+def change_user_lang(user_id: str, lang_code: str):
+    """
+    修改用户的语言
+    """
+    user = user_db.first(User(), "user_id = ?", user_id, default=User(user_id=user_id))
+    user.profile["lang"] = lang_code
+    user_db.update(user, "user_id = ?", user_id)
 
 
 def get_user_lang(user_id: str) -> Language:
     """
-    获取用户的语言代码
+    获取用户的语言实例，优先从内存中获取
     """
-    user = user_db.first(User(), "user_id = ?", user_id, default=User(
-        user_id=user_id,
-        username="Unknown"
-    ))
-
-    return Language(user.profile.get("lang", get_default_lang_code()))
+    if user_id in _user_lang:
+        return Language(_user_lang[user_id])
+    else:
+        user = user_db.first(
+            User(), "user_id = ?", user_id, default=User(
+                user_id=user_id,
+                username="Unknown"
+            )
+        )
+        lang_code = user.profile.get("lang", get_default_lang_code())
+        _user_lang[user_id] = lang_code
+        return Language(lang_code)
 
 
 def get_system_lang_code() -> str:
@@ -172,11 +179,11 @@ def get_system_lang_code() -> str:
 
 def get_default_lang_code() -> str:
     """
-    获取默认语言代码
+    获取默认语言代码，若没有设置则使用系统语言
     Returns:
 
     """
-    return config.get("default_language", get_system_lang_code())
+    return get_config("default_language", default=get_system_lang_code())
 
 
 def get_all_lang() -> dict[str, str]:
