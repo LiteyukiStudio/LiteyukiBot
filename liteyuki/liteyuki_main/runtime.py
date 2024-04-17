@@ -8,10 +8,12 @@ from nonebot.adapters.onebot.v11 import MessageSegment
 from nonebot.permission import SUPERUSER
 from liteyuki.utils import __NAME__, __VERSION__, load_from_yaml
 from liteyuki.utils.message.html_tool import template2image
-from liteyuki.utils.base.language import Language, get_default_lang_code, get_user_lang
+from liteyuki.utils.base.language import Language, get_default_lang, get_user_lang
 from liteyuki.utils.base.ly_typing import T_Bot, T_MessageEvent
 from liteyuki.utils.base.resource import get_path
 from liteyuki.utils.message.tools import convert_size
+from PIL import Image  
+from io import BytesIO  
 
 stats = on_command("status", aliases={"状态"}, priority=5, permission=SUPERUSER)
 
@@ -35,12 +37,26 @@ async def _(bot: T_Bot, event: T_MessageEvent):
         {
                 "data": await get_stats_data(bot.self_id, ulang.lang_code)
         },
+        debug=True,
         wait=1
     )
+    print(image)
+    image = await png_to_jpg(image)
+    print(image)
     await stats.finish(MessageSegment.image(image))
 
 
-async def get_bots_data(ulang: Language, self_id: "") -> list:
+async def png_to_jpg(image):   
+    image_stream = BytesIO(image)   
+    img = Image.open(image_stream)    
+    rgb_img = img.convert('RGB')  
+    output_stream = BytesIO()    
+    rgb_img.save(output_stream, format='JPEG')   
+    jpg_bytes = output_stream.getvalue()   
+    return jpg_bytes  
+
+
+async def get_bots_data(ulang: Language, self_id) -> list:
     bots_data = []
     for bot_id, bot in nonebot.get_bots().items():
         groups = 0
@@ -100,7 +116,7 @@ async def get_stats_data(self_id: str = None, lang: str = None) -> dict:
     if self_id is None:
         self_id = list(nonebot.get_bots().keys())[0] if len(nonebot.get_bots()) > 0 else "liteyuki"
     if lang is None:
-        ulang = Language(get_default_lang_code())
+        ulang = get_default_lang()
     else:
         ulang = Language(lang)
 
