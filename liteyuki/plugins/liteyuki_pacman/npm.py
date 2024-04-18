@@ -345,7 +345,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
             btn_disable = md.btn_cmd(ulang.get("npm.disable_session"), "npm disable  ", False, False)  
             btn_enable = md.btn_cmd(ulang.get("npm.enable_session"), "npm enable ", False, False)
             reply = (
-                 f"\n# **{ulang.get("npm.help")}**"
+                 f"\n# **{ulang.get('npm.help')}**"
                  f"\n{btn_update}"
                  f"\n>*{md.escape('npm update')}*\n"
                  f"\n{btn_install_}"
@@ -375,7 +375,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
             btn_disable = md.btn_cmd(ulang.get("npm.disable_session"), "npm disable  ", False, False)  
             btn_enable = md.btn_cmd(ulang.get("npm.enable_session"), "npm enable ", False, False)
             reply = (
-                 f"\n# **{ulang.get("npm.help")}**"
+                 f"\n# **{ulang.get('npm.help')}**"
                  f"\n{btn_disable}"
                  f"\n>*{md.escape('npm disable <plugin_name>')}*\n"
                  f"\n{btn_enable}"
