@@ -65,39 +65,56 @@ class MarkdownMessage:
             session_id = event.user_id if event.message_type == "private" else event.group_id
         try:
             # 构建Markdown消息并获取转发消息ID
-            forward_id = await bot.call_api(
-                api="send_forward_msg",
-                messages=[
-                        v11.MessageSegment(
-                            type="node",
-                            data={
-                                    "name"   : "Liteyuki.OneBot",
-                                    "uin"    : bot.self_id,
-                                    "content": [
-                                            {
-                                                    "type": "markdown",
-                                                    "data": {
-                                                            "content": '{"content":"%s"}' % formatted_md
-                                                    }
-                                            },
-                                    ]
-                            },
-                        )
-                ]
-            )
+            # forward_id = await bot.call_api(
+            #     api="send_forward_msg",
+            #     messages=[
+            #             v11.MessageSegment(
+            #                 type="node",
+            #                 data={
+            #                         "name"   : "Liteyuki.OneBot",
+            #                         "uin"    : bot.self_id,
+            #                         "content": [
+            #                                 {
+            #                                         "type": "markdown",
+            #                                         "data": {
+            #                                                 "content": '{"content":"%s"}' % formatted_md
+            #                                         }
+            #                                 },
+            #                         ]
+            #                 },
+            #             )
+            #     ]
+            # )
             # 发送Markdown longmsg并获取相应数据
             data = await bot.send_msg(
                 user_id=session_id,
                 group_id=session_id,
                 message_type=message_type,
                 message=[
-                        v11.MessageSegment(
-                            type="longmsg",
-                            data={
-                                    "id": forward_id
-                            }
-                        ),
+                        {
+                                "type": "markdown",
+                                "data": {
+                                        "content": "{\"content\":\"%s\"}" % formatted_md
+                                }
+                        }
                 ],
+                # messages=[
+                #         v11.MessageSegment(
+                #             type="node",
+                #             data={
+                #                     "name": "Liteyuki.OneBot",
+                #                     "uin": bot.self_id,
+                #                     "content": [
+                #                             {
+                #                                     "type": "markdown",
+                #                                     "data": {
+                #                                             "content": '{"content":"%s"}' % formatted_md
+                #                                     }
+                #                             }
+                #                     ]
+                #             }
+                #         ),
+                # ],
                 **kwargs
             )
         except BaseException as e:
