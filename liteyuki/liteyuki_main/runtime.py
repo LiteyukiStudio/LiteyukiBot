@@ -12,6 +12,8 @@ from liteyuki.utils.base.language import Language, get_default_lang_code, get_us
 from liteyuki.utils.base.ly_typing import T_Bot, T_MessageEvent
 from liteyuki.utils.base.resource import get_path
 from liteyuki.utils.message.tools import convert_size
+from PIL import Image  
+from io import BytesIO  
 
 stats = on_command("status", aliases={"状态"}, priority=5, permission=SUPERUSER)
 
@@ -37,10 +39,21 @@ async def _(bot: T_Bot, event: T_MessageEvent):
         },
         wait=1
     )
+    image = await png_to_jpg(image)
     await stats.finish(MessageSegment.image(image))
 
 
-async def get_bots_data(ulang: Language, self_id: "") -> list:
+async def png_to_jpg(image):   
+    image_stream = BytesIO(image)   
+    img = Image.open(image_stream)    
+    rgb_img = img.convert('RGB')  
+    output_stream = BytesIO()    
+    rgb_img.save(output_stream, format='JPEG')   
+    jpg_bytes = output_stream.getvalue()   
+    return jpg_bytes  
+
+
+async def get_bots_data(ulang: Language, self_id) -> list:
     bots_data = []
     for bot_id, bot in nonebot.get_bots().items():
         groups = 0

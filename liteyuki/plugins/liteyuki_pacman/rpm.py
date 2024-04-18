@@ -167,5 +167,5 @@ async def _(bot: T_Bot, event: T_MessageEvent, result: Arparma):
             ulang.get("liteyuki.list_resources"),
             f"rpm list"
         )
-        reply += f"{btn_list}    {btn_reload}"
+        reply += f"{btn_list}  \n  {btn_reload}"
     await md.send_md(reply, bot, event=event)

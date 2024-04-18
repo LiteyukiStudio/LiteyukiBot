@@ -334,7 +334,58 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
         await md.send_md(reply, bot, event=event)
 
     else:
-        await npm.finish(ulang.get("liteyuki.invalid_command"))
+        if await SUPERUSER(bot, event):
+            btn_enable_global = md.btn_cmd(ulang.get("npm.enable_global"), "npm enable-global", False, False)  
+            btn_disable_global = md.btn_cmd(ulang.get("npm.disable_global"), "npm disable-global", False, False)  
+            btn_search = md.btn_cmd(ulang.get("npm.search"), "npm search ", False, False)  
+            btn_uninstall_ = md.btn_cmd(ulang.get("npm.uninstall"), "npm uninstall ", False, False)  
+            btn_install_ = md.btn_cmd(ulang.get("npm.install"), "npm install ", False, False)  
+            btn_update = md.btn_cmd(ulang.get("npm.update_index"), "npm update", False, True)  
+            btn_list = md.btn_cmd(ulang.get("npm.list_plugins"), "npm list ", False, False)  
+            btn_disable = md.btn_cmd(ulang.get("npm.disable_session"), "npm disable  ", False, False)  
+            btn_enable = md.btn_cmd(ulang.get("npm.enable_session"), "npm enable ", False, False)
+            reply = (
+                 f"\n# **{ulang.get('npm.help')}**"
+                 f"\n{btn_update}"
+                 f"\n>*{md.escape('npm update')}*\n"
+                 f"\n{btn_install_}"
+                 f"\n>*{md.escape('npm install <plugin_name>')}*\n"
+                 f"\n{btn_uninstall_}"
+                 f"\n>*{md.escape('npm uninstall <plugin_name>')}*\n"
+                 f"\n{btn_search}"
+                 f"\n>*{md.escape('npm search <keywords...>')}*\n"
+                 f"\n{btn_disable_global}"
+                 f"\n>*{md.escape('npm disable-global <plugin_name>')}*\n"
+                 f"\n{btn_enable_global}"
+                 f"\n>*{md.escape('npm enable-global <plugin_name>')}*\n"
+                 f"\n{btn_uninstall_}"
+                 f"\n>*{md.escape('npm uninstall <plugin_name>')}*\n"
+                 f"\n{btn_disable}"
+                 f"\n>*{md.escape('npm disable <plugin_name>')}*\n"
+                 f"\n{btn_enable}"
+                 f"\n>*{md.escape('npm enable <plugin_name>')}*\n"
+                 f"\n{btn_list}"
+                 f"\n>page为页数，num为每页显示数量"
+                 f"\n>*{md.escape('npm list [page] [num]')}*"
+                 )            
+            await md.send_md(reply, bot, event=event)
+        else:     
+
+            btn_list = md.btn_cmd(ulang.get("npm.list_plugins"), "npm list ", False, False)  
+            btn_disable = md.btn_cmd(ulang.get("npm.disable_session"), "npm disable  ", False, False)  
+            btn_enable = md.btn_cmd(ulang.get("npm.enable_session"), "npm enable ", False, False)
+            reply = (
+                 f"\n# **{ulang.get('npm.help')}**"
+                 f"\n{btn_disable}"
+                 f"\n>*{md.escape('npm disable <plugin_name>')}*\n"
+                 f"\n{btn_enable}"
+                 f"\n>*{md.escape('npm enable <plugin_name>')}*\n"
+                 f"\n{btn_list}"
+                 f"\n>page为页数，num为每页显示数量"
+                 f"\n>*{md.escape('npm list [page] [num]')}*"
+                  )
+       
+            await md.send_md(reply, bot, event=event)
 
 
 @on_alconna(
