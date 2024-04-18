@@ -37,7 +37,6 @@ async def _(bot: T_Bot, event: T_MessageEvent):
         {
                 "data": await get_stats_data(bot.self_id, ulang.lang_code)
         },
-        debug=True,
         wait=1
     )
     image = await png_to_jpg(image)
