@@ -40,9 +40,7 @@ async def _(bot: T_Bot, event: T_MessageEvent):
         debug=True,
         wait=1
     )
-    print(image)
     image = await png_to_jpg(image)
-    print(image)
     await stats.finish(MessageSegment.image(image))
 
 
