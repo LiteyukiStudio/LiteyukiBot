@@ -113,7 +113,7 @@ async def get_stats_data(self_id: str = None, lang: str = None) -> dict:
     if self_id is None:
         self_id = list(nonebot.get_bots().keys())[0] if len(nonebot.get_bots()) > 0 else "liteyuki"
     if lang is None:
-        ulang = get_default_lang_code()
+        ulang = Language(get_default_lang_code())
     else:
         ulang = Language(lang)
 
