@@ -149,7 +149,7 @@ def change_user_lang(user_id: str, lang_code: str):
     """
     user = user_db.first(User(), "user_id = ?", user_id, default=User(user_id=user_id))
     user.profile["lang"] = lang_code
-    user_db.upsert(user, "user_id = ?", user_id)
+    user_db.upsert(user)
     _user_lang[user_id] = lang_code
 
 
