@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import {ref} from 'vue'
-import ItemCard from './ItemCard.vue'
+import ItemCard from './res_item_card.vue'
 
 // 从public/assets/resources.json加载插件
 let items = ref([])
-fetch('/assets/resources.json')
+fetch('https://bot.liteyuki.icu/assets/resources.json')
   .then(response => response.json())
   .then(data => {
     items.value = data
