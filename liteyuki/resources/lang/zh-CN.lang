@@ -99,6 +99,12 @@ npm.plugin_already=插件 {NAME} 已经是 {STATUS} 状态，无需重复操作
 npm.toggle_failed=插件 {NAME} {STATUS} 失败: {ERROR}
 npm.toggle_success=插件 {NAME} {STATUS} 成功
 npm.page=第{PAGE}/{TOTAL}页
+npm.update_index=更新插件索引
+npm.list_plugins=插件列表
+npm.disable_session=当前会话停用插件
+npm.enable_session=当前会话启用插件
+npm.help=帮助
+npm.search=搜索
 
 user.profile.edit=修改
 user.profile.set=设置
@@ -128,8 +134,4 @@ weather.city_not_found=未找到城市 {CITY}
 weather.weather_not_found=未找到城市 {CITY} 的天气信息
 weather.no_key=未设置天气api key，请在配置文件添加weather-key
 
-npm.update_index=更新插件商店索引
-npm.list_plugins=列出所有插件
-npm.disable_session=当前会话停用插件
-npm.enable_session=当前会话启用插件
-npm.help=帮助
+
