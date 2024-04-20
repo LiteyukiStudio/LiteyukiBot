@@ -211,6 +211,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
         plugin_name: str = result.subcommands["install"].args.get("plugin_name")
         store_plugin = await get_store_plugin(plugin_name)
         await npm.send(ulang.get("npm.installing", NAME=plugin_name))
+
         r, log = await npm_install(plugin_name)
         log = log.replace("\\", "/")
 
@@ -219,11 +220,9 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
 
         homepage_btn = md.btn_cmd(ulang.get("npm.homepage"), store_plugin.homepage)
         if r:
-
             r_load = nonebot.load_plugin(plugin_name)  # 加载插件
             installed_plugin = InstalledPlugin(module_name=plugin_name)  # 构造插件信息模型
             found_in_db_plugin = plugin_db.first(InstalledPlugin(), "module_name = ?", plugin_name)  # 查询数据库中是否已经安装
-
             if r_load:
                 if found_in_db_plugin is None:
                     plugin_db.upsert(installed_plugin)
