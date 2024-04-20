@@ -31,7 +31,6 @@ log_level: "INFO" # 日志等级
 log_icon: true # 是否显示日志等级图标（某些控制台字体不可用）
 auto_report: true # 是否自动上报问题给轻雪服务器
 auto_update: true # 是否自动更新轻雪，每天4点检查更新
-alconna_use_command_start: false # alconna是否使用默认指令前缀，默认false
 alconna_auto_completion: false # alconna是否自动补全指令，默认false，建议开启
 safe_mode: false # 安全模式，开启后将不会加载任何第三方插件
 
