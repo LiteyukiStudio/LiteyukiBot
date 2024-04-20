@@ -52,6 +52,9 @@ npm enable-global/disable-global <plugin_name>  # 全局启用/停用插件
 # 群聊仅群主、管理员、超级用户可用，私聊所有人可用
 npm enable/disable <plugin_name>  # 当前会话启用/停用插件
 npm list [page] [num] # 列出所有插件 page为页数，num为每页显示数量
+
+# 所有人
+help <plugin_name>  # 查看插件帮助
 ```
 
 - 资源包管理
@@ -71,6 +74,7 @@ rpm reload # 重载所有资源包
 npm 插件管理 | update 更新 | install 安装 | uninstall 卸载 | search 搜索
 enable 启用 | disable 停用 | enable-global 全局启用 | disable-global 全局停用
 rpm 资源包 | load 加载 | unload 卸载 | change 更改 | reload 重载 | list 列表
+help 帮助
 ```
 
 > [!warning]
@@ -93,5 +97,5 @@ profile 个人信息 | set 设置 | get 查询
 
 > [!tip]
 > **参数**：`<param>`为必填参数，`[option]`为可选参数。
-> 
+>
 > **命令别名**：配置了命令别名的命令可以使用别名代替原命令，例如`npm install ~`可以使用`插件 安装 ~`代替。

@@ -28,8 +28,11 @@ tag:
       你需要使用Onebot标准的实现端来连接到轻雪并将消息上报给轻雪，下面已经列出一些推荐的实现端
 - `Playwright`安装失败
     - 输入`playwright install`安装浏览器
+- 有的插件安装后报错无法启动
+    - 请先查阅插件文档，确认插件必要配置项完好后，仍然出现问题，请联系插件作者或在安全模式`safe_mode: true`下启动轻雪，在安全模式下你可以使用`npm uninstall`卸载问题插件
 - 其他问题
-    - 加入QQ群[775840726](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=SzmDYbfR6jY94o9KFNon7AwelRyI6M_u&authKey=ygeBdEmdFNyCWuNR4w0M1M8%2B5oDg7k%2FDfN0tzBkYcnbB%2FGHNnlVEnCIGbdftsnn7&noverify=0&group_code=775840726)
+    -
+    加入QQ群[775840726](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=SzmDYbfR6jY94o9KFNon7AwelRyI6M_u&authKey=ygeBdEmdFNyCWuNR4w0M1M8%2B5oDg7k%2FDfN0tzBkYcnbB%2FGHNnlVEnCIGbdftsnn7&noverify=0&group_code=775840726)
 
 ## **推荐方案(QQ)**
 

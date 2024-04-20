@@ -16,10 +16,9 @@ export default sidebar({
             children: "structure",
         },
         {
-            text: "资源商店",
+            text: "商店",
             icon: "store",
             prefix: "store/",
-            link: "/store/",
             children: "structure",
         }
     ],
