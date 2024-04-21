@@ -18,6 +18,7 @@ status  # 查看统计信息和状态
 config set <key> value  # 添加配置项，若存在则会覆盖，输入值会被执行以转换为正确的类型，"10"和10是不一样的
 config get [key]  # 查询配置项，不带key返回配置项列表，推荐私聊使用
 switch-image-mode  # 在普通图片和Markdown大图之间切换，该功能需要commit:505468b及以后的Lagrange.OneBot，
+/api api_name [args]  # 调用机器人API，例如/api get_group_member_list group_id=1234567，空格用%20
 # 仅超级用户，群聊仅群主、管理员、超级用户可用
 group enable/disable [group_id]   # 在群聊启用/停用机器人，group_id仅超级用户可用
 # 所有人可用

@@ -5,6 +5,7 @@ from typing import Any
 import nonebot
 import pip
 from nonebot import Bot, get_driver, require
+from nonebot.adapters.onebot.v11 import escape
 from nonebot.exception import MockApiException
 from nonebot.internal.matcher import Matcher
 from nonebot.permission import SUPERUSER
@@ -18,7 +19,7 @@ from liteyuki.utils.base.reloader import Reloader
 from .api import update_liteyuki
 
 require("nonebot_plugin_alconna"), require("nonebot_plugin_apscheduler")
-from nonebot_plugin_alconna import on_alconna, Alconna, Args, Subcommand, Arparma
+from nonebot_plugin_alconna import on_alconna, Alconna, Args, Subcommand, Arparma, MultiVar
 from nonebot_plugin_apscheduler import scheduler
 
 driver = get_driver()
@@ -172,6 +173,46 @@ async def _(matcher: Matcher):
     await matcher.finish("https://bot.liteyuki.icu/usage")
 
 
+@on_alconna(
+    command=Alconna(
+        "/api",
+        Args["api", str]["args", MultiVar(str), ()],
+    ),
+    permission=SUPERUSER
+).handle()
+async def _(result: Arparma, bot: T_Bot, event: T_MessageEvent, matcher: Matcher):
+    """
+    调用API
+    Args:
+        result:
+        bot:
+        event:
+
+    Returns:
+
+    """
+    api_name = result.main_args.get("api")
+    args: tuple[str] = result.main_args.get("args", ())  # 类似于url参数，但每个参数间用空格分隔，空格是%20
+    args_dict = {}
+    for arg in args:
+        key, value = arg.split("=", 1)
+        args_dict[key] = escape(value.replace("%20", " "))
+
+    if api_name in need_user_id and "user_id" not in args_dict:
+        args_dict["user_id"] = str(event.user_id)
+    if api_name in need_group_id and "group_id" not in args_dict and event.message_type == "group":
+        args_dict["group_id"] = str(event.group_id)
+
+    try:
+        print(api_name, args_dict)
+        result = await bot.call_api(api_name, **args_dict)
+    except Exception as e:
+        result = str(e)
+
+    args_show = "\n".join("- %s: %s" % (k, v) for k, v in args_dict.items())
+    await matcher.finish(f"API: {api_name}\n\nArgs: \n{args_show}\n\nResult: {result}")
+
+
 # system hook
 @Bot.on_calling_api  # 图片模式检测
 async def test_for_md_image(bot: T_Bot, api: str, data: dict):
@@ -249,3 +290,25 @@ async def every_day_update():
             Reloader.reload(5)
         else:
             nonebot.logger.info(logs)
+
+
+# 安全的需要用户id的api
+need_user_id = (
+        "send_private_msg",
+        "send_msg",
+        "set_group_card",
+        "set_group_special_title",
+        "get_stranger_info",
+        "get_group_member_info"
+)
+
+need_group_id = (
+        "send_group_msg",
+        "send_msg",
+        "set_group_card",
+        "set_group_name",
+        "set_group_special_title",
+        "get_group_member_info",
+        "get_group_member_list",
+        "get_group_honor_info"
+)
