@@ -348,21 +348,19 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
                     f"\n{btn_update}"
                     f"\n\n>*{md.escape('npm update')}*\n"
                     f"\n{btn_install_}"
-                    f"\n\n>*{md.escape('npm install <plugin_name>')}*\n"
+                    f"\n\n>*{md.escape('npm install <plugin_name')}*>\n"
                     f"\n{btn_uninstall_}"
-                    f"\n\n>*{md.escape('npm uninstall <plugin_name>')}*\n"
+                    f"\n\n>*{md.escape('npm uninstall <plugin_name')}*>\n"
                     f"\n{btn_search}"
-                    f"\n\n>*{md.escape('npm search <keywords...>')}*\n"
+                    f"\n\n>*{md.escape('npm search <keywords...')}*>\n"
                     f"\n{btn_disable_global}"
-                    f"\n\n>*{md.escape('npm disable-global <plugin_name>')}*\n"
+                    f"\n\n>*{md.escape('npm disable-global <plugin_name')}*>\n"
                     f"\n{btn_enable_global}"
-                    f"\n\n>*{md.escape('npm enable-global <plugin_name>')}*\n"
-                    f"\n{btn_uninstall_}"
-                    f"\n\n>*{md.escape('npm uninstall <plugin_name>')}*\n"
+                    f"\n\n>*{md.escape('npm enable-global <plugin_name')}*>\n"
                     f"\n{btn_disable}"
-                    f"\n\n>*{md.escape('npm disable <plugin_name>')}*\n"
+                    f"\n\n>*{md.escape('npm disable <plugin_name')}*>\n"
                     f"\n{btn_enable}"
-                    f"\n\n>*{md.escape('npm enable <plugin_name>')}*\n"
+                    f"\n\n>*{md.escape('npm enable <plugin_name')}*>\n"
                     f"\n{btn_list}"
                     f"\n\n>page为页数，num为每页显示数量"
                     f"\n\n>*{md.escape('npm list [page] [num]')}*"
@@ -376,15 +374,14 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
             reply = (
                     f"\n# **{ulang.get('npm.help')}**"
                     f"\n{btn_disable}"
-                    f"\n\n>*{md.escape('npm disable <plugin_name>')}*\n"
+                    f"\n\n>*{md.escape('npm disable <plugin_name')}*>\n"
                     f"\n{btn_enable}"
-                    f"\n\n>*{md.escape('npm enable <plugin_name>')}*\n"
+                    f"\n\n>*{md.escape('npm enable <plugin_name')}*>\n"
                     f"\n{btn_list}"
                     f"\n\n>page为页数，num为每页显示数量"
                     f"\n\n>*{md.escape('npm list [page] [num]')}*"
             )
             await md.send_md(reply, bot, event=event)
-
 
 @on_alconna(
     aliases={"群聊"},
