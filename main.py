@@ -9,7 +9,6 @@ from liteyuki.utils.base.ly_api import liteyuki_api
 init()
 
 store_config: dict = common_db.first(StoredConfig(), default=StoredConfig()).config
-
 static_config = load_from_yaml("config.yml")
 store_config.update(static_config)
 nonebot.init(**store_config)

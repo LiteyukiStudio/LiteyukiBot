@@ -48,7 +48,7 @@ for lang in get_all_lang():
     }
 
 
-@scheduler.scheduled_job("cron", second="*/20")
+@scheduler.scheduled_job("cron", minute="*/20")
 async def _():
     nonebot.logger.info("数据已刷新")
     for lang_code in get_all_lang():

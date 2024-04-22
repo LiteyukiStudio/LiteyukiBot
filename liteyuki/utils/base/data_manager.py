@@ -6,10 +6,10 @@ from .data import Database, LiteModel, Database
 
 DATA_PATH = "data/liteyuki"
 
-user_db = Database(os.path.join(DATA_PATH, "users.ldb"))
-group_db = Database(os.path.join(DATA_PATH, "groups.ldb"))
-plugin_db = Database(os.path.join(DATA_PATH, "plugins.ldb"))
-common_db = Database(os.path.join(DATA_PATH, "common.ldb"))
+user_db: Database = Database(os.path.join(DATA_PATH, "users.ldb"))
+group_db: Database = Database(os.path.join(DATA_PATH, "groups.ldb"))
+plugin_db: Database = Database(os.path.join(DATA_PATH, "plugins.ldb"))
+common_db: Database = Database(os.path.join(DATA_PATH, "common.ldb"))
 
 
 class User(LiteModel):

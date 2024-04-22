@@ -7,9 +7,24 @@
     <link rel="stylesheet" href="./css/status.css">
 </head>
 <body>
+<template id="bot-template">
+    <div class="info-box bot-info">
+        <div id="bot-icon">
+            <img id="bot-icon-img" src="" alt="">
+        </div>
+        <div id="bot-detail">
+            <div id="bot-name">
+                Liteyuki
+            </div>
+            <div id="bot-tags">
+                <!--                tag span-->
+            </div>
+        </div>
+    </div>
+</template>
 
 <div class="data-storage" id="data">{{ data | tojson }}</div>
-<div class="info-box" id="system-info"></div>
+<div class="info-box" id="hardware-info"></div>
 <div class="info-box" id="disk-info"></div>
 <div class="info-box" id="motto-info"></div>
 

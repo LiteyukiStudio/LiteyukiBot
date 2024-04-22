@@ -62,7 +62,6 @@ async def template2image(
 
     if debug:
         # 重载资源
-        load_resources()
 
         raw_html = await template_to_html(
             template_name=template_name,

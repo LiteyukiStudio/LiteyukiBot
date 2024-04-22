@@ -133,3 +133,17 @@ rpm.move_top=置顶
 weather.city_not_found=未找到城市 {CITY}
 weather.weather_not_found=未找到城市 {CITY} 的天气信息
 weather.no_key=未设置天气api key，请在配置文件添加weather_key
+
+status.friends=好友
+status.groups=群
+status.plugins=插件
+status.message_sent=发送消息
+status.message_received=接收消息
+status.cpu=处理器
+status.memory=内存
+status.swap=交换空间
+status.disk=磁盘
+status.usage=使用率
+status.total=总计
+status.used=已用
+status.free=空闲

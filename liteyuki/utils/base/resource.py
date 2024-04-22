@@ -47,7 +47,7 @@ def load_resource_from_dir(path: str):
     _loaded_resource_packs.insert(0, ResourceMetadata(**metadata))
 
 
-def get_path(path: str, abs_path: bool = False, default: Any = None, debug: bool=False) -> str | Any:
+def get_path(path: str, abs_path: bool = True, default: Any = None, debug: bool=False) -> str | Any:
     """
     获取资源包中的文件
     Args:

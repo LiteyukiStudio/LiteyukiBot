@@ -2,6 +2,7 @@ import json
 import os.path
 import platform
 import sys
+import time
 
 import nonebot
 
@@ -12,7 +13,7 @@ import requests
 
 from liteyuki.utils.base.config import load_from_yaml, config
 from liteyuki.utils.base.log import init_log
-from liteyuki.utils.base.data_manager import auto_migrate
+from liteyuki.utils.base.data_manager import TempConfig, auto_migrate, common_db
 
 major, minor, patch = map(int, __VERSION__.split("."))
 __VERSION_I__ = major * 10000 + minor * 100 + patch
@@ -54,6 +55,10 @@ def init():
     if sys.version_info < (3, 10):
         nonebot.logger.error("This project requires Python3.10+ to run, please upgrade your Python Environment.")
         exit(1)
+    temp_data: TempConfig = common_db.first(TempConfig(), default=TempConfig())
+    temp_data.data["start_time"] = time.time()
+    common_db.upsert(temp_data)
+
     auto_migrate()
     # 在加载完成语言后再初始化日志
     nonebot.logger.info("Liteyuki is initializing...")
