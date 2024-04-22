@@ -46,6 +46,7 @@ highlights:
       - title: 主题支持
         icon: paint-brush
         details: 支持多种主题，可自定义资源包，满足你的审美需求
+        link: https://bot.liteyuki.icu/usage/resource_pack.html
 
       - title: 国际化
         icon: globe
