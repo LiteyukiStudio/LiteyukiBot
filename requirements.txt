@@ -22,4 +22,5 @@ starlette~=0.36.3
 loguru==0.7.2
 importlib_metadata==7.0.2
 requests==2.31.0
+watchdog==4.0.0
 pillow==10.2.0
