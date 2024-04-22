@@ -64,28 +64,6 @@ class MarkdownMessage:
             message_type = event.message_type
             session_id = event.user_id if event.message_type == "private" else event.group_id
         try:
-            # 构建Markdown消息并获取转发消息ID
-            # forward_id = await bot.call_api(
-            #     api="send_forward_msg",
-            #     messages=[
-            #             v11.MessageSegment(
-            #                 type="node",
-            #                 data={
-            #                         "name"   : "Liteyuki.OneBot",
-            #                         "uin"    : bot.self_id,
-            #                         "content": [
-            #                                 {
-            #                                         "type": "markdown",
-            #                                         "data": {
-            #                                                 "content": '{"content":"%s"}' % formatted_md
-            #                                         }
-            #                                 },
-            #                         ]
-            #                 },
-            #             )
-            #     ]
-            # )
-            # 发送Markdown longmsg并获取相应数据
             data = await bot.send_msg(
                 user_id=session_id,
                 group_id=session_id,
@@ -94,27 +72,39 @@ class MarkdownMessage:
                         {
                                 "type": "markdown",
                                 "data": {
-                                        "content": "{\"content\":\"%s\"}" % formatted_md
+                                        "content": "{\"content\":\"%s\"}" % formatted_md,
                                 }
-                        }
+                        },
+                        # {
+                        #         "type": "keyboard",
+                        #         "data": {
+                        #                 "content": {
+                        #                         "rows": [
+                        #                                 {
+                        #                                         "buttons": [
+                        #                                                 {
+                        #                                                         "render_data": {
+                        #                                                                 "label"        : "NPM",
+                        #                                                                 "visited_label": "NPM已点击",
+                        #                                                                 "style"        : 1
+                        #                                                         },
+                        #                                                         "action"     : {
+                        #                                                                 "type"      : 2,
+                        #                                                                 "enter"     : True,
+                        #                                                                 "permission": {
+                        #                                                                         "type": 2
+                        #                                                                 },
+                        #                                                                 "data"      : "npm"
+                        #
+                        #                                                         }
+                        #                                                 }
+                        #                                         ]
+                        #                                 }
+                        #                         ]
+                        #                 }
+                        #         }
+                        # }
                 ],
-                # messages=[
-                #         v11.MessageSegment(
-                #             type="node",
-                #             data={
-                #                     "name": "Liteyuki.OneBot",
-                #                     "uin": bot.self_id,
-                #                     "content": [
-                #                             {
-                #                                     "type": "markdown",
-                #                                     "data": {
-                #                                             "content": '{"content":"%s"}' % formatted_md
-                #                                     }
-                #                             }
-                #                     ]
-                #             }
-                #         ),
-                # ],
                 **kwargs
             )
         except BaseException as e:

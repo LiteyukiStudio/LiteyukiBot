@@ -132,6 +132,4 @@ rpm.move_top=置顶
 
 weather.city_not_found=未找到城市 {CITY}
 weather.weather_not_found=未找到城市 {CITY} 的天气信息
-weather.no_key=未设置天气api key，请在配置文件添加weather-key
-
-
+weather.no_key=未设置天气api key，请在配置文件添加weather_key

@@ -6,6 +6,7 @@ import aiohttp
 from PIL import Image
 
 from ..base.config import get_config
+from ..base.data import LiteModel
 from ..base.ly_typing import T_Bot
 
 
@@ -195,3 +196,14 @@ class Mqqapi:
                 # 若命令前缀不为空，则使用配置的第一个命令前缀
                 cmd = f"{command_start[0]}{cmd}"
         return f"[{text}](mqqapi://aio/inlinecmd?command={quote(cmd)}&reply={str(reply).lower()}&enter={str(enter).lower()})"
+
+
+class RenderData(LiteModel):
+    label: str
+    visited_label: str
+    style: int
+
+
+class Button(LiteModel):
+    id: int
+    render_data: RenderData

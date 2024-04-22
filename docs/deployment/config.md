@@ -27,13 +27,14 @@ superusers: [ "1919810" ]  # 超级用户列表
 ```yaml
 onebot_access_token: "" # 访问令牌，对公开放时建议设置
 default_language: "zh-CN" # 默认语言
+alconna_auto_completion: false # alconna是否自动补全指令，默认false，建议开启
+# 开发者选项
 log_level: "INFO" # 日志等级
 log_icon: true # 是否显示日志等级图标（某些控制台字体不可用）
 auto_report: true # 是否自动上报问题给轻雪服务器
 auto_update: true # 是否自动更新轻雪，每天4点检查更新
-alconna_auto_completion: false # alconna是否自动补全指令，默认false，建议开启
+liteyuki_reload: false  # 轻雪内置的重载选项，开启后在调试时修改代码或资源会自动重载相应内容
 safe_mode: false # 安全模式，开启后将不会加载任何第三方插件
-
 # 其他Nonebot插件的配置项
 custom_config_1: "custom_value1"
 custom_config_2: "custom_value2"

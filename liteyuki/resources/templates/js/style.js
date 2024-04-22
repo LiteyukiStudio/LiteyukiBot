@@ -25,9 +25,9 @@
             infoDiv.appendChild(tagSpan);
         });
     }
-    cpuInfo.setOption(getPieOption(data.cpu_trans, cpuData));
-    memInfo.setOption(getPieOption(data.mem_trans, memData));
-    swapInfo.setOption(getPieOption(data.swap_trans, swapData));
+    cpuInfo.setOption(getPieOption(data.localization.cpu, cpuData));
+    memInfo.setOption(getPieOption(data.localization.mem, memData));
+    swapInfo.setOption(getPieOption(data.localization.swap, swapData));
 
 
     // 在disks-info中插入每个disk的div，用横向柱状图表示用量，每一行div显示一个disk，不加info-box
@@ -40,7 +40,7 @@
         diskDiv.appendChild(diskChart);
         let diskInfo = echarts.init(diskChart);
         // let diskTitle = disk.name + '  {{ FREE }} ' + disk.free + '  {{ TOTAL }} ' + disk.total;
-        let diskTitle = `${disk.name}  ${data.free_trans} ${disk.free}  ${data.total_trans} ${disk.total}`;
+        let diskTitle = `${disk.name}  ${data.localization.free} ${disk.free}  ${data.localization.total} ${disk.total}`;
         diskInfo.setOption(getBarOption(diskTitle, disk.percent));
     });
 

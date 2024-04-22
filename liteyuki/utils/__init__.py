@@ -50,6 +50,7 @@ def init():
 
     """
     # 检测python版本是否高于3.10
+    init_log()
     if sys.version_info < (3, 10):
         nonebot.logger.error("This project requires Python3.10+ to run, please upgrade your Python Environment.")
         exit(1)

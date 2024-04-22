@@ -3,6 +3,7 @@ from nonebot.plugin import PluginMetadata
 from .core import *
 from .loader import *
 from .runtime import *
+from .dev_tools import *
 
 __author__ = "snowykami"
 __plugin_meta__ = PluginMetadata(

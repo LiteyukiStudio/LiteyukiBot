@@ -6,10 +6,10 @@ from liteyuki.utils.base.config import get_config
 from liteyuki.utils.base.ly_typing import T_MessageEvent
 
 from .qw_api import *
-from ...utils.base.data_manager import User, user_db
-from ...utils.base.language import get_user_lang
-from ...utils.base.resource import get_path
-from ...utils.message.html_tool import template2image
+from liteyuki.utils.base.data_manager import User, user_db
+from liteyuki.utils.base.language import get_user_lang
+from liteyuki.utils.base.resource import get_path
+from liteyuki.utils.message.html_tool import template2image
 
 require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import on_alconna, Alconna, Args, MultiVar, Arparma
