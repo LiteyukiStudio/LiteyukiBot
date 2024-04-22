@@ -117,7 +117,7 @@ def get_profile_menu(key: str, ulang: Language) -> Optional[str]:
     reply = f"**{setting_name} {ulang.get('user.profile.settings')}**\n***\n"
     if key == "lang":
         for lang_code, lang_name in get_all_lang().items():
-            btn_set_lang = md.btn_cmd(f"{lang_namd}({lang_code})", f"profile set {key} {lang_code}")
+            btn_set_lang = md.btn_cmd(f"{lang_name}({lang_code})", f"profile set {key} {lang_code}")
             reply += f"\n{btn_set_lang}\n***\n"
     elif key == "timezone":
         for tz in representative_timezones_list:
