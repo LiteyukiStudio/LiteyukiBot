@@ -146,6 +146,20 @@ async def get_bots_data(self_id: str = "0") -> dict:
 
 async def get_hardware_data() -> dict:
     mem = psutil.virtual_memory()
+    all_processes = psutil.Process().children(recursive=True)
+    all_processes.append(psutil.Process())
+
+    mem_used_bot = 0
+    process_mem = {}
+    for process in all_processes:
+        try:
+            ps_name = process.name().replace(".exe", "")
+            if ps_name not in process_mem:
+                process_mem[ps_name] = 0
+            process_mem[ps_name] += process.memory_info().rss
+            mem_used_bot += process.memory_info().rss
+        except Exception:
+            pass
     swap = psutil.swap_memory()
     cpu_brand_raw = cpuinfo.get_cpu_info().get("brand_raw", "Unknown")
     if "AMD" in cpu_brand_raw:
@@ -157,13 +171,16 @@ async def get_hardware_data() -> dict:
     result = {
             "cpu" : {
                     "percent": psutil.cpu_percent(),
-                    "name"   : f"{brand} {cpuinfo.get_cpu_info().get('arch', 'Unknown')}"
+                    "name"   : f"{brand} {cpuinfo.get_cpu_info().get('arch', 'Unknown')}",
+                    "cores"  : psutil.cpu_count(logical=False),
+                    "threads": psutil.cpu_count(logical=True),
+                    "freq"   : psutil.cpu_freq().current    # MHz
             },
-            "mem" : {
+            "memory" : {
                     "percent": mem.percent,
                     "total"  : mem.total,
                     "used"   : mem.used,
-                    "free"   : mem.free
+                    "free"   : mem.free,
             },
             "swap": {
                     "percent": swap.percent,

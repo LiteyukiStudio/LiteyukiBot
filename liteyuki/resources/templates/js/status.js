@@ -59,6 +59,32 @@ function createPieChartOption(title, data) {
     }
 }
 
+
+function convertSize(size, precision = 2, addUnit = true, suffix = " XiB"): string {
+    let isNegative = size < 0;
+    size = Math.abs(size);
+    let units = ["", "K", "M", "G", "T", "P", "E", "Z"];
+    let unit = "";
+
+    for (let i = 0; i < units.length; i++) {
+        if (size < 1024) {
+            unit = units[i];
+            break;
+        }
+        size /= 1024;
+    }
+
+    if (isNegative) {
+        size = -size;
+    }
+
+    if (addUnit) {
+        return size.toFixed(precision) + suffix.replace('X', unit);
+    } else {
+        return size;
+    }
+}
+
 /**
  * 创建磁盘用量柱状图
  * @param title
@@ -141,6 +167,29 @@ function main() {
     document.body.insertBefore(liteyukiInfoDiv, document.getElementById('hardware-info'))    // 插入对象
 
     // 添加硬件信息
+    const cpuData = hardwareData['cpu']
+    const memData = hardwareData['memory']
+    const swapData = hardwareData['swap']
+
+    const cpuTagArray = [
+        cpuData['name'],
+        `${cpuData['cores']}C ${cpuData['threads']}T`,
+        `${(cpuData['freq'] / 1000).toFixed(2)}GHz`
+    ]
+
+    const memTagArray = [
+        `Bot ${convertSize(memData['bot'])}`,
+        `${localData['used']} ${convertSize(memData['used'])}`,
+        `${localData['free']} ${convertSize(memData['free'])}`,
+        `${localData['total']} ${convertSize(memData['total'])}`
+    ]
+
+    const swapTagArray = [
+        `${localData['used']} ${convertSize(swapData['used'])}`,
+        `${localData['free']} ${convertSize(swapData['free'])}`,
+        `${localData['total']} ${convertSize(swapData['total'])}`
+    ]
+
 }
 
 main()
