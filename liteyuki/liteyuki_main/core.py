@@ -18,7 +18,8 @@ from liteyuki.utils.message.message import MarkdownMessage as md, broadcast_to_s
 from liteyuki.utils.base.reloader import Reloader
 from .api import update_liteyuki
 
-require("nonebot_plugin_alconna"), require("nonebot_plugin_apscheduler")
+require("nonebot_plugin_alconna")
+require("nonebot_plugin_apscheduler")
 from nonebot_plugin_alconna import on_alconna, Alconna, Args, Subcommand, Arparma, MultiVar
 from nonebot_plugin_apscheduler import scheduler
 
