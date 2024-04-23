@@ -55,3 +55,4 @@ tag:
 - [Nonebot2](https://nonebot.dev)提供的框架支持
 - [nonebot-plugin-htmlrender](https://github.com/kexue-z/nonebot-plugin-htmlrender/tree/master)提供的渲染功能
 - [nonebot-plugin-alconna](https://github.com/ArcletProject/nonebot-plugin-alconna)提供的命令解析功能
+- [MiSans](https://hyperos.mi.com/font/zh/)，[MapleMono](https://gitee.com/mirrors/Maple-Mono)提供的字体，且遵守了相关字体开源协议

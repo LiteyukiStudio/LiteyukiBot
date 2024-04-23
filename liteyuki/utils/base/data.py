@@ -3,6 +3,7 @@ import pickle
 import sqlite3
 from types import NoneType
 from typing import Any
+from packaging.version import parse
 
 import nonebot
 import pydantic
@@ -14,7 +15,7 @@ class LiteModel(BaseModel):
     id: int = None
 
     def dump(self, *args, **kwargs):
-        if pydantic.__version__ < "1.8.2":
+        if parse(pydantic.__version__) < parse("2.0.0"):
             return self.dict(*args, **kwargs)
         else:
             return self.model_dump(*args, **kwargs)
