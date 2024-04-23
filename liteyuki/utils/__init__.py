@@ -51,6 +51,7 @@ def init():
 
     """
     # 检测python版本是否高于3.10
+    auto_migrate()
     init_log()
     if sys.version_info < (3, 10):
         nonebot.logger.error("This project requires Python3.10+ to run, please upgrade your Python Environment.")
@@ -59,7 +60,6 @@ def init():
     temp_data.data["start_time"] = time.time()
     common_db.upsert(temp_data)
 
-    auto_migrate()
     # 在加载完成语言后再初始化日志
     nonebot.logger.info("Liteyuki is initializing...")
 

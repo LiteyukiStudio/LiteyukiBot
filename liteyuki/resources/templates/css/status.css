@@ -1,0 +1,60 @@
+:root {
+    --main-text-color: #fff;
+    --sub-text-color: #bbb;
+    --tip-text-color: #888;
+}
+
+.bot-info {
+    display: flex;
+    height: 200px;
+}
+
+.bot-icon {
+    display: flex;
+    height: 100%;
+    aspect-ratio: 1;
+    align-items: center;
+    justify-content: center;
+    margin-right: 20px;
+}
+
+.bot-icon-img {
+    border-radius: 50%;
+    height: 100%;
+    width: 100%;
+    background-color: white;
+}
+
+.bot-name {
+    color: var(--main-text-color);
+    display: flex;
+    font-size: 40px;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.bot-tag {
+    white-space: nowrap;
+    color: var(--sub-text-color);
+    font-size: 27px;
+    font-weight: 700;
+    line-height: 1.6;
+}
+
+.bot-tag[suffix="1"]::after {
+    content: " | ";
+    display: inline-block;
+    margin: 0 5px;
+    height: 30%;
+    line-height: 50%;
+    color: var(--tip-text-color);
+}
+
+/*修改bot-info 下hr样式*/
+.bot-info hr {
+    border: 0;
+    height: 4px;
+    background: var(--tip-text-color);
+    margin: 10px 0;
+    width: 100%;
+}

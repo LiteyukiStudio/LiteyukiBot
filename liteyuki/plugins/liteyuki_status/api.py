@@ -5,6 +5,7 @@ import nonebot
 import psutil
 from cpuinfo import cpuinfo
 from liteyuki.utils import __NAME__, __VERSION__
+from liteyuki.utils.base.config import get_config
 from liteyuki.utils.base.data_manager import TempConfig, common_db
 from liteyuki.utils.base.language import Language
 from liteyuki.utils.base.resource import get_path
@@ -75,6 +76,7 @@ def get_local_data(lang_code) -> dict:
             "friends"         : lang.get("status.friends"),
             "groups"          : lang.get("status.groups"),
             "plugins"         : lang.get("status.plugins"),
+            "bots"            : lang.get("status.bots"),
             "message_sent"    : lang.get("status.message_sent"),
             "message_received": lang.get("status.message_received"),
             "cpu"             : lang.get("status.cpu"),
@@ -86,6 +88,13 @@ def get_local_data(lang_code) -> dict:
             "total"           : lang.get("status.total"),
             "used"            : lang.get("status.used"),
             "free"            : lang.get("status.free"),
+
+            "days"            : lang.get("status.days"),
+            "hours"           : lang.get("status.hours"),
+            "minutes"         : lang.get("status.minutes"),
+            "seconds"         : lang.get("status.seconds"),
+            "runtime"         : lang.get("status.runtime"),
+
     }
 
 
@@ -126,8 +135,8 @@ async def get_bots_data(self_id: str = "0") -> dict:
                 "protocol_name"   : protocol_names.get(version_info.get("protocol_name"), "Online"),
                 "groups"          : groups,
                 "friends"         : friends,
-                "message_sent"    : statistics.get("message_sent"),
-                "message_received": statistics.get("message_received"),
+                "message_sent"    : statistics.get("message_sent", 0),
+                "message_received": statistics.get("message_received", 0),
                 "app_name"        : app_name
         }
         result["bots"].append(bot_data)
@@ -184,12 +193,13 @@ async def get_hardware_data() -> dict:
 async def get_liteyuki_data() -> dict:
     temp_data: TempConfig = common_db.first(TempConfig(), default=TempConfig())
     result = {
-            "name"   : __NAME__,
+            "name"   : list(get_config("nickname", [__NAME__]))[0],
             "version": __VERSION__,
             "plugins": len(nonebot.get_loaded_plugins()),
             "nonebot": f"{nonebot.__version__}",
             "python" : f"{platform.python_implementation()} {platform.python_version()}",
             "system" : f"{platform.system()} {platform.release()}",
             "runtime": time.time() - temp_data.data.get("start_time", time.time()),  # 运行时间秒数
+            "bots"   : len(nonebot.get_bots())
     }
     return result
