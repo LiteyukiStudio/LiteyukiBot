@@ -65,7 +65,7 @@ class MarkdownMessage:
             message_type = event.message_type
             session_id = event.user_id if event.message_type == "private" else event.group_id
         try:
-            raise TencentBannedMarkdownError("Tencent banned markdown")
+            # raise TencentBannedMarkdownError("Tencent banned markdown")
             data = await bot.send_msg(
                 user_id=session_id,
                 group_id=session_id,
