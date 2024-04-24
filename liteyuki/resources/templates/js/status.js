@@ -60,7 +60,7 @@ function createPieChartOption(title, data) {
 }
 
 
-function convertSize(size, precision = 2, addUnit = true, suffix = " XiB"): string {
+function convertSize(size, precision = 2, addUnit = true, suffix = " XiB") {
     let isNegative = size < 0;
     size = Math.abs(size);
     let units = ["", "K", "M", "G", "T", "P", "E", "Z"];

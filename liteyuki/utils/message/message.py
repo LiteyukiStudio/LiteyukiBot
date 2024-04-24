@@ -22,8 +22,11 @@ from nonebot_plugin_htmlrender import md_to_pic
 config = load_from_yaml("config.yml")
 
 can_send_markdown = {}  # 用于存储机器人是否支持发送markdown消息，id->bool
+
+
 class TencentBannedMarkdownError(BaseException):
     pass
+
 
 async def broadcast_to_superusers(message: str | T_Message, markdown: bool = False):
     """广播消息给超级用户"""
@@ -65,16 +68,38 @@ class MarkdownMessage:
             message_type = event.message_type
             session_id = event.user_id if event.message_type == "private" else event.group_id
         try:
-            # raise TencentBannedMarkdownError("Tencent banned markdown")
+            raise TencentBannedMarkdownError("Tencent banned markdown")
+            forward_id = await bot.call_api(
+                "send_private_forward_msg",
+                messages=[
+                        {
+                                "type": "node",
+                                "data": {
+                                        "content": [
+                                                {
+                                                        "data": {
+                                                                "content": "{\"content\":\"%s\"}" % formatted_md,
+                                                        },
+                                                        "type": "markdown"
+                                                }
+                                        ],
+                                        "name"   : "[]",
+                                        "uin"    : bot.self_id
+                                }
+                        }
+                ],
+                user_id=bot.self_id
+
+            )
             data = await bot.send_msg(
                 user_id=session_id,
                 group_id=session_id,
                 message_type=message_type,
                 message=[
                         {
-                                "type": "markdown",
+                                "type": "longmsg",
                                 "data": {
-                                        "content": "{\"content\":\"%s\"}" % formatted_md,
+                                        "id": forward_id
                                 }
                         },
                 ],
