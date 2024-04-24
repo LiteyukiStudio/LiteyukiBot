@@ -2,7 +2,6 @@ from nonebot.plugin import PluginMetadata
 
 from .core import *
 from .loader import *
-from .runtime import *
 from .dev_tools import *
 
 __author__ = "snowykami"
@@ -16,6 +15,8 @@ __plugin_meta__ = PluginMetadata(
             "toggleable": False,
     }
 )
+
+from ..utils.base.language import Language, get_default_lang_code
 
 print("\033[34m" + r"""
  __        ______  ________  ________  __      __  __    __  __    __  ______ 
@@ -31,4 +32,4 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
 
 sys_lang = Language(get_default_lang_code())
 nonebot.logger.info(sys_lang.get("main.current_language", LANG=sys_lang.get("language.name")))
-nonebot.logger.info(sys_lang.get("main.enable_webdash", URL=f"http://127.0.0.1:{config.get('port', 20216)}"))
+# nonebot.logger.info(sys_lang.get("main.enable_webdash", URL=f"http://127.0.0.1:{config.get('port', 20216)}"))

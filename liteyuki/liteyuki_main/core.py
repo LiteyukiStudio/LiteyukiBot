@@ -31,11 +31,15 @@ markdown_image = common_db.first(StoredConfig(), default=StoredConfig()).config.
 @on_alconna(
     command=Alconna(
         "liteecho",
+        Args["text", str],
     ),
     permission=SUPERUSER
 ).handle()
-async def _(bot: T_Bot, matcher: Matcher):
-    await matcher.finish(f"Hello, Liteyuki!\nBot {bot.self_id}")
+async def _(bot: T_Bot, matcher: Matcher, result: Arparma):
+    if result.main_args.get("text"):
+        await matcher.finish(Message(unescape(result.main_args.get("text"))))
+    else:
+        await matcher.finish(f"Hello, Liteyuki!\nBot {bot.self_id}")
 
 
 @on_alconna(
