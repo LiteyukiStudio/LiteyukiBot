@@ -5,7 +5,7 @@ from typing import Any
 import nonebot
 import pip
 from nonebot import Bot, get_driver, require
-from nonebot.adapters.onebot.v11 import escape
+from nonebot.adapters.onebot.v11 import Message, escape, unescape
 from nonebot.exception import MockApiException
 from nonebot.internal.matcher import Matcher
 from nonebot.permission import SUPERUSER
@@ -20,7 +20,7 @@ from .api import update_liteyuki
 
 require("nonebot_plugin_alconna")
 require("nonebot_plugin_apscheduler")
-from nonebot_plugin_alconna import on_alconna, Alconna, Args, Subcommand, Arparma, MultiVar
+from nonebot_plugin_alconna import UniMessage, on_alconna, Alconna, Args, Subcommand, Arparma, MultiVar
 from nonebot_plugin_apscheduler import scheduler
 
 driver = get_driver()
@@ -195,22 +195,26 @@ async def _(result: Arparma, bot: T_Bot, event: T_MessageEvent, matcher: Matcher
     api_name = result.main_args.get("api")
     args: tuple[str] = result.main_args.get("args", ())  # 类似于url参数，但每个参数间用空格分隔，空格是%20
     args_dict = {}
+
     for arg in args:
         key, value = arg.split("=", 1)
-        args_dict[key] = escape(value.replace("%20", " "))
+        args_dict[key] = unescape(value.replace("%20", " "))
 
     if api_name in need_user_id and "user_id" not in args_dict:
         args_dict["user_id"] = str(event.user_id)
     if api_name in need_group_id and "group_id" not in args_dict and event.message_type == "group":
         args_dict["group_id"] = str(event.group_id)
 
+    if "message" in args_dict:
+        args_dict["message"] = Message(args_dict["message"])
+
     try:
-        print(api_name, args_dict)
         result = await bot.call_api(api_name, **args_dict)
     except Exception as e:
         result = str(e)
 
     args_show = "\n".join("- %s: %s" % (k, v) for k, v in args_dict.items())
+    print(f"API: {api_name}\n\nArgs: \n{args_show}\n\nResult: {result}")
     await matcher.finish(f"API: {api_name}\n\nArgs: \n{args_show}\n\nResult: {result}")
 
 
