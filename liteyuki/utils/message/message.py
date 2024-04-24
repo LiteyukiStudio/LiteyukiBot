@@ -22,7 +22,8 @@ from nonebot_plugin_htmlrender import md_to_pic
 config = load_from_yaml("config.yml")
 
 can_send_markdown = {}  # 用于存储机器人是否支持发送markdown消息，id->bool
-
+class TencentBannedMarkdownError(BaseException):
+    pass
 
 async def broadcast_to_superusers(message: str | T_Message, markdown: bool = False):
     """广播消息给超级用户"""
@@ -64,6 +65,7 @@ class MarkdownMessage:
             message_type = event.message_type
             session_id = event.user_id if event.message_type == "private" else event.group_id
         try:
+            raise TencentBannedMarkdownError("Tencent banned markdown")
             data = await bot.send_msg(
                 user_id=session_id,
                 group_id=session_id,
@@ -75,45 +77,16 @@ class MarkdownMessage:
                                         "content": "{\"content\":\"%s\"}" % formatted_md,
                                 }
                         },
-                        # {
-                        #         "type": "keyboard",
-                        #         "data": {
-                        #                 "content": {
-                        #                         "rows": [
-                        #                                 {
-                        #                                         "buttons": [
-                        #                                                 {
-                        #                                                         "render_data": {
-                        #                                                                 "label"        : "NPM",
-                        #                                                                 "visited_label": "NPM已点击",
-                        #                                                                 "style"        : 1
-                        #                                                         },
-                        #                                                         "action"     : {
-                        #                                                                 "type"      : 2,
-                        #                                                                 "enter"     : True,
-                        #                                                                 "permission": {
-                        #                                                                         "type": 2
-                        #                                                                 },
-                        #                                                                 "data"      : "npm"
-                        #
-                        #                                                         }
-                        #                                                 }
-                        #                                         ]
-                        #                                 }
-                        #                         ]
-                        #                 }
-                        #         }
-                        # }
                 ],
                 **kwargs
             )
         except BaseException as e:
             nonebot.logger.error(f"send markdown error, retry as image: {e}")
             # 发送失败，渲染为图片发送
-            if not retry_as_image:
-                return None
+            # if not retry_as_image:
+            #     return None
 
-            plain_markdown = markdown.replace("🔗", "")
+            plain_markdown = markdown.replace("[🔗", "[")
             md_image_bytes = await md_to_pic(
                 md=plain_markdown,
                 width=540,
