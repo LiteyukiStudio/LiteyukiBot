@@ -539,10 +539,18 @@ async def npm_search(keywords: list[str]) -> list[StorePlugin]:
     Returns:
         list[StorePlugin]: 插件列表
     """
+    plugin_blacklist = [
+            "nonebot_plugin_xiuxian_2",
+            "nonebot_plugin_htmlrender",
+            "nonebot_plugin_alconna",
+    ]
+
     results = []
     async with aiofiles.open("data/liteyuki/plugins.json", "r", encoding="utf-8") as f:
         plugins: list[StorePlugin] = [StorePlugin(**pobj) for pobj in json.loads(await f.read())]
     for plugin in plugins:
+        if plugin.module_name in plugin_blacklist:
+            continue
         plugin_text = ' '.join(
             [
                     plugin.name,
