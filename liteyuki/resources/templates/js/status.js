@@ -189,6 +189,7 @@ function main() {
         `${localData['free']} ${convertSize(swapData['free'])}`,
         `${localData['total']} ${convertSize(swapData['total'])}`
     ]
+    console.log(cpuTagArray, memTagArray, swapTagArray)
 
 }
 

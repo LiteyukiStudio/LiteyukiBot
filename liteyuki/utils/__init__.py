@@ -30,7 +30,7 @@ def register_bot():
     }
     try:
         nonebot.logger.info("Waiting for register to Liteyuki...")
-        resp = requests.post(url, json=data)
+        resp = requests.post(url, json=data, timeout=(10, 15))
         if resp.status_code == 200:
             data = resp.json()
             if liteyuki_id := data.get("liteyuki_id"):
