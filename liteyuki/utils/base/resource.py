@@ -112,10 +112,12 @@ def load_resources():
         shutil.rmtree(temp_resource_root)
     os.makedirs(temp_resource_root, exist_ok=True)
 
-    standard_resource_path = "liteyuki/resources"
-    load_resource_from_dir(standard_resource_path)
-    # 加载其他资源包
+    # 加载内置资源
+    standard_resources_path = "liteyuki/resources"
+    for resource_dir in os.listdir(standard_resources_path):
+        load_resource_from_dir(os.path.join(standard_resources_path, resource_dir))
 
+    # 加载其他资源包
     if not os.path.exists("resources"):
         os.makedirs("resources", exist_ok=True)
 
