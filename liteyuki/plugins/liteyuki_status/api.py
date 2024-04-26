@@ -55,18 +55,22 @@ data
 """
 
 
-async def generate_status_card(bot: dict, hardware: dict, liteyuki: dict, lang="zh-CN", bot_id="0") -> bytes:
-    return await template2image(
-        get_path("templates/status.html", abs_path=True),
-        {
-                "data": {
-                        "bot"         : bot,
-                        "hardware"    : hardware,
-                        "liteyuki"    : liteyuki,
-                        "localization": get_local_data(lang)
-                }
-        }
-    )
+async def generate_status_card(bot: dict, hardware: dict, liteyuki: dict, lang="zh-CN", bot_id="0", use_cache=False) -> bytes:
+    if not use_cache:
+        return await template2image(
+            get_path("templates/status.html", abs_path=True),
+            {
+                    "data": {
+                            "bot"         : bot,
+                            "hardware"    : hardware,
+                            "liteyuki"    : liteyuki,
+                            "localization": get_local_data(lang)
+                    }
+            },
+            debug=True
+        )
+    else:
+        pass
 
 
 def get_local_data(lang_code) -> dict:
@@ -97,7 +101,7 @@ def get_local_data(lang_code) -> dict:
             "cores"           : lang.get("status.cores"),
             "process"         : lang.get("status.process"),
             "resources"       : lang.get("status.resources"),
-
+            "description"     : lang.get("status.description"),
     }
 
 

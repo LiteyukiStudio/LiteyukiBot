@@ -150,10 +150,10 @@ def set_plugin_session_enable(event: T_MessageEvent, plugin_name: str, enable: b
     if event.message_type == "group":
         __group_data[str(event.group_id)] = session
         print(session)
-        group_db.upsert(session)
+        group_db.save(session)
     else:
         __user_data[str(event.user_id)] = session
-        user_db.upsert(session)
+        user_db.save(session)
 
 
 def get_plugin_global_enable(plugin_name: str) -> bool:
@@ -193,7 +193,7 @@ def set_plugin_global_enable(plugin_name: str, enable: bool):
         default=GlobalPlugin(module_name=plugin_name, enabled=True))
     plugin.enabled = enable
 
-    plugin_db.upsert(plugin)
+    plugin_db.save(plugin)
     __global_enable[plugin_name] = enable
 
 
@@ -242,4 +242,4 @@ def set_group_enable(group_id: str, enable: bool):
     group.enable = enable
 
     __group_data[group_id] = group
-    group_db.upsert(group)
+    group_db.save(group)

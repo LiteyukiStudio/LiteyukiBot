@@ -83,7 +83,7 @@ async def _(matcher: Matcher, bot: T_Bot, event: T_MessageEvent):
         }
     )
 
-    common_db.upsert(temp_data)
+    common_db.save(temp_data)
     Reloader.reload(0)
 
 
@@ -120,7 +120,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, matcher: Matcher
         except:
             pass
         stored_config.config[key] = value
-        common_db.upsert(stored_config)
+        common_db.save(stored_config)
         await matcher.finish(f"{ulang.get('liteyuki.config_set_success', KEY=key, VAL=value)}")
     elif result.subcommands.get("get"):
         key = result.subcommands.get("get").args.get("key")
@@ -144,7 +144,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, matcher: Matcher
         key = result.subcommands.get("remove").args.get("key")
         if key in stored_config.config:
             stored_config.config.pop(key)
-            common_db.upsert(stored_config)
+            common_db.save(stored_config)
             await matcher.finish(f"{ulang.get('liteyuki.config_remove_success', KEY=key)}")
         else:
             await matcher.finish(f"{ulang.get('liteyuki.invalid_command', TEXT=key)}")
@@ -164,7 +164,7 @@ async def _(event: T_MessageEvent, matcher: Matcher):
     stored_config: StoredConfig = common_db.first(StoredConfig(), default=StoredConfig())
     stored_config.config["markdown_image"] = not stored_config.config.get("markdown_image", False)
     markdown_image = stored_config.config["markdown_image"]
-    common_db.upsert(stored_config)
+    common_db.save(stored_config)
     await matcher.finish(ulang.get("liteyuki.image_mode_on" if stored_config.config["markdown_image"] else "liteyuki.image_mode_off"))
 
 
@@ -258,7 +258,7 @@ async def on_startup():
     if temp_data.data.get("reload", False):
         delta_time = time.time() - temp_data.data.get("reload_time", 0)
         temp_data.data["delta_time"] = delta_time
-        common_db.upsert(temp_data)  # 更新数据
+        common_db.save(temp_data)  # 更新数据
 
 
 @driver.on_shutdown
@@ -278,7 +278,7 @@ async def _(bot: T_Bot):
         reload_session_type = temp_data.data.get("reload_session_type", "private")
         reload_session_id = temp_data.data.get("reload_session_id", 0)
         delta_time = temp_data.data.get("delta_time", 0)
-        common_db.upsert(temp_data)  # 更新数据
+        common_db.save(temp_data)  # 更新数据
         await bot.call_api(
             "send_msg",
             message_type=reload_session_type,

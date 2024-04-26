@@ -58,7 +58,7 @@ def init():
         exit(1)
     temp_data: TempConfig = common_db.first(TempConfig(), default=TempConfig())
     temp_data.data["start_time"] = time.time()
-    common_db.upsert(temp_data)
+    common_db.save(temp_data)
 
     # 在加载完成语言后再初始化日志
     nonebot.logger.info("Liteyuki is initializing...")

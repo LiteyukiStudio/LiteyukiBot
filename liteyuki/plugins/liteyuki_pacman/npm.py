@@ -225,7 +225,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
             found_in_db_plugin = plugin_db.first(InstalledPlugin(), "module_name = ?", plugin_name)  # 查询数据库中是否已经安装
             if r_load:
                 if found_in_db_plugin is None:
-                    plugin_db.upsert(installed_plugin)
+                    plugin_db.save(installed_plugin)
                     info = md.escape(ulang.get("npm.install_success", NAME=store_plugin.name))  # markdown转义
                     await md.send_md(
                         f"{info}\n\n"

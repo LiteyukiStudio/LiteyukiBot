@@ -78,7 +78,7 @@ class Database:
         else:
             return [model_type(**self._load(dict(zip(fields, result)))) for result in results]
 
-    def upsert(self, *args: LiteModel):
+    def save(self, *args: LiteModel):
         """增/改操作
         Args:
             *args:

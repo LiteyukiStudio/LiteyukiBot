@@ -290,6 +290,8 @@ function main() {
     document.getElementById('motto-text').innerText = mottoText
     document.getElementById('motto-from').innerText = mottoFrom
 
+    document.getElementById('author-description').innerText = localData['description'] + ' Powered by Liteyuki'
+
 
 }
 

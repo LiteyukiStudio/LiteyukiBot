@@ -157,3 +157,4 @@ status.seconds=Sekunden
 status.cores=Kerne
 status.threads=Threads
 status.process=Prozesse
+status.description=Liteyuki Bot-Status

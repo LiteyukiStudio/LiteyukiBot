@@ -66,7 +66,7 @@ async def _(result: Arparma):
                 target=Node(bot_id=target[0], session_type=target[1], session_id=target[2]),
                 inde=len(pushes_db.all(Push(), default=[]))
             )
-            pushes_db.upsert(push1)
+            pushes_db.save(push1)
 
             if result.subcommands["add"].args.get("bidirectional"):
                 push2 = Push(
@@ -74,7 +74,7 @@ async def _(result: Arparma):
                     target=Node(bot_id=source[0], session_type=source[1], session_id=source[2]),
                     inde=len(pushes_db.all(Push(), default=[]))
                 )
-                pushes_db.upsert(push2)
+                pushes_db.save(push2)
             await add_push.finish("添加成功")
         else:
             await add_push.finish("参数缺失")

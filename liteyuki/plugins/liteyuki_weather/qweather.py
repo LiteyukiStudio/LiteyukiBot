@@ -1,4 +1,4 @@
-from nonebot import require
+from nonebot import require, on_endswith
 from nonebot.adapters.onebot.v11 import MessageSegment
 from nonebot.internal.matcher import Matcher
 
@@ -7,7 +7,7 @@ from liteyuki.utils.base.ly_typing import T_MessageEvent
 
 from .qw_api import *
 from liteyuki.utils.base.data_manager import User, user_db
-from liteyuki.utils.base.language import get_user_lang
+from liteyuki.utils.base.language import Language, get_user_lang
 from liteyuki.utils.base.resource import get_path
 from liteyuki.utils.message.html_tool import template2image
 
@@ -24,40 +24,50 @@ from nonebot_plugin_alconna import on_alconna, Alconna, Args, MultiVar, Arparma
 ).handle()
 async def _(result: Arparma, event: T_MessageEvent, matcher: Matcher):
     """await alconna.send("weather", city)"""
-    ulang = get_user_lang(str(event.user_id))
+    kws = result.main_args.get("keywords")
+    image = await get_weather_now_card(matcher, event, kws)
+    await matcher.finish(MessageSegment.image(image))
+
+
+@on_endswith(("天气", "weather")).handle()
+async def _(event: T_MessageEvent, matcher: Matcher):
+    """await alconna.send("weather", city)"""
+    kws = event.message.extract_plain_text()
+    image = await get_weather_now_card(matcher, event, [kws.replace("天气", "").replace("weather", "")], False)
+    await matcher.finish(MessageSegment.image(image))
+
+
+async def get_weather_now_card(matcher: Matcher, event: T_MessageEvent, keyword: list[str], tip: bool = True):
+    ulang = get_user_lang(event.user_id)
     qw_lang = get_qw_lang(ulang.lang_code)
     key = get_config("weather_key")
-    is_dev = get_config("weather_dev")
-
-    user: User = user_db.first(User(), "user_id = ?", str(event.user_id), default=User())
-
+    is_dev = get_memory_data("weather.is_dev", True)
+    user: User = user_db.first(User(), "user_id = ?", event.user_id, default=User())
     # params
     unit = user.profile.get("unit", "m")
     stored_location = user.profile.get("location", None)
 
     if not key:
-        await matcher.finish(ulang.get("weather.no_key"))
+        await matcher.finish(ulang.get("weather.no_key") if tip else None)
 
-    kws = result.main_args.get("keywords")
-    if kws:
-        if len(kws) >= 2:
-            adm = kws[0]
-            city = kws[-1]
+    if keyword:
+        if len(keyword) >= 2:
+            adm = keyword[0]
+            city = keyword[-1]
         else:
             adm = ""
-            city = kws[0]
+            city = keyword[0]
         city_info = await city_lookup(city, key, adm=adm, lang=qw_lang)
-        city_name = " ".join(kws)
+        city_name = " ".join(keyword)
     else:
         if not stored_location:
-            await matcher.finish(ulang.get("liteyuki.invalid_command", TEXT="location"))
+            await matcher.finish(ulang.get("liteyuki.invalid_command", TEXT="location") if tip else None)
         city_info = await city_lookup(stored_location, key, lang=qw_lang)
         city_name = stored_location
     if city_info.code == "200":
         location_data = city_info.location[0]
     else:
-        await matcher.finish(ulang.get("weather.city_not_found", CITY=city_name))
-
+        await matcher.finish(ulang.get("weather.city_not_found", CITY=city_name) if tip else None)
     weather_now = await get_weather_now(key, location_data.id, lang=qw_lang, unit=unit, dev=is_dev)
     weather_daily = await get_weather_daily(key, location_data.id, lang=qw_lang, unit=unit, dev=is_dev)
     weather_hourly = await get_weather_hourly(key, location_data.id, lang=qw_lang, unit=unit, dev=is_dev)
@@ -76,9 +86,10 @@ async def _(result: Arparma, event: T_MessageEvent, matcher: Matcher):
                         "weatherHourly": weather_hourly,
                         "aqi"          : aqi,
                         "location"     : location_data.dump(),
+                        "localization" : get_local_data(ulang.lang_code)
                 }
         },
         debug=True,
         wait=1
     )
-    await matcher.finish(MessageSegment.image(image))
+    return image

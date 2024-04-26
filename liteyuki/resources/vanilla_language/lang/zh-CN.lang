@@ -157,3 +157,4 @@ status.seconds=秒
 status.cores=核心
 status.threads=线程
 status.process=进程
+status.description=轻雪机器人状态面板

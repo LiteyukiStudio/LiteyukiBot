@@ -157,3 +157,4 @@ status.seconds=Segundos
 status.cores=Núcleos
 status.threads=Hilos
 status.process=Procesos
+status.description=Liteyuki Dashboard Status

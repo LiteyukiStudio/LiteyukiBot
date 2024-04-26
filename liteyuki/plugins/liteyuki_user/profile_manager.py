@@ -49,7 +49,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
             r = set_profile(result.args["key"], result.args["value"], str(event.user_id))
             if r:
                 user.profile[result.args["key"]] = result.args["value"]
-                user_db.upsert(user)  # 数据库保存
+                user_db.save(user)  # 数据库保存
                 await profile_alc.finish(
                     ulang.get(
                         "user.profile.set_success",

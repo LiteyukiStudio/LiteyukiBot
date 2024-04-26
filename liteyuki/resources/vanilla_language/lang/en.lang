@@ -157,3 +157,4 @@ status.seconds=Seconds
 status.cores=Cores
 status.threads=Threads
 status.process=Processes
+status.description=Liteyuki Dashboard

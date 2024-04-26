@@ -11,9 +11,15 @@ body {
 }
 
 .info-box {
-    border-radius: 30px;
+    border-radius: 50px;
     padding: 30px;
     backdrop-filter: blur(10px);
     background-color: rgba(0, 0, 0, 0.5);
     margin-bottom: 20px;
+}
+
+#author-description {
+    text-align: center;
+    color: var(--sub-text-color);
+    font-size: 30px;
 }

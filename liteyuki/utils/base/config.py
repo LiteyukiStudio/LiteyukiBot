@@ -4,7 +4,7 @@ import nonebot
 import yaml
 from pydantic import BaseModel
 
-from .data_manager import StoredConfig, common_db
+from .data_manager import StoredConfig, TempConfig, common_db
 from .ly_typing import T_Bot
 from ..message.tools import random_hex_string
 
@@ -62,6 +62,12 @@ def get_config(key: str, default=None):
 
     else:
         return default
+
+
+def set_stored_config(key: str, value):
+    temp_config: TempConfig = common_db.first(TempConfig(), default=TempConfig())
+    temp_config.data[key] = value
+    common_db.save(temp_config)
 
 
 def init_conf(conf: dict) -> dict:

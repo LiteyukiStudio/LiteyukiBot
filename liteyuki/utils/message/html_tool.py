@@ -13,6 +13,13 @@ require("nonebot_plugin_htmlrender")
 from nonebot_plugin_htmlrender import *
 
 
+async def html2image(
+        html: str,
+        wait: int = 0,
+):
+    pass
+
+
 async def template2html(
         template: str,
         templates: dict,
@@ -62,7 +69,6 @@ async def template2image(
 
     if debug:
         # 重载资源
-
         raw_html = await template_to_html(
             template_name=template_name,
             template_path=template_path,
@@ -109,4 +115,3 @@ async def url2image(
             type=type,
             quality=quality
         )
-

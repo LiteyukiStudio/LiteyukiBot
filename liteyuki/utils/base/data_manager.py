@@ -11,6 +11,11 @@ group_db: Database = Database(os.path.join(DATA_PATH, "groups.ldb"))
 plugin_db: Database = Database(os.path.join(DATA_PATH, "plugins.ldb"))
 common_db: Database = Database(os.path.join(DATA_PATH, "common.ldb"))
 
+# 内存数据库，临时用于存储数据
+memory_database = {
+
+}
+
 
 class User(LiteModel):
     TABLE_NAME = "user"
@@ -60,3 +65,31 @@ def auto_migrate():
     group_db.auto_migrate(Group())
     plugin_db.auto_migrate(InstalledPlugin(), GlobalPlugin())
     common_db.auto_migrate(GlobalPlugin(), StoredConfig(), TempConfig())
+
+
+def set_memory_data(key: str, value) -> None:
+    """
+    设置内存数据库的数据，类似于redis
+    Args:
+        key:
+        value:
+
+    Returns:
+
+    """
+    return memory_database.update({
+                                          key: value
+                                          })
+
+
+def get_memory_data(key: str, default=None) -> any:
+    """
+    获取内存数据库的数据,类似于redis
+    Args:
+        key:
+        default:
+
+    Returns:
+
+    """
+    return memory_database.get(key, default)

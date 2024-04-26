@@ -157,3 +157,4 @@ status.seconds=秒
 status.cores=コア
 status.threads=スレッド
 status.process=プロセス
+status.description=軽雪監視パネル

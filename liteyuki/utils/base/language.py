@@ -149,7 +149,7 @@ def change_user_lang(user_id: str, lang_code: str):
     """
     user = user_db.first(User(), "user_id = ?", user_id, default=User(user_id=user_id))
     user.profile["lang"] = lang_code
-    user_db.upsert(user)
+    user_db.save(user)
     _user_lang[user_id] = lang_code
 
 
@@ -160,6 +160,7 @@ def get_user_lang(user_id: str) -> Language:
     user_id = str(user_id)
 
     if user_id not in _user_lang:
+        nonebot.logger.debug(f"Loading user language for {user_id}")
         user = user_db.first(
             User(), "user_id = ?", user_id, default=User(
                 user_id=user_id,
