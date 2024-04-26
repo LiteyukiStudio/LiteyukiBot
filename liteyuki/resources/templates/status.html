@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="./css/card.css">
     <link rel="stylesheet" href="./css/status.css">
     <link rel="stylesheet" href="./css/fonts.css">
+
 </head>
 <body>
 <template id="bot-template">
@@ -25,11 +26,24 @@
     </div>
 </template>
 
+<template id="device-info">
+    <div class="device-info">
+        <div class="device-chart">
+        </div>
+        <div class="device-tags">
+        </div>
+    </div>
+</template>
+
 <div class="data-storage" id="data">{{ data | tojson }}</div>
 <div class="info-box" id="hardware-info"></div>
 <div class="info-box" id="disk-info"></div>
-<div class="info-box" id="motto-info"></div>
-
+<div class="info-box" id="motto-info">
+    <div id="motto-text"></div>
+    <div id="motto-from"></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/4.3.0/echarts.min.js"></script>
+<script src="./js/motto.js"></script>
 <script src="./js/card.js"></script>
 <script src="./js/status.js"></script>
 </body>

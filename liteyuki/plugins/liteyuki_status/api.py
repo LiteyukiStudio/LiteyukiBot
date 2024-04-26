@@ -94,6 +94,9 @@ def get_local_data(lang_code) -> dict:
             "minutes"         : lang.get("status.minutes"),
             "seconds"         : lang.get("status.seconds"),
             "runtime"         : lang.get("status.runtime"),
+            "threads"         : lang.get("status.threads"),
+            "cores"           : lang.get("status.cores"),
+            "process"         : lang.get("status.process"),
 
     }
 
@@ -149,7 +152,7 @@ async def get_hardware_data() -> dict:
     all_processes = psutil.Process().children(recursive=True)
     all_processes.append(psutil.Process())
 
-    mem_used_bot = 0
+    mem_used_process = 0
     process_mem = {}
     for process in all_processes:
         try:
@@ -157,7 +160,7 @@ async def get_hardware_data() -> dict:
             if ps_name not in process_mem:
                 process_mem[ps_name] = 0
             process_mem[ps_name] += process.memory_info().rss
-            mem_used_bot += process.memory_info().rss
+            mem_used_process += process.memory_info().rss
         except Exception:
             pass
     swap = psutil.swap_memory()
@@ -169,31 +172,34 @@ async def get_hardware_data() -> dict:
     else:
         brand = "Unknown"
     result = {
-            "cpu" : {
+            "cpu"   : {
                     "percent": psutil.cpu_percent(),
                     "name"   : f"{brand} {cpuinfo.get_cpu_info().get('arch', 'Unknown')}",
                     "cores"  : psutil.cpu_count(logical=False),
                     "threads": psutil.cpu_count(logical=True),
-                    "freq"   : psutil.cpu_freq().current    # MHz
+                    "freq"   : psutil.cpu_freq().current  # MHz
             },
-            "memory" : {
-                    "percent": mem.percent,
-                    "total"  : mem.total,
-                    "used"   : mem.used,
-                    "free"   : mem.free,
+            "memory": {
+                    "percent"    : mem.percent,
+                    "total"      : mem.total,
+                    "used"       : mem.used,
+                    "free"       : mem.free,
+                    "usedProcess": mem_used_process,
             },
-            "swap": {
+            "swap"  : {
                     "percent": swap.percent,
                     "total"  : swap.total,
                     "used"   : swap.used,
                     "free"   : swap.free
             },
-            "disk": [],
+            "disk"  : [],
     }
 
     for disk in psutil.disk_partitions(all=True):
         try:
             disk_usage = psutil.disk_usage(disk.mountpoint)
+            if disk_usage.total == 0:
+                continue    # 虚拟磁盘
             result["disk"].append({
                     "name"   : disk.mountpoint,
                     "percent": disk_usage.percent,

@@ -153,3 +153,6 @@ status.days=天
 status.hours=时
 status.minutes=分
 status.seconds=秒
+status.cores=核心
+status.threads=线程
+status.process=进程

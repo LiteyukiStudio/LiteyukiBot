@@ -10,9 +10,9 @@ require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import on_alconna, Alconna, Args, Subcommand, Arparma, UniMessage
 
 status_alc = on_alconna(
-    aliases={"#状态"},
+    aliases={"状态"},
     command=Alconna(
-        "#status",
+        "status",
         Subcommand(
             "memory",
             alias={"mem", "m", "内存"},

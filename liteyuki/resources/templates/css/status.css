@@ -2,6 +2,8 @@
     --main-text-color: #fff;
     --sub-text-color: #bbb;
     --tip-text-color: #888;
+
+    --device-info-width: 240px;
 }
 
 .bot-info {
@@ -57,4 +59,72 @@
     background: var(--tip-text-color);
     margin: 10px 0;
     width: 100%;
+}
+
+#hardware-info {
+    display: flex;
+    justify-content: space-evenly;
+}
+
+.device-info {
+    max-width: 30%;
+}
+
+.device-chart {
+    display: flex;
+    height: var(--device-info-width);
+    width: var(--device-info-width);
+    margin-bottom: 20px;
+    justify-content: center;
+}
+
+.device-tags {
+    text-align: center;
+    color: var(--sub-text-color);
+    font-size: 24px;
+    max-width: var(--device-info-width);
+    word-wrap: break-word;
+}
+
+.disk-info {
+    display: flex;
+    position: relative;
+    width: 100%;
+    height: 60px;
+    background-color: #ffffff44;
+    border-radius: 30px;
+    align-items: center;
+}
+
+.disk-usage {
+    background-color: #a2d8f4;
+    height: 100%;
+    border-radius: 30px;
+    position: absolute;
+    z-index: 1;
+}
+
+.disk-title {
+    position: absolute;
+    color: var(--main-text-color);
+    font-size: 24px;
+    margin-bottom: 10px;
+    margin-left: 20px;
+    text-align: left;
+    z-index: 2;
+}
+
+#motto-text {
+    font-size: 36px;
+    word-wrap: break-word;
+    color: var(--main-text-color);
+    text-align: center;
+    margin: 30px 0 10px 0;
+}
+
+#motto-from {
+    font-size: 24px;
+    font-style: italic;
+    color: var(--sub-text-color);
+    text-align: right;
 }

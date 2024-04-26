@@ -19,7 +19,8 @@ function createPieChartOption(title, data) {
             top: 'center',
             textStyle: {
                 color: '#fff',
-                fontSize: 30
+                fontSize: 30,
+                lineHeight: 36
             }
         },
         tooltip: {
@@ -90,8 +91,17 @@ function convertSize(size, precision = 2, addUnit = true, suffix = " XiB") {
  * @param title
  * @param percent 数据
  */
-function createBarChartOption(title, percent) {
+function createBarChart(title, percent) {
     // percent为百分比，最大值为100
+    let diskDiv = document.createElement('div')
+    diskDiv.setAttribute('class', 'disk-info')
+    diskDiv.style.marginBottom = '20px'
+    diskDiv.innerHTML = `
+        <div class="disk-title">${title}</div>
+        <div class="disk-usage" style="width: ${percent}%"></div>
+    `
+
+    return diskDiv
 }
 
 function secondsToTextTime(seconds) {
@@ -112,7 +122,7 @@ function main() {
 
             // 设置机器人信息
             botInfoDiv.className = 'info-box bot-info'
-            console.log(botInfoDiv.querySelector('.bot-icon-img'))
+
             botInfoDiv.querySelector('.bot-icon-img').setAttribute('src', bot['icon'])
             botInfoDiv.querySelector('.bot-name').innerText = bot['name']
             let tagArray = [
@@ -144,7 +154,7 @@ function main() {
     liteyukiInfoDiv.className = 'info-box bot-info'
     liteyukiInfoDiv.querySelector('.bot-icon-img').setAttribute('src', './img/liteyuki.png')
     liteyukiInfoDiv.querySelector('.bot-name').innerText = liteyukiData['name']
-    console.log(liteyukiData)
+
     let tagArray = [
         `Liteyuki ${liteyukiData['version']}`,
         `Nonebot ${liteyukiData['nonebot']}`,
@@ -173,12 +183,12 @@ function main() {
 
     const cpuTagArray = [
         cpuData['name'],
-        `${cpuData['cores']}C ${cpuData['threads']}T`,
+        `${cpuData['cores']}${localData['cores']} ${cpuData['threads']}${localData['threads']}`,
         `${(cpuData['freq'] / 1000).toFixed(2)}GHz`
     ]
 
     const memTagArray = [
-        `Bot ${convertSize(memData['bot'])}`,
+        `${localData['process']} ${convertSize(memData['usedProcess'])}`,
         `${localData['used']} ${convertSize(memData['used'])}`,
         `${localData['free']} ${convertSize(memData['free'])}`,
         `${localData['total']} ${convertSize(memData['total'])}`
@@ -189,7 +199,96 @@ function main() {
         `${localData['free']} ${convertSize(swapData['free'])}`,
         `${localData['total']} ${convertSize(swapData['total'])}`
     ]
-    console.log(cpuTagArray, memTagArray, swapTagArray)
+    let cpuDeviceInfoDiv = document.importNode(document.getElementById('device-info').content, true)
+    let memDeviceInfoDiv = document.importNode(document.getElementById('device-info').content, true)
+    let swapDeviceInfoDiv = document.importNode(document.getElementById('device-info').content, true)
+
+    cpuDeviceInfoDiv.querySelector('.device-info').setAttribute('id', 'cpu-info')
+    memDeviceInfoDiv.querySelector('.device-info').setAttribute('id', 'mem-info')
+    swapDeviceInfoDiv.querySelector('.device-info').setAttribute('id', 'swap-info')
+    cpuDeviceInfoDiv.querySelector('.device-chart').setAttribute('id', 'cpu-chart')
+    memDeviceInfoDiv.querySelector('.device-chart').setAttribute('id', 'mem-chart')
+    swapDeviceInfoDiv.querySelector('.device-chart').setAttribute('id', 'swap-chart')
+
+    let devices = {
+        'cpu': cpuDeviceInfoDiv,
+        'mem': memDeviceInfoDiv,
+        'swap': swapDeviceInfoDiv
+    }
+    // 遍历添加标签
+    for (let device in devices) {
+        let tagArray = []
+        switch (device) {
+            case 'cpu':
+                tagArray = cpuTagArray
+                break
+            case 'mem':
+                tagArray = memTagArray
+                break
+            case 'swap':
+                tagArray = swapTagArray
+                break
+        }
+        tagArray.forEach(
+            (tag, index) => {
+                let tagDiv = document.createElement('div')
+                tagDiv.className = 'device-tag'
+                tagDiv.innerText = tag
+                // 给最后一个标签不添加后缀
+                tagDiv.setAttribute('suffix', index === tagArray.length - 1 ? '0' : '1')
+                devices[device].querySelector('.device-tags').appendChild(tagDiv)
+            }
+        )
+    }
+
+
+    // 插入
+    document.getElementById('hardware-info').appendChild(cpuDeviceInfoDiv)
+    document.getElementById('hardware-info').appendChild(memDeviceInfoDiv)
+    document.getElementById('hardware-info').appendChild(swapDeviceInfoDiv)
+
+    let cpuChart = echarts.init(document.getElementById('cpu-chart'))
+    let memChart = echarts.init(document.getElementById('mem-chart'))
+    let swapChart = echarts.init(document.getElementById('swap-chart'))
+
+
+    cpuChart.setOption(createPieChartOption(`${localData['cpu']}\n${cpuData['percent'].toFixed(1)}%`, [
+        {name: 'used', value: cpuData['percent']},
+        {name: 'free', value: 100 - cpuData['percent']}
+    ]))
+
+    memChart.setOption(createPieChartOption(`${localData['memory']}\n${memData['percent'].toFixed(1)}%`, [
+        {name: 'process', value: memData['usedProcess']},
+        {name: 'used', value: memData['used'] - memData['usedProcess']},
+        {name: 'free', value: memData['free']}
+    ]))
+
+
+    swapChart.setOption(createPieChartOption(`${localData['swap']}\n${swapData['percent'].toFixed(1)}%`, [
+        {name: 'used', value: swapData['used']},
+        {name: 'free', value: swapData['free']}
+    ]))
+
+
+    // 磁盘信息
+    const diskData = hardwareData['disk']
+    diskData.forEach(
+        (disk) => {
+            let diskTitle = `${disk['name']}  ${localData['free']} ${convertSize(disk['free'])}  ${localData['total']} ${convertSize(disk['total'])}`
+            // 最后一个把margin-bottom去掉
+            let diskDiv = createBarChart(diskTitle, disk['percent'])
+            if (disk === diskData[diskData.length - 1]) {
+                diskDiv.style.marginBottom = '0'
+            }
+            document.getElementById('disk-info').appendChild(createBarChart(diskTitle, disk['percent']))
+        })
+    // 随机一言
+    let motto = mottos[Math.floor(Math.random() * mottos.length)]
+    let mottoText = motto['text']
+    let mottoFrom = `${motto['author']} ${motto['source']}`
+    document.getElementById('motto-text').innerText = mottoText
+    document.getElementById('motto-from').innerText = mottoFrom
+
 
 }
 
