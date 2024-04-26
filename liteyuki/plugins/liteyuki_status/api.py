@@ -8,7 +8,7 @@ from liteyuki.utils import __NAME__, __VERSION__
 from liteyuki.utils.base.config import get_config
 from liteyuki.utils.base.data_manager import TempConfig, common_db
 from liteyuki.utils.base.language import Language
-from liteyuki.utils.base.resource import get_path
+from liteyuki.utils.base.resource import get_loaded_resource_packs, get_path
 from liteyuki.utils.message.html_tool import template2image
 
 protocol_names = {
@@ -65,8 +65,7 @@ async def generate_status_card(bot: dict, hardware: dict, liteyuki: dict, lang="
                         "liteyuki"    : liteyuki,
                         "localization": get_local_data(lang)
                 }
-        },
-        debug=True
+        }
     )
 
 
@@ -97,6 +96,7 @@ def get_local_data(lang_code) -> dict:
             "threads"         : lang.get("status.threads"),
             "cores"           : lang.get("status.cores"),
             "process"         : lang.get("status.process"),
+            "resources"       : lang.get("status.resources"),
 
     }
 
@@ -199,7 +199,7 @@ async def get_hardware_data() -> dict:
         try:
             disk_usage = psutil.disk_usage(disk.mountpoint)
             if disk_usage.total == 0:
-                continue    # 虚拟磁盘
+                continue  # 虚拟磁盘
             result["disk"].append({
                     "name"   : disk.mountpoint,
                     "percent": disk_usage.percent,
@@ -216,13 +216,14 @@ async def get_hardware_data() -> dict:
 async def get_liteyuki_data() -> dict:
     temp_data: TempConfig = common_db.first(TempConfig(), default=TempConfig())
     result = {
-            "name"   : list(get_config("nickname", [__NAME__]))[0],
-            "version": __VERSION__,
-            "plugins": len(nonebot.get_loaded_plugins()),
-            "nonebot": f"{nonebot.__version__}",
-            "python" : f"{platform.python_implementation()} {platform.python_version()}",
-            "system" : f"{platform.system()} {platform.release()}",
-            "runtime": time.time() - temp_data.data.get("start_time", time.time()),  # 运行时间秒数
-            "bots"   : len(nonebot.get_bots())
+            "name"     : list(get_config("nickname", [__NAME__]))[0],
+            "version"  : __VERSION__,
+            "plugins"  : len(nonebot.get_loaded_plugins()),
+            "resources": len(get_loaded_resource_packs()),
+            "nonebot"  : f"{nonebot.__version__}",
+            "python"   : f"{platform.python_implementation()} {platform.python_version()}",
+            "system"   : f"{platform.system()} {platform.release()}",
+            "runtime"  : time.time() - temp_data.data.get("start_time", time.time()),  # 运行时间秒数
+            "bots"     : len(nonebot.get_bots())
     }
     return result

@@ -30,3 +30,4 @@ main.cmd
 docs/.vuepress/.cache/
 docs/.vuepress/.temp/
 docs/.vuepress/dist/
+prompt.txt

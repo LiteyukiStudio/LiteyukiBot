@@ -161,6 +161,7 @@ function main() {
         liteyukiData['python'],
         liteyukiData['system'],
         `${localData['plugins']} ${liteyukiData['plugins']}`,
+        `${localData['resources']} ${liteyukiData['resources']}`,
         `${localData['bots']} ${liteyukiData['bots']}`,
         `${localData['runtime']} ${secondsToTextTime(liteyukiData['runtime'])}`,
     ]
