@@ -54,7 +54,7 @@ def init():
     auto_migrate()
     init_log()
     if sys.version_info < (3, 10):
-        nonebot.logger.error("This project requires Python3.10+ to run, please upgrade your Python Environment.")
+        nonebot.logger.error("Requires Python3.10+ to run, please upgrade your Python Environment.")
         exit(1)
     temp_data: TempConfig = common_db.first(TempConfig(), default=TempConfig())
     temp_data.data["start_time"] = time.time()
