@@ -19,7 +19,13 @@ body {
 }
 
 #author-description {
-    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#author-text {
+    margin-left: 20px;
     color: var(--sub-text-color);
     font-size: 30px;
 }

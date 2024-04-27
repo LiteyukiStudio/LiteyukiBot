@@ -58,7 +58,7 @@ class Database:
         """
         table_name = model.TABLE_NAME
         model_type = type(model)
-        nonebot.logger.debug(f"Selecting {model_type} WHERE {condition} {args}")
+        nonebot.logger.debug(f"Selecting {model.TABLE_NAME} WHERE {condition.replace('?', '%s') % args}")
         if not table_name:
             raise ValueError(f"数据模型{model_type.__name__}未提供表名")
 
@@ -82,7 +82,6 @@ class Database:
         """增/改操作
         Args:
             *args:
-
         Returns:
         """
         table_list = [item[0] for item in self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]

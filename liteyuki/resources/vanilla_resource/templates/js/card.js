@@ -13,5 +13,15 @@ document.body.style.backgroundImage = `url(./img/${bgs[Math.floor(Math.random() 
 let descriptionDiv = document.createElement("div");
 descriptionDiv.className = 'info-box'
 descriptionDiv.id = 'author-description'
-descriptionDiv.innerText = 'Designed by SnowyKami'
+// 添加一副头像且垂直居中
+let avatar = document.createElement("img");
+avatar.src = 'https://q.qlogo.cn/g?b=qq&nk=2751454815&s=640'
+avatar.style.height = '50px';
+avatar.style.borderRadius = '50%';
+
+let text = document.createElement("div");
+text.id = 'author-text';
+text.innerText = 'Designed by SnowyKami';
+descriptionDiv.appendChild(avatar);
+descriptionDiv.appendChild(text);
 document.body.appendChild(descriptionDiv);
