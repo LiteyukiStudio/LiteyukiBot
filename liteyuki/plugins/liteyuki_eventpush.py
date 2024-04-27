@@ -12,7 +12,7 @@ from arclet.alconna import Arparma, Alconna, Args, Option, Subcommand
 
 
 class Node(LiteModel):
-    TABLE_NAME = "node"
+    TABLE_NAME: str = "node"
     bot_id: str = ""
     session_type: str = ""
     session_id: str = ""
@@ -22,7 +22,7 @@ class Node(LiteModel):
 
 
 class Push(LiteModel):
-    TABLE_NAME = "push"
+    TABLE_NAME: str = "push"
     source: Node = Node()
     target: Node = Node()
     inde: int = 0
@@ -106,9 +106,10 @@ async def _(event: T_MessageEvent, bot: T_Bot):
             for line in str(event.message).split("\n"):
                 msg_formatted += f"**{line.strip()}**\n"
             push_message = (
-                    f"> From {event.sender.nickname}@{push.source.session_type}.{push.source.session_id}\n> Bot {bot.self_id}\n\n"
-                    f"{msg_formatted}")
-            await md.send_md(push_message, bot2, message_type=push.target.session_type, session_id=push.target.session_id)
+                f"> From {event.sender.nickname}@{push.source.session_type}.{push.source.session_id}\n> Bot {bot.self_id}\n\n"
+                f"{msg_formatted}")
+            await md.send_md(push_message, bot2, message_type=push.target.session_type,
+                             session_id=push.target.session_id)
     return
 
 
@@ -119,6 +120,6 @@ __plugin_meta__ = PluginMetadata(
     usage="",
     homepage="https://github.com/snowykami/LiteyukiBot",
     extra={
-            "liteyuki": True,
+        "liteyuki": True,
     }
 )

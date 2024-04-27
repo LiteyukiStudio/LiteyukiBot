@@ -18,7 +18,7 @@ memory_database = {
 
 
 class User(LiteModel):
-    TABLE_NAME = "user"
+    TABLE_NAME:str = "user"
     user_id: str = Field(str(), alias="user_id")
     username: str = Field(str(), alias="username")
     profile: dict[str, str] = Field(dict(), alias="profile")
@@ -27,7 +27,7 @@ class User(LiteModel):
 
 
 class Group(LiteModel):
-    TABLE_NAME = "group_chat"
+    TABLE_NAME: str = "group_chat"
     # Group是一个关键字，所以这里用GroupChat
     group_id: str = Field(str(), alias="group_id")
     group_name: str = Field(str(), alias="group_name")
@@ -37,26 +37,26 @@ class Group(LiteModel):
 
 
 class InstalledPlugin(LiteModel):
-    TABLE_NAME = "installed_plugin"
+    TABLE_NAME: str = "installed_plugin"
     module_name: str = Field(str(), alias="module_name")
     version: str = Field(str(), alias="version")
 
 
 class GlobalPlugin(LiteModel):
-    TABLE_NAME = "global_plugin"
+    TABLE_NAME: str = "global_plugin"
     liteyuki: bool = Field(True, alias="liteyuki")  # 是否为LiteYuki插件
     module_name: str = Field(str(), alias="module_name")
     enabled: bool = Field(True, alias="enabled")
 
 
 class StoredConfig(LiteModel):
-    TABLE_NAME = "stored_config"
+    TABLE_NAME :str= "stored_config"
     config: dict = {}
 
 
 class TempConfig(LiteModel):
     """储存临时键值对的表"""
-    TABLE_NAME = "temp_data"
+    TABLE_NAME: str = "temp_data"
     data: dict = {}
 
 

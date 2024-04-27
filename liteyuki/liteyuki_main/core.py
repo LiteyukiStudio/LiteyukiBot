@@ -293,6 +293,7 @@ async def _(bot: T_Bot):
 async def every_day_update():
     if get_config("auto_update", default=True):
         result, logs = update_liteyuki()
+        pip.main(["install", "-r", "requirements.txt"])
         if result:
             await broadcast_to_superusers(f"Liteyuki updated: ```\n{logs}\n```")
             nonebot.logger.info(f"Liteyuki updated: {logs}")
