@@ -84,7 +84,7 @@ let daysStandard = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'fri
 let todayDay = new Date().getDay()
 let days = [localData['today'], localData['tomorrow']]
 for (let i = 0; i < 5; i++) {
-    days.push(localData[daysStandard[(todayDay) % 7]])
+    days.push(localData[daysStandard[(todayDay+2+i) % 7]])
 }
 weatherDaily['daily'].forEach(
     (item, index) => {
