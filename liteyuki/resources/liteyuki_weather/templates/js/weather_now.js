@@ -80,11 +80,11 @@ weatherHourly['hourly'].forEach(
 
 let maxDailyItem = 7
 // 第一和第二天用today和tomorrow，后面用星期X英文小写
-let daysStandard = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+let daysStandard = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 let todayDay = new Date().getDay()
 let days = [localData['today'], localData['tomorrow']]
 for (let i = 0; i < 5; i++) {
-    days.push(localData[daysStandard[(todayDay + i) % 7]])
+    days.push(localData[daysStandard[(todayDay) % 7]])
 }
 weatherDaily['daily'].forEach(
     (item, index) => {
