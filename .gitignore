@@ -21,6 +21,7 @@ liteyuki/resources/templates/latest-debug.html
 pyproject.toml
 
 test.py
+line_count.py
 
 # nuitka
 main.build/

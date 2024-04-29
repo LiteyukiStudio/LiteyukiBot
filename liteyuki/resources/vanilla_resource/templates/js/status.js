@@ -289,9 +289,9 @@ function main() {
     let mottoFrom = `${motto['author']} ${motto['source']}`
     document.getElementById('motto-text').innerText = mottoText
     document.getElementById('motto-from').innerText = mottoFrom
-
-    document.getElementById('author-description').innerText = localData['description'] + ' Powered by Liteyuki'
-
+    let text = document.createElement('div')
+    text.innerText = localData['description'] + ' Powered by Liteyuki'
+    document.getElementById('author-description').appendChild(text)
 
 }
 

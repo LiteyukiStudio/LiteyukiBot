@@ -9,3 +9,4 @@ weather.day=白天
 weather.night=夜晚
 weather.today=今天
 weather.tomorrow=明天
+weather.no_aqi=暂无AQI数据

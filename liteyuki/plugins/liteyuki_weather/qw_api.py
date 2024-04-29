@@ -52,6 +52,7 @@ def get_local_data(ulang_code: str) -> dict:
             "tomorrow" : ulang.get("weather.tomorrow"),
             "day"      : ulang.get("weather.day"),
             "night"    : ulang.get("weather.night"),
+            "no_aqi"   : ulang.get("weather.no_aqi"),
     }
 
 

@@ -28,15 +28,21 @@ let locationData = data["location"]
 
 // 处理aqi
 let aqiValue = 0
-aqi["aqi"].forEach(
-    (item) => {
-        if (item["defaultLocalAqi"]) {
-            document.getElementById("aqi-data").innerText = "AQI " + item["valueDisplay"] + " " + item["category"]
-            // 将(255,255,255)这种格式的颜色设置给css
-            document.getElementById("aqi-dot").style.backgroundColor = "rgb(" + item["color"] + ")"
+if ("aqi" in aqi) {
+    aqi["aqi"].forEach(
+        (item) => {
+            if (item["defaultLocalAqi"]) {
+                document.getElementById("aqi-data").innerText = "AQI " + item["valueDisplay"] + " " + item["category"]
+                // 将(255,255,255)这种格式的颜色设置给css
+                document.getElementById("aqi-dot").style.backgroundColor = "rgb(" + item["color"] + ")"
+            }
         }
-    }
-)
+    )
+} else {
+    document.getElementById("aqi-dot").style.backgroundColor = '#fff'
+    document.getElementById("aqi-data").innerText = localData['no_aqi']
+}
+
 
 templates = {
     "time": weatherNow["now"]["obsTime"],
@@ -92,7 +98,7 @@ weatherDaily['daily'].forEach(
             return
         }
         let today = days[index]
-        if (index >= 2){
+        if (index >= 2) {
             today += `(${item["fxDate"].split("-")[1]}.${item["fxDate"].split("-")[2]})`
         }
         let dailyItemDiv = document.importNode(document.getElementById("daily-item-template").content, true)
