@@ -15,6 +15,7 @@ _config.yml
 config.yml
 config.example.yml
 compile.bat
+.cache/
 liteyuki/resources/templates/latest-debug.html
 # vuepress
 .github

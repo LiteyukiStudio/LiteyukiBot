@@ -10,11 +10,24 @@ tag:
 
 
 ## **开始安装**
+### **常规方法**
 1. 安装 [`Git`](https://git-scm.com/download/) 和 [`Python3.10+`](https://www.python.org/downloads/release/python-31010/) 环境
 2. 克隆项目 `git clone https://github.com/snowykami/LiteyukiBot`
 3. 进入轻雪目录 `cd LiteyukiBot`
 4. 安装依赖 `pip install -r requirements.txt`
 5. 启动 `python main.py`
+
+### **使用Docker**
+1. 安装 [`Docker`](https://docs.docker.com/get-docker/)
+2. 克隆项目 `git clone https://github.com/snowykami/LiteyukiBot`
+3. 进入轻雪目录 `cd LiteyukiBot`
+4. 构建镜像 `docker build -t liteyukibot .`
+5. 启动容器 `docker run -p 20216:20216 -v $(pwd):/liteyukibot -v $(pwd)/.cache:/root/.cache liteyukibot`
+
+[//]: # ()
+[//]: # (> [!tip])
+
+[//]: # (> Windows请使用`%cd%`代替`$&#40;pwd&#41;`)
 
 ## **设备要求**
 - Windows系统版本最低`Windows10+`/`Windows Server 2019+`
