@@ -17,17 +17,17 @@ tag:
 4. 安装依赖 `pip install -r requirements.txt`
 5. 启动 `python main.py`
 
-### **使用Docker**
+### **使用Docker(测试中)**
 1. 安装 [`Docker`](https://docs.docker.com/get-docker/)
 2. 克隆项目 `git clone https://github.com/snowykami/LiteyukiBot`
 3. 进入轻雪目录 `cd LiteyukiBot`
 4. 构建镜像 `docker build -t liteyukibot .`
 5. 启动容器 `docker run -p 20216:20216 -v $(pwd):/liteyukibot -v $(pwd)/.cache:/root/.cache liteyukibot`
 
-[//]: # ()
-[//]: # (> [!tip])
 
-[//]: # (> Windows请使用`%cd%`代替`$&#40;pwd&#41;`)
+> [!tip]
+> Windows请使用项目绝对目录`/path/to/LiteyukiBot`代替`$(pwd)` <br>
+> 若你修改了端口号请将`20216:20216`中的`20216`替换为你的端口号
 
 ## **设备要求**
 - Windows系统版本最低`Windows10+`/`Windows Server 2019+`
