@@ -4,12 +4,16 @@ import time
 import nonebot
 import psutil
 from cpuinfo import cpuinfo
+from nonebot import require
 from liteyuki.utils import __NAME__, __VERSION__
 from liteyuki.utils.base.config import get_config
 from liteyuki.utils.base.data_manager import TempConfig, common_db
 from liteyuki.utils.base.language import Language
 from liteyuki.utils.base.resource import get_loaded_resource_packs, get_path
 from liteyuki.utils.message.html_tool import template2image
+
+require("nonebot_plugin_apscheduler")
+from nonebot_plugin_apscheduler import scheduler
 
 protocol_names = {
         0: "iPad",
@@ -51,8 +55,26 @@ data
         - name: str
         - percent: float
         - total: int
-        
 """
+status_card_cache = {}  # lang -> bytes
+
+
+# 60s刷新一次
+@scheduler.scheduled_job("cron", second="*/40")
+async def refresh_status_card():
+    nonebot.logger.debug("Refreshing status card cache...")
+    global status_card_cache
+    bot_data = await get_bots_data()
+    hardware_data = await get_hardware_data()
+    liteyuki_data = await get_liteyuki_data()
+    for lang in status_card_cache.keys():
+        status_card_cache[lang] = await generate_status_card(
+            bot_data,
+            hardware_data,
+            liteyuki_data,
+            lang=lang,
+            use_cache=False
+        )
 
 
 async def generate_status_card(bot: dict, hardware: dict, liteyuki: dict, lang="zh-CN", bot_id="0", use_cache=False) -> bytes:
@@ -70,7 +92,9 @@ async def generate_status_card(bot: dict, hardware: dict, liteyuki: dict, lang="
             debug=True
         )
     else:
-        pass
+        if lang not in status_card_cache:
+            status_card_cache[lang] = await generate_status_card(bot, hardware, liteyuki, lang=lang, bot_id=bot_id)
+        return status_card_cache[lang]
 
 
 def get_local_data(lang_code) -> dict:

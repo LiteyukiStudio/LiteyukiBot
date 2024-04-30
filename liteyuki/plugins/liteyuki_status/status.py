@@ -28,13 +28,17 @@ status_alc = on_alconna(
 @status_alc.handle()
 async def _(event: T_MessageEvent, bot: T_Bot):
     ulang = get_user_lang(event.user_id)
-    image = await generate_status_card(
-        bot=await get_bots_data(),
-        hardware=await get_hardware_data(),
-        liteyuki=await get_liteyuki_data(),
-        lang=ulang.lang_code,
-        bot_id=bot.self_id
-    )
+    if ulang.lang_code in status_card_cache:
+        image = status_card_cache[ulang.lang_code]
+    else:
+        image = await generate_status_card(
+            bot=await get_bots_data(),
+            hardware=await get_hardware_data(),
+            liteyuki=await get_liteyuki_data(),
+            lang=ulang.lang_code,
+            bot_id=bot.self_id,
+            use_cache=True
+        )
     await status_alc.finish(UniMessage.image(raw=image))
 
 
