@@ -123,12 +123,12 @@
     mottoAuthor.style.textAlign = 'right';
     mottoDiv.appendChild(mottoAuthor);
 
-    function getPieUsage(data){
+    function getPieUsage(data) {
         let total = 0
         let used = 0
         data.forEach(item => {
             total += item.value
-            if(item.name === 'FREE'){
+            if (item.name === 'FREE') {
                 used += item.value
             }
         })
@@ -191,7 +191,7 @@
 
     function getBarOption(title, percent) {
         let fillet = 0
-        if (percent < 5){
+        if (percent < 5) {
             fillet = 50
         }
         // data为百分比，最大值为100
