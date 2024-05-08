@@ -7,7 +7,7 @@ import time
 import nonebot
 
 __NAME__ = "LiteyukiBot"
-__VERSION__ = "6.3.0"  # 60201
+__VERSION__ = "6.3.2"  # 60201
 
 import requests
 

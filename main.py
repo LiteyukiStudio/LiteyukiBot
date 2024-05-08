@@ -7,23 +7,26 @@ from liteyuki.utils.base.ly_api import liteyuki_api
 
 init()
 
-store_config: dict = common_db.first(StoredConfig(), default=StoredConfig()).config
-static_config = load_from_yaml("config.yml")
-store_config.update(static_config)
-nonebot.init(**store_config)
+if __name__ == "__mp_main__":
+    store_config: dict = common_db.first(StoredConfig(), default=StoredConfig()).config
+    static_config = load_from_yaml("config.yml")
+    store_config.update(static_config)
+    nonebot.init(**store_config)
 
-adapters = [v11.Adapter, v12.Adapter]
-driver = nonebot.get_driver()
+    adapters = [v11.Adapter, v12.Adapter]
+    driver = nonebot.get_driver()
 
-for adapter in adapters:
-    driver.register_adapter(adapter)
-
-if __name__ == "__main__":
+    for adapter in adapters:
+        driver.register_adapter(adapter)
     try:
         nonebot.load_plugin("liteyuki.liteyuki_main")
         nonebot.load_from_toml("pyproject.toml")
-        nonebot.run()
     except BaseException as e:
         if not isinstance(e, KeyboardInterrupt):
             nonebot.logger.error(f"An error occurred: {e}, Bug will be reported automatically.")
             liteyuki_api.bug_report(str(e.__repr__()))
+
+if __name__ == "__main__":
+    from liteyuki.utils.base.reloader import Reloader
+
+    nonebot.run()
