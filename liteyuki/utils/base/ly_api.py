@@ -68,31 +68,23 @@ class LiteyukiAPI:
         else:
             nonebot.logger.warning(f"Bug report is disabled: {content}")
 
-    async def upload_image(self, image: bytes) -> str | None:
+    async def heartbeat_report(self):
         """
-        上传图片到图床
-        Args:
-            image:
-
+        提交心跳，预留接口
         Returns:
-            图片url
+
         """
-        assert self.liteyuki_id, "Liteyuki ID is not set"
-        assert isinstance(image, bytes), "Image must be bytes"
-        url = "https://api.liteyuki.icu/upload_image"
-        data = FormData()
-        data.add_field("liteyuki_id", self.liteyuki_id)
-        data.add_field('image', image, filename='image', content_type='application/octet-stream')
+        url = "https://api.liteyuki.icu/heartbeat"
+        data = {
+                "liteyuki_id": self.liteyuki_id,
+                "version": __VERSION__,
+        }
         async with aiohttp.ClientSession() as session:
-            async with session.post(
-                    url,
-                    data=data
-            ) as resp:
+            async with session.post(url, json=data) as resp:
                 if resp.status == 200:
-                    return (await resp.json()).get("url")
+                    nonebot.logger.success("Heartbeat sent successfully")
                 else:
-                    nonebot.logger.error(f"Upload image failed: {await resp.text()}")
-                    return None
+                    nonebot.logger.error(f"Heartbeat failed: {await resp.text()}")
 
 
 liteyuki_api = LiteyukiAPI()

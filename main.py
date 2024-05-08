@@ -1,6 +1,5 @@
 import nonebot
 from nonebot.adapters.onebot import v11, v12
-
 from liteyuki.utils import init
 from liteyuki.utils.base.config import load_from_yaml
 from liteyuki.utils.base.data_manager import StoredConfig, common_db
@@ -19,11 +18,10 @@ driver = nonebot.get_driver()
 for adapter in adapters:
     driver.register_adapter(adapter)
 
-nonebot.load_plugin("liteyuki.liteyuki_main")
-nonebot.load_from_toml("pyproject.toml")
-
 if __name__ == "__main__":
     try:
+        nonebot.load_plugin("liteyuki.liteyuki_main")
+        nonebot.load_from_toml("pyproject.toml")
         nonebot.run()
     except BaseException as e:
         if not isinstance(e, KeyboardInterrupt):
