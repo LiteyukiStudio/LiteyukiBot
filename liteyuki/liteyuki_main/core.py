@@ -31,7 +31,7 @@ markdown_image = common_db.first(StoredConfig(), default=StoredConfig()).config.
 @on_alconna(
     command=Alconna(
         "liteecho",
-        Args["text", str],
+        Args["text", str, ""],
     ),
     permission=SUPERUSER
 ).handle()
