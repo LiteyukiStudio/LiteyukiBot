@@ -5,13 +5,12 @@ from liteyuki.utils.base.config import load_from_yaml
 from liteyuki.utils.base.data_manager import StoredConfig, common_db
 from liteyuki.utils.base.ly_api import liteyuki_api
 
-init()
-store_config: dict = common_db.first(StoredConfig(), default=StoredConfig()).config
-static_config = load_from_yaml("config.yml")
-store_config.update(static_config)
-nonebot.init(**store_config)
-
 if __name__ == "__mp_main__":
+    init()
+    store_config: dict = common_db.first(StoredConfig(), default=StoredConfig()).config
+    static_config = load_from_yaml("config.yml")
+    store_config.update(static_config)
+    nonebot.init(**store_config)
     adapters = [v11.Adapter, v12.Adapter]
     driver = nonebot.get_driver()
 
