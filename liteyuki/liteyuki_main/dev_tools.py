@@ -8,7 +8,7 @@ from liteyuki.utils.base.config import get_config
 from liteyuki.utils.base.reloader import Reloader
 from liteyuki.utils.base.resource import load_resources
 
-if get_config("liteyuki_reload", False):
+if get_config("debug", False):
     nonebot.logger.info("Liteyuki Reload is enable, watching for file changes...")
 
 
