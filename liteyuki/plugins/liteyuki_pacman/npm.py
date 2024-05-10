@@ -438,7 +438,11 @@ async def _(result: Arparma, matcher: Matcher, event: T_MessageEvent, bot: T_Bot
     ulang = get_user_lang(str(event.user_id))
     plugin_name = result.main_args.get("plugin_name")
     if plugin_name:
-        loaded_plugin = nonebot.get_plugin(plugin_name)
+        searched_plugins = search_loaded_plugin(plugin_name)
+        if searched_plugins:
+            loaded_plugin = searched_plugins[0]
+        else:
+            await matcher.finish(ulang.get("npm.plugin_not_found", NAME=plugin_name))
 
         if loaded_plugin:
             if loaded_plugin.metadata is None:
@@ -613,3 +617,25 @@ def npm_install(plugin_package_name) -> tuple[bool, str]:
     sys.stderr = sys.__stderr__
 
     return success, buffer.getvalue()
+
+
+def search_loaded_plugin(keyword: str) -> list[Plugin]:
+    """
+    搜索已加载插件
+
+    Args:
+        keyword (str): 关键词
+
+    Returns:
+        list[Plugin]: 插件列表
+    """
+    if nonebot.get_plugin(keyword) is not None:
+        return [nonebot.get_plugin(keyword)]
+    else:
+        results = []
+        for plugin in nonebot.get_loaded_plugins():
+            if plugin.metadata is None:
+                plugin.metadata = PluginMetadata(name=plugin.name, description="", usage="")
+            if keyword in plugin.name + plugin.metadata.name + plugin.metadata.description:
+                results.append(plugin)
+        return results
