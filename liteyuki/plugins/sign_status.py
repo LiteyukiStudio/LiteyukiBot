@@ -47,7 +47,7 @@ sign_status = on_alconna(Alconna(
     "sign",
     Subcommand(
         "chart",
-        Args["limit", int, 60]
+        Args["limit", int, 10000]
     ),
     Subcommand(
         "count"
@@ -56,6 +56,8 @@ sign_status = on_alconna(Alconna(
         "data"
     )
 ))
+
+cache_img: bytes = None
 
 
 @sign_status.assign("count")
@@ -85,18 +87,25 @@ async def _():
 
 @sign_status.assign("chart")
 async def _(arp: CommandResult = AlconnaResult()):
-    limit = arp.result.main_args.get("limit", 60)
+    limit = arp.result.subcommands.get("chart").args.get("limit")
+    if limit == 10000:
+        if cache_img:
+            await sign_status.send(UniMessage.image(raw=cache_img))
+            return
     img = await generate_chart(limit)
     await sign_status.send(UniMessage.image(raw=img))
 
 
 @scheduler.scheduled_job("interval", seconds=SIGN_COUNT_DURATION, next_run_time=datetime.datetime.now())
 async def update_sign_count():
+    global cache_img
     if not SIGN_COUNT_URLS:
         return
     data = await get_now_sign()
     for name, count in data.items():
         await save_sign_count(count[0], count[1], SIGN_COUNT_URLS[name])
+
+    cache_img = await generate_chart(10000)
 
 
 async def get_now_sign() -> dict[str, tuple[float, int]]:
@@ -129,7 +138,8 @@ async def save_sign_count(timestamp: float, count: int, sid: str):
 async def generate_chart(limit):
     data = []
     for name, url in SIGN_COUNT_URLS.items():
-        count_rows = sign_db.all(SignCount(), "sid = ? LIMIT ?", url, limit)
+        count_rows = sign_db.all(SignCount(), "sid = ? ORDER BY id DESC LIMIT ?", url, limit)
+        count_rows.reverse()
         data.append(
             {
                     "name"  : name,
@@ -138,6 +148,7 @@ async def generate_chart(limit):
                     "counts": [row.count for row in count_rows]
             }
         )
+        print(len(count_rows))
 
     img = await template2image(
         template=get_path("templates/sign_status.html", debug=True),
