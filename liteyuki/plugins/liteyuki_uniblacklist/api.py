@@ -1,5 +1,6 @@
 import datetime
 
+import aiohttp
 import httpx
 import nonebot
 from nonebot import require
@@ -33,9 +34,9 @@ async def request_for_blacklist():
     for plat in platforms:
         for url in urls:
             url += f"{plat}.txt"
-            async with httpx.AsyncClient() as client:
+            async with aiohttp.ClientSession() as client:
                 resp = await client.get(url)
-                blacklist_data[plat] = set(resp.text.splitlines())
+                blacklist_data[plat] = set((await resp.text()).splitlines())
     blacklist = get_uni_set()
     nonebot.logger.info("blacklists updated")
 

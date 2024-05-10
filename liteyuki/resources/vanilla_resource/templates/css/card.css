@@ -1,3 +1,11 @@
+:root {
+    --main-text-color: #fff;
+    --sub-text-color: #ccc;
+    --tip-text-color: #999;
+    --device-info-width: 240px;
+}
+
+
 .data-storage {
     display: none;
 }

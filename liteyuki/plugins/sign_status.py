@@ -1,19 +1,19 @@
 import datetime
-import json
 import time
-from urllib.parse import urlparse
 
-import httpx
+import aiohttp
 from nonebot import require
 from nonebot.plugin import PluginMetadata
 
 from liteyuki.utils.base.config import get_config
 from liteyuki.utils.base.data import Database, LiteModel
+from liteyuki.utils.base.resource import get_path
+from liteyuki.utils.message.html_tool import template2image
 
 require("nonebot_plugin_alconna")
 require("nonebot_plugin_apscheduler")
 from nonebot_plugin_apscheduler import scheduler
-from nonebot_plugin_alconna import Alconna, Subcommand, on_alconna
+from nonebot_plugin_alconna import Alconna, AlconnaResult, CommandResult, Subcommand, UniMessage, on_alconna, Args
 
 __author__ = "snowykami"
 __plugin_meta__ = PluginMetadata(
@@ -46,7 +46,8 @@ sign_db.auto_migrate(SignCount())
 sign_status = on_alconna(Alconna(
     "sign",
     Subcommand(
-        "chart"
+        "chart",
+        Args["limit", int, 60]
     ),
     Subcommand(
         "count"
@@ -83,8 +84,10 @@ async def _():
 
 
 @sign_status.assign("chart")
-async def _():
-    pass
+async def _(arp: CommandResult = AlconnaResult()):
+    limit = arp.result.main_args.get("limit", 60)
+    img = await generate_chart(limit)
+    await sign_status.send(UniMessage.image(raw=img))
 
 
 @scheduler.scheduled_job("interval", seconds=SIGN_COUNT_DURATION, next_run_time=datetime.datetime.now())
@@ -104,11 +107,11 @@ async def get_now_sign() -> dict[str, tuple[float, int]]:
     """
     data = {}
     now = time.time()
-    async with httpx.AsyncClient() as client:
+    async with aiohttp.ClientSession() as client:
         for name, url in SIGN_COUNT_URLS.items():
-            resp = await client.get(url)
-            count = resp.json()["count"]
-            data[name] = (now, count)
+            async with client.get(url) as resp:
+                count = (await resp.json())["count"]
+                data[name] = (now, count)
     return data
 
 
@@ -123,5 +126,25 @@ async def save_sign_count(timestamp: float, count: int, sid: str):
     sign_db.save(SignCount(time=timestamp, count=count, sid=sid))
 
 
-async def generate_chart(duration: int = 60):
-    pass
+async def generate_chart(limit):
+    data = []
+    for name, url in SIGN_COUNT_URLS.items():
+        count_rows = sign_db.all(SignCount(), "sid = ? LIMIT ?", url, limit)
+        data.append(
+            {
+                    "name"  : name,
+                    # "data": [[row.time, row.count] for row in count_rows]
+                    "times" : [row.time for row in count_rows],
+                    "counts": [row.count for row in count_rows]
+            }
+        )
+
+    img = await template2image(
+        template=get_path("templates/sign_status.html", debug=True),
+        templates={
+                "data": data
+        },
+        debug=True
+    )
+
+    return img

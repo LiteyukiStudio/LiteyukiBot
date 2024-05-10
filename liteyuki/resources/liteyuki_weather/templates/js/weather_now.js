@@ -62,6 +62,8 @@ let maxHourlyItem = 8
 let percentWidth = 1 / (maxHourlyItem * 1.5) * 100
 let hourlyStep = 2 // n小时一个数据
 let hourlyCount = 0
+
+let hourlyItemDivTemplate = document.importNode(document.getElementById("hourly-item-template").content, true)
 weatherHourly['hourly'].forEach(
     (item, index) => {
         if (index % hourlyStep !== 0) {
@@ -71,7 +73,7 @@ weatherHourly['hourly'].forEach(
             return
         }
 
-        let hourlyItemDiv = document.importNode(document.getElementById("hourly-item-template").content, true)
+        let hourlyItemDiv = document.importNode(hourlyItemDivTemplate, true)
         hourlyItemDiv.className = "hourly-item"
         hourlyItemDiv.querySelector('.hourly-icon').setAttribute("src", `./img/qw_icon/${item["icon"]}.png`)
         hourlyItemDiv.querySelector('.hourly-time').innerText = get_time_hour(item["fxTime"])
@@ -90,8 +92,10 @@ let daysStandard = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'fri
 let todayDay = new Date().getDay()
 let days = [localData['today'], localData['tomorrow']]
 for (let i = 0; i < 5; i++) {
-    days.push(localData[daysStandard[(todayDay+2+i) % 7]])
+    days.push(localData[daysStandard[(todayDay + 2 + i) % 7]])
 }
+
+let dailyItemDivTemplate = document.importNode(document.getElementById("daily-item-template").content, true)
 weatherDaily['daily'].forEach(
     (item, index) => {
         if (index >= maxDailyItem) {
@@ -101,7 +105,7 @@ weatherDaily['daily'].forEach(
         if (index >= 2) {
             today += `(${item["fxDate"].split("-")[1]}.${item["fxDate"].split("-")[2]})`
         }
-        let dailyItemDiv = document.importNode(document.getElementById("daily-item-template").content, true)
+        let dailyItemDiv = document.importNode(dailyItemDivTemplate, true)
         dailyItemDiv.querySelector('.icon-day').setAttribute("src", `./img/qw_icon/${item["iconDay"]}.png`)
         dailyItemDiv.querySelector('.icon-night').setAttribute("src", `./img/qw_icon/${item["iconNight"]}.png`)
 

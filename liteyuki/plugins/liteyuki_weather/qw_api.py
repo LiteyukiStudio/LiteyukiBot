@@ -1,3 +1,5 @@
+import aiohttp
+
 from .qw_models import *
 import httpx
 
@@ -27,7 +29,7 @@ async def check_key_dev(key: str) -> bool:
     }
     async with httpx.AsyncClient() as client:
         resp = await client.get(url, params=params)
-        return resp.json().get("code") != "200"  # 查询不到付费数据为开发版
+        return (resp.json()).get("code") != "200"  # 查询不到付费数据为开发版
 
 
 def get_local_data(ulang_code: str) -> dict:
