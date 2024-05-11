@@ -38,6 +38,8 @@ liteyuki-docs 轻雪文档
 group 群聊 | enable 启用 | disable 停用
 ```
 
+***
+
 ### **插件/包管理器 `liteyuki_pacman`**
 
 - 插件管理
@@ -80,6 +82,8 @@ help 帮助
 
 > [!warning]
 > 受限于NoneBot2钩子函数的依赖注入参数，插件停用只能阻断传入响应，对于主动推送的插件不生效，请阅读插件主页的说明。
+
+***
 
 ### **用户管理`liteyuki_user`**
 

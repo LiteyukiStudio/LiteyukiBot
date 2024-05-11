@@ -10,7 +10,7 @@ from nonebot_plugin_alconna import UniMessage, on_alconna, Alconna, Args, Subcom
 
 stat_msg = on_alconna(
     Alconna(
-        "stat",
+        "statistics",
         Subcommand(
             "message",
             # Args["duration", str, "2d"]["period", str, "60s"],  # 默认为1天
@@ -37,7 +37,8 @@ stat_msg = on_alconna(
             alias={"msg", "m"},
             help_text="查看统计次数内的消息"
         )
-    )
+    ),
+    aliases={"stat"}
 )
 
 
@@ -64,5 +65,5 @@ async def _(result: Arparma, event: T_MessageEvent, bot: Bot):
     if bot_id == ["current", "c"]:
         bot_id = str(bot.self_id)
 
-    img = await get_stat_msg_image(duration, period, group_id, bot_id)
+    img = await get_stat_msg_image(duration, period, group_id, bot_id, ulang)
     await stat_msg.send(UniMessage.image(raw=img))
