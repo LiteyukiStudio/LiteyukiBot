@@ -5,10 +5,10 @@ import aiohttp
 from nonebot import require
 from nonebot.plugin import PluginMetadata
 
-from liteyuki.internal.base.config import get_config
-from liteyuki.internal.base.data import Database, LiteModel
-from liteyuki.internal.base.resource import get_path
-from liteyuki.internal.message.html_tool import template2image
+from liteyuki.utils.base.config import get_config
+from liteyuki.utils.base.data import Database, LiteModel
+from liteyuki.utils.base.resource import get_path
+from liteyuki.utils.message.html_tool import template2image
 
 require("nonebot_plugin_alconna")
 require("nonebot_plugin_apscheduler")
@@ -76,7 +76,7 @@ async def _():
 async def _():
     query_stamp = [1, 5, 10, 15]
 
-    reply = "Count from last " + ", ".join([str(i) for i in query_stamp]) + "mins"
+    reply = "QPS from last " + ", ".join([str(i) for i in query_stamp]) + "mins"
     for name, url in SIGN_COUNT_URLS.items():
         count_data = []
         for stamp in query_stamp:
@@ -84,8 +84,8 @@ async def _():
             if len(count_rows) < 2:
                 count_data.append(-1)
             else:
-                count_data.append(count_rows[-1].count - count_rows[0].count)
-        reply += f"\n{name}: " + ", ".join([str(i) for i in count_data])
+                count_data.append((count_rows[-1].count - count_rows[0].count)/(stamp*60))
+        reply += f"\n{name}: " + ", ".join([f"{i:.1f}" for i in count_data])
     await sign_status.send(reply)
 
 

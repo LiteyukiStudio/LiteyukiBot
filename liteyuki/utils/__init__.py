@@ -11,9 +11,9 @@ __VERSION__ = "6.3.2"  # 60201
 
 import requests
 
-from liteyuki.internal.base.config import load_from_yaml, config
-from liteyuki.internal.base.log import init_log
-from liteyuki.internal.base.data_manager import TempConfig, auto_migrate, common_db
+from liteyuki.utils.base.config import load_from_yaml, config
+from liteyuki.utils.base.log import init_log
+from liteyuki.utils.base.data_manager import TempConfig, auto_migrate, common_db
 
 major, minor, patch = map(int, __VERSION__.split("."))
 __VERSION_I__ = major * 10000 + minor * 100 + patch

@@ -1,4 +1,4 @@
-from liteyuki.internal.base.data import Database, LiteModel
+from liteyuki.utils.base.data import Database, LiteModel
 
 
 class MessageEventModel(LiteModel):

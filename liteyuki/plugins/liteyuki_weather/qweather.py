@@ -2,14 +2,14 @@ from nonebot import require, on_endswith
 from nonebot.adapters.onebot.v11 import MessageSegment
 from nonebot.internal.matcher import Matcher
 
-from liteyuki.internal.base.config import get_config
-from liteyuki.internal.base.ly_typing import T_MessageEvent
+from liteyuki.utils.base.config import get_config
+from liteyuki.utils.base.ly_typing import T_MessageEvent
 
 from .qw_api import *
-from liteyuki.internal.base.data_manager import User, user_db
-from liteyuki.internal.base.language import Language, get_user_lang
-from liteyuki.internal.base.resource import get_path
-from liteyuki.internal.message.html_tool import template2image
+from liteyuki.utils.base.data_manager import User, user_db
+from liteyuki.utils.base.language import Language, get_user_lang
+from liteyuki.utils.base.resource import get_path
+from liteyuki.utils.message.html_tool import template2image
 
 require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import on_alconna, Alconna, Args, MultiVar, Arparma

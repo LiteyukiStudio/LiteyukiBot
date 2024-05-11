@@ -1,4 +1,4 @@
-from liteyuki.internal.base.data import LiteModel
+from liteyuki.utils.base.data import LiteModel
 
 
 class Location(LiteModel):

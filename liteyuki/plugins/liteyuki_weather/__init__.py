@@ -15,7 +15,7 @@ __plugin_meta__ = PluginMetadata(
     }
 )
 
-from ...internal.base.data_manager import set_memory_data
+from ...utils.base.data_manager import set_memory_data
 
 driver = get_driver()
 

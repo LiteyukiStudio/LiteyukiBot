@@ -1,6 +1,6 @@
 import random
 from pydantic import BaseModel
-from liteyuki.internal.message.message import MarkdownMessage as md
+from liteyuki.utils.message.message import MarkdownMessage as md
 
 class Dot(BaseModel):
     row: int

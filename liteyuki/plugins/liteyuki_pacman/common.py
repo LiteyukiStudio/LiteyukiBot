@@ -4,9 +4,9 @@ from typing import Optional
 import aiofiles
 import nonebot.plugin
 
-from liteyuki.internal.base.data import LiteModel
-from liteyuki.internal.base.data_manager import GlobalPlugin, Group, User, group_db, plugin_db, user_db
-from liteyuki.internal.base.ly_typing import T_MessageEvent
+from liteyuki.utils.base.data import LiteModel
+from liteyuki.utils.base.data_manager import GlobalPlugin, Group, User, group_db, plugin_db, user_db
+from liteyuki.utils.base.ly_typing import T_MessageEvent
 
 __group_data = {}  # 群数据缓存, {group_id: Group}
 __user_data = {}  # 用户数据缓存, {user_id: User}

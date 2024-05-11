@@ -1,10 +1,10 @@
 import nonebot.plugin
 
-from liteyuki.internal import init_log
-from liteyuki.internal.base.config import get_config
-from liteyuki.internal.base.data_manager import InstalledPlugin, plugin_db
-from liteyuki.internal.base.resource import load_resources
-from liteyuki.internal.message.tools import check_for_package
+from liteyuki.utils import init_log
+from liteyuki.utils.base.config import get_config
+from liteyuki.utils.base.data_manager import InstalledPlugin, plugin_db
+from liteyuki.utils.base.resource import load_resources
+from liteyuki.utils.message.tools import check_for_package
 
 load_resources()
 init_log()

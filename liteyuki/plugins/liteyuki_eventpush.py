@@ -2,9 +2,9 @@ import nonebot
 from nonebot import on_message, require
 from nonebot.plugin import PluginMetadata
 
-from liteyuki.internal.base.data import Database, LiteModel
-from liteyuki.internal.base.ly_typing import T_Bot, T_MessageEvent
-from liteyuki.internal.message.message import MarkdownMessage as md
+from liteyuki.utils.base.data import Database, LiteModel
+from liteyuki.utils.base.ly_typing import T_Bot, T_MessageEvent
+from liteyuki.utils.message.message import MarkdownMessage as md
 
 require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import on_alconna

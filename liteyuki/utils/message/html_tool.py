@@ -6,11 +6,10 @@ import aiofiles
 import nonebot
 from nonebot import require
 
-from liteyuki.internal.base.resource import load_resources
-
 require("nonebot_plugin_htmlrender")
 
 from nonebot_plugin_htmlrender import *
+from .tools import random_hex_string
 
 
 async def html2image(
@@ -76,7 +75,7 @@ async def template2image(
         )
         async with aiofiles.open(os.path.join(template_path, "latest-debug.html"), "w", encoding="utf-8") as f:
             await f.write(raw_html)
-        nonebot.logger.info("Debug HTML: %s" % "latest-debug.html")
+        nonebot.logger.info("Debug HTML: %s" % f"debug-{random_hex_string(6)}.html")
 
     return await template_to_pic(
         template_name=template_name,

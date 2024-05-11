@@ -4,9 +4,9 @@ from nonebot.params import CommandArg
 from nonebot.permission import SUPERUSER
 from nonebot.plugin import PluginMetadata
 
-from liteyuki.internal.base.ly_typing import T_Bot, T_MessageEvent, v11
-from liteyuki.internal.message.message import MarkdownMessage as md, broadcast_to_superusers
-from liteyuki.internal.message.html_tool import *
+from liteyuki.utils.base.ly_typing import T_Bot, T_MessageEvent, v11
+from liteyuki.utils.message.message import MarkdownMessage as md, broadcast_to_superusers
+from liteyuki.utils.message.html_tool import *
 
 md_test = on_command("mdts", permission=SUPERUSER)
 btn_test = on_command("btnts", permission=SUPERUSER)

@@ -3,8 +3,8 @@ import aiohttp
 from .qw_models import *
 import httpx
 
-from ...internal.base.data_manager import get_memory_data
-from ...internal.base.language import Language
+from ...utils.base.data_manager import get_memory_data
+from ...utils.base.language import Language
 
 dev_url = "https://devapi.qweather.com/"  # 开发HBa
 com_url = "https://api.qweather.com/"  # 正式环境
@@ -27,9 +27,9 @@ async def check_key_dev(key: str) -> bool:
             "location": "101010100",
             "key"     : key,
     }
-    async with httpx.AsyncClient() as client:
+    async with aiohttp.ClientSession() as client:
         resp = await client.get(url, params=params)
-        return (resp.json()).get("code") != "200"  # 查询不到付费数据为开发版
+        return (await resp.json()).get("code") != "200"  # 查询不到付费数据为开发版
 
 
 def get_local_data(ulang_code: str) -> dict:

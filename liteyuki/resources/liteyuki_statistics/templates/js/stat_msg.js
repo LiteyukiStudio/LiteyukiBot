@@ -12,16 +12,6 @@ data.forEach((item) => {
     document.body.appendChild(signChartDiv)
 
     let signChart = echarts.init(document.getElementById(chartID))
-    let timeCount = []
-
-    item["counts"].forEach((count, index) => {
-        // 计算平均值，index - 1的count + index的count + index + 1的count /3
-        if (index > 0) {
-            timeCount.push((item["counts"][index] - item["counts"][index - 1]) / (60*(item["times"][index] - item["times"][index - 1])))
-        }
-    })
-
-    console.log(timeCount)
 
     signChart.setOption(
         {
@@ -36,26 +26,15 @@ data.forEach((item) => {
                 type: 'category',
                 data: item["times"].map(timestampToTime),
             },
-            yAxis: [
-                {
-                    type: 'value',
-                    min: Math.min(...item["counts"]),
-                },
-                {
-                    type: 'value',
-                    min: Math.min(...timeCount),
-                }
-            ],
+            yAxis: {
+                type: 'value',
+                min: Math.min(...item["counts"]),
+            },
+
             series: [
                 {
                     data: item["counts"],
                     type: 'line',
-                    yAxisIndex: 0
-                },
-                {
-                    data: timeCount,
-                    type: 'line',
-                    yAxisIndex: 1
                 }
             ]
         }

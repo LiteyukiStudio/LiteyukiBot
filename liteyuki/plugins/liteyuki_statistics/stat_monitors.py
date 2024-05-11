@@ -3,8 +3,8 @@ import time
 from nonebot import require
 from nonebot.message import event_postprocessor
 
-from liteyuki.internal.base.data import Database, LiteModel
-from liteyuki.internal.base.ly_typing import v11
+from liteyuki.utils.base.data import Database, LiteModel
+from liteyuki.utils.base.ly_typing import v11
 
 from .common import MessageEventModel, msg_db
 
