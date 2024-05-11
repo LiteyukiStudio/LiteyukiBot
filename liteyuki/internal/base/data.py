@@ -31,7 +31,7 @@ class Database:
         self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
 
-    def first(self, model: LiteModel, condition: str = "", *args: Any, default: Any = None) -> LiteModel | Any | None:
+    def where_one(self, model: LiteModel, condition: str = "", *args: Any, default: Any = None) -> LiteModel | Any | None:
         """查询第一个
         Args:
             model: 数据模型实例
@@ -42,10 +42,10 @@ class Database:
         Returns:
 
         """
-        all_results = self.all(model, condition, *args)
+        all_results = self.where_all(model, condition, *args)
         return all_results[0] if all_results else default
 
-    def all(self, model: LiteModel, condition: str = "", *args: Any, default: Any = None) -> list[LiteModel | Any] | None:
+    def where_all(self, model: LiteModel, condition: str = "", *args: Any, default: Any = None) -> list[LiteModel | Any] | None:
         """查询所有
         Args:
             model: 数据模型实例
@@ -333,6 +333,19 @@ class Database:
     FOREIGN_KEY_PREFIX = "FOREIGN_KEY_"
     # 转换为的字节前缀
     BYTES_PREFIX = "PICKLE_BYTES_"
+
+    # transaction tx 事务操作
+    def first(self, model: LiteModel) -> "Database":
+        pass
+
+    def where(self, condition: str, *args) -> "Database":
+        pass
+
+    def limit(self, limit: int) -> "Database":
+        pass
+
+    def order(self, order: str) -> "Database":
+        pass
 
 
 def check_sqlite_keyword(name):

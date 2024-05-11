@@ -9,7 +9,7 @@ from nonebot_plugin_alconna import on_alconna, Alconna, Subcommand, Args, MultiV
 from pydantic import BaseModel
 
 from .canvas import *
-from ...utils.base.resource import get_path
+from ...internal.base.resource import get_path
 
 resolution = 256
 

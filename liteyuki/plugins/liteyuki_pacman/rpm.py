@@ -5,10 +5,10 @@ import yaml
 from nonebot import require
 from nonebot.permission import SUPERUSER
 
-from liteyuki.utils.base.language import get_user_lang
-from liteyuki.utils.base.ly_typing import T_Bot, T_MessageEvent
-from liteyuki.utils.message.message import MarkdownMessage as md
-from liteyuki.utils.base.resource import (ResourceMetadata, add_resource_pack, change_priority, check_exist, check_status, get_loaded_resource_packs, get_resource_metadata, load_resources, remove_resource_pack)
+from liteyuki.internal.base.language import get_user_lang
+from liteyuki.internal.base.ly_typing import T_Bot, T_MessageEvent
+from liteyuki.internal.message.message import MarkdownMessage as md
+from liteyuki.internal.base.resource import (ResourceMetadata, add_resource_pack, change_priority, check_exist, check_status, get_loaded_resource_packs, get_resource_metadata, load_resources, remove_resource_pack)
 
 require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import Alconna, Args, on_alconna, Arparma, Subcommand

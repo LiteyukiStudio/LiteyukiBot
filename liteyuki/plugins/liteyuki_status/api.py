@@ -5,12 +5,12 @@ import nonebot
 import psutil
 from cpuinfo import cpuinfo
 from nonebot import require
-from liteyuki.utils import __NAME__, __VERSION__
-from liteyuki.utils.base.config import get_config
-from liteyuki.utils.base.data_manager import TempConfig, common_db
-from liteyuki.utils.base.language import Language
-from liteyuki.utils.base.resource import get_loaded_resource_packs, get_path
-from liteyuki.utils.message.html_tool import template2image
+from liteyuki.internal import __NAME__, __VERSION__
+from liteyuki.internal.base.config import get_config
+from liteyuki.internal.base.data_manager import TempConfig, common_db
+from liteyuki.internal.base.language import Language
+from liteyuki.internal.base.resource import get_loaded_resource_packs, get_path
+from liteyuki.internal.message.html_tool import template2image
 
 require("nonebot_plugin_apscheduler")
 from nonebot_plugin_apscheduler import scheduler
@@ -242,7 +242,7 @@ async def get_hardware_data() -> dict:
 
 
 async def get_liteyuki_data() -> dict:
-    temp_data: TempConfig = common_db.first(TempConfig(), default=TempConfig())
+    temp_data: TempConfig = common_db.where_one(TempConfig(), default=TempConfig())
     result = {
             "name"     : list(get_config("nickname", [__NAME__]))[0],
             "version"  : __VERSION__,

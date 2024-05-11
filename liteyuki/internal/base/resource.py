@@ -42,7 +42,7 @@ def load_resource_from_dir(path: str):
     metadata["path"] = path
     metadata["folder"] = os.path.basename(path)
     if os.path.exists(os.path.join(path, "lang")):
-        from liteyuki.utils.base.language import load_from_dir
+        from liteyuki.internal.base.language import load_from_dir
         load_from_dir(os.path.join(path, "lang"))
     _loaded_resource_packs.insert(0, ResourceMetadata(**metadata))
 

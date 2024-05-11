@@ -1,10 +1,10 @@
 import nonebot.plugin
 
-from liteyuki.utils import init_log
-from liteyuki.utils.base.config import get_config
-from liteyuki.utils.base.data_manager import InstalledPlugin, plugin_db
-from liteyuki.utils.base.resource import load_resources
-from liteyuki.utils.message.tools import check_for_package
+from liteyuki.internal import init_log
+from liteyuki.internal.base.config import get_config
+from liteyuki.internal.base.data_manager import InstalledPlugin, plugin_db
+from liteyuki.internal.base.resource import load_resources
+from liteyuki.internal.message.tools import check_for_package
 
 load_resources()
 init_log()
@@ -14,7 +14,7 @@ nonebot.plugin.load_plugins("liteyuki/plugins")
 if not get_config("safe_mode", False):
     # 安全模式下，不加载插件
 
-    installed_plugins: list[InstalledPlugin] = plugin_db.all(InstalledPlugin())
+    installed_plugins: list[InstalledPlugin] = plugin_db.where_all(InstalledPlugin())
     if installed_plugins:
         for installed_plugin in installed_plugins:
             if not check_for_package(installed_plugin.module_name):

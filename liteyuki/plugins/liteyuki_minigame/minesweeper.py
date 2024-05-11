@@ -1,7 +1,7 @@
 from nonebot import require
 
-from liteyuki.utils.base.ly_typing import T_Bot, T_MessageEvent
-from liteyuki.utils.message.message import MarkdownMessage as md
+from liteyuki.internal.base.ly_typing import T_Bot, T_MessageEvent
+from liteyuki.internal.message.message import MarkdownMessage as md
 
 require("nonebot_plugin_alconna")
 from .game import Minesweeper

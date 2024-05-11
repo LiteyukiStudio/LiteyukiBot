@@ -17,7 +17,7 @@ data.forEach((item) => {
     item["counts"].forEach((count, index) => {
         // 计算平均值，index - 1的count + index的count + index + 1的count /3
         if (index > 0) {
-            timeCount.push((item["counts"][index] - item["counts"][index - 1]))
+            timeCount.push((item["counts"][index] - item["counts"][index - 1]) / (60 * (item["times"][index] - item["times"][index - 1])))
         }
     })
 

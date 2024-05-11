@@ -3,11 +3,11 @@ from typing import Optional
 import pytz
 from nonebot import require
 
-from liteyuki.utils.base.data import LiteModel, Database
-from liteyuki.utils.base.data_manager import User, user_db, group_db
-from liteyuki.utils.base.language import Language, change_user_lang, get_all_lang, get_user_lang
-from liteyuki.utils.base.ly_typing import T_Bot, T_MessageEvent
-from liteyuki.utils.message.message import MarkdownMessage as md
+from liteyuki.internal.base.data import LiteModel, Database
+from liteyuki.internal.base.data_manager import User, user_db, group_db
+from liteyuki.internal.base.language import Language, change_user_lang, get_all_lang, get_user_lang
+from liteyuki.internal.base.ly_typing import T_Bot, T_MessageEvent
+from liteyuki.internal.message.message import MarkdownMessage as md
 from .const import representative_timezones_list
 
 require("nonebot_plugin_alconna")
@@ -41,7 +41,7 @@ class Profile(LiteModel):
 
 @profile_alc.handle()
 async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
-    user: User = user_db.first(User(), "user_id = ?", event.user_id, default=User(user_id=str(event.user_id)))
+    user: User = user_db.where_one(User(), "user_id = ?", event.user_id, default=User(user_id=str(event.user_id)))
     ulang = get_user_lang(str(event.user_id))
     if result.subcommands.get("set"):
         if result.subcommands["set"].args.get("value"):

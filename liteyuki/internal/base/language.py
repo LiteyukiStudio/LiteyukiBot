@@ -147,7 +147,7 @@ def change_user_lang(user_id: str, lang_code: str):
     """
     修改用户的语言，同时储存到数据库和内存中
     """
-    user = user_db.first(User(), "user_id = ?", user_id, default=User(user_id=user_id))
+    user = user_db.where_one(User(), "user_id = ?", user_id, default=User(user_id=user_id))
     user.profile["lang"] = lang_code
     user_db.save(user)
     _user_lang[user_id] = lang_code
@@ -161,7 +161,7 @@ def get_user_lang(user_id: str) -> Language:
 
     if user_id not in _user_lang:
         nonebot.logger.debug(f"Loading user language for {user_id}")
-        user = user_db.first(
+        user = user_db.where_one(
             User(), "user_id = ?", user_id, default=User(
                 user_id=user_id,
                 username="Unknown"

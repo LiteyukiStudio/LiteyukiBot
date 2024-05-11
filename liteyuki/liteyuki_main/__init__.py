@@ -16,7 +16,7 @@ __plugin_meta__ = PluginMetadata(
     }
 )
 
-from ..utils.base.language import Language, get_default_lang_code
+from ..internal.base.language import Language, get_default_lang_code
 
 print("\033[34m" + r"""
  __        ______  ________  ________  __      __  __    __  __    __  ______ 

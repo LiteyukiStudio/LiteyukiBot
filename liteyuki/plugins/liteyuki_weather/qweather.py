@@ -2,14 +2,14 @@ from nonebot import require, on_endswith
 from nonebot.adapters.onebot.v11 import MessageSegment
 from nonebot.internal.matcher import Matcher
 
-from liteyuki.utils.base.config import get_config
-from liteyuki.utils.base.ly_typing import T_MessageEvent
+from liteyuki.internal.base.config import get_config
+from liteyuki.internal.base.ly_typing import T_MessageEvent
 
 from .qw_api import *
-from liteyuki.utils.base.data_manager import User, user_db
-from liteyuki.utils.base.language import Language, get_user_lang
-from liteyuki.utils.base.resource import get_path
-from liteyuki.utils.message.html_tool import template2image
+from liteyuki.internal.base.data_manager import User, user_db
+from liteyuki.internal.base.language import Language, get_user_lang
+from liteyuki.internal.base.resource import get_path
+from liteyuki.internal.message.html_tool import template2image
 
 require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import on_alconna, Alconna, Args, MultiVar, Arparma
@@ -42,7 +42,7 @@ async def get_weather_now_card(matcher: Matcher, event: T_MessageEvent, keyword:
     qw_lang = get_qw_lang(ulang.lang_code)
     key = get_config("weather_key")
     is_dev = get_memory_data("weather.is_dev", True)
-    user: User = user_db.first(User(), "user_id = ?", event.user_id, default=User())
+    user: User = user_db.where_one(User(), "user_id = ?", event.user_id, default=User())
     # params
     unit = user.profile.get("unit", "m")
     stored_location = user.profile.get("location", None)

@@ -10,12 +10,12 @@ from nonebot.exception import MockApiException
 from nonebot.internal.matcher import Matcher
 from nonebot.permission import SUPERUSER
 
-from liteyuki.utils.base.config import get_config, load_from_yaml
-from liteyuki.utils.base.data_manager import StoredConfig, TempConfig, common_db
-from liteyuki.utils.base.language import get_user_lang
-from liteyuki.utils.base.ly_typing import T_Bot, T_MessageEvent
-from liteyuki.utils.message.message import MarkdownMessage as md, broadcast_to_superusers
-from liteyuki.utils.base.reloader import Reloader
+from liteyuki.internal.base.config import get_config, load_from_yaml
+from liteyuki.internal.base.data_manager import StoredConfig, TempConfig, common_db
+from liteyuki.internal.base.language import get_user_lang
+from liteyuki.internal.base.ly_typing import T_Bot, T_MessageEvent
+from liteyuki.internal.message.message import MarkdownMessage as md, broadcast_to_superusers
+from liteyuki.internal.base.reloader import Reloader
 from .api import update_liteyuki
 
 require("nonebot_plugin_alconna")
@@ -25,7 +25,7 @@ from nonebot_plugin_apscheduler import scheduler
 
 driver = get_driver()
 
-markdown_image = common_db.first(StoredConfig(), default=StoredConfig()).config.get("markdown_image", False)
+markdown_image = common_db.where_one(StoredConfig(), default=StoredConfig()).config.get("markdown_image", False)
 
 
 @on_alconna(
@@ -70,7 +70,7 @@ async def _(bot: T_Bot, event: T_MessageEvent):
 ).handle()
 async def _(matcher: Matcher, bot: T_Bot, event: T_MessageEvent):
     await matcher.send("Liteyuki reloading")
-    temp_data = common_db.first(TempConfig(), default=TempConfig())
+    temp_data = common_db.where_one(TempConfig(), default=TempConfig())
 
     temp_data.data.update(
         {
@@ -112,7 +112,7 @@ async def _(matcher: Matcher, bot: T_Bot, event: T_MessageEvent):
 ).handle()
 async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, matcher: Matcher):
     ulang = get_user_lang(str(event.user_id))
-    stored_config: StoredConfig = common_db.first(StoredConfig(), default=StoredConfig())
+    stored_config: StoredConfig = common_db.where_one(StoredConfig(), default=StoredConfig())
     if result.subcommands.get("set"):
         key, value = result.subcommands.get("set").args.get("key"), result.subcommands.get("set").args.get("value")
         try:
@@ -161,7 +161,7 @@ async def _(event: T_MessageEvent, matcher: Matcher):
     global markdown_image
     # 切换图片模式，False以图片形式发送，True以markdown形式发送
     ulang = get_user_lang(str(event.user_id))
-    stored_config: StoredConfig = common_db.first(StoredConfig(), default=StoredConfig())
+    stored_config: StoredConfig = common_db.where_one(StoredConfig(), default=StoredConfig())
     stored_config.config["markdown_image"] = not stored_config.config.get("markdown_image", False)
     markdown_image = stored_config.config["markdown_image"]
     common_db.save(stored_config)
@@ -253,7 +253,7 @@ async def test_for_md_image(bot: T_Bot, api: str, data: dict):
 
 @driver.on_startup
 async def on_startup():
-    temp_data = common_db.first(TempConfig(), default=TempConfig())
+    temp_data = common_db.where_one(TempConfig(), default=TempConfig())
     # 储存重启信息
     if temp_data.data.get("reload", False):
         delta_time = time.time() - temp_data.data.get("reload_time", 0)
@@ -268,7 +268,7 @@ async def on_shutdown():
 
 @driver.on_bot_connect
 async def _(bot: T_Bot):
-    temp_data = common_db.first(TempConfig(), default=TempConfig())
+    temp_data = common_db.where_one(TempConfig(), default=TempConfig())
     # 用于重启计时
     if temp_data.data.get("reload", False):
         temp_data.data["reload"] = False

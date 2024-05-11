@@ -3,8 +3,8 @@ import aiohttp
 from .qw_models import *
 import httpx
 
-from ...utils.base.data_manager import get_memory_data
-from ...utils.base.language import Language
+from ...internal.base.data_manager import get_memory_data
+from ...internal.base.language import Language
 
 dev_url = "https://devapi.qweather.com/"  # 开发HBa
 com_url = "https://api.qweather.com/"  # 正式环境

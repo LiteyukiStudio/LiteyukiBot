@@ -4,9 +4,9 @@ import nonebot
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from liteyuki.utils.base.config import get_config
-from liteyuki.utils.base.reloader import Reloader
-from liteyuki.utils.base.resource import load_resources
+from liteyuki.internal.base.config import get_config
+from liteyuki.internal.base.reloader import Reloader
+from liteyuki.internal.base.resource import load_resources
 
 if get_config("debug", False):
     nonebot.logger.info("Liteyuki Reload is enable, watching for file changes...")

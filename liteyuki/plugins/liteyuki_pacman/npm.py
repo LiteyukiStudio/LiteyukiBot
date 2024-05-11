@@ -14,13 +14,13 @@ from nonebot.permission import SUPERUSER
 from nonebot.plugin import Plugin, PluginMetadata
 from nonebot.utils import run_sync
 
-from liteyuki.utils.base.data_manager import InstalledPlugin
-from liteyuki.utils.base.language import get_user_lang
-from liteyuki.utils.base.ly_typing import T_Bot
-from liteyuki.utils.message.message import MarkdownMessage as md
-from liteyuki.utils.message.markdown import MarkdownComponent as mdc, compile_md, escape_md
-from liteyuki.utils.base.permission import GROUP_ADMIN, GROUP_OWNER
-from liteyuki.utils.message.tools import clamp
+from liteyuki.internal.base.data_manager import InstalledPlugin
+from liteyuki.internal.base.language import get_user_lang
+from liteyuki.internal.base.ly_typing import T_Bot
+from liteyuki.internal.message.message import MarkdownMessage as md
+from liteyuki.internal.message.markdown import MarkdownComponent as mdc, compile_md, escape_md
+from liteyuki.internal.base.permission import GROUP_ADMIN, GROUP_OWNER
+from liteyuki.internal.message.tools import clamp
 from .common import *
 
 require("nonebot_plugin_alconna")
@@ -114,10 +114,10 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
                 ulang.get("npm.plugin_already", NAME=plugin_name, STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable")))
 
         if event.message_type == "private":
-            session = user_db.first(User(), "user_id = ?", event.user_id, default=User(user_id=event.user_id))
+            session = user_db.where_one(User(), "user_id = ?", event.user_id, default=User(user_id=event.user_id))
         else:
             if await GROUP_ADMIN(bot, event) or await GROUP_OWNER(bot, event) or await SUPERUSER(bot, event):
-                session = group_db.first(Group(), "group_id = ?", event.group_id, default=Group(group_id=str(event.group_id)))
+                session = group_db.where_one(Group(), "group_id = ?", event.group_id, default=Group(group_id=str(event.group_id)))
             else:
                 raise FinishedException(ulang.get("Permission Denied"))
         try:
@@ -222,7 +222,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
         if r:
             r_load = nonebot.load_plugin(plugin_name)  # 加载插件
             installed_plugin = InstalledPlugin(module_name=plugin_name)  # 构造插件信息模型
-            found_in_db_plugin = plugin_db.first(InstalledPlugin(), "module_name = ?", plugin_name)  # 查询数据库中是否已经安装
+            found_in_db_plugin = plugin_db.where_one(InstalledPlugin(), "module_name = ?", plugin_name)  # 查询数据库中是否已经安装
             if r_load:
                 if found_in_db_plugin is None:
                     plugin_db.save(installed_plugin)
@@ -254,7 +254,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
 
     elif sc.get("uninstall") and perm_s:
         plugin_name: str = result.subcommands["uninstall"].args.get("plugin_name")  # type: ignore
-        found_installed_plugin: InstalledPlugin = plugin_db.first(InstalledPlugin(), "module_name = ?", plugin_name)
+        found_installed_plugin: InstalledPlugin = plugin_db.where_one(InstalledPlugin(), "module_name = ?", plugin_name)
         if found_installed_plugin:
             plugin_db.delete(InstalledPlugin(), "module_name = ?", plugin_name)
             reply = f"{ulang.get('npm.uninstall_success', NAME=found_installed_plugin.module_name)}"
@@ -314,7 +314,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
                 reply += f"    {btn_toggle}"
 
                 if permission_s:
-                    plugin_in_database = plugin_db.first(InstalledPlugin(), "module_name = ?", storePlugin.name)
+                    plugin_in_database = plugin_db.where_one(InstalledPlugin(), "module_name = ?", storePlugin.name)
                     # 添加移除插件和全局切换按钮
                     global_enable = get_plugin_global_enable(storePlugin.name)
                     btn_uninstall = (

@@ -54,8 +54,8 @@ def get_config(key: str, default=None):
     elif key in config:
         return config[key]
 
-    elif key in common_db.first(StoredConfig(), default=StoredConfig()).config:
-        return common_db.first(StoredConfig(), default=StoredConfig()).config[key]
+    elif key in common_db.where_one(StoredConfig(), default=StoredConfig()).config:
+        return common_db.where_one(StoredConfig(), default=StoredConfig()).config[key]
 
     elif key in load_from_yaml("config.yml"):
         return load_from_yaml("config.yml")[key]
@@ -65,7 +65,7 @@ def get_config(key: str, default=None):
 
 
 def set_stored_config(key: str, value):
-    temp_config: TempConfig = common_db.first(TempConfig(), default=TempConfig())
+    temp_config: TempConfig = common_db.where_one(TempConfig(), default=TempConfig())
     temp_config.data[key] = value
     common_db.save(temp_config)
 

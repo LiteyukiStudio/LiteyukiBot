@@ -5,10 +5,10 @@ import aiohttp
 from nonebot import require
 from nonebot.plugin import PluginMetadata
 
-from liteyuki.utils.base.config import get_config
-from liteyuki.utils.base.data import Database, LiteModel
-from liteyuki.utils.base.resource import get_path
-from liteyuki.utils.message.html_tool import template2image
+from liteyuki.internal.base.config import get_config
+from liteyuki.internal.base.data import Database, LiteModel
+from liteyuki.internal.base.resource import get_path
+from liteyuki.internal.message.html_tool import template2image
 
 require("nonebot_plugin_alconna")
 require("nonebot_plugin_apscheduler")
@@ -80,7 +80,7 @@ async def _():
     for name, url in SIGN_COUNT_URLS.items():
         count_data = []
         for stamp in query_stamp:
-            count_rows = sign_db.all(SignCount(), "sid = ? and time > ?", url, time.time() - 60 * stamp)
+            count_rows = sign_db.where_all(SignCount(), "sid = ? and time > ?", url, time.time() - 60 * stamp)
             if len(count_rows) < 2:
                 count_data.append(-1)
             else:
@@ -142,7 +142,7 @@ async def save_sign_count(timestamp: float, count: int, sid: str):
 async def generate_chart(limit):
     data = []
     for name, url in SIGN_COUNT_URLS.items():
-        count_rows = sign_db.all(SignCount(), "sid = ? ORDER BY id DESC LIMIT ?", url, limit)
+        count_rows = sign_db.where_all(SignCount(), "sid = ? ORDER BY id DESC LIMIT ?", url, limit)
         count_rows.reverse()
         data.append(
             {
@@ -152,7 +152,6 @@ async def generate_chart(limit):
                     "counts": [row.count for row in count_rows]
             }
         )
-        print(len(count_rows))
 
     img = await template2image(
         template=get_path("templates/sign_status.html", debug=True),

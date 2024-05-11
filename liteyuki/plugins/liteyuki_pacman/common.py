@@ -4,9 +4,9 @@ from typing import Optional
 import aiofiles
 import nonebot.plugin
 
-from liteyuki.utils.base.data import LiteModel
-from liteyuki.utils.base.data_manager import GlobalPlugin, Group, User, group_db, plugin_db, user_db
-from liteyuki.utils.base.ly_typing import T_MessageEvent
+from liteyuki.internal.base.data import LiteModel
+from liteyuki.internal.base.data_manager import GlobalPlugin, Group, User, group_db, plugin_db, user_db
+from liteyuki.internal.base.ly_typing import T_MessageEvent
 
 __group_data = {}  # 群数据缓存, {group_id: Group}
 __user_data = {}  # 用户数据缓存, {user_id: User}
@@ -98,7 +98,7 @@ def get_plugin_session_enable(event: T_MessageEvent, plugin_name: str) -> bool:
     if event.message_type == "group":
         group_id = str(event.group_id)
         if group_id not in __group_data:
-            group: Group = group_db.first(Group(), "group_id = ?", group_id, default=Group(group_id=group_id))
+            group: Group = group_db.where_one(Group(), "group_id = ?", group_id, default=Group(group_id=group_id))
             __group_data[str(event.group_id)] = group
 
         session = __group_data[group_id]
@@ -106,7 +106,7 @@ def get_plugin_session_enable(event: T_MessageEvent, plugin_name: str) -> bool:
         # session: User = user_db.first(User(), "user_id = ?", event.user_id, default=User(user_id=str(event.user_id)))
         user_id = str(event.user_id)
         if user_id not in __user_data:
-            user: User = user_db.first(User(), "user_id = ?", user_id, default=User(user_id=user_id))
+            user: User = user_db.where_one(User(), "user_id = ?", user_id, default=User(user_id=user_id))
             __user_data[user_id] = user
         session = __user_data[user_id]
     # 默认停用插件在启用列表内表示启用
@@ -132,9 +132,9 @@ def set_plugin_session_enable(event: T_MessageEvent, plugin_name: str, enable: b
 
     """
     if event.message_type == "group":
-        session = group_db.first(Group(), "group_id = ?", str(event.group_id), default=Group(group_id=str(event.group_id)))
+        session = group_db.where_one(Group(), "group_id = ?", str(event.group_id), default=Group(group_id=str(event.group_id)))
     else:
-        session = user_db.first(User(), "user_id = ?", str(event.user_id), default=User(user_id=str(event.user_id)))
+        session = user_db.where_one(User(), "user_id = ?", str(event.user_id), default=User(user_id=str(event.user_id)))
     default_enable = get_plugin_default_enable(plugin_name)
     if default_enable:
         if enable:
@@ -166,7 +166,7 @@ def get_plugin_global_enable(plugin_name: str) -> bool:
 
     """
     if plugin_name not in __global_enable:
-        plugin = plugin_db.first(
+        plugin = plugin_db.where_one(
             GlobalPlugin(),
             "module_name = ?",
             plugin_name,
@@ -186,7 +186,7 @@ def set_plugin_global_enable(plugin_name: str, enable: bool):
     Returns:
 
     """
-    plugin = plugin_db.first(
+    plugin = plugin_db.where_one(
         GlobalPlugin(),
         "module_name = ?",
         plugin_name,
@@ -223,7 +223,7 @@ def get_group_enable(group_id: str) -> bool:
     """
     group_id = str(group_id)
     if group_id not in __group_data:
-        group: Group = group_db.first(Group(), "group_id = ?", group_id, default=Group(group_id=group_id))
+        group: Group = group_db.where_one(Group(), "group_id = ?", group_id, default=Group(group_id=group_id))
         __group_data[group_id] = group
 
     return __group_data[group_id].enable
@@ -238,7 +238,7 @@ def set_group_enable(group_id: str, enable: bool):
         enable (bool): 是否启用
     """
     group_id = str(group_id)
-    group: Group = group_db.first(Group(), "group_id = ?", group_id, default=Group(group_id=group_id))
+    group: Group = group_db.where_one(Group(), "group_id = ?", group_id, default=Group(group_id=group_id))
     group.enable = enable
 
     __group_data[group_id] = group

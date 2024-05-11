@@ -6,7 +6,7 @@ import aiofiles
 import nonebot
 from nonebot import require
 
-from liteyuki.utils.base.resource import load_resources
+from liteyuki.internal.base.resource import load_resources
 
 require("nonebot_plugin_htmlrender")
 

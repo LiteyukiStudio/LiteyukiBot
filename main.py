@@ -1,13 +1,13 @@
 import nonebot
 from nonebot.adapters.onebot import v11, v12
-from liteyuki.utils import init
-from liteyuki.utils.base.config import load_from_yaml
-from liteyuki.utils.base.data_manager import StoredConfig, common_db
-from liteyuki.utils.base.ly_api import liteyuki_api
+from liteyuki.internal import init
+from liteyuki.internal.base.config import load_from_yaml
+from liteyuki.internal.base.data_manager import StoredConfig, common_db
+from liteyuki.internal.base.ly_api import liteyuki_api
 
 if __name__ == "__mp_main__":
     init()
-    store_config: dict = common_db.first(StoredConfig(), default=StoredConfig()).config
+    store_config: dict = common_db.where_one(StoredConfig(), default=StoredConfig()).config
     static_config = load_from_yaml("config.yml")
     store_config.update(static_config)
     nonebot.init(**store_config)
@@ -25,5 +25,5 @@ if __name__ == "__mp_main__":
             liteyuki_api.bug_report(str(e.__repr__()))
 
 if __name__ == "__main__":
-    from liteyuki.utils.base.reloader import Reloader
+    from liteyuki.internal.base.reloader import Reloader
     nonebot.run()
