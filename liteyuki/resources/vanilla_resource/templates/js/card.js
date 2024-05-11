@@ -1,11 +1,11 @@
 const bgs = [
-    "bg1.png",
-    "bg3.png",
-    "bg4.png",
-    "bg5.png",
-    "bg6.png",
-    "bg7.png",
-    "bg9.png",
+    "bg1.webp",
+    "bg2.webp",
+    "bg3.webp",
+    "bg4.webp",
+    "bg5.webp",
+    "bg6.webp",
+    "bg7.webp",
 ]
 // 随机选择背景图片
 document.body.style.backgroundImage = `url(./img/${bgs[Math.floor(Math.random() * bgs.length)]})`;
