@@ -2,6 +2,9 @@ from fastapi import FastAPI
 from nonebot import get_app
 from .restful_api import *
 
-@app.get("/")
+
+@app.get("/ping")
 async def root():
-    return {"message": "Hello World"}
+    return {
+            "message": "pong"
+    }
