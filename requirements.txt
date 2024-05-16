@@ -9,6 +9,7 @@ nonebot-plugin-htmlrender~=0.3.1
 nonebot-adapter-onebot~=2.4.3
 nonebot-plugin-alconna~=0.43.0
 nonebot_plugin_apscheduler~=0.4.0
+nonebot-adapter-satori~=0.11.5
 packaging~=23.1
 psutil~=5.9.8
 py-cpuinfo~=9.0.0

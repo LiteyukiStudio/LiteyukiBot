@@ -9,6 +9,7 @@ from liteyuki.utils.base.language import Language, change_user_lang, get_all_lan
 from liteyuki.utils.base.ly_typing import T_Bot, T_MessageEvent
 from liteyuki.utils.message.message import MarkdownMessage as md
 from .const import representative_timezones_list
+from ...utils import satori_utils
 
 require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import Alconna, Args, Arparma, Subcommand, on_alconna
@@ -41,12 +42,13 @@ class Profile(LiteModel):
 
 @profile_alc.handle()
 async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
-    user: User = user_db.where_one(User(), "user_id = ?", event.user_id, default=User(user_id=str(event.user_id)))
-    ulang = get_user_lang(str(event.user_id))
+    user: User = user_db.where_one(User(), "user_id = ?", satori_utils.get_user_id(event),
+                                   default=User(user_id=str(satori_utils.get_user_id(event))))
+    ulang = get_user_lang(str(satori_utils.get_user_id(event)))
     if result.subcommands.get("set"):
         if result.subcommands["set"].args.get("value"):
             # 对合法性进行校验后设置
-            r = set_profile(result.args["key"], result.args["value"], str(event.user_id))
+            r = set_profile(result.args["key"], result.args["value"], str(satori_utils.get_user_id(event)))
             if r:
                 user.profile[result.args["key"]] = result.args["value"]
                 user_db.save(user)  # 数据库保存
