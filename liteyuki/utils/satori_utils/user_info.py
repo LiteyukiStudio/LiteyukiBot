@@ -1,3 +1,5 @@
+import nonebot
+
 from nonebot.adapters import satori
 from nonebot.adapters.satori.models import User
 
@@ -6,7 +8,7 @@ class UserInfo:
     user_infos: dict = {}
 
     async def load_friends(self, bot: satori.Bot):
-        print("LoadFriends")
+        nonebot.logger.info("Update user info from friends")
         friend_response = await bot.friend_list()
         while friend_response.next is not None:
             for i in friend_response.data:
@@ -17,7 +19,8 @@ class UserInfo:
         for i in friend_response.data:
             i: User = i
             self.user_infos[str(i.id)] = i
-            print(i)
+
+        nonebot.logger.info("Finish update user info")
 
     async def get(self, uid: int | str) -> User | None:
         try:

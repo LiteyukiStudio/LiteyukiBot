@@ -5,6 +5,7 @@ import aiofiles
 import nonebot.plugin
 from nonebot.adapters import satori
 
+from liteyuki.utils import satori_utils
 from liteyuki.utils.base.data import LiteModel
 from liteyuki.utils.base.data_manager import GlobalPlugin, Group, User, group_db, plugin_db, user_db
 from liteyuki.utils.base.ly_typing import T_MessageEvent
@@ -139,11 +140,12 @@ def set_plugin_session_enable(event: T_MessageEvent, plugin_name: str, enable: b
     Returns:
 
     """
-    if event.message_type == "group":
-        session = group_db.where_one(Group(), "group_id = ?", str(event.group_id),
-                                     default=Group(group_id=str(event.group_id)))
+    if satori_utils.get_message_type(event) == "group":
+        session = group_db.where_one(Group(), "group_id = ?", str(satori_utils.get_group_id(event)),
+                                     default=Group(group_id=str(satori_utils.get_group_id(event))))
     else:
-        session = user_db.where_one(User(), "user_id = ?", str(event.user_id), default=User(user_id=str(event.user_id)))
+        session = user_db.where_one(User(), "user_id = ?", str(satori_utils.get_user_id(event)),
+                                    default=User(user_id=str(satori_utils.get_user_id(event))))
     default_enable = get_plugin_default_enable(plugin_name)
     if default_enable:
         if enable:
@@ -156,12 +158,12 @@ def set_plugin_session_enable(event: T_MessageEvent, plugin_name: str, enable: b
         else:
             session.enabled_plugins.remove(plugin_name)
 
-    if event.message_type == "group":
-        __group_data[str(event.group_id)] = session
+    if satori_utils.get_message_type(event) == "group":
+        __group_data[str(satori_utils.get_group_id(event))] = session
         print(session)
         group_db.save(session)
     else:
-        __user_data[str(event.user_id)] = session
+        __user_data[str(satori_utils.get_user_id(event))] = session
         user_db.save(session)
 
 
