@@ -4,7 +4,7 @@ from nonebot import require
 from nonebot.message import event_postprocessor
 
 from liteyuki.utils.base.data import Database, LiteModel
-from liteyuki.utils.base.ly_typing import v11
+from liteyuki.utils.base.ly_typing import v11, satori
 
 from .common import MessageEventModel, msg_db
 
@@ -33,6 +33,29 @@ async def onebot_v11_event_monitor(bot: v11.Bot, event: v11.MessageEvent):
 
         message=event.message,
         message_text=event.raw_message,
+        message_type=event.message_type,
+    )
+    msg_db.save(mem)
+
+
+async def satori_event_monitor(bot: satori.Bot, event: satori.MessageEvent):
+    if event.guild is not None:
+        event: satori.MessageEvent
+        group_id = str(event.guild.id)
+    else:
+        group_id = ""
+
+    mem = MessageEventModel(
+        time=int(time.time()),
+        bot_id=bot.self_id,
+        adapter="satori",
+        group_id=group_id,
+        user_id=str(event.user.id),
+
+        message_id=str(event.message.id),
+
+        message=event.message,
+        message_text=event.message.content,
         message_type=event.message_type,
     )
     msg_db.save(mem)

@@ -52,7 +52,6 @@ def get_uni_set() -> set:
 async def pre_handle(event: Event):
     try:
         user_id = str(event.get_user_id())
-
     except:
         return
 

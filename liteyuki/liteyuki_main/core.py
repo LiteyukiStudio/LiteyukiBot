@@ -5,6 +5,7 @@ from typing import Any
 import nonebot
 import pip
 from nonebot import Bot, get_driver, require
+from nonebot.adapters import satori
 from nonebot.adapters.onebot.v11 import Message, escape, unescape
 from nonebot.exception import MockApiException
 from nonebot.internal.matcher import Matcher
@@ -16,6 +17,7 @@ from liteyuki.utils.base.language import get_user_lang
 from liteyuki.utils.base.ly_typing import T_Bot, T_MessageEvent
 from liteyuki.utils.message.message import MarkdownMessage as md, broadcast_to_superusers
 from liteyuki.utils.base.reloader import Reloader
+from liteyuki.utils import satori_utils
 from .api import update_liteyuki
 
 require("nonebot_plugin_alconna")
@@ -269,6 +271,8 @@ async def on_shutdown():
 @driver.on_bot_connect
 async def _(bot: T_Bot):
     temp_data = common_db.where_one(TempConfig(), default=TempConfig())
+    if isinstance(bot,satori.Bot):
+        await satori_utils.user_infos.load_friends(bot)
     # 用于重启计时
     if temp_data.data.get("reload", False):
         temp_data.data["reload"] = False

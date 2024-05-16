@@ -3,6 +3,7 @@ from typing import Optional
 
 import aiofiles
 import nonebot.plugin
+from nonebot.adapters import satori
 
 from liteyuki.utils.base.data import LiteModel
 from liteyuki.utils.base.data_manager import GlobalPlugin, Group, User, group_db, plugin_db, user_db
@@ -95,16 +96,23 @@ def get_plugin_session_enable(event: T_MessageEvent, plugin_name: str) -> bool:
     Returns:
         bool: 插件当前状态
     """
-    if event.message_type == "group":
-        group_id = str(event.group_id)
+    if isinstance(event, satori.event.Event):
+        if event.guild is not None:
+            message_type = "group"
+        else:
+            message_type = "private"
+    else:
+        message_type = event.message_type
+    if message_type == "group":
+        group_id = str(event.guild.id if isinstance(event, satori.event.Event) else event.group_id)
         if group_id not in __group_data:
             group: Group = group_db.where_one(Group(), "group_id = ?", group_id, default=Group(group_id=group_id))
-            __group_data[str(event.group_id)] = group
+            __group_data[str(group_id)] = group
 
         session = __group_data[group_id]
     else:
         # session: User = user_db.first(User(), "user_id = ?", event.user_id, default=User(user_id=str(event.user_id)))
-        user_id = str(event.user_id)
+        user_id = str(event.user.id if isinstance(event, satori.event.Event) else event.user_id)
         if user_id not in __user_data:
             user: User = user_db.where_one(User(), "user_id = ?", user_id, default=User(user_id=user_id))
             __user_data[user_id] = user
@@ -132,7 +140,8 @@ def set_plugin_session_enable(event: T_MessageEvent, plugin_name: str, enable: b
 
     """
     if event.message_type == "group":
-        session = group_db.where_one(Group(), "group_id = ?", str(event.group_id), default=Group(group_id=str(event.group_id)))
+        session = group_db.where_one(Group(), "group_id = ?", str(event.group_id),
+                                     default=Group(group_id=str(event.group_id)))
     else:
         session = user_db.where_one(User(), "user_id = ?", str(event.user_id), default=User(user_id=str(event.user_id)))
     default_enable = get_plugin_default_enable(plugin_name)
