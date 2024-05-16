@@ -9,7 +9,21 @@ from liteyuki.utils.message.npl import convert_seconds_to_time
 from contextvars import ContextVar
 
 
-async def get_stat_msg_image(duration: int, period: int, group_id: str = None, bot_id: str = None, ulang: Language = Language()) -> bytes:
+async def count_msg_by_bot_id(bot_id: str) -> int:
+    condition = " AND bot_id = ?"
+    condition_args = [bot_id]
+
+    msg_rows = msg_db.where_all(
+        MessageEventModel(),
+        condition,
+        *condition_args
+    )
+
+    return len(msg_rows)
+
+
+async def get_stat_msg_image(duration: int, period: int, group_id: str = None, bot_id: str = None,
+                             ulang: Language = Language()) -> bytes:
     """
     获取统计消息
     Args:
@@ -58,15 +72,15 @@ async def get_stat_msg_image(duration: int, period: int, group_id: str = None, b
         msg_count[index] += 1
 
     templates = {
-            "data": [
-                    {
-                            "name"  : ulang.get("stat.message")
-                                      + f"    Period {convert_seconds_to_time(period)}" + f"    Duration {convert_seconds_to_time(duration)}"
-                                      + (f"    Group {group_id}" if group_id else "") + (f"    Bot {bot_id}" if bot_id else ""),
-                            "times" : timestamps,
-                            "counts": msg_count
-                    }
-            ]
+        "data": [
+            {
+                "name": ulang.get("stat.message")
+                        + f"    Period {convert_seconds_to_time(period)}" + f"    Duration {convert_seconds_to_time(duration)}"
+                        + (f"    Group {group_id}" if group_id else "") + (f"    Bot {bot_id}" if bot_id else ""),
+                "times": timestamps,
+                "counts": msg_count
+            }
+        ]
     }
 
     return await template2image(get_path("templates/stat_msg.html"), templates, debug=True)

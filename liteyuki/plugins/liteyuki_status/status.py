@@ -4,6 +4,7 @@ from liteyuki.utils.base.resource import get_path
 from liteyuki.utils.message.html_tool import template2image
 from liteyuki.utils.base.language import get_user_lang
 from .api import *
+from ...utils import satori_utils
 from ...utils.base.ly_typing import T_Bot, T_MessageEvent
 
 require("nonebot_plugin_alconna")
@@ -27,7 +28,7 @@ status_alc = on_alconna(
 
 @status_alc.handle()
 async def _(event: T_MessageEvent, bot: T_Bot):
-    ulang = get_user_lang(event.user_id)
+    ulang = get_user_lang(satori_utils.get_user_id(event))
     if ulang.lang_code in status_card_cache:
         image = status_card_cache[ulang.lang_code]
     else:
