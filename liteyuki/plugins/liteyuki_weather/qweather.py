@@ -1,4 +1,5 @@
 from nonebot import require, on_endswith
+from nonebot.adapters import satori
 from nonebot.adapters.onebot.v11 import MessageSegment
 from nonebot.internal.matcher import Matcher
 
@@ -10,6 +11,7 @@ from liteyuki.utils.base.data_manager import User, user_db
 from liteyuki.utils.base.language import Language, get_user_lang
 from liteyuki.utils.base.resource import get_path
 from liteyuki.utils.message.html_tool import template2image
+from ...utils import satori_utils
 
 require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import on_alconna, Alconna, Args, MultiVar, Arparma
@@ -26,7 +28,10 @@ async def _(result: Arparma, event: T_MessageEvent, matcher: Matcher):
     """await alconna.send("weather", city)"""
     kws = result.main_args.get("keywords")
     image = await get_weather_now_card(matcher, event, kws)
-    await matcher.finish(MessageSegment.image(image))
+    if isinstance(event, satori.event.Event):
+        await matcher.finish(satori.MessageSegment.image(raw=image, mime="image/png"))
+    else:
+        await matcher.finish(MessageSegment.image(image))
 
 
 @on_endswith(("天气", "weather")).handle()
@@ -38,11 +43,11 @@ async def _(event: T_MessageEvent, matcher: Matcher):
 
 
 async def get_weather_now_card(matcher: Matcher, event: T_MessageEvent, keyword: list[str], tip: bool = True):
-    ulang = get_user_lang(event.user_id)
+    ulang = get_user_lang(satori_utils.get_user_id(event))
     qw_lang = get_qw_lang(ulang.lang_code)
     key = get_config("weather_key")
     is_dev = get_memory_data("weather.is_dev", True)
-    user: User = user_db.where_one(User(), "user_id = ?", event.user_id, default=User())
+    user: User = user_db.where_one(User(), "user_id = ?", satori_utils.get_user_id(event), default=User())
     # params
     unit = user.profile.get("unit", "m")
     stored_location = user.profile.get("location", None)
@@ -76,18 +81,18 @@ async def get_weather_now_card(matcher: Matcher, event: T_MessageEvent, keyword:
     image = await template2image(
         template=get_path("templates/weather_now.html", abs_path=True),
         templates={
-                "data": {
-                        "params"       : {
-                                "unit": unit,
-                                "lang": ulang.lang_code,
-                        },
-                        "weatherNow"   : weather_now,
-                        "weatherDaily" : weather_daily,
-                        "weatherHourly": weather_hourly,
-                        "aqi"          : aqi,
-                        "location"     : location_data.dump(),
-                        "localization" : get_local_data(ulang.lang_code)
-                }
+            "data": {
+                "params": {
+                    "unit": unit,
+                    "lang": ulang.lang_code,
+                },
+                "weatherNow": weather_now,
+                "weatherDaily": weather_daily,
+                "weatherHourly": weather_hourly,
+                "aqi": aqi,
+                "location": location_data.dump(),
+                "localization": get_local_data(ulang.lang_code)
+            }
         },
         debug=True,
         wait=1
