@@ -9,7 +9,7 @@ from liteyuki.utils.base.ly_typing import v11, satori
 from liteyuki.utils.base.ly_typing import T_Bot, T_MessageEvent
 
 from .common import MessageEventModel, msg_db
-from ...utils import satori_utils
+from liteyuki.utils import satori_utils
 
 require("nonebot_plugin_alconna")
 
@@ -18,7 +18,7 @@ require("nonebot_plugin_alconna")
 async def general_event_monitor(bot: T_Bot, event: T_MessageEvent):
     if isinstance(bot, satori.Bot):
         return await satori_event_monitor(bot, event)
-    else:
+    elif isinstance(bot, v11.Bot):
         return await onebot_v11_event_monitor(bot, event)
 
 
@@ -28,7 +28,6 @@ async def onebot_v11_event_monitor(bot: v11.Bot, event: v11.MessageEvent):
         group_id = str(event.group_id)
     else:
         group_id = ""
-
     mem = MessageEventModel(
         time=int(time.time()),
         bot_id=bot.self_id,
@@ -58,9 +57,7 @@ async def satori_event_monitor(bot: satori.Bot, event: satori.MessageEvent):
         adapter="satori",
         group_id=group_id,
         user_id=str(event.user.id),
-
         message_id=str(event.message.id),
-
         message=event.message,
         message_text=event.message.content,
         message_type=satori_utils.get_message_type(event),
