@@ -37,6 +37,7 @@ markdown_image = common_db.where_one(StoredConfig(), default=StoredConfig()).con
     ),
     permission=SUPERUSER
 ).handle()
+# Satori OK
 async def _(bot: T_Bot, matcher: Matcher, result: Arparma):
     if result.main_args.get("text"):
         await matcher.finish(Message(unescape(result.main_args.get("text"))))
@@ -51,9 +52,11 @@ async def _(bot: T_Bot, matcher: Matcher, result: Arparma):
     ),
     permission=SUPERUSER
 ).handle()
+# Satori OK
 async def _(bot: T_Bot, event: T_MessageEvent):
     # 使用git pull更新
-    ulang = get_user_lang(str(event.user_id))
+
+    ulang = get_user_lang(str(event.user.id if isinstance(event, satori.event.Event) else event.user_id))
     success, logs = update_liteyuki()
     reply = "Liteyuki updated!\n"
     reply += f"```\n{logs}\n```\n"
@@ -70,18 +73,19 @@ async def _(bot: T_Bot, event: T_MessageEvent):
     ),
     permission=SUPERUSER
 ).handle()
+# Satori OK
 async def _(matcher: Matcher, bot: T_Bot, event: T_MessageEvent):
     await matcher.send("Liteyuki reloading")
     temp_data = common_db.where_one(TempConfig(), default=TempConfig())
 
     temp_data.data.update(
         {
-                "reload"             : True,
-                "reload_time"        : time.time(),
-                "reload_bot_id"      : bot.self_id,
-                "reload_session_type": event.message_type,
-                "reload_session_id"  : event.group_id if event.message_type == "group" else event.user_id,
-                "delta_time"         : 0
+            "reload": True,
+            "reload_time": time.time(),
+            "reload_bot_id": bot.self_id,
+            "reload_session_type": satori_utils.get_message_type(event),
+            "reload_session_id": (event.group_id if event.message_type == "group" else event.user_id) if not isinstance(event,satori.event.Event) else event.channel.id,
+            "delta_time": 0
         }
     )
 
@@ -112,8 +116,9 @@ async def _(matcher: Matcher, bot: T_Bot, event: T_MessageEvent):
     ),
     permission=SUPERUSER
 ).handle()
+# Satori OK
 async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, matcher: Matcher):
-    ulang = get_user_lang(str(event.user_id))
+    ulang = get_user_lang(str(satori_utils.get_user_id(event)))
     stored_config: StoredConfig = common_db.where_one(StoredConfig(), default=StoredConfig())
     if result.subcommands.get("set"):
         key, value = result.subcommands.get("set").args.get("key"), result.subcommands.get("set").args.get("value")
@@ -159,15 +164,17 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, matcher: Matcher
     ),
     permission=SUPERUSER
 ).handle()
+# Satori OK
 async def _(event: T_MessageEvent, matcher: Matcher):
     global markdown_image
     # 切换图片模式，False以图片形式发送，True以markdown形式发送
-    ulang = get_user_lang(str(event.user_id))
+    ulang = get_user_lang(str(satori_utils.get_user_id(event)))
     stored_config: StoredConfig = common_db.where_one(StoredConfig(), default=StoredConfig())
     stored_config.config["markdown_image"] = not stored_config.config.get("markdown_image", False)
     markdown_image = stored_config.config["markdown_image"]
     common_db.save(stored_config)
-    await matcher.finish(ulang.get("liteyuki.image_mode_on" if stored_config.config["markdown_image"] else "liteyuki.image_mode_off"))
+    await matcher.finish(
+        ulang.get("liteyuki.image_mode_on" if stored_config.config["markdown_image"] else "liteyuki.image_mode_off"))
 
 
 @on_alconna(
@@ -176,6 +183,7 @@ async def _(event: T_MessageEvent, matcher: Matcher):
     ),
     aliases={"轻雪文档"},
 ).handle()
+# Satori OK
 async def _(matcher: Matcher):
     await matcher.finish("https://bot.liteyuki.icu/usage")
 
@@ -228,7 +236,8 @@ async def _(result: Arparma, bot: T_Bot, event: T_MessageEvent, matcher: Matcher
 @Bot.on_calling_api  # 图片模式检测
 async def test_for_md_image(bot: T_Bot, api: str, data: dict):
     # 截获大图发送，转换为markdown发送
-    if api in ["send_msg", "send_private_msg", "send_group_msg"] and markdown_image and data.get("user_id") != bot.self_id:
+    if api in ["send_msg", "send_private_msg", "send_group_msg"] and markdown_image and data.get(
+            "user_id") != bot.self_id:
         if api == "send_msg" and data.get("message_type") == "private" or api == "send_private_msg":
             session_type = "private"
             session_id = data.get("user_id")
@@ -241,10 +250,12 @@ async def test_for_md_image(bot: T_Bot, api: str, data: dict):
             file: str = data["message"][0].data.get("file")
             # file:// http:// base64://
             if file.startswith("http"):
-                result = await md.send_md(await md.image_async(file), bot, message_type=session_type, session_id=session_id)
+                result = await md.send_md(await md.image_async(file), bot, message_type=session_type,
+                                          session_id=session_id)
             elif file.startswith("file"):
                 file = file.replace("file://", "")
-                result = await md.send_image(open(file, "rb").read(), bot, message_type=session_type, session_id=session_id)
+                result = await md.send_image(open(file, "rb").read(), bot, message_type=session_type,
+                                             session_id=session_id)
             elif file.startswith("base64"):
                 file_bytes = base64.b64decode(file.replace("base64://", ""))
                 result = await md.send_image(file_bytes, bot, message_type=session_type, session_id=session_id)
@@ -271,7 +282,7 @@ async def on_shutdown():
 @driver.on_bot_connect
 async def _(bot: T_Bot):
     temp_data = common_db.where_one(TempConfig(), default=TempConfig())
-    if isinstance(bot,satori.Bot):
+    if isinstance(bot, satori.Bot):
         await satori_utils.user_infos.load_friends(bot)
     # 用于重启计时
     if temp_data.data.get("reload", False):
@@ -283,13 +294,19 @@ async def _(bot: T_Bot):
         reload_session_id = temp_data.data.get("reload_session_id", 0)
         delta_time = temp_data.data.get("delta_time", 0)
         common_db.save(temp_data)  # 更新数据
-        await bot.call_api(
-            "send_msg",
-            message_type=reload_session_type,
-            user_id=reload_session_id,
-            group_id=reload_session_id,
-            message="Liteyuki reloaded in %.2f s" % delta_time
-        )
+        if isinstance(bot,satori.Bot):
+            await bot.send_message(
+                channel_id=reload_session_id,
+                message="Liteyuki reloaded in %.2f s" % delta_time
+            )
+        else:
+            await bot.call_api(
+                "send_msg",
+                message_type=reload_session_type,
+                user_id=reload_session_id,
+                group_id=reload_session_id,
+                message="Liteyuki reloaded in %.2f s" % delta_time
+            )
 
 
 # 每天4点更新
@@ -308,21 +325,21 @@ async def every_day_update():
 
 # 安全的需要用户id的api
 need_user_id = (
-        "send_private_msg",
-        "send_msg",
-        "set_group_card",
-        "set_group_special_title",
-        "get_stranger_info",
-        "get_group_member_info"
+    "send_private_msg",
+    "send_msg",
+    "set_group_card",
+    "set_group_special_title",
+    "get_stranger_info",
+    "get_group_member_info"
 )
 
 need_group_id = (
-        "send_group_msg",
-        "send_msg",
-        "set_group_card",
-        "set_group_name",
-        "set_group_special_title",
-        "get_group_member_info",
-        "get_group_member_list",
-        "get_group_honor_info"
+    "send_group_msg",
+    "send_msg",
+    "set_group_card",
+    "set_group_name",
+    "set_group_special_title",
+    "get_group_member_info",
+    "get_group_member_list",
+    "get_group_honor_info"
 )
