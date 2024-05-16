@@ -12,7 +12,10 @@ if __name__ == "__mp_main__":
     static_config = load_from_yaml("config.yml")
     store_config.update(static_config)
     nonebot.init(**store_config)
-    adapters = [v11.Adapter, v12.Adapter, satori.Adapter]
+    if not store_config['enable_satori']:
+        adapters = [v11.Adapter, v12.Adapter]
+    else:
+        adapters = [v11.Adapter, v12.Adapter, satori.Adapter]
     driver = nonebot.get_driver()
 
     for adapter in adapters:
