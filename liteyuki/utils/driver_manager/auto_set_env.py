@@ -11,7 +11,7 @@ def auto_set_env(config: dict):
     if os.getenv("DRIVER", None) is not None:
         nonebot.logger.info("Driver already set in environment variable, skip auto configure.")
         return
-    if config.get("enable_satori", False):
+    if config.get("satori", {'enable': False}).get("enable", False):
         os.environ["DRIVER"] = get_driver_string(ASGI_DRIVER, HTTPX_DRIVER, WEBSOCKETS_DRIVER)
         nonebot.logger.info("Enable Satori, set driver to ASGI+HTTPX+WEBSOCKETS")
     else:

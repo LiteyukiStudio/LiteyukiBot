@@ -1,7 +1,7 @@
 import nonebot
 from nonebot.adapters.onebot import v11, v12
 from nonebot.adapters import satori
-from liteyuki.utils import init, driver_manager
+from liteyuki.utils import init, driver_manager, adapter_manager
 from liteyuki.utils.base.config import load_from_yaml
 from liteyuki.utils.base.data_manager import StoredConfig, common_db
 from liteyuki.utils.base.ly_api import liteyuki_api
@@ -12,16 +12,21 @@ if __name__ == "__mp_main__":
     static_config = load_from_yaml("config.yml")
     store_config.update(static_config)
     driver_manager.init(config=store_config)
+    adapter_manager.init(store_config)
     nonebot.init(**store_config)
 
-    if not store_config.get("enable_satori", False):
-        adapters = [v11.Adapter, v12.Adapter]
-    else:
-        adapters = [v11.Adapter, v12.Adapter, satori.Adapter]
-    driver = nonebot.get_driver()
-    # print(driver.__dict__)
-    for adapter in adapters:
-        driver.register_adapter(adapter)
+    adapter_manager.register()
+
+    # print(nonebot.get_adapters()['Satori'].__dict__)
+
+    # if not store_config.get("enable_satori", False):
+    #     adapters = [v11.Adapter, v12.Adapter]
+    # else:
+    #     adapters = [v11.Adapter, v12.Adapter, satori.Adapter]
+    # driver = nonebot.get_driver()
+    # # print(driver.__dict__)
+    # for adapter in adapters:
+    #     driver.register_adapter(adapter)
 
     try:
         nonebot.load_plugin("liteyuki.liteyuki_main")
