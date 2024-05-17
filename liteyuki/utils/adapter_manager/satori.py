@@ -17,12 +17,10 @@ def init(config: dict):
         nonebot.logger.info("Satori clients already set in environment variable, skip.")
     os.environ["SATORI_CLIENTS"] = json.dumps(satori_config.get("hosts", []), ensure_ascii=False)
     config['satori_clients'] = satori_config.get("hosts", [])
-    print(json.dumps(satori_config.get("hosts", []), ensure_ascii=False))
     return
 
 
 def register():
     if os.getenv("SATORI_CLIENTS", None) is not None:
-        print(os.getenv("SATORI_CLIENTS", None))
         driver = nonebot.get_driver()
         driver.register_adapter(satori.Adapter)
