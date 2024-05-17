@@ -14,14 +14,17 @@ from liteyuki.utils import satori_utils
 require("nonebot_plugin_alconna")
 
 
-@event_postprocessor
 async def general_event_monitor(bot: T_Bot, event: T_MessageEvent):
-    if isinstance(bot, satori.Bot):
-        return await satori_event_monitor(bot, event)
-    elif isinstance(bot, v11.Bot):
-        return await onebot_v11_event_monitor(bot, event)
+    print("POST PROCESS")
+    # if isinstance(bot, satori.Bot):
+    #     print("POST PROCESS SATORI EVENT")
+    #     return await satori_event_monitor(bot, event)
+    # elif isinstance(bot, v11.Bot):
+    #     print("POST PROCESS V11 EVENT")
+    #     return await onebot_v11_event_monitor(bot, event)
 
 
+@event_postprocessor
 async def onebot_v11_event_monitor(bot: v11.Bot, event: v11.MessageEvent):
     if event.message_type == "group":
         event: v11.GroupMessageEvent
@@ -44,6 +47,7 @@ async def onebot_v11_event_monitor(bot: v11.Bot, event: v11.MessageEvent):
     msg_db.save(mem)
 
 
+@event_postprocessor
 async def satori_event_monitor(bot: satori.Bot, event: satori.MessageEvent):
     if event.guild is not None:
         event: satori.MessageEvent
