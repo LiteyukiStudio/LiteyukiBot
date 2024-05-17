@@ -4,7 +4,7 @@ from nonebot import require
 from nonebot.message import event_postprocessor
 
 from liteyuki.utils.base.data import Database, LiteModel
-from liteyuki.utils.base.ly_typing import v11, satori
+from liteyuki.utils.base.ly_typing import v11, v12, satori
 
 from liteyuki.utils.base.ly_typing import T_Bot, T_MessageEvent
 
@@ -35,6 +35,29 @@ async def onebot_v11_event_monitor(bot: v11.Bot, event: v11.MessageEvent):
         time=int(time.time()),
         bot_id=bot.self_id,
         adapter="onebot.v11",
+        group_id=group_id,
+        user_id=str(event.user_id),
+
+        message_id=str(event.message_id),
+
+        message=event.message,
+        message_text=event.raw_message,
+        message_type=event.message_type,
+    )
+    msg_db.save(mem)
+
+
+@event_postprocessor
+async def onebot_v12_event_monitor(bot: v12.Bot, event: v12.MessageEvent):
+    if event.message_type == "group":
+        event: v12.GroupMessageEvent
+        group_id = str(event.group_id)
+    else:
+        group_id = ""
+    mem = MessageEventModel(
+        time=int(time.time()),
+        bot_id=bot.self_id,
+        adapter="onebot.v12",
         group_id=group_id,
         user_id=str(event.user_id),
 
