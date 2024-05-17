@@ -11,7 +11,7 @@ from liteyuki.utils.base.data_manager import User, user_db
 from liteyuki.utils.base.language import Language, get_user_lang
 from liteyuki.utils.base.resource import get_path
 from liteyuki.utils.message.html_tool import template2image
-from ...utils import satori_utils
+from liteyuki.utils import event as event_utils
 
 require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import on_alconna, Alconna, Args, MultiVar, Arparma
@@ -43,11 +43,11 @@ async def _(event: T_MessageEvent, matcher: Matcher):
 
 
 async def get_weather_now_card(matcher: Matcher, event: T_MessageEvent, keyword: list[str], tip: bool = True):
-    ulang = get_user_lang(satori_utils.get_user_id(event))
+    ulang = get_user_lang(event_utils.get_user_id(event))
     qw_lang = get_qw_lang(ulang.lang_code)
     key = get_config("weather_key")
     is_dev = get_memory_data("weather.is_dev", True)
-    user: User = user_db.where_one(User(), "user_id = ?", satori_utils.get_user_id(event), default=User())
+    user: User = user_db.where_one(User(), "user_id = ?", event_utils.get_user_id(event), default=User())
     # params
     unit = user.profile.get("unit", "m")
     stored_location = user.profile.get("location", None)

@@ -1,9 +1,9 @@
 from nonebot import Bot, require
 from liteyuki.utils.message.npl import convert_duration, convert_time_to_seconds
 from .stat_api import *
-from ...utils import satori_utils
-from ...utils.base.language import Language
-from ...utils.base.ly_typing import T_MessageEvent
+from liteyuki.utils import event as event_utils
+from liteyuki.utils.base.language import Language
+from liteyuki.utils.base.ly_typing import T_MessageEvent
 
 require("nonebot_plugin_alconna")
 
@@ -45,7 +45,7 @@ stat_msg = on_alconna(
 
 @stat_msg.assign("message")
 async def _(result: Arparma, event: T_MessageEvent, bot: Bot):
-    ulang = Language(satori_utils.get_user_id(event))
+    ulang = Language(event_utils.get_user_id(event))
 
     try:
         duration = convert_time_to_seconds(result.other_args.get("duration", "2d"))  # 秒数
@@ -58,7 +58,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: Bot):
     bot_id = result.other_args.get("bot_id")
 
     if group_id in ["current", "c"]:
-        group_id = str(satori_utils.get_group_id(event))
+        group_id = str(event_utils.get_group_id(event))
 
     if group_id in ["all", "a"]:
         group_id = "all"

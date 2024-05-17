@@ -17,7 +17,7 @@ from liteyuki.utils.base.language import get_user_lang
 from liteyuki.utils.base.ly_typing import T_Bot, T_MessageEvent
 from liteyuki.utils.message.message import MarkdownMessage as md, broadcast_to_superusers
 from liteyuki.utils.base.reloader import Reloader
-from liteyuki.utils import satori_utils
+from liteyuki.utils import event as event_utils, satori_utils
 from .api import update_liteyuki
 
 require("nonebot_plugin_alconna")
@@ -83,7 +83,7 @@ async def _(matcher: Matcher, bot: T_Bot, event: T_MessageEvent):
             "reload": True,
             "reload_time": time.time(),
             "reload_bot_id": bot.self_id,
-            "reload_session_type": satori_utils.get_message_type(event),
+            "reload_session_type": event_utils.get_message_type(event),
             "reload_session_id": (event.group_id if event.message_type == "group" else event.user_id) if not isinstance(event,satori.event.Event) else event.channel.id,
             "delta_time": 0
         }
@@ -118,7 +118,7 @@ async def _(matcher: Matcher, bot: T_Bot, event: T_MessageEvent):
 ).handle()
 # Satori OK
 async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, matcher: Matcher):
-    ulang = get_user_lang(str(satori_utils.get_user_id(event)))
+    ulang = get_user_lang(str(event_utils.get_user_id(event)))
     stored_config: StoredConfig = common_db.where_one(StoredConfig(), default=StoredConfig())
     if result.subcommands.get("set"):
         key, value = result.subcommands.get("set").args.get("key"), result.subcommands.get("set").args.get("value")
@@ -168,7 +168,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, matcher: Matcher
 async def _(event: T_MessageEvent, matcher: Matcher):
     global markdown_image
     # 切换图片模式，False以图片形式发送，True以markdown形式发送
-    ulang = get_user_lang(str(satori_utils.get_user_id(event)))
+    ulang = get_user_lang(str(event_utils.get_user_id(event)))
     stored_config: StoredConfig = common_db.where_one(StoredConfig(), default=StoredConfig())
     stored_config.config["markdown_image"] = not stored_config.config.get("markdown_image", False)
     markdown_image = stored_config.config["markdown_image"]

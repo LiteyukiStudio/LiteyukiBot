@@ -1,6 +1,5 @@
 import nonebot
 
-from liteyuki.utils import satori_utils
 from nonebot.message import event_preprocessor
 # from nonebot_plugin_alconna.typings import Event
 from liteyuki.utils.base.ly_typing import T_MessageEvent

@@ -9,7 +9,7 @@ from liteyuki.utils.base.ly_typing import v11, satori
 from liteyuki.utils.base.ly_typing import T_Bot, T_MessageEvent
 
 from .common import MessageEventModel, msg_db
-from liteyuki.utils import satori_utils
+from liteyuki.utils import event as event_utils
 
 require("nonebot_plugin_alconna")
 
@@ -64,6 +64,6 @@ async def satori_event_monitor(bot: satori.Bot, event: satori.MessageEvent):
         message_id=str(event.message.id),
         message=event.message,
         message_text=event.message.content,
-        message_type=satori_utils.get_message_type(event),
+        message_type=event_utils.get_message_type(event),
     )
     msg_db.save(mem)
