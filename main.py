@@ -1,11 +1,10 @@
 import nonebot
 from nonebot.adapters.onebot import v11, v12
 from nonebot.adapters import satori
-from liteyuki.utils import init
+from liteyuki.utils import init, driver_manager
 from liteyuki.utils.base.config import load_from_yaml
 from liteyuki.utils.base.data_manager import StoredConfig, common_db
 from liteyuki.utils.base.ly_api import liteyuki_api
-from liteyuki import driver_manager
 
 if __name__ == "__mp_main__":
     init()
