@@ -5,12 +5,14 @@ from liteyuki.utils import init
 from liteyuki.utils.base.config import load_from_yaml
 from liteyuki.utils.base.data_manager import StoredConfig, common_db
 from liteyuki.utils.base.ly_api import liteyuki_api
+from liteyuki import driver_manager
 
 if __name__ == "__mp_main__":
     init()
     store_config: dict = common_db.where_one(StoredConfig(), default=StoredConfig()).config
     static_config = load_from_yaml("config.yml")
     store_config.update(static_config)
+    driver_manager.init(config=store_config)
     nonebot.init(**store_config)
 
     if not store_config.get("enable_satori", False):
@@ -18,7 +20,7 @@ if __name__ == "__mp_main__":
     else:
         adapters = [v11.Adapter, v12.Adapter, satori.Adapter]
     driver = nonebot.get_driver()
-
+    # print(driver.__dict__)
     for adapter in adapters:
         driver.register_adapter(adapter)
 
