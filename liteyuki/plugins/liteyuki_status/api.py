@@ -170,7 +170,7 @@ async def get_bots_data(self_id: str = "0") -> dict:
 
         statistics = status.get("stat", {})
         app_name = version_info.get("app_name", "UnknownImplementation")
-        if app_name in ["Lagrange.OneBot", "LLOneBot", "Shamrock"]:
+        if app_name in ["Lagrange.OneBot", "LLOneBot", "Shamrock", "NapCat.Onebot"]:
             icon = f"https://q.qlogo.cn/g?b=qq&nk={bot_id}&s=640"
         elif isinstance(bot, satori.Bot):
             app_name = "Satori"

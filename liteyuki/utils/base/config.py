@@ -1,4 +1,5 @@
 import os
+from typing import List
 
 import nonebot
 import yaml
@@ -11,12 +12,26 @@ from ..message.tools import random_hex_string
 config = {}  # 全局配置，确保加载后读取
 
 
+class SatoriNodeConfig(BaseModel):
+    host: str = ""
+    port: str = "5500"
+    path: str = ""
+    token: str = ""
+
+
+class SatoriConfig(BaseModel):
+    comment: str = "These features are still in development. Do not enable in production environment."
+    enable: bool = False
+    hosts: List[SatoriNodeConfig] = [SatoriNodeConfig()]
+
+
 class BasicConfig(BaseModel):
     host: str = "127.0.0.1"
     port: int = 20216
     superusers: list[str] = []
     command_start: list[str] = ["/", ""]
     nickname: list[str] = [f"LiteyukiBot-{random_hex_string(6)}"]
+    satori: SatoriConfig = SatoriConfig()
 
 
 def load_from_yaml(file: str) -> dict:
