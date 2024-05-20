@@ -16,7 +16,7 @@ from liteyuki.utils import event as event_utils
 require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import on_alconna, Alconna, Args, MultiVar, Arparma, UniMessage
 
-wrx_alc = on_alconna(
+wx_alc = on_alconna(
     aliases={"天气"},
     command=Alconna(
         "weather",
@@ -25,12 +25,12 @@ wrx_alc = on_alconna(
 )
 
 
-@wrx_alc.handle()
+@wx_alc.handle()
 async def _(result: Arparma, event: T_MessageEvent, matcher: Matcher):
     """await alconna.send("weather", city)"""
     kws = result.main_args.get("keywords")
     image = await get_weather_now_card(matcher, event, kws)
-    await wrx_alc.finish(UniMessage.image(raw=image))
+    await wx_alc.finish(UniMessage.image(raw=image))
 
 
 @on_endswith(("天气", "weather")).handle()
