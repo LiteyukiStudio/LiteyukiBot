@@ -14,32 +14,35 @@ from liteyuki.utils.message.html_tool import template2image
 from liteyuki.utils import event as event_utils
 
 require("nonebot_plugin_alconna")
-from nonebot_plugin_alconna import on_alconna, Alconna, Args, MultiVar, Arparma
+from nonebot_plugin_alconna import on_alconna, Alconna, Args, MultiVar, Arparma, UniMessage
 
-
-@on_alconna(
+wx_alc = on_alconna(
     aliases={"天气"},
     command=Alconna(
         "weather",
         Args["keywords", MultiVar(str), []],
     ),
-).handle()
+)
+
+
+@wx_alc.handle()
 async def _(result: Arparma, event: T_MessageEvent, matcher: Matcher):
     """await alconna.send("weather", city)"""
     kws = result.main_args.get("keywords")
     image = await get_weather_now_card(matcher, event, kws)
-    if isinstance(event, satori.event.Event):
-        await matcher.finish(satori.MessageSegment.image(raw=image, mime="image/png"))
-    else:
-        await matcher.finish(MessageSegment.image(image))
+    await wx_alc.finish(UniMessage.image(raw=image))
 
 
 @on_endswith(("天气", "weather")).handle()
 async def _(event: T_MessageEvent, matcher: Matcher):
     """await alconna.send("weather", city)"""
-    kws = event.message.extract_plain_text()
+    # kws = event.message.extract_plain_text()
+    kws = event.get_plaintext()
     image = await get_weather_now_card(matcher, event, [kws.replace("天气", "").replace("weather", "")], False)
-    await matcher.finish(MessageSegment.image(image))
+    if isinstance(event, satori.event.Event):
+        await matcher.finish(satori.MessageSegment.image(raw=image, mime="image/png"))
+    else:
+        await matcher.finish(MessageSegment.image(image))
 
 
 async def get_weather_now_card(matcher: Matcher, event: T_MessageEvent, keyword: list[str], tip: bool = True):
