@@ -39,7 +39,10 @@ async def _(event: T_MessageEvent, matcher: Matcher):
     # kws = event.message.extract_plain_text()
     kws = event.get_plaintext()
     image = await get_weather_now_card(matcher, event, [kws.replace("天气", "").replace("weather", "")], False)
-    await matcher.finish(MessageSegment.image(image))
+    if isinstance(event, satori.event.Event):
+        await matcher.finish(satori.MessageSegment.image(raw=image, mime="image/png"))
+    else:
+        await matcher.finish(MessageSegment.image(image))
 
 
 async def get_weather_now_card(matcher: Matcher, event: T_MessageEvent, keyword: list[str], tip: bool = True):
