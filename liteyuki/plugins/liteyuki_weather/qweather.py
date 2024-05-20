@@ -11,43 +11,46 @@ from liteyuki.utils.base.data_manager import User, user_db
 from liteyuki.utils.base.language import Language, get_user_lang
 from liteyuki.utils.base.resource import get_path
 from liteyuki.utils.message.html_tool import template2image
-from ...utils import satori_utils
+from liteyuki.utils import event as event_utils
 
 require("nonebot_plugin_alconna")
-from nonebot_plugin_alconna import on_alconna, Alconna, Args, MultiVar, Arparma
+from nonebot_plugin_alconna import on_alconna, Alconna, Args, MultiVar, Arparma, UniMessage
 
-
-@on_alconna(
+wx_alc = on_alconna(
     aliases={"天气"},
     command=Alconna(
         "weather",
         Args["keywords", MultiVar(str), []],
     ),
-).handle()
+)
+
+
+@wx_alc.handle()
 async def _(result: Arparma, event: T_MessageEvent, matcher: Matcher):
     """await alconna.send("weather", city)"""
     kws = result.main_args.get("keywords")
     image = await get_weather_now_card(matcher, event, kws)
+    await wx_alc.finish(UniMessage.image(raw=image))
+
+
+@on_endswith(("天气", "weather")).handle()
+async def _(event: T_MessageEvent, matcher: Matcher):
+    """await alconna.send("weather", city)"""
+    # kws = event.message.extract_plain_text()
+    kws = event.get_plaintext()
+    image = await get_weather_now_card(matcher, event, [kws.replace("天气", "").replace("weather", "")], False)
     if isinstance(event, satori.event.Event):
         await matcher.finish(satori.MessageSegment.image(raw=image, mime="image/png"))
     else:
         await matcher.finish(MessageSegment.image(image))
 
 
-@on_endswith(("天气", "weather")).handle()
-async def _(event: T_MessageEvent, matcher: Matcher):
-    """await alconna.send("weather", city)"""
-    kws = event.message.extract_plain_text()
-    image = await get_weather_now_card(matcher, event, [kws.replace("天气", "").replace("weather", "")], False)
-    await matcher.finish(MessageSegment.image(image))
-
-
 async def get_weather_now_card(matcher: Matcher, event: T_MessageEvent, keyword: list[str], tip: bool = True):
-    ulang = get_user_lang(satori_utils.get_user_id(event))
+    ulang = get_user_lang(event_utils.get_user_id(event))
     qw_lang = get_qw_lang(ulang.lang_code)
     key = get_config("weather_key")
     is_dev = get_memory_data("weather.is_dev", True)
-    user: User = user_db.where_one(User(), "user_id = ?", satori_utils.get_user_id(event), default=User())
+    user: User = user_db.where_one(User(), "user_id = ?", event_utils.get_user_id(event), default=User())
     # params
     unit = user.profile.get("unit", "m")
     stored_location = user.profile.get("location", None)

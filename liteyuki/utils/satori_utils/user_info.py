@@ -28,8 +28,34 @@ class UserInfo:
         except KeyError:
             return None
 
-    async def put(self, user: User):
-        self.user_infos[str(user.id)] = user
+    async def put(self, user: User) -> bool:
+        """
+        向用户信息数据库中添加/修改一项，返回值仅代表数据是否变更，不代表操作是否成功
+        Args:
+            user: 要加入数据库的用户
+
+        Returns: 当数据库中用户信息发生变化时返回 True, 否则返回 False
+
+        """
+        try:
+            old_user: User = self.user_infos[str(user.id)]
+            attr_edited = False
+            if user.name is not None:
+                if old_user.name != user.name:
+                    attr_edited = True
+                    self.user_infos[str(user.id)].name = user.name
+            if user.nick is not None:
+                if old_user.nick != user.nick:
+                    attr_edited = True
+                    self.user_infos[str(user.id)].nick = user.nick
+            if user.avatar is not None:
+                if old_user.avatar != user.avatar:
+                    attr_edited = True
+                    self.user_infos[str(user.id)].avatar = user.avatar
+            return attr_edited
+        except KeyError:
+            self.user_infos[str(user.id)] = user
+            return True
 
     def __init__(self):
         pass
