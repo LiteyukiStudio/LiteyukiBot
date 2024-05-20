@@ -73,9 +73,10 @@ async def template2image(
             template_path=template_path,
             **templates,
         )
-        async with aiofiles.open(os.path.join(template_path, f"debug-{random_hex_string(6)}.html"), "w", encoding="utf-8") as f:
+        random_file_name = f"debug-{random_hex_string(6)}.html"
+        async with aiofiles.open(os.path.join(template_path, random_file_name), "w", encoding="utf-8") as f:
             await f.write(raw_html)
-        nonebot.logger.info("Debug HTML: %s" % f"debug-{random_hex_string(6)}.html")
+        nonebot.logger.info("Debug HTML: %s" % f"{random_file_name}")
 
     return await template_to_pic(
         template_name=template_name,
