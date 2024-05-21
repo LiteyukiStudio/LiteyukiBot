@@ -25,10 +25,10 @@
         "link": "https://cdn.liteyuki.icu/static/lrp/HomoTheme.zip"
     },
     {
-        "name": "示例包2",
+        "name": "自定义设备信息",
         "author": "SnowyKami",
-        "description": "A simple bot that shows the status of the bot and the server.",
-        "link": ""
+        "description": "自定义服务端的设备信息，自行修改使用",
+        "link": "https://cdn.liteyuki.icu/static/lrp/custom-device.zip"
     },
     {
         "name": "示例包3",
