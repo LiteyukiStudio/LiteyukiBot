@@ -40,7 +40,7 @@ async def onebot_v11_event_monitor(bot: v11.Bot, event: v11.MessageEvent):
 
         message_id=str(event.message_id),
 
-        message=str(event.message),
+        message=[ms.__dict__ for ms in event.message],
         message_text=event.raw_message,
         message_type=event.message_type,
     )
@@ -61,9 +61,9 @@ async def onebot_v12_event_monitor(bot: v12.Bot, event: v12.MessageEvent):
         group_id=group_id,
         user_id=str(event.user_id),
 
-        message_id=str(event.message_id),
+        message_id=[ms.__dict__ for ms in event.message],
 
-        message=str(event.message),
+        message=event.message,
         message_text=event.raw_message,
         message_type=event.message_type,
     )
@@ -84,8 +84,8 @@ async def satori_event_monitor(bot: satori.Bot, event: satori.MessageEvent):
         adapter="satori",
         group_id=group_id,
         user_id=str(event.user.id),
-        message_id=str(event.message.id),
-        message=str(event.message),
+        message_id=[ms.__str__() for ms in event.message],
+        message=event.message,
         message_text=event.message.content,
         message_type=event_utils.get_message_type(event),
     )
