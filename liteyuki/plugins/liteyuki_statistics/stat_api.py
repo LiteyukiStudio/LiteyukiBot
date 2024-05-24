@@ -80,7 +80,7 @@ async def get_stat_msg_image(duration: int, period: int, group_id: str = None, b
             {
                 "name": ulang.get("stat.message")
                         + f"    Period {convert_seconds_to_time(period)}" + f"    Duration {convert_seconds_to_time(duration)}"
-                        + (f"    Group {group_id}" if group_id else "") + (f"    Bot {bot_id}" if bot_id else ""),
+                        + (f"    Group {group_id}" if group_id else "") + (f"    Bot {bot_id}" if bot_id else "") + (f"    User {user_id}" if user_id else ""),
                 "times": timestamps,
                 "counts": msg_count
             }
