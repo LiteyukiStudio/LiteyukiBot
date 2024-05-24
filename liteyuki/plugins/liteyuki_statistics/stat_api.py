@@ -22,7 +22,7 @@ async def count_msg_by_bot_id(bot_id: str) -> int:
     return len(msg_rows)
 
 
-async def get_stat_msg_image(duration: int, period: int, group_id: str = None, bot_id: str = None,
+async def get_stat_msg_image(duration: int, period: int, group_id: str = None, bot_id: str = None, user_id: str = None,
                              ulang: Language = Language()) -> bytes:
     """
     获取统计消息
@@ -49,6 +49,10 @@ async def get_stat_msg_image(duration: int, period: int, group_id: str = None, b
     if bot_id:
         condition += " AND bot_id = ?"
         condition_args.append(bot_id)
+
+    if user_id:
+        condition += " AND user_id = ?"
+        condition_args.append(user_id)
 
     msg_rows = msg_db.where_all(
         MessageEventModel(),
