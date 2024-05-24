@@ -34,7 +34,7 @@ def escape_decorator(func):
 
 def compile_md(comps: list[str]) -> str:
     """
-    编译Markdown文本
+    合成Markdown文本
     Args:
         comps: list[str]: 组件列表
 

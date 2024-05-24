@@ -480,8 +480,8 @@ async def _(result: Arparma, matcher: Matcher, event: T_MessageEvent, bot: T_Bot
                               (mdc.link(store_plugin.author, f"https://github.com/{store_plugin.author}") if store_plugin.author else "Unknown")),
                     mdc.quote(mdc.bold(ulang.get("npm.description")) + " " + mdc.paragraph(max(loaded_plugin.metadata.description, store_plugin.desc))),
                     mdc.heading(ulang.get("npm.usage"), 2),
-                    mdc.quote(escape_md(loaded_plugin.metadata.usage)),
-                    mdc.link(ulang.get("npm.homepage"), link) if link else mdc.paragraph(ulang.get("npm.no_homepage"))
+                    mdc.paragraph(loaded_plugin.metadata.usage.replace("\n", "\n\n")),
+                    mdc.link(ulang.get("npm.homepage"), link) if link else mdc.paragraph(ulang.get("npm.homepage"))
             ]
             await md.send_md(compile_md(reply), bot, event=event)
         else:
