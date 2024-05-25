@@ -87,7 +87,7 @@ async def get_stat_msg_image(duration: int, period: int, group_id: str = None, b
         ]
     }
 
-    return await template2image(get_path("templates/stat_msg.html"), templates, debug=True)
+    return await template2image(get_path("templates/stat_msg.html"), templates)
 
     # if not timestamps or period_start_time != timestamps[-1]:
     #     timestamps.append(period_start_time)

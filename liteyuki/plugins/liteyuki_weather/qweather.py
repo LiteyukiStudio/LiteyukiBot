@@ -84,20 +84,19 @@ async def get_weather_now_card(matcher: Matcher, event: T_MessageEvent, keyword:
     image = await template2image(
         template=get_path("templates/weather_now.html", abs_path=True),
         templates={
-            "data": {
-                "params": {
-                    "unit": unit,
-                    "lang": ulang.lang_code,
-                },
-                "weatherNow": weather_now,
-                "weatherDaily": weather_daily,
-                "weatherHourly": weather_hourly,
-                "aqi": aqi,
-                "location": location_data.dump(),
-                "localization": get_local_data(ulang.lang_code)
-            }
+                "data": {
+                        "params"       : {
+                                "unit": unit,
+                                "lang": ulang.lang_code,
+                        },
+                        "weatherNow"   : weather_now,
+                        "weatherDaily" : weather_daily,
+                        "weatherHourly": weather_hourly,
+                        "aqi"          : aqi,
+                        "location"     : location_data.dump(),
+                        "localization" : get_local_data(ulang.lang_code)
+                }
         },
-        debug=True,
         wait=1
     )
     return image

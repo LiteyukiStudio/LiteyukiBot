@@ -19,8 +19,8 @@ body {
 }
 
 .info-box {
-    border-radius: 50px;
-    padding: 30px;
+    border-radius: 60px;
+    padding: 40px;
     backdrop-filter: blur(10px);
     background-color: rgba(0, 0, 0, 0.5);
     margin-bottom: 20px;

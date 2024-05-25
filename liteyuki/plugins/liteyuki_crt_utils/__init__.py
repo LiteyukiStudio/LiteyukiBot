@@ -1,5 +1,6 @@
 from nonebot.plugin import PluginMetadata
 from .rt_guide import *
+from .crt_matchers import *
 
 __plugin_meta__ = PluginMetadata(
     name="CRT生成工具",

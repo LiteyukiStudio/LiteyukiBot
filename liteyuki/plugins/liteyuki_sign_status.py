@@ -158,7 +158,6 @@ async def generate_chart(limit):
         templates={
                 "data": data
         },
-        debug=True
     )
 
     return img
