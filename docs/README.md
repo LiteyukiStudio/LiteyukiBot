@@ -9,7 +9,7 @@ bgImageStyle:
   background-attachment: fixed
 heroText: LiteyukiBot
 tagline: 轻雪机器人，一个以轻量和简洁为设计理念基于Nonebot2的OneBot标准聊天机器人
-
+ 
 actions:
   - text: 快速部署
     icon: lightbulb
