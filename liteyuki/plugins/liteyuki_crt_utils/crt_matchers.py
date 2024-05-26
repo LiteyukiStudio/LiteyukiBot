@@ -36,7 +36,7 @@ async def _(result: Arparma, event: T_MessageEvent):
     end = quote(quote(result.other_args.get("end")))
 
     # 判断参数语言
-    query_lang_code = "Eng" if ulang.lang_code not in ["zh-CN", "zh-HK"] else ""
+    query_lang_code = ""
     if start.isalpha() and end.isalpha():
         query_lang_code = "Eng"
 
@@ -55,9 +55,15 @@ async def _(result: Arparma, event: T_MessageEvent):
 
     # 模板传参定义
     templates = {
-            "data": {
+            "data"        : {
                     "result": result["result"],
-            }
+            },
+            "localization": ulang.get_many(
+                "crt.station",
+                "crt.hour",
+                "crt.minute",
+            )
+
     }
 
     # 生成图片

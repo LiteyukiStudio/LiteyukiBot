@@ -119,7 +119,7 @@ weatherDaily['daily'].forEach(
 )
 
 function get_time_hour(fxTime) {
-//     fxTime 2024-05-03T02:00+08:00'
+//     fxTime 2024-05-03T02:00+/-08:00'
     fxTime = fxTime.replace("-", "+")
     return fxTime.split("T")[1].split("+")[0]
 }

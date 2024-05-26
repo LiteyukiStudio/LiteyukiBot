@@ -5,7 +5,7 @@
 import json
 import locale
 import os
-from typing import Any
+from typing import Any, overload
 
 import nonebot
 
@@ -141,6 +141,21 @@ class Language:
                     nonebot.logger.warning(f"Failed to format language data: {e}")
                     return trans
         return default or item
+
+    def get_many(self, *args: str, **kwargs) -> dict[str, str]:
+        """
+        获取多个文本
+        Args:
+            *args:  文本键
+            **kwargs: 文本键和默认文本
+
+        Returns:
+            dict: 多个文本
+        """
+        args_data = {item: self.get(item) for item in args}
+        kwargs_data = {item: self.get(item, default=default) for item, default in kwargs.items()}
+        args_data.update(kwargs_data)
+        return args_data
 
 
 def change_user_lang(user_id: str, lang_code: str):

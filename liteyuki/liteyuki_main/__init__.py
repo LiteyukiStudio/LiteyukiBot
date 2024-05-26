@@ -32,4 +32,3 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
 
 sys_lang = Language(get_default_lang_code())
 nonebot.logger.info(sys_lang.get("main.current_language", LANG=sys_lang.get("language.name")))
-# nonebot.logger.info(sys_lang.get("main.enable_webdash", URL=f"http://127.0.0.1:{config.get('port', 20216)}"))

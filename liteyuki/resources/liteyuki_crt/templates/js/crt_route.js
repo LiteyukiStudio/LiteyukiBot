@@ -1,7 +1,6 @@
 // Copyright (c) 2024 SnowyKami Liteyuki Studio All Rights Reserved.
 
 
-
 /**
  * @type {{
  *   results: Array<{
@@ -25,7 +24,13 @@
 const data = JSON.parse(document.getElementById("data").innerText);
 const results = data["result"];
 
-const solution_template = document.getElementById("route-template").innerText;
+const route_template = document.importNode(document.getElementById("route-template").content, true)
+
+results.forEach(
+    (item, index) => {
+
+    }
+)
 
 
 
