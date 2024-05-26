@@ -18,7 +18,6 @@ async def load_plugins():
     # 从数据库读取已安装的插件
     if not get_config("safe_mode", False):
         # 安全模式下，不加载插件
-
         installed_plugins: list[InstalledPlugin] = plugin_db.where_all(InstalledPlugin())
         if installed_plugins:
             for installed_plugin in installed_plugins:

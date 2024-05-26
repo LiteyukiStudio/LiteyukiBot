@@ -35,50 +35,36 @@ highlights:
         details: 拥有良好的生态支持
         link: https://nonebot.dev/
 
-      - title: 可视化插件管理
+      - title: 便捷插件管理
         icon: plug
-        details: 使用<code>npm</code>，无需命令行操作即可安装/卸载插件
+        details: 使用<code>包管理器</code>，无需命令行操作即可安装/卸载插件
 
-      - title: 点击交互
+      - title: 人性化交互
         icon: mouse-pointer
         details: 新的点击交互模式，拒绝手打指令
 
       - title: 主题支持
         icon: paint-brush
-        details: 支持多种主题，可自定义资源包，满足你的审美需求
+        details: 使用资源包对外观进行完全自定义
         link: https://bot.liteyuki.icu/usage/resource_pack.html
 
       - title: 国际化
         icon: globe
-        details: 支持多种语言，包括i18n部分语言和自行扩展的语言代码
+        details: 通过资源包支持多种语言
         link: https://baike.baidu.com/item/i18n/6771940
 
       - title: 简易配置
         icon: cog
-        details: 无需过多配置，开箱即用
+        details: 无需繁琐前期过程，开箱即用
         link: https://bot.liteyuki.icu/deployment/config.html
 
-      - title: 低占用
-        icon: memory
-        details: 使用更少的依赖和资源
+      - title: 高性能
+        icon: tachometer-alt
+        details: 500个插件，3s内启动
 
-      - title: OneBot标准
-        icon: link
-        details: 支持OneBotv11/12标准的四种通信协议
-        link: https://onebot.dev/
-
-      - title: Alconna命令解析
-        icon: link
-        details: 使用Alconna实现高效命令解析
-        link: https://github.com/nonebot/plugin-alconna
-
-      - title: 便捷更新
+      - title: 滚动更新
         icon: cloud-download
-        details: 聊天窗口命令更新，无需手动下载
-
-      - title: 服务支持
-        icon: server
-        details: 内置轻雪API，可自动收集错误，提供图床服务
+        details: 让你的机器人保持最新提交
 
       - title: 开源
         icon: code

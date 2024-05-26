@@ -1,4 +1,5 @@
 from nonebot.plugin import PluginMetadata
+from nonebot import get_driver
 
 __plugin_meta__ = PluginMetadata(
     name="Minecraft工具箱",
