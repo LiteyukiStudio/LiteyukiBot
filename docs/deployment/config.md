@@ -29,6 +29,7 @@ onebot_access_token: "" # 访问令牌，对公开放时建议设置
 default_language: "zh-CN" # 默认语言
 alconna_auto_completion: false # alconna是否自动补全指令，默认false，建议开启
 # 开发者选项
+allow_update: true # 是否允许更新
 log_level: "INFO" # 日志等级
 log_icon: true # 是否显示日志等级图标（某些控制台字体不可用）
 auto_report: true # 是否自动上报问题给轻雪服务器
