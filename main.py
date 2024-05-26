@@ -4,6 +4,7 @@ from liteyuki.utils.base.config import load_from_yaml
 from liteyuki.utils.base.data_manager import StoredConfig, common_db
 from liteyuki.utils.base.ly_api import liteyuki_api
 
+
 if __name__ == "__mp_main__":
     # Start as multiprocessing
     init()
