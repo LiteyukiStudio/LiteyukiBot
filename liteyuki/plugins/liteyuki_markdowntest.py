@@ -12,19 +12,11 @@ md_test = on_command("mdts", permission=SUPERUSER)
 btn_test = on_command("btnts", permission=SUPERUSER)
 latex_test = on_command("latex", permission=SUPERUSER)
 
-placeholder = {
-        "&#91;": "[",
-        "&#93;": "]",
-        "&amp;": "&",
-        "&#44;": ",",
-        "\n"   : r"\n",
-}
-
 
 @md_test.handle()
 async def _(bot: T_Bot, event: T_MessageEvent, arg: v11.Message = CommandArg()):
     await md.send_md(
-        str(arg),
+        v11.utils.unescape(str(arg)),
         bot,
         message_type=event.message_type,
         session_id=event.user_id if event.message_type == "private" else event.group_id
@@ -43,7 +35,7 @@ async def _(bot: T_Bot, event: T_MessageEvent, arg: v11.Message = CommandArg()):
 
 @latex_test.handle()
 async def _(bot: T_Bot, event: T_MessageEvent, arg: v11.Message = CommandArg()):
-    latex_text = f"$${str(arg)}$$"
+    latex_text = f"$${v11.utils.unescape(str(arg))}$$"
     img = await md_to_pic(latex_text)
     await bot.send(event=event, message=MessageSegment.image(img))
 
