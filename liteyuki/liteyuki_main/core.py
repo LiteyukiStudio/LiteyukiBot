@@ -19,6 +19,7 @@ from liteyuki.utils.message.message import MarkdownMessage as md, broadcast_to_s
 from liteyuki.utils.base.reloader import Reloader
 from liteyuki.utils import event as event_utils, satori_utils
 from .api import update_liteyuki
+from ..utils.base.ly_function import get_function
 
 require("nonebot_plugin_alconna")
 require("nonebot_plugin_apscheduler")
@@ -219,8 +220,11 @@ async def _(result: Arparma, bot: T_Bot, event: T_MessageEvent, matcher: Matcher
         else:
             _args.append(arg.replace("EQUAL_SIGN", "="))
 
+    ly_func = get_function(function_name)
+    ly_func.bot = bot if "bot_id" not in _kwargs else nonebot.get_bot(_kwargs["bot_id"])
+    ly_func.matcher = matcher
 
-
+    await ly_func(*tuple(_args), **_kwargs)
 
 @on_alconna(
     command=Alconna(
@@ -265,7 +269,6 @@ async def _(result: Arparma, bot: T_Bot, event: T_MessageEvent, matcher: Matcher
     print(f"API: {api_name}\n\nArgs: \n{args_show}\n\nResult: {result}")
     await matcher.finish(f"API: {api_name}\n\nArgs: \n{args_show}\n\nResult: {result}")
 
-
 # system hook
 @Bot.on_calling_api  # 图片模式检测
 async def test_for_md_image(bot: T_Bot, api: str, data: dict):
@@ -297,7 +300,6 @@ async def test_for_md_image(bot: T_Bot, api: str, data: dict):
                 return
             raise MockApiException(result=result)
 
-
 @driver.on_startup
 async def on_startup():
     temp_data = common_db.where_one(TempConfig(), default=TempConfig())
@@ -307,11 +309,9 @@ async def on_startup():
         temp_data.data["delta_time"] = delta_time
         common_db.save(temp_data)  # 更新数据
 
-
 @driver.on_shutdown
 async def on_shutdown():
     pass
-
 
 @driver.on_bot_connect
 async def _(bot: T_Bot):
@@ -342,7 +342,6 @@ async def _(bot: T_Bot):
                 message="Liteyuki reloaded in %.2f s" % delta_time
             )
 
-
 # 每天4点更新
 @scheduler.scheduled_job("cron", hour=4)
 async def every_day_update():
@@ -355,7 +354,6 @@ async def every_day_update():
             Reloader.reload(5)
         else:
             nonebot.logger.info(logs)
-
 
 # 需要用户id的api
 need_user_id = (

@@ -9,6 +9,7 @@ import yaml
 
 from .data import LiteModel
 from .language import Language, get_default_lang_code
+from .ly_function import loaded_functions
 
 _loaded_resource_packs: list["ResourceMetadata"] = []  # 按照加载顺序排序
 temp_resource_root = "data/liteyuki/resources"
@@ -127,6 +128,7 @@ def load_resources():
     # 加载默认资源和语言
     # 清空临时资源包路径data/liteyuki/resources
     _loaded_resource_packs.clear()
+    loaded_functions.clear()
     if os.path.exists(temp_resource_root):
         shutil.rmtree(temp_resource_root)
     os.makedirs(temp_resource_root, exist_ok=True)
