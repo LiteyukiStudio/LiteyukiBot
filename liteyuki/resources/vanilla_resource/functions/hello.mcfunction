@@ -1,4 +1,3 @@
-var qq={0} msg={1} a=A
 api send_private_msg user_id=qq message=msg
 sleep 3
 

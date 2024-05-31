@@ -216,7 +216,12 @@ async def _(result: Arparma, bot: T_Bot, event: T_MessageEvent, matcher: Matcher
         arg = arg.replace("\\=", "EQUAL_SIGN")
         if "=" in arg:
             key, value = arg.split("=", 1)
-            _kwargs[key] = value.replace("EQUAL_SIGN", "=")
+            value = unescape(value.replace("EQUAL_SIGN", "="))
+            try:
+                value = eval(value)
+            except:
+                value = value
+            _kwargs[key] = value
         else:
             _args.append(arg.replace("EQUAL_SIGN", "="))
 
@@ -225,6 +230,7 @@ async def _(result: Arparma, bot: T_Bot, event: T_MessageEvent, matcher: Matcher
     ly_func.matcher = matcher
 
     await ly_func(*tuple(_args), **_kwargs)
+
 
 @on_alconna(
     command=Alconna(
@@ -269,6 +275,7 @@ async def _(result: Arparma, bot: T_Bot, event: T_MessageEvent, matcher: Matcher
     print(f"API: {api_name}\n\nArgs: \n{args_show}\n\nResult: {result}")
     await matcher.finish(f"API: {api_name}\n\nArgs: \n{args_show}\n\nResult: {result}")
 
+
 # system hook
 @Bot.on_calling_api  # 图片模式检测
 async def test_for_md_image(bot: T_Bot, api: str, data: dict):
@@ -300,6 +307,7 @@ async def test_for_md_image(bot: T_Bot, api: str, data: dict):
                 return
             raise MockApiException(result=result)
 
+
 @driver.on_startup
 async def on_startup():
     temp_data = common_db.where_one(TempConfig(), default=TempConfig())
@@ -309,9 +317,11 @@ async def on_startup():
         temp_data.data["delta_time"] = delta_time
         common_db.save(temp_data)  # 更新数据
 
+
 @driver.on_shutdown
 async def on_shutdown():
     pass
+
 
 @driver.on_bot_connect
 async def _(bot: T_Bot):
@@ -342,6 +352,7 @@ async def _(bot: T_Bot):
                 message="Liteyuki reloaded in %.2f s" % delta_time
             )
 
+
 # 每天4点更新
 @scheduler.scheduled_job("cron", hour=4)
 async def every_day_update():
@@ -354,6 +365,7 @@ async def every_day_update():
             Reloader.reload(5)
         else:
             nonebot.logger.info(logs)
+
 
 # 需要用户id的api
 need_user_id = (

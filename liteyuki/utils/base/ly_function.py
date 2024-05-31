@@ -31,14 +31,16 @@ class LiteyukiFunction:
         self.name = name
         self.functions: list[str] = list()
         self.bot: Bot = None
-        self.var_data = dict()
-        self.macro_data = dict()
+        self.kwargs_data = dict()
+        self.args_data = list()
         self.matcher: Matcher = None
         self.end = False
 
         self.sub_tasks: list[asyncio.Task] = list()
 
     async def __call__(self, *args, **kwargs):
+        self.kwargs_data.update(kwargs)
+        self.args_data = list(set(self.args_data + list(args)))
         for i, cmd in enumerate(self.functions):
             r = await self.execute_line(cmd, i, *args, **kwargs)
             if r == 0:
@@ -62,7 +64,6 @@ class LiteyukiFunction:
             line: 行数
         Returns:
         """
-        cmd = cmd.format(*args, **kwargs)
         no_head = cmd.split(" ", 1)[1] if len(cmd.split(" ")) > 1 else ""
         try:
             head, args, kwargs = self.get_args(cmd)
@@ -74,7 +75,7 @@ class LiteyukiFunction:
 
         if head == "var":
             # 变量定义
-            self.var_data.update(kwargs)
+            self.kwargs_data.update(kwargs)
 
         elif head == "cmd":
             # 在当前计算机上执行命令
@@ -97,7 +98,6 @@ class LiteyukiFunction:
 
         elif head == "nohup":
             # 挂起运行
-            print("挂起运行")
             task = asyncio.create_task(self.execute_line(no_head))
             self.sub_tasks.append(task)
 
@@ -129,7 +129,7 @@ class LiteyukiFunction:
                 try:
                     value = eval(value)
                 except:
-                    value = self.var_data.get(value, value)
+                    value = self.kwargs_data.get(value, value)
                 kwargs[key] = value
             else:
                 if i == 0:
