@@ -1,7 +1,7 @@
 ---
 title: 轻雪API
 icon: code
-order: 4
+order: 5
 category: 使用指南
 tag:
   - 配置
