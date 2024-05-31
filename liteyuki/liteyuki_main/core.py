@@ -80,12 +80,13 @@ async def _(matcher: Matcher, bot: T_Bot, event: T_MessageEvent):
 
     temp_data.data.update(
         {
-            "reload": True,
-            "reload_time": time.time(),
-            "reload_bot_id": bot.self_id,
-            "reload_session_type": event_utils.get_message_type(event),
-            "reload_session_id": (event.group_id if event.message_type == "group" else event.user_id) if not isinstance(event,satori.event.Event) else event.channel.id,
-            "delta_time": 0
+                "reload"             : True,
+                "reload_time"        : time.time(),
+                "reload_bot_id"      : bot.self_id,
+                "reload_session_type": event_utils.get_message_type(event),
+                "reload_session_id"  : (event.group_id if event.message_type == "group" else event.user_id) if not isinstance(event,
+                                                                                                                              satori.event.Event) else event.channel.id,
+                "delta_time"         : 0
         }
     )
 
@@ -186,6 +187,39 @@ async def _(event: T_MessageEvent, matcher: Matcher):
 # Satori OK
 async def _(matcher: Matcher):
     await matcher.finish("https://bot.liteyuki.icu/usage")
+
+
+@on_alconna(
+    command=Alconna(
+        "/function",
+        Args["function", str]["args", MultiVar(str), ()],
+    )
+).handle()
+async def _(result: Arparma, bot: T_Bot, event: T_MessageEvent, matcher: Matcher):
+    """
+    调用轻雪函数
+    Args:
+        result:
+        bot:
+        event:
+
+    Returns:
+
+    """
+    function_name = result.main_args.get("function")
+    args: tuple[str] = result.main_args.get("args", ())
+    _args = []
+    _kwargs = {}
+
+    for arg in args:
+        arg = arg.replace("\\=", "EQUAL_SIGN")
+        if "=" in arg:
+            key, value = arg.split("=", 1)
+            _kwargs[key] = value.replace("EQUAL_SIGN", "=")
+        else:
+            _args.append(arg.replace("EQUAL_SIGN", "="))
+
+
 
 
 @on_alconna(
@@ -294,7 +328,7 @@ async def _(bot: T_Bot):
         reload_session_id = temp_data.data.get("reload_session_id", 0)
         delta_time = temp_data.data.get("delta_time", 0)
         common_db.save(temp_data)  # 更新数据
-        if isinstance(bot,satori.Bot):
+        if isinstance(bot, satori.Bot):
             await bot.send_message(
                 channel_id=reload_session_id,
                 message="Liteyuki reloaded in %.2f s" % delta_time
@@ -323,23 +357,23 @@ async def every_day_update():
             nonebot.logger.info(logs)
 
 
-# 安全的需要用户id的api
+# 需要用户id的api
 need_user_id = (
-    "send_private_msg",
-    "send_msg",
-    "set_group_card",
-    "set_group_special_title",
-    "get_stranger_info",
-    "get_group_member_info"
+        "send_private_msg",
+        "send_msg",
+        "set_group_card",
+        "set_group_special_title",
+        "get_stranger_info",
+        "get_group_member_info"
 )
 
 need_group_id = (
-    "send_group_msg",
-    "send_msg",
-    "set_group_card",
-    "set_group_name",
-    "set_group_special_title",
-    "get_group_member_info",
-    "get_group_member_list",
-    "get_group_honor_info"
+        "send_group_msg",
+        "send_msg",
+        "set_group_card",
+        "set_group_name",
+        "set_group_special_title",
+        "get_group_member_info",
+        "get_group_member_list",
+        "get_group_honor_info"
 )

@@ -34,7 +34,7 @@ log_level: "INFO" # 日志等级
 log_icon: true # 是否显示日志等级图标（某些控制台字体不可用）
 auto_report: true # 是否自动上报问题给轻雪服务器
 auto_update: true # 是否自动更新轻雪，每天4点检查更新
-debug: false  # 轻雪调试，开启后在调试时修改代码或资源会自动重载相应内容
+debug: false  # 轻雪调试，开启会自动重载Bot或者资源，其他插件自带的调试功能也将开启
 safe_mode: false # 安全模式，开启后将不会加载任何第三方插件
 # 其他Nonebot插件的配置项
 custom_config_1: "custom_value1"

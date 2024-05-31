@@ -23,7 +23,6 @@
 
 const data = JSON.parse(document.getElementById("data").innerText);
 const results = data["result"];
-
 const route_template = document.importNode(document.getElementById("route-template").content, true)
 
 results.forEach(

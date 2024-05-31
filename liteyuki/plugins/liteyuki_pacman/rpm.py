@@ -1,6 +1,6 @@
 # 轻雪资源包管理器
 import os
-
+import zipfile
 import yaml
 from nonebot import require
 from nonebot.permission import SUPERUSER
@@ -83,26 +83,43 @@ async def _(bot: T_Bot, event: T_MessageEvent, result: Arparma):
                       f"> {btn_move_up} {btn_move_down} {btn_move_top} {btn_unload}\n\n***")
         reply += f"\n\n{ulang.get('liteyuki.unloaded_resources')}\n"
         loaded_folders = [rp.folder for rp in get_loaded_resource_packs()]
+        # 遍历resources文件夹，获取未加载的资源包
         for folder in os.listdir("resources"):
-            if folder not in loaded_folders and os.path.exists(os.path.join("resources", folder, "metadata.yml")):
-                metadata = ResourceMetadata(
-                    **yaml.load(
-                        open(
-                            os.path.join("resources", folder, "metadata.yml"),
-                            encoding="utf-8"
-                        ),
-                        Loader=yaml.FullLoader
+            if folder not in loaded_folders:
+                if os.path.exists(os.path.join("resources", folder, "metadata.yml")):
+                    metadata = ResourceMetadata(
+                        **yaml.load(
+                            open(
+                                os.path.join("resources", folder, "metadata.yml"),
+                                encoding="utf-8"
+                            ),
+                            Loader=yaml.FullLoader
+                        )
                     )
-                )
-                metadata.folder = folder
-                metadata.path = os.path.join("resources", folder)
-                btn_load = md.btn_cmd(
-                    ulang.get("npm.install"),
-                    f"rpm load {metadata.folder}"
-                )
-                # 添加新行
-                reply += (f"\n**{md.escape(metadata.name)}**({md.escape(metadata.folder)})\n\n"
-                          f"> {btn_load}\n\n***")
+                    metadata.folder = folder
+                    metadata.path = os.path.join("resources", folder)
+                    btn_load = md.btn_cmd(
+                        ulang.get("npm.install"),
+                        f"rpm load {metadata.folder}"
+                    )
+                    # 添加新行
+                    reply += (f"\n**{md.escape(metadata.name)}**({md.escape(metadata.folder)})\n\n"
+                              f"> {btn_load}\n\n***")
+                elif os.path.isfile(os.path.join("resources", folder)) and folder.endswith(".zip"):
+                    # zip文件
+                    # 临时解压并读取metadata.yml
+                    with zipfile.ZipFile(os.path.join("resources", folder), "r") as zip_ref:
+                        with zip_ref.open("metadata.yml") as f:
+                            metadata = ResourceMetadata(
+                                **yaml.load(f, Loader=yaml.FullLoader)
+                            )
+                    btn_load = md.btn_cmd(
+                        ulang.get("npm.install"),
+                        f"rpm load {folder}"
+                    )
+                    # 添加新行
+                    reply += (f"\n**{md.escape(metadata.name)}**({md.escape(folder)})\n\n"
+                              f"> {btn_load}\n\n***")
     elif result.subcommands.get("load") or result.subcommands.get("unload"):
         load = result.subcommands.get("load") is not None
         rp_name = result.args.get("name")

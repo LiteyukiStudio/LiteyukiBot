@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+import zipfile
 from typing import Any
 
 import nonebot
@@ -11,6 +12,7 @@ from .language import Language, get_default_lang_code
 
 _loaded_resource_packs: list["ResourceMetadata"] = []  # 按照加载顺序排序
 temp_resource_root = "data/liteyuki/resources"
+temp_extract_root = "data/liteyuki/temp"
 lang = Language(get_default_lang_code())
 
 
@@ -32,6 +34,15 @@ def load_resource_from_dir(path: str):
     if os.path.exists(os.path.join(path, "metadata.yml")):
         with open(os.path.join(path, "metadata.yml"), "r", encoding="utf-8") as f:
             metadata = yaml.safe_load(f)
+    elif os.path.isfile(path) and path.endswith(".zip"):
+        # zip文件
+        # 临时解压并读取metadata.yml
+        with zipfile.ZipFile(path, "r") as zip_ref:
+            # 解压至临时目录 data/liteyuki/temp/{pack_name}.zip
+            zip_ref.extractall(os.path.join(temp_extract_root, os.path.basename(path)))
+            with zip_ref.open("metadata.yml") as f:
+                metadata = yaml.safe_load(f)
+        path = os.path.join(temp_extract_root, os.path.basename(path))
     else:
         # 没有metadata.yml文件，不是一个资源包
         return
@@ -41,13 +52,21 @@ def load_resource_from_dir(path: str):
             copy_file(os.path.join(root, file), os.path.join(temp_resource_root, relative_path))
     metadata["path"] = path
     metadata["folder"] = os.path.basename(path)
+
     if os.path.exists(os.path.join(path, "lang")):
+        # 加载语言
         from liteyuki.utils.base.language import load_from_dir
         load_from_dir(os.path.join(path, "lang"))
+
+    if os.path.exists(os.path.join(path, "functions")):
+        # 加载功能
+        from liteyuki.utils.base.ly_function import load_from_dir
+        load_from_dir(os.path.join(path, "functions"))
+
     _loaded_resource_packs.insert(0, ResourceMetadata(**metadata))
 
 
-def get_path(path: str, abs_path: bool = True, default: Any = None, debug: bool=False) -> str | Any:
+def get_path(path: str, abs_path: bool = True, default: Any = None, debug: bool = False) -> str | Any:
     """
     获取资源包中的文件
     Args:
@@ -125,7 +144,7 @@ def load_resources():
         json.dump([], open("resources/index.json", "w", encoding="utf-8"))
 
     resource_index: list[str] = json.load(open("resources/index.json", "r", encoding="utf-8"))
-    resource_index.reverse()    # 优先级高的后加载，但是排在前面
+    resource_index.reverse()  # 优先级高的后加载，但是排在前面
     for resource in resource_index:
         load_resource_from_dir(os.path.join("resources", resource))
 
@@ -147,7 +166,8 @@ def check_exist(name: str) -> bool:
         name: 资源包名称，文件夹名
     Returns: 是否存在
     """
-    return os.path.exists(os.path.join("resources", name, "metadata.yml"))
+    path = os.path.join("resources", name)
+    return os.path.exists(os.path.join(path, "metadata.yml")) or (os.path.isfile(path) and name.endswith(".zip"))
 
 
 def add_resource_pack(name: str) -> bool:
