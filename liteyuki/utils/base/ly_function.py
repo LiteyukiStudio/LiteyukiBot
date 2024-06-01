@@ -64,9 +64,23 @@ class LiteyukiFunction:
             line: 行数
         Returns:
         """
+
+        try:
+            if "${" in cmd:
+                # 此种情况下，{}内容不用管，只对${}内的内容进行format
+                for i in range(len(cmd) - 1):
+                    if cmd[i] == "$" and cmd[i + 1] == "{":
+                        end = cmd.find("}", i)
+                        key = cmd[i + 2:end]
+                        cmd = cmd.replace(f"${{{key}}}", str(self.kwargs_data.get(key, "")))
+            else:
+                cmd = cmd.format(*self.args_data, **self.kwargs_data)
+        except Exception as e:
+            pass
+
         no_head = cmd.split(" ", 1)[1] if len(cmd.split(" ")) > 1 else ""
         try:
-            head, args, kwargs = self.get_args(cmd)
+            head, cmd_args, cmd_kwargs = self.get_args(cmd)
         except Exception as e:
             error_msg = f"Parsing error in {self.name} at line {line}: {e}"
             nonebot.logger.error(error_msg)
@@ -75,7 +89,7 @@ class LiteyukiFunction:
 
         if head == "var":
             # 变量定义
-            self.kwargs_data.update(kwargs)
+            self.kwargs_data.update(cmd_kwargs)
 
         elif head == "cmd":
             # 在当前计算机上执行命令
@@ -83,18 +97,18 @@ class LiteyukiFunction:
 
         elif head == "api":
             # 调用Bot API 需要Bot实例
-            await self.bot.call_api(args[1], **kwargs)
+            await self.bot.call_api(cmd_args[1], **cmd_kwargs)
 
         elif head == "function":
             # 调用轻雪函数
-            func = get_function(args[1])
+            func = get_function(cmd_args[1])
             func.bot = self.bot
             func.matcher = self.matcher
-            await func(*args[2:], **kwargs)
+            await func(*cmd_args[2:], **cmd_kwargs)
 
         elif head == "sleep":
             # 等待一段时间
-            await asyncio.sleep(float(args[1]))
+            await asyncio.sleep(float(cmd_args[1]))
 
         elif head == "nohup":
             # 挂起运行
@@ -105,6 +119,7 @@ class LiteyukiFunction:
             # 结束所有函数
             self.end = True
             return 0
+
 
         elif head == "await":
             # 等待所有协程执行完毕

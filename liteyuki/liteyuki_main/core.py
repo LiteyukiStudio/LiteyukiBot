@@ -1,6 +1,6 @@
 import base64
 import time
-from typing import Any
+from typing import Any, AnyStr
 
 import nonebot
 import pip
@@ -211,7 +211,11 @@ async def _(result: Arparma, bot: T_Bot, event: T_MessageEvent, matcher: Matcher
     function_name = result.main_args.get("function")
     args: tuple[str] = result.main_args.get("args", ())
     _args = []
-    _kwargs = {}
+    _kwargs = {
+            "USER_ID" : str(event.user_id),
+            "GROUP_ID": str(event.group_id) if event.message_type == "group" else "0",
+            "BOT_ID"  : str(bot.self_id)
+    }
 
     for arg in args:
         arg = arg.replace("\\=", "EQUAL_SIGN")
@@ -227,7 +231,7 @@ async def _(result: Arparma, bot: T_Bot, event: T_MessageEvent, matcher: Matcher
             _args.append(arg.replace("EQUAL_SIGN", "="))
 
     ly_func = get_function(function_name)
-    ly_func.bot = bot if "bot_id" not in _kwargs else nonebot.get_bot(_kwargs["bot_id"])
+    ly_func.bot = bot if "BOT_ID" not in _kwargs else nonebot.get_bot(_kwargs["BOT_ID"])
     ly_func.matcher = matcher
 
     await ly_func(*tuple(_args), **_kwargs)
@@ -236,7 +240,7 @@ async def _(result: Arparma, bot: T_Bot, event: T_MessageEvent, matcher: Matcher
 @on_alconna(
     command=Alconna(
         "/api",
-        Args["api", str]["args", MultiVar(str), ()],
+        Args["api", str]["args", MultiVar(AnyStr), ()],
     ),
     permission=SUPERUSER
 ).handle()
@@ -253,10 +257,12 @@ async def _(result: Arparma, bot: T_Bot, event: T_MessageEvent, matcher: Matcher
     """
     api_name = result.main_args.get("api")
     args: tuple[str] = result.main_args.get("args", ())  # 类似于url参数，但每个参数间用空格分隔，空格是%20
+    print(args)
     args_dict = {}
 
     for arg in args:
         key, value = arg.split("=", 1)
+
         args_dict[key] = unescape(value.replace("%20", " "))
 
     if api_name in need_user_id and "user_id" not in args_dict:
@@ -265,7 +271,10 @@ async def _(result: Arparma, bot: T_Bot, event: T_MessageEvent, matcher: Matcher
         args_dict["group_id"] = str(event.group_id)
 
     if "message" in args_dict:
-        args_dict["message"] = Message(args_dict["message"])
+        args_dict["message"] = Message(eval(args_dict["message"]))
+
+    if "messages" in args_dict:
+        args_dict["messages"] = Message(eval(args_dict["messages"]))
 
     try:
         result = await bot.call_api(api_name, **args_dict)

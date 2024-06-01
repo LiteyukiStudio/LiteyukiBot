@@ -64,6 +64,11 @@ def load_resource_from_dir(path: str):
         from liteyuki.utils.base.ly_function import load_from_dir
         load_from_dir(os.path.join(path, "functions"))
 
+    if os.path.exists(os.path.join(path, "word_bank")):
+        # 加载词库
+        from liteyuki.utils.base.word_bank import load_from_dir
+        load_from_dir(os.path.join(path, "word_bank"))
+
     _loaded_resource_packs.insert(0, ResourceMetadata(**metadata))
 
 

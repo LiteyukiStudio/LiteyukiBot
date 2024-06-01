@@ -18,7 +18,7 @@ memory_database = {
 
 
 class User(LiteModel):
-    TABLE_NAME:str = "user"
+    TABLE_NAME: str = "user"
     user_id: str = Field(str(), alias="user_id")
     username: str = Field(str(), alias="username")
     profile: dict[str, str] = Field(dict(), alias="profile")
@@ -34,6 +34,7 @@ class Group(LiteModel):
     enabled_plugins: list[str] = Field([], alias="enabled_plugins")
     disabled_plugins: list[str] = Field([], alias="disabled_plugins")
     enable: bool = Field(True, alias="enable")  # 群聊全局机器人是否启用
+    config: dict = Field({}, alias="config")
 
 
 class InstalledPlugin(LiteModel):
@@ -50,7 +51,7 @@ class GlobalPlugin(LiteModel):
 
 
 class StoredConfig(LiteModel):
-    TABLE_NAME :str= "stored_config"
+    TABLE_NAME: str = "stored_config"
     config: dict = {}
 
 
@@ -78,8 +79,8 @@ def set_memory_data(key: str, value) -> None:
 
     """
     return memory_database.update({
-                                          key: value
-                                          })
+            key: value
+    })
 
 
 def get_memory_data(key: str, default=None) -> any:
