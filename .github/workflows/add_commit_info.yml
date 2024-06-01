@@ -14,8 +14,10 @@ jobs:
       run: |
         echo $(git rev-parse HEAD) > liteyuki/resources/vanilla_resource/commit.txt
 
-    - name: Upload commit hash
-      uses: actions/upload-artifact@v2
-      with:
-        name: commit-hash
-        path: liteyuki/resources/vanilla_resource/commit.txt
+    - name: Commit and push
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add liteyuki/resources/vanilla_resource/commit.txt
+        git commit -m ":rocket: Record commit hash"
+        git push
