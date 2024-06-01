@@ -1,4 +1,4 @@
-import{_ as n,o as s,c as a,e}from"./app-BNDXdPhH.js";const t={},l=e(`<h2 id="基础插件" tabindex="-1"><a class="header-anchor" href="#基础插件"><span>基础插件</span></a></h2><h3 id="轻雪-liteyuki" tabindex="-1"><a class="header-anchor" href="#轻雪-liteyuki"><span><strong>轻雪 <code>liteyuki</code></strong></span></a></h3><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token comment"># 仅超级用户</span>
+import{_ as n,o as s,c as a,e}from"./app-ELvYYTpR.js";const t={},l=e(`<h2 id="基础插件" tabindex="-1"><a class="header-anchor" href="#基础插件"><span>基础插件</span></a></h2><h3 id="轻雪-liteyuki" tabindex="-1"><a class="header-anchor" href="#轻雪-liteyuki"><span><strong>轻雪 <code>liteyuki</code></strong></span></a></h3><div class="language-bash line-numbers-mode" data-ext="sh" data-title="sh"><pre class="language-bash"><code><span class="token comment"># 仅超级用户</span>
 reload-liteyuki  <span class="token comment"># 重载轻雪</span>
 update-liteyuki  <span class="token comment"># 更新轻雪</span>
 liteecho <span class="token comment"># 查看当前bot</span>
