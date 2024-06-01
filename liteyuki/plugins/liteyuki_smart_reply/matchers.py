@@ -22,6 +22,7 @@ driver = get_driver()
 group_reply_probability: dict[str, float] = {
 }
 default_reply_probability = 0.05
+cut_probability = 0.4  # 分几句话的概率
 
 
 @on_alconna(
@@ -79,7 +80,14 @@ async def _(event: T_MessageEvent, bot: Bot, state: T_State, matcher: Matcher):
         p = group_reply_probability.get(event.group_id, default_reply_probability)
 
     if random.random() < p:
-        await asyncio.sleep(random.random() * 2)
         if reply := get_reply(kws):
-            await matcher.send(reply)
+            reply = reply.replace("。", "||").replace("，", "||").replace("！", "||").replace("？", "||")
+            if random.random() < cut_probability:
+                replies = reply.split("||")
+                for r in replies:
+                    await asyncio.sleep(random.random() * 2)
+                    await matcher.send(r)
+            else:
+                await asyncio.sleep(random.random() * 3)
+                await matcher.send(reply)
             return
