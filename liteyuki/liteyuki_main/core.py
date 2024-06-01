@@ -194,7 +194,8 @@ async def _(matcher: Matcher):
     command=Alconna(
         "/function",
         Args["function", str]["args", MultiVar(str), ()],
-    )
+    ),
+    permission=SUPERUSER
 ).handle()
 async def _(result: Arparma, bot: T_Bot, event: T_MessageEvent, matcher: Matcher):
     """
