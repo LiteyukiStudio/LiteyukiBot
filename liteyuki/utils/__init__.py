@@ -14,6 +14,8 @@ import requests
 from liteyuki.utils.base.config import load_from_yaml, config
 from liteyuki.utils.base.log import init_log
 from liteyuki.utils.base.data_manager import TempConfig, auto_migrate, common_db
+from git import Repo
+
 
 major, minor, patch = map(int, __VERSION__.split("."))
 __VERSION_I__ = major * 10000 + minor * 100 + patch
@@ -56,6 +58,13 @@ def init():
     if sys.version_info < (3, 10):
         nonebot.logger.error("Requires Python3.10+ to run, please upgrade your Python Environment.")
         exit(1)
+
+    try:
+        # 检测git仓库
+        repo = Repo(".")
+    except Exception as e:
+        nonebot.logger.error(f"Failed to load git repository: {e}, please clone this project from GitHub instead of downloading the zip file.")
+
     temp_data: TempConfig = common_db.where_one(TempConfig(), default=TempConfig())
     temp_data.data["start_time"] = time.time()
     common_db.save(temp_data)

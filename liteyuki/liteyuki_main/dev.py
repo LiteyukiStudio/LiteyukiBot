@@ -29,7 +29,7 @@ if get_config("debug", False):
         Handler for code file changes
         """
         def on_modified(self, event):
-            if event.src_path.endswith(src_excludes_extensions) or event.is_directory:
+            if event.src_path.endswith(src_excludes_extensions) or event.is_directory or "__pycache__" in event.src_path:
                 return
             nonebot.logger.debug(f"{event.src_path} modified, reloading bot...")
             Reloader.reload()
