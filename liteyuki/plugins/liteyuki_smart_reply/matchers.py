@@ -81,8 +81,8 @@ async def _(event: T_MessageEvent, bot: Bot, state: T_State, matcher: Matcher):
 
     if random.random() < p:
         if reply := get_reply(kws):
-            reply = reply.replace("。", "||").replace("，", "||").replace("！", "||").replace("？", "||")
             if random.random() < cut_probability:
+                reply = reply.replace("。", "||").replace("，", "||").replace("！", "||").replace("？", "||")
                 replies = reply.split("||")
                 for r in replies:
                     await asyncio.sleep(random.random() * 2)
