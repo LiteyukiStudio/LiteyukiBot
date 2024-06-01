@@ -19,6 +19,8 @@ from .counter_for_satori import satori_counter
 require("nonebot_plugin_apscheduler")
 from nonebot_plugin_apscheduler import scheduler
 
+commit_hash = None
+
 protocol_names = {
     0: "iPad",
     1: "Android Phone",
@@ -263,7 +265,7 @@ async def get_liteyuki_data() -> dict:
     temp_data: TempConfig = common_db.where_one(TempConfig(), default=TempConfig())
     result = {
         "name": list(get_config("nickname", [__NAME__]))[0],
-        "version": __VERSION__,
+        "version": f"{__VERSION__}({commit_hash})",
         "plugins": len(nonebot.get_loaded_plugins()),
         "resources": len(get_loaded_resource_packs()),
         "nonebot": f"{nonebot.__version__}",
