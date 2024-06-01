@@ -1,0 +1,21 @@
+name: Record Commit Hash
+
+on: [push]
+
+jobs:
+  record-hash:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Record commit hash
+      run: |
+        echo $(git rev-parse HEAD) > liteyuki/resources/vanilla_resource/commit.txt
+
+    - name: Upload commit hash
+      uses: actions/upload-artifact@v2
+      with:
+        name: commit-hash
+        path: liteyuki/resources/vanilla_resource/commit.txt
