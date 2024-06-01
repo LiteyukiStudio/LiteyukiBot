@@ -24,7 +24,7 @@ from liteyuki.utils.message.tools import clamp
 from .common import *
 
 require("nonebot_plugin_alconna")
-from nonebot_plugin_alconna import on_alconna, Alconna, Args, Arparma, Subcommand
+from nonebot_plugin_alconna import on_alconna, Alconna, Args, Arparma, Subcommand, Option, OptionResult, SubcommandResult
 
 # const
 enable_global = "enable-global"
@@ -40,11 +40,21 @@ disable = "disable"
         Subcommand(
             "enable",
             Args["plugin_name", str],
+            Option(
+                "-g|--group",
+                Args["group_id", str, None],
+                help_text="群号",
+            ),
             alias=["e", "启用"],
         ),
         Subcommand(
             "disable",
             Args["plugin_name", str],
+            Option(
+                "-g|--group",
+                Args["group_id", str, None],
+                help_text="群号",
+            ),
             alias=["d", "停用"],
         ),
         Subcommand(
@@ -93,13 +103,33 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
     sc = result.subcommands  # 获取子命令
     perm_s = await SUPERUSER(bot, event)  # 判断是否为超级用户
     # 支持对自定义command_start的判断
-    if sc.get("enable") or result.subcommands.get("disable"):
+    if sc.get("enable") or sc.get("disable"):
 
         toggle = result.subcommands.get("enable") is not None
 
         plugin_exist = get_plugin_exist(plugin_name)
 
-        session_enable = get_plugin_session_enable(event, plugin_name)  # 获取插件当前状态
+        # 判定会话类型
+        # 输入群号
+        if (group_id := (sc.get("enable", SubcommandResult()).options.get("group", OptionResult()).args.get("group_id") or
+                         sc.get("disable", SubcommandResult()).options.get("group", OptionResult()).args.get("group_id"))) and await SUPERUSER(bot, event):
+            session_id = group_id
+            new_event = event.copy()
+            new_event.group_id = group_id
+            new_event.message_type = "group"
+
+        elif event.message_type == "private":
+            session_id = event.user_id
+            new_event = event
+        else:
+            if await GROUP_ADMIN(bot, event) or await GROUP_OWNER(bot, event) or await SUPERUSER(bot, event):
+                session_id = event.group_id
+                new_event = event
+            else:
+                raise FinishedException(ulang.get("Permission Denied"))
+
+
+        session_enable = get_plugin_session_enable(new_event, plugin_name)  # 获取插件当前状态
 
         can_be_toggled = get_plugin_can_be_toggle(plugin_name)  # 获取插件是否可以被启用/停用
 
@@ -113,15 +143,10 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
             await npm.finish(
                 ulang.get("npm.plugin_already", NAME=plugin_name, STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable")))
 
-        if event.message_type == "private":
-            session = user_db.where_one(User(), "user_id = ?", event.user_id, default=User(user_id=event.user_id))
-        else:
-            if await GROUP_ADMIN(bot, event) or await GROUP_OWNER(bot, event) or await SUPERUSER(bot, event):
-                session = group_db.where_one(Group(), "group_id = ?", event.group_id, default=Group(group_id=str(event.group_id)))
-            else:
-                raise FinishedException(ulang.get("Permission Denied"))
+        # 键入自定义群号的情况
+
         try:
-            set_plugin_session_enable(event, plugin_name, toggle)
+            set_plugin_session_enable(new_event, plugin_name, toggle)
         except Exception as e:
             nonebot.logger.error(e)
             await npm.finish(
@@ -136,7 +161,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
             ulang.get(
                 "npm.toggle_success",
                 NAME=plugin_name,
-                STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable"))
+                STATUS=(ulang.get("npm.enable") if toggle else ulang.get("npm.disable"))) + session_id
         )
 
     elif sc.get(enable_global) or result.subcommands.get(disable_global) and await SUPERUSER(bot, event):
