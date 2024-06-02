@@ -97,6 +97,5 @@ async def get_weather_now_card(matcher: Matcher, event: T_MessageEvent, keyword:
                         "localization" : get_local_data(ulang.lang_code)
                 }
         },
-        wait=1
     )
     return image

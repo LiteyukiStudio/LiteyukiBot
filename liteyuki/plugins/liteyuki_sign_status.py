@@ -154,7 +154,7 @@ async def generate_chart(limit):
         )
 
     img = await template2image(
-        template=get_path("templates/sign_status.html", debug=True),
+        template=get_path("templates/sign_status.html"),
         templates={
                 "data": data
         },
