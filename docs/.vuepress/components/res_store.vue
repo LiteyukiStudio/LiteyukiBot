@@ -8,6 +8,7 @@ fetch('https://bot.liteyuki.icu/assets/resources.json')
   .then(response => response.json())
   .then(data => {
     items.value = data
+
   })
   .catch(error => console.error(error))
 
@@ -18,7 +19,7 @@ fetch('https://bot.liteyuki.icu/assets/resources.json')
     <h1>主题/资源商店</h1>
     <div class="market">
 <!--      布局商品-->
-      <ItemCard v-for="item in items" :key="item.id" :item="item" />
+      <ItemCard v-for="item in [...items].reverse()" :key="item.id" :item="item" />
     </div>
   </div>
 </template>
