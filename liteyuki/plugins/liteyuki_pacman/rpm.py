@@ -3,6 +3,7 @@ import os
 import zipfile
 import yaml
 from nonebot import require
+from nonebot.internal.matcher import Matcher
 from nonebot.permission import SUPERUSER
 
 from liteyuki.utils.base.language import get_user_lang
@@ -55,10 +56,12 @@ from nonebot_plugin_alconna import Alconna, Args, on_alconna, Arparma, Subcomman
     ),
     permission=SUPERUSER
 ).handle()
-async def _(bot: T_Bot, event: T_MessageEvent, result: Arparma):
+async def _(bot: T_Bot, event: T_MessageEvent, result: Arparma, matcher: Matcher):
     ulang = get_user_lang(str(event.user_id))
     reply = ""
+    send_as_md = False
     if result.subcommands.get("list"):
+        send_as_md = True
         loaded_rps = get_loaded_resource_packs()
         reply += f"{ulang.get('liteyuki.loaded_resources', NUM=len(loaded_rps))}\n"
         for rp in loaded_rps:
@@ -176,13 +179,8 @@ async def _(bot: T_Bot, event: T_MessageEvent, result: Arparma):
             NUM=len(get_loaded_resource_packs())
         )
     else:
-        btn_reload = md.btn_cmd(
-            ulang.get("liteyuki.reload_resources"),
-            f"rpm reload"
-        )
-        btn_list = md.btn_cmd(
-            ulang.get("liteyuki.list_resources"),
-            f"rpm list"
-        )
-        reply += f"{btn_list}  \n  {btn_reload}"
-    await md.send_md(reply, bot, event=event)
+        pass
+    if send_as_md:
+        await md.send_md(reply, bot, event=event)
+    else:
+        await matcher.finish(reply)

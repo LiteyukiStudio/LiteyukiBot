@@ -128,7 +128,6 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
             else:
                 raise FinishedException(ulang.get("Permission Denied"))
 
-
         session_enable = get_plugin_session_enable(new_event, plugin_name)  # 获取插件当前状态
 
         can_be_toggled = get_plugin_can_be_toggle(plugin_name)  # 获取插件是否可以被启用/停用

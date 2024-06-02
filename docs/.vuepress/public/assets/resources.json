@@ -31,9 +31,15 @@
         "link": "https://cdn.liteyuki.icu/static/lrp/custom-device.zip"
     },
     {
-        "name": "示例包3",
+        "name": "轻雪傲娇系词库",
         "author": "SnowyKami",
-        "description": "A simple bot that shows the status of the bot and the server.",
-        "link": ""
+        "description": "使用https://github.com/Kyomotoi/AnimeThesaurus的词库",
+        "link": "https://cdn.liteyuki.icu/static/lrp/liteyuki_words_aojiao.zip"
+    },
+    {
+        "name": "轻雪可爱系词库",
+        "author": "SnowyKami",
+        "description": "使用https://github.com/Kyomotoi/AnimeThesaurus的词库",
+        "link": "https://cdn.liteyuki.icu/static/lrp/liteyuki_words_kawaii.zip"
     }
 ]
