@@ -85,8 +85,9 @@ async def _(event: T_MessageEvent, bot: Bot, state: T_State, matcher: Matcher):
                 reply = reply.replace("。", "||").replace("，", "||").replace("！", "||").replace("？", "||")
                 replies = reply.split("||")
                 for r in replies:
-                    await asyncio.sleep(random.random() * 2)
-                    await matcher.send(r)
+                    if r:   # 防止空字符串
+                        await asyncio.sleep(random.random() * 2)
+                        await matcher.send(r)
             else:
                 await asyncio.sleep(random.random() * 3)
                 await matcher.send(reply)
