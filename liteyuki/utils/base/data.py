@@ -154,8 +154,11 @@ class Database:
                 field: str
 
                 if field.startswith(self.BYTES_PREFIX):
-
-                    new_obj[field.replace(self.BYTES_PREFIX, "")] = self._load(pickle.loads(value) if isinstance(value, bytes) else value)     # 从value字段可能为None，fix at 2024/6/13
+                    if isinstance(value, bytes):
+                        new_obj[field.replace(self.BYTES_PREFIX, "")] = self._load(pickle.loads(value))
+                    else:   # 从value字段可能为None，fix at 2024/6/13
+                        pass
+                        # 暂时不作处理，后面再修
 
                 elif field.startswith(self.FOREIGN_KEY_PREFIX):
 
