@@ -32,6 +32,7 @@ async def _(result: Arparma, event: T_MessageEvent):
     ulang = Language(get_user_id(event))
 
     # 获取参数
+    # 你也别问我为什么要quote两次，问就是CRT官网的锅，只有这样才可以运行
     start = quote(quote(result.other_args.get("start")))
     end = quote(quote(result.other_args.get("end")))
 
