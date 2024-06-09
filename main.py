@@ -4,7 +4,6 @@ from liteyuki.utils.base.config import load_from_yaml
 from liteyuki.utils.base.data_manager import StoredConfig, common_db
 from liteyuki.utils.base.ly_api import liteyuki_api
 
-
 if __name__ == "__mp_main__":
     # Start as multiprocessing
     init()
@@ -23,8 +22,8 @@ if __name__ == "__mp_main__":
             nonebot.logger.error(f"An error occurred: {e}, Bug will be reported automatically.")
             liteyuki_api.bug_report(str(e.__repr__()))
 
-
 if __name__ == "__main__":
     # Start as __main__
     from liteyuki.utils.base.reloader import Reloader
+
     nonebot.run()

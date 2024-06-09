@@ -23,7 +23,7 @@ importlib_metadata~=7.0.2
 requests~=2.31.0
 watchdog~=4.0.0
 pillow~=10.2.0
-
+jieba~=0.42.1
 pip~=23.2.1
 fastapi~=0.110.0
 python-dotenv~=1.0.1
