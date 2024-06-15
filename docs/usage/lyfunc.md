@@ -9,14 +9,23 @@ tag:
 
 ## **轻雪函数**
 
-轻雪函数 Liteyuki Function 是轻雪的一个功能，它允许你在轻雪中运行一些自定义的由数据驱动的命令，类似于Minecraft的mcfunction
+轻雪函数 Liteyuki Function 是轻雪的一个功能，它允许你在轻雪中运行一些自定义的由数据驱动的命令，类似于Minecraft的mcfunction.
 
 ### **函数文件**
 
 函数文件放在资源包的`functions`目录下，文件名以`.mcfunction` `.lyfunction` `.lyf`结尾，例如`test.mcfunction`，文件内容为一系列的命令，每行一个命令，支持单行注释`#`，例如：
 
 ```shell
-cmd echo hello
+# 在发信器输出"hello world"
+cmd echo hello world
+
+# 如果你想同时输出多行内容可以尝试换行符(Python格式)
+cmd echo hello world\nLiteyuki bot
+```
+
+也支持句末注释，例如：
+```shell
+cmd echo hello world # 输出"hello world"
 ```
 
 ### **命令文档**
@@ -33,7 +42,7 @@ await # 等待所有异步任务结束，若函数中启动了其他task，需�
 ```
 
 
-### **示例**
+#### **示例**
 
 ```shell
 # 疯狂戳好友
@@ -46,3 +55,17 @@ sleep 0.2
 nohup function poke
 await
 ```
+
+### **API**
+
+理论上所有基于onebotv11的api都可调用，不同Adapter api也有差别.
+
+[Onebot v11 API文档](https://283375.github.io/onebot_v11_vitepress/api/index.html)
+
+### **结束关键字**
+
+由于Liteyukibot基于异步运行, 所以在编写lyfunction时也要注意异步的调用，避免出现"单线程走到底"的情况是效率提升的关键.
+
+`await`   异步任务结束关键字，用于结束当前已完成function的执行
+
+> 但若出现非单function的情况，有一个task任务没有完成而await被执行了，那么当前所有函数包的task都会被截停销毁
