@@ -2,7 +2,7 @@
 home: true
 icon: home
 title: 首页
-heroImage: https://cdn.liteyuki.icu/static/img/logo.png
+heroImage: https://cdn.liteyuki.icu/static/img/lykwi.png
 bgImage:
 bgImageDark:
 bgImageStyle:
