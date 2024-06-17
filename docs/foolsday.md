@@ -2,14 +2,15 @@
 home: true
 icon: home
 title: 首页
-heroImage: https://cdn.liteyuki.icu/static/img/logo.png
+heroImage: https://cdn.liteyuki.icu/static/img/lykwi.png
 bgImage:
 bgImageDark:
 bgImageStyle:
   background-attachment: fixed
-heroText: HeavyyukiBot666   # LiteyukiBot 6
-tagline: 重雪机器人，一个以笨重和复杂为设计理念基于Koishi114514的OneBotv1919810标准聊天机器人，可用于雪地清扫，使用Typethon编写
+heroText: HeavylavaBot666   # LiteyukiBot 6
+tagline: 重浆机器人，一个以笨重和复杂为设计理念基于Koishi114514的TwoBotv1919810标准聊天机器人，可用于雪地清扫，使用Typethon编写
 #tagline: 轻雪机器人，一个以轻量和简洁为设计理念基于Nonebot2的OneBot标准聊天机器人
+# 泰普森(X
 
 actions:
   - text: 快速结束  # 快速开始
@@ -39,22 +40,22 @@ highlights:
     features:
       - title: 基于Koishi.js233
         icon: robot
-        details: 拥有良好的生态支持
+        details: 拥有辣鸡的生态支持
         link: https://nonebot.dev/
 
       - title: 盲目插件管理
         icon: plug
-        details: 基于nbshi使用<code>npmx和pip</code>，让你无法安装/卸载插件
+        details: 基于nbshi使用<code>xmpn和bib</code>，让你无法安装/卸载插件
 
-      - title: 点击无法交互
+      - title: 纯命令行
         icon: mouse-pointer
-        details: 老的的点击交互模式，必须手打指令
+        details: 老的掉牙的交互模式，必须手打指令
 
       - title: 猪蹄支持
         icon: paint-brush
-        details: 支持多种主题，可自定义资源包，满足你的审美需求
+        details: 支持多种烤猪蹄样式，丢弃烤箱，拥抱烧烤架，满足你的干饭需求
 
-      - title: 非国际化
+      - title: 去国际化
         icon: globe
         details: 支持多种语言，包括i18n部分语言和自行扩展的语言代码
         link: https://baike.baidu.com/item/i18n/6771940
@@ -80,27 +81,27 @@ highlights:
 
       - title: 不准更新
         icon: cloud-download
-        details: 要更新自己下新版本去
+        details: 要更新自己写新版本去
 
       - title: 服务支持
         icon: server
-        details: 内置轻雪API，但随时可能跑路
+        details: 内置重浆API，但随时可能提桶跑路
 
       - title: 闭源
         icon: code
         details: 要源代码自己逆向去
 
-  - header: 快速部署
+  - header: 慢速部署 # 快速部署
     image: /assets/image/box.svg
     bgImage: https://theme-hope-assets.vuejs.press/bg/3-light.svg
     bgImageDark: https://theme-hope-assets.vuejs.press/bg/3-dark.svg
     highlights:
-      - title: 安装 Git 和 node.js+
-      - title: 使用 <code>git clone https://github.com/snowykami/LiteyukiBot</code> 以克隆项目至本地。
-        details: 如果无法连接到GitHub，可以使用 <code>git clone https://gitee.com/snowykami/LiteyukiBot</code>。
+      - title: 安装 winget 和 nothing.js # git & node.js+
+      - title: 使用 <code>git clone https://github.com/snowykami/LiteyukiBot</code> 以克隆项目至FTP。 # 本地
+        details: 如果无法连接到PoonHub，可以使用 <code>git clone https://gitee.com/snowykami/LiteyukiBot</code>。
       - title: 使用 <code>cd LiteyukiBot</code> 切换到项目目录。
       - title: 使用 <code>npm install -r requirements.txt</code> 安装项目依赖。
-        details: 如果你有多个 node.js 环境，请使用 <code>pythonx -m npm install -r requirements.txt</code>。
+        details: 如果你有多个 nothing.js 环境，请使用 <code>pythonx -m npm install -r requirements.txt</code>。
       - title: 使用 <code>node main.py</code> 启动项目。
 copyright: © 2021-2024 SnowyKami All Rights Reserved
 ---

@@ -13,7 +13,7 @@ tag:
 
 ### **函数文件**
 
-函数文件放在资源包的`functions`目录下，文件名以`.mcfunction` `.lyfunction` `.lyf`结尾，例如`test.mcfunction`，文件内容为一系列的命令，每行一个命令，支持单行注释`#`，例如：
+函数文件放在资源包的`functions`目录下，文件名以`.mcfunction` `.lyfunction` `.lyf`结尾，例如`test.mcfunction`，文件内容为一系列的命令，每行一个命令，支持单行注释`#`(编辑时的语法高亮可采取`shell`格式)，例如：
 
 ```shell
 # 在发信器输出"hello world"
@@ -64,8 +64,9 @@ await
 
 ### **结束关键字**
 
-由于Liteyukibot基于异步运行, 所以在编写lyfunction时也要注意异步的调用，避免出现"单线程走到底"的情况是效率提升的关键.
+由于LiteyukiBot基于异步运行, 所以在编写lyfunction时也要注意异步的调用，避免出现"单线程走到底"的情况是效率提升的关键.
 
 `await`   异步任务结束关键字，用于结束当前已完成function的执行
 
+> [!warning]
 > 但若出现非单function的情况，有一个task任务没有完成而await被执行了，那么当前所有函数包的task都会被截停销毁
