@@ -1,0 +1,23 @@
+name: LiteyukiBot test
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python 3.10 Env
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.10
+    - name: Install dependencies for LiteyukiBot
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    - name: Run tests
+      run: |
+        python main.py
