@@ -58,7 +58,7 @@ highlights:
         details: 无需繁琐前期过程，开箱即用
         link: https://bot.liteyuki.icu/deployment/config.html
 
-      - title: 高性能
+      - title: 超高性能
         icon: tachometer-alt
         details: 500个插件，3s内启动
 
@@ -66,7 +66,7 @@ highlights:
         icon: cloud-download
         details: 让你的机器人保持最新提交
 
-      - title: 开源
+      - title: 开源项目
         icon: code
         details: 项目遵循MIT协议开源，欢迎各位的贡献
 
