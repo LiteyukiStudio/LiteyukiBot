@@ -13,7 +13,7 @@ export default hopeTheme({
 
     iconAssets: "fontawesome-with-brands",
 
-    logo: "https://cdn.liteyuki.icu/static/svg/lylogo-full.svg",
+    logo: "https://cdn.liteyuki.icu/static/img/liteyuki_icon_640.png",
 
     repo: "https://github.com/snowykami/LiteyukiBot",
 

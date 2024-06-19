@@ -3,6 +3,7 @@ home: true
 icon: home
 title: 首页
 heroImage: https://cdn.liteyuki.icu/static/svg/lylogo-full.svg
+heroImageDark: https://cdn.liteyuki.icu/static/svg/lylogo-full-night.svg
 bgImage:
 bgImageDark:
 bgImageStyle:
@@ -21,7 +22,6 @@ actions:
     link: ./usage/basic_command.html
 
 highlights:
-
   - header: 简洁至上
     image: /assets/image/layout.svg
     bgImage: https://theme-hope-assets.vuejs.press/bg/2-light.svg
