@@ -26,7 +26,6 @@ async def load_plugins():
                         f"{installed_plugin.module_name} not installed, but in loading database. please run `npm fixup` in chat to reinstall it.")
                 else:
                     nonebot.load_plugin(installed_plugin.module_name)
-
         nonebot.plugin.load_plugins("plugins")
     else:
         nonebot.logger.info("Safe mode is on, no plugin loaded.")
