@@ -8,11 +8,11 @@ bgImageDark:
 bgImageStyle:
   background-attachment: fixed
 heroText: LiteyukiBot
-tagline: 轻雪机器人，一个以轻量和简洁为设计理念基于Nonebot2的OneBot标准聊天机器人
+tagline: LiteyukiBot 轻雪机器人，基于NoneBot2构建的综合应用型聊天机器人
  
 actions:
   - text: 快速部署
-    icon: lightbulb
+    icon: rocket
     link: ./deployment/install.html
     type: primary
 
@@ -30,18 +30,14 @@ highlights:
       background-repeat: repeat
       background-size: initial
     features:
-      - title: 基于Nonebot2
+      - title: 基于NoneBot2
         icon: robot
         details: 拥有良好的生态支持
         link: https://nonebot.dev/
 
-      - title: 便捷插件管理
+      - title: 便捷管理
         icon: plug
-        details: 使用<code>包管理器</code>，无需命令行操作即可安装/卸载插件
-
-      - title: 人性化交互
-        icon: mouse-pointer
-        details: 新的点击交互模式，拒绝手打指令
+        details: 自带包管理器，便捷管理插件/资源包
 
       - title: 主题支持
         icon: paint-brush
@@ -53,14 +49,14 @@ highlights:
         details: 通过资源包支持多种语言
         link: https://baike.baidu.com/item/i18n/6771940
 
-      - title: 简易配置
+      - title: 简易使用
         icon: cog
         details: 无需繁琐前期过程，开箱即用
         link: https://bot.liteyuki.icu/deployment/config.html
 
       - title: 超高性能
         icon: tachometer-alt
-        details: 500个插件，3s内启动
+        details: 500个插件，2s内启动
 
       - title: 滚动更新
         icon: cloud-download
@@ -68,7 +64,7 @@ highlights:
 
       - title: 开源项目
         icon: code
-        details: 项目遵循MIT协议开源，欢迎各位的贡献
+        details: 项目遵循MIT LICENCE开源，欢迎各位的贡献
 
   - header: 快速部署
     image: /assets/image/box.svg
@@ -76,8 +72,8 @@ highlights:
     bgImageDark: https://theme-hope-assets.vuejs.press/bg/3-dark.svg
     highlights:
       - title: 安装 Git 和 Python3.10+
-      - title: 使用 <code>git clone https://github.com/snowykami/LiteyukiBot</code> 以克隆项目至本地。
-        details: 如果无法连接到GitHub，可以使用 <code>git clone https://gitee.com/snowykami/LiteyukiBot</code>。
+      - title: 使用 <code>git clone https://github.com/snowykami/LiteyukiBot --depth=1</code> 以克隆项目至本地。
+        details: 如果无法连接到GitHub，可以使用 <code>git clone https://gitee.com/snowykami/LiteyukiBot --depth=1</code>。
       - title: 使用 <code>cd LiteyukiBot</code> 切换到项目目录。
       - title: 使用 <code>pip install -r requirements.txt</code> 安装项目依赖。
         details: 如果你有多个 Python 环境，请使用 <code>pythonx -m pip install -r requirements.txt</code>。
