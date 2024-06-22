@@ -1,6 +1,7 @@
 import asyncio
 import random
 
+import nonebot
 from nonebot import Bot, on_message, get_driver, require
 from nonebot.internal.matcher import Matcher
 from nonebot.permission import SUPERUSER
@@ -38,8 +39,6 @@ async def _(result: Arparma, event: T_MessageEvent, matcher: Matcher):
     if get_message_type(event) == "group":
         group_id = event.group_id
         probability = result.main_args.get("probability")
-        # 保存到内存
-        group_reply_probability[group_id] = probability
         # 保存到数据库
         group: Group = group_db.where_one(Group(), "group_id = ?", group_id, default=Group(group_id=str(group_id)))
         group.config["reply_probability"] = probability
@@ -47,6 +46,19 @@ async def _(result: Arparma, event: T_MessageEvent, matcher: Matcher):
 
         await matcher.send(f"已将群组{group_id}的回复概率设置为{probability}")
     return
+
+
+@group_db.on_save
+def _(model: Group):
+    """
+    在数据库更新时，更新内存中的回复概率
+    Args:
+        model:
+
+    Returns:
+
+    """
+    group_reply_probability[model.group_id] = model.config.get("reply_probability", default_reply_probability)
 
 
 @driver.on_bot_connect
@@ -85,7 +97,7 @@ async def _(event: T_MessageEvent, bot: Bot, state: T_State, matcher: Matcher):
                 reply = reply.replace("。", "||").replace("，", "||").replace("！", "||").replace("？", "||")
                 replies = reply.split("||")
                 for r in replies:
-                    if r:   # 防止空字符串
+                    if r:  # 防止空字符串
                         await asyncio.sleep(random.random() * 2)
                         await matcher.send(r)
             else:

@@ -257,7 +257,6 @@ async def _(result: Arparma, bot: T_Bot, event: T_MessageEvent, matcher: Matcher
     """
     api_name = result.main_args.get("api")
     args: tuple[str] = result.main_args.get("args", ())  # 类似于url参数，但每个参数间用空格分隔，空格是%20
-    print(args)
     args_dict = {}
 
     for arg in args:
@@ -392,6 +391,7 @@ need_group_id = (
         "send_msg",
         "set_group_card",
         "set_group_name",
+
         "set_group_special_title",
         "get_group_member_info",
         "get_group_member_list",

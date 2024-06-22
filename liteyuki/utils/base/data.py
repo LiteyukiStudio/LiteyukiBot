@@ -2,9 +2,9 @@ import os
 import pickle
 import sqlite3
 from types import NoneType
-from typing import Any
+from typing import Any, Callable
 from packaging.version import parse
-
+import inspect
 import nonebot
 import pydantic
 from pydantic import BaseModel
@@ -30,6 +30,8 @@ class Database:
         self.db_name = db_name
         self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
+
+        self._on_save_callbacks = []
 
     def where_one(self, model: LiteModel, condition: str = "", *args: Any, default: Any = None) -> LiteModel | Any | None:
         """查询第一个
@@ -94,6 +96,9 @@ class Database:
             else:
                 self._save(model.dump(by_alias=True))
 
+            for callback in self._on_save_callbacks:
+                callback(model)
+
     def _save(self, obj: Any) -> Any:
         # obj = copy.deepcopy(obj)
         if isinstance(obj, dict):
@@ -156,7 +161,7 @@ class Database:
                 if field.startswith(self.BYTES_PREFIX):
                     if isinstance(value, bytes):
                         new_obj[field.replace(self.BYTES_PREFIX, "")] = self._load(pickle.loads(value))
-                    else:   # 从value字段可能为None，fix at 2024/6/13
+                    else:  # 从value字段可能为None，fix at 2024/6/13
                         pass
                         # 暂时不作处理，后面再修
 
@@ -300,6 +305,32 @@ class Database:
         fields = [description[1] for description in self.cursor.execute(f"PRAGMA table_info({table_name})").fetchall()]
         result = self.cursor.execute(f"SELECT * FROM {table_name} WHERE id = ?", (foreign_id,)).fetchone()
         return dict(zip(fields, result))
+
+    def on_save(self, func: Callable[[LiteModel | Any], None]):
+        """
+        装饰一个可调用对象使其在储存数据模型时被调用
+        Args:
+            func:
+        Returns:
+        """
+
+        def wrapper(model):
+            # 检查被装饰函数声明的model类型和传入的model类型是否一致
+            sign = inspect.signature(func)
+            if param := sign.parameters.get("model"):
+                if isinstance(model, param.annotation):
+                    pass
+                else:
+                    return
+            else:
+                return
+            result = func(model)
+            for callback in self._on_save_callbacks:
+                callback(result)
+            return result
+
+        self._on_save_callbacks.append(wrapper)
+        return wrapper
 
     TYPE_MAPPING = {
             int      : "INTEGER",
