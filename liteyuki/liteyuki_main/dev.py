@@ -31,7 +31,7 @@ if get_config("debug", False):
         def on_modified(self, event):
             if event.src_path.endswith(src_excludes_extensions) or event.is_directory or "__pycache__" in event.src_path:
                 return
-            nonebot.logger.debug(f"{event.src_path} modified, reloading bot...")
+            nonebot.logger.info(f"{event.src_path} modified, reloading bot...")
             Reloader.reload()
 
 
@@ -40,7 +40,7 @@ if get_config("debug", False):
         Handler for resource file changes
         """
         def on_modified(self, event):
-            nonebot.logger.debug(f"{event.src_path} modified, reloading resource...")
+            nonebot.logger.info(f"{event.src_path} modified, reloading resource...")
             load_resources()
 
 

@@ -1,12 +1,16 @@
 import time
 from typing import Any
 
+from collections import Counter
+
+from nonebot import Bot
+
 from liteyuki.utils.message.html_tool import template2image
 from .common import MessageEventModel, msg_db
 from liteyuki.utils.base.language import Language
 from liteyuki.utils.base.resource import get_path
-from liteyuki.utils.message.npl import convert_seconds_to_time
-from contextvars import ContextVar
+from liteyuki.utils.message.string_tool import convert_seconds_to_time
+from ...utils.external.logo import get_group_icon, get_user_icon
 
 
 async def count_msg_by_bot_id(bot_id: str) -> int:
@@ -22,12 +26,18 @@ async def count_msg_by_bot_id(bot_id: str) -> int:
     return len(msg_rows)
 
 
-async def get_stat_msg_image(duration: int, period: int, group_id: str = None, bot_id: str = None, user_id: str = None,
-                             ulang: Language = Language()) -> bytes:
+async def get_stat_msg_image(
+        duration: int,
+        period: int,
+        group_id: str = None,
+        bot_id: str = None,
+        user_id: str = None,
+        ulang: Language = Language()
+) -> bytes:
     """
     获取统计消息
     Args:
-        ctx:
+        user_id:
         ulang:
         bot_id:
         group_id:
@@ -76,22 +86,87 @@ async def get_stat_msg_image(duration: int, period: int, group_id: str = None, b
         msg_count[index] += 1
 
     templates = {
-        "data": [
-            {
-                "name": ulang.get("stat.message")
-                        + f"    Period {convert_seconds_to_time(period)}" + f"    Duration {convert_seconds_to_time(duration)}"
-                        + (f"    Group {group_id}" if group_id else "") + (f"    Bot {bot_id}" if bot_id else "") + (f"    User {user_id}" if user_id else ""),
-                "times": timestamps,
-                "counts": msg_count
-            }
-        ]
+            "data": [
+                    {
+                            "name"  : ulang.get("stat.message")
+                                      + f"    Period {convert_seconds_to_time(period)}" + f"    Duration {convert_seconds_to_time(duration)}"
+                                      + (f"    Group {group_id}" if group_id else "") + (f"    Bot {bot_id}" if bot_id else "") + (
+                                              f"    User {user_id}" if user_id else ""),
+                            "times" : timestamps,
+                            "counts": msg_count
+                    }
+            ]
     }
 
     return await template2image(get_path("templates/stat_msg.html"), templates)
 
-    # if not timestamps or period_start_time != timestamps[-1]:
-    #     timestamps.append(period_start_time)
-    #     msg_count.append(1)
-    # else:
-    #     msg_count[-1] += 1
-    #
+
+async def get_stat_rank_image(
+        rank_type: str,
+        limit: dict[str, Any],
+        ulang: Language = Language(),
+        bot: Bot = None,
+) -> bytes:
+    if rank_type == "user":
+        condition = "user_id != ''"
+        condition_args = []
+    else:
+        condition = "group_id != ''"
+        condition_args = []
+
+    for k, v in limit.items():
+        match k:
+            case "user_id":
+                condition += " AND user_id = ?"
+                condition_args.append(v)
+            case "group_id":
+                condition += " AND group_id = ?"
+                condition_args.append(v)
+            case "bot_id":
+                condition += " AND bot_id = ?"
+                condition_args.append(v)
+            case "duration":
+                condition += " AND time > ?"
+                condition_args.append(v)
+
+    msg_rows = msg_db.where_all(
+        MessageEventModel(),
+        condition,
+        *condition_args
+    )
+
+    """
+        {
+            name: string,   # user name or group name
+            count: int,     # message count
+            icon: string    # icon url
+        }
+    """
+
+    if rank_type == "user":
+        ranking_counter = Counter([msg.user_id for msg in msg_rows])
+    else:
+        ranking_counter = Counter([msg.group_id for msg in msg_rows])
+    sorted_data = sorted(ranking_counter.items(), key=lambda x: x[1], reverse=True)
+
+    ranking: list[dict[str, Any]] = [
+            {
+                    "name" : _[0],
+                    "count": _[1],
+                    "icon" : await (get_group_icon(platform="qq", group_id=_[0]) if rank_type == "group" else get_user_icon(
+                        platform="qq", user_id=_[0]
+                    ))
+            }
+            for _ in sorted_data[0:min(len(sorted_data), limit["rank"])]
+    ]
+
+    templates = {
+            "data":
+                {
+                        "name"   : ulang.get("stat.rank") + f"    Type {rank_type}" + f"    Limit {limit}",
+                        "ranking": ranking
+                }
+
+    }
+
+    return await template2image(get_path("templates/stat_rank.html"), templates, debug=True)

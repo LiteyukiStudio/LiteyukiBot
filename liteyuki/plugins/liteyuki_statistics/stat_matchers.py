@@ -1,5 +1,5 @@
 from nonebot import Bot, require
-from liteyuki.utils.message.npl import convert_duration, convert_time_to_seconds
+from liteyuki.utils.message.string_tool import convert_duration, convert_time_to_seconds
 from .stat_api import *
 from liteyuki.utils import event as event_utils
 from liteyuki.utils.base.language import Language
@@ -7,7 +7,16 @@ from liteyuki.utils.base.ly_typing import T_MessageEvent
 
 require("nonebot_plugin_alconna")
 
-from nonebot_plugin_alconna import UniMessage, on_alconna, Alconna, Args, Subcommand, Arparma, Option
+from nonebot_plugin_alconna import (
+    UniMessage,
+    on_alconna,
+    Alconna,
+    Args,
+    Subcommand,
+    Arparma,
+    Option,
+    MultiVar
+)
 
 stat_msg = on_alconna(
     Alconna(
@@ -42,6 +51,33 @@ stat_msg = on_alconna(
             ),
             alias={"msg", "m"},
             help_text="查看统计次数内的消息"
+        ),
+        Subcommand(
+            "rank",
+            Option(
+                "-u|--user",
+                help_text="以用户为指标",
+            ),
+            Option(
+                "-g|--group",
+                help_text="以群组为指标",
+            ),
+            Option(
+                "-l|--limit",
+                Args["limit", MultiVar(str)],
+                help_text="限制参数，使用key=val格式",
+            ),
+            Option(
+                "-d|--duration",
+                Args["duration", str, "1d"],
+                help_text="统计时间",
+            ),
+            Option(
+                "-r|--rank",
+                Args["rank", int, 20],
+                help_text="指定排名",
+            ),
+            alias={"r"},
         )
     ),
     aliases={"stat"}
@@ -51,7 +87,6 @@ stat_msg = on_alconna(
 @stat_msg.assign("message")
 async def _(result: Arparma, event: T_MessageEvent, bot: Bot):
     ulang = Language(event_utils.get_user_id(event))
-
     try:
         duration = convert_time_to_seconds(result.other_args.get("duration", "2d"))  # 秒数
         period = convert_time_to_seconds(result.other_args.get("period", "1m"))
@@ -76,4 +111,25 @@ async def _(result: Arparma, event: T_MessageEvent, bot: Bot):
         user_id = str(event_utils.get_user_id(event))
 
     img = await get_stat_msg_image(duration=duration, period=period, group_id=group_id, bot_id=bot_id, user_id=user_id, ulang=ulang)
+    await stat_msg.send(UniMessage.image(raw=img))
+
+
+@stat_msg.assign("rank")
+async def _(result: Arparma, event: T_MessageEvent, bot: Bot):
+    ulang = Language(event_utils.get_user_id(event))
+    rank_type = "user"
+    duration = convert_time_to_seconds(result.other_args.get("duration", "1d"))
+    print(result)
+    if result.subcommands.get("rank").options.get("user"):
+        rank_type = "user"
+    elif result.subcommands.get("rank").options.get("group"):
+        rank_type = "group"
+
+    limit = result.other_args.get("limit", {})
+    if limit:
+        limit = dict([i.split("=") for i in limit])
+    limit["duration"] = time.time() - duration  # 起始时间戳
+    limit["rank"] = result.other_args.get("rank", 20)
+
+    img = await get_stat_rank_image(rank_type=rank_type, limit=limit, ulang=ulang)
     await stat_msg.send(UniMessage.image(raw=img))
