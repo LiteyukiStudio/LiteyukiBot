@@ -14,7 +14,7 @@ driver = get_driver()
 
 @driver.on_startup
 async def load_plugins():
-    nonebot.plugin.load_plugins("liteyuki/plugins")
+    nonebot.plugin.load_plugins("src/plugins")
     # 从数据库读取已安装的插件
     if not get_config("safe_mode", False):
         # 安全模式下，不加载插件
