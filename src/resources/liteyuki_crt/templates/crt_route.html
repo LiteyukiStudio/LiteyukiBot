@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CRT 线路图</title>
+    <link rel="stylesheet" href="./css/card.css">
+    <link rel="stylesheet" href="./css/fonts.css">
+</head>
+<style>
+    
+    :root {
+        --color-primary: #f00;
+        --color-secondary: #fff;
+        --sub-text-color: #aaa;
+    }
+    
+    .segment {
+        display: flex;
+        background-color: #0d1117;
+        margin-bottom: 10px;
+    }
+    
+    .line-icon {
+        margin-right: 10px;
+    }
+    
+    .vertical-bar {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 20px;
+        height: 100%;
+        border-radius: 50px;
+        background-color: #f00;
+        text-align: center;
+    }
+    
+    .station-dot {
+        width: 15px;
+        height: 15px;
+        aspect-ratio: 1/1;
+        border-radius: 50%;
+        background-color: #fff;
+    }
+    
+    /*    第一个点在bar顶端，第二个在底部*/
+    .station-dot:first-child {
+        margin-top: 2px;
+        margin-bottom: auto;
+    }
+    
+    .station-dot:last-child {
+        margin-top: auto;
+        margin-bottom: 2px;
+    }
+    
+    .transfer-info {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    
+    .station-name {
+        font-size: 16px;
+        color: var(--color-secondary);
+        margin-right: 10px;
+    }
+    
+    .end-station {
+        margin-top: auto;
+    }
+    
+    .line-info {
+        display: flex;
+        align-items: center;
+    }
+    
+    .line-name {
+        padding: 3px;
+        border-radius: 50px;
+        background-color: #f00;
+        color: var(--color-secondary);
+        font-size: 10px;
+        margin-right: 10px;
+    }
+    
+    .line-direction {
+        font-size: 12px;
+        color: var(--sub-text-color);
+    }
+    
+    .station-info {
+        align-items: center;
+        font-size: 10px;
+        color: var(--sub-text-color);
+        margin: 10px 0;
+    }
+    
+    .start-station {
+        display: flex;
+        align-items: center;
+    }
+    
+    .segment-index {
+        font-size: 12px;
+        color: var(--sub-text-color);
+    }
+</style>
+<body>
+<div class="data-storage" id="data">{{ data | tojson }}</div>
+
+<!---->
+
+<template id="segment-template">
+    <div class="segment">
+        <div class="line-icon">
+            <!--        竖条-->
+            <div class="vertical-bar">
+                <div class="station-dot"></div>
+                <div class="station-dot"></div>
+            </div>
+        
+        </div>
+        <div class="transfer-info">
+            <div class="start-station">
+                <div class="station-name start-station-name">
+                    下北泽站
+                </div>
+                <div class="segment-index">
+                    第1段
+                </div>
+            </div>
+            <div class="line-info">
+                <div class="line-name">
+                    轨道交通环线外环
+                </div>
+                <div class="line-direction">
+                    沙坪坝方向
+                </div>
+            </div>
+            <div class="station-info">
+                5站（14分钟）
+            </div>
+            <div class="end-station">
+                <div class="station-name end-station-name">
+                    新桥站
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+<template id="route-template">
+    <div class="info-box route-info" id="route-info">
+    </div>
+</template>
+
+
+<script src="./js/card.js"></script>
+<script src="./js/crt_route.js"></script>
+</body>
+</html>

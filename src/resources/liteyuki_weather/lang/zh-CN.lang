@@ -1,0 +1,12 @@
+weather.monday=周一
+weather.tuesday=周二
+weather.wednesday=周三
+weather.thursday=周四
+weather.friday=周五
+weather.saturday=周六
+weather.sunday=周日
+weather.day=白天
+weather.night=夜晚
+weather.today=今天
+weather.tomorrow=明天
+weather.no_aqi=暂无AQI数据

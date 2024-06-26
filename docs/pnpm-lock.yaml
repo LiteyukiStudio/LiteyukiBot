@@ -14,6 +14,9 @@ dependencies:
   element-ui:
     specifier: ^2.15.14
     version: 2.15.14(vue@3.4.21)
+  vue-router:
+    specifier: ^4.4.0
+    version: 4.4.0(vue@3.4.21)
 
 devDependencies:
   '@vuepress/bundler-vite':
@@ -938,7 +941,6 @@ packages:
 
   /@vue/devtools-api@6.6.1:
     resolution: {integrity: sha512-LgPscpE3Vs0x96PzSSB4IGVSZXZBZHpfxs+ZA1d+VEPwHdOXowy/Y2CsvCAIFrf+ssVU1pD1jidj505EpUnfbA==}
-    dev: true
 
   /@vue/reactivity@3.4.21:
     resolution: {integrity: sha512-UhenImdc0L0/4ahGCyEzc/pZNwVgcglGy9HVzJ1Bq2Mm9qXOpP8RyNTjookw/gOCUlXSEtuZ2fUg5nrHcoqJcw==}
@@ -985,7 +987,7 @@ packages:
       rollup: 4.13.1
       vite: 5.2.6
       vue: 3.4.21
-      vue-router: 4.3.0(vue@3.4.21)
+      vue-router: 4.4.0(vue@3.4.21)
     transitivePeerDependencies:
       - '@types/node'
       - jiti
@@ -1021,7 +1023,7 @@ packages:
       '@vue/devtools-api': 6.6.1
       '@vuepress/shared': 2.0.0-rc.9
       vue: 3.4.21
-      vue-router: 4.3.0(vue@3.4.21)
+      vue-router: 4.4.0(vue@3.4.21)
     transitivePeerDependencies:
       - typescript
     dev: true
@@ -2739,14 +2741,13 @@ packages:
     dependencies:
       vue: 3.4.21
 
-  /vue-router@4.3.0(vue@3.4.21):
-    resolution: {integrity: sha512-dqUcs8tUeG+ssgWhcPbjHvazML16Oga5w34uCUmsk7i0BcnskoLGwjpa15fqMr2Fa5JgVBrdL2MEgqz6XZ/6IQ==}
+  /vue-router@4.4.0(vue@3.4.21):
+    resolution: {integrity: sha512-HB+t2p611aIZraV2aPSRNXf0Z/oLZFrlygJm+sZbdJaW6lcFqEDQwnzUBXn+DApw+/QzDU/I9TeWx9izEjTmsA==}
     peerDependencies:
       vue: ^3.2.0
     dependencies:
       '@vue/devtools-api': 6.6.1
       vue: 3.4.21
-    dev: true
 
   /vue@3.4.21:
     resolution: {integrity: sha512-5hjyV/jLEIKD/jYl4cavMcnzKwjMKohureP8ejn3hhEjwhWIhWeuzL2kJAjzl/WyVsgPY56Sy4Z40C3lVshxXA==}

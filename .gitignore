@@ -15,7 +15,7 @@ _config.yml
 config.yml
 config.example.yml
 compile.bat
-liteyuki/resources/templates/latest-debug.html
+src/resources/templates/latest-debug.html
 # vuepress
 .github
 pyproject.toml

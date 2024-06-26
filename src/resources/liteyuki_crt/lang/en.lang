@@ -1,0 +1,3 @@
+crt.station=Station(s)
+crt.hour=Hour(s)
+crt.minute=Min(s)

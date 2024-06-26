@@ -1,0 +1,39 @@
+:root {
+    --main-text-color: #fff;
+    --sub-text-color: #ccc;
+    --tip-text-color: #999;
+    --device-info-width: 240px;
+}
+
+
+.data-storage {
+    display: none;
+}
+
+body {
+    background-repeat: repeat-y;
+    background-size: cover;
+    background-position: center;
+    text-shadow: 1px 1px 2px black;
+    margin: 20px;
+}
+
+.info-box {
+    border-radius: 60px;
+    padding: 40px;
+    backdrop-filter: blur(10px);
+    background-color: rgba(0, 0, 0, 0.5);
+    margin-bottom: 20px;
+}
+
+#author-description {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#author-text {
+    margin-left: 20px;
+    color: var(--sub-text-color);
+    font-size: 30px;
+}

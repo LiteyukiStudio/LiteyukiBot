@@ -1,8 +1,8 @@
 import nonebot
-from liteyuki.utils import adapter_manager, driver_manager, init
-from liteyuki.utils.base.config import load_from_yaml
-from liteyuki.utils.base.data_manager import StoredConfig, common_db
-from liteyuki.utils.base.ly_api import liteyuki_api
+from src.utils import adapter_manager, driver_manager, init
+from src.utils.base.config import load_from_yaml
+from src.utils.base.data_manager import StoredConfig, common_db
+from src.utils.base.ly_api import liteyuki_api
 
 if __name__ == "__mp_main__":
     # Start as multiprocessing
@@ -15,7 +15,7 @@ if __name__ == "__mp_main__":
     nonebot.init(**store_config)
     adapter_manager.register()
     try:
-        nonebot.load_plugin("liteyuki.liteyuki_main")
+        nonebot.load_plugin("src.liteyuki_main")
         nonebot.load_from_toml("pyproject.toml")
     except BaseException as e:
         if not isinstance(e, KeyboardInterrupt):
@@ -24,6 +24,6 @@ if __name__ == "__mp_main__":
 
 if __name__ == "__main__":
     # Start as __main__
-    from liteyuki.utils.base.reloader import Reloader
+    from src.utils.base.reloader import Reloader
 
     nonebot.run()
