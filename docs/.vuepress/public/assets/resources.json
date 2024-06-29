@@ -40,5 +40,11 @@
         "author": "SnowyKami",
         "description": "使用https://github.com/Kyomotoi/AnimeThesaurus的词库",
         "link": "https://cdn.liteyuki.icu/static/lrp/liteyuki_words_kawaii.zip"
+    },
+    {
+        "name": "轻雪Kakyo语言包",
+        "author": "Nanaloveyuki",
+        "description": "Liteyuki Bot的语言包，用于提供多种语言的翻译。",
+        "link": "https://github.com/Nanaloveyuki/liteyuki-langpack/releases/download/KakyoVer/Kakyo-pack.zip"
     }
 ]
