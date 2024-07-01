@@ -20,18 +20,24 @@ weather_key: "" # 和风天气的天气key，会自动判断key版本
 命令
 
 ```shell
-weather <keywords...> # 查询目标地实时天气，例如："天气 北京 海淀", "weather Tokyo Shinjuku"
-bind-city <keywords...> # 绑定查询城市，个人全局生效
+weather <keywords...> # Keywords为城市名，支持中英文
 ```
-
-命令别名
+查询目标地实时天气，例如："天气 北京 海淀", "weather Tokyo Shinjuku"
 
 ```shell
-weather|天气
-bind-city|绑定城市
+bind-city <keywords...> # Keywords为城市名，支持中英文
 ```
 
-***
+绑定查询城市，个人全局生效
+
+#### 命令别名
+
+|   命令    | 别名     |
+| :-------: | :------- |
+|  weather  | 天气     |
+| bind-city | 绑定城市 |
+
+---
 
 ### **统计信息`liteyuki_statistics`**
 
@@ -39,21 +45,26 @@ bind-city|绑定城市
 命令
 
 ```shell
-statistic message --duration <duration> --period <period> --group [current|group_id] --bot [current|bot_id] # 统计Bot接收到的消息
-# duration: 统计时长，支持格式例如：1d2h3m4s
-# period: 统计周期，支持格式同上
-# group: 统计群组，支持current(当前群聊)和group_id
-# bot: 统计Bot，支持current(当前bot)和bot_id
+statistic message --duration <duration> --period <period> --group [current|group_id] --bot [current|bot_id]
 ```
 
-命令别名
+功能: 用于统计Bot接收到的消息, 统计周期为`period`, 统计时间范围为`duration`
 
-```shell
-statistic|stat  
-message|m  
---duration|-d  
---period|-p  
---group|-g  
---bot|-b
-current|c
-```
+|   参数   |                              格式                              |
+| :------: | :------------------------------------------------------------: |
+| duration | 使用通用日期简写: `1d`(天), `1h`(小时), `45m`(分钟), `14s`(秒) |
+|  period  | 使用通用日期简写: `1d`(天), `1h`(小时), `45m`(分钟), `14s`(秒) |
+|  group   |          `current` (当前群聊) 或 `group_id` (QQ群号)           |
+|   bot    |                `current` (当前Bot) 或 `bot_id`                 |
+
+#### 命令别名
+
+|     命令     | 别名  |
+| :----------: | :---: |
+| `statistic`  | stat  |
+|  `message`   |   m   |
+| `--duration` |  -d   |
+|  --period`   |  -p   |
+|  `--group`   |  -g   |
+|   `--bot`    |  -b   |
+|  `current`   |   c   |
