@@ -15,7 +15,7 @@ export default hopeTheme({
 
     logo: "https://cdn.liteyuki.icu/static/img/liteyuki_icon_640.png",
 
-    repo: "https://github.com/snowykami/LiteyukiBot",
+    repo: "https://github.com/LiteyukiStudio/LiteyukiBot",
 
     docsDir: "docs",
 
