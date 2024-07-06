@@ -19,8 +19,8 @@
 - 国际化支持，支持多种语言
 - 高性能，500插件2s内启动
 
-<h3>👇所有内容已迁移至👇</h3>
-<h2><a href="https://bot.liteyuki.icu">轻雪主页</a></h2>
+<h3>👇更多内容请访问👇</h3>
+<h2><a href="https://bot.liteyuki.icu">轻雪机器人主页</a></h2>
 </div>
 
 ### 感谢
@@ -31,7 +31,7 @@
 
 [OneBot]: https://img.shields.io/badge/OneBot-11/12-blue?style=for-the-badge
 
-[Nonebot2]: https://img.shields.io/badge/Nonebot-2-red?style=for-the-badge
+[NoneBot2]: https://img.shields.io/badge/Nonebot-2-red?style=for-the-badge
 
 [Liteyuki6.0]: https://img.shields.io/badge/Liteyuki-6.0-blue?style=for-the-badge
 
@@ -49,4 +49,4 @@
 
 [usage-link]:https://bot.liteyuki.icu/
 
-[banner]: https://socialify.git.ci/LiteyukiStudio/LiteyukiBot/image?description=1&forks=1&issues=1&Plus&pulls=1&stargazers=1&theme=Auto&logo=https%3A%2F%2Fcdn.liteyuki.icu%2Fstatic%2Fimg%2Flogo.png
+[banner]: https://socialify.git.ci/LiteyukiStudio/LiteyukiBot/image?description=1&forks=1&issues=1&Plus&pulls=1&stargazers=1&theme=Auto&logo=https%3a%2f%2fcdn.liteyuki.icu%2fstatic%2fsvg%2flylogo-full.svg
