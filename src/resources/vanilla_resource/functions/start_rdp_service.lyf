@@ -1,0 +1,9 @@
+## 请勿将此程序用于不当行径
+## cmd >> 命令提示符
+
+cmd net start TermService
+
+cmd echo 已输入 net start TermService 命令
+
+end
+
