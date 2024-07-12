@@ -46,5 +46,11 @@
         "author": "Nanaloveyuki",
         "description": "Liteyuki Bot的语言包，用于提供多种语言的翻译。",
         "link": "https://github.com/Nanaloveyuki/liteyuki-langpack/releases/download/KakyoVer/Kakyo-pack.zip"
+    },
+    {
+        "name": "更多背景模板包",
+        "author": "snowykami",
+        "description": "自定义各种卡片的背景",
+        "link": "https://cdn.liteyuki.icu/static/lrp/morebg.zip"
     }
 ]
