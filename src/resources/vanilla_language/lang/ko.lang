@@ -103,7 +103,6 @@ npm.update_index=플러그인 인덱스 업데이트
 npm.list_plugins=플러그인 목록
 npm.disable_session=현재 세션에서 플러그인을 비활성화합니다.
 npm.enable_session=현재 세션에서 플러그인을 활성화합니다.
-npm.help=도움말
 npm.search=검색
 
 user.profile.edit=수정

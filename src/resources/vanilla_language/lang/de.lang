@@ -103,7 +103,6 @@ npm.update_index=Plugin-Index aktualisieren
 npm.list_plugins=Plugin-Liste
 npm.disable_session=Plugin für aktuelle Sitzung deaktivieren
 npm.enable_session=Plugin für aktuelle Sitzung aktivieren
-npm.help=Hilfe
 npm.search=Suche
 
 user.profile.edit=Bearbeiten

@@ -103,7 +103,6 @@ npm.update_index=更新插件索引
 npm.list_plugins=插件列表
 npm.disable_session=当前会话停用插件
 npm.enable_session=当前会话启用插件
-npm.help=帮助
 npm.search=搜索
 
 user.profile.edit=修改
