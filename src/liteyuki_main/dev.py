@@ -22,7 +22,7 @@ if get_config("debug", False):
         "resources",
     )
 
-    nonebot.logger.info("Liteyuki Reload is enable, watching for file changes...")
+    nonebot.logger.info("Liteyuki Reload enabled, watching for file changes...")
 
 
     class CodeModifiedHandler(FileSystemEventHandler):

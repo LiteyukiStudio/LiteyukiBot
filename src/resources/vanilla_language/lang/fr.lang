@@ -103,7 +103,6 @@ npm.update_index=Mise à jour de l'index des plugins
 npm.list_plugins=Liste des plugins
 npm.disable_session=Désactivation des plugins pour cette session
 npm.enable_session=Activation des plugins pour cette session
-npm.help=Aide
 npm.search=Recherche
 
 user.profile.edit=Modifier

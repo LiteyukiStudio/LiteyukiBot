@@ -103,7 +103,6 @@ npm.update_index=Обновить индекс плагинов
 npm.list_plugins=Список плагинов
 npm.disable_session=Отключить плагины для текущей сессии
 npm.enable_session=Включить плагины для текущей сессии
-npm.help=Помощь
 npm.search=Поиск
 
 user.profile.edit=Редактировать

@@ -103,7 +103,6 @@ npm.update_index=プラグインインデックスを更新
 npm.list_plugins=プラグイン一覧
 npm.disable_session=セッション中にプラグインを無効にしました
 npm.enable_session=セッション中にプラグインを有効にしました
-npm.help=ヘルプ
 npm.search=検索
 
 user.profile.edit=編集
