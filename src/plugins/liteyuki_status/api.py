@@ -69,8 +69,8 @@ status_card_cache = {}  # lang -> bytes
 # 60s刷新一次
 # 之前写的什么鬼玩意，这么重要的功能这样写？？？
 @scheduler.scheduled_job("cron", second="*/40")
-async def refresh_status_card(languale: str = "zh-CN"):
-    nonebot.logger.debug("Refreshing status card cache of lang {}...".format(languale))
+async def refresh_status_card():
+    nonebot.logger.debug("Refreshing status card cache.")
     global status_card_cache
     status_card_cache = {}
     # bot_data = await get_bots_data()
