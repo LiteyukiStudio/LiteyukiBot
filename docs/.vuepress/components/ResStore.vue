@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {computed, ref} from 'vue'
 import ItemCard from './ResItemCard.vue'
+import * as url from "node:url";
 
 // 从public/assets/resources.json加载插件
 let filteredItems = computed(() => {
@@ -16,7 +17,7 @@ let filteredItems = computed(() => {
 // 插件商店Nonebot
 let items = ref([])
 let search = ref('')
-fetch('/assets/resources.json')
+fetch("https://bot.liteyuki.icu/assets/resources.json")
   .then(response => response.json())
   .then(data => {
     items.value = data
@@ -28,10 +29,6 @@ fetch('/assets/resources.json')
 <template>
   <div>
     <h1>主题/资源商店</h1>
-<!--    <div class="market">-->
-<!--&lt;!&ndash;      布局商品&ndash;&gt;-->
-<!--      <ItemCard v-for="item in [...items].reverse()" :key="item.id" :item="item" />-->
-<!--    </div>-->
     <input class="item-search-box" type="text" placeholder="搜索资源" v-model="search" />
     <div class="market">
       <!-- 使用filteredItems来布局商品 -->

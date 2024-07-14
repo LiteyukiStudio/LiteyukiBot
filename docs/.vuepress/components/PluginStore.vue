@@ -18,11 +18,12 @@ let filteredItems = computed(() => {
 let items = ref([])
 let search = ref('')
 // 从官方拉取
-fetch('assets/plugins.json')
-  .then(response => response.json())
-  .then(data => {
-    items.value = data
-  })
+fetch("https://bot.liteyuki.icu/assets/plugins.json")
+    .then(response => response.json())
+    .then(data => {
+      items.value = data
+    })
+    .catch(error => console.error(error))
 
 //追加
 fetch('https://registry.nonebot.dev/plugins.json')

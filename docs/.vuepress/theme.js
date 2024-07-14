@@ -8,7 +8,7 @@ export default hopeTheme({
 
     author: {
         name: "远野千束",
-        url: "https://snowykami.me",
+        url: "https://sfkm.me",
     },
 
     iconAssets: "fontawesome-with-brands",
