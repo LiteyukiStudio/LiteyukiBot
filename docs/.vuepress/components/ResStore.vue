@@ -17,7 +17,7 @@ let filteredItems = computed(() => {
 // 插件商店Nonebot
 let items = ref([])
 let search = ref('')
-fetch("https://bot.liteyuki.icu/assets/resources.json")
+fetch("/assets/resources.json")
   .then(response => response.json())
   .then(data => {
     items.value = data

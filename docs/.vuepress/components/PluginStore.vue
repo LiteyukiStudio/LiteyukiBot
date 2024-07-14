@@ -18,7 +18,7 @@ let filteredItems = computed(() => {
 let items = ref([])
 let search = ref('')
 // 从官方拉取
-fetch("https://bot.liteyuki.icu/assets/plugins.json")
+fetch("/assets/plugins.json")
     .then(response => response.json())
     .then(data => {
       items.value = data
