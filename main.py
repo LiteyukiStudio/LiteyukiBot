@@ -25,5 +25,4 @@ if __name__ == "__mp_main__":
 if __name__ == "__main__":
     # Start as __main__
     from src.utils.base.reloader import Reloader
-
     nonebot.run()

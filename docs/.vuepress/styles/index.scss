@@ -30,12 +30,13 @@ code {
 }
 
 .theme-hope-content pre {
-    overflow: auto;
-    margin: 0 0;
-    padding: 1rem;
-    border-radius: 6px;
-    line-height: 1.375;
+  overflow: auto;
+  margin: 0 0;
+  padding: 1rem;
+  border-radius: 6px;
+  line-height: 1.375;
 }
+
 // 移除该before
 .theme-hope-content pre::before {
   content: none;
@@ -44,7 +45,7 @@ code {
 .theme-hope-content > div[class*=language-] {
   margin: 0 0 0 0;
   //  仅下半部分有圆弧
-    border-radius: 0 0 var(--code-window-border-radius) var(--code-window-border-radius);
+  border-radius: 0 0 var(--code-window-border-radius) var(--code-window-border-radius);
 }
 
 .tab {
@@ -74,8 +75,16 @@ code {
   aspect-ratio: 1/1;
 }
 
-.tab-title{
+.tab-title {
   text-align: center;
   justify-content: center;
   flex: 1;
+}
+
+.item-search-box {
+  border-radius: 100px;
+  width: 100%;
+  padding: 10px;
+  margin: 10px 0;
+  border: 1px solid #ccc;
 }
