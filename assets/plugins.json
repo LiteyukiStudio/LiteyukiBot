@@ -1,0 +1,23 @@
+[
+    {
+        "module_name": "nonebot_plugin_status",
+        "project_link": "nonebot-plugin-status",
+        "name": "测试",
+        "desc": "测试",
+        "author": "snowykami",
+        "homepage": "https://github.com/nonebot/plugin-status",
+        "tags": [
+            {
+                "label": "server",
+                "color": "#aeeaa8"
+            }
+        ],
+        "is_official": true,
+        "type": "application",
+        "supported_adapters": null,
+        "valid": true,
+        "version": "0.8.1",
+        "time": "2024-03-04T06:57:10.250823Z",
+        "skip_test": false
+    }
+]
