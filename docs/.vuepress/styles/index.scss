@@ -83,8 +83,18 @@ code {
 
 .item-search-box {
   border-radius: 100px;
-  width: 100%;
+  width: 80%;
   padding: 10px;
   margin: 10px 0;
   border: 1px solid #ccc;
+}
+
+.search-box-div {
+  display: flex;
+  justify-content: space-around;
+  margin: 10px 0;
+}
+
+.item-search-box {
+  width: 80%;
 }

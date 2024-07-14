@@ -32,16 +32,15 @@ fetch('https://registry.nonebot.dev/plugins.json')
       items.value = items.value.concat(data)
     })
 
-
 </script>
 
 <template>
-  <div>
+  <div class="market">
     <h1>插件商店</h1>
     <p>内容来自<a href="https://nonebot.dev/store/plugins">NoneBot插件商店</a>和轻雪商店，在此仅作引用，具体请访问NoneBot插件商店</p>
     <!--    搜索框-->
-    <input class="item-search-box" type="text" placeholder="搜索插件" v-model="search"/>
-    <div class="market">
+    <div class="search-box-div"><input class="item-search-box" type="text" placeholder="搜索插件" v-model="search"/></div>
+    <div class="items">
       <!-- 使用filteredItems来布局商品 -->
       <ItemCard v-for="item in filteredItems" :key="item.id" :item="item"/>
     </div>
@@ -55,7 +54,7 @@ h1 {
   font-weight: bold;
 }
 
-.market {
+.items {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 10px;
