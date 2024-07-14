@@ -24,7 +24,16 @@ from src.utils.message.tools import clamp
 from .common import *
 
 require("nonebot_plugin_alconna")
-from nonebot_plugin_alconna import on_alconna, Alconna, Args, Arparma, Subcommand, Option, OptionResult, SubcommandResult
+from nonebot_plugin_alconna import (
+    on_alconna,
+    Alconna,
+    Args,
+    Arparma,
+    Subcommand,
+    Option,
+    OptionResult,
+    SubcommandResult,
+)
 
 # const
 enable_global = "enable-global"
@@ -91,8 +100,8 @@ disable = "disable"
             "list",
             Args["page", int, 1]["num", int, 10],
             alias=["ls", "列表"],
-        )
-    )
+        ),
+    ),
 ).handle()
 async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
     if not os.path.exists("data/liteyuki/plugins.json"):
@@ -111,8 +120,16 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
 
         # 判定会话类型
         # 输入群号
-        if (group_id := (sc.get("enable", SubcommandResult()).options.get("group", OptionResult()).args.get("group_id") or
-                         sc.get("disable", SubcommandResult()).options.get("group", OptionResult()).args.get("group_id"))) and await SUPERUSER(bot, event):
+        if (
+            group_id := (
+                sc.get("enable", SubcommandResult())
+                .options.get("group", OptionResult())
+                .args.get("group_id")
+                or sc.get("disable", SubcommandResult())
+                .options.get("group", OptionResult())
+                .args.get("group_id")
+            )
+        ) and await SUPERUSER(bot, event):
             session_id = group_id
             new_event = event.copy()
             new_event.group_id = group_id
@@ -122,25 +139,42 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
             session_id = event.user_id
             new_event = event
         else:
-            if await GROUP_ADMIN(bot, event) or await GROUP_OWNER(bot, event) or await SUPERUSER(bot, event):
+            if (
+                await GROUP_ADMIN(bot, event)
+                or await GROUP_OWNER(bot, event)
+                or await SUPERUSER(bot, event)
+            ):
                 session_id = event.group_id
                 new_event = event
             else:
                 raise FinishedException(ulang.get("Permission Denied"))
 
-        session_enable = get_plugin_session_enable(new_event, plugin_name)  # 获取插件当前状态
+        session_enable = get_plugin_session_enable(
+            new_event, plugin_name
+        )  # 获取插件当前状态
 
-        can_be_toggled = get_plugin_can_be_toggle(plugin_name)  # 获取插件是否可以被启用/停用
+        can_be_toggled = get_plugin_can_be_toggle(
+            plugin_name
+        )  # 获取插件是否可以被启用/停用
 
         if not plugin_exist:
             await npm.finish(ulang.get("npm.plugin_not_found", NAME=plugin_name))
 
         if not can_be_toggled:
-            await npm.finish(ulang.get("npm.plugin_cannot_be_toggled", NAME=plugin_name))
+            await npm.finish(
+                ulang.get("npm.plugin_cannot_be_toggled", NAME=plugin_name)
+            )
 
         if session_enable == toggle:
             await npm.finish(
-                ulang.get("npm.plugin_already", NAME=plugin_name, STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable")))
+                ulang.get(
+                    "npm.plugin_already",
+                    NAME=plugin_name,
+                    STATUS=(
+                        ulang.get("npm.enable") if toggle else ulang.get("npm.disable")
+                    ),
+                )
+            )
 
         # 键入自定义群号的情况
 
@@ -152,18 +186,28 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
                 ulang.get(
                     "npm.toggle_failed",
                     NAME=plugin_name,
-                    STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable"),
-                    ERROR=str(e))
+                    STATUS=(
+                        ulang.get("npm.enable") if toggle else ulang.get("npm.disable")
+                    ),
+                    ERROR=str(e),
+                )
             )
 
         await npm.finish(
             ulang.get(
                 "npm.toggle_success",
                 NAME=plugin_name,
-                STATUS=(ulang.get("npm.enable") if toggle else ulang.get("npm.disable"))) + session_id
+                STATUS=(
+                    ulang.get("npm.enable") if toggle else ulang.get("npm.disable")
+                ),
+            )  # + str(session_id) 这里应该不需增加一个id，在任何语言文件里，这句话都不是这样翻的，你是不是调试的时候忘删了？
         )
 
-    elif sc.get(enable_global) or result.subcommands.get(disable_global) and await SUPERUSER(bot, event):
+    elif (
+        sc.get(enable_global)
+        or result.subcommands.get(disable_global)
+        and await SUPERUSER(bot, event)
+    ):
         plugin_exist = get_plugin_exist(plugin_name)
 
         toggle = result.subcommands.get(enable_global) is not None
@@ -174,12 +218,21 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
             await npm.finish(ulang.get("npm.plugin_not_found", NAME=plugin_name))
 
         if not can_be_toggled:
-            await npm.finish(ulang.get("npm.plugin_cannot_be_toggled", NAME=plugin_name))
+            await npm.finish(
+                ulang.get("npm.plugin_cannot_be_toggled", NAME=plugin_name)
+            )
 
         global_enable = get_plugin_global_enable(plugin_name)
         if global_enable == toggle:
             await npm.finish(
-                ulang.get("npm.plugin_already", NAME=plugin_name, STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable")))
+                ulang.get(
+                    "npm.plugin_already",
+                    NAME=plugin_name,
+                    STATUS=(
+                        ulang.get("npm.enable") if toggle else ulang.get("npm.disable")
+                    ),
+                )
+            )
 
         try:
             set_plugin_global_enable(plugin_name, toggle)
@@ -188,15 +241,19 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
                 ulang.get(
                     "npm.toggle_failed",
                     NAME=plugin_name,
-                    STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable"),
-                    ERROR=str(e))
+                    STATUS=(
+                        ulang.get("npm.enable") if toggle else ulang.get("npm.disable")
+                    ),
+                    ERROR=str(e),
+                )
             )
 
         await npm.finish(
             ulang.get(
                 "npm.toggle_success",
                 NAME=plugin_name,
-                STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable"))
+                STATUS=ulang.get("npm.enable") if toggle else ulang.get("npm.disable"),
+            )
         )
 
     elif sc.get("update") and perm_s:
@@ -212,19 +269,25 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
         max_show = 10
         if len(rs):
             reply = f"{ulang.get('npm.search_result')} | {ulang.get('npm.total', TOTAL=len(rs))}\n***"
-            for storePlugin in rs[:min(max_show, len(rs))]:
+            for storePlugin in rs[: min(max_show, len(rs))]:
                 btn_install_or_update = md.btn_cmd(
-                    ulang.get("npm.update") if get_plugin_exist(storePlugin.module_name) else ulang.get("npm.install"),
-                    "npm install %s" % storePlugin.module_name
+                    (
+                        ulang.get("npm.update")
+                        if get_plugin_exist(storePlugin.module_name)
+                        else ulang.get("npm.install")
+                    ),
+                    "npm install %s" % storePlugin.module_name,
                 )
                 link_page = md.btn_link(ulang.get("npm.homepage"), storePlugin.homepage)
                 link_pypi = md.btn_link(ulang.get("npm.pypi"), storePlugin.homepage)
 
-                reply += (f"\n# **{storePlugin.name}**\n"
-                          f"\n> **{storePlugin.desc}**\n"
-                          f"\n> {ulang.get('npm.author')}: {storePlugin.author}"
-                          f"\n> *{md.escape(storePlugin.module_name)}*"
-                          f"\n> {btn_install_or_update}    {link_page}    {link_pypi}\n\n***\n")
+                reply += (
+                    f"\n# **{storePlugin.name}**\n"
+                    f"\n> **{storePlugin.desc}**\n"
+                    f"\n> {ulang.get('npm.author')}: {storePlugin.author}"
+                    f"\n> *{md.escape(storePlugin.module_name)}*"
+                    f"\n> {btn_install_or_update}    {link_page}    {link_pypi}\n\n***\n"
+                )
             if len(rs) > max_show:
                 reply += f"\n{ulang.get('npm.too_many_results', HIDE_NUM=len(rs) - max_show)}"
         else:
@@ -245,40 +308,41 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
         homepage_btn = md.btn_cmd(ulang.get("npm.homepage"), store_plugin.homepage)
         if r:
             r_load = nonebot.load_plugin(plugin_name)  # 加载插件
-            installed_plugin = InstalledPlugin(module_name=plugin_name)  # 构造插件信息模型
-            found_in_db_plugin = plugin_db.where_one(InstalledPlugin(), "module_name = ?", plugin_name)  # 查询数据库中是否已经安装
+            installed_plugin = InstalledPlugin(
+                module_name=plugin_name
+            )  # 构造插件信息模型
+            found_in_db_plugin = plugin_db.where_one(
+                InstalledPlugin(), "module_name = ?", plugin_name
+            )  # 查询数据库中是否已经安装
             if r_load:
                 if found_in_db_plugin is None:
                     plugin_db.save(installed_plugin)
-                    info = md.escape(ulang.get("npm.install_success", NAME=store_plugin.name))  # markdown转义
-                    await md.send_md(
-                        f"{info}\n\n"
-                        f"```\n{log}\n```",
-                        bot,
-                        event=event
-                    )
+                    info = md.escape(
+                        ulang.get("npm.install_success", NAME=store_plugin.name)
+                    )  # markdown转义
+                    await md.send_md(f"{info}\n\n" f"```\n{log}\n```", bot, event=event)
                 else:
-                    await npm.finish(ulang.get("npm.plugin_already_installed", NAME=store_plugin.name))
+                    await npm.finish(
+                        ulang.get(
+                            "npm.plugin_already_installed", NAME=store_plugin.name
+                        )
+                    )
             else:
-                info = ulang.get("npm.load_failed", NAME=plugin_name, HOMEPAGE=homepage_btn).replace("_", r"\\_")
-                await md.send_md(
-                    f"{info}\n\n"
-                    f"```\n{log}\n```\n",
-                    bot,
-                    event=event
-                )
+                info = ulang.get(
+                    "npm.load_failed", NAME=plugin_name, HOMEPAGE=homepage_btn
+                ).replace("_", r"\\_")
+                await md.send_md(f"{info}\n\n" f"```\n{log}\n```\n", bot, event=event)
         else:
-            info = ulang.get("npm.install_failed", NAME=plugin_name, HOMEPAGE=homepage_btn).replace("_", r"\\_")
-            await md.send_md(
-                f"{info}\n\n"
-                f"```\n{log}\n```",
-                bot,
-                event=event
-            )
+            info = ulang.get(
+                "npm.install_failed", NAME=plugin_name, HOMEPAGE=homepage_btn
+            ).replace("_", r"\\_")
+            await md.send_md(f"{info}\n\n" f"```\n{log}\n```", bot, event=event)
 
     elif sc.get("uninstall") and perm_s:
         plugin_name: str = result.subcommands["uninstall"].args.get("plugin_name")  # type: ignore
-        found_installed_plugin: InstalledPlugin = plugin_db.where_one(InstalledPlugin(), "module_name = ?", plugin_name)
+        found_installed_plugin: InstalledPlugin = plugin_db.where_one(
+            InstalledPlugin(), "module_name = ?", plugin_name
+        )
         if found_installed_plugin:
             plugin_db.delete(InstalledPlugin(), "module_name = ?", plugin_name)
             reply = f"{ulang.get('npm.uninstall_success', NAME=found_installed_plugin.module_name)}"
@@ -289,23 +353,36 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
     elif sc.get("list"):
         loaded_plugin_list = sorted(nonebot.get_loaded_plugins(), key=lambda x: x.name)
         num_per_page = result.subcommands.get("list").args.get("num")
-        total = len(loaded_plugin_list) // num_per_page + (1 if len(loaded_plugin_list) % num_per_page else 0)
+        total = len(loaded_plugin_list) // num_per_page + (
+            1 if len(loaded_plugin_list) % num_per_page else 0
+        )
 
         page = clamp(result.subcommands.get("list").args.get("page"), 1, total)
 
         # 已加载插件 | 总计10 | 第1/3页
-        reply = (f"# {ulang.get('npm.loaded_plugins')} | "
-                 f"{ulang.get('npm.total', TOTAL=len(nonebot.get_loaded_plugins()))} | "
-                 f"{ulang.get('npm.page', PAGE=page, TOTAL=total)} \n***\n")
+        reply = (
+            f"# {ulang.get('npm.loaded_plugins')} | "
+            f"{ulang.get('npm.total', TOTAL=len(nonebot.get_loaded_plugins()))} | "
+            f"{ulang.get('npm.page', PAGE=page, TOTAL=total)} \n***\n"
+        )
 
-        permission_oas = await GROUP_ADMIN(bot, event) or await GROUP_OWNER(bot, event) or await SUPERUSER(bot, event)
+        permission_oas = (
+            await GROUP_ADMIN(bot, event)
+            or await GROUP_OWNER(bot, event)
+            or await SUPERUSER(bot, event)
+        )
         permission_s = await SUPERUSER(bot, event)
 
-        for storePlugin in loaded_plugin_list[(page - 1) * num_per_page: min(page * num_per_page, len(loaded_plugin_list))]:
+        for storePlugin in loaded_plugin_list[
+            (page - 1)
+            * num_per_page : min(page * num_per_page, len(loaded_plugin_list))
+        ]:
             # 检查是否有 metadata 属性
             # 添加帮助按钮
 
-            btn_usage = md.btn_cmd(ulang.get("npm.usage"), f"help {storePlugin.name}", False)
+            btn_usage = md.btn_cmd(
+                ulang.get("npm.usage"), f"help {storePlugin.name}", False
+            )
             store_plugin = await get_store_plugin(storePlugin.name)
             session_enable = get_plugin_session_enable(event, storePlugin.name)
             if store_plugin:
@@ -332,78 +409,135 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
             if permission_oas:
                 # 添加启用/停用插件按钮
                 cmd_toggle = f"npm {'disable' if session_enable else 'enable'} {storePlugin.name}"
-                text_toggle = ulang.get("npm.disable" if session_enable else "npm.enable")
+                text_toggle = ulang.get(
+                    "npm.disable" if session_enable else "npm.enable"
+                )
                 can_be_toggle = get_plugin_can_be_toggle(storePlugin.name)
-                btn_toggle = text_toggle if not can_be_toggle else md.btn_cmd(text_toggle, cmd_toggle)
+                btn_toggle = (
+                    text_toggle
+                    if not can_be_toggle
+                    else md.btn_cmd(text_toggle, cmd_toggle)
+                )
                 reply += f"    {btn_toggle}"
 
                 if permission_s:
-                    plugin_in_database = plugin_db.where_one(InstalledPlugin(), "module_name = ?", storePlugin.name)
+                    plugin_in_database = plugin_db.where_one(
+                        InstalledPlugin(), "module_name = ?", storePlugin.name
+                    )
                     # 添加移除插件和全局切换按钮
                     global_enable = get_plugin_global_enable(storePlugin.name)
                     btn_uninstall = (
-                            md.btn_cmd(ulang.get("npm.uninstall"), f'npm uninstall {storePlugin.name}')) if plugin_in_database else ulang.get(
-                        'npm.uninstall')
-                    btn_toggle_global_text = ulang.get("npm.disable_global" if global_enable else "npm.enable_global")
+                        (
+                            md.btn_cmd(
+                                ulang.get("npm.uninstall"),
+                                f"npm uninstall {storePlugin.name}",
+                            )
+                        )
+                        if plugin_in_database
+                        else ulang.get("npm.uninstall")
+                    )
+                    btn_toggle_global_text = ulang.get(
+                        "npm.disable_global" if global_enable else "npm.enable_global"
+                    )
                     cmd_toggle_global = f"npm {'disable' if global_enable else 'enable'}-global {storePlugin.name}"
-                    btn_toggle_global = btn_toggle_global_text if not can_be_toggle else md.btn_cmd(btn_toggle_global_text, cmd_toggle_global)
+                    btn_toggle_global = (
+                        btn_toggle_global_text
+                        if not can_be_toggle
+                        else md.btn_cmd(btn_toggle_global_text, cmd_toggle_global)
+                    )
 
                     reply += f"    {btn_uninstall}    {btn_toggle_global}"
             reply += "\n\n***\n"
         # 根据页数添加翻页按钮。第一页显示上一页文本而不是按钮，最后一页显示下一页文本而不是按钮
-        btn_prev = md.btn_cmd(ulang.get("npm.prev_page"), f"npm list {page - 1} {num_per_page}") if page > 1 else ulang.get("npm.prev_page")
-        btn_next = md.btn_cmd(ulang.get("npm.next_page"), f"npm list {page + 1} {num_per_page}") if page < total else ulang.get("npm.next_page")
+        btn_prev = (
+            md.btn_cmd(
+                ulang.get("npm.prev_page"), f"npm list {page - 1} {num_per_page}"
+            )
+            if page > 1
+            else ulang.get("npm.prev_page")
+        )
+        btn_next = (
+            md.btn_cmd(
+                ulang.get("npm.next_page"), f"npm list {page + 1} {num_per_page}"
+            )
+            if page < total
+            else ulang.get("npm.next_page")
+        )
         reply += f"\n{btn_prev}  {page}/{total}  {btn_next}"
         await md.send_md(reply, bot, event=event)
 
     else:
         if await SUPERUSER(bot, event):
-            btn_enable_global = md.btn_cmd(ulang.get("npm.enable_global"), "npm enable-global", False, False)
-            btn_disable_global = md.btn_cmd(ulang.get("npm.disable_global"), "npm disable-global", False, False)
-            btn_search = md.btn_cmd(ulang.get("npm.search"), "npm search ", False, False)
-            btn_uninstall_ = md.btn_cmd(ulang.get("npm.uninstall"), "npm uninstall ", False, False)
-            btn_install_ = md.btn_cmd(ulang.get("npm.install"), "npm install ", False, False)
-            btn_update = md.btn_cmd(ulang.get("npm.update_index"), "npm update", False, True)
-            btn_list = md.btn_cmd(ulang.get("npm.list_plugins"), "npm list ", False, False)
-            btn_disable = md.btn_cmd(ulang.get("npm.disable_session"), "npm disable  ", False, False)
-            btn_enable = md.btn_cmd(ulang.get("npm.enable_session"), "npm enable ", False, False)
+            btn_enable_global = md.btn_cmd(
+                ulang.get("npm.enable_global"), "npm enable-global", False, False
+            )
+            btn_disable_global = md.btn_cmd(
+                ulang.get("npm.disable_global"), "npm disable-global", False, False
+            )
+            btn_search = md.btn_cmd(
+                ulang.get("npm.search"), "npm search ", False, False
+            )
+            btn_uninstall_ = md.btn_cmd(
+                ulang.get("npm.uninstall"), "npm uninstall ", False, False
+            )
+            btn_install_ = md.btn_cmd(
+                ulang.get("npm.install"), "npm install ", False, False
+            )
+            btn_update = md.btn_cmd(
+                ulang.get("npm.update_index"), "npm update", False, True
+            )
+            btn_list = md.btn_cmd(
+                ulang.get("npm.list_plugins"), "npm list ", False, False
+            )
+            btn_disable = md.btn_cmd(
+                ulang.get("npm.disable_session"), "npm disable  ", False, False
+            )
+            btn_enable = md.btn_cmd(
+                ulang.get("npm.enable_session"), "npm enable ", False, False
+            )
             reply = (
-                    f"\n# **{ulang.get('npm.help')}**"
-                    f"\n{btn_update}"
-                    f"\n\n>*{md.escape('npm update')}*\n"
-                    f"\n{btn_install_}"
-                    f"\n\n>*{md.escape('npm install <plugin_name')}*>\n"
-                    f"\n{btn_uninstall_}"
-                    f"\n\n>*{md.escape('npm uninstall <plugin_name')}*>\n"
-                    f"\n{btn_search}"
-                    f"\n\n>*{md.escape('npm search <keywords...')}*>\n"
-                    f"\n{btn_disable_global}"
-                    f"\n\n>*{md.escape('npm disable-global <plugin_name')}*>\n"
-                    f"\n{btn_enable_global}"
-                    f"\n\n>*{md.escape('npm enable-global <plugin_name')}*>\n"
-                    f"\n{btn_disable}"
-                    f"\n\n>*{md.escape('npm disable <plugin_name')}*>\n"
-                    f"\n{btn_enable}"
-                    f"\n\n>*{md.escape('npm enable <plugin_name')}*>\n"
-                    f"\n{btn_list}"
-                    f"\n\n>page为页数，num为每页显示数量"
-                    f"\n\n>*{md.escape('npm list [page] [num]')}*"
+                f"\n# **{ulang.get('npm.help')}**"
+                f"\n{btn_update}"
+                f"\n\n>*{md.escape('npm update')}*\n"
+                f"\n{btn_install_}"
+                f"\n\n>*{md.escape('npm install <plugin_name')}*>\n"
+                f"\n{btn_uninstall_}"
+                f"\n\n>*{md.escape('npm uninstall <plugin_name')}*>\n"
+                f"\n{btn_search}"
+                f"\n\n>*{md.escape('npm search <keywords...')}*>\n"
+                f"\n{btn_disable_global}"
+                f"\n\n>*{md.escape('npm disable-global <plugin_name')}*>\n"
+                f"\n{btn_enable_global}"
+                f"\n\n>*{md.escape('npm enable-global <plugin_name')}*>\n"
+                f"\n{btn_disable}"
+                f"\n\n>*{md.escape('npm disable <plugin_name')}*>\n"
+                f"\n{btn_enable}"
+                f"\n\n>*{md.escape('npm enable <plugin_name')}*>\n"
+                f"\n{btn_list}"
+                f"\n\n>page为页数，num为每页显示数量"
+                f"\n\n>*{md.escape('npm list [page] [num]')}*"
             )
             await md.send_md(reply, bot, event=event)
         else:
 
-            btn_list = md.btn_cmd(ulang.get("npm.list_plugins"), "npm list ", False, False)
-            btn_disable = md.btn_cmd(ulang.get("npm.disable_session"), "npm disable  ", False, False)
-            btn_enable = md.btn_cmd(ulang.get("npm.enable_session"), "npm enable ", False, False)
+            btn_list = md.btn_cmd(
+                ulang.get("npm.list_plugins"), "npm list ", False, False
+            )
+            btn_disable = md.btn_cmd(
+                ulang.get("npm.disable_session"), "npm disable  ", False, False
+            )
+            btn_enable = md.btn_cmd(
+                ulang.get("npm.enable_session"), "npm enable ", False, False
+            )
             reply = (
-                    f"\n# **{ulang.get('npm.help')}**"
-                    f"\n{btn_disable}"
-                    f"\n\n>*{md.escape('npm disable <plugin_name')}*>\n"
-                    f"\n{btn_enable}"
-                    f"\n\n>*{md.escape('npm enable <plugin_name')}*>\n"
-                    f"\n{btn_list}"
-                    f"\n\n>page为页数，num为每页显示数量"
-                    f"\n\n>*{md.escape('npm list [page] [num]')}*"
+                f"\n# **{ulang.get('npm.help')}**"
+                f"\n{btn_disable}"
+                f"\n\n>*{md.escape('npm disable <plugin_name')}*>\n"
+                f"\n{btn_enable}"
+                f"\n\n>*{md.escape('npm enable <plugin_name')}*>\n"
+                f"\n{btn_list}"
+                f"\n\n>page为页数，num为每页显示数量"
+                f"\n\n>*{md.escape('npm list [page] [num]')}*"
             )
             await md.send_md(reply, bot, event=event)
 
@@ -423,7 +557,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
             alias=["d", "停用"],
         ),
     ),
-    permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN
+    permission=SUPERUSER | GROUP_OWNER | GROUP_ADMIN,
 ).handle()
 async def _(bot: T_Bot, event: T_MessageEvent, gm: Matcher, result: Arparma):
     ulang = get_user_lang(str(event.user_id))
@@ -432,7 +566,9 @@ async def _(bot: T_Bot, event: T_MessageEvent, gm: Matcher, result: Arparma):
     group_id = None
     if await SUPERUSER(bot, event):
         # 仅超级用户可以自定义群号
-        group_id = result.subcommands.get(enable, result.subcommands.get(disable)).args.get("group_id")
+        group_id = result.subcommands.get(
+            enable, result.subcommands.get(disable)
+        ).args.get("group_id")
     if group_id is None and event.message_type == "group":
         group_id = str(event.group_id)
 
@@ -441,13 +577,27 @@ async def _(bot: T_Bot, event: T_MessageEvent, gm: Matcher, result: Arparma):
 
     enabled = get_group_enable(group_id)
     if enabled == to_enable:
-        await gm.finish(ulang.get("liteyuki.group_already", STATUS=ulang.get("npm.enable") if to_enable else ulang.get("npm.disable"), GROUP=group_id),
-                        liteyuki_pass=True)
+        await gm.finish(
+            ulang.get(
+                "liteyuki.group_already",
+                STATUS=(
+                    ulang.get("npm.enable") if to_enable else ulang.get("npm.disable")
+                ),
+                GROUP=group_id,
+            ),
+            liteyuki_pass=True,
+        )
     else:
         set_group_enable(group_id, to_enable)
         await gm.finish(
-            ulang.get("liteyuki.group_success", STATUS=ulang.get("npm.enable") if to_enable else ulang.get("npm.disable"), GROUP=group_id),
-            liteyuki_pass=True
+            ulang.get(
+                "liteyuki.group_success",
+                STATUS=(
+                    ulang.get("npm.enable") if to_enable else ulang.get("npm.disable")
+                ),
+                GROUP=group_id,
+            ),
+            liteyuki_pass=True,
         )
 
 
@@ -456,7 +606,7 @@ async def _(bot: T_Bot, event: T_MessageEvent, gm: Matcher, result: Arparma):
     command=Alconna(
         "help",
         Args["plugin_name", str, None],
-    )
+    ),
 ).handle()
 async def _(result: Arparma, matcher: Matcher, event: T_MessageEvent, bot: T_Bot):
     ulang = get_user_lang(str(event.user_id))
@@ -470,7 +620,9 @@ async def _(result: Arparma, matcher: Matcher, event: T_MessageEvent, bot: T_Bot
 
         if loaded_plugin:
             if loaded_plugin.metadata is None:
-                loaded_plugin.metadata = PluginMetadata(name=plugin_name, description="", usage="")
+                loaded_plugin.metadata = PluginMetadata(
+                    name=plugin_name, description="", usage=""
+                )
             # 从商店获取详细信息
             store_plugin = await get_store_plugin(plugin_name)
             if loaded_plugin.metadata.extra.get("liteyuki"):
@@ -479,7 +631,7 @@ async def _(result: Arparma, matcher: Matcher, event: T_MessageEvent, bot: T_Bot
                     desc=loaded_plugin.metadata.description,
                     author="SnowyKami",
                     module_name=plugin_name,
-                    homepage="https://github.com/snowykami/LiteyukiBot"
+                    homepage="https://github.com/snowykami/LiteyukiBot",
                 )
             elif store_plugin is None:
                 store_plugin = StorePlugin(
@@ -487,7 +639,7 @@ async def _(result: Arparma, matcher: Matcher, event: T_MessageEvent, bot: T_Bot
                     desc=loaded_plugin.metadata.description,
                     author="",
                     module_name=plugin_name,
-                    homepage=""
+                    homepage="",
                 )
 
             if store_plugin:
@@ -498,14 +650,34 @@ async def _(result: Arparma, matcher: Matcher, event: T_MessageEvent, bot: T_Bot
                 link = None
 
             reply = [
-                    mdc.heading(escape_md(store_plugin.name)),
-                    mdc.quote(store_plugin.module_name),
-                    mdc.quote(mdc.bold(ulang.get("npm.author")) + " " +
-                              (mdc.link(store_plugin.author, f"https://github.com/{store_plugin.author}") if store_plugin.author else "Unknown")),
-                    mdc.quote(mdc.bold(ulang.get("npm.description")) + " " + mdc.paragraph(max(loaded_plugin.metadata.description, store_plugin.desc))),
-                    mdc.heading(ulang.get("npm.usage"), 2),
-                    mdc.paragraph(loaded_plugin.metadata.usage.replace("\n", "\n\n")),
-                    mdc.link(ulang.get("npm.homepage"), link) if link else mdc.paragraph(ulang.get("npm.homepage"))
+                mdc.heading(escape_md(store_plugin.name)),
+                mdc.quote(store_plugin.module_name),
+                mdc.quote(
+                    mdc.bold(ulang.get("npm.author"))
+                    + " "
+                    + (
+                        mdc.link(
+                            store_plugin.author,
+                            f"https://github.com/{store_plugin.author}",
+                        )
+                        if store_plugin.author
+                        else "Unknown"
+                    )
+                ),
+                mdc.quote(
+                    mdc.bold(ulang.get("npm.description"))
+                    + " "
+                    + mdc.paragraph(
+                        max(loaded_plugin.metadata.description, store_plugin.desc)
+                    )
+                ),
+                mdc.heading(ulang.get("npm.usage"), 2),
+                mdc.paragraph(loaded_plugin.metadata.usage.replace("\n", "\n\n")),
+                (
+                    mdc.link(ulang.get("npm.homepage"), link)
+                    if link
+                    else mdc.paragraph(ulang.get("npm.homepage"))
+                ),
             ]
             await md.send_md(compile_md(reply), bot, event=event)
         else:
@@ -545,7 +717,7 @@ async def npm_update() -> bool:
         bool: 是否成功更新
     """
     url_list = [
-            "https://registry.nonebot.dev/plugins.json",
+        "https://registry.nonebot.dev/plugins.json",
     ]
     for url in url_list:
         async with aiohttp.ClientSession() as session:
@@ -569,24 +741,26 @@ async def npm_search(keywords: list[str]) -> list[StorePlugin]:
         list[StorePlugin]: 插件列表
     """
     plugin_blacklist = [
-            "nonebot_plugin_xiuxian_2",
-            "nonebot_plugin_htmlrender",
-            "nonebot_plugin_alconna",
+        "nonebot_plugin_xiuxian_2",
+        "nonebot_plugin_htmlrender",
+        "nonebot_plugin_alconna",
     ]
 
     results = []
     async with aiofiles.open("data/liteyuki/plugins.json", "r", encoding="utf-8") as f:
-        plugins: list[StorePlugin] = [StorePlugin(**pobj) for pobj in json.loads(await f.read())]
+        plugins: list[StorePlugin] = [
+            StorePlugin(**pobj) for pobj in json.loads(await f.read())
+        ]
     for plugin in plugins:
         if plugin.module_name in plugin_blacklist:
             continue
-        plugin_text = ' '.join(
+        plugin_text = " ".join(
             [
-                    plugin.name,
-                    plugin.desc,
-                    plugin.author,
-                    plugin.module_name,
-                    ' '.join([tag.label for tag in plugin.tags])
+                plugin.name,
+                plugin.desc,
+                plugin.author,
+                plugin.module_name,
+                " ".join([tag.label for tag in plugin.tags]),
             ]
         )
         if all([keyword in plugin_text for keyword in keywords]):
@@ -615,8 +789,8 @@ def npm_install(plugin_package_name) -> tuple[bool, str]:
         update = True
 
     mirrors = [
-            "https://pypi.tuna.tsinghua.edu.cn/simple",  # 清华大学
-            "https://pypi.org/simple",  # 官方源
+        "https://pypi.tuna.tsinghua.edu.cn/simple",  # 清华大学
+        "https://pypi.org/simple",  # 官方源
     ]
 
     # 使用pip安装包，对每个镜像尝试一次，成功后返回值
@@ -625,7 +799,9 @@ def npm_install(plugin_package_name) -> tuple[bool, str]:
         try:
             nonebot.logger.info(f"pip install try mirror: {mirror}")
             if update:
-                result = pip.main(["install", "--upgrade", plugin_package_name, "-i", mirror])
+                result = pip.main(
+                    ["install", "--upgrade", plugin_package_name, "-i", mirror]
+                )
             else:
                 result = pip.main(["install", plugin_package_name, "-i", mirror])
             success = result == 0
@@ -659,7 +835,12 @@ def search_loaded_plugin(keyword: str) -> list[Plugin]:
         results = []
         for plugin in nonebot.get_loaded_plugins():
             if plugin.metadata is None:
-                plugin.metadata = PluginMetadata(name=plugin.name, description="", usage="")
-            if keyword in plugin.name + plugin.metadata.name + plugin.metadata.description:
+                plugin.metadata = PluginMetadata(
+                    name=plugin.name, description="", usage=""
+                )
+            if (
+                keyword
+                in plugin.name + plugin.metadata.name + plugin.metadata.description
+            ):
                 results.append(plugin)
         return results
