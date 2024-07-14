@@ -17,8 +17,8 @@ from src.utils import satori_utils
 from .counter_for_satori import satori_counter
 from git import Repo
 
-require("nonebot_plugin_apscheduler")
-from nonebot_plugin_apscheduler import scheduler
+# require("nonebot_plugin_apscheduler")
+# from nonebot_plugin_apscheduler import scheduler
 
 commit_hash = Repo(".").head.commit.hexsha
 
@@ -63,27 +63,27 @@ data
         - percent: float
         - total: int
 """
-status_card_cache = {}  # lang -> bytes
+# status_card_cache = {}  # lang -> bytes
 
 
 # 60s刷新一次
 # 之前写的什么鬼玩意，这么重要的功能这样写？？？
-@scheduler.scheduled_job("cron", second="*/40")
-async def refresh_status_card():
-    nonebot.logger.debug("Refreshing status card cache.")
-    global status_card_cache
-    status_card_cache = {}
-    # bot_data = await get_bots_data()
-    # hardware_data = await get_hardware_data()
-    # liteyuki_data = await get_liteyuki_data()
-    # for lang in status_card_cache.keys():
-    #     status_card_cache[lang] = await generate_status_card(
-    #         bot_data,
-    #         hardware_data,
-    #         liteyuki_data,
-    #         lang=lang,
-    #         use_cache=False
-    #     )
+# @scheduler.scheduled_job("cron", second="*/40")
+# async def refresh_status_card():
+#     nonebot.logger.debug("Refreshing status card cache.")
+#     global status_card_cache
+#     status_card_cache = {}
+# bot_data = await get_bots_data()
+# hardware_data = await get_hardware_data()
+# liteyuki_data = await get_liteyuki_data()
+# for lang in status_card_cache.keys():
+#     status_card_cache[lang] = await generate_status_card(
+#         bot_data,
+#         hardware_data,
+#         liteyuki_data,
+#         lang=lang,
+#         use_cache=False
+#     )
 
 
 # 获取状态卡片

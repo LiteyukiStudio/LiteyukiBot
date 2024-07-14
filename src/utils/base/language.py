@@ -13,14 +13,12 @@ from .config import config, get_config
 from .data_manager import User, user_db
 
 _language_data = {
-        "en": {
-                "name": "English",
-        }
+    "en": {
+        "name": "English",
+    }
 }
 
-_user_lang = {
-        "user_id": "zh-CN"
-}
+_user_lang = {"user_id": "zh-CN"}
 
 
 def load_from_lang(file_path: str, lang_code: str = None):
@@ -115,11 +113,16 @@ class Language:
 
         self.fallback_lang_code = fallback_lang_code
         if self.fallback_lang_code is None:
-            self.fallback_lang_code = config.get("default_language", get_system_lang_code())
+            self.fallback_lang_code = config.get(
+                "default_language", get_system_lang_code()
+            )
 
-    def get(self, item: str, *args, **kwargs) -> str | Any:
+    def _get(self, item: str, *args, **kwargs) -> str | Any:
         """
         获取当前语言文本，kwargs中的default参数为默认文本
+
+        **请不要重写本函数**
+
         Args:
             item:   文本键
             *args:  格式化参数
@@ -142,6 +145,20 @@ class Language:
                     return trans
         return default or item
 
+    def get(self, item: str, *args, **kwargs) -> str | Any:
+        """
+        获取当前语言文本，kwargs中的default参数为默认文本
+        Args:
+            item:   文本键
+            *args:  格式化参数
+            **kwargs: 格式化参数
+
+        Returns:
+            str: 当前语言的文本
+
+        """
+        return self._get(item, *args, **kwargs)
+
     def get_many(self, *args: str, **kwargs) -> dict[str, str]:
         """
         获取多个文本
@@ -153,7 +170,9 @@ class Language:
             dict: 多个文本
         """
         args_data = {item: self.get(item) for item in args}
-        kwargs_data = {item: self.get(item, default=default) for item, default in kwargs.items()}
+        kwargs_data = {
+            item: self.get(item, default=default) for item, default in kwargs.items()
+        }
         args_data.update(kwargs_data)
         return args_data
 
@@ -162,7 +181,9 @@ def change_user_lang(user_id: str, lang_code: str):
     """
     修改用户的语言，同时储存到数据库和内存中
     """
-    user = user_db.where_one(User(), "user_id = ?", user_id, default=User(user_id=user_id))
+    user = user_db.where_one(
+        User(), "user_id = ?", user_id, default=User(user_id=user_id)
+    )
     user.profile["lang"] = lang_code
     user_db.save(user)
     _user_lang[user_id] = lang_code
@@ -177,10 +198,10 @@ def get_user_lang(user_id: str) -> Language:
     if user_id not in _user_lang:
         nonebot.logger.debug(f"Loading user language for {user_id}")
         user = user_db.where_one(
-            User(), "user_id = ?", user_id, default=User(
-                user_id=user_id,
-                username="Unknown"
-            )
+            User(),
+            "user_id = ?",
+            user_id,
+            default=User(user_id=user_id, username="Unknown"),
         )
         lang_code = user.profile.get("lang", get_default_lang_code())
         _user_lang[user_id] = lang_code
@@ -192,7 +213,7 @@ def get_system_lang_code() -> str:
     """
     获取系统语言代码
     """
-    return locale.getdefaultlocale()[0].replace('_', '-')
+    return locale.getdefaultlocale()[0].replace("_", "-")
 
 
 def get_default_lang_code() -> str:
