@@ -4,19 +4,19 @@ export default sidebar({
     "/": [
         "",
         {
-            text: "项目部署",
+            text: "安装及部署",
             icon: "laptop-code",
             prefix: "deployment/",
             children: "structure",
         },
         {
-            text: "使用手册",
+            text: "使用及开发",
             icon: "book",
             prefix: "usage/",
             children: "structure",
         },
         {
-            text: "商店",
+            text: "资源及插件商店",
             icon: "store",
             prefix: "store/",
             children: "structure",
