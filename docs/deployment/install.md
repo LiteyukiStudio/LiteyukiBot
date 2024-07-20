@@ -48,7 +48,7 @@ python main.py
 - Windows系统版本最低`Windows10+`/`Windows Server 2019+`
 - Linux系统要支持Python3.10+，推荐`Ubuntu 20.04+`(~~别用你那b CentOS~~)
 - CPU: 至少`1vCPU`
-- 内存: Bot无其他插件会占用`300~500MB`，包括`chromium` `node`等进程，其他插件占用视具体插件而定，建议`1GB`以上
+- 内存: Bot无其他插件会占用`300~500MB`，包括`chromium` 及 `node`等进程，其他插件占用视具体插件而定，建议`1GB`以上
 - 硬盘: 至少`1GB`空间
 
 > [!warning]

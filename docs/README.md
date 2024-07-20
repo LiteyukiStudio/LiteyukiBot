@@ -37,7 +37,7 @@ highlights:
 
       - title: 便捷管理
         icon: plug
-        details: 自带包管理器，便捷管理插件/资源包
+        details: 使用包管理器，便捷管理插件及资源包
 
       - title: 主题支持
         icon: paint-brush
@@ -71,7 +71,7 @@ highlights:
     bgImage: https://theme-hope-assets.vuejs.press/bg/3-light.svg
     bgImageDark: https://theme-hope-assets.vuejs.press/bg/3-dark.svg
     highlights:
-      - title: 安装 Git 和 Python3.10+
+      - title: 安装 Git 及 Python3.10+
       - title: 使用 <code>git clone https://github.com/snowykami/LiteyukiBot --depth=1</code> 以克隆项目至本地。
         details: 如果无法连接到GitHub，可以使用 <code>git clone https://gitee.com/snowykami/LiteyukiBot --depth=1</code>。
       - title: 使用 <code>cd LiteyukiBot</code> 切换到项目目录。

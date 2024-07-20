@@ -13,7 +13,7 @@ export default navbar([
         prefix: "usage/",
     },
     {
-        text: "主题及插件",
+        text: "资源及插件",
         link: "/store/resource",
         prefix: "store/",
     }

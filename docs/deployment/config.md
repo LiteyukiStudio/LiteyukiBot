@@ -8,7 +8,7 @@ tag:
   - 部署
 ---
 
-首次运行后生成`config.yml`，你可以修改配置项后重启轻雪，绝大多数情况下，你只需要修改`superusers`和`nickname`字段即可
+首次运行后生成`config.yml`，你可以修改配置项后重启轻雪，绝大多数情况下，你只需要修改`superusers`及`nickname`字段即可
 
 ## **基础配置项**
 

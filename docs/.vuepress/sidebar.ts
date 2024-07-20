@@ -16,7 +16,7 @@ export default sidebar({
             children: "structure",
         },
         {
-            text: "资源及插件商店",
+            text: "资源及插件",
             icon: "store",
             prefix: "store/",
             children: "structure",
