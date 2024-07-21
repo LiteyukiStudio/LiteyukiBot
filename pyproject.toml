@@ -1,0 +1,38 @@
+[tool.nonebot]
+[project]
+# PEP 621 project metadata
+# See https://www.python.org/dev/peps/pep-0621/
+authors = [
+    {name = "SnowyKami", email = "snowykami@outlook.com"},
+]
+license = {text = "MIT & LSO"}
+requires-python = ">=3.10,<4.0"
+dependencies = [
+
+]
+
+dynamic = ["version"]
+name = "liteyuki-bot"
+description = "Push dynamics and live informations from bilibili to QQ. Based on nonebot2."
+readme = "README.md"
+keywords = ["nonebot", "nonebot2", "qqbot", "liteyuki", "bot"]
+
+[project.urls]
+homepage = "https://bot.liteyuki.icu"
+repository = "https://github.com/LiteyukiStudio/LiteyukiBot"
+documentation = "https://bot.liteyuki.icu"
+
+[tool.pdm.dev-dependencies]
+dev = []
+
+[tool.nonebot]
+adapters = [
+    { name = "OneBot V11", module_name = "nonebot.adapters.onebot.v11" }
+
+]
+plugins = ["haruka_bot", "nonebot_plugin_gocqhttp", "nonebot_plugin_guild_patch"]
+plugin_dirs = []
+builtin_plugins = []
+
+[project.scripts]
+ly = "main.py"

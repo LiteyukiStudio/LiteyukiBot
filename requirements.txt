@@ -26,5 +26,6 @@ watchdog~=4.0.0
 pillow~=10.2.0
 jieba~=0.42.1
 pip~=23.2.1
+aiosqlite3~=0.3.0
 fastapi~=0.110.0
 python-dotenv~=1.0.1
