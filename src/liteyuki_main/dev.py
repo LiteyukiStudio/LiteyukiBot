@@ -2,24 +2,27 @@ import nonebot
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
+from liteyuki.bot import get_bot
 from src.utils.base.config import get_config
-from src.utils.base.reloader import Reloader
+from liteyuki.core import ProcessingManager
 from src.utils.base.resource import load_resources
 
 if get_config("debug", False):
 
+    liteyuki_bot = get_bot()
+
     src_directories = (
-        "src/liteyuki_main",
-        "src/plugins",
-        "src/utils",
+            "src/liteyuki_main",
+            "src/plugins",
+            "src/utils",
     )
     src_excludes_extensions = (
-        "pyc",
+            "pyc",
     )
 
     res_directories = (
-        "src/resources",
-        "resources",
+            "src/resources",
+            "resources",
     )
 
     nonebot.logger.info("Liteyuki Reload enabled, watching for file changes...")
@@ -35,7 +38,7 @@ if get_config("debug", False):
                     src_excludes_extensions) or event.is_directory or "__pycache__" in event.src_path:
                 return
             nonebot.logger.info(f"{event.src_path} modified, reloading bot...")
-            Reloader.reload()
+            liteyuki_bot.restart()
 
 
     class ResourceModifiedHandler(FileSystemEventHandler):

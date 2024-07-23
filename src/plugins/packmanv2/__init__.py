@@ -1,4 +1,6 @@
 from nonebot.plugin import PluginMetadata
+from .npm import *
+from .rpm import *
 
 __author__ = "snowykami"
 __plugin_meta__ = PluginMetadata(

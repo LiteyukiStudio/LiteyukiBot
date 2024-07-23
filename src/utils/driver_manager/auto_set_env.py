@@ -9,7 +9,6 @@ from .defines import *
 def auto_set_env(config: dict):
     dotenv.load_dotenv(".env")
     if os.getenv("DRIVER", None) is not None:
-        print(os.getenv("DRIVER"))
         nonebot.logger.info("Driver already set in environment variable, skip auto configure.")
         return
     if config.get("satori", {'enable': False}).get("enable", False):

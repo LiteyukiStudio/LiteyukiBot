@@ -32,6 +32,7 @@ class BasicConfig(BaseModel):
     command_start: list[str] = ["/", ""]
     nickname: list[str] = [f"LiteyukiBot-{random_hex_string(6)}"]
     satori: SatoriConfig = SatoriConfig()
+    data_path: str = "data/liteyuki"
 
 
 def load_from_yaml(file: str) -> dict:
@@ -95,6 +96,8 @@ def init_conf(conf: dict) -> dict:
 
     """
     # 若command_start中无""，则添加必要命令头，开启alconna_use_command_start防止冲突
-    if "" not in conf.get("command_start", []):
-        conf["alconna_use_command_start"] = True
+    # 以下内容由于issue #53 被注释
+    # if "" not in conf.get("command_start", []):
+    #     conf["alconna_use_command_start"] = True
     return conf
+    pass

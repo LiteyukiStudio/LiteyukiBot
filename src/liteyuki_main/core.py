@@ -16,9 +16,11 @@ from src.utils.base.data_manager import StoredConfig, TempConfig, common_db
 from src.utils.base.language import get_user_lang
 from src.utils.base.ly_typing import T_Bot, T_MessageEvent
 from src.utils.message.message import MarkdownMessage as md, broadcast_to_superusers
-from src.utils.base.reloader import Reloader
+# from src.liteyuki.core import Reloader
 from src.utils import event as event_utils, satori_utils
+from liteyuki.core import ProcessingManager
 from .api import update_liteyuki
+from liteyuki.bot import get_bot
 from ..utils.base.ly_function import get_function
 
 require("nonebot_plugin_alconna")
@@ -92,7 +94,9 @@ async def _(matcher: Matcher, bot: T_Bot, event: T_MessageEvent):
     )
 
     common_db.save(temp_data)
-    Reloader.reload(0)
+    # Reloader.reload(0)
+    bot = get_bot()
+    bot.restart()
 
 
 @on_alconna(
@@ -281,7 +285,6 @@ async def _(result: Arparma, bot: T_Bot, event: T_MessageEvent, matcher: Matcher
         result = str(e)
 
     args_show = "\n".join("- %s: %s" % (k, v) for k, v in args_dict.items())
-    print(f"API: {api_name}\n\nArgs: \n{args_show}\n\nResult: {result}")
     await matcher.finish(f"API: {api_name}\n\nArgs: \n{args_show}\n\nResult: {result}")
 
 
@@ -371,7 +374,7 @@ async def every_day_update():
         if result:
             await broadcast_to_superusers(f"Liteyuki updated: ```\n{logs}\n```")
             nonebot.logger.info(f"Liteyuki updated: {logs}")
-            Reloader.reload(5)
+            ProcessingManager.restart()
         else:
             nonebot.logger.info(logs)
 
