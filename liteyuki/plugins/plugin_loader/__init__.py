@@ -1,4 +1,5 @@
 import multiprocessing
+import time
 
 import nonebot
 from nonebot import get_driver
@@ -14,12 +15,19 @@ __plugin_metadata__ = PluginMetadata(
     homepage=""
 )
 
+from src.utils import TempConfig, common_db
+
 liteyuki = get_bot()
 
 
 @liteyuki.on_after_start
 def _():
-    print("轻雪启动完成，运行在进程", multiprocessing.current_process().name)
+    temp_data = common_db.where_one(TempConfig(), default=TempConfig())
+    # 储存重启信息
+    if temp_data.data.get("reload", False):
+        delta_time = time.time() - temp_data.data.get("reload_time", 0)
+        temp_data.data["delta_time"] = delta_time
+        common_db.save(temp_data)  # 更新数据
 
 
 @liteyuki.on_before_start

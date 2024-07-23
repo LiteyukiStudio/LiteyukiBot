@@ -322,12 +322,19 @@ async def test_for_md_image(bot: T_Bot, api: str, data: dict):
 
 @driver.on_startup
 async def on_startup():
-    temp_data = common_db.where_one(TempConfig(), default=TempConfig())
-    # 储存重启信息
-    if temp_data.data.get("reload", False):
-        delta_time = time.time() - temp_data.data.get("reload_time", 0)
-        temp_data.data["delta_time"] = delta_time
-        common_db.save(temp_data)  # 更新数据
+    # temp_data = common_db.where_one(TempConfig(), default=TempConfig())
+    # # 储存重启信息
+    # if temp_data.data.get("reload", False):
+    #     delta_time = time.time() - temp_data.data.get("reload_time", 0)
+    #     temp_data.data["delta_time"] = delta_time
+    #     common_db.save(temp_data)  # 更新数据
+    """
+    该部分迁移至轻雪生命周期
+    Returns:
+
+    """
+
+    pass
 
 
 @driver.on_shutdown
