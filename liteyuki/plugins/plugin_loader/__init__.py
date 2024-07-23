@@ -23,7 +23,7 @@ liteyuki = get_bot()
 @liteyuki.on_after_start
 def _():
     temp_data = common_db.where_one(TempConfig(), default=TempConfig())
-    # 储存重启信息
+    # 储存重启计时信息
     if temp_data.data.get("reload", False):
         delta_time = time.time() - temp_data.data.get("reload_time", 0)
         temp_data.data["delta_time"] = delta_time
