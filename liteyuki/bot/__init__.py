@@ -105,6 +105,34 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
                 else:
                     should_exit = True
 
+    @staticmethod
+    def _run_coroutine(*coro: Coroutine):
+        """
+        运行协程
+        Args:
+            coro:
+
+        Returns:
+
+        """
+        # 检测是否有现有的事件循环
+        new_loop = False
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            new_loop = True
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        if new_loop:
+            for c in coro:
+                loop.run_until_complete(c)
+            loop.close()
+
+        else:
+            for c in coro:
+                loop.create_task(c)
+
     @property
     def status(self) -> int:
         """
@@ -123,9 +151,9 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
         logger.info("Stopping LiteyukiBot...")
 
         logger.debug("Running before_restart functions...")
-        asyncio.run(self.lifespan.before_restart())
+        self._run_coroutine(self.lifespan.before_restart())
         logger.debug("Running before_shutdown functions...")
-        asyncio.run(self.lifespan.before_shutdown())
+        self._run_coroutine(self.lifespan.before_shutdown())
 
         ProcessingManager.restart()
         self.running = False
