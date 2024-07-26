@@ -4,6 +4,7 @@ from typing import Any, Coroutine, Optional
 
 import nonebot
 
+import liteyuki
 from liteyuki.plugin.load import load_plugin, load_plugins
 from src.utils import (
     adapter_manager,
@@ -50,7 +51,6 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
             """ + "\033[0m")
 
     def run(self, *args, **kwargs):
-
         if _MAIN_PROCESS:
             load_plugins("liteyuki/plugins")
             asyncio.run(self.lifespan.before_start())
@@ -175,9 +175,6 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
         init_log()
 
     def init_config(self):
-        pass
-
-    def register_adapters(self, *args):
         pass
 
     def on_before_start(self, func: LIFESPAN_FUNC):

@@ -22,6 +22,11 @@ from liteyuki.utils import path_to_module_name
 
 _plugins: dict[str, Plugin] = {}
 
+__all__ = [
+    "load_plugin",
+    "load_plugins",
+]
+
 
 def load_plugin(module_path: str | Path) -> Optional[Plugin]:
     """加载单个插件，可以是本地插件或是通过 `pip` 安装的插件。

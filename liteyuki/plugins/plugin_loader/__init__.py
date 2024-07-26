@@ -1,9 +1,6 @@
 import multiprocessing
 import time
 
-import nonebot
-from nonebot import get_driver
-
 from liteyuki.plugin import PluginMetadata
 from liteyuki import get_bot
 
@@ -11,12 +8,11 @@ __plugin_metadata__ = PluginMetadata(
     name="plugin_loader",
     description="轻雪插件加载器",
     usage="",
-    type="",
+    type="liteyuki-main",
     homepage=""
 )
 
 from src.utils import TempConfig, common_db
-
 liteyuki = get_bot()
 
 
@@ -38,4 +34,3 @@ def _():
 @liteyuki.on_after_nonebot_init
 async def _():
     print("NoneBot初始化完成")
-    nonebot.load_plugin("src.liteyuki_main")

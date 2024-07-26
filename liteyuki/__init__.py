@@ -2,6 +2,10 @@ from liteyuki.bot import (
     LiteyukiBot,
     get_bot
 )
+from liteyuki.plugin import (
+    load_plugin,
+    load_plugins
+)
 
 # def get_bot_instance() -> LiteyukiBot | None:
 #     """
