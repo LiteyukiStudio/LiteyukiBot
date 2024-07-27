@@ -2,9 +2,11 @@
 """
 一些常用的工具类，部分来源于 nonebot 并遵循其许可进行修改
 """
+import asyncio
 import inspect
+import threading
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Coroutine
 
 
 def is_coroutine_callable(call: Callable[..., Any]) -> bool:
@@ -21,6 +23,39 @@ def is_coroutine_callable(call: Callable[..., Any]) -> bool:
         return False
     func_ = getattr(call, "__call__", None)
     return inspect.iscoroutinefunction(func_)
+
+
+def run_coroutine(*coro: Coroutine):
+    """
+    运行协程
+    Args:
+        coro:
+
+    Returns:
+
+    """
+
+    # 检测是否有现有的事件循环
+
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # 如果事件循环正在运行，创建任务
+            for c in coro:
+                asyncio.ensure_future(c)
+        else:
+            # 如果事件循环未运行，运行直到完成
+            for c in coro:
+                loop.run_until_complete(c)
+    except RuntimeError:
+        # 如果没有找到事件循环，创建一个新的
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(asyncio.gather(*coro))
+        loop.close()
+    except Exception as e:
+        # 捕获其他异常，防止协程被重复等待
+        print(f"Exception occurred: {e}")
 
 
 def path_to_module_name(path: Path) -> str:

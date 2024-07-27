@@ -1,8 +1,11 @@
+import asyncio
 import multiprocessing
 import time
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
 from liteyuki.plugin import PluginMetadata
-from liteyuki import get_bot
+from liteyuki import get_bot, chan
 
 __plugin_metadata__ = PluginMetadata(
     name="plugin_loader",
@@ -13,6 +16,7 @@ __plugin_metadata__ = PluginMetadata(
 )
 
 from src.utils import TempConfig, common_db
+
 liteyuki = get_bot()
 
 
@@ -31,6 +35,19 @@ def _():
     print("轻雪启动中")
 
 
+@liteyuki.on_after_start
+async def _():
+    print("轻雪启动完成")
+    chan.send("轻雪启动完成")
+
+
 @liteyuki.on_after_nonebot_init
 async def _():
     print("NoneBot初始化完成")
+
+
+@chan.on_receive(receiver="main")
+async def _(data):
+    print("收到消息", data)
+    await asyncio.sleep(5)
+

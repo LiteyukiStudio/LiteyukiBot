@@ -1,3 +1,5 @@
+import asyncio
+
 import nonebot.plugin
 from nonebot import get_driver
 from src.utils import init_log
@@ -6,7 +8,9 @@ from src.utils.base.data_manager import InstalledPlugin, plugin_db
 from src.utils.base.resource import load_resources
 from src.utils.message.tools import check_for_package
 
-from liteyuki import get_bot
+from liteyuki import get_bot, chan
+
+from nonebot_plugin_apscheduler import scheduler
 
 load_resources()
 init_log()
@@ -32,33 +36,3 @@ async def load_plugins():
         nonebot.plugin.load_plugins("plugins")
     else:
         nonebot.logger.info("Safe mode is on, no plugin loaded.")
-
-
-@liteyuki_bot.on_before_start
-async def _():
-    print("启动前")
-
-
-@liteyuki_bot.on_after_start
-async def _():
-    print("启动后")
-
-
-@liteyuki_bot.on_before_shutdown
-async def _():
-    print("停止前")
-
-
-@liteyuki_bot.on_after_shutdown
-async def _():
-    print("停止后")
-
-
-@liteyuki_bot.on_before_restart
-async def _():
-    print("重启前")
-
-
-@liteyuki_bot.on_after_restart
-async def _():
-    print("重启后")

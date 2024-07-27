@@ -88,7 +88,7 @@ async def _(matcher: Matcher, bot: T_Bot, event: T_MessageEvent):
                 "reload_bot_id"      : bot.self_id,
                 "reload_session_type": event_utils.get_message_type(event),
                 "reload_session_id"  : (event.group_id if event.message_type == "group" else event.user_id) if not isinstance(event,
-                                                                                                                              satori.event.Event) else event.channel.id,
+                                                                                                                              satori.event.Event) else event.chan.id,
                 "delta_time"         : 0
         }
     )

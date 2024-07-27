@@ -7,6 +7,9 @@ from pydantic import BaseModel
 from src.utils.base.config import get_config
 from src.utils.io import fetch
 
+NONEBOT_PLUGIN_STORE_URL: str = "https://registry.nonebot.dev/plugins.json"  # NoneBot商店地址
+LITEYUKI_PLUGIN_STORE_URL: str = "https://bot.liteyuki.icu/assets/plugins.json"  # 轻雪商店地址
+
 
 class Session:
     def __init__(self, session_type: str, session_id: int | str):
