@@ -157,16 +157,10 @@ class Channel:
         """
         if receiver is None:
             for func in self._on_receive_funcs:
-                if is_coroutine_callable(func):
-                    run_coroutine(func(data))
-                else:
-                    func(data)
+                run_coroutine(func(data))
         else:
             for func in self._on_receive_funcs_with_receiver.get(receiver, []):
-                if is_coroutine_callable(func):
-                    run_coroutine(func(data))
-                else:
-                    func(data)
+                run_coroutine(func(data))
 
     def __iter__(self):
         return self
