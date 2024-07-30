@@ -3,6 +3,7 @@ aiofiles~=23.2.1
 colored~=2.2.4
 GitPython~=3.1.42
 httpx~=0.27.0
+melobot~=2.6.5
 nb-cli~=1.4.1
 nonebot2[fastapi,httpx,websockets]~=2.3.0
 nonebot-plugin-htmlrender~=0.3.1

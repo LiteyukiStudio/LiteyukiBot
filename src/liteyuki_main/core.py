@@ -5,12 +5,13 @@ from typing import Any, AnyStr
 import nonebot
 import pip
 from nonebot import Bot, get_driver, require
-from nonebot.adapters import satori
+from nonebot.adapters import onebot, satori
 from nonebot.adapters.onebot.v11 import Message, escape, unescape
 from nonebot.exception import MockApiException
 from nonebot.internal.matcher import Matcher
 from nonebot.permission import SUPERUSER
 
+from liteyuki import Channel
 from src.utils.base.config import get_config, load_from_yaml
 from src.utils.base.data_manager import StoredConfig, TempConfig, common_db
 from src.utils.base.language import get_user_lang
@@ -18,9 +19,11 @@ from src.utils.base.ly_typing import T_Bot, T_MessageEvent
 from src.utils.message.message import MarkdownMessage as md, broadcast_to_superusers
 # from src.liteyuki.core import Reloader
 from src.utils import event as event_utils, satori_utils
-from liteyuki.core import ProcessingManager
+from liteyuki.core.spawn_process import chan_in_spawn
+
 from .api import update_liteyuki
 from liteyuki.bot import get_bot
+from ..utils.base import reload
 from ..utils.base.ly_function import get_function
 
 require("nonebot_plugin_alconna")
@@ -78,6 +81,7 @@ async def _(bot: T_Bot, event: T_MessageEvent):
 ).handle()
 # Satori OK
 async def _(matcher: Matcher, bot: T_Bot, event: T_MessageEvent):
+    global channel_in_spawn_process
     await matcher.send("Liteyuki reloading")
     temp_data = common_db.where_one(TempConfig(), default=TempConfig())
 
@@ -94,9 +98,7 @@ async def _(matcher: Matcher, bot: T_Bot, event: T_MessageEvent):
     )
 
     common_db.save(temp_data)
-    # Reloader.reload(0)
-    bot = get_bot()
-    bot.restart()
+    reload()
 
 
 @on_alconna(
@@ -322,19 +324,17 @@ async def test_for_md_image(bot: T_Bot, api: str, data: dict):
 
 @driver.on_startup
 async def on_startup():
-    # temp_data = common_db.where_one(TempConfig(), default=TempConfig())
-    # # 储存重启信息
-    # if temp_data.data.get("reload", False):
-    #     delta_time = time.time() - temp_data.data.get("reload_time", 0)
-    #     temp_data.data["delta_time"] = delta_time
-    #     common_db.save(temp_data)  # 更新数据
+    temp_data = common_db.where_one(TempConfig(), default=TempConfig())
+    # 储存重启信息
+    if temp_data.data.get("reload", False):
+        delta_time = time.time() - temp_data.data.get("reload_time", 0)
+        temp_data.data["delta_time"] = delta_time
+        common_db.save(temp_data)  # 更新数据
     """
-    该部分迁移至轻雪生命周期
+    该部分将迁移至轻雪生命周期
     Returns:
 
     """
-
-    pass
 
 
 @driver.on_shutdown
@@ -357,19 +357,29 @@ async def _(bot: T_Bot):
         reload_session_id = temp_data.data.get("reload_session_id", 0)
         delta_time = temp_data.data.get("delta_time", 0)
         common_db.save(temp_data)  # 更新数据
-        if isinstance(bot, satori.Bot):
-            await bot.send_message(
-                channel_id=reload_session_id,
-                message="Liteyuki reloaded in %.2f s" % delta_time
-            )
-        else:
-            await bot.call_api(
-                "send_msg",
-                message_type=reload_session_type,
-                user_id=reload_session_id,
-                group_id=reload_session_id,
-                message="Liteyuki reloaded in %.2f s" % delta_time
-            )
+
+        if delta_time <= 20.0:   # 启动时间太长就别发了，丢人
+            if isinstance(bot, satori.Bot):
+                await bot.send_message(
+                    channel_id=reload_session_id,
+                    message="Liteyuki reloaded in %.2f s" % delta_time
+                )
+            elif isinstance(bot, onebot.v11.Bot):
+                await bot.send_msg(
+                    message_type=reload_session_type,
+                    user_id=reload_session_id,
+                    group_id=reload_session_id,
+                    message="Liteyuki reloaded in %.2f s" % delta_time
+                )
+
+            elif isinstance(bot, onebot.v12.Bot):
+                await bot.send_message(
+                    message_type=reload_session_type,
+                    user_id=reload_session_id,
+                    group_id=reload_session_id,
+                    message="Liteyuki reloaded in %.2f s" % delta_time,
+                    detail_type="group"
+                )
 
 
 # 每天4点更新
@@ -381,7 +391,7 @@ async def every_day_update():
         if result:
             await broadcast_to_superusers(f"Liteyuki updated: ```\n{logs}\n```")
             nonebot.logger.info(f"Liteyuki updated: {logs}")
-            ProcessingManager.restart()
+            reload()
         else:
             nonebot.logger.info(logs)
 

@@ -1,37 +1,50 @@
 import threading
-from multiprocessing import get_context, Event
+from multiprocessing import Event, Queue
+from typing import Optional
 
 import nonebot
-from nonebot import logger
 
-from liteyuki.plugin.load import load_plugins
+import liteyuki
+from liteyuki.core.nb import adapter_manager, driver_manager
 
 timeout_limit: int = 20
-__all__ = [
-        "ProcessingManager",
-        "nb_run",
-]
+
+"""导出对象，用于进程通信"""
+chan_in_spawn: Optional["liteyuki.Channel"] = None
 
 
-class ProcessingManager:
-    event: Event = None
+def nb_run(chan, *args, **kwargs):
+    """
+    初始化NoneBot并运行在子进程
+    Args:
 
-    @classmethod
-    def restart(cls, delay: int = 0):
-        """
-        发送终止信号
-        Args:
-            delay: 延迟时间，默认为0，单位秒
-        Returns:
-        """
-        if cls.event is None:
-            raise RuntimeError("ProcessingManager has not been initialized.")
-        if delay > 0:
-            threading.Timer(delay, function=cls.event.set).start()
-            return
-        cls.event.set()
+        *args:
+        **kwargs:
+
+    Returns:
+
+    """
+    global chan_in_spawn
+    chan_in_spawn = chan
+    nonebot.init(**kwargs)
+    driver_manager.init(config=kwargs)
+    adapter_manager.init(kwargs)
+    adapter_manager.register()
+    nonebot.load_plugin("src.liteyuki_main")
+    nonebot.run()
 
 
-def nb_run(event, *args, **kwargs):
-    ProcessingManager.event = event
-    nonebot.run(*args, **kwargs)
+def mb_run(chan, *args, **kwargs):
+    """
+    初始化MeloBot并运行在子进程
+    Args:
+        chan
+        *args:
+        **kwargs:
+
+    Returns:
+
+    """
+    # bot = MeloBot(__name__)
+    # bot.init(AbstractConnector(cd_time=0))
+    # bot.run()

@@ -3,8 +3,8 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 from liteyuki.bot import get_bot
+from src.utils.base import reload
 from src.utils.base.config import get_config
-from liteyuki.core import ProcessingManager
 from src.utils.base.resource import load_resources
 
 if get_config("debug", False):
@@ -38,7 +38,7 @@ if get_config("debug", False):
                     src_excludes_extensions) or event.is_directory or "__pycache__" in event.src_path:
                 return
             nonebot.logger.info(f"{event.src_path} modified, reloading bot...")
-            liteyuki_bot.restart()
+            reload()
 
 
     class ResourceModifiedHandler(FileSystemEventHandler):
