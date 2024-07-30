@@ -31,7 +31,7 @@ class Channel:
     """
 
     def __init__(self):
-        self.parent_conn, self.child_conn = Pipe()
+        self.receive_conn, self.send_conn = Pipe()
         self._closed = False
         self._on_receive_funcs: List[ON_RECEIVE_FUNC] = []
         self._on_receive_funcs_with_receiver: dict[str, List[ON_RECEIVE_FUNC]] = {}
@@ -45,7 +45,7 @@ class Channel:
         """
         if self._closed:
             raise RuntimeError("Cannot send to a closed channel")
-        self.child_conn.send((data, receiver))
+        self.send_conn.send((data, receiver))
 
     def receive(self, receiver: str = None) -> Any:
         """
@@ -57,11 +57,11 @@ class Channel:
             raise RuntimeError("Cannot receive from a closed channel")
         while True:
             # 判断receiver是否为None或者receiver是否等于接收者，是则接收数据，否则不动数据
-            if self.parent_conn.poll():
-                data, receiver = self.parent_conn.recv()
-                self.parent_conn.send((data, receiver))
-                self._run_on_receive_funcs(data, receiver)
+            data, receiver_ = self.receive_conn.recv()
+            if receiver is None or receiver == receiver_:
+                self._run_on_receive_funcs(data, receiver_)
                 return data
+            self.send_conn.send((data, receiver_))
 
     def peek(self) -> Optional[Any]:
         """
@@ -70,9 +70,9 @@ class Channel:
         """
         if self._closed:
             raise RuntimeError("Cannot peek from a closed channel")
-        if self.parent_conn.poll():
-            data, receiver = self.parent_conn.recv()
-            self.parent_conn.send((data, receiver))
+        if self.receive_conn.poll():
+            data, receiver = self.receive_conn.recv()
+            self.receive_conn.send((data, receiver))
             return data
         return None
 
@@ -81,8 +81,8 @@ class Channel:
         关闭通道
         """
         self._closed = True
-        self.parent_conn.close()
-        self.child_conn.close()
+        self.receive_conn.close()
+        self.send_conn.close()
 
     def on_receive(self, filter_func: Optional[FILTER_FUNC] = None, receiver: Optional[str] = None) -> Callable[[ON_RECEIVE_FUNC], ON_RECEIVE_FUNC]:
         """

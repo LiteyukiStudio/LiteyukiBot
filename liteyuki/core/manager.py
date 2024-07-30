@@ -53,7 +53,7 @@ class ProcessManager:
                 while not should_exit:
                     # 0退出 1重启
                     data = self.chan.receive(name)
-                    print("Received data: ", data)
+                    print("Received data: ", data, name)
                     if data == 1:
                         logger.info("Restarting LiteyukiBot...")
                         process.terminate()

@@ -3,7 +3,6 @@ import asyncio
 from typing import Any, Optional
 from multiprocessing import freeze_support
 
-
 from liteyuki.bot.lifespan import (LIFESPAN_FUNC, Lifespan)
 from liteyuki.comm.channel import Channel
 from liteyuki.core import IS_MAIN_PROCESS
@@ -32,7 +31,6 @@ class LiteyukiBot:
         self.chan = Channel()  # 进程通信通道
         self.pm: Optional[ProcessManager] = None  # 启动时实例化
 
-
         print("\033[34m" + r"""
  __        ______  ________  ________  __      __  __    __  __    __  ______ 
 /  |      /      |/        |/        |/  \    /  |/  |  /  |/  |  /  |/      |
@@ -49,11 +47,11 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
         # load_plugins("liteyuki/plugins")  # 加载轻雪插件
         self.pm = ProcessManager(bot=self, chan=self.chan)
 
-        self.pm.add_target("melobot", mb_run, **self.config)
-        self.pm.start("melobot")
-
         self.pm.add_target("nonebot", nb_run, **self.config)
         self.pm.start("nonebot")
+
+        self.pm.add_target("melobot", mb_run, **self.config)
+        self.pm.start("melobot")
 
         run_coroutine(self.lifespan.after_start())  # 启动前
 
