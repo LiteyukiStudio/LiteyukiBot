@@ -1,11 +1,16 @@
 import {defineClientConfig} from "vuepress/client";
+
 import resourceStoreComp from "./components/ResStore.vue";
 import pluginStoreComp from "./components/PluginStore.vue";
-//导入element-plus
+import dashComp from "./components/Dash.vue";
+
+
 import ElementPlus from 'element-plus';
+
 
 export default defineClientConfig({
     enhance: ({app, router, siteData}) => {
+        app.component("dashComp", dashComp);
         app.component("resourceStoreComp", resourceStoreComp);
         app.component("pluginStoreComp", pluginStoreComp);
         app.use(ElementPlus);

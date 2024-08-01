@@ -11,6 +11,7 @@ export default defineUserConfig({
     head: [
 // 设置 favor.ico，.vuepress/public 下
         ["script", {src: "/js/style.js", "type": "module"}],
+        ["script", {src: "/js/get_data.js", "type": "module"}],
         ['link', {rel: 'icon', href: 'https://cdn.liteyuki.icu/favicon.ico'},],
 
         ['link', {rel: 'stylesheet', href: 'https://cdn.bootcdn.net/ajax/libs/firacode/6.2.0/fira_code.min.css'}],

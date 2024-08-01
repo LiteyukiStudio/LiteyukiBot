@@ -9,7 +9,7 @@ bgImageDark:
 bgImageStyle:
   background-attachment: fixed
 heroText: LiteyukiBot
-tagline: LiteyukiBot 轻雪机器人，基于NoneBot2构建的综合应用型聊天机器人
+tagline: LiteyukiBot 轻雪机器人，基于NoneBot2构建的综合应用型聊天机器人<br><h4>总实例:<span id="total">0</span>&nbsp;&nbsp;&nbsp;&nbsp;当前在线:<span id="online">0</span></h4>
  
 actions:
   - text: 快速部署
@@ -79,4 +79,32 @@ highlights:
         details: 如果你有多个 Python 环境，请使用 <code>pythonx -m pip install -r requirements.txt</code>。
       - title: 使用 <code>python main.py</code> 启动项目。
 copyright: © 2021-2024 SnowyKami All Rights Reserved
+
 ---
+<script>
+function updatePageData() {
+  fetch("https://api.liteyuki.icu/count")
+    .then(res => res.json())
+    .then(data => {
+      let total = document.getElementById("total");
+      if(total !== null) {
+        total.innerText = data.register;
+      }
+    })
+    .catch(err => console.error(err));
+
+  fetch("https://api.liteyuki.icu/online")
+    .then(res => res.json())
+    .then(data => {
+        let online = document.getElementById("online");
+        if(online !== null) {
+            online.innerText = data.online;
+        }
+    })
+    .catch(err => console.error(err));
+}
+
+updatePageData();
+
+setInterval(updatePageData, 1000);
+</script>
