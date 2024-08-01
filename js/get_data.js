@@ -27,12 +27,12 @@ function updatePageDisplay() {
         if (mainDescription) {
             mainDescription.insertAdjacentHTML('afterend', info);
         }
-        // 如果countInfo存在，可以在这里添加逻辑来更新现有的DOM元素
     }
 }
 
 // 初始调用更新数据
 fetchAndUpdateData();
+updatePageDisplay();
 
 // 设置定时器，分别以不同频率调用更新数据和更新页面的函数
 setInterval(fetchAndUpdateData, 10000); // 每10秒更新一次数据
