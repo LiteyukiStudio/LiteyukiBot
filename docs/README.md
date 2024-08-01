@@ -9,7 +9,7 @@ bgImageDark:
 bgImageStyle:
   background-attachment: fixed
 heroText: LiteyukiBot
-tagline: LiteyukiBot 轻雪机器人，基于NoneBot2构建的综合应用型聊天机器人<br><h4>总实例:<span id="total">0</span>&nbsp;&nbsp;&nbsp;&nbsp;当前在线:<span id="online">0</span></h4>
+tagline: LiteyukiBot 轻雪机器人，基于NoneBot2构建的综合应用型聊天机器人 总实例:<span id="total">0</span>&nbsp;&nbsp;&nbsp;&nbsp;当前在线:<span id="online">0</span>
  
 actions:
   - text: 快速部署
