@@ -72,7 +72,7 @@ highlights:
     bgImageDark: https://theme-hope-assets.vuejs.press/bg/3-dark.svg
     highlights:
       - title: 安装 Git 及 Python3.10+
-      - title: 使用 <code>git clone https://github.com/snowykami/LiteyukiBot --depth=1</code> 以克隆项目至本地。
+      - title: 使用 <code>git clone https://github.com/LiteyukiStudio/LiteyukiBot --depth=1</code> 以克隆项目至本地。
         details: 如果无法连接到GitHub，可以使用 <code>git clone https://gitee.com/snowykami/LiteyukiBot --depth=1</code>。
       - title: 使用 <code>cd LiteyukiBot</code> 切换到项目目录。
       - title: 使用 <code>pip install -r requirements.txt</code> 安装项目依赖。

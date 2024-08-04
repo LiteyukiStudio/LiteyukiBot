@@ -20,6 +20,11 @@ export default sidebar({
             icon: "store",
             prefix: "store/",
             children: "structure",
+        },{
+            text: "其他",
+            icon: "question-circle",
+            prefix: "other/",
+            children: "structure",
         }
     ],
 });

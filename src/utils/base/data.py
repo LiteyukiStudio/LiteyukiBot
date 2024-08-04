@@ -32,6 +32,30 @@ class Database:
         self.cursor = self.conn.cursor()
 
         self._on_save_callbacks = []
+        self._is_locked = False
+
+    def lock(self):
+        self.cursor.execute("BEGIN TRANSACTION")
+        self._is_locked = True
+
+    def lock_query(self, query: str, *args):
+        """锁定查询"""
+        self.cursor.execute(query, args).fetchall()
+
+    def lock_model(self, model: LiteModel) -> LiteModel | Any | None:
+        """锁定行
+        Args:
+            model: 数据模型实例
+
+
+        Returns:
+
+        """
+        pass
+
+    def unlock(self):
+        self.cursor.execute("COMMIT")
+        self._is_locked = False
 
     def where_one(self, model: LiteModel, condition: str = "", *args: Any, default: Any = None) -> LiteModel | Any | None:
         """查询第一个
@@ -129,7 +153,11 @@ class Database:
                 fields = ', '.join([f'"{field}"' for field in fields])
                 placeholders = ', '.join('?' for _ in values)
                 self.cursor.execute(f"INSERT OR REPLACE INTO {table_name}({fields}) VALUES ({placeholders})", tuple(values))
-                self.conn.commit()
+                # self.conn.commit()
+                if self._is_locked:
+                    pass
+                else:
+                    self.conn.commit()
                 foreign_id = self.cursor.execute("SELECT last_insert_rowid()").fetchone()[0]
                 return f"{self.FOREIGN_KEY_PREFIX}{foreign_id}@{table_name}"  # -> FOREIGN_KEY_123456@{table_name} id@{table_name}
             else:
@@ -214,7 +242,10 @@ class Database:
         if not condition and not allow_empty:
             raise ValueError("删除操作必须提供条件")
         self.cursor.execute(f"DELETE FROM {table_name} WHERE {condition}", args)
-        self.conn.commit()
+        if self._is_locked:
+            pass
+        else:
+            self.conn.commit()
 
     def auto_migrate(self, *args: LiteModel):
 

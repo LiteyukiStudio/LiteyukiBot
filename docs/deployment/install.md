@@ -30,7 +30,7 @@ python main.py
 ### **使用Docker构建镜像部署**
 
 1. 安装 [`Docker`](https://docs.docker.com/get-docker/)
-2. 克隆项目 `git clone https://github.com/snowykami/LiteyukiBot`
+2. 克隆项目 `git clone https://github.com/LiteyukiStudio/LiteyukiBot`
 3. 进入轻雪目录 `cd LiteyukiBot`
 4. 构建镜像 `docker build -t liteyukibot .`
 5. 启动容器 `docker run -p 20216:20216 -v $(pwd):/liteyukibot -v $(pwd)/.cache:/root/.cache liteyukibot`
