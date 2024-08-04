@@ -61,6 +61,7 @@ class TempConfig(LiteModel):
     data: dict = {}
 
 
+
 def auto_migrate():
     user_db.auto_migrate(User())
     group_db.auto_migrate(Group())
