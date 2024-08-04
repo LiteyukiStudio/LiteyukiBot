@@ -13,7 +13,7 @@ import requests
 
 from src.utils.base.config import load_from_yaml, config
 from src.utils.base.log import init_log
-from src.utils.base.data_manager import TempConfig, auto_migrate, common_db
+from src.utils.base.data_manager import TempConfig, common_db
 from git import Repo
 
 
@@ -53,7 +53,6 @@ def init():
 
     """
     # 检测python版本是否高于3.10
-    auto_migrate()
     init_log()
     if sys.version_info < (3, 10):
         nonebot.logger.error("Requires Python3.10+ to run, please upgrade your Python Environment.")

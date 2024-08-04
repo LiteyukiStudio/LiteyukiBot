@@ -68,6 +68,9 @@ def auto_migrate():
     common_db.auto_migrate(GlobalPlugin(), StoredConfig(), TempConfig())
 
 
+auto_migrate()
+
+
 def set_memory_data(key: str, value) -> None:
     """
     设置内存数据库的数据，类似于redis
