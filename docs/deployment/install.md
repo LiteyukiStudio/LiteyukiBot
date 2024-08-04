@@ -15,7 +15,7 @@ tag:
 
 ```bash
 # 克隆项目到本地，轻雪使用Git进行版本管理，该步骤为必要项
-git clone https://github.com/snowykami/LiteyukiBot --depth=1
+git clone https://github.com/LiteyukiStudio/LiteyukiBot --depth=1
 # 切换到Bot目录下
 cd LiteyukiBot
 # 安装依赖
@@ -30,7 +30,7 @@ python main.py
 ### **使用Docker构建镜像部署**
 
 1. 安装 [`Docker`](https://docs.docker.com/get-docker/)
-2. 克隆项目 `git clone https://github.com/LiteyukiStudio/LiteyukiBot`
+2. 克隆项目 `git clone https://github.com/LiteyukiStudio/LiteyukiBot --depth=1` 
 3. 进入轻雪目录 `cd LiteyukiBot`
 4. 构建镜像 `docker build -t liteyukibot .`
 5. 启动容器 `docker run -p 20216:20216 -v $(pwd):/liteyukibot -v $(pwd)/.cache:/root/.cache liteyukibot`
