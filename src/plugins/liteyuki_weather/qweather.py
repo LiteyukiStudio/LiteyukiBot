@@ -94,7 +94,8 @@ async def get_weather_now_card(matcher: Matcher, event: T_MessageEvent, keyword:
                         "weatherHourly": weather_hourly,
                         "aqi"          : aqi,
                         "location"     : location_data.dump(),
-                        "localization" : get_local_data(ulang.lang_code)
+                        "localization" : get_local_data(ulang.lang_code),
+                        "is_dev": 1 if is_dev else 0
                 }
         },
     )
