@@ -8,6 +8,8 @@ import threading
 from pathlib import Path
 from typing import Any, Callable, Coroutine
 
+from liteyuki.log import logger
+
 
 def is_coroutine_callable(call: Callable[..., Any]) -> bool:
     """
@@ -55,7 +57,7 @@ def run_coroutine(*coro: Coroutine):
         loop.close()
     except Exception as e:
         # 捕获其他异常，防止协程被重复等待
-        print(f"Exception occurred: {e}")
+        logger.error(f"Exception occurred: {e}")
 
 
 def path_to_module_name(path: Path) -> str:

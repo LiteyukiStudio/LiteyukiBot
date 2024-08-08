@@ -19,7 +19,7 @@ from src.utils.base.ly_typing import T_Bot, T_MessageEvent
 from src.utils.message.message import MarkdownMessage as md, broadcast_to_superusers
 # from src.liteyuki.core import Reloader
 from src.utils import event as event_utils, satori_utils
-from liteyuki.core.spawn_process import chan_in_spawn
+from liteyuki.core.spawn_process import chan_in_spawn_nb
 
 from .api import update_liteyuki
 from liteyuki.bot import get_bot

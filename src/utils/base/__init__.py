@@ -1,7 +1,7 @@
 import threading
 
 from nonebot import logger
-from liteyuki.core.spawn_process import chan_in_spawn
+from liteyuki.core.spawn_process import chan_in_spawn_nb
 
 
 def reload(delay: float = 0.0, receiver: str = "nonebot"):
@@ -15,5 +15,5 @@ def reload(delay: float = 0.0, receiver: str = "nonebot"):
 
     """
 
-    chan_in_spawn.send(1, receiver)
+    chan_in_spawn_nb.send(1, receiver)
     logger.info(f"Reloading LiteyukiBot({receiver})...")

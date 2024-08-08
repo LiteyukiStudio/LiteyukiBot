@@ -7,7 +7,6 @@ bot_info_router = APIRouter(prefix="/api/bot-info")
 
 @device_info_router.get("/")
 async def device_info():
-    print("Hello Device Info")
     return {
             "message": "Hello Device Info"
     }

@@ -10,6 +10,7 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 """
 from typing import Any, Awaitable, Callable, TypeAlias
 
+from liteyuki.log import logger
 from liteyuki.utils import is_coroutine_callable
 
 SYNC_LIFESPAN_FUNC: TypeAlias = Callable[[], Any]
@@ -135,6 +136,7 @@ class Lifespan:
         启动前
         Returns:
         """
+        logger.debug("Running before_start functions")
         await self._run_funcs(self._before_start_funcs)
 
     async def after_start(self) -> None:
@@ -142,6 +144,7 @@ class Lifespan:
         启动后
         Returns:
         """
+        logger.debug("Running after_start functions")
         await self._run_funcs(self._after_start_funcs)
 
     async def before_shutdown(self) -> None:
@@ -149,6 +152,7 @@ class Lifespan:
         停止前
         Returns:
         """
+        logger.debug("Running before_shutdown functions")
         await self._run_funcs(self._before_shutdown_funcs)
 
     async def after_shutdown(self) -> None:
@@ -156,6 +160,7 @@ class Lifespan:
         停止后
         Returns:
         """
+        logger.debug("Running after_shutdown functions")
         await self._run_funcs(self._after_shutdown_funcs)
 
     async def before_restart(self) -> None:
@@ -163,6 +168,7 @@ class Lifespan:
         重启前
         Returns:
         """
+        logger.debug("Running before_restart functions")
         await self._run_funcs(self._before_restart_funcs)
 
     async def after_restart(self) -> None:
@@ -171,6 +177,7 @@ class Lifespan:
         Returns:
 
         """
+        logger.debug("Running after_restart functions")
         await self._run_funcs(self._after_restart_funcs)
 
     async def after_nonebot_init(self) -> None:
@@ -178,4 +185,5 @@ class Lifespan:
         NoneBot 初始化后
         Returns:
         """
+        logger.debug("Running after_nonebot_init functions")
         await self._run_funcs(self._after_nonebot_init_funcs)

@@ -6,10 +6,9 @@ import aiohttp
 import nonebot
 import psutil
 import requests
-from aiohttp import FormData
 
-from .. import __VERSION_I__, __VERSION__, __NAME__
 from .config import load_from_yaml
+from .. import __NAME__, __VERSION_I__, __VERSION__
 
 
 class LiteyukiAPI:
@@ -68,6 +67,10 @@ class LiteyukiAPI:
                 nonebot.logger.error(f"Bug report failed: {resp.text}")
         else:
             nonebot.logger.warning(f"Bug report is disabled: {content}")
+
+    def register(self):
+        pass
+
 
     async def heartbeat_report(self):
         """

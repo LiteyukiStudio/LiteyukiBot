@@ -153,7 +153,6 @@ class Minesweeper:
         text += "\n\n"
         for i, row in enumerate(self.board):
             text += start + f"{self.NUMS[i]}" + dis*2
-            print([d.value for d in row])
             for dot in row:
                 if dot.mask and not dot.flagged:
                     text += md.btn_cmd(self.MASK, f"minesweeper reveal {dot.row} {dot.col}")

@@ -16,10 +16,10 @@ from pydantic import BaseModel
 
 class PluginMetadata(BaseModel):
     """
-    轻雪插件元数据，由插件编写者提供
+    轻雪插件元数据，由插件编写者提供，name为必填项
     """
     name: str
-    description: str
+    description: str = ""
     usage: str = ""
     type: str = ""
     homepage: str = ""

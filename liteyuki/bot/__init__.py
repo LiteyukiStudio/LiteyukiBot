@@ -1,3 +1,4 @@
+import threading
 import time
 import asyncio
 from typing import Any, Optional
@@ -29,7 +30,10 @@ class LiteyukiBot:
 
         self.lifespan: Lifespan = Lifespan()
         self.chan = Channel()  # 进程通信通道
-        self.pm: Optional[ProcessManager] = None  # 启动时实例化
+        self.pm: ProcessManager = ProcessManager(bot=self, chan=self.chan)
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+        self.loop_thread = threading.Thread(target=self.loop.run_forever, daemon=True)
 
         print("\033[34m" + r"""
  __        ______  ________  ________  __      __  __    __  __    __  ______ 
@@ -44,8 +48,10 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
             """ + "\033[0m")
 
     def run(self):
-        # load_plugins("liteyuki/plugins")  # 加载轻雪插件
-        self.pm = ProcessManager(bot=self, chan=self.chan)
+        load_plugins("liteyuki/plugins")  # 加载轻雪插件
+
+        self.loop_thread.start()  # 启动事件循环
+        asyncio.run(self.lifespan.before_start())  # 启动前钩子
 
         self.pm.add_target("nonebot", nb_run, **self.config)
         self.pm.start("nonebot")
@@ -53,7 +59,7 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
         self.pm.add_target("melobot", mb_run, **self.config)
         self.pm.start("melobot")
 
-        run_coroutine(self.lifespan.after_start())  # 启动前
+        asyncio.run(self.lifespan.after_start())  # 启动后钩子
 
     def restart(self, name: Optional[str] = None):
         """
@@ -64,14 +70,14 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
 
         """
         logger.info("Stopping LiteyukiBot...")
-        logger.debug("Running before_restart functions...")
-        run_coroutine(self.lifespan.before_restart())
-        logger.debug("Running before_shutdown functions...")
-        run_coroutine(self.lifespan.before_shutdown())
+
+        self.loop.create_task(self.lifespan.before_shutdown())  # 重启前钩子
+        self.loop.create_task(self.lifespan.before_shutdown())  # 停止前钩子
+
         if name:
             self.chan.send(1, name)
         else:
-            for name in self.pm.processes:
+            for name in self.pm.targets:
                 self.chan.send(1, name)
 
     def init(self, *args, **kwargs):
@@ -114,7 +120,7 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
 
     def on_before_shutdown(self, func: LIFESPAN_FUNC):
         """
-        注册停止前的函数
+        注册停止前的函数，为子进程停止时调用
         Args:
             func:
 
@@ -136,7 +142,7 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
 
     def on_before_restart(self, func: LIFESPAN_FUNC):
         """
-        注册重启前的函数
+        注册重启前的函数，为子进程重启时调用
         Args:
             func:
 

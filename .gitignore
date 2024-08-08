@@ -21,6 +21,7 @@ src/resources/templates/latest-debug.html
 
 test.py
 line_count.py
+mypy.ini
 
 # nuitka
 main.build/

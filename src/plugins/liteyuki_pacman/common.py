@@ -146,7 +146,6 @@ def set_plugin_session_enable(event: T_MessageEvent, plugin_name: str, enable: b
     else:
         session: User = user_db.where_one(User(), "user_id = ?", str(event_utils.get_user_id(event)),
                                     default=User(user_id=str(event_utils.get_user_id(event))))
-    print(session)
     default_enable = get_plugin_default_enable(plugin_name)
     if default_enable:
         if enable:

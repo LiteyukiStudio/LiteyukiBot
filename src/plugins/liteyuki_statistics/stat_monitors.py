@@ -15,7 +15,7 @@ require("nonebot_plugin_alconna")
 
 
 async def general_event_monitor(bot: T_Bot, event: T_MessageEvent):
-    print("POST PROCESS")
+    pass
     # if isinstance(bot, satori.Bot):
     #     print("POST PROCESS SATORI EVENT")
     #     return await satori_event_monitor(bot, event)

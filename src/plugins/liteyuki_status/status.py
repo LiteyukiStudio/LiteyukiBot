@@ -52,9 +52,9 @@ async def _(event: T_MessageEvent, bot: T_Bot):
 
 @status_alc.assign("memory")
 async def _():
-    print("memory")
+    pass
 
 
 @status_alc.assign("process")
 async def _():
-    print("process")
+    pass

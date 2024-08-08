@@ -119,7 +119,6 @@ async def _(result: Arparma, event: T_MessageEvent, bot: Bot):
     ulang = Language(event_utils.get_user_id(event))
     rank_type = "user"
     duration = convert_time_to_seconds(result.other_args.get("duration", "1d"))
-    print(result)
     if result.subcommands.get("rank").options.get("user"):
         rank_type = "user"
     elif result.subcommands.get("rank").options.get("group"):

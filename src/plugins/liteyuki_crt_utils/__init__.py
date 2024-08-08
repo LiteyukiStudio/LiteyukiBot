@@ -1,7 +1,6 @@
 import multiprocessing
 
 from nonebot.plugin import PluginMetadata
-from liteyuki.plugin import get_loaded_plugins
 from .rt_guide import *
 from .crt_matchers import *
 
@@ -17,5 +16,3 @@ __plugin_meta__ = PluginMetadata(
             "default_enable": True,
     }
 )
-
-print("Loaded plugins:", len(get_loaded_plugins()))
