@@ -23,6 +23,7 @@ let weatherNow = data["weatherNow"]
 let weatherDaily = data["weatherDaily"]
 let weatherHourly = data["weatherHourly"]
 let aqi = data["aqi"]
+let is_dev = data["is_dev"]
 
 let locationData = data["location"]
 
