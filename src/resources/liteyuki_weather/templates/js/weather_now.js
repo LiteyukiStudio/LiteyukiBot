@@ -34,7 +34,13 @@ if ("aqi" in aqi) {
             if (item["defaultLocalAqi"]) {
                 document.getElementById("aqi-data").innerText = "AQI " + item["valueDisplay"] + " " + item["category"]
                 // 将(255,255,255)这种格式的颜色设置给css
-                document.getElementById("aqi-dot").style.backgroundColor = "rgb(" + item["color"] + ")"
+                if(is_dev == 1){
+                    //开发版
+                    document.getElementById("aqi-dot").style.backgroundColor = "rgb(" + item["color"]['red'] + "," + item["color"]['green'] + "," + item["color"]['blue'] + "," + item["color"]['alpha'] + ")"
+                }else{
+                    //正式版
+                    document.getElementById("aqi-dot").style.backgroundColor = "rgb(" + item["color"] + ")"
+                }
             }
         }
     )
