@@ -1,24 +1,25 @@
+import asyncio
+import os
+import platform
+import sys
 import threading
 import time
-import asyncio
 from typing import Any, Optional
-from multiprocessing import freeze_support
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 from liteyuki.bot.lifespan import (LIFESPAN_FUNC, Lifespan)
-from liteyuki.comm.channel import Channel
+from liteyuki.comm.channel import Channel, set_channel
 from liteyuki.core import IS_MAIN_PROCESS
 from liteyuki.core.manager import ProcessManager
 from liteyuki.core.spawn_process import mb_run, nb_run
 from liteyuki.log import init_log, logger
 from liteyuki.plugin import load_plugins
-from liteyuki.utils import run_coroutine
 
 __all__ = [
         "LiteyukiBot",
         "get_bot"
 ]
-
-"""是否为主进程"""
 
 
 class LiteyukiBot:
@@ -29,11 +30,12 @@ class LiteyukiBot:
         self.init(**self.config)  # 初始化
 
         self.lifespan: Lifespan = Lifespan()
-        self.chan = Channel()  # 进程通信通道
-        self.pm: ProcessManager = ProcessManager(bot=self, chan=self.chan)
+
+        self.process_manager: ProcessManager = ProcessManager(bot=self)
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
         self.loop_thread = threading.Thread(target=self.loop.run_forever, daemon=True)
+        self.call_restart_count = 0
 
         print("\033[34m" + r"""
  __        ______  ________  ________  __      __  __    __  __    __  ______ 
@@ -53,15 +55,83 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
         self.loop_thread.start()  # 启动事件循环
         asyncio.run(self.lifespan.before_start())  # 启动前钩子
 
-        self.pm.add_target("nonebot", nb_run, **self.config)
-        self.pm.start("nonebot")
+        self.process_manager.add_target("nonebot", nb_run, **self.config)
+        self.process_manager.start("nonebot")
 
-        self.pm.add_target("melobot", mb_run, **self.config)
-        self.pm.start("melobot")
+        self.process_manager.add_target("melobot", mb_run, **self.config)
+        self.process_manager.start("melobot")
 
         asyncio.run(self.lifespan.after_start())  # 启动后钩子
 
-    def restart(self, name: Optional[str] = None):
+        self.start_watcher()  # 启动文件监视器
+
+    def start_watcher(self):
+        if self.config.get("debug", False):
+
+            code_directories = {}
+
+            src_directories = (
+                    "liteyuki",
+                    "src/liteyuki_main",
+                    "src/liteyuki_plugins",
+                    "src/nonebot_plugins",
+                    "src/utils",
+            )
+            src_excludes_extensions = (
+                    "pyc",
+            )
+
+            logger.debug("Liteyuki Reload enabled, watching for file changes...")
+            restart = self.restart_process
+
+            class CodeModifiedHandler(FileSystemEventHandler):
+                """
+                Handler for code file changes
+                """
+
+                def on_modified(self, event):
+                    if event.src_path.endswith(
+                            src_excludes_extensions) or event.is_directory or "__pycache__" in event.src_path:
+                        return
+                    logger.info(f"{event.src_path} modified, reloading bot...")
+                    restart()
+
+            code_modified_handler = CodeModifiedHandler()
+
+            observer = Observer()
+            for directory in src_directories:
+                observer.schedule(code_modified_handler, directory, recursive=True)
+            observer.start()
+
+    def restart(self, delay: int = 0):
+        """
+        重启轻雪本体
+        Returns:
+
+        """
+
+        if self.call_restart_count < 1:
+            executable = sys.executable
+            args = sys.argv
+            logger.info("Restarting LiteyukiBot...")
+            time.sleep(delay)
+            if platform.system() == "Windows":
+                cmd = "start"
+            elif platform.system() == "Linux":
+                cmd = "nohup"
+            elif platform.system() == "Darwin":
+                cmd = "open"
+            else:
+                cmd = "nohup"
+            self.process_manager.terminate_all()
+            # 等待所有进程退出
+            self.process_manager.chan_active.receive("main")
+            # 进程退出后重启
+            threading.Thread(target=os.system, args=(f"{cmd} {executable} {' '.join(args)}",)).start()
+            sys.exit(0)
+        self.call_restart_count += 1
+
+    def restart_process(self, name: Optional[str] = None):
         """
         停止轻雪
         Args:
@@ -75,10 +145,10 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
         self.loop.create_task(self.lifespan.before_shutdown())  # 停止前钩子
 
         if name:
-            self.chan.send(1, name)
+            self.chan_active.send(1, name)
         else:
-            for name in self.pm.targets:
-                self.chan.send(1, name)
+            for name in self.process_manager.targets:
+                self.chan_active.send(1, name)
 
     def init(self, *args, **kwargs):
         """

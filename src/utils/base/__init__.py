@@ -1,7 +1,7 @@
 import threading
 
 from nonebot import logger
-from liteyuki.core.spawn_process import chan_in_spawn_nb
+from liteyuki.comm.channel import get_channel
 
 
 def reload(delay: float = 0.0, receiver: str = "nonebot"):
@@ -14,6 +14,13 @@ def reload(delay: float = 0.0, receiver: str = "nonebot"):
     Returns:
 
     """
+    chan = get_channel(receiver + "-active")
+    if chan is None:
+        logger.error(f"Channel {receiver}-active not found, cannot reload.")
+        return
 
-    chan_in_spawn_nb.send(1, receiver)
-    logger.info(f"Reloading LiteyukiBot({receiver})...")
+    if delay > 0:
+        threading.Timer(delay, chan.send, args=(1,)).start()
+        return
+    else:
+        chan.send(1)

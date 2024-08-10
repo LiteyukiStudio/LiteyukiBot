@@ -6,29 +6,25 @@ import nonebot
 import pip
 from nonebot import Bot, get_driver, require
 from nonebot.adapters import onebot, satori
-from nonebot.adapters.onebot.v11 import Message, escape, unescape
+from nonebot.adapters.onebot.v11 import Message, unescape
 from nonebot.exception import MockApiException
 from nonebot.internal.matcher import Matcher
 from nonebot.permission import SUPERUSER
 
-from liteyuki import Channel
+# from src.liteyuki.core import Reloader
+from src.utils import event as event_utils, satori_utils
 from src.utils.base.config import get_config, load_from_yaml
 from src.utils.base.data_manager import StoredConfig, TempConfig, common_db
 from src.utils.base.language import get_user_lang
 from src.utils.base.ly_typing import T_Bot, T_MessageEvent
 from src.utils.message.message import MarkdownMessage as md, broadcast_to_superusers
-# from src.liteyuki.core import Reloader
-from src.utils import event as event_utils, satori_utils
-from liteyuki.core.spawn_process import chan_in_spawn_nb
-
 from .api import update_liteyuki
-from liteyuki.bot import get_bot
 from ..utils.base import reload
 from ..utils.base.ly_function import get_function
 
 require("nonebot_plugin_alconna")
 require("nonebot_plugin_apscheduler")
-from nonebot_plugin_alconna import UniMessage, on_alconna, Alconna, Args, Subcommand, Arparma, MultiVar
+from nonebot_plugin_alconna import on_alconna, Alconna, Args, Subcommand, Arparma, MultiVar
 from nonebot_plugin_apscheduler import scheduler
 
 driver = get_driver()
@@ -81,7 +77,6 @@ async def _(bot: T_Bot, event: T_MessageEvent):
 ).handle()
 # Satori OK
 async def _(matcher: Matcher, bot: T_Bot, event: T_MessageEvent):
-    global channel_in_spawn_process
     await matcher.send("Liteyuki reloading")
     temp_data = common_db.where_one(TempConfig(), default=TempConfig())
 
@@ -91,8 +86,8 @@ async def _(matcher: Matcher, bot: T_Bot, event: T_MessageEvent):
                 "reload_time"        : time.time(),
                 "reload_bot_id"      : bot.self_id,
                 "reload_session_type": event_utils.get_message_type(event),
-                "reload_session_id"  : (event.group_id if event.message_type == "group" else event.user_id) if not isinstance(event,
-                                                                                                                              satori.event.Event) else event.chan.id,
+                "reload_session_id"  : (event.group_id if event.message_type == "group" else event.user_id)
+                    if not isinstance(event, satori.event.Event) else event.chan_active.id,
                 "delta_time"         : 0
         }
     )
@@ -358,7 +353,7 @@ async def _(bot: T_Bot):
         delta_time = temp_data.data.get("delta_time", 0)
         common_db.save(temp_data)  # 更新数据
 
-        if delta_time <= 20.0:   # 启动时间太长就别发了，丢人
+        if delta_time <= 20.0:  # 启动时间太长就别发了，丢人
             if isinstance(bot, satori.Bot):
                 await bot.send_message(
                     channel_id=reload_session_id,

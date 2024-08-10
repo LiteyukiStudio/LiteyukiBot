@@ -13,7 +13,7 @@ import threading
 from multiprocessing import Process
 from typing import TYPE_CHECKING
 
-from liteyuki.comm import Channel
+from liteyuki.comm import Channel, get_channel, set_channels
 from liteyuki.log import logger
 
 if TYPE_CHECKING:
@@ -31,11 +31,17 @@ class ProcessManager:
     在主进程中被调用
     """
 
-    def __init__(self, bot: "LiteyukiBot", chan: Channel):
+    def __init__(self, bot: "LiteyukiBot"):
         self.bot = bot
-        self.chan = chan
         self.targets: dict[str, tuple[callable, tuple, dict]] = {}
         self.processes: dict[str, Process] = {}
+
+        set_channels({
+                "nonebot-active" : Channel(_id="nonebot-active"),
+                "melobot-active" : Channel(_id="melobot-active"),
+                "nonebot-passive": Channel(_id="nonebot-passive"),
+                "melobot-passive": Channel(_id="melobot-passive"),
+        })
 
     def start(self, name: str, delay: int = 0):
         """
@@ -47,19 +53,21 @@ class ProcessManager:
         Returns:
 
         """
-
         if name not in self.targets:
             raise KeyError(f"Process {name} not found.")
 
         def _start():
             should_exit = False
             while not should_exit:
-                process = Process(target=self.targets[name][0], args=(self.chan, *self.targets[name][1]), kwargs=self.targets[name][2])
+                chan_active = get_channel(f"{name}-active")
+                chan_passive = get_channel(f"{name}-passive")
+                process = Process(target=self.targets[name][0], args=(chan_active, chan_passive, *self.targets[name][1]),
+                                  kwargs=self.targets[name][2])
                 self.processes[name] = process
                 process.start()
                 while not should_exit:
                     # 0退出 1重启
-                    data = self.chan.receive(name)
+                    data = chan_active.receive()
                     if data == 1:
                         logger.info(f"Restarting process {name}")
                         asyncio.run(self.bot.lifespan.before_shutdown())
@@ -103,3 +111,7 @@ class ProcessManager:
         process.join(TIMEOUT)
         if process.is_alive():
             process.kill()
+
+    def terminate_all(self):
+        for name in self.targets:
+            self.terminate(name)

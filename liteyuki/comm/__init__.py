@@ -9,11 +9,22 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @Software: PyCharm
 该模块用于轻雪主进程和Nonebot子进程之间的通信
 """
-from liteyuki.comm.channel import Channel, chan
+from liteyuki.comm.channel import (
+    Channel,
+    chan,
+    get_channel,
+    set_channel,
+    set_channels,
+    get_channels
+)
 from liteyuki.comm.event import Event
 
 __all__ = [
         "Channel",
         "chan",
         "Event",
+        "get_channel",
+        "set_channel",
+        "set_channels",
+        "get_channels"
 ]
