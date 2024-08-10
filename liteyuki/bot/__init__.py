@@ -5,11 +5,11 @@ import sys
 import threading
 import time
 from typing import Any, Optional
-from watchdog.observers import Observer
+
 from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
 from liteyuki.bot.lifespan import (LIFESPAN_FUNC, Lifespan)
-from liteyuki.comm.channel import Channel, set_channel
 from liteyuki.core import IS_MAIN_PROCESS
 from liteyuki.core.manager import ProcessManager
 from liteyuki.core.spawn_process import mb_run, nb_run
@@ -67,8 +67,6 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
 
     def start_watcher(self):
         if self.config.get("debug", False):
-
-            code_directories = {}
 
             src_directories = (
                     "liteyuki",

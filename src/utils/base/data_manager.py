@@ -5,7 +5,6 @@ from pydantic import Field
 from .data import Database, LiteModel, Database
 
 DATA_PATH = "data/liteyuki"
-
 user_db: Database = Database(os.path.join(DATA_PATH, "users.ldb"))
 group_db: Database = Database(os.path.join(DATA_PATH, "groups.ldb"))
 plugin_db: Database = Database(os.path.join(DATA_PATH, "plugins.ldb"))

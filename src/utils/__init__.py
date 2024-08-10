@@ -13,7 +13,6 @@ import requests
 
 from src.utils.base.config import load_from_yaml, config
 from src.utils.base.log import init_log
-from src.utils.base.data_manager import TempConfig, common_db
 from git import Repo
 
 
@@ -64,9 +63,9 @@ def init():
     except Exception as e:
         nonebot.logger.error(f"Failed to load git repository: {e}, please clone this project from GitHub instead of downloading the zip file.")
 
-    temp_data: TempConfig = common_db.where_one(TempConfig(), default=TempConfig())
-    temp_data.data["start_time"] = time.time()
-    common_db.save(temp_data)
+    # temp_data: TempConfig = common_db.where_one(TempConfig(), default=TempConfig())
+    # temp_data.data["start_time"] = time.time()
+    # common_db.save(temp_data)
 
     # 在加载完成语言后再初始化日志
     nonebot.logger.info("Liteyuki is initializing...")
