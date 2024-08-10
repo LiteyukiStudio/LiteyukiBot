@@ -169,3 +169,20 @@ async def get_airquality(
     async with httpx.AsyncClient() as client:
         resp = await client.get(url, params=params)
         return resp.json()
+
+async def get_astronomy(
+        key: str,
+        location: str,
+        date: str,
+        dev: bool = get_memory_data("is_dev", True),
+) -> dict:
+    url_path = f"v7/astronomy/sun?"
+    url = dev_url + url_path if dev else com_url + url_path
+    params = {
+            "key"      : key,
+            "location" : location,
+            "date"     : date,
+    }
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(url, params=params)
+        return resp.json()

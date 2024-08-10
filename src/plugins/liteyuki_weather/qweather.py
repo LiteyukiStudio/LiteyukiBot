@@ -1,3 +1,5 @@
+import datetime
+
 from nonebot import require, on_endswith
 from nonebot.adapters import satori
 from nonebot.adapters.onebot.v11 import MessageSegment
@@ -50,6 +52,9 @@ async def get_weather_now_card(matcher: Matcher, event: T_MessageEvent, keyword:
     qw_lang = get_qw_lang(ulang.lang_code)
     key = get_config("weather_key")
     is_dev = get_memory_data("weather.is_dev", True)
+    extra_info = get_config("weather_extra_info")
+    attr = get_config("weather_attr")
+    
     user: User = user_db.where_one(User(), "user_id = ?", event_utils.get_user_id(event), default=User())
     # params
     unit = user.profile.get("unit", "m")
@@ -80,6 +85,7 @@ async def get_weather_now_card(matcher: Matcher, event: T_MessageEvent, keyword:
     weather_daily = await get_weather_daily(key, location_data.id, lang=qw_lang, unit=unit, dev=is_dev)
     weather_hourly = await get_weather_hourly(key, location_data.id, lang=qw_lang, unit=unit, dev=is_dev)
     aqi = await get_airquality(key, location_data.id, lang=qw_lang, dev=is_dev)
+    weather_astronomy = await get_astronomy(key, location_data.id, date=datetime.datetime.now().strftime('%Y%m%d'), dev=is_dev)
 
     image = await template2image(
         template=get_path("templates/weather_now.html", abs_path=True),
@@ -89,13 +95,17 @@ async def get_weather_now_card(matcher: Matcher, event: T_MessageEvent, keyword:
                                 "unit": unit,
                                 "lang": ulang.lang_code,
                         },
-                        "weatherNow"   : weather_now,
-                        "weatherDaily" : weather_daily,
-                        "weatherHourly": weather_hourly,
-                        "aqi"          : aqi,
-                        "location"     : location_data.dump(),
-                        "localization" : get_local_data(ulang.lang_code),
-                        "is_dev": 1 if is_dev else 0
+                        "weatherNow"        : weather_now,
+                        "weatherDaily"      : weather_daily,
+                        "weatherHourly"     : weather_hourly,
+                        "aqi"               : aqi,
+                        "location"          : location_data.dump(),
+                        "localization"      : get_local_data(ulang.lang_code),
+                        "weatherAstronomy"  : weather_astronomy,
+                        "is_dev"            : 1 if is_dev else 0,
+                        "extra_info"        : extra_info,
+                        "attr"              : attr
+
                 }
         },
     )
