@@ -122,8 +122,6 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
             else:
                 cmd = "nohup"
             self.process_manager.terminate_all()
-            # 等待所有进程退出
-            self.process_manager.chan_active.receive("main")
             # 进程退出后重启
             threading.Thread(target=os.system, args=(f"{cmd} {executable} {' '.join(args)}",)).start()
             sys.exit(0)
@@ -143,10 +141,9 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
         self.loop.create_task(self.lifespan.before_shutdown())  # 停止前钩子
 
         if name:
-            self.chan_active.send(1, name)
+            self.process_manager.terminate(name)
         else:
-            for name in self.process_manager.targets:
-                self.chan_active.send(1, name)
+            self.process_manager.terminate_all()
 
     def init(self, *args, **kwargs):
         """

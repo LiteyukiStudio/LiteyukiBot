@@ -5,8 +5,6 @@ import nonebot
 import yaml
 from pydantic import BaseModel
 
-from .data_manager import StoredConfig, TempConfig, common_db
-from .ly_typing import T_Bot
 from ..message.tools import random_hex_string
 
 config = {}  # 全局配置，确保加载后读取
@@ -70,20 +68,12 @@ def get_config(key: str, default=None):
     elif key in config:
         return config[key]
 
-    elif key in common_db.where_one(StoredConfig(), default=StoredConfig()).config:
-        return common_db.where_one(StoredConfig(), default=StoredConfig()).config[key]
-
     elif key in load_from_yaml("config.yml"):
         return load_from_yaml("config.yml")[key]
 
     else:
         return default
 
-
-def set_stored_config(key: str, value):
-    temp_config: TempConfig = common_db.where_one(TempConfig(), default=TempConfig())
-    temp_config.data[key] = value
-    common_db.save(temp_config)
 
 
 def init_conf(conf: dict) -> dict:
