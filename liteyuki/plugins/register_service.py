@@ -9,6 +9,7 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @Software: PyCharm
 """
 import json
+import os.path
 import platform
 
 import requests
@@ -52,4 +53,5 @@ def register_bot():
 
 @liteyuki.on_before_start
 async def _():
-    register_bot()
+    if not os.path.exists("data/liteyuki/liteyuki.json"):
+        register_bot()
