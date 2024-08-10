@@ -18,10 +18,10 @@ __plugin_meta__ = PluginMetadata(
     }
 )
 
-chan = get_channel("nonebot-passive")
-
-
-@chan.on_receive()
-async def _(d):
-    print("CRT子进程接收到数据：", d)
-    chan.send("CRT子进程已接收到数据")
+# chan = get_channel("nonebot-passive")
+#
+#
+# @chan.on_receive()
+# async def _(d):
+#     print("CRT子进程接收到数据：", d)
+#     chan.send("CRT子进程已接收到数据")

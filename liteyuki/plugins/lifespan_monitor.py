@@ -51,7 +51,7 @@ async def _():
         nbp_chan.send("send by main")
 
 
-@mbp_chan.on_receive()
-@nbp_chan.on_receive()
-async def _(data):
-    print("主进程收到数据", data)
+# @mbp_chan.on_receive()
+# @nbp_chan.on_receive()
+# async def _(data):
+#     print("主进程收到数据", data)
