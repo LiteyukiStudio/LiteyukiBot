@@ -46,9 +46,7 @@ def _():
 @bot.on_after_start
 async def _():
     logger.info("生命周期监控器：启动完成")
-    while True:
-        await asyncio.sleep(3)
-        nbp_chan.send("send by main")
+
 
 
 # @mbp_chan.on_receive()
