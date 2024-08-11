@@ -23,7 +23,10 @@ let weatherNow = data["weatherNow"]
 let weatherDaily = data["weatherDaily"]
 let weatherHourly = data["weatherHourly"]
 let aqi = data["aqi"]
+let weatherAstronomy = data["weatherAstronomy"]
 let is_dev = data["is_dev"]
+let attr = data["attr"]
+
 
 let locationData = data["location"]
 
@@ -35,10 +38,10 @@ if ("aqi" in aqi) {
             if (item["defaultLocalAqi"]) {
                 document.getElementById("aqi-data").innerText = "AQI " + item["valueDisplay"] + " " + item["category"]
                 // 将(255,255,255)这种格式的颜色设置给css
-                if(is_dev == 1){
+                if (is_dev) {
                     //开发版
                     document.getElementById("aqi-dot").style.backgroundColor = "rgb(" + item["color"]['red'] + "," + item["color"]['green'] + "," + item["color"]['blue'] + "," + item["color"]['alpha'] + ")"
-                }else{
+                } else {
                     //正式版
                     document.getElementById("aqi-dot").style.backgroundColor = "rgb(" + item["color"] + ")"
                 }
@@ -64,6 +67,33 @@ templates = {
 for (let id in templates) {
     document.getElementById(id).innerText = templates[id]
 }
+
+
+subtemplates = {
+    "now-windDirect": weatherNow["now"]["windDir"] + " " + weatherNow["now"]["wind360"] + "°",
+    "now-windVelocity": "风矢 " + weatherNow["now"]["windScale"] + "级 " + weatherNow["now"]["windSpeed"] + "km/h",
+    "now-humidity": "湿度 " + weatherNow["now"]["humidity"] + "%",
+    "now-feelsLike": "体感 " + weatherNow["now"]["feelsLike"] + "°C",
+    "now-precip": "降水 " + weatherNow["now"]["precip"] + "mm",
+    "now-pressure": "气压 " + weatherNow["now"]["pressure"] + "hPa",
+    "vis": "能见 " + weatherNow["now"]["vis"] + "km",
+    "cloud ": "云量 " + (weatherNow["now"]["cloud"] == "" ? "无数据" : (weatherNow["now"]["cloud"] + "%")),
+    "astronomy-sunrise": "日出 " + get_time_hour(weatherAstronomy["sunrise"]),
+    "astronomy-sunset": "日落 " + get_time_hour(weatherAstronomy["sunset"])
+}
+
+let subItemDivTemplate = document.importNode(document.getElementById("sub-info-template").content, true);
+
+let subItemDiv = subItemDivTemplate.querySelector(".sub-info");
+
+for (let id in subtemplates) {
+    let element = subItemDiv.querySelector(`#${id}`);
+    if (element) {
+        element.innerText = subtemplates[id];
+    }
+}
+
+document.getElementById('sub-info').appendChild(subItemDiv);
 
 let maxHourlyItem = 8
 let percentWidth = 1 / (maxHourlyItem * 1.5) * 100
@@ -126,7 +156,12 @@ weatherDaily['daily'].forEach(
 )
 
 function get_time_hour(fxTime) {
-//     fxTime 2024-05-03T02:00+/-08:00'
+    //     fxTime 2024-05-03T02:00+/-08:00'
     fxTime = fxTime.replace("-", "+")
     return fxTime.split("T")[1].split("+")[0]
 }
+
+let attrinfo = document.getElementById('attribution-info');
+if (!is_dev & !attr) attrinfo.parentElement.style.display = "none"
+
+attrinfo.innerText = is_dev ? "Weather Service Drived by QWeather" : (attr ? attr : "Weather Service Drived by QWeather")
