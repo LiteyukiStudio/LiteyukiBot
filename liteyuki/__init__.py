@@ -1,6 +1,7 @@
 from liteyuki.bot import (
     LiteyukiBot,
-    get_bot
+    get_bot,
+    get_config
 )
 
 from liteyuki.comm import (

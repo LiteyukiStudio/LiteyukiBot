@@ -9,7 +9,7 @@ bgImageDark:
 bgImageStyle:
   background-attachment: fixed
 heroText: LiteyukiBot
-tagline: LiteyukiBot 轻雪机器人，基于NoneBot2构建的综合应用型聊天机器人
+tagline: LiteyukiBot 轻雪机器人，综合性的机器人应用及管理框架
  
 actions:
   - text: 快速部署
@@ -30,9 +30,9 @@ highlights:
       background-repeat: repeat
       background-size: initial
     features:
-      - title: 基于NoneBot2
+      - title: 支持多种框架
         icon: robot
-        details: 拥有良好的生态支持
+        details: 兼容nonebot，melobot等，拥有良好的生态支持
         link: https://nonebot.dev/
 
       - title: 便捷管理

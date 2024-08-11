@@ -35,13 +35,14 @@ _callback_funcs: dict[str, ON_RECEIVE_FUNC] = {}
 
 class Channel:
     """
-    通道类，用于进程间通信，进程内不可用，仅限主进程和子进程之间通信
+    通道类，可以在进程间和进程内通信，双向但同时只能有一个发送者和一个接收者
     有两种接收工作方式，但是只能选择一种，主动接收和被动接收，主动接收使用 `receive` 方法，被动接收使用 `on_receive` 装饰器
     """
 
     def __init__(self, _id: str):
-        self.main_send_conn, self.sub_receive_conn = Pipe()
-        self.sub_send_conn, self.main_receive_conn = Pipe()
+        # self.main_send_conn, self.sub_receive_conn = Pipe()
+        # self.sub_send_conn, self.main_receive_conn = Pipe()
+        self.conn_send, self.conn_recv = Pipe()
         self._closed = False
         self._on_main_receive_funcs: list[str] = []
         self._on_sub_receive_funcs: list[str] = []
@@ -61,12 +62,7 @@ class Channel:
         """
         if self._closed:
             raise RuntimeError("Cannot send to a closed channel")
-        if IS_MAIN_PROCESS:
-            print("主进程发送数据：", data)
-            self.main_send_conn.send(data)
-        else:
-            print("子进程发送数据：", data)
-            self.sub_send_conn.send(data)
+        self.conn_send.send(data)
 
     def receive(self) -> Any:
         """
@@ -77,14 +73,7 @@ class Channel:
             raise RuntimeError("Cannot receive from a closed channel")
 
         while True:
-            # 判断receiver是否为None或者receiver是否等于接收者，是则接收数据，否则不动数据
-            if IS_MAIN_PROCESS:
-                data = self.main_receive_conn.recv()
-                print("主进程接收数据：", data)
-            else:
-                data = self.sub_receive_conn.recv()
-                print("子进程接收数据：", data)
-
+            data = self.conn_recv.recv()
             return data
 
     def close(self):
@@ -92,10 +81,8 @@ class Channel:
         关闭通道
         """
         self._closed = True
-        self.sub_receive_conn.close()
-        self.main_send_conn.close()
-        self.sub_send_conn.close()
-        self.main_receive_conn.close()
+        self.conn_send.close()
+        self.conn_recv.close()
 
     def on_receive(self, filter_func: Optional[FILTER_FUNC] = None) -> Callable[[ON_RECEIVE_FUNC], ON_RECEIVE_FUNC]:
         """
@@ -158,7 +145,7 @@ class Channel:
         """
         self.is_main_receive_loop_running = True
         while not self._closed:
-            data = self.main_receive_conn.recv()
+            data = self.conn_recv.recv()
             self._run_on_main_receive_funcs(data)
 
     def _start_sub_receive_loop(self):
@@ -167,7 +154,7 @@ class Channel:
         """
         self.is_sub_receive_loop_running = True
         while not self._closed:
-            data = self.sub_receive_conn.recv()
+            data = self.conn_recv.recv()
             self._run_on_sub_receive_funcs(data)
 
     def __iter__(self):
@@ -188,6 +175,8 @@ def set_channel(name: str, channel: Channel):
         name: 通道名称
         channel: 通道实例
     """
+    if not isinstance(channel, Channel):
+        raise TypeError(f"channel must be an instance of Channel, {type(channel)} found")
     _channel[name] = channel
 
 
@@ -198,7 +187,7 @@ def set_channels(channels: dict[str, Channel]):
         channels: 通道名称
     """
     for name, channel in channels.items():
-        _channel[name] = channel
+        set_channel(name, channel)
 
 
 def get_channel(name: str) -> Optional[Channel]:

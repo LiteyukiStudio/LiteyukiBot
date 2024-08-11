@@ -1,6 +1,7 @@
 .venv/
 .idea/
 .cache/
+
 node_modules/
 data/
 db/
@@ -11,19 +12,23 @@ __pycache__/
 *.pyd
 *.pyw
 /plugins/
+
+#config
+config/
+!config/default.yml
 _config.yml
 config.yml
 config.example.yml
-compile.bat
-src/resources/templates/latest-debug.html
+
 # vuepress
 .github
 
-test.py
-line_count.py
+# mupy
 mypy.ini
 
 # nuitka
+compile.bat
+src/resources/templates/latest-debug.html
 main.build/
 main.dist/
 main.exe

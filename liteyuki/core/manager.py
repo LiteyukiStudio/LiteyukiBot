@@ -36,13 +36,6 @@ class ProcessManager:
         self.targets: dict[str, tuple[callable, tuple, dict]] = {}
         self.processes: dict[str, Process] = {}
 
-        set_channels({
-                "nonebot-active" : Channel(_id="nonebot-active"),
-                "melobot-active" : Channel(_id="melobot-active"),
-                "nonebot-passive": Channel(_id="nonebot-passive"),
-                "melobot-passive": Channel(_id="melobot-passive"),
-        })
-
     def start(self, name: str, delay: int = 0):
         """
         开启后自动监控进程，并添加到进程字典中
@@ -61,7 +54,7 @@ class ProcessManager:
             while not should_exit:
                 chan_active = get_channel(f"{name}-active")
                 chan_passive = get_channel(f"{name}-passive")
-                process = Process(target=self.targets[name][0], args=(chan_active, chan_passive, *self.targets[name][1]),
+                process = Process(target=self.targets[name][0], args=self.targets[name][1],
                                   kwargs=self.targets[name][2])
                 self.processes[name] = process
                 process.start()
@@ -88,8 +81,29 @@ class ProcessManager:
         else:
             threading.Thread(target=_start).start()
 
-    def add_target(self, name: str, target, *args, **kwargs):
+    def add_target(self, name: str, target, args: tuple = (), kwargs=None):
+        """
+        添加进程
+        Args:
+            name: 进程名，用于获取和唯一标识
+            target: 进程函数
+            args: 进程函数参数
+            kwargs: 进程函数关键字参数，通常会默认传入chan_active和chan_passive
+        """
+        if kwargs is None:
+            kwargs = {}
+        chan_active = Channel(_id=f"{name}-active")
+        chan_passive = Channel(_id=f"{name}-passive")
+        kwargs["chan_active"] = chan_active
+        kwargs["chan_passive"] = chan_passive
         self.targets[name] = (target, args, kwargs)
+
+        set_channels(
+            {
+                    f"{name}-active" : chan_active,
+                    f"{name}-passive": chan_passive
+            }
+        )
 
     def join(self):
         for name, process in self.targets:

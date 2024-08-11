@@ -44,8 +44,12 @@ def load_plugin(module_path: str | Path) -> Optional[Plugin]:
             module_name=module_path,
             metadata=module.__dict__.get("__plugin_metadata__", None)
         )
+        display_name = module.__name__.split(".")[-1]
+        if module.__dict__.get("__plugin_meta__"):
+            metadata: "PluginMetadata" = module.__dict__["__plugin_meta__"]
+            display_name = f"{metadata.name}({module.__name__.split('.')[-1]})"
         logger.opt(colors=True).success(
-            f'Succeeded to load liteyuki plugin "<y>{module.__name__.split(".")[-1]}</y>"'
+            f'Succeeded to load liteyuki plugin "<y>{display_name}</y>"'
         )
         return _plugins[module.__name__]
 

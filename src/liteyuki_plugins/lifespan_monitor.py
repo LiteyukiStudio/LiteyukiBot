@@ -8,19 +8,21 @@
 # @File    : asa.py
 # @Software: PyCharm
 import asyncio
+import multiprocessing
 
 from liteyuki.plugin import PluginMetadata
 from liteyuki import get_bot, logger
 from liteyuki.comm.channel import get_channel
 
 __plugin_meta__ = PluginMetadata(
-    name="lifespan_monitor",
+    name="生命周期日志",
 )
 
 bot = get_bot()
-nbp_chan = get_channel("nonebot-passive")
-mbp_chan = get_channel("melobot-passive")
 
+
+# nbp_chan = get_channel("nonebot-passive")
+# mbp_chan = get_channel("melobot-passive")
 
 @bot.on_before_start
 def _():
@@ -41,15 +43,3 @@ def _():
 @bot.on_after_start
 def _():
     logger.info("生命周期监控器：启动完成")
-
-
-@bot.on_after_start
-async def _():
-    logger.info("生命周期监控器：启动完成")
-
-
-
-# @mbp_chan.on_receive()
-# @nbp_chan.on_receive()
-# async def _(data):
-#     print("主进程收到数据", data)

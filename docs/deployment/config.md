@@ -8,8 +8,11 @@ tag:
   - 部署
 ---
 
-首次运行后生成`config.yml`，你可以修改配置项后重启轻雪，绝大多数情况下，你只需要修改`superusers`及`nickname`字段即可
+轻雪支持`yaml`、`json`和`toml`作为配置文件，取决于你个人的喜好
 
+首次运行后生成`config.yml`和`config`目录，你可修改配置项后重启轻雪，绝大多数情况下，你只需要修改`superusers`及`nickname`字段即可
+
+启动时会加载项目目录下`config.yml/yaml/json/toml`和`config`目录下的所有配置文件，你可在`config`目录下创建多个配置文件，轻雪会自动合并这些配置文件
 ## **基础配置项**
 
 ```yaml

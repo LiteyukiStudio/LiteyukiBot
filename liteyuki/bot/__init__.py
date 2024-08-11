@@ -4,21 +4,22 @@ import platform
 import sys
 import threading
 import time
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
 from liteyuki.bot.lifespan import (LIFESPAN_FUNC, Lifespan)
+from liteyuki.comm import get_channel
 from liteyuki.core import IS_MAIN_PROCESS
 from liteyuki.core.manager import ProcessManager
-from liteyuki.core.spawn_process import mb_run, nb_run
 from liteyuki.log import init_log, logger
 from liteyuki.plugin import load_plugins
 
 __all__ = [
         "LiteyukiBot",
-        "get_bot"
+        "get_bot",
+        "get_config",
 ]
 
 
@@ -26,15 +27,18 @@ class LiteyukiBot:
     def __init__(self, *args, **kwargs):
         global _BOT_INSTANCE
         _BOT_INSTANCE = self  # 引用
-        self.config: dict[str, Any] = kwargs
-        self.init(**self.config)  # 初始化
 
-        self.lifespan: Lifespan = Lifespan()
+        self.lifespan = Lifespan()
+
+        self.config: dict[str, Any] = kwargs
+
+        self.init(**self.config)  # 初始化
 
         self.process_manager: ProcessManager = ProcessManager(bot=self)
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
         self.loop_thread = threading.Thread(target=self.loop.run_forever, daemon=True)
+        self.stop_event = threading.Event()
         self.call_restart_count = 0
 
         print("\033[34m" + r"""
@@ -48,58 +52,22 @@ $$ |_____  _$$ |_    $$ |   $$ |_____     $$ |    $$ \__$$ |$$ |$$  \  _$$ |_
 $$       |/ $$   |   $$ |   $$       |    $$ |    $$    $$/ $$ | $$  |/ $$   |
 $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/ 
             """ + "\033[0m")
+        load_plugins("liteyuki/plugins")  # 加载轻雪插件
+        logger.info("Liteyuki is initializing...")
 
     def run(self):
-        load_plugins("liteyuki/plugins")  # 加载轻雪插件
-
+        """
+        启动逻辑
+        """
         self.loop_thread.start()  # 启动事件循环
         asyncio.run(self.lifespan.before_start())  # 启动前钩子
 
-        self.process_manager.add_target("nonebot", nb_run, **self.config)
-        self.process_manager.start("nonebot")
-
-        self.process_manager.add_target("melobot", mb_run, **self.config)
-        self.process_manager.start("melobot")
-
         asyncio.run(self.lifespan.after_start())  # 启动后钩子
-
-        self.start_watcher()  # 启动文件监视器
+        self.start_watcher()  # 启动文件监视器,后续准备插件化
+        self.keep_running()
 
     def start_watcher(self):
-        if self.config.get("debug", False):
-
-            src_directories = (
-                    "liteyuki",
-                    "src/liteyuki_main",
-                    "src/liteyuki_plugins",
-                    "src/nonebot_plugins",
-                    "src/utils",
-            )
-            src_excludes_extensions = (
-                    "pyc",
-            )
-
-            logger.debug("Liteyuki Reload enabled, watching for file changes...")
-            restart = self.restart_process
-
-            class CodeModifiedHandler(FileSystemEventHandler):
-                """
-                Handler for code file changes
-                """
-
-                def on_modified(self, event):
-                    if event.src_path.endswith(
-                            src_excludes_extensions) or event.is_directory or "__pycache__" in event.src_path:
-                        return
-                    logger.info(f"{event.src_path} modified, reloading bot...")
-                    restart()
-
-            code_modified_handler = CodeModifiedHandler()
-
-            observer = Observer()
-            for directory in src_directories:
-                observer.schedule(code_modified_handler, directory, recursive=True)
-            observer.start()
+        pass
 
     def restart(self, delay: int = 0):
         """
@@ -135,15 +103,22 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
         Returns:
 
         """
-        logger.info("Stopping LiteyukiBot...")
+        logger.info(f"Stopping process {name}...")
 
         self.loop.create_task(self.lifespan.before_shutdown())  # 重启前钩子
         self.loop.create_task(self.lifespan.before_shutdown())  # 停止前钩子
 
+        # if name:
+        #     self.process_manager.terminate(name)
+        # else:
+        #     self.process_manager.terminate_all()
         if name:
-            self.process_manager.terminate(name)
+            chan_active = get_channel(f"{name}-active")
+            chan_active.send(1)
         else:
-            self.process_manager.terminate_all()
+            for process_name in self.process_manager.processes:
+                chan_active = get_channel(f"{process_name}-active")
+                chan_active.send(1)
 
     def init(self, *args, **kwargs):
         """
@@ -239,6 +214,9 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
         """
         return self.lifespan.on_after_nonebot_init(func)
 
+    def keep_running(self):
+        self.stop_event.wait()
+
 
 _BOT_INSTANCE: Optional[LiteyukiBot] = None
 
@@ -254,3 +232,37 @@ def get_bot() -> Optional[LiteyukiBot]:
     else:
         # 从多进程上下文中获取
         pass
+
+
+def get_config(key: str, default: Any = None) -> Any:
+    """
+    获取配置
+    Args:
+        key: 配置键
+        default: 默认值
+
+    Returns:
+        Any: 配置值
+    """
+    return _BOT_INSTANCE.config.get(key, default)
+
+
+def get_config_with_compat(key: str, compat_keys: tuple[str], default: Any = None) -> Any:
+    """
+    获取配置，兼容旧版本
+    Args:
+        key: 配置键
+        compat_keys: 兼容键
+        default: 默认值
+
+    Returns:
+        Any: 配置值
+    """
+    if key in _BOT_INSTANCE.config:
+        return _BOT_INSTANCE.config[key]
+    for compat_key in compat_keys:
+        if compat_key in _BOT_INSTANCE.config:
+            logger.warning(f"Config key {compat_key} will be deprecated, use {key} instead.")
+            return _BOT_INSTANCE.config[compat_key]
+    return default
+
