@@ -1,5 +1,6 @@
 .venv/
 .idea/
+.vscode/
 .cache/
 
 node_modules/
