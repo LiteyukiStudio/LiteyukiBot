@@ -53,7 +53,6 @@ class ProcessManager:
             should_exit = False
             while not should_exit:
                 chan_active = get_channel(f"{name}-active")
-                chan_passive = get_channel(f"{name}-passive")
                 process = Process(target=self.targets[name][0], args=self.targets[name][1],
                                   kwargs=self.targets[name][2])
                 self.processes[name] = process
@@ -62,15 +61,19 @@ class ProcessManager:
                     # 0退出 1重启
                     data = chan_active.receive()
                     if data == 1:
-                        logger.info(f"Restarting process {name}")
-                        asyncio.run(self.bot.lifespan.before_shutdown())
-                        asyncio.run(self.bot.lifespan.before_restart())
-                        self.terminate(name)
-                        break
+                        # 重启
+                        if self.is_process_alive(name):
+                            logger.info(f"Restarting process {name}")
+                            asyncio.run(self.bot.lifespan.before_process_shutdown())
+                            asyncio.run(self.bot.lifespan.before_process_restart())
+                            self.terminate(name)
+                            break
+                        else:
+                            logger.warning(f"Process {name} is not restartable, cannot restart.")
 
                     elif data == 0:
                         logger.info(f"Stopping process {name}")
-                        asyncio.run(self.bot.lifespan.before_shutdown())
+                        asyncio.run(self.bot.lifespan.before_process_shutdown())
                         should_exit = True
                         self.terminate(name)
                     else:
@@ -129,3 +132,17 @@ class ProcessManager:
     def terminate_all(self):
         for name in self.targets:
             self.terminate(name)
+
+    def is_process_alive(self, name: str) -> bool:
+        """
+        检查进程是否存活
+        Args:
+            name:
+
+        Returns:
+
+        """
+        if name not in self.targets:
+            raise logger.warning(f"Process {name} not found.")
+        process = self.processes[name]
+        return process.is_alive()

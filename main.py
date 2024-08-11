@@ -5,5 +5,5 @@ from liteyuki import LiteyukiBot
 from liteyuki.config import load_config_in_default
 
 if __name__ == "__main__":
-    bot = LiteyukiBot(**load_config_in_default())
+    bot = LiteyukiBot(**load_config_in_default(no_waring=True))
     bot.run()

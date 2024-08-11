@@ -25,14 +25,16 @@ __all__ = [
 
 class LiteyukiBot:
     def __init__(self, *args, **kwargs):
+        print_logo()
         global _BOT_INSTANCE
         _BOT_INSTANCE = self  # 引用
-
-        self.lifespan = Lifespan()
 
         self.config: dict[str, Any] = kwargs
 
         self.init(**self.config)  # 初始化
+        logger.info("Liteyuki is initializing...")
+
+        self.lifespan = Lifespan()
 
         self.process_manager: ProcessManager = ProcessManager(bot=self)
         self.loop = asyncio.new_event_loop()
@@ -41,19 +43,7 @@ class LiteyukiBot:
         self.stop_event = threading.Event()
         self.call_restart_count = 0
 
-        print("\033[34m" + r"""
- __        ______  ________  ________  __      __  __    __  __    __  ______ 
-/  |      /      |/        |/        |/  \    /  |/  |  /  |/  |  /  |/      |
-$$ |      $$$$$$/ $$$$$$$$/ $$$$$$$$/ $$  \  /$$/ $$ |  $$ |$$ | /$$/ $$$$$$/ 
-$$ |        $$ |     $$ |   $$ |__     $$  \/$$/  $$ |  $$ |$$ |/$$/    $$ |  
-$$ |        $$ |     $$ |   $$    |     $$  $$/   $$ |  $$ |$$  $$<     $$ |  
-$$ |        $$ |     $$ |   $$$$$/       $$$$/    $$ |  $$ |$$$$$  \    $$ |  
-$$ |_____  _$$ |_    $$ |   $$ |_____     $$ |    $$ \__$$ |$$ |$$  \  _$$ |_ 
-$$       |/ $$   |   $$ |   $$       |    $$ |    $$    $$/ $$ | $$  |/ $$   |
-$$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/ 
-            """ + "\033[0m")
         load_plugins("liteyuki/plugins")  # 加载轻雪插件
-        logger.info("Liteyuki is initializing...")
 
     def run(self):
         """
@@ -75,7 +65,6 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
         Returns:
 
         """
-
         if self.call_restart_count < 1:
             executable = sys.executable
             args = sys.argv
@@ -103,16 +92,10 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
         Returns:
 
         """
-        logger.info(f"Stopping process {name}...")
+        self.loop.create_task(self.lifespan.before_process_shutdown())  # 重启前钩子
+        self.loop.create_task(self.lifespan.before_process_shutdown())  # 停止前钩子
 
-        self.loop.create_task(self.lifespan.before_shutdown())  # 重启前钩子
-        self.loop.create_task(self.lifespan.before_shutdown())  # 停止前钩子
-
-        # if name:
-        #     self.process_manager.terminate(name)
-        # else:
-        #     self.process_manager.terminate_all()
-        if name:
+        if name is not None:
             chan_active = get_channel(f"{name}-active")
             chan_active.send(1)
         else:
@@ -158,17 +141,6 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
         """
         return self.lifespan.on_after_start(func)
 
-    def on_before_shutdown(self, func: LIFESPAN_FUNC):
-        """
-        注册停止前的函数，为子进程停止时调用
-        Args:
-            func:
-
-        Returns:
-
-        """
-        return self.lifespan.on_before_shutdown(func)
-
     def on_after_shutdown(self, func: LIFESPAN_FUNC):
         """
         注册停止后的函数：未实现
@@ -180,9 +152,20 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
         """
         return self.lifespan.on_after_shutdown(func)
 
-    def on_before_restart(self, func: LIFESPAN_FUNC):
+    def on_before_process_shutdown(self, func: LIFESPAN_FUNC):
         """
-        注册重启前的函数，为子进程重启时调用
+        注册进程停止前的函数，为子进程停止时调用
+        Args:
+            func:
+
+        Returns:
+
+        """
+        return self.lifespan.on_before_process_shutdown(func)
+
+    def on_before_process_restart(self, func: LIFESPAN_FUNC):
+        """
+        注册进程重启前的函数，为子进程重启时调用
         Args:
             func:
 
@@ -190,7 +173,7 @@ $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/
 
         """
 
-        return self.lifespan.on_before_restart(func)
+        return self.lifespan.on_before_process_restart(func)
 
     def on_after_restart(self, func: LIFESPAN_FUNC):
         """
@@ -228,13 +211,14 @@ def get_bot() -> Optional[LiteyukiBot]:
         LiteyukiBot: 当前的轻雪实例
     """
     if IS_MAIN_PROCESS:
+        if _BOT_INSTANCE is None:
+            raise RuntimeError("Liteyuki instance not initialized.")
         return _BOT_INSTANCE
     else:
-        # 从多进程上下文中获取
-        pass
+        raise RuntimeError("Can't get bot instance in sub process.")
 
 
-def get_config(key: str, default: Any = None) -> Any:
+def get_config(key: str = None, default: Any = None) -> Any:
     """
     获取配置
     Args:
@@ -244,7 +228,9 @@ def get_config(key: str, default: Any = None) -> Any:
     Returns:
         Any: 配置值
     """
-    return _BOT_INSTANCE.config.get(key, default)
+    if key is None:
+        return get_bot().config
+    return get_bot().config.get(key, default)
 
 
 def get_config_with_compat(key: str, compat_keys: tuple[str], default: Any = None) -> Any:
@@ -258,11 +244,24 @@ def get_config_with_compat(key: str, compat_keys: tuple[str], default: Any = Non
     Returns:
         Any: 配置值
     """
-    if key in _BOT_INSTANCE.config:
-        return _BOT_INSTANCE.config[key]
+    if key in get_bot().config:
+        return get_bot().config[key]
     for compat_key in compat_keys:
-        if compat_key in _BOT_INSTANCE.config:
+        if compat_key in get_bot().config:
             logger.warning(f"Config key {compat_key} will be deprecated, use {key} instead.")
-            return _BOT_INSTANCE.config[compat_key]
+            return get_bot().config[compat_key]
     return default
 
+
+def print_logo():
+    print("\033[34m" + r"""
+     __        ______  ________  ________  __      __  __    __  __    __  ______ 
+    /  |      /      |/        |/        |/  \    /  |/  |  /  |/  |  /  |/      |
+    $$ |      $$$$$$/ $$$$$$$$/ $$$$$$$$/ $$  \  /$$/ $$ |  $$ |$$ | /$$/ $$$$$$/ 
+    $$ |        $$ |     $$ |   $$ |__     $$  \/$$/  $$ |  $$ |$$ |/$$/    $$ |  
+    $$ |        $$ |     $$ |   $$    |     $$  $$/   $$ |  $$ |$$  $$<     $$ |  
+    $$ |        $$ |     $$ |   $$$$$/       $$$$/    $$ |  $$ |$$$$$  \    $$ |  
+    $$ |_____  _$$ |_    $$ |   $$ |_____     $$ |    $$ \__$$ |$$ |$$  \  _$$ |_ 
+    $$       |/ $$   |   $$ |   $$       |    $$ |    $$    $$/ $$ | $$  |/ $$   |
+    $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/ 
+                """ + "\033[0m")

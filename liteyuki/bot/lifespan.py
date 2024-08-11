@@ -29,10 +29,10 @@ class Lifespan:
         self._before_start_funcs: list[LIFESPAN_FUNC] = []
         self._after_start_funcs: list[LIFESPAN_FUNC] = []
 
-        self._before_shutdown_funcs: list[LIFESPAN_FUNC] = []
+        self._before_process_shutdown_funcs: list[LIFESPAN_FUNC] = []
         self._after_shutdown_funcs: list[LIFESPAN_FUNC] = []
 
-        self._before_restart_funcs: list[LIFESPAN_FUNC] = []
+        self._before_process_restart_funcs: list[LIFESPAN_FUNC] = []
         self._after_restart_funcs: list[LIFESPAN_FUNC] = []
 
         self._after_nonebot_init_funcs: list[LIFESPAN_FUNC] = []
@@ -73,7 +73,7 @@ class Lifespan:
         self._after_start_funcs.append(func)
         return func
 
-    def on_before_shutdown(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
+    def on_before_process_shutdown(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
         """
         注册停止前的函数
         Args:
@@ -81,7 +81,7 @@ class Lifespan:
         Returns:
             LIFESPAN_FUNC:
         """
-        self._before_shutdown_funcs.append(func)
+        self._before_process_shutdown_funcs.append(func)
         return func
 
     def on_after_shutdown(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
@@ -97,7 +97,7 @@ class Lifespan:
         self._after_shutdown_funcs.append(func)
         return func
 
-    def on_before_restart(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
+    def on_before_process_restart(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
         """
         注册重启时的函数
         Args:
@@ -105,7 +105,7 @@ class Lifespan:
         Returns:
             LIFESPAN_FUNC:
         """
-        self._before_restart_funcs.append(func)
+        self._before_process_restart_funcs.append(func)
         return func
 
     def on_after_restart(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
@@ -147,13 +147,13 @@ class Lifespan:
         logger.debug("Running after_start functions")
         await self._run_funcs(self._after_start_funcs)
 
-    async def before_shutdown(self) -> None:
+    async def before_process_shutdown(self) -> None:
         """
         停止前
         Returns:
         """
         logger.debug("Running before_shutdown functions")
-        await self._run_funcs(self._before_shutdown_funcs)
+        await self._run_funcs(self._before_process_shutdown_funcs)
 
     async def after_shutdown(self) -> None:
         """
@@ -163,13 +163,13 @@ class Lifespan:
         logger.debug("Running after_shutdown functions")
         await self._run_funcs(self._after_shutdown_funcs)
 
-    async def before_restart(self) -> None:
+    async def before_process_restart(self) -> None:
         """
         重启前
         Returns:
         """
         logger.debug("Running before_restart functions")
-        await self._run_funcs(self._before_restart_funcs)
+        await self._run_funcs(self._before_process_restart_funcs)
 
     async def after_restart(self) -> None:
         """

@@ -2,8 +2,6 @@ from nonebot.plugin import PluginMetadata
 
 from .core import *
 from .loader import *
-from .dev import *
-
 __author__ = "snowykami"
 __plugin_meta__ = PluginMetadata(
     name="轻雪核心插件",
@@ -17,7 +15,6 @@ __plugin_meta__ = PluginMetadata(
 )
 
 from ..utils.base.language import Language, get_default_lang_code
-
 
 sys_lang = Language(get_default_lang_code())
 nonebot.logger.info(sys_lang.get("main.current_language", LANG=sys_lang.get("language.name")))

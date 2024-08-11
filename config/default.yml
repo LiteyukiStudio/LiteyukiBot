@@ -1,7 +1,6 @@
 nonebot:
   host: 127.0.0.1
   port: 20216
-  superusers: ["1234"]
   command_start: ["", "/"]
   nickname: [ "liteyuki-dev" ]
   default_language: zh

@@ -16,7 +16,6 @@ load_resources()
 init_log()
 
 driver = get_driver()
-liteyuki_bot = get_bot()
 
 
 @driver.on_startup

@@ -1,4 +1,4 @@
-FROM python:3.11-bullseye
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/python:3.10-slim-bullseye
 
 ENV TZ Asia/Shanghai
 

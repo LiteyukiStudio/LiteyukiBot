@@ -15,13 +15,12 @@ from liteyuki.plugin import PluginMetadata
 from liteyuki import get_bot
 from liteyuki.comm import Channel, set_channel
 from liteyuki.core import IS_MAIN_PROCESS
+
 from .nb_utils import adapter_manager, driver_manager
 
 __plugin_meta__ = PluginMetadata(
     name="NoneBot2启动器",
 )
-
-liteyuki = get_bot()
 
 
 def nb_run(chan_active: "Channel", chan_passive: "Channel", **kwargs):
@@ -39,7 +38,7 @@ def nb_run(chan_active: "Channel", chan_passive: "Channel", **kwargs):
     set_channel("nonebot-active", chan_active)
     set_channel("nonebot-passive", chan_passive)
 
-    kwargs.update(kwargs.get("nonebot", {}))    # nonebot配置优先
+    kwargs.update(kwargs.get("nonebot", {}))  # nonebot配置优先
     nonebot.init(**kwargs)
 
     driver_manager.init(config=kwargs)
@@ -50,6 +49,11 @@ def nb_run(chan_active: "Channel", chan_passive: "Channel", **kwargs):
 
 
 if IS_MAIN_PROCESS:
+    from .dev_reloader import *
+
+    liteyuki = get_bot()
+
+
     @liteyuki.on_after_start
     def start_run_nonebot():
         liteyuki.process_manager.add_target(name="nonebot", target=nb_run, args=(), kwargs=liteyuki.config)

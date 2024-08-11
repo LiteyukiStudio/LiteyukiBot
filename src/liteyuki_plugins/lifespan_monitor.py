@@ -29,13 +29,12 @@ def _():
     logger.info("生命周期监控器：准备启动")
 
 
-@bot.on_before_shutdown
+@bot.on_before_process_shutdown
 def _():
-    print(get_channel("main"))
     logger.info("生命周期监控器：准备停止")
 
 
-@bot.on_before_restart
+@bot.on_before_process_restart
 def _():
     logger.info("生命周期监控器：准备重启")
 
