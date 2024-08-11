@@ -9,7 +9,7 @@ from typing import Callable, TypeAlias
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
-from liteyuki import get_bot, get_config, logger
+from liteyuki import get_bot, get_config_with_compat, logger
 
 liteyuki_bot = get_bot()
 
@@ -37,7 +37,7 @@ def debounce(wait):
     return decorator
 
 
-if get_config("dev_mode", False):
+if get_config_with_compat("liteyuki.dev_mode", ("dev_mode",), False):
     logger.debug("Liteyuki Reload enabled, watching for file changes...")
     observer.start()
 

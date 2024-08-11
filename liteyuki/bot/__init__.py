@@ -20,6 +20,7 @@ __all__ = [
         "LiteyukiBot",
         "get_bot",
         "get_config",
+        "get_config_with_compat",
 ]
 
 

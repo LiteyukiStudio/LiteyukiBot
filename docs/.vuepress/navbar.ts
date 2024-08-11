@@ -8,13 +8,18 @@ export default navbar([
         prefix: "deployment/",
     },
     {
-        text: "使用及开发",
+        text: "使用及功能",
         link: "/usage/",
         prefix: "usage/",
     },
     {
         text: "资源及插件",
-        link: "/store/resource",
+        link: "/store/",
         prefix: "store/",
+    },
+    {
+        text: "开发及贡献",
+        link: "/dev/",
+        prefix: "dev/",
     }
 ]);

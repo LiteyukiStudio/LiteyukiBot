@@ -1,15 +1,13 @@
 ---
 title: 轻雪函数
 icon: code
-order: 4
-category: 使用指南
-tag:
-  - 配置
+order: 2
+category: 开发
 ---
 
 ## **轻雪函数**
 
-轻雪函数 Liteyuki Function 是轻雪的一个功能，它允许你在轻雪中运行一些自定义的由数据驱动的命令，类似于Minecraft的mcfunction.
+轻雪函数 Liteyuki Function 是轻雪的一个功能，它允许你在轻雪中运行一些自定义的由数据驱动的命令，类似于Minecraft的mcfunction，属于资源包的一部分，但需单独起篇幅.
 
 ### **函数文件**
 
@@ -70,3 +68,7 @@ await
 
 > [!warning]
 > 但若出现非单function的情况，有一个task任务没有完成而await被执行了，那么当前所有函数包的task都会被截停销毁
+
+
+> [!tip]
+> 编写轻雪函数推荐你使用VS Code插件[Liteyuki Function](https://github.com/LiteyukiStudio/lyfunctionTextmate)实现语法高亮

@@ -8,6 +8,7 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @File    : __init__.py.py
 @Software: PyCharm
 """
+from liteyuki import get_config_with_compat, load_plugin
 from liteyuki.plugin import PluginMetadata, load_plugins
 
 __plugin_meta__ = PluginMetadata(
@@ -18,3 +19,8 @@ __plugin_meta__ = PluginMetadata(
 )
 
 load_plugins("src/liteyuki_plugins")
+for plugin in get_config_with_compat("liteyuki.plugins", ("plugins", ), []):
+    load_plugin(plugin)
+
+for plugin_dir in get_config_with_compat("liteyuki.plugin_dirs", ("plugins_dirs", ), []):
+    load_plugins(plugin_dir)

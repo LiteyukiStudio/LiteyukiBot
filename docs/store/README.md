@@ -1,5 +1,8 @@
 ---
-title: 资源商店
-icon: store
+title: 资源及插件商店
 index: false
+icon: store
+category: 商店
 ---
+
+<Catalog />
