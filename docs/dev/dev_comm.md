@@ -25,12 +25,14 @@ import asyncio
 
 from liteyuki.comm import get_channel, Channel
 from liteyuki import get_bot
-
-channel_passive = get_channel("nonebot-passive")
-channel_active = get_channel("nonebot-active")
+# get_channel函数获取通道对象，参数为调用set_channel时的通道标识
+# 每个进程只能获取在当前进程通过set_channel设置的通道
+# 轻雪已经在创建进程时把每个通道都传递给了主进程和子进程，以便在哪个进程都可以被获取
+channel_passive = get_channel("nonebot-passive")    # 获取被动通道
+channel_active = get_channel("nonebot-active")  # 获取主动通道
 liteyuki_bot = get_bot()
 
-
+# 注册一个函数在轻雪启动后运行
 @liteyuki_bot.on_after_start
 async def do_something_after_start():
     while True:
@@ -49,15 +51,17 @@ from liteyuki.log import logger
 
 driver = get_driver()
 
+# 通过get_channel函数获取通道对象，参数为调用set_channel时的通道标识
 channel_passive = get_channel("nonebot-passive")
 channel_active = get_channel("nonebot-active")
 
-
-@channel_passive.on_receive()
+# 被动模式，通过装饰器注册一个函数在接收到消息时运行，每次接收到字符串数据时都会运行
+@channel_passive.on_receive(filter_func=lambda data: isinstance(data, str))
 async def on_passive_receive(data):
     logger.info(f"Passive receive: {data}")
 
-
+    
+# 注册一个函数在NoneBot启动后运行
 @driver.on_startup
 async def on_startup():
     while True:
