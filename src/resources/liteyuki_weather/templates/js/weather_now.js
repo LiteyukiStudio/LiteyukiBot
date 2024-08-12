@@ -178,7 +178,6 @@ function get_time_hour(fxTime) {
     return fxTime.split("T")[1].split("+")[0]
 }
 
-let attrinfo = document.getElementById('attribution-info');
-if (!is_dev & !attr) attrinfo.parentElement.style.display = "none";
+
 
 attrinfo.innerText = is_dev ? "Weather Service Drived by QWeather" : (attr ? attr : "Weather Service Drived by QWeather");
