@@ -179,5 +179,5 @@ function get_time_hour(fxTime) {
 }
 
 
-
+let attrinfo = document.getElementById('attribution-info');
 attrinfo.innerText = is_dev ? "Weather Service Drived by QWeather" : (attr ? attr : "Weather Service Drived by QWeather");
