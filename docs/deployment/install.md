@@ -25,7 +25,7 @@ python main.py
 ```
 
 > [!tip]
-> 推荐使用虚拟环境来运行轻雪，以避免依赖冲突，你可以使用`python -m venv venv`来创建虚拟环境，然后使用`venv\Scripts\activate`来激活虚拟环境
+> 推荐使用虚拟环境来运行轻雪，以避免依赖冲突，你可以使用`python -m venv .venv`来创建虚拟环境，然后使用`.venv\Scripts\activate`来激活虚拟环境（Linux下使用`source .venv/bin/activate`激活）
 
 ### **使用Docker构建镜像部署**
 
