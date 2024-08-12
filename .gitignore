@@ -3,6 +3,8 @@
 .vscode/
 .cache/
 
+venv/
+
 node_modules/
 data/
 db/
