@@ -43,18 +43,27 @@ def get_local_data(ulang_code: str) -> dict:
     """
     ulang = Language(ulang_code)
     return {
-            "monday"   : ulang.get("weather.monday"),
+            "monday"            : ulang.get("weather.monday"),
             "tuesday"  : ulang.get("weather.tuesday"),
-            "wednesday": ulang.get("weather.wednesday"),
-            "thursday" : ulang.get("weather.thursday"),
-            "friday"   : ulang.get("weather.friday"),
-            "saturday" : ulang.get("weather.saturday"),
-            "sunday"   : ulang.get("weather.sunday"),
-            "today"    : ulang.get("weather.today"),
-            "tomorrow" : ulang.get("weather.tomorrow"),
-            "day"      : ulang.get("weather.day"),
-            "night"    : ulang.get("weather.night"),
-            "no_aqi"   : ulang.get("weather.no_aqi"),
+            "wednesday"         : ulang.get("weather.wednesday"),
+            "thursday"          : ulang.get("weather.thursday"),
+            "friday"            : ulang.get("weather.friday"),
+            "saturday"          : ulang.get("weather.saturday"),
+            "sunday"            : ulang.get("weather.sunday"),
+            "today"             : ulang.get("weather.today"),
+            "tomorrow"          : ulang.get("weather.tomorrow"),
+            "day"               : ulang.get("weather.day"),
+            "night"             : ulang.get("weather.night"),
+            "no_aqi"            : ulang.get("weather.no_aqi"),
+            "now-windVelocity"  : ulang.get("weather.now-windVelocity"),
+            "now-humidity"      : ulang.get("weather.now-humidity"),
+            "now-feelsLike"     : ulang.get("weather.now-feelsLike"),
+            "now-precip"        : ulang.get("weather.now-precip"),
+            "now-pressure"      : ulang.get("weather.now-pressure"),
+            "now-vis"           : ulang.get("weather.now-vis"),
+            "now-cloud"         : ulang.get("weather.now-cloud"),
+            "astronomy-sunrise" : ulang.get("weather.astronomy-sunrise"),
+            "astronomy-sunset"  : ulang.get("weather.astronomy-sunset"),
     }
 
 

@@ -71,15 +71,15 @@ for (let id in templates) {
 
 let subtemplates = {
     "now-windDirect": weatherNow["now"]["windDir"] + " " + weatherNow["now"]["wind360"] + "°",
-    "now-windVelocity": "风矢 " + weatherNow["now"]["windScale"] + "级 " + weatherNow["now"]["windSpeed"] + "km/h",
-    "now-humidity": "湿度 " + weatherNow["now"]["humidity"] + "%",
-    "now-feelsLike": "体感 " + weatherNow["now"]["feelsLike"] + "°C",
-    "now-precip": "降水 " + weatherNow["now"]["precip"] + "mm",
-    "now-pressure": "气压 " + weatherNow["now"]["pressure"] + "hPa",
-    "now-vis": "能见 " + weatherNow["now"]["vis"] + "km",
-    "now-cloud": "云量 " + (weatherNow["now"]["cloud"] == "" ? "无数据" : (weatherNow["now"]["cloud"] + "%")),
-    "astronomy-sunrise": "日出 " + get_time_hour(weatherAstronomy["sunrise"]),
-    "astronomy-sunset": "日落 " + get_time_hour(weatherAstronomy["sunset"])
+    "now-windVelocity": localData["now-windVelocity"] + " " + weatherNow["now"]["windScale"] + "级 " + weatherNow["now"]["windSpeed"] + "km/h",
+    "now-humidity": localData["now-humidity"] + " " + weatherNow["now"]["humidity"] + "%",
+    "now-feelsLike": localData["now-feelsLike"] + " " + weatherNow["now"]["feelsLike"] + "°C",
+    "now-precip": localData["now-precip"] + " " + weatherNow["now"]["precip"] + "mm",
+    "now-pressure": localData["now-pressure"] + " " + weatherNow["now"]["pressure"] + "hPa",
+    "now-vis": localData["now-vis"] + " " + weatherNow["now"]["vis"] + "km",
+    "now-cloud": localData["now-cloud"] + " " + (weatherNow["now"]["cloud"] == "" ? "无数据" : (weatherNow["now"]["cloud"] + "%")),
+    "astronomy-sunrise": localData["astronomy-sunrise"] + " " + get_time_hour(weatherAstronomy["sunrise"]),
+    "astronomy-sunset": localData["astronomy-sunset"] + " " + get_time_hour(weatherAstronomy["sunset"])
 }
 
 let subiconMap = {
