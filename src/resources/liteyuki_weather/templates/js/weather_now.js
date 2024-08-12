@@ -54,7 +54,7 @@ if ("aqi" in aqi) {
 }
 
 
-templates = {
+let templates = {
     "time": weatherNow["now"]["obsTime"],
     "city": locationData["name"],
     "adm": locationData["country"] + " " + locationData["adm1"] + " " + locationData["adm2"],
@@ -69,31 +69,48 @@ for (let id in templates) {
 }
 
 
-subtemplates = {
+let subtemplates = {
     "now-windDirect": weatherNow["now"]["windDir"] + " " + weatherNow["now"]["wind360"] + "°",
     "now-windVelocity": "风矢 " + weatherNow["now"]["windScale"] + "级 " + weatherNow["now"]["windSpeed"] + "km/h",
     "now-humidity": "湿度 " + weatherNow["now"]["humidity"] + "%",
     "now-feelsLike": "体感 " + weatherNow["now"]["feelsLike"] + "°C",
     "now-precip": "降水 " + weatherNow["now"]["precip"] + "mm",
     "now-pressure": "气压 " + weatherNow["now"]["pressure"] + "hPa",
-    "vis": "能见 " + weatherNow["now"]["vis"] + "km",
-    "cloud ": "云量 " + (weatherNow["now"]["cloud"] == "" ? "无数据" : (weatherNow["now"]["cloud"] + "%")),
+    "now-vis": "能见 " + weatherNow["now"]["vis"] + "km",
+    "now-cloud": "云量 " + (weatherNow["now"]["cloud"] == "" ? "无数据" : (weatherNow["now"]["cloud"] + "%")),
     "astronomy-sunrise": "日出 " + get_time_hour(weatherAstronomy["sunrise"]),
     "astronomy-sunset": "日落 " + get_time_hour(weatherAstronomy["sunset"])
 }
 
-let subItemDivTemplate = document.importNode(document.getElementById("sub-info-template").content, true);
+let subiconMap = {
+    "now-windDirect": "windDirect",
+    "now-windVelocity": "windVelocity",
+    "now-humidity": "humidity",
+    "now-feelsLike": "feelsLike",
+    "now-precip": "precip",
+    "now-pressure": "pressure",
+    "now-vis": "vis",
+    "now-cloud": "cloud",
+    "astronomy-sunrise": "sunrise",
+    "astronomy-sunset": "sunset"
+};
 
-let subItemDiv = subItemDivTemplate.querySelector(".sub-info");
+let subtemplate = document.getElementById('sub-info-template').content;
+let subcontainer = document.getElementById('sub-info');
 
-for (let id in subtemplates) {
-    let element = subItemDiv.querySelector(`#${id}`);
-    if (element) {
-        element.innerText = subtemplates[id];
-    }
-}
+Object.keys(subtemplates).forEach(id => {
+    let subItemDiv = document.importNode(subtemplate, true).querySelector('.sub-item');
 
-document.getElementById('sub-info').appendChild(subItemDiv);
+    subItemDiv.querySelector(`div`).innerText = subtemplates[id];
+
+    let iconName = subiconMap[id];
+
+    subItemDiv.querySelector(`img`).src = `./img/svg/${iconName}.svg`;
+    subItemDiv.querySelector(`img`).alt = `SVG ${id}`;
+
+    subcontainer.appendChild(subItemDiv);
+});
+
 
 let maxHourlyItem = 8
 let percentWidth = 1 / (maxHourlyItem * 1.5) * 100
