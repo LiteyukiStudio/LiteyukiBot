@@ -107,6 +107,10 @@
     margin-bottom: 10px;
     margin-left: 20px;
     text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: calc(100% - 40px);
     z-index: 2;
 }
 
@@ -124,4 +128,3 @@
     color: var(--sub-text-color);
     text-align: right;
 }
-
