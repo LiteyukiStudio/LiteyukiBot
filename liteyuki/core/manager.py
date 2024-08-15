@@ -8,13 +8,17 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @File    : manager.py
 @Software: PyCharm
 """
-import asyncio
+
+import atexit
 import threading
+import signal
 from multiprocessing import Process
-from typing import TYPE_CHECKING
+from typing import Any, Callable, Optional, Protocol, TYPE_CHECKING, TypeAlias
 
 from liteyuki.comm import Channel, get_channel, set_channels
 from liteyuki.log import logger
+
+TARGET_FUNC: TypeAlias = Callable[[Channel, Channel, ...], Any]
 
 if TYPE_CHECKING:
     from liteyuki.bot import LiteyukiBot
@@ -35,6 +39,10 @@ class ProcessManager:
         self.bot = bot
         self.targets: dict[str, tuple[callable, tuple, dict]] = {}
         self.processes: dict[str, Process] = {}
+
+        atexit.register(self.terminate_all)
+        signal.signal(signal.SIGINT, self._handle_exit)
+        signal.signal(signal.SIGTERM, self._handle_exit)
 
     def start(self, name: str):
         """
@@ -61,40 +69,37 @@ class ProcessManager:
 
         def _start_monitor():
             while True:
-                try:
-                    data = chan_active.receive()
-                    if data == 0:
-                        # 停止
-                        logger.info(f"Stopping process {name}")
-                        self.bot.lifespan.before_process_shutdown()
-                        self.terminate(name)
-                        break
-                    elif data == 1:
-                        # 重启
-                        logger.info(f"Restarting process {name}")
-                        self.bot.lifespan.before_process_shutdown()
-                        self.bot.lifespan.before_process_restart()
-                        self.terminate(name)
-                        _start_process()
-                        continue
-                    else:
-                        logger.warning("Unknown data received, ignored.")
-                except KeyboardInterrupt:
+                data = chan_active.receive()
+                if data == 0:
+                    # 停止
                     logger.info(f"Stopping process {name}")
                     self.bot.lifespan.before_process_shutdown()
-                    self.terminate_all()
+                    self.terminate(name)
                     break
-
-        threading.Thread(target=_start_monitor).start()
+                elif data == 1:
+                    # 重启
+                    logger.info(f"Restarting process {name}")
+                    self.bot.lifespan.before_process_shutdown()
+                    self.bot.lifespan.before_process_restart()
+                    self.terminate(name)
+                    _start_process()
+                    continue
+                else:
+                    logger.warning("Unknown data received, ignored.")
 
     def start_all(self):
         """
         启动所有进程
         """
         for name in self.targets:
-            self.start(name)
+            threading.Thread(target=self.start, args=(name,), daemon=True).start()
 
-    def add_target(self, name: str, target, args: tuple = (), kwargs=None):
+    def _handle_exit(self, signum, frame):
+        logger.info("Received signal, stopping all processes.")
+        self.terminate_all()
+        exit(0)
+
+    def add_target(self, name: str, target: TARGET_FUNC, args: tuple = (), kwargs=None):
         """
         添加进程
         Args:

@@ -38,7 +38,6 @@ class LiteyukiBot:
 
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
-        self.loop_thread = threading.Thread(target=self.loop.run_forever, daemon=True)
         self.stop_event = threading.Event()
         self.call_restart_count = 0
 
@@ -51,6 +50,22 @@ class LiteyukiBot:
         self.lifespan.before_start() # 启动前钩子
         self.process_manager.start_all()
         self.lifespan.after_start() # 启动后钩子
+        self.keep_alive()
+
+    def keep_alive(self):
+        """
+        保持轻雪运行
+        Returns:
+
+        """
+        try:
+            while not self.stop_event.is_set():
+                time.sleep(1)
+        except KeyboardInterrupt:
+            logger.info("Liteyuki is stopping...")
+            self.stop()
+        finally:
+            self.lifespan.after_shutdown()
 
     def restart(self, delay: int = 0):
         """

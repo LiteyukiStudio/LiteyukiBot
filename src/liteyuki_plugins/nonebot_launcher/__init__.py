@@ -8,6 +8,8 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @File    : __init__.py.py
 @Software: PyCharm
 """
+import asyncio
+import time
 
 import nonebot
 
@@ -21,7 +23,7 @@ __plugin_meta__ = PluginMetadata(
 )
 
 
-def nb_run(chan_active: "Channel", chan_passive: "Channel", **kwargs):
+def nb_run(chan_active: "Channel", chan_passive: "Channel", *args, **kwargs):
     """
     初始化NoneBot并运行在子进程
     Args:
