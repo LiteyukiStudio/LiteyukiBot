@@ -8,14 +8,19 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @File    : lifespan.py
 @Software: PyCharm
 """
+import asyncio
 from typing import Any, Awaitable, Callable, TypeAlias
 
 from liteyuki.log import logger
-from liteyuki.utils import is_coroutine_callable
+from liteyuki.utils import is_coroutine_callable, async_wrapper
 
 SYNC_LIFESPAN_FUNC: TypeAlias = Callable[[], Any]
 ASYNC_LIFESPAN_FUNC: TypeAlias = Callable[[], Awaitable[Any]]
 LIFESPAN_FUNC: TypeAlias = SYNC_LIFESPAN_FUNC | ASYNC_LIFESPAN_FUNC
+
+SYNC_PROCESS_LIFESPAN_FUNC: TypeAlias = Callable[[str], Any]
+ASYNC_PROCESS_LIFESPAN_FUNC: TypeAlias = Callable[[str], Awaitable[Any]]
+PROCESS_LIFESPAN_FUNC: TypeAlias = SYNC_PROCESS_LIFESPAN_FUNC | ASYNC_PROCESS_LIFESPAN_FUNC
 
 
 class Lifespan:
@@ -23,8 +28,7 @@ class Lifespan:
         """
         轻雪生命周期管理，启动、停止、重启
         """
-
-        self.life_flag: int = 0  # 0: 启动前，1: 启动后，2: 停止前，3: 停止后
+        self.life_flag: int = 0
 
         self._before_start_funcs: list[LIFESPAN_FUNC] = []
         self._after_start_funcs: list[LIFESPAN_FUNC] = []
@@ -38,18 +42,26 @@ class Lifespan:
         self._after_nonebot_init_funcs: list[LIFESPAN_FUNC] = []
 
     @staticmethod
-    async def _run_funcs(funcs: list[LIFESPAN_FUNC]) -> None:
+    def _run_funcs(funcs: list[LIFESPAN_FUNC | PROCESS_LIFESPAN_FUNC], *args, **kwargs) -> None:
         """
         运行函数
         Args:
             funcs:
         Returns:
         """
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        tasks = []
         for func in funcs:
             if is_coroutine_callable(func):
-                await func()
+                tasks.append(func(*args, **kwargs))
             else:
-                func()
+                tasks.append(async_wrapper(func)(*args, **kwargs))
+        loop.run_until_complete(asyncio.gather(*tasks))
 
     def on_before_start(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
         """
@@ -131,59 +143,51 @@ class Lifespan:
         self._after_nonebot_init_funcs.append(func)
         return func
 
-    async def before_start(self) -> None:
+    def before_start(self) -> None:
         """
         启动前
         Returns:
         """
         logger.debug("Running before_start functions")
-        await self._run_funcs(self._before_start_funcs)
+        self._run_funcs(self._before_start_funcs)
 
-    async def after_start(self) -> None:
+    def after_start(self) -> None:
         """
         启动后
         Returns:
         """
         logger.debug("Running after_start functions")
-        await self._run_funcs(self._after_start_funcs)
+        self._run_funcs(self._after_start_funcs)
 
-    async def before_process_shutdown(self) -> None:
+    def before_process_shutdown(self) -> None:
         """
         停止前
         Returns:
         """
         logger.debug("Running before_shutdown functions")
-        await self._run_funcs(self._before_process_shutdown_funcs)
+        self._run_funcs(self._before_process_shutdown_funcs)
 
-    async def after_shutdown(self) -> None:
+    def after_shutdown(self) -> None:
         """
         停止后
         Returns:
         """
         logger.debug("Running after_shutdown functions")
-        await self._run_funcs(self._after_shutdown_funcs)
+        self._run_funcs(self._after_shutdown_funcs)
 
-    async def before_process_restart(self) -> None:
+    def before_process_restart(self) -> None:
         """
         重启前
         Returns:
         """
         logger.debug("Running before_restart functions")
-        await self._run_funcs(self._before_process_restart_funcs)
+        self._run_funcs(self._before_process_restart_funcs)
 
-    async def after_restart(self) -> None:
+    def after_restart(self) -> None:
         """
         重启后
         Returns:
 
         """
         logger.debug("Running after_restart functions")
-        await self._run_funcs(self._after_restart_funcs)
-
-    async def after_nonebot_init(self) -> None:
-        """
-        NoneBot 初始化后
-        Returns:
-        """
-        logger.debug("Running after_nonebot_init functions")
-        await self._run_funcs(self._after_nonebot_init_funcs)
+        self._run_funcs(self._after_restart_funcs)

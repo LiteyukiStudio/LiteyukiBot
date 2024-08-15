@@ -4,10 +4,7 @@ import platform
 import sys
 import threading
 import time
-from typing import Any, Iterable, Optional
-
-from watchdog.events import FileSystemEventHandler
-from watchdog.observers import Observer
+from typing import Any, Optional
 
 from liteyuki.bot.lifespan import (LIFESPAN_FUNC, Lifespan)
 from liteyuki.comm import get_channel
@@ -38,6 +35,7 @@ class LiteyukiBot:
         self.lifespan = Lifespan()
 
         self.process_manager: ProcessManager = ProcessManager(bot=self)
+
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
         self.loop_thread = threading.Thread(target=self.loop.run_forever, daemon=True)
@@ -50,15 +48,9 @@ class LiteyukiBot:
         """
         启动逻辑
         """
-        self.loop_thread.start()  # 启动事件循环
-        asyncio.run(self.lifespan.before_start())  # 启动前钩子
-
-        asyncio.run(self.lifespan.after_start())  # 启动后钩子
-        self.start_watcher()  # 启动文件监视器,后续准备插件化
-        self.keep_running()
-
-    def start_watcher(self):
-        pass
+        self.lifespan.before_start() # 启动前钩子
+        self.process_manager.start_all()
+        self.lifespan.after_start() # 启动后钩子
 
     def restart(self, delay: int = 0):
         """
@@ -119,6 +111,15 @@ class LiteyukiBot:
 
     def init_config(self):
         pass
+
+    def stop(self):
+        """
+        停止轻雪
+        Returns:
+
+        """
+        self.stop_event.set()
+        self.loop.stop()
 
     def on_before_start(self, func: LIFESPAN_FUNC):
         """
@@ -197,9 +198,6 @@ class LiteyukiBot:
 
         """
         return self.lifespan.on_after_nonebot_init(func)
-
-    def keep_running(self):
-        self.stop_event.wait()
 
 
 _BOT_INSTANCE: Optional[LiteyukiBot] = None

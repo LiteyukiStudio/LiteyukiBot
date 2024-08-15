@@ -36,53 +36,63 @@ class ProcessManager:
         self.targets: dict[str, tuple[callable, tuple, dict]] = {}
         self.processes: dict[str, Process] = {}
 
-    def start(self, name: str, delay: int = 0):
+    def start(self, name: str):
         """
         开启后自动监控进程，并添加到进程字典中
         Args:
             name:
-            delay:
-
         Returns:
 
         """
         if name not in self.targets:
             raise KeyError(f"Process {name} not found.")
 
-        def _start():
-            should_exit = False
-            while not should_exit:
-                chan_active = get_channel(f"{name}-active")
-                process = Process(target=self.targets[name][0], args=self.targets[name][1],
-                                  kwargs=self.targets[name][2])
-                self.processes[name] = process
-                process.start()
-                while not should_exit:
-                    # 0退出 1重启
-                    data = chan_active.receive()
-                    if data == 1:
-                        # 重启
-                        if self.is_process_alive(name):
-                            logger.info(f"Restarting process {name}")
-                            asyncio.run(self.bot.lifespan.before_process_shutdown())
-                            asyncio.run(self.bot.lifespan.before_process_restart())
-                            self.terminate(name)
-                            break
-                        else:
-                            logger.warning(f"Process {name} is not restartable, cannot restart.")
+        chan_active = get_channel(f"{name}-active")
 
-                    elif data == 0:
+        def _start_process():
+            process = Process(target=self.targets[name][0], args=self.targets[name][1],
+                              kwargs=self.targets[name][2])
+            self.processes[name] = process
+
+            process.start()
+
+        # 启动进程并监听信号
+        _start_process()
+
+        def _start_monitor():
+            while True:
+                try:
+                    data = chan_active.receive()
+                    if data == 0:
+                        # 停止
                         logger.info(f"Stopping process {name}")
-                        asyncio.run(self.bot.lifespan.before_process_shutdown())
-                        should_exit = True
+                        self.bot.lifespan.before_process_shutdown()
                         self.terminate(name)
+                        break
+                    elif data == 1:
+                        # 重启
+                        logger.info(f"Restarting process {name}")
+                        self.bot.lifespan.before_process_shutdown()
+                        self.bot.lifespan.before_process_restart()
+                        self.terminate(name)
+                        _start_process()
+                        continue
                     else:
                         logger.warning("Unknown data received, ignored.")
+                except KeyboardInterrupt:
+                    logger.info(f"Stopping process {name}")
+                    self.bot.lifespan.before_process_shutdown()
+                    self.terminate_all()
+                    break
 
-        if delay:
-            threading.Timer(delay, _start).start()
-        else:
-            threading.Thread(target=_start).start()
+        threading.Thread(target=_start_monitor).start()
+
+    def start_all(self):
+        """
+        启动所有进程
+        """
+        for name in self.targets:
+            self.start(name)
 
     def add_target(self, name: str, target, args: tuple = (), kwargs=None):
         """
@@ -100,7 +110,6 @@ class ProcessManager:
         kwargs["chan_active"] = chan_active
         kwargs["chan_passive"] = chan_passive
         self.targets[name] = (target, args, kwargs)
-
         set_channels(
             {
                     f"{name}-active" : chan_active,
@@ -128,6 +137,7 @@ class ProcessManager:
         process.join(TIMEOUT)
         if process.is_alive():
             process.kill()
+        logger.success(f"Process {name} terminated.")
 
     def terminate_all(self):
         for name in self.targets:
@@ -144,5 +154,4 @@ class ProcessManager:
         """
         if name not in self.targets:
             raise logger.warning(f"Process {name} not found.")
-        process = self.processes[name]
-        return process.is_alive()
+        return self.processes[name].is_alive()

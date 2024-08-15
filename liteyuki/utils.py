@@ -72,3 +72,18 @@ def path_to_module_name(path: Path) -> str:
         return ".".join(rel_path.parts[:-1])
     else:
         return ".".join(rel_path.parts[:-1] + (rel_path.stem,))
+
+
+def async_wrapper(func: Callable[..., Any]) -> Callable[..., Coroutine]:
+    """
+    异步包装器
+    Args:
+        func: Sync Callable
+    Returns:
+        Coroutine: Asynchronous Callable
+    """
+
+    async def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    wrapper.__signature__ = inspect.signature(func)
+    return wrapper

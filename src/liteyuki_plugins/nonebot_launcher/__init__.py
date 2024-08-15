@@ -11,11 +11,9 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 
 import nonebot
 
-from liteyuki.plugin import PluginMetadata
-from liteyuki import get_bot
 from liteyuki.comm import Channel, set_channel
 from liteyuki.core import IS_MAIN_PROCESS
-
+from liteyuki.plugin import PluginMetadata
 from .nb_utils import adapter_manager, driver_manager
 
 __plugin_meta__ = PluginMetadata(
@@ -54,7 +52,6 @@ if IS_MAIN_PROCESS:
     liteyuki = get_bot()
 
 
-    @liteyuki.on_after_start
-    def start_run_nonebot():
+    @liteyuki.on_before_start
+    async def start_run_nonebot():
         liteyuki.process_manager.add_target(name="nonebot", target=nb_run, args=(), kwargs=liteyuki.config)
-        liteyuki.process_manager.start("nonebot")

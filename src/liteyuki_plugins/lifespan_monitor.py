@@ -21,9 +21,6 @@ __plugin_meta__ = PluginMetadata(
 bot = get_bot()
 
 
-# nbp_chan = get_channel("nonebot-passive")
-# mbp_chan = get_channel("melobot-passive")
-
 @bot.on_before_start
 def _():
     logger.info("生命周期监控器：准备启动")
@@ -40,5 +37,6 @@ def _():
 
 
 @bot.on_after_start
-def _():
+async def _():
+    await asyncio.sleep(6)
     logger.info("生命周期监控器：启动完成")
