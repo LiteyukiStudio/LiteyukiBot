@@ -91,17 +91,31 @@ function convertSize(size, precision = 2, addUnit = true, suffix = " XiB") {
  * @param title
  * @param percent 数据
  */
-function createBarChart(title, percent) {
+function createBarChart(title, percent, name) {
     // percent为百分比，最大值为100
-    let diskDiv = document.createElement('div')
-    diskDiv.setAttribute('class', 'disk-info')
-    diskDiv.style.marginBottom = '20px'
+    let diskDiv = document.createElement('div');
+    diskDiv.setAttribute('class', 'disk-info');
+    diskDiv.style.marginBottom = '20px';
     diskDiv.innerHTML = `
-        <div class="disk-title">${title}</div>
+        <div class="disk-name">${name}</div>
+        <div class="disk-details">${title}</div>
         <div class="disk-usage" style="width: ${percent}%"></div>
-    `
+    `;
 
-    return diskDiv
+    updateDiskNameWidth(diskDiv);
+
+    return diskDiv;
+}
+
+// 更新 .disk-name 宽度
+function updateDiskNameWidth(diskInfoElement) {
+    let diskDetails = diskInfoElement.querySelector('.disk-details');
+    let diskName = diskInfoElement.querySelector('.disk-name');
+    let detailsWidth = diskDetails.offsetWidth;
+    let parentWidth = diskInfoElement.offsetWidth;
+
+    let nameMaxWidth = parentWidth - detailsWidth - 20 - 40;
+    diskName.style.maxWidth = `${nameMaxWidth}px`;
 }
 
 function secondsToTextTime(seconds) {
@@ -254,35 +268,34 @@ function main() {
 
 
     cpuChart.setOption(createPieChartOption(`${localData['cpu']}\n${cpuData['percent'].toFixed(1)}%`, [
-        {name: 'used', value: cpuData['percent']},
-        {name: 'free', value: 100 - cpuData['percent']}
+        { name: 'used', value: cpuData['percent'] },
+        { name: 'free', value: 100 - cpuData['percent'] }
     ]))
 
     memChart.setOption(createPieChartOption(`${localData['memory']}\n${memData['percent'].toFixed(1)}%`, [
-        {name: 'process', value: memData['usedProcess']},
-        {name: 'used', value: memData['used'] - memData['usedProcess']},
-        {name: 'free', value: memData['free']}
+        { name: 'process', value: memData['usedProcess'] },
+        { name: 'used', value: memData['used'] - memData['usedProcess'] },
+        { name: 'free', value: memData['free'] }
     ]))
 
 
     swapChart.setOption(createPieChartOption(`${localData['swap']}\n${swapData['percent'].toFixed(1)}%`, [
-        {name: 'used', value: swapData['used']},
-        {name: 'free', value: swapData['free']}
+        { name: 'used', value: swapData['used'] },
+        { name: 'free', value: swapData['free'] }
     ]))
 
 
     // 磁盘信息
-    const diskData = hardwareData['disk']
-    diskData.forEach(
-        (disk) => {
-            let diskTitle = `${disk['name']}  ${localData['free']} ${convertSize(disk['free'])}  ${localData['total']} ${convertSize(disk['total'])}`
-            // 最后一个把margin-bottom去掉
-            let diskDiv = createBarChart(diskTitle, disk['percent'])
-            if (disk === diskData[diskData.length - 1]) {
-                diskDiv.style.marginBottom = '0'
-            }
-            document.getElementById('disk-info').appendChild(createBarChart(diskTitle, disk['percent']))
-        })
+    const diskData = hardwareData['disk'];
+    diskData.forEach((disk) => {
+        let diskTitle = `${localData['free']} ${convertSize(disk['free'])}  ${localData['total']} ${convertSize(disk['total'])}`;
+        let diskDiv = createBarChart(diskTitle, disk['percent'], disk['name']);
+
+        if (disk === diskData[diskData.length - 1]) {
+            diskDiv.style.marginBottom = '0';
+        }
+        document.getElementById('disk-info').appendChild(diskDiv);
+    });
     // 随机一言
     let motto = mottos[Math.floor(Math.random() * mottos.length)]
     let mottoText = motto['text']
@@ -294,3 +307,12 @@ function main() {
 }
 
 main()
+/*
+// 窗口大小改变监听器 -- Debug
+window.addEventListener('resize', () => {
+    const diskInfos = document.querySelectorAll('.disk-info');
+    diskInfos.forEach(diskInfo => {
+        updateDiskNameWidth(diskInfo);
+    });
+});
+*/
