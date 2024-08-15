@@ -27,7 +27,7 @@ SYNC_FILTER_FUNC: TypeAlias = Callable[[Any], bool]
 ASYNC_FILTER_FUNC: TypeAlias = Callable[[Any], Awaitable[bool]]
 FILTER_FUNC: TypeAlias = SYNC_FILTER_FUNC | ASYNC_FILTER_FUNC
 
-IS_MAIN_PROCESS = multiprocessing.current_process().name == "MainProcess"
+
 
 _channel: dict[str, "Channel"] = {}
 _callback_funcs: dict[str, ON_RECEIVE_FUNC] = {}

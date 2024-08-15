@@ -87,6 +87,8 @@ class ProcessManager:
                 else:
                     logger.warning("Unknown data received, ignored.")
 
+        _start_monitor()
+
     def start_all(self):
         """
         启动所有进程

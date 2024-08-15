@@ -4,11 +4,13 @@
 """
 import asyncio
 import inspect
+import multiprocessing
 from pathlib import Path
 from typing import Any, Callable, Coroutine
 
 from liteyuki.log import logger
 
+IS_MAIN_PROCESS = multiprocessing.current_process().name == "MainProcess"
 
 def is_coroutine_callable(call: Callable[..., Any]) -> bool:
     """
