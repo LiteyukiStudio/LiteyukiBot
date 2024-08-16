@@ -5,13 +5,15 @@ order: 4
 category: 开发
 ---
 
-## 简介
+## **通道通信**
+
+### 简介
 
 轻雪运行在主进程 MainProcess 里，其他插件框架进程是伴随的子进程，因此无法通过内存共享和直接对象传递的方式进行通信，轻雪提供了一个通道`Channel`用于跨进程通信，你可以通过`Channel`发送消息给其他进程，也可以监听其他进程的消息。
 
 例如子进程接收到用户信息需要重启机器人，这时可以通过通道对主进程发送消息，主进程接收到消息后重启对应子进程。
 
-## 快速开始
+### 快速开始
 
 通道是全双工的，有两种接收模式，但一个通道只能使用一种，即被动模式和主动模式，被动模式由`chan.on_receive()`装饰回调函数实现，主动模式需调用`chan.receive()`实现
 
@@ -78,3 +80,23 @@ async def on_startup():
 ..-..-.. ..:..:.. [ℹ️信息] Active receive: I am liteyuki main process active
 ...
 ```
+
+## **共享内存通信**
+
+### 简介
+
+- 相比于普通进程通信，内存共享使得代码编写更加简洁，轻雪框架提供了一个内存共享通信的接口，你可以通过`storage`模块实现内存共享通信
+- 内存共享是线程安全的，你可以在多个线程中读写共享内存，线程锁会自动保护共享内存的读写操作
+
+### 快速开始
+
+- 在任意进程中均可使用
+
+```python
+from liteyuki.comm.storage import shared_memory
+
+shared_memory.set("key", "value")  # 设置共享内存
+value = shared_memory.get("key")  # 获取共享内存
+```
+
+- 源代码：[liteyuki/comm/storage.py](https://github.com/LiteyukiStudio/LiteyukiBot/blob/main/liteyuki/comm/storage.py)

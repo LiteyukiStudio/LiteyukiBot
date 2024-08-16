@@ -1,6 +1,5 @@
 import threading
 
-from nonebot import logger
 from liteyuki.comm.channel import active_channel
 
 

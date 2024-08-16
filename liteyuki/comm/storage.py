@@ -136,8 +136,9 @@ class KeyValueStoreNoLock:
         if IS_MAIN_PROCESS:
             return self._store.get(key, default)
         else:
-            self.passive_chan.send(("get", key, default))
-            return self.active_chan.receive()
+            temp_chan = Channel("temp_chan")
+            self.passive_chan.send(("get", key, default, temp_chan))
+            return temp_chan.receive()
 
     def delete(self, key: str, ignore_key_error: bool = True) -> None:
         """
@@ -169,8 +170,9 @@ class KeyValueStoreNoLock:
         if IS_MAIN_PROCESS:
             return self._store
         else:
-            self.passive_chan.send(("get_all",))
-            return self.active_chan.receive()
+            temp_chan = Channel("temp_chan")
+            self.passive_chan.send(("get_all", temp_chan))
+            return temp_chan.receive()
 
 
 class GlobalKeyValueStore:
@@ -197,28 +199,29 @@ if IS_MAIN_PROCESS:
 
 
     @shared_memory.passive_chan.on_receive(lambda d: d[0] == "get")
-    def on_get(d):
-        shared_memory.active_chan.send(shared_memory.get(d[1], d[2]))
+    def on_get(data: tuple[str, str, any, Channel]):
+        data[3].send(shared_memory.get(data[1], data[2]))
 
 
     @shared_memory.passive_chan.on_receive(lambda d: d[0] == "set")
-    def on_set(d):
-        shared_memory.set(d[1], d[2])
+    def on_set(data: tuple[str, str, any]):
+        shared_memory.set(data[1], data[2])
 
 
     @shared_memory.passive_chan.on_receive(lambda d: d[0] == "delete")
-    def on_delete(d):
-        shared_memory.delete(d[1])
+    def on_delete(data: tuple[str, str]):
+        shared_memory.delete(data[1])
 
 
     @shared_memory.passive_chan.on_receive(lambda d: d[0] == "get_all")
-    def on_get_all(d):
-        if d[0] == "get_all":
-            shared_memory.active_chan.send(shared_memory.get_all())
+    def on_get_all(data: tuple[str, Channel]):
+        if data[0] == "get_all":
+            data[1].send(shared_memory.get_all())
 else:
+    # 子进程在入口函数中对shared_memory进行初始化
     shared_memory = None
 
-_ref_count = 0  # 引用计数
+_ref_count = 0  # import 引用计数, 防止获取空指针
 if not IS_MAIN_PROCESS:
     if (shared_memory is None) and _ref_count > 1:
         raise RuntimeError("Shared memory not initialized.")
