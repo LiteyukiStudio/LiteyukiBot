@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 from liteyuki.bot.lifespan import (LIFESPAN_FUNC, Lifespan)
 from liteyuki.comm import get_channel
-from liteyuki.core import IS_MAIN_PROCESS
+from liteyuki.utils import IS_MAIN_PROCESS
 from liteyuki.core.manager import ProcessManager
 from liteyuki.log import init_log, logger
 from liteyuki.plugin import load_plugins
