@@ -96,4 +96,4 @@ shared_memory.set("key", "value")  # 设置共享内存
 value = shared_memory.get("key")  # 获取共享内存
 ```
 
-- 源代码：[liteyuki/comm/storage.py](https://github.com/LiteyukiStudio/LiteyukiBot/blob/main/liteyuki/comm/storage.py)
+源代码：[liteyuki/comm/storage.py](https://github.com/LiteyukiStudio/LiteyukiBot/blob/main/liteyuki/comm/storage.py)
