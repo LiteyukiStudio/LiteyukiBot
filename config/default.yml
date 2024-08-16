@@ -2,7 +2,7 @@ nonebot:
   host: 127.0.0.1
   port: 20216
   command_start: ["", "/"]
-  nickname: [ "liteyuki-dev" ]
+  nickname: [ "liteyuki" ]
   default_language: zh
   driver: ~fastapi+~httpx+~websockets
   alconna_use_command_start: true

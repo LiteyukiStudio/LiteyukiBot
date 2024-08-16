@@ -261,7 +261,7 @@ def get_config_with_compat(key: str, compat_keys: tuple[str], default: Any = Non
         return get_bot().config[key]
     for compat_key in compat_keys:
         if compat_key in get_bot().config:
-            logger.warning(f"Config key {compat_key} will be deprecated, use {key} instead.")
+            logger.warning(f"Config key \"{compat_key}\" will be deprecated, use \"{key}\" instead.")
             return get_bot().config[compat_key]
     return default
 

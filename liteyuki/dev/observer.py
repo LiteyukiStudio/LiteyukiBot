@@ -37,7 +37,7 @@ def debounce(wait):
     return decorator
 
 
-if get_config_with_compat("liteyuki.dev_mode", ("dev_mode",), False):
+if get_config_with_compat("liteyuki.reload", ("dev_mode",), False):
     logger.debug("Liteyuki Reload enabled, watching for file changes...")
     observer.start()
 
