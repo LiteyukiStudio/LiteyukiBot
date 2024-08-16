@@ -102,6 +102,77 @@ class KeyValueStore:
             return self.active_chan.receive()
 
 
+class KeyValueStoreNoLock:
+    def __init__(self):
+        self._store = {}
+
+        self.active_chan = Channel(_id="shared_memory-active")
+        self.passive_chan = Channel(_id="shared_memory-passive")
+
+    def set(self, key: str, value: any) -> None:
+        """
+        设置键值对
+        Args:
+            key: 键
+            value: 值
+
+        """
+        if IS_MAIN_PROCESS:
+            self._store[key] = value
+        else:
+            # 向主进程发送请求拿取
+            self.passive_chan.send(("set", key, value))
+
+    def get(self, key: str, default: Optional[any] = None) -> any:
+        """
+        获取键值对
+        Args:
+            key: 键
+            default: 默认值
+
+        Returns:
+            any: 值
+        """
+        if IS_MAIN_PROCESS:
+            return self._store.get(key, default)
+        else:
+            self.passive_chan.send(("get", key, default))
+            return self.active_chan.receive()
+
+    def delete(self, key: str, ignore_key_error: bool = True) -> None:
+        """
+        删除键值对
+        Args:
+            key: 键
+            ignore_key_error: 是否忽略键不存在的错误
+
+        Returns:
+        """
+        if IS_MAIN_PROCESS:
+            if key in self._store:
+                try:
+                    del self._store[key]
+                    del _locks[key]
+                except KeyError as e:
+                    if not ignore_key_error:
+                        raise e
+        else:
+            # 向主进程发送请求删除
+            self.passive_chan.send(("delete", key))
+
+    def get_all(self) -> dict[str, any]:
+        """
+        获取所有键值对
+        Returns:
+            dict[str, any]: 键值对
+        """
+        if IS_MAIN_PROCESS:
+            return self._store
+        else:
+            self.passive_chan.send(("get_all",))
+            return self.active_chan.receive()
+
+
 class GlobalKeyValueStore:
     _instance = None
     _lock = threading.Lock()
@@ -142,7 +213,8 @@ if IS_MAIN_PROCESS:
 
     @shared_memory.passive_chan.on_receive(lambda d: d[0] == "get_all")
     def on_get_all(d):
-        shared_memory.active_chan.send(shared_memory.get_all())
+        if d[0] == "get_all":
+            shared_memory.active_chan.send(shared_memory.get_all())
 else:
     shared_memory = None
 

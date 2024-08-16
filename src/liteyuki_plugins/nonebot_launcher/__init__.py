@@ -10,7 +10,6 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 """
 
 import nonebot
-
 from liteyuki.utils import IS_MAIN_PROCESS
 from liteyuki.plugin import PluginMetadata
 from .nb_utils import adapter_manager, driver_manager

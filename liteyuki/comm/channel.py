@@ -93,10 +93,10 @@ class Channel:
             装饰器，装饰一个函数在接收到数据后执行
         """
         if (not self.is_sub_receive_loop_running) and not IS_MAIN_PROCESS:
-            threading.Thread(target=self._start_sub_receive_loop).start()
+            threading.Thread(target=self._start_sub_receive_loop, daemon=True).start()
 
         if (not self.is_main_receive_loop_running) and IS_MAIN_PROCESS:
-            threading.Thread(target=self._start_main_receive_loop).start()
+            threading.Thread(target=self._start_main_receive_loop, daemon=True).start()
 
         def decorator(func: ON_RECEIVE_FUNC) -> ON_RECEIVE_FUNC:
             async def wrapper(data: Any) -> Any:

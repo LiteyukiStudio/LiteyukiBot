@@ -1,6 +1,8 @@
 import asyncio
+import atexit
 import os
 import platform
+import signal
 import sys
 import threading
 import time
@@ -38,10 +40,15 @@ class LiteyukiBot:
 
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
+
         self.stop_event = threading.Event()
         self.call_restart_count = 0
 
         load_plugins("liteyuki/plugins")  # 加载轻雪插件
+
+        signal.signal(signal.SIGINT, self._handle_exit)
+        signal.signal(signal.SIGTERM, self._handle_exit)
+        atexit.register(self.process_manager.terminate_all)  # 注册退出时的函数
 
     def run(self):
         """
@@ -60,12 +67,24 @@ class LiteyukiBot:
         """
         try:
             while not self.stop_event.is_set():
-                time.sleep(1)
+                time.sleep(0.5)
         except KeyboardInterrupt:
             logger.info("Liteyuki is stopping...")
             self.stop()
-        finally:
-            self.lifespan.after_shutdown()
+
+    def _handle_exit(self, signum, frame):
+        """
+        信号处理
+        Args:
+            signum:
+            frame:
+
+        Returns:
+
+        """
+        logger.info("Received signal, stopping all processes.")
+        self.stop()
+        sys.exit(0)
 
     def restart(self, delay: int = 0):
         """
@@ -116,15 +135,11 @@ class LiteyukiBot:
         Returns:
 
         """
-        self.init_config()
         self.init_logger()
 
     def init_logger(self):
         # 修改nonebot的日志配置
         init_log(config=self.config)
-
-    def init_config(self):
-        pass
 
     def stop(self):
         """
