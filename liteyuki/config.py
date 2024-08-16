@@ -16,7 +16,7 @@ import toml
 import yaml
 from pydantic import BaseModel
 
-from liteyuki import logger
+from liteyuki.log import logger
 
 _SUPPORTED_CONFIG_FORMATS = (".yaml", ".yml", ".json", ".toml")
 

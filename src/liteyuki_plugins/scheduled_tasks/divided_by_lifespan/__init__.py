@@ -8,3 +8,4 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @File    : __init__.py
 @Software: PyCharm
 """
+from .after_start import *

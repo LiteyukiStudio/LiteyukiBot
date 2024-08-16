@@ -11,13 +11,15 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 import time
 
 from liteyuki import get_bot
+from liteyuki.comm.storage import shared_memory
 
 liteyuki = get_bot()
 
 
-@liteyuki.on_after_start
+@liteyuki.on_before_start
 def save_startup_timestamp():
     """
     储存启动的时间戳
     """
     startup_timestamp = time.time()
+    shared_memory.set("startup_timestamp", startup_timestamp)

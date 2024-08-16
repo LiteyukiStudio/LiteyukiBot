@@ -17,7 +17,7 @@ from multiprocessing import Pipe
 from typing import Any, Optional, Callable, Awaitable, List, TypeAlias
 from uuid import uuid4
 
-from liteyuki.utils import is_coroutine_callable, run_coroutine
+from liteyuki.utils import IS_MAIN_PROCESS, is_coroutine_callable, run_coroutine
 
 SYNC_ON_RECEIVE_FUNC: TypeAlias = Callable[[Any], Any]
 ASYNC_ON_RECEIVE_FUNC: TypeAlias = Callable[[Any], Awaitable[Any]]
@@ -27,10 +27,12 @@ SYNC_FILTER_FUNC: TypeAlias = Callable[[Any], bool]
 ASYNC_FILTER_FUNC: TypeAlias = Callable[[Any], Awaitable[bool]]
 FILTER_FUNC: TypeAlias = SYNC_FILTER_FUNC | ASYNC_FILTER_FUNC
 
-
-
 _channel: dict[str, "Channel"] = {}
 _callback_funcs: dict[str, ON_RECEIVE_FUNC] = {}
+
+"""子进程可用的主动和被动通道"""
+active_channel: Optional["Channel"] = None
+passive_channel: Optional["Channel"] = None
 
 
 class Channel:
@@ -40,8 +42,6 @@ class Channel:
     """
 
     def __init__(self, _id: str):
-        # self.main_send_conn, self.sub_receive_conn = Pipe()
-        # self.sub_send_conn, self.main_receive_conn = Pipe()
         self.conn_send, self.conn_recv = Pipe()
         self._closed = False
         self._on_main_receive_funcs: list[str] = []
@@ -102,12 +102,16 @@ class Channel:
             async def wrapper(data: Any) -> Any:
                 if filter_func is not None:
                     if is_coroutine_callable(filter_func):
-                        if not await filter_func(data):
+                        if not (await filter_func(data)):
                             return
                     else:
                         if not filter_func(data):
                             return
-                return await func(data)
+
+                if is_coroutine_callable(func):
+                    return await func(data)
+                else:
+                    return func(data)
 
             function_id = str(uuid4())
             _callback_funcs[function_id] = wrapper
@@ -164,10 +168,6 @@ class Channel:
         return self.receive()
 
 
-"""默认通道实例，可直接从模块导入使用"""
-chan = Channel("default")
-
-
 def set_channel(name: str, channel: Channel):
     """
     设置通道实例
@@ -175,6 +175,9 @@ def set_channel(name: str, channel: Channel):
         name: 通道名称
         channel: 通道实例
     """
+    if not IS_MAIN_PROCESS:
+        raise RuntimeError(f"Function {__name__} should only be called in the main process.")
+
     if not isinstance(channel, Channel):
         raise TypeError(f"channel must be an instance of Channel, {type(channel)} found")
     _channel[name] = channel
@@ -186,6 +189,9 @@ def set_channels(channels: dict[str, Channel]):
     Args:
         channels: 通道名称
     """
+    if not IS_MAIN_PROCESS:
+        raise RuntimeError(f"Function {__name__} should only be called in the main process.")
+
     for name, channel in channels.items():
         set_channel(name, channel)
 
@@ -197,6 +203,9 @@ def get_channel(name: str) -> Optional[Channel]:
         name: 通道名称
     Returns:
     """
+    if not IS_MAIN_PROCESS:
+        raise RuntimeError(f"Function {__name__} should only be called in the main process.")
+
     return _channel.get(name, None)
 
 
@@ -205,4 +214,7 @@ def get_channels() -> dict[str, Channel]:
     获取通道实例
     Returns:
     """
+    if not IS_MAIN_PROCESS:
+        raise RuntimeError(f"Function {__name__} should only be called in the main process.")
+
     return _channel

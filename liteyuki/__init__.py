@@ -7,7 +7,6 @@ from liteyuki.bot import (
 
 from liteyuki.comm import (
     Channel,
-    chan,
     Event
 )
 
@@ -17,7 +16,19 @@ from liteyuki.plugin import (
 )
 
 from liteyuki.log import (
-    logger,
-    init_log
-
+    init_log,
+    logger
 )
+
+__all__ = [
+    "LiteyukiBot",
+    "get_bot",
+    "get_config",
+    "get_config_with_compat",
+    "Channel",
+    "Event",
+    "load_plugin",
+    "load_plugins",
+    "init_log",
+    "logger"
+]

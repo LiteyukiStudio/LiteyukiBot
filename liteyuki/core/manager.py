@@ -10,18 +10,21 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 """
 
 import atexit
-import threading
 import signal
+import threading
 from multiprocessing import Process
-from typing import Any, Callable, Optional, Protocol, TYPE_CHECKING, TypeAlias
+from typing import Any, Callable, TYPE_CHECKING, TypeAlias
 
 from liteyuki.comm import Channel, get_channel, set_channels
+from liteyuki.comm.storage import shared_memory
 from liteyuki.log import logger
+from liteyuki.utils import IS_MAIN_PROCESS
 
-TARGET_FUNC: TypeAlias = Callable[[Channel, Channel, ...], Any]
+TARGET_FUNC: TypeAlias = Callable[..., Any]
 
 if TYPE_CHECKING:
     from liteyuki.bot import LiteyukiBot
+    from liteyuki.comm.storage import KeyValueStore
 
 TIMEOUT = 10
 
@@ -30,9 +33,29 @@ __all__ = [
 ]
 
 
+# Update the delivery_channel_wrapper function to return the top-level wrapper
+def _delivery_channel_wrapper(func: TARGET_FUNC, chan_active: Channel, chan_passive: Channel, sm: "KeyValueStore", *args, **kwargs):
+    """
+    子进程入口函数
+    """
+    # 给子进程设置通道
+    if IS_MAIN_PROCESS:
+        raise RuntimeError("Function should only be called in a sub process.")
+
+    from liteyuki.comm import channel
+    channel.active_channel = chan_active
+    channel.passive_channel = chan_passive
+
+    # 给子进程创建共享内存实例
+    from liteyuki.comm import storage
+    storage.shared_memory = sm
+
+    func(*args, **kwargs)
+
+
 class ProcessManager:
     """
-    在主进程中被调用
+    进程管理器
     """
 
     def __init__(self, bot: "LiteyukiBot"):
@@ -61,7 +84,6 @@ class ProcessManager:
             process = Process(target=self.targets[name][0], args=self.targets[name][1],
                               kwargs=self.targets[name][2])
             self.processes[name] = process
-
             process.start()
 
         # 启动进程并监听信号
@@ -114,9 +136,9 @@ class ProcessManager:
             kwargs = {}
         chan_active = Channel(_id=f"{name}-active")
         chan_passive = Channel(_id=f"{name}-passive")
-        kwargs["chan_active"] = chan_active
-        kwargs["chan_passive"] = chan_passive
-        self.targets[name] = (target, args, kwargs)
+
+        self.targets[name] = (_delivery_channel_wrapper, (target, chan_active, chan_passive, shared_memory, *args), kwargs)
+        # 主进程通道
         set_channels(
             {
                     f"{name}-active" : chan_active,
@@ -124,7 +146,7 @@ class ProcessManager:
             }
         )
 
-    def join(self):
+    def join_all(self):
         for name, process in self.targets:
             process.join()
 

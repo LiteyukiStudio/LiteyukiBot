@@ -8,12 +8,9 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @File    : __init__.py.py
 @Software: PyCharm
 """
-import asyncio
-import time
 
 import nonebot
 
-from liteyuki.comm import Channel, set_channel
 from liteyuki.core import IS_MAIN_PROCESS
 from liteyuki.plugin import PluginMetadata
 from .nb_utils import adapter_manager, driver_manager
@@ -23,20 +20,15 @@ __plugin_meta__ = PluginMetadata(
 )
 
 
-def nb_run(chan_active: "Channel", chan_passive: "Channel", *args, **kwargs):
+def nb_run(*args, **kwargs):
     """
     初始化NoneBot并运行在子进程
     Args:
-
-        chan_active:
-        chan_passive:
         **kwargs:
 
     Returns:
     """
     # 给子进程传递通道对象
-    set_channel("nonebot-active", chan_active)
-    set_channel("nonebot-passive", chan_passive)
 
     kwargs.update(kwargs.get("nonebot", {}))  # nonebot配置优先
     nonebot.init(**kwargs)

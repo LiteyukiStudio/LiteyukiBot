@@ -12,6 +12,7 @@ from liteyuki.log import logger
 
 IS_MAIN_PROCESS = multiprocessing.current_process().name == "MainProcess"
 
+
 def is_coroutine_callable(call: Callable[..., Any]) -> bool:
     """
     判断是否为协程可调用对象
@@ -87,5 +88,6 @@ def async_wrapper(func: Callable[..., Any]) -> Callable[..., Coroutine]:
 
     async def wrapper(*args, **kwargs):
         return func(*args, **kwargs)
+
     wrapper.__signature__ = inspect.signature(func)
     return wrapper

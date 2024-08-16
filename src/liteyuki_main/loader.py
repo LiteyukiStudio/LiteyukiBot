@@ -8,7 +8,7 @@ from src.utils.base.data_manager import InstalledPlugin, plugin_db
 from src.utils.base.resource import load_resources
 from src.utils.message.tools import check_for_package
 
-from liteyuki import get_bot, chan
+from liteyuki import get_bot
 
 from nonebot_plugin_apscheduler import scheduler
 

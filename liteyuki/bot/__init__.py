@@ -47,9 +47,9 @@ class LiteyukiBot:
         """
         启动逻辑
         """
-        self.lifespan.before_start() # 启动前钩子
+        self.lifespan.before_start()  # 启动前钩子
         self.process_manager.start_all()
-        self.lifespan.after_start() # 启动后钩子
+        self.lifespan.after_start()  # 启动后钩子
         self.keep_alive()
 
     def keep_alive(self):
@@ -98,10 +98,9 @@ class LiteyukiBot:
         Args:
             name: 进程名称, 默认为None, 所有进程
         Returns:
-
         """
-        self.loop.create_task(self.lifespan.before_process_shutdown())  # 重启前钩子
-        self.loop.create_task(self.lifespan.before_process_shutdown())  # 停止前钩子
+        self.lifespan.before_process_shutdown()  # 重启前钩子
+        self.lifespan.before_process_shutdown()  # 停止前钩子
 
         if name is not None:
             chan_active = get_channel(f"{name}-active")
