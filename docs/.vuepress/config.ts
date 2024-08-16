@@ -5,7 +5,16 @@ import viteBundler from "@vuepress/bundler-vite";
 export default defineUserConfig({
     base: "/",
 
-    lang: "zh-CN",
+    locales: {
+        "/": {
+            // 设置正在使用的语言
+            lang: "zh-CN",
+        },
+        "/en/": {
+            // 设置正在使用的语言
+            lang: "en-US",
+        },
+    },
     title: "LiteyukiBot 轻雪机器人",
     description: "LiteyukiBot | 轻雪机器人 | An OneBot Standard ChatBot | 一个OneBot标准的聊天机器人",
     head: [
