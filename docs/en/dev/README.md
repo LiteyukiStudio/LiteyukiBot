@@ -1,5 +1,5 @@
 ---
-title: 开发及贡献
+title: Contribute
 index: false
 icon: laptop-code
 category: 开发

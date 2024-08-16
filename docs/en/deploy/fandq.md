@@ -1,11 +1,10 @@
 ---
-title: 答疑
+title: FAQ
 icon: question
 order: 3
-category: 使用指南
+category: deployment
 tag:
-  - 配置
-  - 部署
+  - FAQ
 ---
 
 ## **常见问题**

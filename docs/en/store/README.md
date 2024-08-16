@@ -1,8 +1,8 @@
 ---
-title: 资源及插件商店
+title: Extensions Store
 index: false
 icon: store
-category: 商店
+category: store
 ---
 
 <Catalog />

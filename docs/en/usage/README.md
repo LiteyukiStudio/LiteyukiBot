@@ -1,8 +1,8 @@
 ---
-title: 使用手册
+title: Usage
 index: false
 icon: laptop-code
-category: 使用手册
+category: usage
 ---
 
 <Catalog />

@@ -1,8 +1,8 @@
 ---
-title: 轻雪函数
+title: Liteyuki Function
 icon: code
 order: 2
-category: 开发
+category: development
 ---
 
 ## **轻雪函数**

@@ -79,5 +79,4 @@ highlights:
         details: 如果你有多个 Python 环境，请使用 <code>pythonx -m pip install -r requirements.txt</code>。
       - title: 使用 <code>python main.py</code> 启动项目。
 copyright: © 2021-2024 SnowyKami All Rights Reserved
-
 ---

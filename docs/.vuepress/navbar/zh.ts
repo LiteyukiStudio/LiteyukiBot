@@ -1,11 +1,12 @@
+
 import {navbar} from "vuepress-theme-hope";
 
-export default navbar([
+export const zhNavbarConfig = navbar([
     "/",
     {
         text: "安装及部署",
-        link: "/deployment/",
-        prefix: "deployment/",
+        link: "/deploy/",
+        prefix: "deploy/",
     },
     {
         text: "使用及功能",
@@ -21,5 +22,5 @@ export default navbar([
         text: "开发及贡献",
         link: "/dev/",
         prefix: "dev/",
-    }
+    },
 ]);

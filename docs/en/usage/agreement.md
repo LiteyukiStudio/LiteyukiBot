@@ -1,8 +1,8 @@
 ---
-title: 用户协议
+title: User Agreement
 icon: user-secret
 order: 3
-category: 使用手册
+category: usage
 ---
 
 1. 本项目遵循`MIT`协议，你可以自由使用，修改，分发，但是请保留原作者信息

@@ -1,8 +1,8 @@
 ---
-title: 项目部署
+title: Deploy
 index: false
 icon: laptop-code
-category: 部署
+category: deploy
 ---
 
 <Catalog />
