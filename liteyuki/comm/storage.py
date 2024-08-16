@@ -4,16 +4,19 @@
 """
 
 import threading
-from typing import Any, Optional
+from typing import Optional
 
-from liteyuki.utils import IS_MAIN_PROCESS
 from liteyuki.comm.channel import Channel
+from liteyuki.utils import IS_MAIN_PROCESS
 
 if IS_MAIN_PROCESS:
     _locks = {}
 
 
-def _get_lock(key):
+def _get_lock(key) -> threading.Lock:
+    """
+    获取锁
+    """
     if IS_MAIN_PROCESS:
         if key not in _locks:
             _locks[key] = threading.Lock()
