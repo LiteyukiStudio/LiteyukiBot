@@ -100,6 +100,7 @@
     z-index: 1;
 }
 
+/*
 .disk-title {
     position: absolute;
     color: var(--main-text-color);
@@ -111,6 +112,29 @@
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: calc(100% - 40px);
+    z-index: 2;
+}
+*/
+.disk-name {
+    position: absolute;
+    color: var(--main-text-color);
+    font-size: 24px;
+    margin-left: 20px;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    z-index: 2;
+}
+
+.disk-details {
+    position: absolute;
+    right: 20px;
+    /* 调整位置以确保有足够的空间显示 */
+    color: var(--main-text-color);
+    font-size: 24px;
+    text-align: right;
+    white-space: nowrap;
     z-index: 2;
 }
 
