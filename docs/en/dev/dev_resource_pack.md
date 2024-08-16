@@ -1,8 +1,8 @@
 ---
-title: 资源包开发
+title: Resource Pack
 icon: box
 order: 1
-category: 开发
+category: development
 ---
 
 ## 简介

@@ -1,8 +1,8 @@
 ---
-title: 基础命令
+title: Basic Commands
 icon: comment
 order: 1
-category: 使用手册
+category: usage
 ---
 
 # 基础插件

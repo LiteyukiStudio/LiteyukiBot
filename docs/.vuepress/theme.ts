@@ -1,14 +1,30 @@
 import {hopeTheme} from "vuepress-theme-hope";
 import navbar from "./navbar.js";
-import sidebar from "./sidebar.js";
+import {enSidebarConfig, zhSidebarConfig} from "./sidebar/index.js";
+import {enNavbarConfig, zhNavbarConfig} from "./navbar/index.js";
 
 export default hopeTheme({
 
     hostname: "https://vuepress-theme-hope-docs-demo.netlify.app",
 
-    author: {
-        name: "远野千束",
-        url: "https://sfkm.me",
+    locales: {
+        "/": {
+            navbar: zhNavbarConfig,
+            sidebar: zhSidebarConfig,
+            author: {
+                name: "远野千束",
+                url: "https://sfkm.me",
+            }
+        },
+        "/en/": {
+            navbar: enNavbarConfig,
+            sidebar: enSidebarConfig,
+            author: {
+                name: "SnowyKami",
+                url: "https://sfkm.me",
+            }
+        }
+
     },
 
     iconAssets: "fontawesome-with-brands",
@@ -18,12 +34,6 @@ export default hopeTheme({
     repo: "https://github.com/LiteyukiStudio/LiteyukiBot",
 
     docsDir: "docs",
-
-    // 导航栏
-    navbar,
-
-    // 侧边栏
-    sidebar,
 
     // 页脚
     footer: "LiteyukiBot",

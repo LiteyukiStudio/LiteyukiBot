@@ -1,11 +1,10 @@
 ---
-title: 配置
+title: Configuration
 icon: cog
 order: 2
-category: 使用指南
+category: deployment
 tag:
-  - 配置
-  - 部署
+  - Configuration
 ---
 
 轻雪支持`yaml`、`json`和`toml`作为配置文件，取决于你个人的喜好

@@ -30,54 +30,94 @@ highlights:
       background-repeat: repeat
       background-size: initial
     features:
-      - title: 支持多种框架
+      - title: Multi-Framework Support
         icon: robot
-        details: 兼容nonebot，melobot等，拥有良好的生态支持
+        details: Compatible with nonebot, melobot, etc., with good ecological support
         link: https://nonebot.dev/
 
-      - title: 便捷管理
+      - title: Convenient Management
         icon: plug
-        details: 使用包管理器，便捷管理插件及资源包
+        details: Use package manager to manage plugins and resource packs
 
-      - title: 主题支持
+      - title: Custom Themes Support
         icon: paint-brush
-        details: 使用资源包对外观进行完全自定义
+        details: Fully customize the appearance with resource packs
         link: https://bot.liteyuki.icu/usage/resource_pack.html
 
-      - title: 国际化
+      - title: i18n
         icon: globe
-        details: 通过资源包支持多种语言
+        details: Support multiple languages through resource packs
         link: https://baike.baidu.com/item/i18n/6771940
 
-      - title: 简易使用
+      - title: Easy to Use
         icon: cog
-        details: 无需繁琐前期过程，开箱即用
+        details: No need for cumbersome pre-processes, ready to use
         link: https://bot.liteyuki.icu/deployment/config.html
 
-      - title: 超高性能
+      - title: High Performance
         icon: tachometer-alt
-        details: 500个插件，2s内启动
+        details: 500 plugins, start within 2s
 
-      - title: 滚动更新
+      - title: Rolling Update
         icon: cloud-download
-        details: 让你的机器人保持最新提交
+        details: Keep your bot up to date
 
-      - title: 开源项目
+      - title: OpenSource
         icon: code
-        details: 项目遵循MIT LICENCE开源，欢迎各位的贡献
+        details: MIT LICENCE open source project, welcome your contribution
 
-  - header: 快速部署
+  - header: Quick Start
     image: /assets/image/box.svg
     bgImage: https://theme-hope-assets.vuejs.press/bg/3-light.svg
     bgImageDark: https://theme-hope-assets.vuejs.press/bg/3-dark.svg
     highlights:
-      - title: 安装 Git 及 Python3.10+
-      - title: 使用 <code>git clone https://github.com/LiteyukiStudio/LiteyukiBot --depth=1</code> 以克隆项目至本地。
-        details: 如果无法连接到GitHub，可以使用 <code>git clone https://gitee.com/snowykami/LiteyukiBot --depth=1</code>。
-      - title: 使用 <code>cd LiteyukiBot</code> 切换到项目目录。
-      - title: 使用 <code>pip install -r requirements.txt</code> 安装项目依赖。
-        details: 如果你有多个 Python 环境，请使用 <code>pythonx -m pip install -r requirements.txt</code>。
-      - title: 使用 <code>python main.py</code> 启动项目。
+      - title: Install Git and Python3.10+ environment
+      - title: Use <code>git clone https://github.com/LiteyukiStudio/LiteyukiBot --depth=1</code> to clone the project locally
+      - title: Use <code>cd LiteyukiBot</code> to change the directory to the project root
+      - title: Use <code>pip install -r requirements.txt</code> install the project dependencies
+        details: If you have multiple Python environments, please use <code>pythonx -m pip install -r requirements.txt</code>.
+      - title: Start bot with <code>python main.py</code>.
 copyright: © 2021-2024 SnowyKami All Rights Reserved
 
 ---
+<script>
+// 定义全局变量来存储数据
+let globalTotal = 0;
+let globalOnline = 0;
+
+// 从API获取数据并更新全局变量
+function fetchAndUpdateData() {
+    Promise.all([
+        fetch("https://api.liteyuki.icu/count").then(res => res.json()),
+        fetch("https://api.liteyuki.icu/online").then(res => res.json())
+    ])
+        .then(([countRes, onlineRes]) => {
+            globalTotal = countRes.register;
+            globalOnline = onlineRes.online;
+        })
+        .catch(err => {
+            console.error("Error fetching data:", err);
+        });
+}
+
+// 更新页面显示，使用全局变量中的数据
+function updatePageDisplay() {
+    let countInfo = document.getElementById("count-info");
+    if (!countInfo) {
+        let info = `<div id="count-info" style="text-align: center; font-size: 20px; font-weight: 500">
+            Instances: <span id="total">${globalTotal}</span>&nbsp;&nbsp;&nbsp;&nbsp;Online: <span id="online">${globalOnline}</span></div>`;
+        let mainDescription = document.querySelector("#main-description");
+        if (mainDescription) {
+            mainDescription.insertAdjacentHTML('afterend', info);
+        }
+    }
+}
+
+// 初始调用更新数据
+fetchAndUpdateData();
+updatePageDisplay();
+
+// 设置定时器，分别以不同频率调用更新数据和更新页面的函数
+setInterval(fetchAndUpdateData, 10000); // 每10秒更新一次数据
+setInterval(updatePageDisplay, 1000); // 每1秒更新一次页面显示
+</script> 

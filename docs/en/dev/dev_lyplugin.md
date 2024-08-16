@@ -1,8 +1,8 @@
 ---
-title: 轻雪插件开发
+title: Liteyuki Plugin
 icon: laptop-code
 order: 3
-category: 开发
+category: development
 ---
 
 

@@ -1,12 +1,12 @@
 import {sidebar} from "vuepress-theme-hope";
 
-export default sidebar({
+export const zhSidebarConfig = sidebar({
     "/": [
         "",
         {
             text: "安装及部署",
             icon: "laptop-code",
-            prefix: "deployment/",
+            prefix: "deploy/",
             children: "structure",
         },
         {

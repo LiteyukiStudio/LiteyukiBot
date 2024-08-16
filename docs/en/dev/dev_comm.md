@@ -1,8 +1,8 @@
 ---
-title: 进程通信
+title: Communication
 icon: exchange-alt
 order: 4
-category: 开发
+category: development
 ---
 
 ## **通道通信**

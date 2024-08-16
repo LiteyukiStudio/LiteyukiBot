@@ -1,8 +1,8 @@
 ---
-title: 功能命令
+title: Extra Commands
 icon: comment
 order: 2
-category: 使用手册
+category: usage
 ---
 
 ## 功能插件命令
