@@ -1,11 +1,11 @@
 [
     {
-        "module_name": "nonebot_plugin_status",
-        "project_link": "nonebot-plugin-status",
-        "name": "测试",
-        "desc": "测试",
+        "module_name": "liteyuki-plugin-nonebot",
+        "project_link": "liteyuki-plugin-nonebot",
+        "name": "NoneBot插件",
+        "desc": "在轻雪中使用NoneBot，支持NoneBot2，为NoneBot开发者提供了更多便捷功能(已内置)",
         "author": "snowykami",
-        "homepage": "https://github.com/nonebot/plugin-status",
+        "homepage": "https://github.com/LiteyukiStudio/LiteyukiBot",
         "tags": [
             {
                 "label": "server",
@@ -14,10 +14,7 @@
         ],
         "is_official": true,
         "type": "application",
-        "supported_adapters": null,
         "valid": true,
-        "version": "0.8.1",
-        "time": "2024-03-04T06:57:10.250823Z",
-        "skip_test": false
+        "version": "rolling"
     }
 ]
