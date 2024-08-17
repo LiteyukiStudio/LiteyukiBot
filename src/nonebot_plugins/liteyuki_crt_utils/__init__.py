@@ -17,4 +17,3 @@ __plugin_meta__ = PluginMetadata(
             "default_enable": True,
     }
 )
-print(get_bot())
