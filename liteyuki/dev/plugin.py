@@ -22,5 +22,5 @@ def run_plugins(*module_path: str | Path):
     """
     cfg = load_config_in_default()
     cfg["liteyuki.plugins"] = cfg.get("liteyuki.plugins", []).extend(module_path)
-    bot = LiteyukiBot(cfg)
+    bot = LiteyukiBot(**cfg)
     bot.run()
