@@ -11,13 +11,10 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 from git import Repo
 from pdm.backend.hooks.version import SCMVersion
 
-try:
-    __commit__ = Repo(".").head.commit.hexsha
-except:
-    __commit__ = "unknown"
+__commit__ = Repo(".").head.commit.hexsha
 
 __version__ = "6.3.5"
 
 
 def format_version(version: SCMVersion) -> str:
-    return f"{__version__}+{__commit__[:7]}"
+    return f"{__version__}.dev{int(__commit__[:7], 16)}"
