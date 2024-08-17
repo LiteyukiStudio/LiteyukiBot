@@ -32,5 +32,6 @@ Repository = "https://github.com/LiteyukiStudio/LiteyukiBot"
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
-[tool.pdm]
-packages = ["liteyuki"]
+[tool.pdm.build]
+includes = ["liteyuki/", "LICENSE", "README.md"]
+excludes = ["tests/", "docs/", "src/"]
