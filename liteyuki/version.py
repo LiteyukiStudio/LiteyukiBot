@@ -8,13 +8,15 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @File    : version.py.py
 @Software: PyCharm
 """
+from datetime import datetime
+
 from git import Repo
 from pdm.backend.hooks.version import SCMVersion
 
-__commit__ = Repo(".").head.commit.hexsha
+__datetime__ = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 __version__ = "6.3.5"
 
 
 def format_version(version: SCMVersion) -> str:
-    return f"{__version__}.dev{int(__commit__[:7], 16)}"
+    return f"{__version__}.dev{__datetime__}"
