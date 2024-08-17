@@ -10,7 +10,6 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 """
 from datetime import datetime
 
-from git import Repo
 from pdm.backend.hooks.version import SCMVersion
 
 __datetime__ = datetime.now().strftime("%Y%m%d%H%M%S")
