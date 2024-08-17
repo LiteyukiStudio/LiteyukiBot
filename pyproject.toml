@@ -20,7 +20,6 @@ dependencies = [
     "PyYAML==6.0.2",
     "toml==0.10.2",
     "watchdog==4.0.1",
-    "GitPython~=3.1.42"
 ]
 
 [project.urls]
@@ -30,7 +29,7 @@ Repository = "https://github.com/LiteyukiStudio/LiteyukiBot"
 
 
 [build-system]
-requires = ["pdm-backend", "loguru", "pydantic", "PyYAML", "toml", "watchdog", "GitPython"]
+requires = ["pdm-backend", "loguru", "pydantic", "PyYAML", "toml", "watchdog"]
 build-backend = "pdm.backend"
 
 [tool.pdm.build]
@@ -41,5 +40,3 @@ excludes = ["tests/", "docs/", "src/"]
 source = "scm"
 version_format = "liteyuki.version:format_version"
 fallback_version = "6.0.0"
-#tag_filter = "test/*"
-#tag_regex = '^test/(?:\D*)?(?P<version>([1-9][0-9]*!)?(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*((a|b|c|rc)(0|[1-9][0-9]*))?(\.post(0|[1-9][0-9]*))?(\.dev(0|[1-9][0-9]*))?$)$'
