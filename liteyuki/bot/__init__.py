@@ -12,7 +12,7 @@ from liteyuki.bot.lifespan import (LIFESPAN_FUNC, Lifespan)
 from liteyuki.comm.channel import get_channel
 from liteyuki.core.manager import ProcessManager
 from liteyuki.log import init_log, logger
-from liteyuki.plugin import load_plugins
+from liteyuki.plugin import load_plugin
 from liteyuki.utils import IS_MAIN_PROCESS
 
 __all__ = [
@@ -54,8 +54,8 @@ class LiteyukiBot:
         self.stop_event = threading.Event()
         self.call_restart_count = 0
 
-        """插件加载"""
-        load_plugins("liteyuki/plugins")  # 加载轻雪插件
+        """加载插件加载器"""
+        load_plugin("liteyuki.plugins.plugin_loader")  # 加载轻雪插件
 
         """信号处理"""
         signal.signal(signal.SIGINT, self._handle_exit)

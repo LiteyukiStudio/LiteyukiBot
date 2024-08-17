@@ -21,11 +21,10 @@ def default_plugins_loader():
     """
     默认插件加载器，应在初始化时调用
     """
-    load_plugins("src/liteyuki_plugins")
     for plugin in get_config("liteyuki.plugins", []):
         load_plugin(plugin)
 
-    for plugin_dir in get_config("liteyuki.plugin_dirs", []):
+    for plugin_dir in get_config("liteyuki.plugin_dirs", ["src/liteyuki_plugins"]):
         load_plugins(plugin_dir)
 
 

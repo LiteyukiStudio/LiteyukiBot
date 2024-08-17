@@ -16,7 +16,7 @@ from typing import Optional
 from liteyuki.log import logger
 from liteyuki.plugin.model import Plugin, PluginMetadata
 from importlib import import_module
-
+from nonebot import load_builtin_plugin
 from liteyuki.utils import path_to_module_name
 
 _plugins: dict[str, Plugin] = {}
