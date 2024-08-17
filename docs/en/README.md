@@ -14,7 +14,7 @@ tagline: LiteyukiBot A high-performance, easy-to-use chatbot framework and appli
 actions:
   - text: Get Started
     icon: rocket
-    link: ./deployment/install.html
+    link: ./deploy/install.html
     type: primary
 
   - text: Usage
