@@ -12,23 +12,23 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 """
 import threading
 from multiprocessing import Pipe
-from typing import Any, Awaitable, Callable, Optional, TypeAlias, TypeVar, Generic, get_args
-from uuid import uuid4
+from typing import Any, Callable, Coroutine, Generic, Optional, TypeAlias, TypeVar, get_args
 
 from liteyuki.utils import IS_MAIN_PROCESS, is_coroutine_callable, run_coroutine
 
-SYNC_ON_RECEIVE_FUNC: TypeAlias = Callable[[Any], Any]
-ASYNC_ON_RECEIVE_FUNC: TypeAlias = Callable[[Any], Awaitable[Any]]
+T = TypeVar("T")
+
+SYNC_ON_RECEIVE_FUNC: TypeAlias = Callable[[T], Any]
+ASYNC_ON_RECEIVE_FUNC: TypeAlias = Callable[[T], Coroutine[Any, Any, Any]]
 ON_RECEIVE_FUNC: TypeAlias = SYNC_ON_RECEIVE_FUNC | ASYNC_ON_RECEIVE_FUNC
 
-SYNC_FILTER_FUNC: TypeAlias = Callable[[Any], bool]
-ASYNC_FILTER_FUNC: TypeAlias = Callable[[Any], Awaitable[bool]]
+SYNC_FILTER_FUNC: TypeAlias = Callable[[T], bool]
+ASYNC_FILTER_FUNC: TypeAlias = Callable[[T], Coroutine[Any, Any, bool]]
 FILTER_FUNC: TypeAlias = SYNC_FILTER_FUNC | ASYNC_FILTER_FUNC
 
+_func_id: int = 0
 _channel: dict[str, "Channel"] = {}
-_callback_funcs: dict[str, ON_RECEIVE_FUNC] = {}
-
-T = TypeVar("T")
+_callback_funcs: dict[int, ON_RECEIVE_FUNC] = {}
 
 
 class Channel(Generic[T]):
@@ -45,8 +45,8 @@ class Channel(Generic[T]):
         """
         self.conn_send, self.conn_recv = Pipe()
         self._closed = False
-        self._on_main_receive_funcs: list[str] = []
-        self._on_sub_receive_funcs: list[str] = []
+        self._on_main_receive_funcs: list[int] = []
+        self._on_sub_receive_funcs: list[int] = []
         self.name: str = _id
 
         self.is_main_receive_loop_running = False
@@ -68,7 +68,7 @@ class Channel(Generic[T]):
             return get_args(self.__orig_class__)[0]
         return None
 
-    def _validate_structure(self, data: any, structure: type | tuple | list | dict) -> bool:
+    def _validate_structure(self, data: Any, structure: type) -> bool:
         """
         验证数据结构
         Args:
@@ -105,7 +105,7 @@ class Channel(Generic[T]):
         """
         if self.type_check:
             _type = self._get_generic_type()
-            if not self._validate_structure(data, _type):
+            if _type is not None and not self._validate_structure(data, _type):
                 raise TypeError(f"Data must be an instance of {_type}, {type(data)} found")
 
         if self._closed:
@@ -132,7 +132,7 @@ class Channel(Generic[T]):
         self.conn_send.close()
         self.conn_recv.close()
 
-    def on_receive(self, filter_func: Optional[FILTER_FUNC] = None) -> Callable[[ON_RECEIVE_FUNC], ON_RECEIVE_FUNC]:
+    def on_receive(self, filter_func: Optional[FILTER_FUNC] = None) -> Callable[[Callable[[T], Any]], Callable[[T], Any]]:
         """
         接收数据并执行函数
         Args:
@@ -146,11 +146,13 @@ class Channel(Generic[T]):
         if (not self.is_main_receive_loop_running) and IS_MAIN_PROCESS:
             threading.Thread(target=self._start_main_receive_loop, daemon=True).start()
 
-        def decorator(func: ON_RECEIVE_FUNC) -> ON_RECEIVE_FUNC:
-            async def wrapper(data: Any) -> Any:
+        def decorator(func: Callable[[T], Any]) -> Callable[[T], Any]:
+            global _func_id
+
+            async def wrapper(data: T) -> Any:
                 if filter_func is not None:
                     if is_coroutine_callable(filter_func):
-                        if not (await filter_func(data)):
+                        if not (await filter_func(data)):  # type: ignore
                             return
                     else:
                         if not filter_func(data):
@@ -161,12 +163,12 @@ class Channel(Generic[T]):
                 else:
                     return func(data)
 
-            function_id = str(uuid4())
-            _callback_funcs[function_id] = wrapper
+            _callback_funcs[_func_id] = wrapper
             if IS_MAIN_PROCESS:
-                self._on_main_receive_funcs.append(function_id)
+                self._on_main_receive_funcs.append(_func_id)
             else:
-                self._on_sub_receive_funcs.append(function_id)
+                self._on_sub_receive_funcs.append(_func_id)
+            _func_id += 1
             return func
 
         return decorator
@@ -219,33 +221,19 @@ class Channel(Generic[T]):
 """子进程可用的主动和被动通道"""
 active_channel: Optional["Channel"] = None
 passive_channel: Optional["Channel"] = None
-if not IS_MAIN_PROCESS:
-    """sub process only"""
-    active_channel: Optional["Channel"] = None
-    passive_channel: Optional["Channel"] = None
 
-"""通道传递通道，主进程单例，子进程初始化时实例化"""
-channel_deliver_active_channel: Optional["Channel"]
-channel_deliver_passive_channel: Optional["Channel"]
+"""通道传递通道，主进程创建单例，子进程初始化时实例化"""
+channel_deliver_active_channel: Channel[Channel[Any]]
+channel_deliver_passive_channel: Channel[tuple[str, dict[str, Any]]]
 if IS_MAIN_PROCESS:
-    channel_deliver_active_channel: Optional["Channel"] = Channel(_id="channel_deliver_active_channel")
-    channel_deliver_passive_channel: Optional["Channel"] = Channel(_id="channel_deliver_passive_channel")
+    channel_deliver_active_channel = Channel(_id="channel_deliver_active_channel")
+    channel_deliver_passive_channel = Channel(_id="channel_deliver_passive_channel")
 
 
     @channel_deliver_passive_channel.on_receive(filter_func=lambda data: data[0] == "set_channel")
-    def on_set_channel(data: tuple[str, str, Channel, Channel]):
-        name, channel, temp_channel = data[1:]
+    def on_set_channel(data: tuple[str, dict[str, Any]]):
+        name, channel, temp_channel = data[1]["name"], data[1]["channel"], _channel[data[0]]
         temp_channel.send(set_channel(name, channel))
-
-
-    @channel_deliver_active_channel.on_receive(filter_func=lambda data: data[0] == "get_channel")
-    def on_get_channel(data: tuple[str, Channel]):
-        name = data[1:]
-        channel = get_channel()
-        return channel
-else:
-    channel_deliver_active_channel = None
-    channel_deliver_passive_channel = None
 
 
 def set_channel(name: str, channel: Channel):
@@ -262,9 +250,14 @@ def set_channel(name: str, channel: Channel):
         _channel[name] = channel
     else:
         # 请求主进程设置通道
-        temp_channel = Channel(_id="temp_channel")
-        channel_deliver_passive_channel.send(("set_channel", name, channel, temp_channel))
-        return temp_channel.receive()
+        channel_deliver_passive_channel.send(
+            (
+                    "set_channel", {
+                            "name"   : name,
+                            "channel": channel,
+                    }
+            )
+        )
 
 
 def set_channels(channels: dict[str, Channel]):
@@ -280,7 +273,7 @@ def set_channels(channels: dict[str, Channel]):
         set_channel(name, channel)
 
 
-def get_channel(name: str) -> Optional[Channel]:
+def get_channel(name: str) -> Channel:
     """
     获取通道实例
     Args:
@@ -290,7 +283,7 @@ def get_channel(name: str) -> Optional[Channel]:
     if not IS_MAIN_PROCESS:
         raise RuntimeError(f"Function {__name__} should only be called in the main process.")
 
-    return _channel.get(name, None)
+    return _channel[name]
 
 
 def get_channels() -> dict[str, Channel]:

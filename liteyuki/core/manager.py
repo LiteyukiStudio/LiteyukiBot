@@ -9,9 +9,6 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @Software: PyCharm
 """
 
-import atexit
-import signal
-import sys
 import threading
 from multiprocessing import Process
 from typing import Any, Callable, TYPE_CHECKING, TypeAlias
@@ -21,12 +18,14 @@ from liteyuki.comm.storage import shared_memory
 from liteyuki.log import logger
 from liteyuki.utils import IS_MAIN_PROCESS
 
-if IS_MAIN_PROCESS:
-    from liteyuki.comm.channel import channel_deliver_active_channel, channel_deliver_passive_channel
-
 if TYPE_CHECKING:
     from liteyuki.bot import LiteyukiBot
     from liteyuki.comm.storage import KeyValueStore
+
+if IS_MAIN_PROCESS:
+    from liteyuki.comm.channel import channel_deliver_active_channel, channel_deliver_passive_channel
+else:
+    from liteyuki.comm import channel
 
 TARGET_FUNC: TypeAlias = Callable[..., Any]
 TIMEOUT = 10
@@ -36,8 +35,22 @@ __all__ = [
 ]
 
 
+class ChannelDeliver:
+    def __init__(
+            self,
+            active: Channel[Any],
+            passive: Channel[Any],
+            channel_deliver_active: Channel[Channel[Any]],
+            channel_deliver_passive: Channel[tuple[str, dict]]
+    ):
+        self.active = active
+        self.passive = passive
+        self.channel_deliver_active = channel_deliver_active
+        self.channel_deliver_passive = channel_deliver_passive
+
+
 # 函数处理一些跨进程通道的
-def _delivery_channel_wrapper(func: TARGET_FUNC, chan_active: Channel, chan_passive: Channel, sm: "KeyValueStore", *args, **kwargs):
+def _delivery_channel_wrapper(func: TARGET_FUNC, cd: ChannelDeliver, sm: "KeyValueStore", *args, **kwargs):
     """
     子进程入口函数
     处理一些操作
@@ -46,11 +59,10 @@ def _delivery_channel_wrapper(func: TARGET_FUNC, chan_active: Channel, chan_pass
     if IS_MAIN_PROCESS:
         raise RuntimeError("Function should only be called in a sub process.")
 
-    from liteyuki.comm import channel  # type Module
-    channel.active_channel = chan_active  # 子进程主动通道
-    channel.passive_channel = chan_passive  # 子进程被动通道
-    channel.channel_deliver_active_channel = channel_deliver_active_channel  # 子进程通道传递主动通道
-    channel.channel_deliver_passive_channel = channel_deliver_passive_channel  # 子进程通道传递被动通道
+    channel.active_channel = cd.active  # 子进程主动通道
+    channel.passive_channel = cd.passive  # 子进程被动通道
+    channel.channel_deliver_active_channel = cd.channel_deliver_active  # 子进程通道传递主动通道
+    channel.channel_deliver_passive_channel = cd.channel_deliver_passive  # 子进程通道传递被动通道
 
     # 给子进程创建共享内存实例
     from liteyuki.comm import storage
@@ -66,7 +78,7 @@ class ProcessManager:
 
     def __init__(self, bot: "LiteyukiBot"):
         self.bot = bot
-        self.targets: dict[str, tuple[callable, tuple, dict]] = {}
+        self.targets: dict[str, tuple[Callable, tuple, dict]] = {}
         self.processes: dict[str, Process] = {}
 
     def start(self, name: str):
@@ -128,10 +140,17 @@ class ProcessManager:
         """
         if kwargs is None:
             kwargs = {}
-        chan_active = Channel(_id=f"{name}-active")
-        chan_passive = Channel(_id=f"{name}-passive")
+        chan_active: Channel = Channel(_id=f"{name}-active")
+        chan_passive: Channel = Channel(_id=f"{name}-passive")
 
-        self.targets[name] = (_delivery_channel_wrapper, (target, chan_active, chan_passive, shared_memory, *args), kwargs)
+        channel_deliver = ChannelDeliver(
+            active=chan_active,
+            passive=chan_passive,
+            channel_deliver_active=channel_deliver_active_channel,
+            channel_deliver_passive=channel_deliver_passive_channel
+        )
+
+        self.targets[name] = (_delivery_channel_wrapper, (target, channel_deliver, shared_memory, *args), kwargs)
         # 主进程通道
         set_channels(
             {
@@ -177,5 +196,5 @@ class ProcessManager:
 
         """
         if name not in self.targets:
-            raise logger.warning(f"Process {name} not found.")
+            logger.warning(f"Process {name} not found.")
         return self.processes[name].is_alive()
