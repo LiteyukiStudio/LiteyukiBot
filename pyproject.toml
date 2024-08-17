@@ -4,7 +4,7 @@
 # 此文件仅供 liteyuki 框架使用，请勿用于应用程序及nb-cli，请使用pip进行安装。
 [project]
 name = "liteyukibot"
-version = "6.3.2"
+dynamic = ["version"]
 description = "A lightweight bot process management framework and application."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -33,4 +33,4 @@ requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
 [tool.pdm]
-includes = ["liteyuki"]
+packages = ["liteyuki"]

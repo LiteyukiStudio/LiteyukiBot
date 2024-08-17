@@ -48,3 +48,4 @@ prompt.txt
 
 # pdm
 .pdm-python
+dist
