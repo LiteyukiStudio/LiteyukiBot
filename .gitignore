@@ -48,4 +48,5 @@ prompt.txt
 
 # pdm
 .pdm-python
+.pdm-build
 dist
