@@ -10,13 +10,12 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 """
 import os
 import traceback
+from importlib import import_module
 from pathlib import Path
 from typing import Optional
 
 from liteyuki.log import logger
 from liteyuki.plugin.model import Plugin, PluginMetadata
-from importlib import import_module
-from nonebot import load_builtin_plugin
 from liteyuki.utils import path_to_module_name
 
 _plugins: dict[str, Plugin] = {}
@@ -60,18 +59,31 @@ def load_plugin(module_path: str | Path) -> Optional[Plugin]:
         return None
 
 
-def load_plugins(*plugin_dir: str) -> set[Plugin]:
+def load_plugins(*plugin_dir: str, ignore_warning: bool = True) -> set[Plugin]:
     """导入文件夹下多个插件
 
     参数:
         plugin_dir: 文件夹路径
+        ignore_warning: 是否忽略警告，通常是目录不存在或目录为空
     """
     plugins = set()
     for dir_path in plugin_dir:
         # 遍历每一个文件夹下的py文件和包含__init__.py的文件夹，不递归
         if not os.path.exists(dir_path):
-            logger.warning(f"Plugins dir '{dir_path}' does not exist.")
+            if not ignore_warning:
+                logger.warning(f"Plugins dir '{dir_path}' does not exist.")
             continue
+
+        if not os.listdir(dir_path):
+            if not ignore_warning:
+                logger.warning(f"Plugins dir '{dir_path}' is empty.")
+            continue
+
+        if not os.path.isdir(dir_path):
+            if not ignore_warning:
+                logger.warning(f"Plugins dir '{dir_path}' is not a directory.")
+            continue
+
         for f in os.listdir(dir_path):
             path = Path(os.path.join(dir_path, f))
 
