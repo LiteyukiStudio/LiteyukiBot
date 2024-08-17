@@ -1,9 +1,8 @@
-import multiprocessing
-
 from nonebot.plugin import PluginMetadata
-from liteyuki.comm import get_channel
-from .rt_guide import *
-from .crt_matchers import *
+
+from liteyuki import get_bot
+from .crt_matchers import *  # type: ignore
+from .rt_guide import *  # type: ignore
 
 __plugin_meta__ = PluginMetadata(
 
@@ -18,3 +17,4 @@ __plugin_meta__ = PluginMetadata(
             "default_enable": True,
     }
 )
+print(get_bot())

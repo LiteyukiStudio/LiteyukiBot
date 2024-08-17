@@ -9,7 +9,8 @@ import time
 from typing import Any, Optional
 
 from liteyuki.bot.lifespan import (LIFESPAN_FUNC, Lifespan)
-from liteyuki.comm import get_channel
+from liteyuki.comm.channel import get_channel
+from liteyuki.comm.storage import shared_memory
 from liteyuki.utils import IS_MAIN_PROCESS
 from liteyuki.core.manager import ProcessManager
 from liteyuki.log import init_log, logger
@@ -24,28 +25,40 @@ __all__ = [
 
 
 class LiteyukiBot:
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
+        """
+        初始化轻雪实例
+        Args:
+            *args:
+            **kwargs: 配置
+
+        """
+        """常规操作"""
         print_logo()
         global _BOT_INSTANCE
         _BOT_INSTANCE = self  # 引用
 
+        """配置"""
         self.config: dict[str, Any] = kwargs
 
+        """初始化"""
         self.init(**self.config)  # 初始化
         logger.info("Liteyuki is initializing...")
 
+        """生命周期管理"""
         self.lifespan = Lifespan()
+        self.process_manager: ProcessManager = ProcessManager(lifespan=self.lifespan)
 
-        self.process_manager: ProcessManager = ProcessManager(bot=self)
-
+        """事件循环"""
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
-
         self.stop_event = threading.Event()
         self.call_restart_count = 0
 
+        """插件加载"""
         load_plugins("liteyuki/plugins")  # 加载轻雪插件
 
+        """信号处理"""
         signal.signal(signal.SIGINT, self._handle_exit)
         signal.signal(signal.SIGTERM, self._handle_exit)
         atexit.register(self.process_manager.terminate_all)  # 注册退出时的函数
@@ -229,15 +242,17 @@ class LiteyukiBot:
         return self.lifespan.on_after_nonebot_init(func)
 
 
-_BOT_INSTANCE: Optional[LiteyukiBot] = None
+_BOT_INSTANCE: LiteyukiBot
 
 
-def get_bot() -> Optional[LiteyukiBot]:
+def get_bot() -> LiteyukiBot:
     """
     获取轻雪实例
+
     Returns:
         LiteyukiBot: 当前的轻雪实例
     """
+
     if IS_MAIN_PROCESS:
         if _BOT_INSTANCE is None:
             raise RuntimeError("Liteyuki instance not initialized.")
@@ -246,7 +261,7 @@ def get_bot() -> Optional[LiteyukiBot]:
         raise RuntimeError("Can't get bot instance in sub process.")
 
 
-def get_config(key: str = None, default: Any = None) -> Any:
+def get_config(key: str, default: Any = None) -> Any:
     """
     获取配置
     Args:
@@ -256,8 +271,6 @@ def get_config(key: str = None, default: Any = None) -> Any:
     Returns:
         Any: 配置值
     """
-    if key is None:
-        return get_bot().config
     return get_bot().config.get(key, default)
 
 

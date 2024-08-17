@@ -19,7 +19,7 @@ from liteyuki.log import logger
 from liteyuki.utils import IS_MAIN_PROCESS
 
 if TYPE_CHECKING:
-    from liteyuki.bot import LiteyukiBot
+    from liteyuki.bot.lifespan import Lifespan
     from liteyuki.comm.storage import KeyValueStore
 
 if IS_MAIN_PROCESS:
@@ -76,8 +76,8 @@ class ProcessManager:
     进程管理器
     """
 
-    def __init__(self, bot: "LiteyukiBot"):
-        self.bot = bot
+    def __init__(self, lifespan: "Lifespan"):
+        self.lifespan = lifespan
         self.targets: dict[str, tuple[Callable, tuple, dict]] = {}
         self.processes: dict[str, Process] = {}
 
@@ -108,14 +108,14 @@ class ProcessManager:
             if data == 0:
                 # 停止
                 logger.info(f"Stopping process {name}")
-                self.bot.lifespan.before_process_shutdown()
+                self.lifespan.before_process_shutdown()
                 self.terminate(name)
                 break
             elif data == 1:
                 # 重启
                 logger.info(f"Restarting process {name}")
-                self.bot.lifespan.before_process_shutdown()
-                self.bot.lifespan.before_process_restart()
+                self.lifespan.before_process_shutdown()
+                self.lifespan.before_process_restart()
                 self.terminate(name)
                 _start_process()
                 continue
