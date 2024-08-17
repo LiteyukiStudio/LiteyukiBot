@@ -20,6 +20,7 @@ dependencies = [
     "PyYAML==6.0.2",
     "toml==0.10.2",
     "watchdog==4.0.1",
+    "pdm-backend==2.3.3"
 ]
 
 [project.urls]
