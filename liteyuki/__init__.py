@@ -1,5 +1,3 @@
-from git import Repo
-
 from liteyuki.bot import (
     LiteyukiBot,
     get_bot,
@@ -22,6 +20,7 @@ from liteyuki.log import (
     logger
 )
 
+
 __all__ = [
         "LiteyukiBot",
         "get_bot",
@@ -32,7 +31,7 @@ __all__ = [
         "load_plugin",
         "load_plugins",
         "init_log",
-        "logger"
+        "logger",
 ]
 
-__version__ = f"6.3.5+g{Repo('.').head.commit.hexsha}"
+
