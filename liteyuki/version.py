@@ -13,7 +13,7 @@ from datetime import datetime
 from git import Repo
 from pdm.backend.hooks.version import SCMVersion
 
-__datetime__ = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+__datetime__ = datetime.now().strftime("%Y%m%d%H%M%S")
 
 __version__ = "6.3.5"
 
