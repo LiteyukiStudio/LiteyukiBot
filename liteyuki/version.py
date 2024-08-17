@@ -20,4 +20,4 @@ __version__ = "6.3.5"
 
 
 def format_version(version: SCMVersion) -> str:
-    return f"{__version__}+{__commit__[:7]}"
+    return f"{__version__}.dev{__commit__[:7]}"
