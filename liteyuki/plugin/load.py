@@ -69,6 +69,9 @@ def load_plugins(*plugin_dir: str) -> set[Plugin]:
     plugins = set()
     for dir_path in plugin_dir:
         # 遍历每一个文件夹下的py文件和包含__init__.py的文件夹，不递归
+        if not os.path.exists(dir_path):
+            logger.warning(f"Plugins dir '{dir_path}' does not exist.")
+            continue
         for f in os.listdir(dir_path):
             path = Path(os.path.join(dir_path, f))
 
