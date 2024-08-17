@@ -1,58 +1,36 @@
 # PEP 621 project metadata
 # See https://www.python.org/dev/peps/pep-0621/
-# This file is for project use, but don`t use with nb-cli
-# 此文件为项目所用，请不要和nb-cli一起使用以防被修改
-[tool.poetry]
-name = "liteyuki-bot"
-version = "6"
-description = "based on nonebot2"
-authors = ["Snowykami"]
-license = "MIT & LSO"
-package-mode = false
+# This file is liteyuki framework use only, don`t use it with applications or nb-cli.
+# 此文件仅供 liteyuki 框架使用，请勿用于应用程序及nb-cli，请使用pip进行安装。
+[project]
+name = "liteyukibot"
+version = "6.3.2"
+description = "A lightweight bot process management framework and application."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "snowykami", email = "snowykami@outlook.com" },
+    { name = "LiteyukiStudio", email = "studio@liteyuki.icu" },
+]
+license = { text = "MIT&LSO" }
 
-
-#[tool.poetry.dependencies]
-#python = "^3.10"
-#aiofiles = "~23.2.1"
-#aiohttp = "~3.9.3"
-#aiosqlite3 = "~0.3.0"
-#colored = "~2.2.4"
-#fastapi = "~0.110.0"
-#GitPython = "~3.1.42"
-#httpx = "~0.27.0"
-#importlib_metadata = "~7.0.2"
-#jieba = "~0.42.1"
-#loguru = "~0.7.2"
-#nb-cli = "~1.4.1"
-#nonebot-adapter-onebot = "~2.4.3"
-#nonebot-adapter-satori = "~0.11.5"
-#nonebot-plugin-alconna = "~0.46.3"
-#nonebot-plugin-apscheduler = "~0.4.0"
-#nonebot-plugin-htmlrender = "~0.3.1"
-#nonebot2 = { version = "~2.3.0", extras = ["fastapi", "httpx", "websockets"] }
-#numpy = "~2.0.0"
-#packaging = "~23.1"
-#psutil = "~5.9.8"
-#py-cpuinfo = "~9.0.0"
-#pydantic = "~2.7.0"
-#Pygments = "~2.17.2"
-#python-dotenv = "~1.0.1"
-#pytest = "~8.3.1"
-#pytz = "~2024.1"
-#PyYAML = "~6.0.1"
-#requests = "~2.31.0"
-#starlette = "~0.36.3"
-#watchdog = "~4.0.0"
-
-
-[[tool.poetry.source]]
-name = "tuna"
-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
-
-[tool.nonebot]
+dependencies = [
+    "loguru~=0.7.2",
+    "pydantic==2.8.2",
+    "PyYAML==6.0.2",
+    "toml==0.10.2",
+    "watchdog==4.0.1",
+]
 
 [project.urls]
-homepage = "https://bot.liteyuki.icu"
-repository = "https://github.com/LiteyukiStudio/LiteyukiBot"
-documentation = "https://bot.liteyuki.icu"
+Homepage = "https://bot.liteyuki.icu"
+Repository = "https://github.com/LiteyukiStudio/LiteyukiBot"
+"Issue Tracker" = "https://github.com/LiteyukiStudio/LiteyukiBot/issues/new?assignees=&labels=&projects=&template=%E9%97%AE%E9%A2%98%E5%8F%8D%E9%A6%88.md&title="
 
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[tool.pdm]
+includes = ["liteyuki"]

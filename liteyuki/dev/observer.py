@@ -2,7 +2,6 @@
 此模块用于注册观察者函数，使用watchdog监控文件变化并重启bot
 启用该模块需要在配置文件中设置`dev_mode`为True
 """
-import functools
 import time
 from typing import Callable, TypeAlias
 

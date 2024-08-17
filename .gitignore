@@ -44,3 +44,7 @@ prompt.txt
 # js
 **/echarts.js
 .env
+
+
+# pdm
+.pdm-python

@@ -13,8 +13,7 @@ import traceback
 from pathlib import Path
 from typing import Optional
 
-from nonebot import logger
-
+from liteyuki.log import logger
 from liteyuki.plugin.model import Plugin, PluginMetadata
 from importlib import import_module
 
@@ -23,8 +22,8 @@ from liteyuki.utils import path_to_module_name
 _plugins: dict[str, Plugin] = {}
 
 __all__ = [
-    "load_plugin",
-    "load_plugins",
+        "load_plugin",
+        "load_plugins",
 ]
 
 
