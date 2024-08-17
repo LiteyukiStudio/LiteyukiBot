@@ -16,17 +16,19 @@ import threading
 from multiprocessing import Process
 from typing import Any, Callable, TYPE_CHECKING, TypeAlias
 
-from liteyuki.comm import Channel, get_channel, set_channels
+from liteyuki.comm.channel import Channel, get_channel, set_channels
 from liteyuki.comm.storage import shared_memory
 from liteyuki.log import logger
 from liteyuki.utils import IS_MAIN_PROCESS
 
-TARGET_FUNC: TypeAlias = Callable[..., Any]
+if IS_MAIN_PROCESS:
+    from liteyuki.comm.channel import channel_deliver_active_channel, channel_deliver_passive_channel
 
 if TYPE_CHECKING:
     from liteyuki.bot import LiteyukiBot
     from liteyuki.comm.storage import KeyValueStore
 
+TARGET_FUNC: TypeAlias = Callable[..., Any]
 TIMEOUT = 10
 
 __all__ = [
@@ -34,18 +36,21 @@ __all__ = [
 ]
 
 
-# Update the delivery_channel_wrapper function to return the top-level wrapper
+# 函数处理一些跨进程通道的
 def _delivery_channel_wrapper(func: TARGET_FUNC, chan_active: Channel, chan_passive: Channel, sm: "KeyValueStore", *args, **kwargs):
     """
     子进程入口函数
+    处理一些操作
     """
     # 给子进程设置通道
     if IS_MAIN_PROCESS:
         raise RuntimeError("Function should only be called in a sub process.")
 
-    from liteyuki.comm import channel
-    channel.active_channel = chan_active
-    channel.passive_channel = chan_passive
+    from liteyuki.comm import channel  # type Module
+    channel.active_channel = chan_active  # 子进程主动通道
+    channel.passive_channel = chan_passive  # 子进程被动通道
+    channel.channel_deliver_active_channel = channel_deliver_active_channel  # 子进程通道传递主动通道
+    channel.channel_deliver_passive_channel = channel_deliver_passive_channel  # 子进程通道传递被动通道
 
     # 给子进程创建共享内存实例
     from liteyuki.comm import storage

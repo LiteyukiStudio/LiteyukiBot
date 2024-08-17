@@ -197,7 +197,6 @@ shared_memory: Optional[KeyValueStore] = None
 if IS_MAIN_PROCESS:
     shared_memory = GlobalKeyValueStore.get_instance()
 
-
     @shared_memory.passive_chan.on_receive(lambda d: d[0] == "get")
     def on_get(data: tuple[str, str, any, Channel]):
         data[3].send(shared_memory.get(data[1], data[2]))
