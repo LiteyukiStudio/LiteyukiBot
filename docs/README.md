@@ -14,7 +14,7 @@ tagline: LiteyukiBot 轻雪机器人，综合性的机器人应用及管理框�
 actions:
   - text: 快速部署
     icon: rocket
-    link: ./deployment/install.html
+    link: ./deploy/install.html
     type: primary
 
   - text: 使用手册
