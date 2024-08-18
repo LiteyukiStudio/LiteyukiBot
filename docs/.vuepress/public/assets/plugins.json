@@ -1,11 +1,11 @@
 [
     {
-        "module_name": "liteyuki-plugin-nonebot",
-        "project_link": "liteyuki-plugin-nonebot",
+        "module_name": "liteyukibot-plugin-nonebot",
+        "project_link": "liteyukibot-plugin-nonebot",
         "name": "NoneBot插件",
-        "desc": "在轻雪中使用NoneBot，支持NoneBot2，为NoneBot开发者提供了更多便捷功能(已内置)",
+        "desc": "在轻雪中使用NoneBot，为NoneBot开发者提供了更多便捷功能(已内置)",
         "author": "snowykami",
-        "homepage": "https://github.com/LiteyukiStudio/LiteyukiBot",
+        "homepage": "https://github.com/LiteyukiStudio/liteyukibot-plugin-nonebot",
         "tags": [
             {
                 "label": "server",
