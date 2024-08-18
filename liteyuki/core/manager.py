@@ -8,7 +8,7 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @File    : manager.py
 @Software: PyCharm
 """
-
+import multiprocessing
 import threading
 from multiprocessing import Process
 from typing import Any, Callable, TYPE_CHECKING, TypeAlias
@@ -33,6 +33,7 @@ TIMEOUT = 10
 __all__ = [
         "ProcessManager"
 ]
+multiprocessing.set_start_method("spawn", force=True)
 
 
 class ChannelDeliver:
