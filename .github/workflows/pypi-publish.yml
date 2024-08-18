@@ -16,23 +16,5 @@ jobs:
 
       - uses: pdm-project/setup-pdm@v3
 
-      - name: Get current version from PyPI
-        id: get_pypi_version
-        run: |
-          PACKAGE_NAME=$(pdm info | grep 'Name:' | awk '{print $2}')
-          CURRENT_VERSION=$(pdm info | grep 'Version:' | awk '{print $2}')
-          PYPI_VERSION=$(curl -s https://pypi.org/pypi/$PACKAGE_NAME/json | jq -r '.info.version')
-          echo "PACKAGE_NAME=$PACKAGE_NAME" >> $GITHUB_ENV
-          echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
-          echo "PYPI_VERSION=$PYPI_VERSION" >> $GITHUB_ENV
-
-      - name: Check if versions are different
-        id: check_versions
-        run: |
-          if [ "$CURRENT_VERSION" != "$PYPI_VERSION" ]; then
-            echo "versions_different=true" >> $GITHUB_ENV
-          else
-            echo "versions_different=false" >> $GITHUB_ENV
-
       - name: Publish package distributions to PyPI
         run: pdm publish
