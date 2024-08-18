@@ -20,8 +20,6 @@ from liteyuki.log import (
     logger
 )
 
-from liteyuki.version import __version__
-
 
 __all__ = [
         "LiteyukiBot",
@@ -34,7 +32,8 @@ __all__ = [
         "load_plugins",
         "init_log",
         "logger",
-        "__version__"
 ]
+
+__version__ = "6.3.6"
 
 

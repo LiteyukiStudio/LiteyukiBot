@@ -30,7 +30,7 @@ Repository = "https://github.com/LiteyukiStudio/LiteyukiBot"
 
 
 [build-system]
-requires = ["pdm-backend", "loguru", "pydantic", "PyYAML", "toml", "watchdog"]
+requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
 [tool.pdm.build]
@@ -38,6 +38,5 @@ includes = ["liteyuki/", "LICENSE", "README.md"]
 excludes = ["tests/", "docs/", "src/"]
 
 [tool.pdm.version]
-source = "scm"
-version_format = "liteyuki.version:format_version"
-fallback_version = "6.0.0"
+source = "file"
+path = "liteyuki/__init__.py"

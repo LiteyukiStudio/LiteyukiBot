@@ -20,5 +20,17 @@ jobs:
 
       - uses: pdm-project/setup-pdm@v3
 
+      - name: Check version
+        run: |
+          current_version=$(pdm show --json | jq -r '.version')
+          echo "Current version: $current_version"
+          package_name=$(pdm show --json | jq -r '.name')
+          last_version=$(curl -s https://pypi.org/pypi/$package_name/json | jq -r '.info.version')
+          echo "Last version on PyPI: $last_version"
+          if [ "$current_version" == "$last_version" ]; then
+            echo "Version has not been updated."
+            exit 1
+          fi
+
       - name: Publish package distributions to PyPI
         run: pdm publish
