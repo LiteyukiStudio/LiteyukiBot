@@ -14,7 +14,7 @@ from pdm.backend.hooks.version import SCMVersion
 
 __datetime__ = datetime.now().strftime("%Y%m%d%H%M%S")
 
-__version__ = "6.3.5"
+__version__ = "6.3.6"
 
 
 def format_version(version: SCMVersion) -> str:
