@@ -8,22 +8,61 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @File    : model.py
 @Software: PyCharm
 """
+from enum import Enum
 from types import ModuleType
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel
+
+
+class PluginType(Enum):
+    """
+    插件类型枚举值
+    """
+    APPLICATION = "application"
+    """应用端：例如NoneBot"""
+
+    SERVICE = "service"
+    """服务端：例如AI绘画后端"""
+
+    IMPLEMENTATION = "implementation"
+    """实现端：例如与聊天平台的协议实现"""
+
+    MODULE = "module"
+    """模块：导出对象给其他插件使用"""
+
+    UNCLASSIFIED = "unclassified"
+    """未分类：默认值"""
 
 
 class PluginMetadata(BaseModel):
     """
     轻雪插件元数据，由插件编写者提供，name为必填项
+    Attributes:
+    ----------
+
+    name: str
+        插件名称
+    description: str
+        插件描述
+    usage: str
+        插件使用方法
+    type: str
+        插件类型
+    author: str
+        插件作者
+    homepage: str
+        插件主页
+    extra: dict[str, Any]
+        额外信息
     """
     name: str
     description: str = ""
     usage: str = ""
     type: str = ""
-    homepage: str = ""
-    running_in_main: bool = True    # 是否在主进程运行
+    author: str = ""
+    homepage: str = PluginType.UNCLASSIFIED
+    extra: dict[str, Any] = {}
 
 
 class Plugin(BaseModel):

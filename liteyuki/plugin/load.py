@@ -23,6 +23,7 @@ _plugins: dict[str, Plugin] = {}
 __all__ = [
         "load_plugin",
         "load_plugins",
+        "_plugins",
 ]
 
 

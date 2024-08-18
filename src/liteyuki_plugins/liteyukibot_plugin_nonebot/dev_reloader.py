@@ -6,7 +6,9 @@ import os.path
 
 from liteyuki.dev import observer
 from liteyuki import get_bot, logger
+from liteyuki.utils import IS_MAIN_PROCESS
 from watchdog.events import FileSystemEvent
+
 
 liteyuki = get_bot()
 

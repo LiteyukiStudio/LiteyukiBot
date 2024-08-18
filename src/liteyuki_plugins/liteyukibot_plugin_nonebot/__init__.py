@@ -11,11 +11,12 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 
 import nonebot
 from liteyuki.utils import IS_MAIN_PROCESS
-from liteyuki.plugin import PluginMetadata
-from .nb_utils import adapter_manager, driver_manager
+from liteyuki.plugin import PluginMetadata, PluginType
+from .nb_utils import adapter_manager, driver_manager  # type: ignore
 
 __plugin_meta__ = PluginMetadata(
     name="NoneBot2启动器",
+    type=PluginType.APPLICATION,
 )
 
 
@@ -35,7 +36,13 @@ def nb_run(*args, **kwargs):
     driver_manager.init(config=kwargs)
     adapter_manager.init(kwargs)
     adapter_manager.register()
-    nonebot.load_plugin("src.liteyuki_main")
+
+    try:
+        # nonebot.load_plugin("nonebot-plugin-lnpm")  # 尝试加载轻雪NoneBot插件加载器（Nonebot插件）
+        nonebot.load_plugin("src.liteyuki_main")  # 尝试加载轻雪主插件（Nonebot插件）
+    except Exception as e:
+        pass
+
     nonebot.run()
 
 
