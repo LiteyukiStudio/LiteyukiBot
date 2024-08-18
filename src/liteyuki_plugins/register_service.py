@@ -14,11 +14,12 @@ import platform
 from aiohttp import ClientSession
 from git import Repo
 
-from liteyuki.plugin import PluginMetadata
+from liteyuki.plugin import PluginMetadata, PluginType
 from liteyuki import get_bot, logger
 
 __plugin_meta__ = PluginMetadata(
     name="注册服务",
+    type=PluginType.SERVICE
 )
 
 liteyuki = get_bot()

@@ -8,3 +8,11 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @File    : reloader.py.py
 @Software: PyCharm
 """
+from liteyuki.plugin import PluginMetadata, PluginType
+
+__plugin_meta__ = PluginMetadata(
+    name="重启",
+    author="snowykami",
+    description="进程管理器，用于管理子进程",
+    type=PluginType.MODULE
+)

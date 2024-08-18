@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Optional
 
 from liteyuki.log import logger
-from liteyuki.plugin.model import Plugin, PluginMetadata
+from liteyuki.plugin.model import Plugin, PluginMetadata, PluginType
 from liteyuki.utils import path_to_module_name
 
 _plugins: dict[str, Plugin] = {}
@@ -46,9 +46,10 @@ def load_plugin(module_path: str | Path) -> Optional[Plugin]:
         display_name = module.__name__.split(".")[-1]
         if module.__dict__.get("__plugin_meta__"):
             metadata: "PluginMetadata" = module.__dict__["__plugin_meta__"]
-            display_name = f"{metadata.name}({module.__name__.split('.')[-1]})"
+            display_name = format_display_name(f"{metadata.name}({module.__name__.split('.')[-1]})", metadata.type)
+
         logger.opt(colors=True).success(
-            f'Succeeded to load liteyuki plugin "<y>{display_name}</y>"'
+            f'Succeeded to load liteyuki plugin "{display_name}"'
         )
         return _plugins[module.__name__]
 
@@ -100,3 +101,27 @@ def load_plugins(*plugin_dir: str, ignore_warning: bool = True) -> set[Plugin]:
                 if _plugins.get(module_name):
                     plugins.add(_plugins[module_name])
     return plugins
+
+
+def format_display_name(display_name: str, plugin_type: PluginType) -> str:
+    """
+    设置插件名称颜色，根据不同类型插件设置颜色
+    Args:
+        display_name: 插件名称
+        plugin_type: 插件类型
+
+    Returns:
+        str: 设置后的插件名称 <y>name</y>
+    """
+    color = "y"
+    match plugin_type:
+        case PluginType.APPLICATION:
+            color = "m"
+        case PluginType.IMPLEMENTATION:
+            color = "g"
+        case PluginType.MODULE:
+            color = "e"
+        case PluginType.SERVICE:
+            color = "c"
+
+    return f"<{color}>{display_name} [{plugin_type.name}]</{color}>"

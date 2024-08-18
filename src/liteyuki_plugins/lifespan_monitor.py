@@ -10,12 +10,13 @@
 import asyncio
 import multiprocessing
 
-from liteyuki.plugin import PluginMetadata
+from liteyuki.plugin import PluginMetadata, PluginType
 from liteyuki import get_bot, logger
 from liteyuki.comm.channel import get_channel
 
 __plugin_meta__ = PluginMetadata(
     name="生命周期日志",
+    type=PluginType.SERVICE,
 )
 
 bot = get_bot()

@@ -59,9 +59,9 @@ class PluginMetadata(BaseModel):
     name: str
     description: str = ""
     usage: str = ""
-    type: str = ""
+    type: PluginType = PluginType.UNCLASSIFIED
     author: str = ""
-    homepage: str = PluginType.UNCLASSIFIED
+    homepage: str = ""
     extra: dict[str, Any] = {}
 
 

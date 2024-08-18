@@ -1,9 +1,8 @@
-from liteyuki.plugin import PluginMetadata
-
+from liteyuki.plugin import PluginMetadata, PluginType
 
 __plugin_meta__ = PluginMetadata(
     name="进程管理器",
-    version="0.1.0",
     author="snowykami",
-    description="进程管理器，用于管理子进程"
+    description="进程管理器，用于管理子进程",
+    type=PluginType.SERVICE
 )

@@ -9,11 +9,12 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @Software: PyCharm
 """
 from liteyuki import get_config, load_plugin
-from liteyuki.plugin import PluginMetadata, load_plugins
+from liteyuki.plugin import PluginMetadata, load_plugins, PluginType
 
 __plugin_meta__ = PluginMetadata(
     name="外部轻雪插件加载器",
-    description="插件加载器，用于加载轻雪原生插件"
+    description="插件加载器，用于加载轻雪原生插件",
+    type=PluginType.SERVICE
 )
 
 
