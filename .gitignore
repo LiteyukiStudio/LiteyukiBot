@@ -50,3 +50,8 @@ prompt.txt
 .pdm-python
 .pdm-build
 dist
+
+doc
+
+mkdoc2.py
+mkdoc.py

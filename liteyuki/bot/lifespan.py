@@ -42,7 +42,7 @@ class Lifespan:
         self._after_nonebot_init_funcs: list[LIFESPAN_FUNC] = []
 
     @staticmethod
-    def _run_funcs(funcs: list[LIFESPAN_FUNC | PROCESS_LIFESPAN_FUNC], *args, **kwargs) -> None:
+    def run_funcs(funcs: list[LIFESPAN_FUNC | PROCESS_LIFESPAN_FUNC], *args, **kwargs) -> None:
         """
         运行函数
         Args:
@@ -149,7 +149,7 @@ class Lifespan:
         Returns:
         """
         logger.debug("Running before_start functions")
-        self._run_funcs(self._before_start_funcs)
+        self.run_funcs(self._before_start_funcs)
 
     def after_start(self) -> None:
         """
@@ -157,7 +157,7 @@ class Lifespan:
         Returns:
         """
         logger.debug("Running after_start functions")
-        self._run_funcs(self._after_start_funcs)
+        self.run_funcs(self._after_start_funcs)
 
     def before_process_shutdown(self) -> None:
         """
@@ -165,7 +165,7 @@ class Lifespan:
         Returns:
         """
         logger.debug("Running before_shutdown functions")
-        self._run_funcs(self._before_process_shutdown_funcs)
+        self.run_funcs(self._before_process_shutdown_funcs)
 
     def after_shutdown(self) -> None:
         """
@@ -173,7 +173,7 @@ class Lifespan:
         Returns:
         """
         logger.debug("Running after_shutdown functions")
-        self._run_funcs(self._after_shutdown_funcs)
+        self.run_funcs(self._after_shutdown_funcs)
 
     def before_process_restart(self) -> None:
         """
@@ -181,7 +181,7 @@ class Lifespan:
         Returns:
         """
         logger.debug("Running before_restart functions")
-        self._run_funcs(self._before_process_restart_funcs)
+        self.run_funcs(self._before_process_restart_funcs)
 
     def after_restart(self) -> None:
         """
@@ -190,4 +190,4 @@ class Lifespan:
 
         """
         logger.debug("Running after_restart functions")
-        self._run_funcs(self._after_restart_funcs)
+        self.run_funcs(self._after_restart_funcs)

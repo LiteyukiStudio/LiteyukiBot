@@ -5,6 +5,7 @@ import {enNavbarConfig, zhNavbarConfig} from "./navbar/index.js";
 export default hopeTheme({
 
     hostname: "https://vuepress-theme-hope-docs-demo.netlify.app",
+    hotReload: true,
 
     locales: {
         "/": {
