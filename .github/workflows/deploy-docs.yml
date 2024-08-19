@@ -33,11 +33,15 @@ jobs:
           cd docs
           pnpm install
 
-      - name: Python生成API文档
+      - name: 设置Python
         uses: actions/setup-python@v2
+        with:
+          python-version: '3.10'
+
+
+      - name: 生成API markdown
         run: |-
-            python -m pip install pydantic~=2.8.3
-            python liteyuki/mkdoc.py
+          python liteyuki/mkdoc.py
           
 
       - name: 构建文档
