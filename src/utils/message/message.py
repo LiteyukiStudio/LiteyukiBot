@@ -83,14 +83,14 @@ class MarkdownMessage:
                 "send_private_forward_msg",
                 messages=[
                     {
-                        "type": "node",
+                        "type_": "node",
                         "data": {
                             "content": [
                                 {
                                     "data": {
                                         "content": "{\"content\":\"%s\"}" % formatted_md,
                                     },
-                                    "type": "markdown"
+                                    "type_": "markdown"
                                 }
                             ],
                             "name": "[]",
@@ -107,7 +107,7 @@ class MarkdownMessage:
                 message_type=message_type,
                 message=[
                     {
-                        "type": "longmsg",
+                        "type_": "longmsg",
                         "data": {
                             "id": forward_id
                         }
@@ -156,7 +156,7 @@ class MarkdownMessage:
         Args:
             image: 图片字节流或图片本地路径，链接请使用Markdown.image_async方法获取后通过send_md发送
             bot: bot instance
-            message_type: message type
+            message_type: message type_
             session_id: session id
             event: event
             kwargs: other arguments

@@ -5,7 +5,7 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @Time    : 2024/7/26 下午11:21
 @Author  : snowykami
 @Email   : snowykami@outlook.com
-@File    : channel.py
+@File    : channel_.py
 @Software: PyCharm
 
 本模块定义了一个通用的通道类，用于进程间通信
@@ -38,11 +38,12 @@ class Channel(Generic[T]):
     有两种接收工作方式，但是只能选择一种，主动接收和被动接收，主动接收使用 `receive` 方法，被动接收使用 `on_receive` 装饰器
     """
 
-    def __init__(self, _id: str, type_check: bool = False):
+    def __init__(self, _id: str, type_check: Optional[bool] = None):
         """
         初始化通道
         Args:
             _id: 通道ID
+            type_check: 是否开启类型检查, 若为空，则传入泛型默认开启，否则默认关闭
         """
         self.conn_send, self.conn_recv = Pipe()
         self._closed = False
@@ -53,9 +54,13 @@ class Channel(Generic[T]):
         self.is_main_receive_loop_running = False
         self.is_sub_receive_loop_running = False
 
-        if type_check:
+        if type_check is None:
+            # 若传入泛型则默认开启类型检查
+            type_check = self._get_generic_type() is not None
+
+        elif type_check:
             if self._get_generic_type() is None:
-                raise TypeError("Type hint is required for enforcing type check.")
+                raise TypeError("Type hint is required for enforcing type_ check.")
         self.type_check = type_check
 
     def _get_generic_type(self) -> Optional[type]:
@@ -110,7 +115,7 @@ class Channel(Generic[T]):
                 raise TypeError(f"Data must be an instance of {_type}, {type(data)} found")
 
         if self._closed:
-            raise RuntimeError("Cannot send to a closed channel")
+            raise RuntimeError("Cannot send to a closed channel_")
         self.conn_send.send(data)
 
     def receive(self) -> T:
@@ -119,7 +124,7 @@ class Channel(Generic[T]):
         Args:
         """
         if self._closed:
-            raise RuntimeError("Cannot receive from a closed channel")
+            raise RuntimeError("Cannot receive from a closed channel_")
 
         while True:
             data = self.conn_recv.recv()
@@ -153,7 +158,7 @@ class Channel(Generic[T]):
             async def wrapper(data: T) -> Any:
                 if filter_func is not None:
                     if is_coroutine_callable(filter_func):
-                        if not (await filter_func(data)):  # type: ignore
+                        if not (await filter_func(data)):  # type_: ignore
                             return
                     else:
                         if not filter_func(data):
@@ -226,10 +231,12 @@ class Channel(Generic[T]):
 """子进程可用的主动和被动通道"""
 active_channel: Optional["Channel"] = None
 passive_channel: Optional["Channel"] = None
+publish_channel: Channel[tuple[str, dict[str, Any]]] = Channel(_id="publish_channel")
 
 """通道传递通道，主进程创建单例，子进程初始化时实例化"""
 channel_deliver_active_channel: Channel[Channel[Any]]
 channel_deliver_passive_channel: Channel[tuple[str, dict[str, Any]]]
+
 if IS_MAIN_PROCESS:
     channel_deliver_active_channel = Channel(_id="channel_deliver_active_channel")
     channel_deliver_passive_channel = Channel(_id="channel_deliver_passive_channel")
@@ -237,7 +244,7 @@ if IS_MAIN_PROCESS:
 
     @channel_deliver_passive_channel.on_receive(filter_func=lambda data: data[0] == "set_channel")
     def on_set_channel(data: tuple[str, dict[str, Any]]):
-        name, channel = data[1]["name"], data[1]["channel"]
+        name, channel = data[1]["name"], data[1]["channel_"]
         set_channel(name, channel)
 
 
@@ -261,7 +268,7 @@ def set_channel(name: str, channel: Channel):
         channel: 通道实例
     """
     if not isinstance(channel, Channel):
-        raise TypeError(f"channel must be an instance of Channel, {type(channel)} found")
+        raise TypeError(f"channel_ must be an instance of Channel, {type(channel)} found")
 
     if IS_MAIN_PROCESS:
         _channel[name] = channel
@@ -271,7 +278,7 @@ def set_channel(name: str, channel: Channel):
             (
                     "set_channel", {
                             "name"   : name,
-                            "channel": channel,
+                            "channel_": channel,
                     }
             )
         )

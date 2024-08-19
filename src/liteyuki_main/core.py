@@ -299,7 +299,7 @@ async def test_for_md_image(bot: T_Bot, api: str, data: dict):
             session_id = data.get("group_id")
         else:
             return
-        if len(data.get("message", [])) == 1 and data["message"][0].get("type") == "image":
+        if len(data.get("message", [])) == 1 and data["message"][0].get("type_") == "image":
             file: str = data["message"][0].data.get("file")
             # file:// http:// base64://
             if file.startswith("http"):

@@ -13,7 +13,7 @@ import threading
 from multiprocessing import Process
 from typing import Any, Callable, TYPE_CHECKING, TypeAlias
 
-from liteyuki.comm.channel import Channel, get_channel, set_channels
+from liteyuki.comm.channel import Channel, get_channel, set_channels, publish_channel
 from liteyuki.comm.storage import shared_memory
 from liteyuki.log import logger
 from liteyuki.utils import IS_MAIN_PROCESS
@@ -42,12 +42,14 @@ class ChannelDeliver:
             active: Channel[Any],
             passive: Channel[Any],
             channel_deliver_active: Channel[Channel[Any]],
-            channel_deliver_passive: Channel[tuple[str, dict]]
+            channel_deliver_passive: Channel[tuple[str, dict]],
+            publish: Channel[tuple[str, Any]],
     ):
         self.active = active
         self.passive = passive
         self.channel_deliver_active = channel_deliver_active
         self.channel_deliver_passive = channel_deliver_passive
+        self.publish = publish
 
 
 # 函数处理一些跨进程通道的
@@ -64,6 +66,7 @@ def _delivery_channel_wrapper(func: TARGET_FUNC, cd: ChannelDeliver, sm: "KeyVal
     channel.passive_channel = cd.passive  # 子进程被动通道
     channel.channel_deliver_active_channel = cd.channel_deliver_active  # 子进程通道传递主动通道
     channel.channel_deliver_passive_channel = cd.channel_deliver_passive  # 子进程通道传递被动通道
+    channel.publish_channel = cd.publish  # 子进程发布通道
 
     # 给子进程创建共享内存实例
     from liteyuki.comm import storage
@@ -148,7 +151,8 @@ class ProcessManager:
             active=chan_active,
             passive=chan_passive,
             channel_deliver_active=channel_deliver_active_channel,
-            channel_deliver_passive=channel_deliver_passive_channel
+            channel_deliver_passive=channel_deliver_passive_channel,
+            publish=publish_channel
         )
 
         self.targets[name] = (_delivery_channel_wrapper, (target, channel_deliver, shared_memory, *args), kwargs)

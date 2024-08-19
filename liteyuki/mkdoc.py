@@ -340,5 +340,4 @@ def generate_docs(module_folder: str, output_dir: str, with_top: bool = False, i
 if __name__ == '__main__':
     # 这里填入你的模块路径
     generate_docs('liteyuki', 'docs/dev/api', with_top=False, ignored_paths=["liteyuki/plugins"])
-    generate_docs('liteyuki', 'docs/en/dev/api', with_top=True, ignored_paths=["liteyuki/plugins"])
-    # generate_docs('melobot', 'melodoc', with_top=False)
+    generate_docs('liteyuki', 'docs/en/dev/api', with_top=False, ignored_paths=["liteyuki/plugins"])

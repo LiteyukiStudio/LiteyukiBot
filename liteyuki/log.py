@@ -10,7 +10,9 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 """
 import sys
 
-from loguru import logger
+import loguru
+
+logger = loguru.logger
 
 # DEBUG日志格式
 debug_format: str = (

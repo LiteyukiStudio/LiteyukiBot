@@ -1,5 +1,5 @@
 ---
-title: liteyuki.comm.channel
+title: liteyuki.comm.channel_
 order: 1
 icon: laptop-code
 category: API

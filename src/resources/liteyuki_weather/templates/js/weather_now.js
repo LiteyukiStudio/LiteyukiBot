@@ -12,7 +12,7 @@
  * @property {Weather} weather - The weather data.
  */
 
-/** @type {Data} */
+/** @type_ {Data} */
 
 let data = JSON.parse(document.getElementById("data").innerText)
 

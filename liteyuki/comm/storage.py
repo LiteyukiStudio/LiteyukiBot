@@ -4,13 +4,19 @@
 """
 
 import threading
-from typing import Any, Optional
+from typing import Any, Coroutine, Optional, TypeAlias, Callable
 
-from liteyuki.comm.channel import Channel
-from liteyuki.utils import IS_MAIN_PROCESS
+from liteyuki.comm import channel
+from liteyuki.comm.channel import Channel, ON_RECEIVE_FUNC, ASYNC_ON_RECEIVE_FUNC
+from liteyuki.utils import IS_MAIN_PROCESS, is_coroutine_callable, run_coroutine
 
 if IS_MAIN_PROCESS:
     _locks = {}
+
+_on_main_subscriber_receive_funcs: dict[str, list[ASYNC_ON_RECEIVE_FUNC]] = {}  # type_: ignore
+"""主进程订阅者接收函数"""
+_on_sub_subscriber_receive_funcs: dict[str, list[ASYNC_ON_RECEIVE_FUNC]] = {}  # type_: ignore
+"""子进程订阅者接收函数"""
 
 
 def _get_lock(key) -> threading.Lock:
@@ -25,11 +31,27 @@ def _get_lock(key) -> threading.Lock:
         raise RuntimeError("Cannot get lock in sub process.")
 
 
+class Subscriber:
+    def __init__(self):
+        self._subscribers = {}
+
+    def receive(self) -> Any:
+        pass
+
+    def unsubscribe(self) -> None:
+        pass
+
+
 class KeyValueStore:
     def __init__(self):
         self._store = {}
         self.active_chan = Channel[tuple[str, Optional[dict[str, Any]]]](_id="shared_memory-active")
         self.passive_chan = Channel[tuple[str, Optional[dict[str, Any]]]](_id="shared_memory-passive")
+
+        self.publish_channel = Channel[tuple[str, Any]](_id="shared_memory-publish")
+
+        self.is_main_receive_loop_running = False
+        self.is_sub_receive_loop_running = False
 
     def set(self, key: str, value: Any) -> None:
         """
@@ -134,6 +156,94 @@ class KeyValueStore:
             )
             return recv_chan.receive()
 
+    def publish(self, channel_: str, data: Any) -> None:
+        """
+        发布消息
+        Args:
+            channel_: 频道
+            data: 数据
+
+        Returns:
+        """
+        self.active_chan.send(
+            (
+                    "publish",
+                    {
+                            "channel_": channel_,
+                            "data"    : data
+                    }
+            )
+        )
+
+    def on_subscriber_receive(self, channel_: str) -> Callable[[ON_RECEIVE_FUNC], ON_RECEIVE_FUNC]:
+        """
+        订阅者接收消息时的回调
+        Args:
+            channel_: 频道
+
+        Returns:
+            装饰器
+        """
+        if IS_MAIN_PROCESS and not self.is_main_receive_loop_running:
+            threading.Thread(target=self._start_receive_loop, daemon=True).start()
+            shared_memory.is_main_receive_loop_running = True
+        elif not IS_MAIN_PROCESS and not self.is_sub_receive_loop_running:
+            threading.Thread(target=self._start_receive_loop, daemon=True).start()
+            shared_memory.is_sub_receive_loop_running = True
+
+        def decorator(func: ON_RECEIVE_FUNC) -> ON_RECEIVE_FUNC:
+            async def wrapper(data: Any):
+                if is_coroutine_callable(func):
+                    await func(data)
+                else:
+                    func(data)
+
+            if IS_MAIN_PROCESS:
+                if channel_ not in _on_main_subscriber_receive_funcs:
+                    _on_main_subscriber_receive_funcs[channel_] = []
+                _on_main_subscriber_receive_funcs[channel_].append(wrapper)
+            else:
+                if channel_ not in _on_sub_subscriber_receive_funcs:
+                    _on_sub_subscriber_receive_funcs[channel_] = []
+                _on_sub_subscriber_receive_funcs[channel_].append(wrapper)
+            return wrapper
+
+        return decorator
+
+    @staticmethod
+    def run_subscriber_receive_funcs(channel_: str, data: Any):
+        """
+        运行订阅者接收函数
+        Args:
+            channel_: 频道
+            data: 数据
+        """
+        if IS_MAIN_PROCESS:
+            if channel_ in _on_main_subscriber_receive_funcs and _on_main_subscriber_receive_funcs[channel_]:
+                run_coroutine(*[func(data) for func in _on_main_subscriber_receive_funcs[channel_]])
+        else:
+            if channel_ in _on_sub_subscriber_receive_funcs and _on_sub_subscriber_receive_funcs[channel_]:
+                run_coroutine(*[func(data) for func in _on_sub_subscriber_receive_funcs[channel_]])
+
+    def _start_receive_loop(self):
+        """
+        启动发布订阅接收器循环，在主进程中运行，若有子进程订阅则推送给子进程
+        """
+        if IS_MAIN_PROCESS:
+            while True:
+                data = self.active_chan.receive()
+                if data[0] == "publish":
+                    # 运行主进程订阅函数
+                    self.run_subscriber_receive_funcs(data[1]["channel_"], data[1]["data"])
+                    # 推送给子进程
+                    self.publish_channel.send(data)
+        else:
+            while True:
+                data = self.publish_channel.receive()
+                if data[0] == "publish":
+                    # 运行子进程订阅函数
+                    self.run_subscriber_receive_funcs(data[1]["channel_"], data[1]["data"])
+
 
 class GlobalKeyValueStore:
     _instance = None
@@ -141,20 +251,17 @@ class GlobalKeyValueStore:
 
     @classmethod
     def get_instance(cls):
-        if IS_MAIN_PROCESS:
-            if cls._instance is None:
-                with cls._lock:
-                    if cls._instance is None:
-                        cls._instance = KeyValueStore()
-            return cls._instance
-        else:
-            raise RuntimeError("Cannot get instance in sub process.")
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = KeyValueStore()
+        return cls._instance
 
+
+shared_memory: KeyValueStore = GlobalKeyValueStore.get_instance()
 
 # 全局单例访问点
 if IS_MAIN_PROCESS:
-    shared_memory: KeyValueStore = GlobalKeyValueStore.get_instance()
-
 
     @shared_memory.passive_chan.on_receive(lambda d: d[0] == "get")
     def on_get(data: tuple[str, dict[str, Any]]):
@@ -182,9 +289,13 @@ if IS_MAIN_PROCESS:
         recv_chan = data[1]["recv_chan"]
         recv_chan.send(shared_memory.get_all())
 
+
 else:
     # 子进程在入口函数中对shared_memory进行初始化
-    shared_memory: Optional[KeyValueStore] = None  # type: ignore
+    @channel.publish_channel.on_receive()
+    def on_publish(data: tuple[str, Any]):
+        channel_, data = data
+        shared_memory.run_subscriber_receive_funcs(channel_, data)
 
 _ref_count = 0  # import 引用计数, 防止获取空指针
 if not IS_MAIN_PROCESS:

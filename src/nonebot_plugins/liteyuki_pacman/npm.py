@@ -339,7 +339,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
             await md.send_md(f"{info}\n\n" f"```\n{log}\n```", bot, event=event)
 
     elif sc.get("uninstall") and perm_s:
-        plugin_name: str = result.subcommands["uninstall"].args.get("plugin_name")  # type: ignore
+        plugin_name: str = result.subcommands["uninstall"].args.get("plugin_name")  # type_: ignore
         found_installed_plugin: InstalledPlugin = plugin_db.where_one(
             InstalledPlugin(), "module_name = ?", plugin_name
         )

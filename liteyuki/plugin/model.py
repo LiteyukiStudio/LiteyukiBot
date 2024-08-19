@@ -47,7 +47,7 @@ class PluginMetadata(BaseModel):
         插件描述
     usage: str
         插件使用方法
-    type: str
+    type_: str
         插件类型
     author: str
         插件作者

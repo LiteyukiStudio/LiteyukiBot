@@ -110,7 +110,7 @@ class Database:
             *args:
         Returns:
         """
-        table_list = [item[0] for item in self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+        table_list = [item[0] for item in self.cursor.execute("SELECT name FROM sqlite_master WHERE type_='table'").fetchall()]
         for model in args:
             logger.debug(f"Upserting {model}")
             if not model.TABLE_NAME:

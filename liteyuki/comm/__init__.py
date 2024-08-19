@@ -3,8 +3,8 @@
 该模块用于轻雪主进程和Nonebot子进程之间的通信
 依赖关系
 event -> _
-storage -> channel
-rpc -> channel, storage
+storage -> channel_
+rpc -> channel_, storage
 """
 from liteyuki.comm.channel import (
     Channel,
