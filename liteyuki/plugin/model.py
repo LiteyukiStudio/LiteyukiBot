@@ -25,14 +25,14 @@ class PluginType(Enum):
     SERVICE = "service"
     """服务端：例如AI绘画后端"""
 
-    IMPLEMENTATION = "implementation"
-    """实现端：例如与聊天平台的协议实现"""
-
     MODULE = "module"
     """模块：导出对象给其他插件使用"""
 
     UNCLASSIFIED = "unclassified"
     """未分类：默认值"""
+
+    TEST = "test"
+    """测试：测试插件"""
 
 
 class PluginMetadata(BaseModel):
@@ -47,7 +47,7 @@ class PluginMetadata(BaseModel):
         插件描述
     usage: str
         插件使用方法
-    type_: str
+    type: str
         插件类型
     author: str
         插件作者

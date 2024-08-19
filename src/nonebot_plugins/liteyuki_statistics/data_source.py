@@ -69,6 +69,8 @@ async def get_stat_msg_image(
         condition,
         *condition_args
     )
+    if not msg_rows:
+        msg_rows = []
     timestamps = []
     msg_count = []
     msg_rows.sort(key=lambda x: x.time)

@@ -20,7 +20,6 @@ from liteyuki.log import (
     logger
 )
 
-
 __all__ = [
         "LiteyukiBot",
         "get_bot",
@@ -34,6 +33,8 @@ __all__ = [
         "logger",
 ]
 
-__version__ = "6.3.7"   # 测试版本号
+__version__ = "6.3.8"  # 测试版本号
 
-
+# 6.3.8
+# 1. 初步添加对聊天的支持
+# 2. 优化了通道的性能

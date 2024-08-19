@@ -13,9 +13,9 @@ from liteyuki.utils import IS_MAIN_PROCESS, is_coroutine_callable, run_coroutine
 if IS_MAIN_PROCESS:
     _locks = {}
 
-_on_main_subscriber_receive_funcs: dict[str, list[ASYNC_ON_RECEIVE_FUNC]] = {}  # type_: ignore
+_on_main_subscriber_receive_funcs: dict[str, list[ASYNC_ON_RECEIVE_FUNC]] = {}  # type: ignore
 """主进程订阅者接收函数"""
-_on_sub_subscriber_receive_funcs: dict[str, list[ASYNC_ON_RECEIVE_FUNC]] = {}  # type_: ignore
+_on_sub_subscriber_receive_funcs: dict[str, list[ASYNC_ON_RECEIVE_FUNC]] = {}  # type: ignore
 """子进程订阅者接收函数"""
 
 
@@ -169,7 +169,7 @@ class KeyValueStore:
             (
                     "publish",
                     {
-                            "channel_": channel_,
+                            "channel": channel_,
                             "data"    : data
                     }
             )
@@ -234,7 +234,7 @@ class KeyValueStore:
                 data = self.active_chan.receive()
                 if data[0] == "publish":
                     # 运行主进程订阅函数
-                    self.run_subscriber_receive_funcs(data[1]["channel_"], data[1]["data"])
+                    self.run_subscriber_receive_funcs(data[1]["channel"], data[1]["data"])
                     # 推送给子进程
                     self.publish_channel.send(data)
         else:
@@ -242,7 +242,7 @@ class KeyValueStore:
                 data = self.publish_channel.receive()
                 if data[0] == "publish":
                     # 运行子进程订阅函数
-                    self.run_subscriber_receive_funcs(data[1]["channel_"], data[1]["data"])
+                    self.run_subscriber_receive_funcs(data[1]["channel"], data[1]["data"])
 
 
 class GlobalKeyValueStore:

@@ -2,7 +2,7 @@
 
 
 /**
- * @type_ {{
+ * @type {{
  *   results: Array<{
  *       abstracts: string,
  *       createdDt: string,

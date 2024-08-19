@@ -117,7 +117,7 @@ def format_display_name(display_name: str, plugin_type: PluginType) -> str:
     match plugin_type:
         case PluginType.APPLICATION:
             color = "m"
-        case PluginType.IMPLEMENTATION:
+        case PluginType.TEST:
             color = "g"
         case PluginType.MODULE:
             color = "e"

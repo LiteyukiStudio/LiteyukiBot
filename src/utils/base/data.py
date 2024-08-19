@@ -28,7 +28,7 @@ class Database:
             os.makedirs(os.path.dirname(db_name))
 
         self.db_name = db_name
-        self.conn = sqlite3.connect(db_name)
+        self.conn = sqlite3.connect(db_name, check_same_thread=False)
         self.cursor = self.conn.cursor()
 
         self._on_save_callbacks = []
@@ -105,12 +105,12 @@ class Database:
             return [model_type(**self._load(dict(zip(fields, result)))) for result in results]
 
     def save(self, *args: LiteModel):
-        """增/改操作
+        self.returns_ = """增/改操作
         Args:
             *args:
         Returns:
         """
-        table_list = [item[0] for item in self.cursor.execute("SELECT name FROM sqlite_master WHERE type_='table'").fetchall()]
+        table_list = [item[0] for item in self.cursor.execute("SELECT name FROM sqlite_master WHERE type ='table'").fetchall()]
         for model in args:
             logger.debug(f"Upserting {model}")
             if not model.TABLE_NAME:

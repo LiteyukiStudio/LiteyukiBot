@@ -1,8 +1,8 @@
 from nonebot.plugin import PluginMetadata
 
 from liteyuki import get_bot
-from .crt_matchers import *  # type_: ignore
-from .rt_guide import *  # type_: ignore
+from .crt_matchers import *  # type: ignore
+from .rt_guide import *  # type: ignore
 
 __plugin_meta__ = PluginMetadata(
 

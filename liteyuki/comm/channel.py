@@ -60,7 +60,7 @@ class Channel(Generic[T]):
 
         elif type_check:
             if self._get_generic_type() is None:
-                raise TypeError("Type hint is required for enforcing type_ check.")
+                raise TypeError("Type hint is required for enforcing type check.")
         self.type_check = type_check
 
     def _get_generic_type(self) -> Optional[type]:
@@ -158,7 +158,7 @@ class Channel(Generic[T]):
             async def wrapper(data: T) -> Any:
                 if filter_func is not None:
                     if is_coroutine_callable(filter_func):
-                        if not (await filter_func(data)):  # type_: ignore
+                        if not (await filter_func(data)):  # type: ignore
                             return
                     else:
                         if not filter_func(data):

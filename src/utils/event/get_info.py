@@ -1,6 +1,6 @@
 from nonebot.adapters import satori
-
-from src.utils.base.ly_typing import T_MessageEvent
+from nonebot.adapters import onebot
+from src.utils.base.ly_typing import T_MessageEvent, T_GroupMessageEvent
 
 
 def get_user_id(event: T_MessageEvent):
@@ -10,11 +10,13 @@ def get_user_id(event: T_MessageEvent):
         return event.user_id
 
 
-def get_group_id(event: T_MessageEvent):
+def get_group_id(event: T_GroupMessageEvent):
     if isinstance(event, satori.event.Event):
         return event.guild.id
-    else:
+    elif isinstance(event, onebot.v11.GroupMessageEvent):
         return event.group_id
+    else:
+        return None
 
 
 def get_message_type(event: T_MessageEvent) -> str:

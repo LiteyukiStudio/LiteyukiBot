@@ -10,6 +10,7 @@ from typing import Any, Optional
 
 from liteyuki.bot.lifespan import (LIFESPAN_FUNC, Lifespan)
 from liteyuki.comm.channel import get_channel
+from liteyuki.comm.storage import shared_memory
 from liteyuki.core.manager import ProcessManager
 from liteyuki.log import init_log, logger
 from liteyuki.plugin import load_plugin

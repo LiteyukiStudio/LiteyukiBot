@@ -65,7 +65,7 @@ def auto_migrate():
     user_db.auto_migrate(User())
     group_db.auto_migrate(Group())
     plugin_db.auto_migrate(InstalledPlugin(), GlobalPlugin())
-    common_db.auto_migrate(GlobalPlugin(), StoredConfig(), TempConfig())
+    common_db.auto_migrate(GlobalPlugin(), TempConfig())
 
 
 auto_migrate()

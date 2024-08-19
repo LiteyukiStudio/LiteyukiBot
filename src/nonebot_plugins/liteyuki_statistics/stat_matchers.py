@@ -98,8 +98,10 @@ async def _(result: Arparma, event: T_MessageEvent, bot: Bot):
     bot_id = result.other_args.get("bot_id")
     user_id = result.other_args.get("user_id")
 
-    if group_id in ["current", "c"]:
+    if group_id in ["current", "c"] and hasattr(event, "group_id"):
         group_id = str(event_utils.get_group_id(event))
+    else:
+        group_id = "all"
 
     if group_id in ["all", "a"]:
         group_id = "all"
