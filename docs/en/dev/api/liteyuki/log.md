@@ -12,5 +12,6 @@ category: API
 ### ***def*** `init_log(config: dict) -> None`
 
 在语言加载完成后执行
+
 Returns:
 
