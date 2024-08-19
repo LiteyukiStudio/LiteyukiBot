@@ -16,8 +16,8 @@ from liteyuki.message.event import Event
 
 __plugin_meta__ = PluginMetadata(
     name="轻雪物流",
-    description="把消息事件传递给轻雪",
-    usage="无需使用",
+    description="把消息事件传递给轻雪框架进行处理",
+    usage="用户无需使用",
 )
 
 
