@@ -57,23 +57,33 @@ Returns:
 
 
 
-### &emsp; ***def*** `run(self: Any) -> None`
+### &emsp; ***def*** `__init__(self) -> None`
+
+&emsp;初始化轻雪实例
+
+Args:
+
+    *args:
+
+    **kwargs: 配置
+
+### &emsp; ***def*** `run(self) -> None`
 
 &emsp;启动逻辑
 
-### &emsp; ***def*** `keep_alive(self: Any) -> None`
+### &emsp; ***def*** `keep_alive(self) -> None`
 
 &emsp;保持轻雪运行
 
 Returns:
 
-### &emsp; ***def*** `restart(self: Any, delay: int) -> None`
+### &emsp; ***def*** `restart(self, delay: int) -> None`
 
 &emsp;重启轻雪本体
 
 Returns:
 
-### &emsp; ***def*** `restart_process(self: Any, name: Optional[str]) -> None`
+### &emsp; ***def*** `restart_process(self, name: Optional[str]) -> None`
 
 &emsp;停止轻雪
 
@@ -83,23 +93,23 @@ Args:
 
 Returns:
 
-### &emsp; ***def*** `init(self: Any) -> None`
+### &emsp; ***def*** `init(self) -> None`
 
 &emsp;初始化轻雪, 自动调用
 
 Returns:
 
-### &emsp; ***def*** `init_logger(self: Any) -> None`
+### &emsp; ***def*** `init_logger(self) -> None`
 
 &emsp;
 
-### &emsp; ***def*** `stop(self: Any) -> None`
+### &emsp; ***def*** `stop(self) -> None`
 
 &emsp;停止轻雪
 
 Returns:
 
-### &emsp; ***def*** `on_before_start(self: Any, func: LIFESPAN_FUNC) -> None`
+### &emsp; ***def*** `on_before_start(self, func: LIFESPAN_FUNC) -> None`
 
 &emsp;注册启动前的函数
 
@@ -111,7 +121,7 @@ Args:
 
 Returns:
 
-### &emsp; ***def*** `on_after_start(self: Any, func: LIFESPAN_FUNC) -> None`
+### &emsp; ***def*** `on_after_start(self, func: LIFESPAN_FUNC) -> None`
 
 &emsp;注册启动后的函数
 
@@ -123,7 +133,7 @@ Args:
 
 Returns:
 
-### &emsp; ***def*** `on_after_shutdown(self: Any, func: LIFESPAN_FUNC) -> None`
+### &emsp; ***def*** `on_after_shutdown(self, func: LIFESPAN_FUNC) -> None`
 
 &emsp;注册停止后的函数：未实现
 
@@ -135,7 +145,7 @@ Args:
 
 Returns:
 
-### &emsp; ***def*** `on_before_process_shutdown(self: Any, func: LIFESPAN_FUNC) -> None`
+### &emsp; ***def*** `on_before_process_shutdown(self, func: LIFESPAN_FUNC) -> None`
 
 &emsp;注册进程停止前的函数，为子进程停止时调用
 
@@ -147,7 +157,7 @@ Args:
 
 Returns:
 
-### &emsp; ***def*** `on_before_process_restart(self: Any, func: LIFESPAN_FUNC) -> None`
+### &emsp; ***def*** `on_before_process_restart(self, func: LIFESPAN_FUNC) -> None`
 
 &emsp;注册进程重启前的函数，为子进程重启时调用
 
@@ -159,7 +169,7 @@ Args:
 
 Returns:
 
-### &emsp; ***def*** `on_after_restart(self: Any, func: LIFESPAN_FUNC) -> None`
+### &emsp; ***def*** `on_after_restart(self, func: LIFESPAN_FUNC) -> None`
 
 &emsp;注册重启后的函数：未实现
 
@@ -171,7 +181,7 @@ Args:
 
 Returns:
 
-### &emsp; ***def*** `on_after_nonebot_init(self: Any, func: LIFESPAN_FUNC) -> None`
+### &emsp; ***def*** `on_after_nonebot_init(self, func: LIFESPAN_FUNC) -> None`
 
 &emsp;注册nonebot初始化后的函数
 

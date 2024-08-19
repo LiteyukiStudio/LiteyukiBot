@@ -9,3 +9,7 @@ category: API
 
 事件类
 
+### &emsp; ***def*** `__init__(self, name: str, data: dict[str, Any]) -> None`
+
+&emsp;
+

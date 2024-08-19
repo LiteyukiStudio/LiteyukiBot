@@ -25,7 +25,11 @@ category: API
 
 
 
-### &emsp; ***def*** `set(self: Any, key: str, value: Any) -> None`
+### &emsp; ***def*** `__init__(self) -> None`
+
+&emsp;
+
+### &emsp; ***def*** `set(self, key: str, value: Any) -> None`
 
 &emsp;设置键值对
 
@@ -35,7 +39,7 @@ Args:
 
     value: 值
 
-### &emsp; ***def*** `get(self: Any, key: str, default: Optional[Any]) -> Optional[Any]`
+### &emsp; ***def*** `get(self, key: str, default: Optional[Any]) -> Optional[Any]`
 
 &emsp;获取键值对
 
@@ -51,7 +55,7 @@ Returns:
 
     Any: 值
 
-### &emsp; ***def*** `delete(self: Any, key: str, ignore_key_error: bool) -> None`
+### &emsp; ***def*** `delete(self, key: str, ignore_key_error: bool) -> None`
 
 &emsp;删除键值对
 
@@ -65,7 +69,7 @@ Args:
 
 Returns:
 
-### &emsp; ***def*** `get_all(self: Any) -> dict[str, Any]`
+### &emsp; ***def*** `get_all(self) -> dict[str, Any]`
 
 &emsp;获取所有键值对
 

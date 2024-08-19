@@ -45,23 +45,23 @@ Returns:
 
 Handler for code file changes
 
-### &emsp; ***def*** `on_modified(self: Any, event: Any) -> None`
+### &emsp; ***def*** `on_modified(self, event: Any) -> None`
 
 &emsp;
 
-### &emsp; ***def*** `on_created(self: Any, event: Any) -> None`
+### &emsp; ***def*** `on_created(self, event: Any) -> None`
 
 &emsp;
 
-### &emsp; ***def*** `on_deleted(self: Any, event: Any) -> None`
+### &emsp; ***def*** `on_deleted(self, event: Any) -> None`
 
 &emsp;
 
-### &emsp; ***def*** `on_moved(self: Any, event: Any) -> None`
+### &emsp; ***def*** `on_moved(self, event: Any) -> None`
 
 &emsp;
 
-### &emsp; ***def*** `on_any_event(self: Any, event: Any) -> None`
+### &emsp; ***def*** `on_any_event(self, event: Any) -> None`
 
 &emsp;
 
