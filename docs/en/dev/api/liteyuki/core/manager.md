@@ -81,3 +81,31 @@ Args:
 
 Returns:
 
+### ***var*** `TIMEOUT = 10`
+
+
+
+### ***var*** `chan_active = get_channel(f'{name}-active')`
+
+
+
+### ***var*** `channel_deliver = ChannelDeliver(active=chan_active, passive=chan_passive, channel_deliver_active=channel_deliver_active_channel, channel_deliver_passive=channel_deliver_passive_channel)`
+
+
+
+### ***var*** `process = self.processes[name]`
+
+
+
+### ***var*** `process = Process(target=self.targets[name][0], args=self.targets[name][1], kwargs=self.targets[name][2], daemon=True)`
+
+
+
+### ***var*** `data = chan_active.receive()`
+
+
+
+### ***var*** `kwargs = {}`
+
+
+

@@ -15,3 +15,7 @@ category: API
 
 Returns:
 
+### ***var*** `show_icon = config.get('log_icon', True)`
+
+
+

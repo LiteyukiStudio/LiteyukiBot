@@ -45,3 +45,59 @@ Returns:
 
     str: 设置后的插件名称 <y>name</y>
 
+### ***var*** `module_path = path_to_module_name(Path(module_path)) if isinstance(module_path, Path) else module_path`
+
+
+
+### ***var*** `plugins = set()`
+
+
+
+### ***var*** `color = 'y'`
+
+
+
+### ***var*** `module = import_module(module_path)`
+
+
+
+### ***var*** `display_name = module.__name__.split('.')[-1]`
+
+
+
+### ***var*** `display_name = format_display_name(f"{metadata.name}({module.__name__.split('.')[-1]})", metadata.type)`
+
+
+
+### ***var*** `path = Path(os.path.join(dir_path, f))`
+
+
+
+### ***var*** `module_name = None`
+
+
+
+### ***var*** `color = 'm'`
+
+
+
+### ***var*** `color = 'g'`
+
+
+
+### ***var*** `color = 'e'`
+
+
+
+### ***var*** `color = 'c'`
+
+
+
+### ***var*** `module_name = f'{path_to_module_name(Path(dir_path))}.{f[:-3]}'`
+
+
+
+### ***var*** `module_name = path_to_module_name(path)`
+
+
+

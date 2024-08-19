@@ -13,3 +13,15 @@ Args:
 
     module_path: 插件路径，参考`liteyuki.load_plugin`的函数签名
 
+### ***var*** `cfg = load_config_in_default()`
+
+
+
+### ***var*** `plugins = cfg.get('liteyuki.plugins', [])`
+
+
+
+### ***var*** `bot = LiteyukiBot(**cfg)`
+
+
+

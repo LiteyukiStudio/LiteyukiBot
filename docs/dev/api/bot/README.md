@@ -193,3 +193,35 @@ Args:
 
 Returns:
 
+### ***var*** `executable = sys.executable`
+
+
+
+### ***var*** `args = sys.argv`
+
+
+
+### ***var*** `chan_active = get_channel(f'{name}-active')`
+
+
+
+### ***var*** `cmd = 'start'`
+
+
+
+### ***var*** `chan_active = get_channel(f'{process_name}-active')`
+
+
+
+### ***var*** `cmd = 'nohup'`
+
+
+
+### ***var*** `cmd = 'open'`
+
+
+
+### ***var*** `cmd = 'nohup'`
+
+
+

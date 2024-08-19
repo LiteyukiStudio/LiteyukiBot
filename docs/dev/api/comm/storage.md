@@ -90,3 +90,51 @@ Returns:
 
 ### &emsp; ***attr*** `_lock: threading.Lock()`
 
+### ***var*** `key = data[1]['key']`
+
+
+
+### ***var*** `default = data[1]['default']`
+
+
+
+### ***var*** `recv_chan = data[1]['recv_chan']`
+
+
+
+### ***var*** `key = data[1]['key']`
+
+
+
+### ***var*** `value = data[1]['value']`
+
+
+
+### ***var*** `key = data[1]['key']`
+
+
+
+### ***var*** `recv_chan = data[1]['recv_chan']`
+
+
+
+### ***var*** `lock = _get_lock(key)`
+
+
+
+### ***var*** `lock = _get_lock(key)`
+
+
+
+### ***var*** `recv_chan = Channel[Optional[Any]]('recv_chan')`
+
+
+
+### ***var*** `lock = _get_lock(key)`
+
+
+
+### ***var*** `recv_chan = Channel[dict[str, Any]]('recv_chan')`
+
+
+

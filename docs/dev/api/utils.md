@@ -57,3 +57,23 @@ Returns:
 
 
 
+### ***var*** `IS_MAIN_PROCESS = multiprocessing.current_process().name == 'MainProcess'`
+
+
+
+### ***var*** `func_ = getattr(call, '__call__', None)`
+
+
+
+### ***var*** `rel_path = path.resolve().relative_to(Path.cwd().resolve())`
+
+
+
+### ***var*** `loop = asyncio.get_event_loop()`
+
+
+
+### ***var*** `loop = asyncio.new_event_loop()`
+
+
+

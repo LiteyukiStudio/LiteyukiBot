@@ -65,3 +65,27 @@ Handler for code file changes
 
 &emsp;
 
+### ***var*** `liteyuki_bot = get_bot()`
+
+
+
+### ***var*** `observer = Observer()`
+
+
+
+### ***var*** `last_call_time = None`
+
+
+
+### ***var*** `code_modified_handler = CodeModifiedHandler()`
+
+
+
+### ***var*** `current_time = time.time()`
+
+
+
+### ***var*** `last_call_time = current_time`
+
+
+

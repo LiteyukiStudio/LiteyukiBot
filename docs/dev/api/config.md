@@ -69,3 +69,31 @@ Load config from toml file
 
 
 
+### ***var*** `new_config = copy.deepcopy(config)`
+
+
+
+### ***var*** `config = yaml.safe_load(open(file, 'r', encoding='utf-8'))`
+
+
+
+### ***var*** `config = json.load(open(file, 'r', encoding='utf-8'))`
+
+
+
+### ***var*** `config = toml.load(open(file, 'r', encoding='utf-8'))`
+
+
+
+### ***var*** `config = {}`
+
+
+
+### ***var*** `config = {}`
+
+
+
+### ***var*** `config = load_configs_from_dirs('config', no_waring=no_waring)`
+
+
+

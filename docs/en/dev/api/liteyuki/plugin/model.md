@@ -63,3 +63,27 @@ extra: dict[str, Any]
 
 ### &emsp; ***attr*** `model_config: {'arbitrary_types_allowed': True}`
 
+### ***var*** `APPLICATION = 'application'`
+
+
+
+### ***var*** `SERVICE = 'service'`
+
+
+
+### ***var*** `IMPLEMENTATION = 'implementation'`
+
+
+
+### ***var*** `MODULE = 'module'`
+
+
+
+### ***var*** `UNCLASSIFIED = 'unclassified'`
+
+
+
+### ***var*** `model_config = {'arbitrary_types_allowed': True}`
+
+
+

@@ -103,3 +103,47 @@ Returns:
 
     装饰器，装饰一个函数在接收到数据后执行
 
+### ***var*** `T = TypeVar('T')`
+
+
+
+### ***var*** `channel_deliver_active_channel = Channel(_id='channel_deliver_active_channel')`
+
+
+
+### ***var*** `channel_deliver_passive_channel = Channel(_id='channel_deliver_passive_channel')`
+
+
+
+### ***var*** `recv_chan = data[1]['recv_chan']`
+
+
+
+### ***var*** `recv_chan = Channel[Channel[Any]]('recv_chan')`
+
+
+
+### ***var*** `recv_chan = Channel[dict[str, Channel[Any]]]('recv_chan')`
+
+
+
+### ***var*** `data = self.conn_recv.recv()`
+
+
+
+### ***var*** `func = _callback_funcs[func_id]`
+
+
+
+### ***var*** `func = _callback_funcs[func_id]`
+
+
+
+### ***var*** `data = self.conn_recv.recv()`
+
+
+
+### ***var*** `data = self.conn_recv.recv()`
+
+
+

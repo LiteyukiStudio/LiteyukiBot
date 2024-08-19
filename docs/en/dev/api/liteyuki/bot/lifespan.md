@@ -156,3 +156,15 @@ Returns:
 
 Returns:
 
+### ***var*** `tasks = []`
+
+
+
+### ***var*** `loop = asyncio.get_event_loop()`
+
+
+
+### ***var*** `loop = asyncio.new_event_loop()`
+
+
+
