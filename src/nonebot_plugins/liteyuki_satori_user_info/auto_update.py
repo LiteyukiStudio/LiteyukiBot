@@ -1,7 +1,6 @@
 import nonebot
 
 from nonebot.message import event_preprocessor
-# from nonebot_plugin_alconna.typings import Event
 from src.utils.base.ly_typing import T_MessageEvent
 from src.utils import satori_utils
 from nonebot.adapters import satori

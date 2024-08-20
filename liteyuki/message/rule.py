@@ -11,9 +11,9 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 
 from typing import Optional, TypeAlias, Callable, Coroutine
 
-from liteyuki.message.event import Event
+from liteyuki.message.event import MessageEvent
 
-RuleHandler: TypeAlias = Callable[[Event], Coroutine[None, None, bool]]
+RuleHandler: TypeAlias = Callable[[MessageEvent], Coroutine[None, None, bool]]
 """规则函数签名"""
 
 
@@ -27,7 +27,7 @@ class Rule:
     def __and__(self, other: "Rule") -> "Rule":
         return Rule(lambda event: self.handler(event) and other.handler(event))
 
-    async def __call__(self, event: Event) -> bool:
+    async def __call__(self, event: MessageEvent) -> bool:
         if self.handler is None:
             return True
         return await self.handler(event)

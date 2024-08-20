@@ -12,7 +12,7 @@ from nonebot import Bot, get_bot, on_message
 from nonebot.plugin import PluginMetadata
 from nonebot.adapters.onebot.v11 import MessageEvent, Bot
 from liteyuki.comm.storage import shared_memory
-from liteyuki.message.event import Event
+from liteyuki.message.event import MessageEvent as LiteyukiMessageEvent
 
 __plugin_meta__ = PluginMetadata(
     name="轻雪物流",
@@ -23,8 +23,10 @@ __plugin_meta__ = PluginMetadata(
 
 @on_message().handle()
 async def _(bot: Bot, event: MessageEvent):
-    liteyuki_event = Event(
-        type=event.message_type,
+    liteyuki_event = LiteyukiMessageEvent(
+        message_type=event.message_type,
+        message=event.dict()["message"],
+        raw_message=event.raw_message,
         data=event.dict(),
         bot_id=bot.self_id,
         session_id=str(event.user_id if event.message_type == "private" else event.group_id),
@@ -35,6 +37,6 @@ async def _(bot: Bot, event: MessageEvent):
 
 
 @shared_memory.on_subscriber_receive("event_to_nonebot")
-async def _(event: Event):
+async def _(event: MessageEvent):
     bot: Bot = get_bot(event.bot_id)
-    await bot.send_msg(message_type=event.type, user_id=int(event.session_id), group_id=int(event.session_id), message=event.data["message"])
+    await bot.send_msg(message_type=event.message_type, user_id=int(event.session_id), group_id=int(event.session_id), message=event.data["message"])

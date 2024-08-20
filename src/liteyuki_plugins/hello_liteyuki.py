@@ -10,7 +10,7 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 """
 from liteyuki.plugin import PluginMetadata, PluginType
 from liteyuki.message.on import on_message
-from liteyuki.message.event import Event
+from liteyuki.message.event import MessageEvent
 
 __plugin_meta__ = PluginMetadata(
     name="你好轻雪",
@@ -19,6 +19,6 @@ __plugin_meta__ = PluginMetadata(
 
 
 @on_message().handle
-async def _(event: Event):
-    if str(event.data["raw_message"]) == "你好轻雪":
+async def _(event: MessageEvent):
+    if str(event.raw_message) == "你好轻雪":
         event.reply("你好呀")

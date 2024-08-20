@@ -8,13 +8,12 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @File    : on.py
 @Software: PyCharm
 """
-import threading
 
 from queue import Queue
 
 from liteyuki.comm.storage import shared_memory
 from liteyuki.log import logger
-from liteyuki.message.event import Event
+from liteyuki.message.event import MessageEvent
 from liteyuki.message.matcher import Matcher
 from liteyuki.message.rule import Rule
 
@@ -23,7 +22,7 @@ _queue: Queue = Queue()
 
 
 @shared_memory.on_subscriber_receive("event_to_liteyuki")
-async def _(event: Event):
+async def _(event: MessageEvent):
     current_priority = -1
     for i, matcher in enumerate(_matcher_list):
         logger.info(f"Running matcher {matcher} for event: {event}")

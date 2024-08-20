@@ -11,10 +11,10 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 import traceback
 from typing import Any, TypeAlias, Callable, Coroutine
 
-from liteyuki import Event
+from liteyuki.message.event import MessageEvent
 from liteyuki.message.rule import Rule
 
-EventHandler: TypeAlias = Callable[[Event], Coroutine[None, None, Any]]
+EventHandler: TypeAlias = Callable[[MessageEvent], Coroutine[None, None, Any]]
 
 
 class Matcher:
