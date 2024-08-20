@@ -25,7 +25,9 @@ from ..utils.base.ly_function import get_function
 
 require("nonebot_plugin_alconna")
 require("nonebot_plugin_apscheduler")
-from nonebot_plugin_alconna import on_alconna, Alconna, Args, Arparma, MultiVar
+require("nonebot_plugin_htmlrender")
+from nonebot_plugin_htmlrender import md_to_pic
+from nonebot_plugin_alconna import UniMessage, on_alconna, Alconna, Args, Arparma, MultiVar
 from nonebot_plugin_apscheduler import scheduler
 
 driver = get_driver()
@@ -54,7 +56,7 @@ async def _(bot: T_Bot, matcher: Matcher, result: Arparma):
     permission=SUPERUSER
 ).handle()
 # Satori OK
-async def _(bot: T_Bot, event: T_MessageEvent):
+async def _(bot: T_Bot, event: T_MessageEvent, matcher: Matcher):
     # 使用git pull更新
 
     ulang = get_user_lang(str(event.user.id if isinstance(event, satori.event.Event) else event.user_id))
@@ -64,7 +66,9 @@ async def _(bot: T_Bot, event: T_MessageEvent):
     btn_restart = md.btn_cmd(ulang.get("liteyuki.restart_now"), "reload-liteyuki")
     pip.main(["install", "-r", "requirements.txt"])
     reply += f"{ulang.get('liteyuki.update_restart', RESTART=btn_restart)}"
-    await md.send_md(reply, bot)
+    # await md.send_md(reply, bot)
+    img_bytes = await md_to_pic(reply)
+    await UniMessage.send(UniMessage.image(raw=img_bytes))
 
 
 @on_alconna(

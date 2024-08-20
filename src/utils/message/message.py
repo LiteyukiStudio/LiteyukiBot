@@ -19,9 +19,6 @@ from nonebot_plugin_htmlrender import md_to_pic
 
 config = load_from_yaml("config.yml")
 
-can_send_markdown = {}  # 用于存储机器人是否支持发送markdown消息，id->bool
-
-
 
 async def broadcast_to_superusers(message: str | T_Message, markdown: bool = False):
     """广播消息给超级用户"""
@@ -57,14 +54,7 @@ class MarkdownMessage:
             width=540,
             device_scale_factor=4
         )
-        if md_image_bytes is None:
-            data = await bot.send_msg(
-                message_type=message_type,
-                group_id=session_id,
-                user_id=session_id,
-                message=markdown,
-            )
-            return data
+        print(md_image_bytes)
         data = await bot.send_msg(
             message_type=message_type,
             group_id=session_id,

@@ -12,7 +12,9 @@ from .const import representative_timezones_list
 from src.utils import event as event_utils
 
 require("nonebot_plugin_alconna")
+require("nonebot_plugin_htmlrender")
 from nonebot_plugin_alconna import Alconna, Args, Arparma, Subcommand, on_alconna
+from nonebot_plugin_htmlrender import md_to_pic
 
 profile_alc = on_alconna(
     Alconna(
@@ -65,7 +67,8 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
             # 未输入值，尝试呼出菜单
             menu = get_profile_menu(result.args["key"], ulang)
             if menu:
-                await md.send_md(menu, bot)
+                img_bytes = await md_to_pic(menu)
+                await profile_alc.finish(menu)
             else:
                 await profile_alc.finish(ulang.get("user.profile.input_value", ATTR=ulang.get(f"user.profile.{result.args['key']}")))
 
@@ -97,7 +100,8 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
             reply += (f"\n**{key_text}**    **{val}**\n"
                       f"\n> {ulang.get(f'user.profile.{key}.desc')}"
                       f"\n> {btn_set}  \n\n***\n")
-        await md.send_md(reply, bot)
+        img_bytes = await md_to_pic(reply)
+        await profile_alc.finish(reply)
 
 
 def get_profile_menu(key: str, ulang: Language) -> Optional[str]:

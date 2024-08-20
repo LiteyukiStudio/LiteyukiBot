@@ -181,6 +181,6 @@ async def _(bot: T_Bot, event: T_MessageEvent, result: Arparma, matcher: Matcher
     else:
         pass
     if send_as_md:
-        await md.send_md(reply, bot)
+        await matcher.send(reply)
     else:
         await matcher.finish(reply)
