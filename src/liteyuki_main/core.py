@@ -64,7 +64,7 @@ async def _(bot: T_Bot, event: T_MessageEvent):
     btn_restart = md.btn_cmd(ulang.get("liteyuki.restart_now"), "reload-liteyuki")
     pip.main(["install", "-r", "requirements.txt"])
     reply += f"{ulang.get('liteyuki.update_restart', RESTART=btn_restart)}"
-    await md.send_md(reply, bot, event=event, at_sender=False)
+    await md.send_md(reply, bot)
 
 
 @on_alconna(

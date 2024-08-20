@@ -65,7 +65,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
             # 未输入值，尝试呼出菜单
             menu = get_profile_menu(result.args["key"], ulang)
             if menu:
-                await md.send_md(menu, bot, event=event)
+                await md.send_md(menu, bot)
             else:
                 await profile_alc.finish(ulang.get("user.profile.input_value", ATTR=ulang.get(f"user.profile.{result.args['key']}")))
 
@@ -97,7 +97,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
             reply += (f"\n**{key_text}**    **{val}**\n"
                       f"\n> {ulang.get(f'user.profile.{key}.desc')}"
                       f"\n> {btn_set}  \n\n***\n")
-        await md.send_md(reply, bot, event=event)
+        await md.send_md(reply, bot)
 
 
 def get_profile_menu(key: str, ulang: Language) -> Optional[str]:

@@ -45,7 +45,7 @@ class Matcher:
         self.handlers.append(handler)
         return handler
 
-    async def run(self, event: Event) -> None:
+    async def run(self, event: MessageEvent) -> None:
         """
         运行处理函数
         Args:

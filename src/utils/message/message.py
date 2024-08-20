@@ -22,9 +22,6 @@ config = load_from_yaml("config.yml")
 can_send_markdown = {}  # 用于存储机器人是否支持发送markdown消息，id->bool
 
 
-class TencentBannedMarkdownError(BaseException):
-    pass
-
 
 async def broadcast_to_superusers(message: str | T_Message, markdown: bool = False):
     """广播消息给超级用户"""
@@ -42,10 +39,7 @@ class MarkdownMessage:
             markdown: str,
             bot: T_Bot, *,
             message_type: str = None,
-            session_id: str | int = None,
-            event: T_MessageEvent = None,
-            retry_as_image: bool = True,
-            **kwargs
+            session_id: str | int = None
     ) -> dict[str, Any] | None:
         """
         发送Markdown消息，支持自动转为图片发送
@@ -54,20 +48,23 @@ class MarkdownMessage:
             bot:
             message_type:
             session_id:
-            event:
-            retry_as_image: 发送失败后是否尝试以图片形式发送，否则失败返回None
-            **kwargs:
-
         Returns:
 
         """
-        formatted_md = v11.unescape(markdown).replace("\n", r"\n").replace('"', r'\\\"')
-        plain_markdown = formatted_md.replace("[🔗", "[")
+        plain_markdown = markdown.replace("[🔗", "[")
         md_image_bytes = await md_to_pic(
             md=plain_markdown,
             width=540,
             device_scale_factor=4
         )
+        if md_image_bytes is None:
+            data = await bot.send_msg(
+                message_type=message_type,
+                group_id=session_id,
+                user_id=session_id,
+                message=markdown,
+            )
+            return data
         data = await bot.send_msg(
             message_type=message_type,
             group_id=session_id,
@@ -105,8 +102,8 @@ class MarkdownMessage:
             base64_string = base64.b64encode(image).decode("utf-8")
             data = await bot.call_api("upload_image", file=f"base64://{base64_string}")
             await MarkdownMessage.send_md(MarkdownMessage.image(data, Image.open(io.BytesIO(image)).size), bot,
-                                          event=event, message_type=message_type,
-                                          session_id=session_id, **kwargs)
+                                          message_type=message_type,
+                                          session_id=session_id)
 
         # 其他实现端方案
         else:
@@ -119,8 +116,7 @@ class MarkdownMessage:
             image_url = (await bot.get_msg(message_id=image_message_id))["message"][0]["data"]["url"]
             image_size = Image.open(io.BytesIO(image)).size
             image_md = MarkdownMessage.image(image_url, image_size)
-            return await MarkdownMessage.send_md(image_md, bot, message_type=message_type, session_id=session_id,
-                                                 event=event, **kwargs)
+            return await MarkdownMessage.send_md(image_md, bot, message_type=message_type, session_id=session_id)
 
         if data is None:
             data = await bot.send_msg(

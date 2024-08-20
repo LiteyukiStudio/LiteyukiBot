@@ -292,7 +292,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
                 reply += f"\n{ulang.get('npm.too_many_results', HIDE_NUM=len(rs) - max_show)}"
         else:
             reply = ulang.get("npm.search_no_result")
-        await md.send_md(reply, bot, event=event)
+        await md.send_md(reply, bot)
 
     elif sc.get("install") and perm_s:
         plugin_name: str = result.subcommands["install"].args.get("plugin_name")
@@ -320,7 +320,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
                     info = md.escape(
                         ulang.get("npm.install_success", NAME=store_plugin.name)
                     )  # markdown转义
-                    await md.send_md(f"{info}\n\n" f"```\n{log}\n```", bot, event=event)
+                    await md.send_md(f"{info}\n\n" f"```\n{log}\n```", bot)
                 else:
                     await npm.finish(
                         ulang.get(
@@ -331,12 +331,12 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
                 info = ulang.get(
                     "npm.load_failed", NAME=plugin_name, HOMEPAGE=homepage_btn
                 ).replace("_", r"\\_")
-                await md.send_md(f"{info}\n\n" f"```\n{log}\n```\n", bot, event=event)
+                await md.send_md(f"{info}\n\n" f"```\n{log}\n```\n", bot)
         else:
             info = ulang.get(
                 "npm.install_failed", NAME=plugin_name, HOMEPAGE=homepage_btn
             ).replace("_", r"\\_")
-            await md.send_md(f"{info}\n\n" f"```\n{log}\n```", bot, event=event)
+            await md.send_md(f"{info}\n\n" f"```\n{log}\n```", bot)
 
     elif sc.get("uninstall") and perm_s:
         plugin_name: str = result.subcommands["uninstall"].args.get("plugin_name")  # type: ignore
@@ -464,7 +464,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
             else ulang.get("npm.next_page")
         )
         reply += f"\n{btn_prev}  {page}/{total}  {btn_next}"
-        await md.send_md(reply, bot, event=event)
+        await md.send_md(reply, bot)
 
     else:
         if await SUPERUSER(bot, event):
@@ -517,7 +517,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
                 f"\n\n>page为页数，num为每页显示数量"
                 f"\n\n>*{md.escape('npm list [page] [num]')}*"
             )
-            await md.send_md(reply, bot, event=event)
+            await md.send_md(reply, bot)
         else:
 
             btn_list = md.btn_cmd(
@@ -539,7 +539,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot, npm: Matcher):
                 f"\n\n>page为页数，num为每页显示数量"
                 f"\n\n>*{md.escape('npm list [page] [num]')}*"
             )
-            await md.send_md(reply, bot, event=event)
+            await md.send_md(reply, bot)
 
 
 @on_alconna(
@@ -679,7 +679,7 @@ async def _(result: Arparma, matcher: Matcher, event: T_MessageEvent, bot: T_Bot
                     else mdc.paragraph(ulang.get("npm.homepage"))
                 ),
             ]
-            await md.send_md(compile_md(reply), bot, event=event)
+            await md.send_md(compile_md(reply), bot)
         else:
             await matcher.finish(ulang.get("npm.plugin_not_found", NAME=plugin_name))
     else:
