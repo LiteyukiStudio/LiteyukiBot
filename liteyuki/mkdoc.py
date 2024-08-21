@@ -33,6 +33,7 @@ class FunctionInfo(BaseModel):
     args: list[tuple[str, str]]
     return_type: str
     docstring: str
+    source_code: str = ""
 
     type: DefType
     """若为类中def，则有"""
@@ -142,7 +143,8 @@ def get_module_info_normal(file_path: str, ignore_private: bool = True) -> Modul
                     return_type=ast.unparse(node.returns) if node.returns else "None",
                     docstring=function_docstring if function_docstring else "",
                     type=DefType.FUNCTION,
-                    is_async=isinstance(node, ast.AsyncFunctionDef)
+                    is_async=isinstance(node, ast.AsyncFunctionDef),
+                    source_code=ast.unparse(node)
                 )
                 module_info.functions.append(func_info)
 
@@ -176,7 +178,8 @@ def get_module_info_normal(file_path: str, ignore_private: bool = True) -> Modul
                         return_type=ast.unparse(class_node.returns) if class_node.returns else "None",
                         docstring=method_docstring if method_docstring else "",
                         type=def_type,
-                        is_async=isinstance(class_node, ast.AsyncFunctionDef)
+                        is_async=isinstance(class_node, ast.AsyncFunctionDef),
+                        source_code=ast.unparse(class_node)
                     ))
                 # attributes
                 elif isinstance(class_node, ast.Assign):
@@ -223,8 +226,6 @@ def generate_markdown(module_info: ModuleInfo, front_matter=None) -> str:
 
     content += front_matter
 
-
-
     # 模块函数
     for func in module_info.functions:
         args_with_type = [f"{arg[0]}: {arg[1]}" if arg[1] else arg[0] for arg in func.args]
@@ -232,6 +233,9 @@ def generate_markdown(module_info: ModuleInfo, front_matter=None) -> str:
 
         func.docstring = func.docstring.replace("\n", "\n\n")
         content += f"{func.docstring}\n\n"
+
+        # 函数源代码可展开区域
+        content += f"<details>\n<summary>源代码</summary>\n\n```python\n{func.source_code}\n```\n</details>\n\n"
 
     # 类
     for cls in module_info.classes:
@@ -256,6 +260,8 @@ def generate_markdown(module_info: ModuleInfo, front_matter=None) -> str:
 
             method.docstring = method.docstring.replace("\n", "\n\n")
             content += f"&emsp;{method.docstring}\n\n"
+            # 函数源代码可展开区域
+            content += f"<details>\n<summary>源代码</summary>\n\n```python\n{method.source_code}\n```\n</details>\n\n"
         for attr in cls.attributes:
             content += f"### &emsp; ***attr*** `{attr.name}: {attr.type}`\n\n"
 
