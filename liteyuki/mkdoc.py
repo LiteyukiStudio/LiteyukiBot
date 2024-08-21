@@ -209,13 +209,14 @@ def get_module_info_normal(file_path: str, ignore_private: bool = True) -> Modul
     return module_info
 
 
-def generate_markdown(module_info: ModuleInfo, front_matter=None) -> str:
+def generate_markdown(module_info: ModuleInfo, front_matter=None, lang: str = "zh-CN") -> str:
     """
     生成模块的Markdown
     你可在此自定义生成的Markdown格式
     Args:
         module_info: 模块信息
         front_matter: 自定义选项title, index, icon, category
+        lang: 语言
     Returns:
         Markdown 字符串
     """
@@ -261,7 +262,13 @@ def generate_markdown(module_info: ModuleInfo, front_matter=None) -> str:
             method.docstring = method.docstring.replace("\n", "\n\n")
             content += f"&emsp;{method.docstring}\n\n"
             # 函数源代码可展开区域
-            content += f"<details>\n<summary>源代码</summary>\n\n```python\n{method.source_code}\n```\n</details>\n\n"
+
+            if lang == "zh-CN":
+                TEXT_SOURCE_CODE = "源代码"
+            else:
+                TEXT_SOURCE_CODE = "Source Code"
+
+            content += f"<details>\n<summary>{TEXT_SOURCE_CODE}</summary>\n\n```python\n{method.source_code}\n```\n</details>\n\n"
         for attr in cls.attributes:
             content += f"### &emsp; ***attr*** `{attr.name}: {attr.type}`\n\n"
 
@@ -278,7 +285,7 @@ def generate_markdown(module_info: ModuleInfo, front_matter=None) -> str:
     return content
 
 
-def generate_docs(module_folder: str, output_dir: str, with_top: bool = False, ignored_paths=None):
+def generate_docs(module_folder: str, output_dir: str, with_top: bool = False, lang: str = "zh-CN", ignored_paths=None):
     """
     生成文档
     Args:
@@ -286,6 +293,7 @@ def generate_docs(module_folder: str, output_dir: str, with_top: bool = False, i
         output_dir: 输出文件夹
         with_top: 是否包含顶层文件夹 False时例如docs/api/module_a, docs/api/module_b， True时例如docs/api/module/module_a.md， docs/api/module/module_b.md
         ignored_paths: 忽略的路径
+        lang: 语言
     """
     if ignored_paths is None:
         ignored_paths = []
@@ -345,5 +353,5 @@ def generate_docs(module_folder: str, output_dir: str, with_top: bool = False, i
 # 入口脚本
 if __name__ == '__main__':
     # 这里填入你的模块路径
-    generate_docs('liteyuki', 'docs/dev/api', with_top=False, ignored_paths=["liteyuki/plugins"])
-    generate_docs('liteyuki', 'docs/en/dev/api', with_top=False, ignored_paths=["liteyuki/plugins"])
+    generate_docs('liteyuki', 'docs/dev/api', with_top=False, ignored_paths=["liteyuki/plugins"], lang="zh-CN")
+    generate_docs('liteyuki', 'docs/en/dev/api', with_top=False, ignored_paths=["liteyuki/plugins"], lang="en")
