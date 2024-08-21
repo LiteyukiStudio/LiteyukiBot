@@ -54,3 +54,4 @@ dist
 doc
 
 mkdoc2.py
+result.json

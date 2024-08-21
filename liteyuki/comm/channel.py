@@ -217,16 +217,6 @@ class Channel(Generic[T]):
             data = self.conn_recv.recv()
             self._run_on_sub_receive_funcs(data)
 
-    def __iter__(self):
-        return self
-
-    def __next__(self) -> Any:
-        return self.receive()
-
-    def __del__(self):
-        self.close()
-        logger.debug(f"Channel {self.name} deleted.")
-
 
 """子进程可用的主动和被动通道"""
 active_channel: Optional["Channel"] = None
