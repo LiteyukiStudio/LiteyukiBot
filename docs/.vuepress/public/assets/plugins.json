@@ -3,13 +3,35 @@
         "module_name": "liteyukibot-plugin-nonebot",
         "project_link": "liteyukibot-plugin-nonebot",
         "name": "NoneBot插件",
-        "desc": "在轻雪中使用NoneBot，为NoneBot开发者提供了更多便捷功能(已内置)",
+        "desc": "在轻雪中使用NoneBot，内置轻雪--NoneBot会话控制器插件，为NoneBot开发者提供了更多便捷功能(已内置)",
         "author": "snowykami",
         "homepage": "https://github.com/LiteyukiStudio/liteyukibot-plugin-nonebot",
         "tags": [
             {
-                "label": "server",
+                "label": "app",
                 "color": "#aeeaa8"
+            }
+        ],
+        "is_official": true,
+        "type": "application",
+        "valid": true,
+        "version": "rolling"
+    },
+    {
+        "module_name": "liteyukibot-plugin-antidislink",
+        "project_link": "liteyukibot-plugin-antidislink",
+        "name": "防断联插件",
+        "desc": "防止你的群友断联化",
+        "author": "snowykami",
+        "homepage": "https://github.com/snowykami/liteyukibot-plugin-antidislink",
+        "tags": [
+            {
+                "label": "app",
+                "color": "#aeeaa8"
+            },
+            {
+                "label": "dislink",
+                "color": "#d0e9ff"
             }
         ],
         "is_official": true,

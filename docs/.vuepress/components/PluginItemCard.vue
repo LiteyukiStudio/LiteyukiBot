@@ -2,6 +2,9 @@
   <div class="item-card">
     <div class="item-name">{{ props.item.name }}</div>
     <div class="item-description">{{ props.item.desc }}</div>
+    <div class="tags">
+      <span class="tag" v-for="tag in props.item.tags" :key="tag" :style=getTagStyle(tag.color)>{{ tag.label }}</span>
+    </div>
     <div class="item-bar">
       <!--      三个可点击svg，一个github，一个下载，一个可点击"https://github.com/{{ username }}.png?size=80"个人头像配上id-->
       <a :href=props.item.homepage class="btn">
@@ -44,6 +47,21 @@ const copyToClipboard = () => {
   clipboard.on('error', () => {
   })
 }
+
+const getTagStyle = (backgroundColor: string) => {
+  // 将颜色值转换为 RGB 格式
+  const rgb = backgroundColor.replace(/^#/, '');
+  const [r, g, b] = rgb.match(/.{2}/g).map(x => parseInt(x, 16));
+
+  // 计算亮度
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+
+  // 根据亮度决定文字颜色
+  return {
+    backgroundColor: backgroundColor,
+    color: brightness > 128 ? '#000' : '#fff'
+  };
+};
 
 
 // 复制到剪贴板的函数
@@ -122,5 +140,13 @@ button {
   box-sizing: border-box;
   justify-content: space-between;
   color: #00000055;
+}
+
+.tag {
+  display: inline-block;
+  padding: 2px 5px;
+  margin-right: 5px;
+  border-radius: 5px;
+  font-size: 12px;
 }
 </style>
