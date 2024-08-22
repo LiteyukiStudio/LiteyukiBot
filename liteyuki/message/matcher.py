@@ -34,16 +34,17 @@ class Matcher:
     def __str__(self):
         return f"Matcher(rule={self.rule}, priority={self.priority}, block={self.block})"
 
-    def handle(self, handler: EventHandler) -> EventHandler:
+    def handle(self) -> Callable[[EventHandler], EventHandler]:
         """
         添加处理函数，装饰器
-        Args:
-            handler:
         Returns:
-            EventHandler
+            装饰器 handler
         """
-        self.handlers.append(handler)
-        return handler
+        def decorator(handler: EventHandler) -> EventHandler:
+            self.handlers.append(handler)
+            return handler
+
+        return decorator
 
     async def run(self, event: MessageEvent) -> None:
         """

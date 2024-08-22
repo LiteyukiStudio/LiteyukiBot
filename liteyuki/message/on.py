@@ -15,7 +15,7 @@ from liteyuki.comm.storage import shared_memory
 from liteyuki.log import logger
 from liteyuki.message.event import MessageEvent
 from liteyuki.message.matcher import Matcher
-from liteyuki.message.rule import Rule
+from liteyuki.message.rule import Rule, empty_rule
 
 _matcher_list: list[Matcher] = []
 _queue: Queue = Queue()
@@ -34,7 +34,7 @@ async def _(event: MessageEvent):
                 break
 
 
-def on_message(rule: Rule = Rule(), priority: int = 0, block: bool = True) -> Matcher:
+def on_message(rule: Rule = empty_rule, priority: int = 0, block: bool = False) -> Matcher:
     matcher = Matcher(rule, priority, block)
     # 按照优先级插入
     for i, m in enumerate(_matcher_list):
@@ -44,3 +44,10 @@ def on_message(rule: Rule = Rule(), priority: int = 0, block: bool = True) -> Ma
     else:
         _matcher_list.append(matcher)
     return matcher
+
+
+def on_keywords(keywords: list[str], rule=empty_rule, priority: int = 0, block: bool = False) -> Matcher:
+    @Rule
+    async def on_keywords_rule(event: MessageEvent):
+        return any(keyword in event.raw_message for keyword in keywords)
+    return on_message(on_keywords_rule & rule, priority, block)

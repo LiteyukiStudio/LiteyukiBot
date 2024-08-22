@@ -14,11 +14,11 @@ from liteyuki.message.event import MessageEvent
 
 __plugin_meta__ = PluginMetadata(
     name="你好轻雪",
-    type=PluginType.TEST
+    type=PluginType.APPLICATION
 )
 
 
-@on_message().handle
+@on_message().handle()
 async def _(event: MessageEvent):
     if str(event.raw_message) == "你好轻雪":
         event.reply("你好呀")

@@ -41,6 +41,4 @@ async def _(bot: Bot, event: MessageEvent):
 @shared_memory.on_subscriber_receive("event_to_nonebot")
 async def _(event: LiteyukiMessageEvent):
     bot: Bot = get_bot(event.bot_id)
-    print("A")
     await bot.send_msg(message_type=event.message_type, user_id=int(event.session_id), group_id=int(event.session_id), message=event.data["message"])
-    print("B")

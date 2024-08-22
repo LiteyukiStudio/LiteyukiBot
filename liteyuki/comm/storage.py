@@ -8,7 +8,7 @@ from typing import Any, Coroutine, Optional, TypeAlias, Callable
 
 from liteyuki.comm import channel
 from liteyuki.comm.channel import Channel, ON_RECEIVE_FUNC, ASYNC_ON_RECEIVE_FUNC
-from liteyuki.utils import IS_MAIN_PROCESS, is_coroutine_callable, run_coroutine
+from liteyuki.utils import IS_MAIN_PROCESS, is_coroutine_callable, run_coroutine, run_coroutine_in_thread
 
 if IS_MAIN_PROCESS:
     _locks = {}
@@ -220,10 +220,10 @@ class KeyValueStore:
         """
         if IS_MAIN_PROCESS:
             if channel_ in _on_main_subscriber_receive_funcs and _on_main_subscriber_receive_funcs[channel_]:
-                run_coroutine(*[func(data) for func in _on_main_subscriber_receive_funcs[channel_]])
+                run_coroutine_in_thread(*[func(data) for func in _on_main_subscriber_receive_funcs[channel_]])
         else:
             if channel_ in _on_sub_subscriber_receive_funcs and _on_sub_subscriber_receive_funcs[channel_]:
-                run_coroutine(*[func(data) for func in _on_sub_subscriber_receive_funcs[channel_]])
+                run_coroutine_in_thread(*[func(data) for func in _on_sub_subscriber_receive_funcs[channel_]])
 
     def _start_receive_loop(self):
         """
