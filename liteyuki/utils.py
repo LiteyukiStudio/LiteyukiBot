@@ -5,6 +5,7 @@
 import asyncio
 import inspect
 import multiprocessing
+import threading
 from pathlib import Path
 from typing import Any, Callable, Coroutine
 
@@ -61,6 +62,16 @@ def run_coroutine(*coro: Coroutine):
         # 捕获其他异常，防止协程被重复等待
         logger.error(f"Exception occurred: {e}")
 
+def run_coroutine_in_thread(*coro: Coroutine):
+    """
+    在新线程中运行协程
+    Args:
+        coro:
+
+    Returns:
+
+    """
+    threading.Thread(target=run_coroutine, args=coro, daemon=True).start()
 
 def path_to_module_name(path: Path) -> str:
     """

@@ -38,7 +38,7 @@ class Channel(Generic[T]):
     有两种接收工作方式，但是只能选择一种，主动接收和被动接收，主动接收使用 `receive` 方法，被动接收使用 `on_receive` 装饰器
     """
 
-    def __init__(self, _id: str, type_check: Optional[bool] = None):
+    def __init__(self, _id: str = "", type_check: Optional[bool] = None):
         """
         初始化通道
         Args:
@@ -216,16 +216,6 @@ class Channel(Generic[T]):
         while not self._closed:
             data = self.conn_recv.recv()
             self._run_on_sub_receive_funcs(data)
-
-    def __iter__(self):
-        return self
-
-    def __next__(self) -> Any:
-        return self.receive()
-
-    def __del__(self):
-        self.close()
-        logger.debug(f"Channel {self.name} deleted.")
 
 
 """子进程可用的主动和被动通道"""

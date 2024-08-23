@@ -8,6 +8,8 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @File    : to_liteyuki.py
 @Software: PyCharm
 """
+import asyncio
+
 from nonebot import Bot, get_bot, on_message
 from nonebot.plugin import PluginMetadata
 from nonebot.adapters.onebot.v11 import MessageEvent, Bot
@@ -37,6 +39,9 @@ async def _(bot: Bot, event: MessageEvent):
 
 
 @shared_memory.on_subscriber_receive("event_to_nonebot")
-async def _(event: MessageEvent):
+async def _(event: LiteyukiMessageEvent):
     bot: Bot = get_bot(event.bot_id)
-    await bot.send_msg(message_type=event.message_type, user_id=int(event.session_id), group_id=int(event.session_id), message=event.data["message"])
+    if event.message_type == "private":
+        await bot.send_private_msg(user_id=int(event.session_id), message=event.data["message"])
+    elif event.message_type == "group":
+        await bot.send_group_msg(group_id=int(event.session_id), message=event.data["message"])
