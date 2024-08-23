@@ -45,21 +45,32 @@ def load_plugin(module_path: str | Path) -> Optional[Plugin]:
             name=module.__name__,
             module=module,
             module_name=module_path,
-            metadata=module.__dict__.get("__plugin_metadata__", None),
         )
-        display_name = module.__name__.split(".")[-1]
-        if module.__dict__.get("__liteyuki_plugin_meta__"):
+        if module.__dict__.get("__plugin_metadata__", None):
+            metadata: "PluginMetadata" = module.__dict__["__plugin_metadata__"]
+            display_name = module.__name__.split(".")[-1]
+        elif module.__dict__.get("__liteyuki_plugin_meta__", None):
             metadata: "PluginMetadata" = module.__dict__["__liteyuki_plugin_meta__"]
             display_name = format_display_name(
                 f"{metadata.name}({module.__name__.split('.')[-1]})", metadata.type
             )
-        elif module.__dict__.get("__plugin_meta__"):
+        elif module.__dict__.get("__plugin_meta__", None):
             metadata: "PluginMetadata" = module.__dict__["__plugin_meta__"]
             display_name = format_display_name(
                 f"{metadata.name}({module.__name__.split('.')[-1]})", metadata.type
             )
-        
-        # 那获取metadata有什么用？？
+        else:
+
+            logger.opt(colors=True).warning(
+                f'The metadata of Liteyuki plugin "{module.__name__}" is not specified, use empty.'
+            )
+
+            metadata = PluginMetadata(
+                name=module.__name__,
+            )
+            display_name = module.__name__.split(".")[-1]
+
+        _plugins[module.__name__].metadata = metadata
 
         logger.opt(colors=True).success(
             f'Succeeded to load liteyuki plugin "{display_name}"'
