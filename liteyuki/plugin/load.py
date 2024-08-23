@@ -21,9 +21,9 @@ from liteyuki.utils import path_to_module_name
 _plugins: dict[str, Plugin] = {}
 
 __all__ = [
-        "load_plugin",
-        "load_plugins",
-        "_plugins",
+    "load_plugin",
+    "load_plugins",
+    "_plugins",
 ]
 
 
@@ -34,19 +34,43 @@ def load_plugin(module_path: str | Path) -> Optional[Plugin]:
         module_path: 插件名称 `path.to.your.plugin`
         或插件路径 `pathlib.Path(path/to/your/plugin)`
     """
-    module_path = path_to_module_name(Path(module_path)) if isinstance(module_path, Path) else module_path
+    module_path = (
+        path_to_module_name(Path(module_path))
+        if isinstance(module_path, Path)
+        else module_path
+    )
     try:
         module = import_module(module_path)
         _plugins[module.__name__] = Plugin(
             name=module.__name__,
             module=module,
             module_name=module_path,
-            metadata=module.__dict__.get("__plugin_metadata__", None)
         )
-        display_name = module.__name__.split(".")[-1]
-        if module.__dict__.get("__plugin_meta__"):
+        if module.__dict__.get("__plugin_metadata__", None):
+            metadata: "PluginMetadata" = module.__dict__["__plugin_metadata__"]
+            display_name = module.__name__.split(".")[-1]
+        elif module.__dict__.get("__liteyuki_plugin_meta__", None):
+            metadata: "PluginMetadata" = module.__dict__["__liteyuki_plugin_meta__"]
+            display_name = format_display_name(
+                f"{metadata.name}({module.__name__.split('.')[-1]})", metadata.type
+            )
+        elif module.__dict__.get("__plugin_meta__", None):
             metadata: "PluginMetadata" = module.__dict__["__plugin_meta__"]
-            display_name = format_display_name(f"{metadata.name}({module.__name__.split('.')[-1]})", metadata.type)
+            display_name = format_display_name(
+                f"{metadata.name}({module.__name__.split('.')[-1]})", metadata.type
+            )
+        else:
+
+            logger.opt(colors=True).warning(
+                f'The metadata of Liteyuki plugin "{module.__name__}" is not specified, use empty.'
+            )
+
+            metadata = PluginMetadata(
+                name=module.__name__,
+            )
+            display_name = module.__name__.split(".")[-1]
+
+        _plugins[module.__name__].metadata = metadata
 
         logger.opt(colors=True).success(
             f'Succeeded to load liteyuki plugin "{display_name}"'
@@ -90,10 +114,12 @@ def load_plugins(*plugin_dir: str, ignore_warning: bool = True) -> set[Plugin]:
             path = Path(os.path.join(dir_path, f))
 
             module_name = None
-            if os.path.isfile(path) and f.endswith('.py') and f != '__init__.py':
+            if os.path.isfile(path) and f.endswith(".py") and f != "__init__.py":
                 module_name = f"{path_to_module_name(Path(dir_path))}.{f[:-3]}"
 
-            elif os.path.isdir(path) and os.path.exists(os.path.join(path, '__init__.py')):
+            elif os.path.isdir(path) and os.path.exists(
+                os.path.join(path, "__init__.py")
+            ):
                 module_name = path_to_module_name(path)
 
             if module_name:
