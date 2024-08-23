@@ -18,6 +18,7 @@ from src.utils.base.config import get_config
 from src.utils.base.data_manager import TempConfig, common_db
 from src.utils.base.language import get_user_lang
 from src.utils.base.ly_typing import T_Bot, T_MessageEvent
+from src.utils.htmlrender import md_to_pic
 from src.utils.message.message import MarkdownMessage as md, broadcast_to_superusers
 from .api import update_liteyuki
 from ..utils.base import reload
@@ -25,10 +26,9 @@ from ..utils.base.ly_function import get_function
 
 require("nonebot_plugin_alconna")
 require("nonebot_plugin_apscheduler")
-require("nonebot_plugin_htmlrender")
-from nonebot_plugin_htmlrender import md_to_pic
 from nonebot_plugin_alconna import UniMessage, on_alconna, Alconna, Args, Arparma, MultiVar
 from nonebot_plugin_apscheduler import scheduler
+
 
 driver = get_driver()
 

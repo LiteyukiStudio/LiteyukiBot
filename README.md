@@ -25,7 +25,6 @@
 
 ### 感谢
 - [NoneBot2](https://nonebot.dev)提供的框架支持
-- [nonebot-plugin-htmlrender](https://github.com/kexue-z/nonebot-plugin-htmlrender)提供的渲染功能
 - [nonebot-plugin-alconna](https://github.com/ArcletProject/nonebot-plugin-alconna)提供的命令解析功能
 
 

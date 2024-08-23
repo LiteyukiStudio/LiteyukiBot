@@ -7,9 +7,11 @@
 4.注意冲突时的优先级: 项目目录下的配置文件优先级高于config目录下的配置文件
 5.请不要将需要动态加载的内容写入配置文件，你应该使用其他储存方式
 """
-import copy
-import json
+
 import os
+import json
+import copy
+import platform
 from typing import Any, List
 
 import toml
@@ -21,6 +23,10 @@ from liteyuki.log import logger
 _SUPPORTED_CONFIG_FORMATS = (".yaml", ".yml", ".json", ".toml")
 
 
+# 以下这三个 Config 和 src/utils/base/config.py 中重复
+# 应尽快整理
+
+
 class SatoriNodeConfig(BaseModel):
     host: str = ""
     port: str = "5500"
@@ -29,7 +35,9 @@ class SatoriNodeConfig(BaseModel):
 
 
 class SatoriConfig(BaseModel):
-    comment: str = "These features are still in development. Do not enable in production environment."
+    comment: str = (
+        "These features are still in development. Do not enable in production environment."
+    )
     enable: bool = False
     hosts: List[SatoriNodeConfig] = [SatoriNodeConfig()]
 
@@ -42,6 +50,15 @@ class BasicConfig(BaseModel):
     nickname: list[str] = [f"LiteyukiBot"]
     satori: SatoriConfig = SatoriConfig()
     data_path: str = "data/liteyuki"
+    chromium_path: str = (
+        "/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome" # type: ignore
+        if platform.system() == "Darwin"
+        else (
+            "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
+            if platform.system() == "Windows"
+            else "/usr/bin/chromium-browser"
+        )
+    )
 
 
 def flat_config(config: dict[str, Any]) -> dict[str, Any]:
@@ -63,31 +80,31 @@ def flat_config(config: dict[str, Any]) -> dict[str, Any]:
     return new_config
 
 
-def load_from_yaml(file: str) -> dict[str, Any]:
+def load_from_yaml(file_: str) -> dict[str, Any]:
     """
     Load config from yaml file
 
     """
-    logger.debug(f"Loading YAML config from {file}")
-    config = yaml.safe_load(open(file, "r", encoding="utf-8"))
+    logger.debug(f"Loading YAML config from {file_}")
+    config = yaml.safe_load(open(file_, "r", encoding="utf-8"))
     return flat_config(config if config is not None else {})
 
 
-def load_from_json(file: str) -> dict[str, Any]:
+def load_from_json(file_: str) -> dict[str, Any]:
     """
     Load config from json file
     """
-    logger.debug(f"Loading JSON config from {file}")
-    config = json.load(open(file, "r", encoding="utf-8"))
+    logger.debug(f"Loading JSON config from {file_}")
+    config = json.load(open(file_, "r", encoding="utf-8"))
     return flat_config(config if config is not None else {})
 
 
-def load_from_toml(file: str) -> dict[str, Any]:
+def load_from_toml(file_: str) -> dict[str, Any]:
     """
     Load config from toml file
     """
-    logger.debug(f"Loading TOML config from {file}")
-    config = toml.load(open(file, "r", encoding="utf-8"))
+    logger.debug(f"Loading TOML config from {file_}")
+    config = toml.load(open(file_, "r", encoding="utf-8"))
     return flat_config(config if config is not None else {})
 
 
@@ -114,7 +131,9 @@ def load_from_files(*files: str, no_warning: bool = False) -> dict[str, Any]:
     return config
 
 
-def load_configs_from_dirs(*directories: str, no_waring: bool = False) -> dict[str, Any]:
+def load_configs_from_dirs(
+    *directories: str, no_waring: bool = False
+) -> dict[str, Any]:
     """
     从目录下加载配置文件，不递归
     按照读取文件的优先级反向覆盖
@@ -128,7 +147,9 @@ def load_configs_from_dirs(*directories: str, no_waring: bool = False) -> dict[s
             continue
         for file in os.listdir(directory):
             if file.endswith(_SUPPORTED_CONFIG_FORMATS):
-                config.update(load_from_files(os.path.join(directory, file), no_warning=no_waring))
+                config.update(
+                    load_from_files(os.path.join(directory, file), no_warning=no_waring)
+                )
     return config
 
 
@@ -139,5 +160,13 @@ def load_config_in_default(no_waring: bool = False) -> dict[str, Any]:
     项目目录下的配置文件优先
     """
     config = load_configs_from_dirs("config", no_waring=no_waring)
-    config.update(load_from_files("config.yaml", "config.toml", "config.json", "config.yml", no_warning=no_waring))
+    config.update(
+        load_from_files(
+            "config.yaml",
+            "config.toml",
+            "config.json",
+            "config.yml",
+            no_warning=no_waring,
+        )
+    )
     return config
