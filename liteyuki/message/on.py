@@ -25,7 +25,9 @@ _queue: Queue = Queue()
 async def _(event: MessageEvent):
     current_priority = -1
     for i, matcher in enumerate(_matcher_list):
-        logger.info(f"Running matcher {matcher} for event: {event}")
+        # 刷屏
+        logger.debug(f"Running matcher {matcher} for event: {event}")
+
         await matcher.run(event)
         # 同优先级不阻断，不同优先级阻断
         if current_priority != matcher.priority:

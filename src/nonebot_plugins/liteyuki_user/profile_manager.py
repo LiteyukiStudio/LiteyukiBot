@@ -8,13 +8,14 @@ from src.utils.base.data_manager import User, user_db, group_db
 from src.utils.base.language import Language, change_user_lang, get_all_lang, get_user_lang
 from src.utils.base.ly_typing import T_Bot, T_MessageEvent
 from src.utils.message.message import MarkdownMessage as md
+from src.utils.htmlrender import md_to_pic
 from .const import representative_timezones_list
 from src.utils import event as event_utils
 
+
 require("nonebot_plugin_alconna")
-require("nonebot_plugin_htmlrender")
 from nonebot_plugin_alconna import Alconna, Args, Arparma, Subcommand, on_alconna
-from nonebot_plugin_htmlrender import md_to_pic
+
 
 profile_alc = on_alconna(
     Alconna(
@@ -67,6 +68,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
             # 未输入值，尝试呼出菜单
             menu = get_profile_menu(result.args["key"], ulang)
             if menu:
+                # 请问这是在做什么？
                 img_bytes = await md_to_pic(menu)
                 await profile_alc.finish(menu)
             else:
@@ -100,6 +102,7 @@ async def _(result: Arparma, event: T_MessageEvent, bot: T_Bot):
             reply += (f"\n**{key_text}**    **{val}**\n"
                       f"\n> {ulang.get(f'user.profile.{key}.desc')}"
                       f"\n> {btn_set}  \n\n***\n")
+        # 这又是在做什么
         img_bytes = await md_to_pic(reply)
         await profile_alc.finish(reply)
 

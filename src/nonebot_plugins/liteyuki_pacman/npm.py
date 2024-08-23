@@ -18,15 +18,15 @@ from nonebot.utils import run_sync
 from src.utils.base.data_manager import InstalledPlugin
 from src.utils.base.language import get_user_lang
 from src.utils.base.ly_typing import T_Bot
-from src.utils.message.message import MarkdownMessage as md
-from src.utils.message.markdown import MarkdownComponent as mdc, compile_md, escape_md
 from src.utils.base.permission import GROUP_ADMIN, GROUP_OWNER
 from src.utils.message.tools import clamp
+from src.utils.message.message import MarkdownMessage as md
+from src.utils.message.markdown import MarkdownComponent as mdc, compile_md, escape_md
+from src.utils.htmlrender import md_to_pic
 from .common import *
 
+
 require("nonebot_plugin_alconna")
-require("nonebot_plugin_htmlrender")
-from nonebot_plugin_htmlrender import md_to_pic
 from nonebot_plugin_alconna import (
     UniMessage, on_alconna,
     Alconna,

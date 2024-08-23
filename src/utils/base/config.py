@@ -1,4 +1,5 @@
 import os
+import platform
 from typing import List
 
 import nonebot
@@ -6,6 +7,7 @@ import yaml
 from pydantic import BaseModel
 
 from ..message.tools import random_hex_string
+
 
 config = {}  # 全局配置，确保加载后读取
 
@@ -18,7 +20,9 @@ class SatoriNodeConfig(BaseModel):
 
 
 class SatoriConfig(BaseModel):
-    comment: str = "These features are still in development. Do not enable in production environment."
+    comment: str = (
+        "These features are still in development. Do not enable in production environment."
+    )
     enable: bool = False
     hosts: List[SatoriNodeConfig] = [SatoriNodeConfig()]
 
@@ -31,21 +35,34 @@ class BasicConfig(BaseModel):
     nickname: list[str] = [f"LiteyukiBot-{random_hex_string(6)}"]
     satori: SatoriConfig = SatoriConfig()
     data_path: str = "data/liteyuki"
+    chromium_path: str = (
+        "/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome"  # type: ignore
+        if platform.system() == "Darwin"
+        else (
+            "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
+            if platform.system() == "Windows"
+            else "/usr/bin/chromium-browser"
+        )
+    )
 
 
-def load_from_yaml(file: str) -> dict:
+def load_from_yaml(file_: str) -> dict:
     global config
-    nonebot.logger.debug("Loading config from %s" % file)
-    if not os.path.exists(file):
-        nonebot.logger.warning(f"Config file {file} not found, created default config, please modify it and restart")
-        with open(file, "w", encoding="utf-8") as f:
+    nonebot.logger.debug("Loading config from %s" % file_)
+    if not os.path.exists(file_):
+        nonebot.logger.warning(
+            f"Config file {file_} not found, created default config, please modify it and restart"
+        )
+        with open(file_, "w", encoding="utf-8") as f:
             yaml.dump(BasicConfig().dict(), f, default_flow_style=False)
 
-    with open(file, "r", encoding="utf-8") as f:
+    with open(file_, "r", encoding="utf-8") as f:
         conf = init_conf(yaml.load(f, Loader=yaml.FullLoader))
         config = conf
         if conf is None:
-            nonebot.logger.warning(f"Config file {file} is empty, use default config. please modify it and restart")
+            nonebot.logger.warning(
+                f"Config file {file_} is empty, use default config. please modify it and restart"
+            )
             conf = BasicConfig().dict()
         return conf
 
@@ -73,7 +90,6 @@ def get_config(key: str, default=None):
 
     else:
         return default
-
 
 
 def init_conf(conf: dict) -> dict:
