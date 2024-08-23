@@ -1,6 +1,6 @@
 nonebot:
   host: 127.0.0.1
-  port: 20246
+  port: 20216
   command_start: ["", "/"]
   nickname: [ "liteyuki" ]
   default_language: zh
