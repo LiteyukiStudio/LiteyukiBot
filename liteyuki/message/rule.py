@@ -12,6 +12,9 @@ import inspect
 from typing import Optional, TypeAlias, Callable, Coroutine
 
 from liteyuki.message.event import MessageEvent
+from liteyuki import get_config
+
+_superusers: list[str] = get_config("liteyuki.superusers", [])
 
 RuleHandlerFunc: TypeAlias = Callable[[MessageEvent], Coroutine[None, None, bool]]
 """规则函数签名"""
@@ -42,3 +45,7 @@ class Rule:
 @Rule
 async def empty_rule(event: MessageEvent) -> bool:
     return True
+
+@Rule
+async def is_su_rule(event: MessageEvent) -> bool:
+    return str(event.user_id) in _superusers

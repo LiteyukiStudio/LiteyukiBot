@@ -225,10 +225,20 @@ async def get_hardware_data() -> dict:
             pass
     swap = psutil.swap_memory()
     cpu_brand_raw = cpuinfo.get_cpu_info().get("brand_raw", "Unknown")
-    if "AMD" in cpu_brand_raw:
+    if "amd" in cpu_brand_raw.lower():
         brand = "AMD"
-    elif "Intel" in cpu_brand_raw:
+    elif "intel" in cpu_brand_raw.lower():
         brand = "Intel"
+    elif "apple" in cpu_brand_raw.lower():
+        brand = "Apple"
+    elif "qualcomm" in cpu_brand_raw.lower():
+        brand = "Qualcomm"
+    elif "mediatek" in cpu_brand_raw.lower():
+        brand = "MediaTek"
+    elif "samsung" in cpu_brand_raw.lower():
+        brand = "Samsung"
+    elif "nvidia" in cpu_brand_raw.lower():
+        brand = "NVIDIA"
     else:
         brand = "Unknown"
     result = {

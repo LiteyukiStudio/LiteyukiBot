@@ -22,6 +22,7 @@ class MessageEvent:
             message_type: str,
             raw_message: str,
             session_id: str,
+            user_id: str,
             session_type: str,
             receive_channel: str,
             data: Optional[dict[str, Any]] = None,
@@ -53,6 +54,7 @@ class MessageEvent:
 
         self.session_id = session_id
         self.session_type = session_type
+        self.user_id = user_id
 
         self.receive_channel = receive_channel
 

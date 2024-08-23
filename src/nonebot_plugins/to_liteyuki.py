@@ -31,6 +31,7 @@ async def _(bot: Bot, event: MessageEvent):
         raw_message=event.raw_message,
         data=event.dict(),
         bot_id=bot.self_id,
+        user_id=str(event.user_id),
         session_id=str(event.user_id if event.message_type == "private" else event.group_id),
         session_type=event.message_type,
         receive_channel="event_to_nonebot"
