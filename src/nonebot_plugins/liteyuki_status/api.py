@@ -7,7 +7,8 @@ from cpuinfo import cpuinfo
 from nonebot import require
 from nonebot.adapters import satori
 
-from src.utils import __NAME__, __VERSION__
+from src.utils import __NAME__
+from liteyuki import __version__
 from src.utils.base.config import get_config
 from src.utils.base.data_manager import TempConfig, common_db
 from src.utils.base.language import Language

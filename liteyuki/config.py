@@ -11,54 +11,14 @@
 import os
 import json
 import copy
-import platform
-from typing import Any, List
-
 import toml
 import yaml
-from pydantic import BaseModel
+
+from typing import Any
 
 from liteyuki.log import logger
 
 _SUPPORTED_CONFIG_FORMATS = (".yaml", ".yml", ".json", ".toml")
-
-
-# 以下这三个 Config 和 src/utils/base/config.py 中重复
-# 应尽快整理
-
-
-class SatoriNodeConfig(BaseModel):
-    host: str = ""
-    port: str = "5500"
-    path: str = ""
-    token: str = ""
-
-
-class SatoriConfig(BaseModel):
-    comment: str = (
-        "These features are still in development. Do not enable in production environment."
-    )
-    enable: bool = False
-    hosts: List[SatoriNodeConfig] = [SatoriNodeConfig()]
-
-
-class BasicConfig(BaseModel):
-    host: str = "127.0.0.1"
-    port: int = 20216
-    superusers: list[str] = []
-    command_start: list[str] = ["/", ""]
-    nickname: list[str] = [f"LiteyukiBot"]
-    satori: SatoriConfig = SatoriConfig()
-    data_path: str = "data/liteyuki"
-    chromium_path: str = (
-        "/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome" # type: ignore
-        if platform.system() == "Darwin"
-        else (
-            "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
-            if platform.system() == "Windows"
-            else "/usr/bin/chromium-browser"
-        )
-    )
 
 
 def flat_config(config: dict[str, Any]) -> dict[str, Any]:
