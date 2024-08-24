@@ -38,5 +38,58 @@
         "type": "application",
         "valid": true,
         "version": "rolling"
+    },
+    {
+        "module_name": "liteyukibot-plugin-lagrange",
+        "project_link": "liteyukibot-plugin-lagrange",
+        "name": "LagrangePlugin",
+        "desc": "在轻雪中使用lagrange-python！",
+        "author": "snowykami",
+        "homepage": "https://github.com/snowykami/liteyukibot-plugin-lagrange",
+        "tags": [
+            {
+                "label": "app",
+                "color": "#aeeaa8"
+            },
+            {
+                "label": "lagrange",
+                "color": "#ff89f7"
+            }
+        ],
+        "is_official": true,
+        "type": "application",
+        "valid": true,
+        "version": "rolling"
+    },
+    {
+        "module_name": "liteyukibot-plugin-htmlrender",
+        "project_link": "liteyukibot-plugin-htmlrender",
+        "name": "htmlrender",
+        "desc": "使用系统中的浏览器对网页进行渲染，便于其他插件使用",
+        "author": "EillesWan",
+        "homepage": "https://github.com/LiteyukiStudio/liteyukibot-plugin-htmlrender",
+        "tags": [
+            {
+                "label": "ch",
+                "color": "#4285f4"
+            },
+            {
+                "label": "ro",
+                "color": "#db4437"
+            },
+            {
+                "label": "mi",
+                "color": "#f4b400"
+            },
+            {
+                "label": "um",
+                "color": "#0f9d58"
+
+            }
+        ],
+        "is_official": true,
+        "type": "application",
+        "valid": true,
+        "version": "rolling"
     }
 ]
