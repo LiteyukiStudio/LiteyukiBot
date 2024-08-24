@@ -8,10 +8,6 @@ from src.utils.base.data_manager import InstalledPlugin, plugin_db
 from src.utils.base.resource import load_resources
 from src.utils.message.tools import check_for_package
 
-from liteyuki import get_bot
-
-from nonebot_plugin_apscheduler import scheduler
-
 load_resources()
 init_log()
 
@@ -29,7 +25,7 @@ async def load_plugins():
             for installed_plugin in installed_plugins:
                 if not check_for_package(installed_plugin.module_name):
                     nonebot.logger.error(
-                        f"{installed_plugin.module_name} not installed, but in loading database. please run `npm fixup` in chat to reinstall it.")
+                        f"{installed_plugin.module_name} not installed, but still in loader index.")
                 else:
                     nonebot.load_plugin(installed_plugin.module_name)
         nonebot.plugin.load_plugins("plugins")

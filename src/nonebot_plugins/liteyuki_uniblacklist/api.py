@@ -1,7 +1,6 @@
 import datetime
 
 import aiohttp
-import httpx
 import nonebot
 from nonebot import require
 from nonebot.exception import IgnoredException
