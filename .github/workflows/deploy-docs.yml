@@ -42,8 +42,8 @@ jobs:
       - name: 生成API markdown
         run: |-
           python -m pip install pydantic
-          python -m docs/litedoc liteyuki -o docs/api -l zh-Hans
-          python -m docs/litedoc liteyuki -o docs/en/api -l en
+          python -m litedoc liteyuki -o docs/api -l zh-Hans
+          python -m litedoc liteyuki -o docs/en/api -l en
           
           
 
