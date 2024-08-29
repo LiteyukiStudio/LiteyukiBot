@@ -69,7 +69,7 @@ def generate_from_module(module_folder: str, output_dir: str, with_top: bool = F
         os.makedirs(output_dir)
 
     replace_data = {
-            "__init__": "index",
+            "__init__": "README",
             ".py"     : ".md",
     }
 
