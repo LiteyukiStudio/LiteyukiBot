@@ -10,7 +10,6 @@ from typing import Any, Optional
 
 from liteyuki.bot.lifespan import (LIFESPAN_FUNC, Lifespan)
 from liteyuki.comm.channel import get_channel
-from liteyuki.comm.storage import shared_memory
 from liteyuki.core.manager import ProcessManager
 from liteyuki.log import init_log, logger
 from liteyuki.plugin import load_plugin
@@ -63,16 +62,25 @@ class LiteyukiBot:
         signal.signal(signal.SIGTERM, self._handle_exit)
         atexit.register(self.process_manager.terminate_all)  # 注册退出时的函数
 
-    def run(self):
+    async def _run(self):
         """
         启动逻辑
         """
-        self.lifespan.before_start()  # 启动前钩子
-        self.process_manager.start_all()
-        self.lifespan.after_start()  # 启动后钩子
-        self.keep_alive()
+        await self.lifespan.before_start()  # 启动前钩子
+        await self.process_manager.start_all()
+        await self.lifespan.after_start()  # 启动后钩子
+        await self.keep_alive()
 
-    def keep_alive(self):
+    def run(self):
+        """
+        外部启动接口
+        """
+        try:
+            asyncio.run(self._run())
+        except KeyboardInterrupt:
+            logger.info("Liteyuki is stopping...")
+
+    async def keep_alive(self):
         """
         保持轻雪运行
         Returns:
@@ -131,9 +139,6 @@ class LiteyukiBot:
             name: 进程名称, 默认为None, 所有进程
         Returns:
         """
-        self.lifespan.before_process_shutdown()  # 重启前钩子
-        self.lifespan.before_process_shutdown()  # 停止前钩子
-
         if name is not None:
             chan_active = get_channel(f"{name}-active")
             chan_active.send(1)
@@ -229,17 +234,6 @@ class LiteyukiBot:
 
         """
         return self.lifespan.on_after_restart(func)
-
-    def on_after_nonebot_init(self, func: LIFESPAN_FUNC):
-        """
-        注册nonebot初始化后的函数
-        Args:
-            func:
-
-        Returns:
-
-        """
-        return self.lifespan.on_after_nonebot_init(func)
 
 
 _BOT_INSTANCE: LiteyukiBot

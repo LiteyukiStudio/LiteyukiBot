@@ -10,12 +10,12 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 
 本模块定义了一个通用的通道类，用于进程间通信
 """
-import threading
+import asyncio
 from multiprocessing import Pipe
 from typing import Any, Callable, Coroutine, Generic, Optional, TypeAlias, TypeVar, get_args
 
-from liteyuki.utils import IS_MAIN_PROCESS, is_coroutine_callable, run_coroutine
 from liteyuki.log import logger
+from liteyuki.utils import IS_MAIN_PROCESS, is_coroutine_callable
 
 T = TypeVar("T")
 
@@ -38,21 +38,22 @@ class Channel(Generic[T]):
     有两种接收工作方式，但是只能选择一种，主动接收和被动接收，主动接收使用 `receive` 方法，被动接收使用 `on_receive` 装饰器
     """
 
-    def __init__(self, _id: str = "", type_check: Optional[bool] = None):
+    def __init__(self, name: str, type_check: Optional[bool] = None):
         """
         初始化通道
         Args:
-            _id: 通道ID
+            name: 通道ID
             type_check: 是否开启类型检查, 若为空，则传入泛型默认开启，否则默认关闭
         """
-        self.conn_send, self.conn_recv = Pipe()
-        self._closed = False
-        self._on_main_receive_funcs: list[int] = []
-        self._on_sub_receive_funcs: list[int] = []
-        self.name: str = _id
 
-        self.is_main_receive_loop_running = False
-        self.is_sub_receive_loop_running = False
+        self.conn_send, self.conn_recv = Pipe()
+        self._conn_send_inner, self._conn_recv_inner = Pipe()   # 内部通道，用于子进程通信
+        self._closed = False
+        self._on_main_receive_func_ids: list[int] = []
+        self._on_sub_receive_func_ids: list[int] = []
+        self.name: str = name
+
+        self.is_receive_loop_running = False
 
         if type_check is None:
             # 若传入泛型则默认开启类型检查
@@ -62,6 +63,16 @@ class Channel(Generic[T]):
             if self._get_generic_type() is None:
                 raise TypeError("Type hint is required for enforcing type check.")
         self.type_check = type_check
+        if name in _channel:
+            raise ValueError(f"Channel {name} already exists")
+
+        if IS_MAIN_PROCESS:
+            if name in _channel:
+                raise ValueError(f"Channel {name} already exists")
+            _channel[name] = self
+            logger.debug(f"Channel {name} initialized in main process")
+        else:
+            logger.debug(f"Channel {name} initialized in sub process, should manually set in main process")
 
     def _get_generic_type(self) -> Optional[type]:
         """
@@ -105,7 +116,7 @@ class Channel(Generic[T]):
 
     def send(self, data: T):
         """
-        发送数据
+        发送数据，发送函数为同步函数，没有异步的必要
         Args:
             data: 数据
         """
@@ -120,7 +131,7 @@ class Channel(Generic[T]):
 
     def receive(self) -> T:
         """
-        接收数据
+        同步接收数据，会阻塞线程
         Args:
         """
         if self._closed:
@@ -130,13 +141,15 @@ class Channel(Generic[T]):
             data = self.conn_recv.recv()
             return data
 
-    def close(self):
+    async def async_receive(self) -> T:
         """
-        关闭通道
+        异步接收数据，会挂起等待
         """
-        self._closed = True
-        self.conn_send.close()
-        self.conn_recv.close()
+        print("等待接收数据")
+        loop = asyncio.get_running_loop()
+        data = await loop.run_in_executor(None, self.receive)
+        print("接收到数据")
+        return data
 
     def on_receive(self, filter_func: Optional[FILTER_FUNC] = None) -> Callable[[Callable[[T], Any]], Callable[[T], Any]]:
         """
@@ -146,11 +159,8 @@ class Channel(Generic[T]):
         Returns:
             装饰器，装饰一个函数在接收到数据后执行
         """
-        if (not self.is_sub_receive_loop_running) and not IS_MAIN_PROCESS:
-            threading.Thread(target=self._start_sub_receive_loop, daemon=True).start()
-
-        if (not self.is_main_receive_loop_running) and IS_MAIN_PROCESS:
-            threading.Thread(target=self._start_main_receive_loop, daemon=True).start()
+        if not IS_MAIN_PROCESS:
+            raise RuntimeError("on_receive can only be used in main process")
 
         def decorator(func: Callable[[T], Any]) -> Callable[[T], Any]:
             global _func_id
@@ -171,65 +181,52 @@ class Channel(Generic[T]):
 
             _callback_funcs[_func_id] = wrapper
             if IS_MAIN_PROCESS:
-                self._on_main_receive_funcs.append(_func_id)
+                self._on_main_receive_func_ids.append(_func_id)
             else:
-                self._on_sub_receive_funcs.append(_func_id)
+                self._on_sub_receive_func_ids.append(_func_id)
             _func_id += 1
             return func
 
         return decorator
 
-    def _run_on_main_receive_funcs(self, data: Any):
+    async def _run_on_receive_funcs(self, data: Any):
         """
         运行接收函数
         Args:
             data: 数据
         """
-        for func_id in self._on_main_receive_funcs:
-            func = _callback_funcs[func_id]
-            run_coroutine(func(data))
+        if IS_MAIN_PROCESS:
+            [asyncio.create_task(_callback_funcs[func_id](data)) for func_id in self._on_main_receive_func_ids]
+        else:
+            [asyncio.create_task(_callback_funcs[func_id](data)) for func_id in self._on_sub_receive_func_ids]
 
-    def _run_on_sub_receive_funcs(self, data: Any):
-        """
-        运行接收函数
-        Args:
-            data: 数据
-        """
-        for func_id in self._on_sub_receive_funcs:
-            func = _callback_funcs[func_id]
-            run_coroutine(func(data))
-
-    def _start_main_receive_loop(self):
+    async def start_receive_loop(self):
         """
         开始接收数据
+        会自动判断主进程和子进程，需要在对应进程都调度一次
         """
-        self.is_main_receive_loop_running = True
-        while not self._closed:
-            data = self.conn_recv.recv()
-            self._run_on_main_receive_funcs(data)
+        if len(self._on_main_receive_func_ids) == 0:
+            logger.warning(f"No on_receive function registered for {self.name}")
+            return
 
-    def _start_sub_receive_loop(self):
-        """
-        开始接收数据
-        """
-        self.is_sub_receive_loop_running = True
+        self.is_receive_loop_running = True
+        logger.debug(f"Starting receive loop for {self.name}")
         while not self._closed:
-            data = self.conn_recv.recv()
-            self._run_on_sub_receive_funcs(data)
+            data = await self.async_receive()
+            await self._run_on_receive_funcs(data)
 
 
 """子进程可用的主动和被动通道"""
-active_channel: Optional["Channel"] = None
-passive_channel: Optional["Channel"] = None
-publish_channel: Channel[tuple[str, dict[str, Any]]] = Channel(_id="publish_channel")
-
+active_channel: Channel = Channel(name="active_channel")
+passive_channel: Channel = Channel(name="passive_channel")
+publish_channel: Channel[tuple[str, dict[str, Any]]] = Channel(name="publish_channel")
 """通道传递通道，主进程创建单例，子进程初始化时实例化"""
 channel_deliver_active_channel: Channel[Channel[Any]]
 channel_deliver_passive_channel: Channel[tuple[str, dict[str, Any]]]
 
 if IS_MAIN_PROCESS:
-    channel_deliver_active_channel = Channel(_id="channel_deliver_active_channel")
-    channel_deliver_passive_channel = Channel(_id="channel_deliver_passive_channel")
+    channel_deliver_active_channel = Channel(name="channel_deliver_active_channel")
+    channel_deliver_passive_channel = Channel(name="channel_deliver_passive_channel")
 
 
     @channel_deliver_passive_channel.on_receive(filter_func=lambda data: data[0] == "set_channel")
@@ -250,7 +247,7 @@ if IS_MAIN_PROCESS:
         recv_chan.send(get_channels())
 
 
-def set_channel(name: str, channel: Channel):
+def set_channel(name: str, channel: "Channel"):
     """
     设置通道实例
     Args:
@@ -261,20 +258,22 @@ def set_channel(name: str, channel: Channel):
         raise TypeError(f"channel_ must be an instance of Channel, {type(channel)} found")
 
     if IS_MAIN_PROCESS:
+        if name in _channel:
+            raise ValueError(f"Channel {name} already exists")
         _channel[name] = channel
     else:
         # 请求主进程设置通道
         channel_deliver_passive_channel.send(
             (
                     "set_channel", {
-                            "name"   : name,
+                            "name"    : name,
                             "channel_": channel,
                     }
             )
         )
 
 
-def set_channels(channels: dict[str, Channel]):
+def set_channels(channels: dict[str, "Channel"]):
     """
     设置通道实例
     Args:
@@ -284,7 +283,7 @@ def set_channels(channels: dict[str, Channel]):
         set_channel(name, channel)
 
 
-def get_channel(name: str) -> Channel:
+def get_channel(name: str) -> "Channel":
     """
     获取通道实例
     Args:
@@ -308,7 +307,7 @@ def get_channel(name: str) -> Channel:
         return recv_chan.receive()
 
 
-def get_channels() -> dict[str, Channel]:
+def get_channels() -> dict[str, "Channel"]:
     """
     获取通道实例
     Returns:

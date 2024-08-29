@@ -43,7 +43,7 @@ def run_coroutine(*coro: Coroutine):
     # 检测是否有现有的事件循环
 
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         if loop.is_running():
             # 如果事件循环正在运行，创建任务
             for c in coro:
@@ -62,6 +62,7 @@ def run_coroutine(*coro: Coroutine):
         # 捕获其他异常，防止协程被重复等待
         logger.error(f"Exception occurred: {e}")
 
+
 def run_coroutine_in_thread(*coro: Coroutine):
     """
     在新线程中运行协程
@@ -72,6 +73,7 @@ def run_coroutine_in_thread(*coro: Coroutine):
 
     """
     threading.Thread(target=run_coroutine, args=coro, daemon=True).start()
+
 
 def path_to_module_name(path: Path) -> str:
     """

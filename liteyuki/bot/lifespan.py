@@ -39,29 +39,17 @@ class Lifespan:
         self._before_process_restart_funcs: list[LIFESPAN_FUNC] = []
         self._after_restart_funcs: list[LIFESPAN_FUNC] = []
 
-        self._after_nonebot_init_funcs: list[LIFESPAN_FUNC] = []
-
     @staticmethod
-    def run_funcs(funcs: list[LIFESPAN_FUNC | PROCESS_LIFESPAN_FUNC], *args, **kwargs) -> None:
+    async def run_funcs(funcs: list[ASYNC_LIFESPAN_FUNC | PROCESS_LIFESPAN_FUNC], *args, **kwargs) -> None:
         """
-        运行函数
+        并发运行异步函数
         Args:
             funcs:
         Returns:
         """
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        tasks = []
-        for func in funcs:
-            if is_coroutine_callable(func):
-                tasks.append(func(*args, **kwargs))
-            else:
-                tasks.append(async_wrapper(func)(*args, **kwargs))
-        loop.run_until_complete(asyncio.gather(*tasks))
+        loop = asyncio.get_running_loop()
+        tasks = [func(*args, **kwargs) if is_coroutine_callable(func) else async_wrapper(func)(*args, **kwargs) for func in funcs]
+        await asyncio.gather(*tasks)
 
     def on_before_start(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
         """
@@ -131,63 +119,51 @@ class Lifespan:
         self._after_restart_funcs.append(func)
         return func
 
-    def on_after_nonebot_init(self, func):
-        """
-        注册 NoneBot 初始化后的函数
-        Args:
-            func:
-
-        Returns:
-
-        """
-        self._after_nonebot_init_funcs.append(func)
-        return func
-
-    def before_start(self) -> None:
+    async def before_start(self) -> None:
         """
         启动前
         Returns:
         """
         logger.debug("Running before_start functions")
-        self.run_funcs(self._before_start_funcs)
+        await self.run_funcs(self._before_start_funcs)
 
-    def after_start(self) -> None:
+    async def after_start(self) -> None:
         """
         启动后
         Returns:
         """
         logger.debug("Running after_start functions")
-        self.run_funcs(self._after_start_funcs)
+        await self.run_funcs(self._after_start_funcs)
 
-    def before_process_shutdown(self) -> None:
+    async def before_process_shutdown(self) -> None:
         """
         停止前
         Returns:
         """
         logger.debug("Running before_shutdown functions")
-        self.run_funcs(self._before_process_shutdown_funcs)
+        await self.run_funcs(self._before_process_shutdown_funcs)
 
-    def after_shutdown(self) -> None:
+    async def after_shutdown(self) -> None:
         """
         停止后
         Returns:
         """
         logger.debug("Running after_shutdown functions")
-        self.run_funcs(self._after_shutdown_funcs)
+        await self.run_funcs(self._after_shutdown_funcs)
 
-    def before_process_restart(self) -> None:
+    async def before_process_restart(self) -> None:
         """
         重启前
         Returns:
         """
         logger.debug("Running before_restart functions")
-        self.run_funcs(self._before_process_restart_funcs)
+        await self.run_funcs(self._before_process_restart_funcs)
 
-    def after_restart(self) -> None:
+    async def after_restart(self) -> None:
         """
         重启后
         Returns:
 
         """
         logger.debug("Running after_restart functions")
-        self.run_funcs(self._after_restart_funcs)
+        await self.run_funcs(self._after_restart_funcs)

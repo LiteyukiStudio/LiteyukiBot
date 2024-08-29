@@ -10,6 +10,7 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 """
 from typing import Any, Optional
 
+from liteyuki import Channel
 from liteyuki.comm.storage import shared_memory
 
 
@@ -24,7 +25,7 @@ class MessageEvent:
             session_id: str,
             user_id: str,
             session_type: str,
-            receive_channel: str,
+            receive_channel: Optional[Channel["MessageEvent"]] = None,
             data: Optional[dict[str, Any]] = None,
     ):
         """
@@ -78,7 +79,10 @@ class MessageEvent:
             },
             bot_id=self.bot_id,
             session_id=self.session_id,
+            user_id=self.user_id,
             session_type=self.session_type,
-            receive_channel="_"
+            receive_channel=None
         )
-        shared_memory.publish(self.receive_channel, reply_event)
+        # shared_memory.publish(self.receive_channel, reply_event)
+        if self.receive_channel:
+            self.receive_channel.send(reply_event)
