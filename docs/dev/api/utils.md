@@ -1,24 +1,20 @@
 ---
 title: liteyuki.utils
-order: 1
-icon: laptop-code
-category: API
 ---
+### *func* `is_coroutine_callable() -> bool`
 
-### ***def*** `is_coroutine_callable(call: Callable[..., Any]) -> bool`
 
-判断是否为协程可调用对象
 
-Args:
+**说明**: 判断是否为协程可调用对象
 
-    call: 可调用对象
+**参数**:
+> - call: 可调用对象  
 
-Returns:
+**返回**: bool: 是否为协程可调用对象
 
-    bool: 是否为协程可调用对象
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def is_coroutine_callable(call: Callable[..., Any]) -> bool:
@@ -38,20 +34,18 @@ def is_coroutine_callable(call: Callable[..., Any]) -> bool:
 ```
 </details>
 
-### ***def*** `run_coroutine() -> None`
-
-运行协程
-
-Args:
-
-    coro:
+### *func* `run_coroutine()`
 
 
 
-Returns:
+**说明**: 运行协程
+
+**参数**:
+> - coro:   
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def run_coroutine(*coro: Coroutine):
@@ -81,20 +75,47 @@ def run_coroutine(*coro: Coroutine):
 ```
 </details>
 
-### ***def*** `path_to_module_name(path: Path) -> str`
+### *func* `run_coroutine_in_thread()`
 
-转换路径为模块名
 
-Args:
 
-    path: 路径a/b/c/d -> a.b.c.d
+**说明**: 在新线程中运行协程
 
-Returns:
+**参数**:
+> - coro:   
 
-    str: 模块名
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
+
+```python
+def run_coroutine_in_thread(*coro: Coroutine):
+    """
+    在新线程中运行协程
+    Args:
+        coro:
+
+    Returns:
+
+    """
+    threading.Thread(target=run_coroutine, args=coro, daemon=True).start()
+```
+</details>
+
+### *func* `path_to_module_name() -> str`
+
+
+
+**说明**: 转换路径为模块名
+
+**参数**:
+> - path: 路径a/b/c/d -> a.b.c.d  
+
+**返回**: str: 模块名
+
+
+<details>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def path_to_module_name(path: Path) -> str:
@@ -113,20 +134,20 @@ def path_to_module_name(path: Path) -> str:
 ```
 </details>
 
-### ***def*** `async_wrapper(func: Callable[..., Any]) -> Callable[..., Coroutine]`
+### *func* `async_wrapper() -> Callable[..., Coroutine]`
 
-异步包装器
 
-Args:
 
-    func: Sync Callable
+**说明**: 异步包装器
 
-Returns:
+**参数**:
+> - func: Sync Callable  
 
-    Coroutine: Asynchronous Callable
+**返回**: Coroutine: Asynchronous Callable
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def async_wrapper(func: Callable[..., Any]) -> Callable[..., Coroutine]:
@@ -144,37 +165,4 @@ def async_wrapper(func: Callable[..., Any]) -> Callable[..., Coroutine]:
     return wrapper
 ```
 </details>
-
-### ***async def*** `wrapper() -> None`
-
-
-
-<details>
-<summary>源代码</summary>
-
-```python
-async def wrapper(*args, **kwargs):
-    return func(*args, **kwargs)
-```
-</details>
-
-### ***var*** `IS_MAIN_PROCESS = multiprocessing.current_process().name == 'MainProcess'`
-
-
-
-### ***var*** `func_ = getattr(call, '__call__', None)`
-
-
-
-### ***var*** `rel_path = path.resolve().relative_to(Path.cwd().resolve())`
-
-
-
-### ***var*** `loop = asyncio.get_event_loop()`
-
-
-
-### ***var*** `loop = asyncio.new_event_loop()`
-
-
 

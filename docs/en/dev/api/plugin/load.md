@@ -1,24 +1,20 @@
 ---
 title: liteyuki.plugin.load
-order: 1
-icon: laptop-code
-category: API
 ---
-
-### ***def*** `load_plugin(module_path: str | Path) -> Optional[Plugin]`
-
-加载单个插件，可以是本地插件或是通过 `pip` 安装的插件。
+### *func* `load_plugin() -> Optional[Plugin]`
 
 
 
-参数:
+**Description**: 加载单个插件，可以是本地插件或是通过 `pip` 安装的插件。
 
-    module_path: 插件名称 `path.to.your.plugin`
 
-    或插件路径 `pathlib.Path(path/to/your/plugin)`
+**Arguments**:
+> - module_path: 插件名称 `path.to.your.plugin`  
+> - 或插件路径 `pathlib.Path(path/to/your/plugin)`:   
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def load_plugin(module_path: str | Path) -> Optional[Plugin]:
@@ -31,11 +27,21 @@ def load_plugin(module_path: str | Path) -> Optional[Plugin]:
     module_path = path_to_module_name(Path(module_path)) if isinstance(module_path, Path) else module_path
     try:
         module = import_module(module_path)
-        _plugins[module.__name__] = Plugin(name=module.__name__, module=module, module_name=module_path, metadata=module.__dict__.get('__plugin_metadata__', None))
-        display_name = module.__name__.split('.')[-1]
-        if module.__dict__.get('__plugin_meta__'):
+        _plugins[module.__name__] = Plugin(name=module.__name__, module=module, module_name=module_path)
+        if module.__dict__.get('__plugin_metadata__', None):
+            metadata: 'PluginMetadata' = module.__dict__['__plugin_metadata__']
+            display_name = module.__name__.split('.')[-1]
+        elif module.__dict__.get('__liteyuki_plugin_meta__', None):
+            metadata: 'PluginMetadata' = module.__dict__['__liteyuki_plugin_meta__']
+            display_name = format_display_name(f"{metadata.name}({module.__name__.split('.')[-1]})", metadata.type)
+        elif module.__dict__.get('__plugin_meta__', None):
             metadata: 'PluginMetadata' = module.__dict__['__plugin_meta__']
             display_name = format_display_name(f"{metadata.name}({module.__name__.split('.')[-1]})", metadata.type)
+        else:
+            logger.opt(colors=True).warning(f'The metadata of Liteyuki plugin "{module.__name__}" is not specified, use empty.')
+            metadata = PluginMetadata(name=module.__name__)
+            display_name = module.__name__.split('.')[-1]
+        _plugins[module.__name__].metadata = metadata
         logger.opt(colors=True).success(f'Succeeded to load liteyuki plugin "{display_name}"')
         return _plugins[module.__name__]
     except Exception as e:
@@ -45,20 +51,20 @@ def load_plugin(module_path: str | Path) -> Optional[Plugin]:
 ```
 </details>
 
-### ***def*** `load_plugins() -> set[Plugin]`
-
-导入文件夹下多个插件
+### *func* `load_plugins(*, ignore_warning: bool = True) -> set[Plugin]`
 
 
 
-参数:
+**Description**: 导入文件夹下多个插件
 
-    plugin_dir: 文件夹路径
 
-    ignore_warning: 是否忽略警告，通常是目录不存在或目录为空
+**Arguments**:
+> - plugin_dir: 文件夹路径  
+> - ignore_warning: 是否忽略警告，通常是目录不存在或目录为空  
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def load_plugins(*plugin_dir: str, ignore_warning: bool=True) -> set[Plugin]:
@@ -97,24 +103,21 @@ def load_plugins(*plugin_dir: str, ignore_warning: bool=True) -> set[Plugin]:
 ```
 </details>
 
-### ***def*** `format_display_name(display_name: str, plugin_type: PluginType) -> str`
-
-设置插件名称颜色，根据不同类型插件设置颜色
-
-Args:
-
-    display_name: 插件名称
-
-    plugin_type: 插件类型
+### *func* `format_display_name() -> str`
 
 
 
-Returns:
+**Description**: 设置插件名称颜色，根据不同类型插件设置颜色
 
-    str: 设置后的插件名称 <y>name</y>
+**Arguments**:
+> - display_name: 插件名称  
+> - plugin_type: 插件类型  
+
+**Return**: str: 设置后的插件名称 <y>name</y>
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def format_display_name(display_name: str, plugin_type: PluginType) -> str:
@@ -141,59 +144,19 @@ def format_display_name(display_name: str, plugin_type: PluginType) -> str:
 ```
 </details>
 
-### ***var*** `module_path = path_to_module_name(Path(module_path)) if isinstance(module_path, Path) else module_path`
+### ***var*** `_plugins = {}`
 
+- **Type**: `dict[str, Plugin]`
 
+### ***var*** `metadata = module.__dict__['__plugin_metadata__']`
 
-### ***var*** `plugins = set()`
+- **Type**: `'PluginMetadata'`
 
+### ***var*** `metadata = module.__dict__['__liteyuki_plugin_meta__']`
 
+- **Type**: `'PluginMetadata'`
 
-### ***var*** `color = 'y'`
+### ***var*** `metadata = module.__dict__['__plugin_meta__']`
 
-
-
-### ***var*** `module = import_module(module_path)`
-
-
-
-### ***var*** `display_name = module.__name__.split('.')[-1]`
-
-
-
-### ***var*** `display_name = format_display_name(f"{metadata.name}({module.__name__.split('.')[-1]})", metadata.type)`
-
-
-
-### ***var*** `path = Path(os.path.join(dir_path, f))`
-
-
-
-### ***var*** `module_name = None`
-
-
-
-### ***var*** `color = 'm'`
-
-
-
-### ***var*** `color = 'g'`
-
-
-
-### ***var*** `color = 'e'`
-
-
-
-### ***var*** `color = 'c'`
-
-
-
-### ***var*** `module_name = f'{path_to_module_name(Path(dir_path))}.{f[:-3]}'`
-
-
-
-### ***var*** `module_name = path_to_module_name(path)`
-
-
+- **Type**: `'PluginMetadata'`
 

@@ -1,19 +1,14 @@
 ---
 title: liteyuki.message.on
-order: 1
-icon: laptop-code
-category: API
 ---
-
-### ***def*** `on_message(rule: Rule, priority: int, block: bool) -> Matcher`
-
+### *func* `on_message(rule: Rule = empty_rule, priority: int = 0, block: bool = False) -> Matcher`
 
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
-def on_message(rule: Rule=Rule(), priority: int=0, block: bool=True) -> Matcher:
+def on_message(rule: Rule=empty_rule, priority: int=0, block: bool=False) -> Matcher:
     matcher = Matcher(rule, priority, block)
     for i, m in enumerate(_matcher_list):
         if m.priority < matcher.priority:
@@ -25,15 +20,27 @@ def on_message(rule: Rule=Rule(), priority: int=0, block: bool=True) -> Matcher:
 ```
 </details>
 
-### ***var*** `current_priority = -1`
+### *func* `on_keywords(keywords: list[str] = empty_rule, rule = 0, priority: int = False) -> Matcher`
 
 
+<details>
+<summary> <b>源代码</b> </summary>
 
-### ***var*** `matcher = Matcher(rule, priority, block)`
+```python
+def on_keywords(keywords: list[str], rule=empty_rule, priority: int=0, block: bool=False) -> Matcher:
 
+    @Rule
+    async def on_keywords_rule(event: MessageEvent):
+        return any((keyword in event.raw_message for keyword in keywords))
+    return on_message(on_keywords_rule & rule, priority, block)
+```
+</details>
 
+### ***var*** `_matcher_list = []`
 
-### ***var*** `current_priority = matcher.priority`
+- **类型**: `list[Matcher]`
 
+### ***var*** `_queue = Queue()`
 
+- **类型**: `Queue`
 

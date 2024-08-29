@@ -1,20 +1,17 @@
 ---
 title: liteyuki.plugin
-index: true
-icon: laptop-code
-category: API
 ---
+### *func* `get_loaded_plugins() -> dict[str, Plugin]`
 
-### ***def*** `get_loaded_plugins() -> dict[str, Plugin]`
 
-获取已加载的插件
 
-Returns:
+**Description**: 获取已加载的插件
 
-    dict[str, Plugin]: 插件字典
+**Return**: dict[str, Plugin]: 插件字典
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def get_loaded_plugins() -> dict[str, Plugin]:

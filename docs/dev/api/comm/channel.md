@@ -1,22 +1,19 @@
 ---
 title: liteyuki.comm.channel
-order: 1
-icon: laptop-code
-category: API
 ---
+### *func* `set_channel()`
 
-### ***def*** `set_channel(name: str, channel: Channel) -> None`
 
-设置通道实例
 
-Args:
+**说明**: 设置通道实例
 
-    name: 通道名称
+**参数**:
+> - name: 通道名称  
+> - channel: 通道实例  
 
-    channel: 通道实例
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def set_channel(name: str, channel: Channel):
@@ -35,16 +32,18 @@ def set_channel(name: str, channel: Channel):
 ```
 </details>
 
-### ***def*** `set_channels(channels: dict[str, Channel]) -> None`
+### *func* `set_channels()`
 
-设置通道实例
 
-Args:
 
-    channels: 通道名称
+**说明**: 设置通道实例
+
+**参数**:
+> - channels: 通道名称  
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def set_channels(channels: dict[str, Channel]):
@@ -58,18 +57,18 @@ def set_channels(channels: dict[str, Channel]):
 ```
 </details>
 
-### ***def*** `get_channel(name: str) -> Channel`
+### *func* `get_channel() -> Channel`
 
-获取通道实例
 
-Args:
 
-    name: 通道名称
+**说明**: 获取通道实例
 
-Returns:
+**参数**:
+> - name: 通道名称  
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def get_channel(name: str) -> Channel:
@@ -88,14 +87,15 @@ def get_channel(name: str) -> Channel:
 ```
 </details>
 
-### ***def*** `get_channels() -> dict[str, Channel]`
+### *func* `get_channels() -> dict[str, Channel]`
 
-获取通道实例
 
-Returns:
+
+**说明**: 获取通道实例
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def get_channels() -> dict[str, Channel]:
@@ -112,12 +112,12 @@ def get_channels() -> dict[str, Channel]:
 ```
 </details>
 
-### ***def*** `on_set_channel(data: tuple[str, dict[str, Any]]) -> None`
-
+### `@channel_deliver_passive_channel.on_receive(filter_func=lambda data: data[0] == 'set_channel')`
+### *func* `on_set_channel()`
 
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 @channel_deliver_passive_channel.on_receive(filter_func=lambda data: data[0] == 'set_channel')
@@ -127,12 +127,12 @@ def on_set_channel(data: tuple[str, dict[str, Any]]):
 ```
 </details>
 
-### ***def*** `on_get_channel(data: tuple[str, dict[str, Any]]) -> None`
-
+### `@channel_deliver_passive_channel.on_receive(filter_func=lambda data: data[0] == 'get_channel')`
+### *func* `on_get_channel()`
 
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 @channel_deliver_passive_channel.on_receive(filter_func=lambda data: data[0] == 'get_channel')
@@ -142,12 +142,12 @@ def on_get_channel(data: tuple[str, dict[str, Any]]):
 ```
 </details>
 
-### ***def*** `on_get_channels(data: tuple[str, dict[str, Any]]) -> None`
-
+### `@channel_deliver_passive_channel.on_receive(filter_func=lambda data: data[0] == 'get_channels')`
+### *func* `on_get_channels()`
 
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 @channel_deliver_passive_channel.on_receive(filter_func=lambda data: data[0] == 'get_channels')
@@ -157,81 +157,23 @@ def on_get_channels(data: tuple[str, dict[str, Any]]):
 ```
 </details>
 
-### ***def*** `decorator(func: Callable[[T], Any]) -> Callable[[T], Any]`
+### **class** `Channel(Generic[T])`
+### *method* `__init__(self, _id: str = '', type_check: Optional[bool] = None)`
 
 
 
-<details>
-<summary>源代码</summary>
+**说明**: 初始化通道
 
-```python
-def decorator(func: Callable[[T], Any]) -> Callable[[T], Any]:
-    global _func_id
-
-    async def wrapper(data: T) -> Any:
-        if filter_func is not None:
-            if is_coroutine_callable(filter_func):
-                if not await filter_func(data):
-                    return
-            elif not filter_func(data):
-                return
-        if is_coroutine_callable(func):
-            return await func(data)
-        else:
-            return func(data)
-    _callback_funcs[_func_id] = wrapper
-    if IS_MAIN_PROCESS:
-        self._on_main_receive_funcs.append(_func_id)
-    else:
-        self._on_sub_receive_funcs.append(_func_id)
-    _func_id += 1
-    return func
-```
-</details>
-
-### ***async def*** `wrapper(data: T) -> Any`
-
+**参数**:
+> - _id: 通道ID  
+> - type_check: 是否开启类型检查, 若为空，则传入泛型默认开启，否则默认关闭  
 
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
-async def wrapper(data: T) -> Any:
-    if filter_func is not None:
-        if is_coroutine_callable(filter_func):
-            if not await filter_func(data):
-                return
-        elif not filter_func(data):
-            return
-    if is_coroutine_callable(func):
-        return await func(data)
-    else:
-        return func(data)
-```
-</details>
-
-### ***class*** `Channel(Generic[T])`
-
-通道类，可以在进程间和进程内通信，双向但同时只能有一个发送者和一个接收者
-
-有两种接收工作方式，但是只能选择一种，主动接收和被动接收，主动接收使用 `receive` 方法，被动接收使用 `on_receive` 装饰器
-
-### &emsp; ***def*** `__init__(self, _id: str, type_check: Optional[bool]) -> None`
-
-&emsp;初始化通道
-
-Args:
-
-    _id: 通道ID
-
-    type_check: 是否开启类型检查, 若为空，则传入泛型默认开启，否则默认关闭
-
-<details>
-<summary>源代码</summary>
-
-```python
-def __init__(self, _id: str, type_check: Optional[bool]=None):
+def __init__(self, _id: str='', type_check: Optional[bool]=None):
     """
         初始化通道
         Args:
@@ -254,16 +196,90 @@ def __init__(self, _id: str, type_check: Optional[bool]=None):
 ```
 </details>
 
-### &emsp; ***def*** `send(self, data: T) -> None`
+### *method* `_get_generic_type(self) -> Optional[type]`
 
-&emsp;发送数据
 
-Args:
 
-    data: 数据
+**说明**: 获取通道传递泛型类型
+
+
+**返回**: Optional[type]: 泛型类型
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
+
+```python
+def _get_generic_type(self) -> Optional[type]:
+    """
+        获取通道传递泛型类型
+
+        Returns:
+            Optional[type]: 泛型类型
+        """
+    if hasattr(self, '__orig_class__'):
+        return get_args(self.__orig_class__)[0]
+    return None
+```
+</details>
+
+### *method* `_validate_structure(self, data: Any, structure: type) -> bool`
+
+
+
+**说明**: 验证数据结构
+
+**参数**:
+> - data: 数据  
+> - structure: 结构  
+
+**返回**: bool: 是否通过验证
+
+
+<details>
+<summary> <b>源代码</b> </summary>
+
+```python
+def _validate_structure(self, data: Any, structure: type) -> bool:
+    """
+        验证数据结构
+        Args:
+            data: 数据
+            structure: 结构
+
+        Returns:
+            bool: 是否通过验证
+        """
+    if isinstance(structure, type):
+        return isinstance(data, structure)
+    elif isinstance(structure, tuple):
+        if not isinstance(data, tuple) or len(data) != len(structure):
+            return False
+        return all((self._validate_structure(d, s) for d, s in zip(data, structure)))
+    elif isinstance(structure, list):
+        if not isinstance(data, list):
+            return False
+        return all((self._validate_structure(d, structure[0]) for d in data))
+    elif isinstance(structure, dict):
+        if not isinstance(data, dict):
+            return False
+        return all((k in data and self._validate_structure(data[k], structure[k]) for k in structure))
+    return False
+```
+</details>
+
+### *method* `send(self, data: T)`
+
+
+
+**说明**: 发送数据
+
+**参数**:
+> - data: 数据  
+
+
+<details>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def send(self, data: T):
@@ -282,14 +298,15 @@ def send(self, data: T):
 ```
 </details>
 
-### &emsp; ***def*** `receive(self) -> T`
+### *method* `receive(self) -> T`
 
-&emsp;接收数据
 
-Args:
+
+**说明**: 接收数据
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def receive(self) -> T:
@@ -305,12 +322,15 @@ def receive(self) -> T:
 ```
 </details>
 
-### &emsp; ***def*** `close(self) -> None`
+### *method* `close(self)`
 
-&emsp;关闭通道
+
+
+**说明**: 关闭通道
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def close(self):
@@ -323,20 +343,20 @@ def close(self):
 ```
 </details>
 
-### &emsp; ***def*** `on_receive(self, filter_func: Optional[FILTER_FUNC]) -> Callable[[Callable[[T], Any]], Callable[[T], Any]]`
+### *method* `on_receive(self, filter_func: Optional[FILTER_FUNC] = None) -> Callable[[Callable[[T], Any]], Callable[[T], Any]]`
 
-&emsp;接收数据并执行函数
 
-Args:
 
-    filter_func: 过滤函数，为None则不过滤
+**说明**: 接收数据并执行函数
 
-Returns:
+**参数**:
+> - filter_func: 过滤函数，为None则不过滤  
 
-    装饰器，装饰一个函数在接收到数据后执行
+**返回**: 装饰器，装饰一个函数在接收到数据后执行
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def on_receive(self, filter_func: Optional[FILTER_FUNC]=None) -> Callable[[Callable[[T], Any]], Callable[[T], Any]]:
@@ -377,51 +397,159 @@ def on_receive(self, filter_func: Optional[FILTER_FUNC]=None) -> Callable[[Calla
 ```
 </details>
 
-### ***var*** `T = TypeVar('T')`
+### *method* `_run_on_main_receive_funcs(self, data: Any)`
 
 
 
-### ***var*** `channel_deliver_active_channel = Channel(_id='channel_deliver_active_channel')`
+**说明**: 运行接收函数
+
+**参数**:
+> - data: 数据  
+
+
+<details>
+<summary> <b>源代码</b> </summary>
+
+```python
+def _run_on_main_receive_funcs(self, data: Any):
+    """
+        运行接收函数
+        Args:
+            data: 数据
+        """
+    for func_id in self._on_main_receive_funcs:
+        func = _callback_funcs[func_id]
+        run_coroutine(func(data))
+```
+</details>
+
+### *method* `_run_on_sub_receive_funcs(self, data: Any)`
 
 
 
-### ***var*** `channel_deliver_passive_channel = Channel(_id='channel_deliver_passive_channel')`
+**说明**: 运行接收函数
+
+**参数**:
+> - data: 数据  
+
+
+<details>
+<summary> <b>源代码</b> </summary>
+
+```python
+def _run_on_sub_receive_funcs(self, data: Any):
+    """
+        运行接收函数
+        Args:
+            data: 数据
+        """
+    for func_id in self._on_sub_receive_funcs:
+        func = _callback_funcs[func_id]
+        run_coroutine(func(data))
+```
+</details>
+
+### *method* `_start_main_receive_loop(self)`
 
 
 
-### ***var*** `recv_chan = data[1]['recv_chan']`
+**说明**: 开始接收数据
+
+
+<details>
+<summary> <b>源代码</b> </summary>
+
+```python
+def _start_main_receive_loop(self):
+    """
+        开始接收数据
+        """
+    self.is_main_receive_loop_running = True
+    while not self._closed:
+        data = self.conn_recv.recv()
+        self._run_on_main_receive_funcs(data)
+```
+</details>
+
+### *method* `_start_sub_receive_loop(self)`
 
 
 
-### ***var*** `recv_chan = Channel[Channel[Any]]('recv_chan')`
+**说明**: 开始接收数据
 
 
+<details>
+<summary> <b>源代码</b> </summary>
 
-### ***var*** `recv_chan = Channel[dict[str, Channel[Any]]]('recv_chan')`
+```python
+def _start_sub_receive_loop(self):
+    """
+        开始接收数据
+        """
+    self.is_sub_receive_loop_running = True
+    while not self._closed:
+        data = self.conn_recv.recv()
+        self._run_on_sub_receive_funcs(data)
+```
+</details>
 
+### ***var*** `SYNC_ON_RECEIVE_FUNC = Callable[[T], Any]`
 
+- **类型**: `TypeAlias`
 
-### ***var*** `type_check = self._get_generic_type() is not None`
+### ***var*** `ASYNC_ON_RECEIVE_FUNC = Callable[[T], Coroutine[Any, Any, Any]]`
 
+- **类型**: `TypeAlias`
 
+### ***var*** `ON_RECEIVE_FUNC = SYNC_ON_RECEIVE_FUNC | ASYNC_ON_RECEIVE_FUNC`
 
-### ***var*** `data = self.conn_recv.recv()`
+- **类型**: `TypeAlias`
 
+### ***var*** `SYNC_FILTER_FUNC = Callable[[T], bool]`
 
+- **类型**: `TypeAlias`
 
-### ***var*** `func = _callback_funcs[func_id]`
+### ***var*** `ASYNC_FILTER_FUNC = Callable[[T], Coroutine[Any, Any, bool]]`
 
+- **类型**: `TypeAlias`
 
+### ***var*** `FILTER_FUNC = SYNC_FILTER_FUNC | ASYNC_FILTER_FUNC`
 
-### ***var*** `func = _callback_funcs[func_id]`
+- **类型**: `TypeAlias`
 
+### ***var*** `_func_id = 0`
 
+- **类型**: `int`
 
-### ***var*** `data = self.conn_recv.recv()`
+### ***var*** `_channel = {}`
 
+- **类型**: `dict[str, 'Channel']`
 
+### ***var*** `_callback_funcs = {}`
 
-### ***var*** `data = self.conn_recv.recv()`
+- **类型**: `dict[int, ON_RECEIVE_FUNC]`
 
+### ***var*** `active_channel = None`
 
+- **类型**: `Optional['Channel']`
+
+- **说明**: 子进程可用的主动和被动通道
+
+### ***var*** `passive_channel = None`
+
+- **类型**: `Optional['Channel']`
+
+### ***var*** `publish_channel = Channel(_id='publish_channel')`
+
+- **类型**: `Channel[tuple[str, dict[str, Any]]]`
+
+### ***var*** `channel_deliver_active_channel = NO_DEFAULT`
+
+- **类型**: `Channel[Channel[Any]]`
+
+- **说明**: 通道传递通道，主进程创建单例，子进程初始化时实例化
+
+### ***var*** `channel_deliver_passive_channel = NO_DEFAULT`
+
+- **类型**: `Channel[tuple[str, dict[str, Any]]]`
 

@@ -1,22 +1,18 @@
 ---
 title: liteyuki.bot
-index: true
-icon: laptop-code
-category: API
 ---
-
-### ***def*** `get_bot() -> LiteyukiBot`
-
-获取轻雪实例
+### *func* `get_bot() -> LiteyukiBot`
 
 
 
-Returns:
+**Description**: 获取轻雪实例
 
-    LiteyukiBot: 当前的轻雪实例
+
+**Return**: LiteyukiBot: 当前的轻雪实例
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def get_bot() -> LiteyukiBot:
@@ -35,24 +31,21 @@ def get_bot() -> LiteyukiBot:
 ```
 </details>
 
-### ***def*** `get_config(key: str, default: Any) -> Any`
-
-获取配置
-
-Args:
-
-    key: 配置键
-
-    default: 默认值
+### *func* `get_config(key: str = None) -> Any`
 
 
 
-Returns:
+**Description**: 获取配置
 
-    Any: 配置值
+**Arguments**:
+> - key: 配置键  
+> - default: 默认值  
+
+**Return**: Any: 配置值
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def get_config(key: str, default: Any=None) -> Any:
@@ -69,26 +62,22 @@ def get_config(key: str, default: Any=None) -> Any:
 ```
 </details>
 
-### ***def*** `get_config_with_compat(key: str, compat_keys: tuple[str], default: Any) -> Any`
-
-获取配置，兼容旧版本
-
-Args:
-
-    key: 配置键
-
-    compat_keys: 兼容键
-
-    default: 默认值
+### *func* `get_config_with_compat(key: str = None) -> Any`
 
 
 
-Returns:
+**Description**: 获取配置，兼容旧版本
 
-    Any: 配置值
+**Arguments**:
+> - key: 配置键  
+> - compat_keys: 兼容键  
+> - default: 默认值  
+
+**Return**: Any: 配置值
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def get_config_with_compat(key: str, compat_keys: tuple[str], default: Any=None) -> Any:
@@ -112,12 +101,11 @@ def get_config_with_compat(key: str, compat_keys: tuple[str], default: Any=None)
 ```
 </details>
 
-### ***def*** `print_logo() -> None`
-
+### *func* `print_logo()`
 
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def print_logo():
@@ -125,22 +113,20 @@ def print_logo():
 ```
 </details>
 
-### ***class*** `LiteyukiBot`
+### **class** `LiteyukiBot`
+### *method* `__init__(self) -> None`
 
 
 
-### &emsp; ***def*** `__init__(self) -> None`
+**Description**: 初始化轻雪实例
 
-&emsp;初始化轻雪实例
+**Arguments**:
+> - *args:   
+> - **kwargs: 配置  
 
-Args:
-
-    *args:
-
-    **kwargs: 配置
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def __init__(self, *args, **kwargs) -> None:
@@ -177,12 +163,15 @@ def __init__(self, *args, **kwargs) -> None:
 ```
 </details>
 
-### &emsp; ***def*** `run(self) -> None`
+### *method* `run(self)`
 
-&emsp;启动逻辑
+
+
+**Description**: 启动逻辑
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def run(self):
@@ -196,14 +185,15 @@ def run(self):
 ```
 </details>
 
-### &emsp; ***def*** `keep_alive(self) -> None`
+### *method* `keep_alive(self)`
 
-&emsp;保持轻雪运行
 
-Returns:
+
+**Description**: 保持轻雪运行
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def keep_alive(self):
@@ -221,14 +211,46 @@ def keep_alive(self):
 ```
 </details>
 
-### &emsp; ***def*** `restart(self, delay: int) -> None`
+### *method* `_handle_exit(self, signum, frame)`
 
-&emsp;重启轻雪本体
 
-Returns:
+
+**Description**: 信号处理
+
+**Arguments**:
+> - signum:   
+> - frame:   
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
+
+```python
+def _handle_exit(self, signum, frame):
+    """
+        信号处理
+        Args:
+            signum:
+            frame:
+
+        Returns:
+
+        """
+    logger.info('Received signal, stopping all processes.')
+    self.stop()
+    sys.exit(0)
+```
+</details>
+
+### *method* `restart(self, delay: int = 0)`
+
+
+
+**Description**: 重启轻雪本体
+
+
+<details>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def restart(self, delay: int=0):
@@ -257,18 +279,18 @@ def restart(self, delay: int=0):
 ```
 </details>
 
-### &emsp; ***def*** `restart_process(self, name: Optional[str]) -> None`
+### *method* `restart_process(self, name: Optional[str] = None)`
 
-&emsp;停止轻雪
 
-Args:
 
-    name: 进程名称, 默认为None, 所有进程
+**Description**: 停止轻雪
 
-Returns:
+**Arguments**:
+> - name: 进程名称, 默认为None, 所有进程  
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def restart_process(self, name: Optional[str]=None):
@@ -290,14 +312,15 @@ def restart_process(self, name: Optional[str]=None):
 ```
 </details>
 
-### &emsp; ***def*** `init(self) -> None`
+### *method* `init(self)`
 
-&emsp;初始化轻雪, 自动调用
 
-Returns:
+
+**Description**: 初始化轻雪, 自动调用
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def init(self, *args, **kwargs):
@@ -310,12 +333,11 @@ def init(self, *args, **kwargs):
 ```
 </details>
 
-### &emsp; ***def*** `init_logger(self) -> None`
+### *method* `init_logger(self)`
 
-&emsp;
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def init_logger(self):
@@ -323,14 +345,15 @@ def init_logger(self):
 ```
 </details>
 
-### &emsp; ***def*** `stop(self) -> None`
+### *method* `stop(self)`
 
-&emsp;停止轻雪
 
-Returns:
+
+**Description**: 停止轻雪
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def stop(self):
@@ -344,20 +367,18 @@ def stop(self):
 ```
 </details>
 
-### &emsp; ***def*** `on_before_start(self, func: LIFESPAN_FUNC) -> None`
-
-&emsp;注册启动前的函数
-
-Args:
-
-    func:
+### *method* `on_before_start(self, func: LIFESPAN_FUNC)`
 
 
 
-Returns:
+**Description**: 注册启动前的函数
+
+**Arguments**:
+> - func:   
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def on_before_start(self, func: LIFESPAN_FUNC):
@@ -373,20 +394,18 @@ def on_before_start(self, func: LIFESPAN_FUNC):
 ```
 </details>
 
-### &emsp; ***def*** `on_after_start(self, func: LIFESPAN_FUNC) -> None`
-
-&emsp;注册启动后的函数
-
-Args:
-
-    func:
+### *method* `on_after_start(self, func: LIFESPAN_FUNC)`
 
 
 
-Returns:
+**Description**: 注册启动后的函数
+
+**Arguments**:
+> - func:   
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def on_after_start(self, func: LIFESPAN_FUNC):
@@ -402,20 +421,18 @@ def on_after_start(self, func: LIFESPAN_FUNC):
 ```
 </details>
 
-### &emsp; ***def*** `on_after_shutdown(self, func: LIFESPAN_FUNC) -> None`
-
-&emsp;注册停止后的函数：未实现
-
-Args:
-
-    func:
+### *method* `on_after_shutdown(self, func: LIFESPAN_FUNC)`
 
 
 
-Returns:
+**Description**: 注册停止后的函数：未实现
+
+**Arguments**:
+> - func:   
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def on_after_shutdown(self, func: LIFESPAN_FUNC):
@@ -431,20 +448,18 @@ def on_after_shutdown(self, func: LIFESPAN_FUNC):
 ```
 </details>
 
-### &emsp; ***def*** `on_before_process_shutdown(self, func: LIFESPAN_FUNC) -> None`
-
-&emsp;注册进程停止前的函数，为子进程停止时调用
-
-Args:
-
-    func:
+### *method* `on_before_process_shutdown(self, func: LIFESPAN_FUNC)`
 
 
 
-Returns:
+**Description**: 注册进程停止前的函数，为子进程停止时调用
+
+**Arguments**:
+> - func:   
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def on_before_process_shutdown(self, func: LIFESPAN_FUNC):
@@ -460,20 +475,18 @@ def on_before_process_shutdown(self, func: LIFESPAN_FUNC):
 ```
 </details>
 
-### &emsp; ***def*** `on_before_process_restart(self, func: LIFESPAN_FUNC) -> None`
-
-&emsp;注册进程重启前的函数，为子进程重启时调用
-
-Args:
-
-    func:
+### *method* `on_before_process_restart(self, func: LIFESPAN_FUNC)`
 
 
 
-Returns:
+**Description**: 注册进程重启前的函数，为子进程重启时调用
+
+**Arguments**:
+> - func:   
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def on_before_process_restart(self, func: LIFESPAN_FUNC):
@@ -489,20 +502,18 @@ def on_before_process_restart(self, func: LIFESPAN_FUNC):
 ```
 </details>
 
-### &emsp; ***def*** `on_after_restart(self, func: LIFESPAN_FUNC) -> None`
-
-&emsp;注册重启后的函数：未实现
-
-Args:
-
-    func:
+### *method* `on_after_restart(self, func: LIFESPAN_FUNC)`
 
 
 
-Returns:
+**Description**: 注册重启后的函数：未实现
+
+**Arguments**:
+> - func:   
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def on_after_restart(self, func: LIFESPAN_FUNC):
@@ -518,20 +529,18 @@ def on_after_restart(self, func: LIFESPAN_FUNC):
 ```
 </details>
 
-### &emsp; ***def*** `on_after_nonebot_init(self, func: LIFESPAN_FUNC) -> None`
-
-&emsp;注册nonebot初始化后的函数
-
-Args:
-
-    func:
+### *method* `on_after_nonebot_init(self, func: LIFESPAN_FUNC)`
 
 
 
-Returns:
+**Description**: 注册nonebot初始化后的函数
+
+**Arguments**:
+> - func:   
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def on_after_nonebot_init(self, func: LIFESPAN_FUNC):
@@ -547,35 +556,7 @@ def on_after_nonebot_init(self, func: LIFESPAN_FUNC):
 ```
 </details>
 
-### ***var*** `executable = sys.executable`
+### ***var*** `_BOT_INSTANCE = NO_DEFAULT`
 
-
-
-### ***var*** `args = sys.argv`
-
-
-
-### ***var*** `chan_active = get_channel(f'{name}-active')`
-
-
-
-### ***var*** `cmd = 'start'`
-
-
-
-### ***var*** `chan_active = get_channel(f'{process_name}-active')`
-
-
-
-### ***var*** `cmd = 'nohup'`
-
-
-
-### ***var*** `cmd = 'open'`
-
-
-
-### ***var*** `cmd = 'nohup'`
-
-
+- **Type**: `LiteyukiBot`
 

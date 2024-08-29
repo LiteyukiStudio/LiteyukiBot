@@ -1,20 +1,12 @@
 ---
 title: liteyuki.core.manager
-order: 1
-icon: laptop-code
-category: API
 ---
+### **class** `ChannelDeliver`
+### *method* `__init__(self, active: Channel[Any], passive: Channel[Any], channel_deliver_active: Channel[Channel[Any]], channel_deliver_passive: Channel[tuple[str, dict]], publish: Channel[tuple[str, Any]])`
 
-### ***class*** `ChannelDeliver`
-
-
-
-### &emsp; ***def*** `__init__(self, active: Channel[Any], passive: Channel[Any], channel_deliver_active: Channel[Channel[Any]], channel_deliver_passive: Channel[tuple[str, dict]], publish: Channel[tuple[str, Any]]) -> None`
-
-&emsp;
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def __init__(self, active: Channel[Any], passive: Channel[Any], channel_deliver_active: Channel[Channel[Any]], channel_deliver_passive: Channel[tuple[str, dict]], publish: Channel[tuple[str, Any]]):
@@ -26,16 +18,12 @@ def __init__(self, active: Channel[Any], passive: Channel[Any], channel_deliver_
 ```
 </details>
 
-### ***class*** `ProcessManager`
+### **class** `ProcessManager`
+### *method* `__init__(self, lifespan: Lifespan)`
 
-进程管理器
-
-### &emsp; ***def*** `__init__(self, lifespan: 'Lifespan') -> None`
-
-&emsp;
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def __init__(self, lifespan: 'Lifespan'):
@@ -45,18 +33,18 @@ def __init__(self, lifespan: 'Lifespan'):
 ```
 </details>
 
-### &emsp; ***def*** `start(self, name: str) -> None`
+### *method* `start(self, name: str)`
 
-&emsp;开启后自动监控进程，并添加到进程字典中
 
-Args:
 
-    name:
+**Description**: 开启后自动监控进程，并添加到进程字典中
 
-Returns:
+**Arguments**:
+> - name:   
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def start(self, name: str):
@@ -95,12 +83,15 @@ def start(self, name: str):
 ```
 </details>
 
-### &emsp; ***def*** `start_all(self) -> None`
+### *method* `start_all(self)`
 
-&emsp;启动所有进程
+
+
+**Description**: 启动所有进程
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def start_all(self):
@@ -112,22 +103,21 @@ def start_all(self):
 ```
 </details>
 
-### &emsp; ***def*** `add_target(self, name: str, target: TARGET_FUNC, args: tuple, kwargs: Any) -> None`
+### *method* `add_target(self, name: str, target: TARGET_FUNC, args: tuple = (), kwargs = None)`
 
-&emsp;添加进程
 
-Args:
 
-    name: 进程名，用于获取和唯一标识
+**Description**: 添加进程
 
-    target: 进程函数
+**Arguments**:
+> - name: 进程名，用于获取和唯一标识  
+> - target: 进程函数  
+> - args: 进程函数参数  
+> - kwargs: 进程函数关键字参数，通常会默认传入chan_active和chan_passive  
 
-    args: 进程函数参数
-
-    kwargs: 进程函数关键字参数，通常会默认传入chan_active和chan_passive
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def add_target(self, name: str, target: TARGET_FUNC, args: tuple=(), kwargs=None):
@@ -149,12 +139,11 @@ def add_target(self, name: str, target: TARGET_FUNC, args: tuple=(), kwargs=None
 ```
 </details>
 
-### &emsp; ***def*** `join_all(self) -> None`
+### *method* `join_all(self)`
 
-&emsp;
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def join_all(self):
@@ -163,20 +152,18 @@ def join_all(self):
 ```
 </details>
 
-### &emsp; ***def*** `terminate(self, name: str) -> None`
-
-&emsp;终止进程并从进程字典中删除
-
-Args:
-
-    name:
+### *method* `terminate(self, name: str)`
 
 
 
-Returns:
+**Description**: 终止进程并从进程字典中删除
+
+**Arguments**:
+> - name:   
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def terminate(self, name: str):
@@ -200,12 +187,11 @@ def terminate(self, name: str):
 ```
 </details>
 
-### &emsp; ***def*** `terminate_all(self) -> None`
+### *method* `terminate_all(self)`
 
-&emsp;
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def terminate_all(self):
@@ -214,20 +200,18 @@ def terminate_all(self):
 ```
 </details>
 
-### &emsp; ***def*** `is_process_alive(self, name: str) -> bool`
-
-&emsp;检查进程是否存活
-
-Args:
-
-    name:
+### *method* `is_process_alive(self, name: str) -> bool`
 
 
 
-Returns:
+**Description**: 检查进程是否存活
+
+**Arguments**:
+> - name:   
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def is_process_alive(self, name: str) -> bool:
@@ -245,31 +229,7 @@ def is_process_alive(self, name: str) -> bool:
 ```
 </details>
 
-### ***var*** `TIMEOUT = 10`
+### ***var*** `TARGET_FUNC = Callable[..., Any]`
 
-
-
-### ***var*** `chan_active = get_channel(f'{name}-active')`
-
-
-
-### ***var*** `channel_deliver = ChannelDeliver(active=chan_active, passive=chan_passive, channel_deliver_active=channel_deliver_active_channel, channel_deliver_passive=channel_deliver_passive_channel, publish=publish_channel)`
-
-
-
-### ***var*** `process = self.processes[name]`
-
-
-
-### ***var*** `process = Process(target=self.targets[name][0], args=self.targets[name][1], kwargs=self.targets[name][2], daemon=True)`
-
-
-
-### ***var*** `data = chan_active.receive()`
-
-
-
-### ***var*** `kwargs = {}`
-
-
+- **Type**: `TypeAlias`
 

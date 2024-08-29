@@ -42,7 +42,8 @@ jobs:
       - name: 生成API markdown
         run: |-
           python -m pip install pydantic
-          python liteyuki/mkdoc.py
+          python -m litedoc liteyuki -o docs/dev/api -l zh-Hans -t vuepress
+          python -m litedoc liteyuki -o docs/en/dev/api -l en -t vuepress
           
 
       - name: 构建文档

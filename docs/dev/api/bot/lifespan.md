@@ -1,57 +1,16 @@
 ---
 title: liteyuki.bot.lifespan
-order: 1
-icon: laptop-code
-category: API
 ---
+### **class** `Lifespan`
+### *method* `__init__(self) -> None`
 
-### ***def*** `run_funcs(funcs: list[LIFESPAN_FUNC | PROCESS_LIFESPAN_FUNC]) -> None`
 
-运行函数
 
-Args:
+**说明**: 轻雪生命周期管理，启动、停止、重启
 
-    funcs:
-
-Returns:
 
 <details>
-<summary>源代码</summary>
-
-```python
-@staticmethod
-def run_funcs(funcs: list[LIFESPAN_FUNC | PROCESS_LIFESPAN_FUNC], *args, **kwargs) -> None:
-    """
-        运行函数
-        Args:
-            funcs:
-        Returns:
-        """
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    tasks = []
-    for func in funcs:
-        if is_coroutine_callable(func):
-            tasks.append(func(*args, **kwargs))
-        else:
-            tasks.append(async_wrapper(func)(*args, **kwargs))
-    loop.run_until_complete(asyncio.gather(*tasks))
-```
-</details>
-
-### ***class*** `Lifespan`
-
-
-
-### &emsp; ***def*** `__init__(self) -> None`
-
-&emsp;轻雪生命周期管理，启动、停止、重启
-
-<details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def __init__(self) -> None:
@@ -69,19 +28,19 @@ def __init__(self) -> None:
 ```
 </details>
 
-### &emsp; ***@staticmethod***
-### &emsp; ***def*** `run_funcs(funcs: list[LIFESPAN_FUNC | PROCESS_LIFESPAN_FUNC]) -> None`
+### `@staticmethod`
+### *method* `run_funcs(funcs: list[LIFESPAN_FUNC | PROCESS_LIFESPAN_FUNC]) -> None`
 
-&emsp;运行函数
 
-Args:
 
-    funcs:
+**说明**: 运行函数
 
-Returns:
+**参数**:
+> - funcs:   
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 @staticmethod
@@ -107,20 +66,20 @@ def run_funcs(funcs: list[LIFESPAN_FUNC | PROCESS_LIFESPAN_FUNC], *args, **kwarg
 ```
 </details>
 
-### &emsp; ***def*** `on_before_start(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC`
+### *method* `on_before_start(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC`
 
-&emsp;注册启动时的函数
 
-Args:
 
-    func:
+**说明**: 注册启动时的函数
 
-Returns:
+**参数**:
+> - func:   
 
-    LIFESPAN_FUNC:
+**返回**: LIFESPAN_FUNC:
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def on_before_start(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
@@ -136,20 +95,20 @@ def on_before_start(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
 ```
 </details>
 
-### &emsp; ***def*** `on_after_start(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC`
+### *method* `on_after_start(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC`
 
-&emsp;注册启动时的函数
 
-Args:
 
-    func:
+**说明**: 注册启动时的函数
 
-Returns:
+**参数**:
+> - func:   
 
-    LIFESPAN_FUNC:
+**返回**: LIFESPAN_FUNC:
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def on_after_start(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
@@ -165,20 +124,20 @@ def on_after_start(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
 ```
 </details>
 
-### &emsp; ***def*** `on_before_process_shutdown(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC`
+### *method* `on_before_process_shutdown(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC`
 
-&emsp;注册停止前的函数
 
-Args:
 
-    func:
+**说明**: 注册停止前的函数
 
-Returns:
+**参数**:
+> - func:   
 
-    LIFESPAN_FUNC:
+**返回**: LIFESPAN_FUNC:
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def on_before_process_shutdown(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
@@ -194,22 +153,20 @@ def on_before_process_shutdown(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
 ```
 </details>
 
-### &emsp; ***def*** `on_after_shutdown(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC`
-
-&emsp;注册停止后的函数
-
-Args:
-
-    func:
+### *method* `on_after_shutdown(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC`
 
 
 
-Returns:
+**说明**: 注册停止后的函数
 
-    LIFESPAN_FUNC:
+**参数**:
+> - func:   
+
+**返回**: LIFESPAN_FUNC:
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def on_after_shutdown(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
@@ -227,20 +184,20 @@ def on_after_shutdown(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
 ```
 </details>
 
-### &emsp; ***def*** `on_before_process_restart(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC`
+### *method* `on_before_process_restart(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC`
 
-&emsp;注册重启时的函数
 
-Args:
 
-    func:
+**说明**: 注册重启时的函数
 
-Returns:
+**参数**:
+> - func:   
 
-    LIFESPAN_FUNC:
+**返回**: LIFESPAN_FUNC:
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def on_before_process_restart(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
@@ -256,20 +213,20 @@ def on_before_process_restart(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
 ```
 </details>
 
-### &emsp; ***def*** `on_after_restart(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC`
+### *method* `on_after_restart(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC`
 
-&emsp;注册重启后的函数
 
-Args:
 
-    func:
+**说明**: 注册重启后的函数
 
-Returns:
+**参数**:
+> - func:   
 
-    LIFESPAN_FUNC:
+**返回**: LIFESPAN_FUNC:
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def on_after_restart(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
@@ -285,20 +242,18 @@ def on_after_restart(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
 ```
 </details>
 
-### &emsp; ***def*** `on_after_nonebot_init(self, func: Any) -> None`
-
-&emsp;注册 NoneBot 初始化后的函数
-
-Args:
-
-    func:
+### *method* `on_after_nonebot_init(self, func)`
 
 
 
-Returns:
+**说明**: 注册 NoneBot 初始化后的函数
+
+**参数**:
+> - func:   
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def on_after_nonebot_init(self, func):
@@ -315,14 +270,15 @@ def on_after_nonebot_init(self, func):
 ```
 </details>
 
-### &emsp; ***def*** `before_start(self) -> None`
+### *method* `before_start(self) -> None`
 
-&emsp;启动前
 
-Returns:
+
+**说明**: 启动前
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def before_start(self) -> None:
@@ -335,14 +291,15 @@ def before_start(self) -> None:
 ```
 </details>
 
-### &emsp; ***def*** `after_start(self) -> None`
+### *method* `after_start(self) -> None`
 
-&emsp;启动后
 
-Returns:
+
+**说明**: 启动后
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def after_start(self) -> None:
@@ -355,14 +312,15 @@ def after_start(self) -> None:
 ```
 </details>
 
-### &emsp; ***def*** `before_process_shutdown(self) -> None`
+### *method* `before_process_shutdown(self) -> None`
 
-&emsp;停止前
 
-Returns:
+
+**说明**: 停止前
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def before_process_shutdown(self) -> None:
@@ -375,14 +333,15 @@ def before_process_shutdown(self) -> None:
 ```
 </details>
 
-### &emsp; ***def*** `after_shutdown(self) -> None`
+### *method* `after_shutdown(self) -> None`
 
-&emsp;停止后
 
-Returns:
+
+**说明**: 停止后
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def after_shutdown(self) -> None:
@@ -395,14 +354,15 @@ def after_shutdown(self) -> None:
 ```
 </details>
 
-### &emsp; ***def*** `before_process_restart(self) -> None`
+### *method* `before_process_restart(self) -> None`
 
-&emsp;重启前
 
-Returns:
+
+**说明**: 重启前
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def before_process_restart(self) -> None:
@@ -415,14 +375,15 @@ def before_process_restart(self) -> None:
 ```
 </details>
 
-### &emsp; ***def*** `after_restart(self) -> None`
+### *method* `after_restart(self) -> None`
 
-&emsp;重启后
 
-Returns:
+
+**说明**: 重启后
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def after_restart(self) -> None:
@@ -436,15 +397,27 @@ def after_restart(self) -> None:
 ```
 </details>
 
-### ***var*** `tasks = []`
+### ***var*** `SYNC_LIFESPAN_FUNC = Callable[[], Any]`
 
+- **类型**: `TypeAlias`
 
+### ***var*** `ASYNC_LIFESPAN_FUNC = Callable[[], Awaitable[Any]]`
 
-### ***var*** `loop = asyncio.get_event_loop()`
+- **类型**: `TypeAlias`
 
+### ***var*** `LIFESPAN_FUNC = SYNC_LIFESPAN_FUNC | ASYNC_LIFESPAN_FUNC`
 
+- **类型**: `TypeAlias`
 
-### ***var*** `loop = asyncio.new_event_loop()`
+### ***var*** `SYNC_PROCESS_LIFESPAN_FUNC = Callable[[str], Any]`
 
+- **类型**: `TypeAlias`
 
+### ***var*** `ASYNC_PROCESS_LIFESPAN_FUNC = Callable[[str], Awaitable[Any]]`
+
+- **类型**: `TypeAlias`
+
+### ***var*** `PROCESS_LIFESPAN_FUNC = SYNC_PROCESS_LIFESPAN_FUNC | ASYNC_PROCESS_LIFESPAN_FUNC`
+
+- **类型**: `TypeAlias`
 

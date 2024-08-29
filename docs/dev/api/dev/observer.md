@@ -1,16 +1,15 @@
 ---
 title: liteyuki.dev.observer
-order: 1
-icon: laptop-code
-category: API
 ---
+### *func* `debounce()`
 
-### ***def*** `debounce(wait: Any) -> None`
 
-防抖函数
+
+**说明**: 防抖函数
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def debounce(wait):
@@ -32,24 +31,22 @@ def debounce(wait):
 ```
 </details>
 
-### ***def*** `on_file_system_event(directories: tuple[str], recursive: bool, event_filter: FILTER_FUNC) -> Callable[[CALLBACK_FUNC], CALLBACK_FUNC]`
+### *func* `on_file_system_event(directories: tuple[str] = True, recursive: bool = None) -> Callable[[CALLBACK_FUNC], CALLBACK_FUNC]`
 
-注册文件系统变化监听器
 
-Args:
 
-    directories: 监听目录们
+**说明**: 注册文件系统变化监听器
 
-    recursive: 是否递归监听子目录
+**参数**:
+> - directories: 监听目录们  
+> - recursive: 是否递归监听子目录  
+> - event_filter: 事件过滤器, 返回True则执行回调函数  
 
-    event_filter: 事件过滤器, 返回True则执行回调函数
+**返回**: 装饰器，装饰一个函数在接收到数据后执行
 
-Returns:
-
-    装饰器，装饰一个函数在接收到数据后执行
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def on_file_system_event(directories: tuple[str], recursive: bool=True, event_filter: FILTER_FUNC=None) -> Callable[[CALLBACK_FUNC], CALLBACK_FUNC]:
@@ -78,91 +75,13 @@ def on_file_system_event(directories: tuple[str], recursive: bool=True, event_fi
 ```
 </details>
 
-### ***def*** `decorator(func: Any) -> None`
-
-
-
-<details>
-<summary>源代码</summary>
-
-```python
-def decorator(func):
-
-    def wrapper(*args, **kwargs):
-        nonlocal last_call_time
-        current_time = time.time()
-        if current_time - last_call_time > wait:
-            last_call_time = current_time
-            return func(*args, **kwargs)
-    last_call_time = None
-    return wrapper
-```
-</details>
-
-### ***def*** `decorator(func: CALLBACK_FUNC) -> CALLBACK_FUNC`
-
+### **class** `CodeModifiedHandler(FileSystemEventHandler)`
+### `@debounce(1)`
+### *method* `on_modified(self, event)`
 
 
 <details>
-<summary>源代码</summary>
-
-```python
-def decorator(func: CALLBACK_FUNC) -> CALLBACK_FUNC:
-
-    def wrapper(event: FileSystemEvent):
-        if event_filter is not None and (not event_filter(event)):
-            return
-        func(event)
-    code_modified_handler = CodeModifiedHandler()
-    code_modified_handler.on_modified = wrapper
-    for directory in directories:
-        observer.schedule(code_modified_handler, directory, recursive=recursive)
-    return func
-```
-</details>
-
-### ***def*** `wrapper() -> None`
-
-
-
-<details>
-<summary>源代码</summary>
-
-```python
-def wrapper(*args, **kwargs):
-    nonlocal last_call_time
-    current_time = time.time()
-    if current_time - last_call_time > wait:
-        last_call_time = current_time
-        return func(*args, **kwargs)
-```
-</details>
-
-### ***def*** `wrapper(event: FileSystemEvent) -> None`
-
-
-
-<details>
-<summary>源代码</summary>
-
-```python
-def wrapper(event: FileSystemEvent):
-    if event_filter is not None and (not event_filter(event)):
-        return
-    func(event)
-```
-</details>
-
-### ***class*** `CodeModifiedHandler(FileSystemEventHandler)`
-
-Handler for code file changes
-
-### &emsp; ***def*** `on_modified(self, event: Any) -> None`
-
-&emsp;
-
-<details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 @debounce(1)
@@ -171,12 +90,11 @@ def on_modified(self, event):
 ```
 </details>
 
-### &emsp; ***def*** `on_created(self, event: Any) -> None`
+### *method* `on_created(self, event)`
 
-&emsp;
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def on_created(self, event):
@@ -184,12 +102,11 @@ def on_created(self, event):
 ```
 </details>
 
-### &emsp; ***def*** `on_deleted(self, event: Any) -> None`
+### *method* `on_deleted(self, event)`
 
-&emsp;
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def on_deleted(self, event):
@@ -197,12 +114,11 @@ def on_deleted(self, event):
 ```
 </details>
 
-### &emsp; ***def*** `on_moved(self, event: Any) -> None`
+### *method* `on_moved(self, event)`
 
-&emsp;
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def on_moved(self, event):
@@ -210,12 +126,11 @@ def on_moved(self, event):
 ```
 </details>
 
-### &emsp; ***def*** `on_any_event(self, event: Any) -> None`
+### *method* `on_any_event(self, event)`
 
-&emsp;
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def on_any_event(self, event):
@@ -223,27 +138,15 @@ def on_any_event(self, event):
 ```
 </details>
 
-### ***var*** `liteyuki_bot = get_bot()`
+### ***var*** `CALLBACK_FUNC = Callable[[FileSystemEvent], None]`
 
+- **类型**: `TypeAlias`
 
+- **说明**: 位置1为FileSystemEvent
 
-### ***var*** `observer = Observer()`
+### ***var*** `FILTER_FUNC = Callable[[FileSystemEvent], bool]`
 
+- **类型**: `TypeAlias`
 
-
-### ***var*** `last_call_time = None`
-
-
-
-### ***var*** `code_modified_handler = CodeModifiedHandler()`
-
-
-
-### ***var*** `current_time = time.time()`
-
-
-
-### ***var*** `last_call_time = current_time`
-
-
+- **说明**: 位置1为FileSystemEvent
 

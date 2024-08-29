@@ -1,16 +1,11 @@
 ---
 title: liteyuki.log
-order: 1
-icon: laptop-code
-category: API
 ---
-
-### ***def*** `get_format(level: str) -> str`
-
+### *func* `get_format() -> str`
 
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def get_format(level: str) -> str:
@@ -21,14 +16,15 @@ def get_format(level: str) -> str:
 ```
 </details>
 
-### ***def*** `init_log(config: dict) -> None`
+### *func* `init_log()`
 
-在语言加载完成后执行
 
-Returns:
+
+**说明**: 在语言加载完成后执行
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>源代码</b> </summary>
 
 ```python
 def init_log(config: dict):
@@ -48,11 +44,11 @@ def init_log(config: dict):
 ```
 </details>
 
-### ***var*** `logger = loguru.logger`
+### ***var*** `debug_format = '<c>{time:YYYY-MM-DD HH:mm:ss}</c> <lvl>[{level.icon}]</lvl> <c><{name}.{module}.{function}:{line}></c> {message}'`
 
+- **类型**: `str`
 
+### ***var*** `default_format = '<c>{time:MM-DD HH:mm:ss}</c> <lvl>[{level.icon}]</lvl> <c><{name}></c> {message}'`
 
-### ***var*** `show_icon = config.get('log_icon', True)`
-
-
+- **类型**: `str`
 

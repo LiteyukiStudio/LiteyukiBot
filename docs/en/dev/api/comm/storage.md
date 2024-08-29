@@ -1,46 +1,12 @@
 ---
 title: liteyuki.comm.storage
-order: 1
-icon: laptop-code
-category: API
 ---
-
-### ***def*** `run_subscriber_receive_funcs(channel_: str, data: Any) -> None`
-
-运行订阅者接收函数
-
-Args:
-
-    channel_: 频道
-
-    data: 数据
-
-<details>
-<summary>源代码</summary>
-
-```python
-@staticmethod
-def run_subscriber_receive_funcs(channel_: str, data: Any):
-    """
-        运行订阅者接收函数
-        Args:
-            channel_: 频道
-            data: 数据
-        """
-    if IS_MAIN_PROCESS:
-        if channel_ in _on_main_subscriber_receive_funcs and _on_main_subscriber_receive_funcs[channel_]:
-            run_coroutine(*[func(data) for func in _on_main_subscriber_receive_funcs[channel_]])
-    elif channel_ in _on_sub_subscriber_receive_funcs and _on_sub_subscriber_receive_funcs[channel_]:
-        run_coroutine(*[func(data) for func in _on_sub_subscriber_receive_funcs[channel_]])
-```
-</details>
-
-### ***def*** `on_get(data: tuple[str, dict[str, Any]]) -> None`
-
+### `@shared_memory.passive_chan.on_receive(lambda d: d[0] == 'get')`
+### *func* `on_get()`
 
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 @shared_memory.passive_chan.on_receive(lambda d: d[0] == 'get')
@@ -52,12 +18,12 @@ def on_get(data: tuple[str, dict[str, Any]]):
 ```
 </details>
 
-### ***def*** `on_set(data: tuple[str, dict[str, Any]]) -> None`
-
+### `@shared_memory.passive_chan.on_receive(lambda d: d[0] == 'set')`
+### *func* `on_set()`
 
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 @shared_memory.passive_chan.on_receive(lambda d: d[0] == 'set')
@@ -68,12 +34,12 @@ def on_set(data: tuple[str, dict[str, Any]]):
 ```
 </details>
 
-### ***def*** `on_delete(data: tuple[str, dict[str, Any]]) -> None`
-
+### `@shared_memory.passive_chan.on_receive(lambda d: d[0] == 'delete')`
+### *func* `on_delete()`
 
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 @shared_memory.passive_chan.on_receive(lambda d: d[0] == 'delete')
@@ -83,12 +49,12 @@ def on_delete(data: tuple[str, dict[str, Any]]):
 ```
 </details>
 
-### ***def*** `on_get_all(data: tuple[str, dict[str, Any]]) -> None`
-
+### `@shared_memory.passive_chan.on_receive(lambda d: d[0] == 'get_all')`
+### *func* `on_get_all()`
 
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 @shared_memory.passive_chan.on_receive(lambda d: d[0] == 'get_all')
@@ -98,12 +64,12 @@ def on_get_all(data: tuple[str, dict[str, Any]]):
 ```
 </details>
 
-### ***def*** `on_publish(data: tuple[str, Any]) -> None`
-
+### `@channel.publish_channel.on_receive()`
+### *func* `on_publish()`
 
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 @channel.publish_channel.on_receive()
@@ -113,59 +79,12 @@ def on_publish(data: tuple[str, Any]):
 ```
 </details>
 
-### ***def*** `decorator(func: ON_RECEIVE_FUNC) -> ON_RECEIVE_FUNC`
-
-
-
-<details>
-<summary>源代码</summary>
-
-```python
-def decorator(func: ON_RECEIVE_FUNC) -> ON_RECEIVE_FUNC:
-
-    async def wrapper(data: Any):
-        if is_coroutine_callable(func):
-            await func(data)
-        else:
-            func(data)
-    if IS_MAIN_PROCESS:
-        if channel_ not in _on_main_subscriber_receive_funcs:
-            _on_main_subscriber_receive_funcs[channel_] = []
-        _on_main_subscriber_receive_funcs[channel_].append(wrapper)
-    else:
-        if channel_ not in _on_sub_subscriber_receive_funcs:
-            _on_sub_subscriber_receive_funcs[channel_] = []
-        _on_sub_subscriber_receive_funcs[channel_].append(wrapper)
-    return wrapper
-```
-</details>
-
-### ***async def*** `wrapper(data: Any) -> None`
-
+### **class** `Subscriber`
+### *method* `__init__(self)`
 
 
 <details>
-<summary>源代码</summary>
-
-```python
-async def wrapper(data: Any):
-    if is_coroutine_callable(func):
-        await func(data)
-    else:
-        func(data)
-```
-</details>
-
-### ***class*** `Subscriber`
-
-
-
-### &emsp; ***def*** `__init__(self) -> None`
-
-&emsp;
-
-<details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def __init__(self):
@@ -173,12 +92,11 @@ def __init__(self):
 ```
 </details>
 
-### &emsp; ***def*** `receive(self) -> Any`
+### *method* `receive(self) -> Any`
 
-&emsp;
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def receive(self) -> Any:
@@ -186,12 +104,11 @@ def receive(self) -> Any:
 ```
 </details>
 
-### &emsp; ***def*** `unsubscribe(self) -> None`
+### *method* `unsubscribe(self) -> None`
 
-&emsp;
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def unsubscribe(self) -> None:
@@ -199,16 +116,12 @@ def unsubscribe(self) -> None:
 ```
 </details>
 
-### ***class*** `KeyValueStore`
+### **class** `KeyValueStore`
+### *method* `__init__(self)`
 
-
-
-### &emsp; ***def*** `__init__(self) -> None`
-
-&emsp;
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def __init__(self):
@@ -221,18 +134,19 @@ def __init__(self):
 ```
 </details>
 
-### &emsp; ***def*** `set(self, key: str, value: Any) -> None`
+### *method* `set(self, key: str, value: Any) -> None`
 
-&emsp;设置键值对
 
-Args:
 
-    key: 键
+**Description**: 设置键值对
 
-    value: 值
+**Arguments**:
+> - key: 键  
+> - value: 值  
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def set(self, key: str, value: Any) -> None:
@@ -252,24 +166,21 @@ def set(self, key: str, value: Any) -> None:
 ```
 </details>
 
-### &emsp; ***def*** `get(self, key: str, default: Optional[Any]) -> Optional[Any]`
-
-&emsp;获取键值对
-
-Args:
-
-    key: 键
-
-    default: 默认值
+### *method* `get(self, key: str, default: Optional[Any] = None) -> Optional[Any]`
 
 
 
-Returns:
+**Description**: 获取键值对
 
-    Any: 值
+**Arguments**:
+> - key: 键  
+> - default: 默认值  
+
+**Return**: Any: 值
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def get(self, key: str, default: Optional[Any]=None) -> Optional[Any]:
@@ -293,22 +204,19 @@ def get(self, key: str, default: Optional[Any]=None) -> Optional[Any]:
 ```
 </details>
 
-### &emsp; ***def*** `delete(self, key: str, ignore_key_error: bool) -> None`
-
-&emsp;删除键值对
-
-Args:
-
-    key: 键
-
-    ignore_key_error: 是否忽略键不存在的错误
+### *method* `delete(self, key: str, ignore_key_error: bool = True) -> None`
 
 
 
-Returns:
+**Description**: 删除键值对
+
+**Arguments**:
+> - key: 键  
+> - ignore_key_error: 是否忽略键不存在的错误  
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def delete(self, key: str, ignore_key_error: bool=True) -> None:
@@ -335,16 +243,17 @@ def delete(self, key: str, ignore_key_error: bool=True) -> None:
 ```
 </details>
 
-### &emsp; ***def*** `get_all(self) -> dict[str, Any]`
+### *method* `get_all(self) -> dict[str, Any]`
 
-&emsp;获取所有键值对
 
-Returns:
 
-    dict[str, Any]: 键值对
+**Description**: 获取所有键值对
+
+**Return**: dict[str, Any]: 键值对
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def get_all(self) -> dict[str, Any]:
@@ -362,22 +271,19 @@ def get_all(self) -> dict[str, Any]:
 ```
 </details>
 
-### &emsp; ***def*** `publish(self, channel_: str, data: Any) -> None`
-
-&emsp;发布消息
-
-Args:
-
-    channel_: 频道
-
-    data: 数据
+### *method* `publish(self, channel_: str, data: Any) -> None`
 
 
 
-Returns:
+**Description**: 发布消息
+
+**Arguments**:
+> - channel_: 频道  
+> - data: 数据  
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def publish(self, channel_: str, data: Any) -> None:
@@ -393,22 +299,20 @@ def publish(self, channel_: str, data: Any) -> None:
 ```
 </details>
 
-### &emsp; ***def*** `on_subscriber_receive(self, channel_: str) -> Callable[[ON_RECEIVE_FUNC], ON_RECEIVE_FUNC]`
-
-&emsp;订阅者接收消息时的回调
-
-Args:
-
-    channel_: 频道
+### *method* `on_subscriber_receive(self, channel_: str) -> Callable[[ON_RECEIVE_FUNC], ON_RECEIVE_FUNC]`
 
 
 
-Returns:
+**Description**: 订阅者接收消息时的回调
 
-    装饰器
+**Arguments**:
+> - channel_: 频道  
+
+**Return**: 装饰器
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 def on_subscriber_receive(self, channel_: str) -> Callable[[ON_RECEIVE_FUNC], ON_RECEIVE_FUNC]:
@@ -447,19 +351,20 @@ def on_subscriber_receive(self, channel_: str) -> Callable[[ON_RECEIVE_FUNC], ON
 ```
 </details>
 
-### &emsp; ***@staticmethod***
-### &emsp; ***def*** `run_subscriber_receive_funcs(channel_: str, data: Any) -> None`
+### `@staticmethod`
+### *method* `run_subscriber_receive_funcs(channel_: str, data: Any)`
 
-&emsp;运行订阅者接收函数
 
-Args:
 
-    channel_: 频道
+**Description**: 运行订阅者接收函数
 
-    data: 数据
+**Arguments**:
+> - channel_: 频道  
+> - data: 数据  
+
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
 
 ```python
 @staticmethod
@@ -472,23 +377,48 @@ def run_subscriber_receive_funcs(channel_: str, data: Any):
         """
     if IS_MAIN_PROCESS:
         if channel_ in _on_main_subscriber_receive_funcs and _on_main_subscriber_receive_funcs[channel_]:
-            run_coroutine(*[func(data) for func in _on_main_subscriber_receive_funcs[channel_]])
+            run_coroutine_in_thread(*[func(data) for func in _on_main_subscriber_receive_funcs[channel_]])
     elif channel_ in _on_sub_subscriber_receive_funcs and _on_sub_subscriber_receive_funcs[channel_]:
-        run_coroutine(*[func(data) for func in _on_sub_subscriber_receive_funcs[channel_]])
+        run_coroutine_in_thread(*[func(data) for func in _on_sub_subscriber_receive_funcs[channel_]])
 ```
 </details>
 
-### ***class*** `GlobalKeyValueStore`
+### *method* `_start_receive_loop(self)`
 
 
 
-### &emsp; ***@classmethod***
-### &emsp; ***def*** `get_instance(cls: Any) -> None`
+**Description**: 启动发布订阅接收器循环，在主进程中运行，若有子进程订阅则推送给子进程
 
-&emsp;
 
 <details>
-<summary>源代码</summary>
+<summary> <b>Source code</b> </summary>
+
+```python
+def _start_receive_loop(self):
+    """
+        启动发布订阅接收器循环，在主进程中运行，若有子进程订阅则推送给子进程
+        """
+    if IS_MAIN_PROCESS:
+        while True:
+            data = self.active_chan.receive()
+            if data[0] == 'publish':
+                self.run_subscriber_receive_funcs(data[1]['channel'], data[1]['data'])
+                self.publish_channel.send(data)
+    else:
+        while True:
+            data = self.publish_channel.receive()
+            if data[0] == 'publish':
+                self.run_subscriber_receive_funcs(data[1]['channel'], data[1]['data'])
+```
+</details>
+
+### **class** `GlobalKeyValueStore`
+### `@classmethod`
+### *method* `get_instance(cls)`
+
+
+<details>
+<summary> <b>Source code</b> </summary>
 
 ```python
 @classmethod
@@ -501,63 +431,19 @@ def get_instance(cls):
 ```
 </details>
 
-### &emsp; ***attr*** `_instance: None`
+### ***var*** `_on_main_subscriber_receive_funcs = {}`
 
-### &emsp; ***attr*** `_lock: threading.Lock()`
+- **Type**: `dict[str, list[ASYNC_ON_RECEIVE_FUNC]]`
 
-### ***var*** `key = data[1]['key']`
+- **Description**: 主进程订阅者接收函数
 
+### ***var*** `_on_sub_subscriber_receive_funcs = {}`
 
+- **Type**: `dict[str, list[ASYNC_ON_RECEIVE_FUNC]]`
 
-### ***var*** `default = data[1]['default']`
+- **Description**: 子进程订阅者接收函数
 
+### ***var*** `shared_memory = GlobalKeyValueStore.get_instance()`
 
-
-### ***var*** `recv_chan = data[1]['recv_chan']`
-
-
-
-### ***var*** `key = data[1]['key']`
-
-
-
-### ***var*** `value = data[1]['value']`
-
-
-
-### ***var*** `key = data[1]['key']`
-
-
-
-### ***var*** `recv_chan = data[1]['recv_chan']`
-
-
-
-### ***var*** `lock = _get_lock(key)`
-
-
-
-### ***var*** `lock = _get_lock(key)`
-
-
-
-### ***var*** `recv_chan = Channel[Optional[Any]]('recv_chan')`
-
-
-
-### ***var*** `lock = _get_lock(key)`
-
-
-
-### ***var*** `recv_chan = Channel[dict[str, Any]]('recv_chan')`
-
-
-
-### ***var*** `data = self.active_chan.receive()`
-
-
-
-### ***var*** `data = self.publish_channel.receive()`
-
-
+- **Type**: `KeyValueStore`
 
