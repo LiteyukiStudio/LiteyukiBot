@@ -8,13 +8,11 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @File    : manager.py
 @Software: PyCharm
 """
+import asyncio
 import multiprocessing
-import threading
 from multiprocessing import Process
 from typing import Any, Callable, TYPE_CHECKING, TypeAlias
 
-from liteyuki.comm.channel import Channel, get_channel, set_channels, publish_channel
-from liteyuki.comm.storage import shared_memory
 from liteyuki.log import logger
 from liteyuki.utils import IS_MAIN_PROCESS
 
@@ -22,10 +20,15 @@ if TYPE_CHECKING:
     from liteyuki.bot.lifespan import Lifespan
     from liteyuki.comm.storage import KeyValueStore
 
+
+from liteyuki.comm import Channel
 if IS_MAIN_PROCESS:
+    from liteyuki.comm.channel import get_channel, publish_channel, get_channels
+    from liteyuki.comm.storage import shared_memory
     from liteyuki.comm.channel import channel_deliver_active_channel, channel_deliver_passive_channel
 else:
     from liteyuki.comm import channel
+    from liteyuki.comm import storage
 
 TARGET_FUNC: TypeAlias = Callable[..., Any]
 TIMEOUT = 10
@@ -69,7 +72,7 @@ def _delivery_channel_wrapper(func: TARGET_FUNC, cd: ChannelDeliver, sm: "KeyVal
     channel.publish_channel = cd.publish  # 子进程发布通道
 
     # 给子进程创建共享内存实例
-    from liteyuki.comm import storage
+
     storage.shared_memory = sm
 
     func(*args, **kwargs)
@@ -85,13 +88,12 @@ class ProcessManager:
         self.targets: dict[str, tuple[Callable, tuple, dict]] = {}
         self.processes: dict[str, Process] = {}
 
-    def start(self, name: str):
+    async def _run_process(self, name: str):
         """
-        开启后自动监控进程，并添加到进程字典中
+        开启后自动监控进程，并添加到进程字典中，会阻塞，请创建task
         Args:
             name:
         Returns:
-
         """
         if name not in self.targets:
             raise KeyError(f"Process {name} not found.")
@@ -108,30 +110,31 @@ class ProcessManager:
         _start_process()
 
         while True:
-            data = chan_active.receive()
+            data = await chan_active.async_receive()
             if data == 0:
                 # 停止
                 logger.info(f"Stopping process {name}")
-                self.lifespan.before_process_shutdown()
+                await self.lifespan.before_process_shutdown()
                 self.terminate(name)
                 break
             elif data == 1:
                 # 重启
                 logger.info(f"Restarting process {name}")
-                self.lifespan.before_process_shutdown()
-                self.lifespan.before_process_restart()
+                await self.lifespan.before_process_shutdown()
+                await self.lifespan.before_process_restart()
                 self.terminate(name)
                 _start_process()
                 continue
             else:
                 logger.warning("Unknown data received, ignored.")
 
-    def start_all(self):
+    async def start_all(self):
         """
-        启动所有进程
+        对外启动方法，启动所有进程，创建asyncio task
         """
-        for name in self.targets:
-            threading.Thread(target=self.start, args=(name,), daemon=True).start()
+        [asyncio.create_task(chan.start_receive_loop()) for chan in get_channels().values()]
+        [asyncio.create_task(sm.start_receive_loop()) for sm in [shared_memory]]
+        [asyncio.create_task(self._run_process(name)) for name in self.targets]
 
     def add_target(self, name: str, target: TARGET_FUNC, args: tuple = (), kwargs=None):
         """
@@ -144,8 +147,8 @@ class ProcessManager:
         """
         if kwargs is None:
             kwargs = {}
-        chan_active: Channel = Channel(_id=f"{name}-active")
-        chan_passive: Channel = Channel(_id=f"{name}-passive")
+        chan_active: Channel = Channel(name=f"{name}-active")
+        chan_passive: Channel = Channel(name=f"{name}-passive")
 
         channel_deliver = ChannelDeliver(
             active=chan_active,
@@ -157,12 +160,6 @@ class ProcessManager:
 
         self.targets[name] = (_delivery_channel_wrapper, (target, channel_deliver, shared_memory, *args), kwargs)
         # 主进程通道
-        set_channels(
-            {
-                    f"{name}-active" : chan_active,
-                    f"{name}-passive": chan_passive
-            }
-        )
 
     def join_all(self):
         for name, process in self.targets:
