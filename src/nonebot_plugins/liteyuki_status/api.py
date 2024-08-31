@@ -290,7 +290,7 @@ async def get_liteyuki_data() -> dict:
     temp_data: TempConfig = common_db.where_one(TempConfig(), default=TempConfig())
     result = {
         "name": list(get_config("nickname", [__NAME__]))[0],
-        "version": f"{__VERSION__}{'-' + commit_hash[:7] if (commit_hash and len(commit_hash) > 8) else ''}",
+        "version": f"{__version__}{'-' + commit_hash[:7] if (commit_hash and len(commit_hash) > 8) else ''}",
         "plugins": len(nonebot.get_loaded_plugins()),
         "resources": len(get_loaded_resource_packs()),
         "nonebot": f"{nonebot.__version__}",
