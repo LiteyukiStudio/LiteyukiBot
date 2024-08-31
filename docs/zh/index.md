@@ -16,7 +16,8 @@ hero:
       text: 扩展
       link: ./store/resource
   image:
-    src: ./liteyuki.svg
+    light: ./liteyuki.svg
+    dark: ./liteyuki-dark.svg
     alt: Liteyuki Logo
 
 features:

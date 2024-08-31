@@ -61,7 +61,11 @@ export const common = defineConfig({
         [`${defaultLocale}/:rest*`]: ":rest*",
     },
     themeConfig: {
-        logo: '/liteyuki.svg',
+        logo: {
+            light: '/liteyuki.svg',
+            dark: '/liteyuki-dark.svg',
+            alt: 'LiteyukiBot Logo'
+        },
         sidebar: generateSidebar(
             [
                 ...generateSidebarConfig()
