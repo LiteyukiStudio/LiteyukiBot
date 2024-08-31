@@ -5,7 +5,7 @@ order: 0
 # Development Guide
 
 ## How to Develop
-Please read the [Plugin Development](./plugin) and [API Reference](./api) documents if you are developing a plugin.
+Please read the [Plugin Development](./plugin) and [API Reference](./api/) documents if you are developing a plugin.
 
 If you need to submit code to the Liteyuki repository, please read the following:
 1. First [fork](https://github.com/LiteyukiStudio/LiteyukiBot/fork) a copy of the Liteyuki repository to your personal/organization account.

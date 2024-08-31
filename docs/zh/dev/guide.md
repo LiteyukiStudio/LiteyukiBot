@@ -5,7 +5,7 @@ order: 0
 # 开发指南
 
 ## 如何开发
-插件开发无需阅读本文档，请阅读[插件开发文档](./plugin)和[API 引用](./api)。
+插件开发无需阅读本文档，请阅读[插件开发文档](./plugin)和[API 引用](./api/)。
 
 如需往轻雪仓库提交代码，请阅读以下内容：
 1. 首先[fork](https://github.com/LiteyukiStudio/LiteyukiBot/fork)一份轻雪仓库到你的个人/组织账户下。
