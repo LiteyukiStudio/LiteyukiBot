@@ -29,16 +29,7 @@ const props = defineProps({
 
 <style scoped>
 
-.item-name {
-  font-size: 20px;
-  margin-bottom: 10px;
-}
 
-.item-description {
-  color: #333;
-  font-size: 15px;
-  white-space: pre-wrap;
-}
 
 .icon {
   width: 20px;
@@ -46,21 +37,9 @@ const props = defineProps({
   color: $themeColor;
 }
 
-.author-info {
-  display: flex;
-  justify-content: left;
-  align-items: center;
-}
 
-.author-name {
-  font-size: 15px;
-  font-weight: normal;
-}
 
-.avatar {
-  border-radius: 50%;
-  margin: 0 10px;
-}
+
 
 .item-bar {
   position: absolute;

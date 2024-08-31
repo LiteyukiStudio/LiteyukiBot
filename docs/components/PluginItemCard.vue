@@ -14,7 +14,7 @@
         </svg>
       </a>
 
-<!--      <button class="copy-btn btn"><div @click="copyToClipboard">安装</div></button> 点击后把安装命令写入剪贴板-->
+      <!--      <button class="copy-btn btn"><div @click="copyToClipboard">安装</div></button> 点击后把安装命令写入剪贴板-->
       <button class="btn copy-btn" @click="copyToClipboard">复制安装命令</button>
 
       <div class="btn">
@@ -82,42 +82,11 @@ button {
   color: #666;
 }
 
-.copy-btn:hover {
-  color: #111;
-}
-
-.item-name {
-  color: #111;
-  font-size: 20px;
-  margin-bottom: 10px;
-}
-
-.item-description {
-  color: #333;
-  font-size: 12px;
-  white-space: pre-wrap;
-}
-
 .icon {
   width: 20px;
   height: 20px;
 }
 
-.author-info {
-  display: flex;
-  justify-content: left;
-  align-items: center;
-}
-
-.author-name {
-  font-size: 15px;
-  font-weight: normal;
-}
-
-.avatar {
-  border-radius: 50%;
-  margin: 0 10px;
-}
 
 .item-bar {
   position: absolute;
@@ -132,7 +101,7 @@ button {
 
 .tag {
   display: inline-block;
-  padding: 0px 5px;
+  padding: 0 5px;
   margin-right: 5px;
   border-radius: 5px;
   font-size: 12px;
