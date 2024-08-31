@@ -8,7 +8,7 @@ import threading
 import time
 from typing import Any, Optional
 
-from liteyuki.bot.lifespan import (LIFESPAN_FUNC, Lifespan)
+from liteyuki.bot.lifespan import (LIFESPAN_FUNC, Lifespan, PROCESS_LIFESPAN_FUNC)
 from liteyuki.comm.channel import get_channel
 from liteyuki.core.manager import ProcessManager
 from liteyuki.log import init_log, logger
@@ -24,13 +24,11 @@ __all__ = [
 
 
 class LiteyukiBot:
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, **kwargs) -> None:
         """
         初始化轻雪实例
         Args:
-            *args:
             **kwargs: 配置
-
         """
         """常规操作"""
         print_logo()
@@ -83,8 +81,6 @@ class LiteyukiBot:
     async def keep_alive(self):
         """
         保持轻雪运行
-        Returns:
-
         """
         try:
             while not self.stop_event.is_set():
@@ -95,13 +91,12 @@ class LiteyukiBot:
 
     def _handle_exit(self, signum, frame):
         """
+        @litedoc-hide
+
         信号处理
         Args:
-            signum:
-            frame:
-
-        Returns:
-
+            signum: 信号
+            frame: 帧
         """
         logger.info("Received signal, stopping all processes.")
         self.stop()
@@ -110,8 +105,8 @@ class LiteyukiBot:
     def restart(self, delay: int = 0):
         """
         重启轻雪本体
-        Returns:
-
+        Args:
+            delay ([`int`](https%3A//docs.python.org/3/library/functions.html#int), optional): 延迟重启时间. Defaults to 0.
         """
         if self.call_restart_count < 1:
             executable = sys.executable
@@ -136,7 +131,7 @@ class LiteyukiBot:
         """
         停止轻雪
         Args:
-            name: 进程名称, 默认为None, 所有进程
+            name ([`Optional`](https%3A//docs.python.org/3/library/typing.html#typing.Optional)[[`str`](https%3A//docs.python.org/3/library/stdtypes.html#str)]): 进程名. Defaults to None.
         Returns:
         """
         if name is not None:
@@ -150,32 +145,32 @@ class LiteyukiBot:
     def init(self, *args, **kwargs):
         """
         初始化轻雪, 自动调用
-        Returns:
-
+        Args:
+            *args: 参数
+            **kwargs: 关键字参数
         """
         self.init_logger()
 
     def init_logger(self):
-        # 修改nonebot的日志配置
+        """
+        初始化日志
+        """
         init_log(config=self.config)
 
     def stop(self):
         """
         停止轻雪
-        Returns:
-
         """
         self.stop_event.set()
         self.loop.stop()
 
-    def on_before_start(self, func: LIFESPAN_FUNC):
+    def on_before_start(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
         """
         注册启动前的函数
         Args:
-            func:
-
+            func ([`LIFESPAN_FUNC`](./lifespan#var-lifespan-func)): 生命周期函数
         Returns:
-
+            [`LIFESPAN_FUNC`](./lifespan#var-lifespan-func): 生命周期函数
         """
         return self.lifespan.on_before_start(func)
 
@@ -183,10 +178,9 @@ class LiteyukiBot:
         """
         注册启动后的函数
         Args:
-            func:
-
+            func ([`LIFESPAN_FUNC`](./lifespan#var-lifespan-func)): 生命周期函数
         Returns:
-
+            [`LIFESPAN_FUNC`](./lifespan#var-lifespan-func): 生命周期函数
         """
         return self.lifespan.on_after_start(func)
 
@@ -194,32 +188,29 @@ class LiteyukiBot:
         """
         注册停止后的函数：未实现
         Args:
-            func:
-
+            func ([`LIFESPAN_FUNC`](./lifespan#var-lifespan-func)): 生命周期函数
         Returns:
-
+            [`LIFESPAN_FUNC`](./lifespan#var-lifespan-func): 生命周期函数
         """
         return self.lifespan.on_after_shutdown(func)
 
-    def on_before_process_shutdown(self, func: LIFESPAN_FUNC):
+    def on_before_process_shutdown(self, func: PROCESS_LIFESPAN_FUNC):
         """
         注册进程停止前的函数，为子进程停止时调用
         Args:
-            func:
-
+            func ([`PROCESS_LIFESPAN_FUNC`](./lifespan#var-process-lifespan-func)): 生命周期函数
         Returns:
-
+            [`PROCESS_LIFESPAN_FUNC`](./lifespan#var-process-lifespan-func): 生命周期函数
         """
         return self.lifespan.on_before_process_shutdown(func)
 
-    def on_before_process_restart(self, func: LIFESPAN_FUNC):
+    def on_before_process_restart(self, func: PROCESS_LIFESPAN_FUNC) -> PROCESS_LIFESPAN_FUNC:
         """
         注册进程重启前的函数，为子进程重启时调用
         Args:
-            func:
-
+            func ([`PROCESS_LIFESPAN_FUNC`](./lifespan#var-process-lifespan-func)): 生命周期函数
         Returns:
-
+            [`PROCESS_LIFESPAN_FUNC`](./lifespan#var-process-lifespan-func): 生命周期函数
         """
 
         return self.lifespan.on_before_process_restart(func)
@@ -228,10 +219,9 @@ class LiteyukiBot:
         """
         注册重启后的函数：未实现
         Args:
-            func:
-
+            func ([`LIFESPAN_FUNC`](./lifespan#var-lifespan-func)): 生命周期函数
         Returns:
-
+            [`LIFESPAN_FUNC`](./lifespan#var-lifespan-func): 生命周期函数
         """
         return self.lifespan.on_after_restart(func)
 
@@ -242,9 +232,8 @@ _BOT_INSTANCE: LiteyukiBot
 def get_bot() -> LiteyukiBot:
     """
     获取轻雪实例
-
     Returns:
-        LiteyukiBot: 当前的轻雪实例
+        [`LiteyukiBot`](#class-liteyukibot): 轻雪实例
     """
 
     if IS_MAIN_PROCESS:
@@ -259,11 +248,10 @@ def get_config(key: str, default: Any = None) -> Any:
     """
     获取配置
     Args:
-        key: 配置键
-        default: 默认值
-
+        key ([`str`](https%3A//docs.python.org/3/library/stdtypes.html#str)): 配置键
+        default ([`Any`](https%3A//docs.python.org/3/library/functions.html#any), optional): 默认值. Defaults to None.
     Returns:
-        Any: 配置值
+        [`Any`](https%3A//docs.python.org/3/library/functions.html#any): 配置值
     """
     return get_bot().config.get(key, default)
 
@@ -272,12 +260,12 @@ def get_config_with_compat(key: str, compat_keys: tuple[str], default: Any = Non
     """
     获取配置，兼容旧版本
     Args:
-        key: 配置键
-        compat_keys: 兼容键
-        default: 默认值
+        key ([`str`](https%3A//docs.python.org/3/library/stdtypes.html#str)): 配置键
+        compat_keys ([`tuple`](https%3A//docs.python.org/3/library/stdtypes.html#tuple)[`str`](https%3A//docs.python.org/3/library/stdtypes.html#str)): 兼容键
+        default ([`Any`](https%3A//docs.python.org/3/library/functions.html#any), optional): 默认值. Defaults to None.
 
     Returns:
-        Any: 配置值
+        [`Any`](https%3A//docs.python.org/3/library/functions.html#any): 配置值
     """
     if key in get_bot().config:
         return get_bot().config[key]
@@ -289,6 +277,7 @@ def get_config_with_compat(key: str, compat_keys: tuple[str], default: Any = Non
 
 
 def print_logo():
+    """@litedoc-hide"""
     print("\033[34m" + r"""
      __        ______  ________  ________  __      __  __    __  __    __  ______ 
     /  |      /      |/        |/        |/  \    /  |/  |  /  |/  |  /  |/      |

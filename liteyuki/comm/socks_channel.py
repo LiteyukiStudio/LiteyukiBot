@@ -1,12 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved 
-
-@Time    : 2024/8/25 下午3:54
-@Author  : snowykami
-@Email   : snowykami@outlook.com
-@File    : channelv2.py
-@Software: PyCharm
+基于socket的通道
 """
 
 

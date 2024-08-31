@@ -234,7 +234,7 @@ class GlobalKeyValueStore:
         return cls._instance
 
 
-shared_memory: KeyValueStore = GlobalKeyValueStore.get_instance()
+shared_memory: KeyValueStore = GlobalKeyValueStore.get_instance()   # 共享内存对象
 
 # 全局单例访问点
 if IS_MAIN_PROCESS:

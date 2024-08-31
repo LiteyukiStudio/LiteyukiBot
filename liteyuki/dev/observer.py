@@ -21,7 +21,6 @@ def debounce(wait):
     """
     防抖函数
     """
-
     def decorator(func):
         def wrapper(*args, **kwargs):
             nonlocal last_call_time

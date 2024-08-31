@@ -1,13 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved 
-
-@Time    : 2024/7/26 下午11:21
-@Author  : snowykami
-@Email   : snowykami@outlook.com
-@File    : channel_.py
-@Software: PyCharm
-
 本模块定义了一个通用的通道类，用于进程间通信
 """
 import asyncio
@@ -19,13 +11,13 @@ from liteyuki.utils import IS_MAIN_PROCESS, is_coroutine_callable
 
 T = TypeVar("T")
 
-SYNC_ON_RECEIVE_FUNC: TypeAlias = Callable[[T], Any]
-ASYNC_ON_RECEIVE_FUNC: TypeAlias = Callable[[T], Coroutine[Any, Any, Any]]
-ON_RECEIVE_FUNC: TypeAlias = SYNC_ON_RECEIVE_FUNC | ASYNC_ON_RECEIVE_FUNC
+SYNC_ON_RECEIVE_FUNC: TypeAlias = Callable[[T], Any]    # 同步接收函数
+ASYNC_ON_RECEIVE_FUNC: TypeAlias = Callable[[T], Coroutine[Any, Any, Any]]  # 异步接收函数
+ON_RECEIVE_FUNC: TypeAlias = SYNC_ON_RECEIVE_FUNC | ASYNC_ON_RECEIVE_FUNC   # 接收函数
 
-SYNC_FILTER_FUNC: TypeAlias = Callable[[T], bool]
-ASYNC_FILTER_FUNC: TypeAlias = Callable[[T], Coroutine[Any, Any, bool]]
-FILTER_FUNC: TypeAlias = SYNC_FILTER_FUNC | ASYNC_FILTER_FUNC
+SYNC_FILTER_FUNC: TypeAlias = Callable[[T], bool]   # 同步过滤函数
+ASYNC_FILTER_FUNC: TypeAlias = Callable[[T], Coroutine[Any, Any, bool]] # 异步过滤函数
+FILTER_FUNC: TypeAlias = SYNC_FILTER_FUNC | ASYNC_FILTER_FUNC   # 过滤函数
 
 _func_id: int = 0
 _channel: dict[str, "Channel"] = {}
@@ -77,7 +69,6 @@ class Channel(Generic[T]):
     def _get_generic_type(self) -> Optional[type]:
         """
         获取通道传递泛型类型
-
         Returns:
             Optional[type]: 泛型类型
         """
@@ -91,7 +82,6 @@ class Channel(Generic[T]):
         Args:
             data: 数据
             structure: 结构
-
         Returns:
             bool: 是否通过验证
         """
@@ -118,7 +108,7 @@ class Channel(Generic[T]):
         """
         发送数据，发送函数为同步函数，没有异步的必要
         Args:
-            data: 数据
+            data (T): 数据
         """
         if self.type_check:
             _type = self._get_generic_type()
@@ -132,7 +122,8 @@ class Channel(Generic[T]):
     def receive(self) -> T:
         """
         同步接收数据，会阻塞线程
-        Args:
+        Returns:
+            T: 数据
         """
         if self._closed:
             raise RuntimeError("Cannot receive from a closed channel_")
@@ -144,6 +135,8 @@ class Channel(Generic[T]):
     async def async_receive(self) -> T:
         """
         异步接收数据，会挂起等待
+        Returns:
+            T: 数据
         """
         print("等待接收数据")
         loop = asyncio.get_running_loop()
@@ -155,9 +148,9 @@ class Channel(Generic[T]):
         """
         接收数据并执行函数
         Args:
-            filter_func: 过滤函数，为None则不过滤
+            filter_func ([`Optional`](https%3A//docs.python.org/3/library/typing.html#typing.Optional)[[`FILTER_FUNC`](#var-FILTER_FUNC)], optional): 过滤函数. Defaults to None.
         Returns:
-            装饰器，装饰一个函数在接收到数据后执行
+            Callable[[Callable[[T], Any]], Callable[[T], Any]]: 装饰器
         """
         if not IS_MAIN_PROCESS:
             raise RuntimeError("on_receive can only be used in main process")
@@ -202,6 +195,7 @@ class Channel(Generic[T]):
 
     async def start_receive_loop(self):
         """
+        @litedoc-hide
         开始接收数据
         会自动判断主进程和子进程，需要在对应进程都调度一次
         """
@@ -217,16 +211,16 @@ class Channel(Generic[T]):
 
 
 """子进程可用的主动和被动通道"""
-active_channel: Channel = Channel(name="active_channel")
-passive_channel: Channel = Channel(name="passive_channel")
-publish_channel: Channel[tuple[str, dict[str, Any]]] = Channel(name="publish_channel")
+active_channel: Channel = Channel(name="active_channel")    # 主动通道
+passive_channel: Channel = Channel(name="passive_channel")  # 被动通道
+publish_channel: Channel[tuple[str, dict[str, Any]]] = Channel(name="publish_channel")  # 发布通道
 """通道传递通道，主进程创建单例，子进程初始化时实例化"""
-channel_deliver_active_channel: Channel[Channel[Any]]
-channel_deliver_passive_channel: Channel[tuple[str, dict[str, Any]]]
+channel_deliver_active_channel: Channel[Channel[Any]]   # 主动通道传递通道
+channel_deliver_passive_channel: Channel[tuple[str, dict[str, Any]]]    # 被动通道传递通道
 
 if IS_MAIN_PROCESS:
-    channel_deliver_active_channel = Channel(name="channel_deliver_active_channel")
-    channel_deliver_passive_channel = Channel(name="channel_deliver_passive_channel")
+    channel_deliver_active_channel = Channel(name="channel_deliver_active_channel") # 主动通道传递通道
+    channel_deliver_passive_channel = Channel(name="channel_deliver_passive_channel")   # 被动通道传递通道
 
 
     @channel_deliver_passive_channel.on_receive(filter_func=lambda data: data[0] == "set_channel")
@@ -251,8 +245,8 @@ def set_channel(name: str, channel: "Channel"):
     """
     设置通道实例
     Args:
-        name: 通道名称
-        channel: 通道实例
+        name ([`str`](https%3A//docs.python.org/3/library/stdtypes.html#str)): 通道名称
+        channel ([`Channel`](#class-channel-generic-t)): 通道实例
     """
     if not isinstance(channel, Channel):
         raise TypeError(f"channel_ must be an instance of Channel, {type(channel)} found")
@@ -277,7 +271,7 @@ def set_channels(channels: dict[str, "Channel"]):
     """
     设置通道实例
     Args:
-        channels: 通道名称
+        channels ([`dict`](https%3A//docs.python.org/3/library/stdtypes.html#dict)[[`str`](https%3A//docs.python.org/3/library/stdtypes.html#str), [`Channel`](#class-channel-generic-t)]): 通道实例
     """
     for name, channel in channels.items():
         set_channel(name, channel)
@@ -287,8 +281,9 @@ def get_channel(name: str) -> "Channel":
     """
     获取通道实例
     Args:
-        name: 通道名称
+        name ([`str`](https%3A//docs.python.org/3/library/stdtypes.html#str)): 通道名称
     Returns:
+        [`Channel`](#class-channel-generic-t): 通道实例
     """
     if IS_MAIN_PROCESS:
         return _channel[name]
@@ -309,8 +304,9 @@ def get_channel(name: str) -> "Channel":
 
 def get_channels() -> dict[str, "Channel"]:
     """
-    获取通道实例
+    获取通道实例们
     Returns:
+        [`dict`](https%3A//docs.python.org/3/library/stdtypes.html#dict)[[`str`](https%3A//docs.python.org/3/library/stdtypes.html#str), [`Channel`](#class-channel-generic-t)]: 通道实例
     """
     if IS_MAIN_PROCESS:
         return _channel
