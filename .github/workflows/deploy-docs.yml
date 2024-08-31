@@ -41,8 +41,8 @@ jobs:
       - name: 生成API markdown
         run: |-
           python -m pip install litedoc
-          litedoc liteyuki -o docs/dev/api -l zh-Hans -t vuepress -cd class -fd def -md def -vd var -cs -bu https://github.com/LiteyukiStudio/LiteyukiBot/tree/main/liteyuki/ -f lastUpdated=false
-          litedoc liteyuki -o docs/en/dev/api -l en -t vuepress -cd class -fd def -md def -vd var -cs -bu https://github.com/LiteyukiStudio/LiteyukiBot/tree/main/liteyuki/ -f lastUpdated=false
+          litedoc liteyuki -o docs/zh/dev/api -l zh-Hans    -cd class -fd def -md def -vd var -cs -bu https://github.com/LiteyukiStudio/LiteyukiBot/tree/main/liteyuki/
+          litedoc liteyuki -o docs/en/dev/api -l en         -cd class -fd def -md def -vd var -cs -bu https://github.com/LiteyukiStudio/LiteyukiBot/tree/main/liteyuki/
           
 
       - name: 构建文档

@@ -17,7 +17,7 @@ __pycache__/
 /plugins/
 
 #config
-config/
+/config/
 !config/default.yml
 _config.yml
 config.yml
@@ -55,3 +55,8 @@ doc
 
 mkdoc2.py
 result.json
+
+# litedoc
+docs/zh/dev/api
+docs/en/dev/api
+mkdoc.bat

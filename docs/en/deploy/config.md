@@ -1,77 +1,77 @@
 ---
-title: Configuration
-icon: cog
+title: Configurations
 order: 2
-category: deployment
-tag:
-  - Configuration
 ---
 
-轻雪支持`yaml`、`json`和`toml`作为配置文件，取决于你个人的喜好
+# Configurations
 
-首次运行后生成`config.yml`和`config`目录，你可修改配置项后重启轻雪，绝大多数情况下，你只需要修改`superusers`及`nickname`字段即可
+LiteyukiBot supports `yaml`, `json`, and `toml` as configuration files, depending on your personal preference.
 
-启动时会加载项目目录下`config.yml/yaml/json/toml`和`config`目录下的所有配置文件，你可在`config`目录下创建多个配置文件，轻雪会自动合并这些配置文件
+When you first run LiteyukiBot, it will generate `config.yml` and the `config` directory. You can modify the configuration items and restart LiteyukiBot. In most cases, you only need to modify
+the `superusers` and `nickname` fields.
 
-## **基础配置项**
+When starting, LiteyukiBot will load all configuration files in the project directory `config.yml/yaml/json/toml` and the `config` directory. You can create multiple configuration files in
+the `config` directory, and LiteyukiBot will automatically merge these configuration files.
+
+## **Basic Configuration**
 
 ```yaml
+# NoneBot configuration
 nonebot:
-  # Nonebot机器人的配置，以前的最外层配置项仍可为Nonebot服务，但是部分内容会被覆盖，请尽快迁移
-  command_start: [ "/", "" ] # 指令前缀，若没有""空命令头，请开启alconna_use_command_start保证alconna解析正常
-  host: 127.0.0.1 # 监听地址，默认为本机，若要接收外部请求请填写0.0.0.0
-  port: 20216 # 绑定端口
-  nickname: [ "liteyuki" ]  # 机器人昵称列表
-  superusers: [ "1919810" ]  # 超级用户列表
+  command_start: [ "/", "" ] # Command prefix, if there is no "" empty command header, please enable alconna_use_command_start to ensure alconna parsing is normal
+  host: 127.0.0.1 # Listening address, default is local, if you want to receive external requests, please fill in
+  port: 20216 # Binding port
+  nickname: [ "liteyuki" ]  # Bot nickname list
+  superusers: [ "1919810" ]  # Superuser list
 liteyuki:
-  # 写在外层的配置项将会被覆盖，建议迁移到liteyuki下
-  log_level: "INFO" # 日志等级
-  log_icon: true # 是否显示日志等级图标（某些控制台字体不可用）
-  auto_report: true # 是否自动上报问题给轻雪服务器
-  auto_update: true # 是否自动更新轻雪，每天4点检查更新
-  plugins: [ ] # 轻雪插件列表
-  plugin_dirs: [ ] # 轻雪插件目录列表
+  log_level: "INFO" # Log level
+  log_icon: true # Whether to display the log level icon (some console fonts are not available)
+  auto_report: true # Whether to automatically report problems to Liteyuki server
+  auto_update: true # Whether to automatically update Liteyuki, check for updates at 4 am every day
+  plugins: [ ] # Liteyuki plugin list
+  plugin_dirs: [ ] # Liteyuki plugin directory list
 ```
 
-## **其他配置**
+## **Other configurations**
 
-以下为默认值，如需自定义请手动添加
+The following is the default value. If you need to customize it, please add it manually
 
 ```yaml
-# 高级NoneBot配置
+# Advanced configuration
 nonebot:
-  onebot_access_token: "" # 访问令牌，对公开放时建议设置
-  default_language: "zh-CN" # 默认语言
-  alconna_auto_completion: false # alconna是否自动补全指令，默认false，建议开启
-  safe_mode: false # 安全模式，开启后将不会加载任何第三方NoneBot插件
-  # 其他Nonebot插件的配置项
+  onebot_access_token: "" # OneBot access token
+  default_language: "zh-CN" # Default language
+  alconna_auto_completion: false # alconna auto completion
+  safe_mode: false # Safe mode, if true, the bot will not load any plugins
+  # other nonebot configurations
   custom_config_1: "custom_value1"
   custom_config_2: "custom_value2"
 
-# 开发者选项
+# development configuration
 liteyuki:
-  allow_update: true # 是否允许更新
-  debug: false  # 轻雪调试，开启会自动重载Bot或者资源，其他插件自带的调试功能也将开启
-  dev_mode: false # 开发者模式，开启后将会启动监视者，监视文件变化并自动重载
-
+  allow_update: true # Whether to allow Liteyuki to update
+  debug: false  # Debug mode, if true, Liteyuki will output more detailed logs
+  dev_mode: false # development mode, if true, Liteyuki will load all plugins in the development directory
 ...
 ```
 
-> [!tip]
-> 如果要使用NoneBot和dotenv配置文件，请自行创建`.env.{ENVIRONMENT}`，并在`config.yml`中添加`nonebot.environment:{ENVIRONMENT}`字段
+```yaml
 
-## **与NoneBot对接的OneBot实现端配置**
+```
 
-生产环境中推荐反向WebSocket
-不同的实现端给出的字段可能不同，但是基本上都是一样的，这里给出一个参考值
+## **Example: Configuration of OneBot implementation side connected to NoneBot**
 
-| 字段          | 参考值                                | 说明                               |
-|-------------|------------------------------------|----------------------------------|
-| 协议          | 反向WebSocket                        | 推荐使用反向ws协议进行通信，即轻雪作为服务端          |
-| 地址          | ws://127.0.0.1:20216/onebot/v11/ws | 地址取决于配置文件，本机默认为`127.0.0.1:20216` |
-| AccessToken | `""`                               | 如果你给轻雪配置了`AccessToken`，请在此填写相同的值 |
+In production environments, it is recommended to use reverse WebSocket
+The fields provided by different implementation sides may be different, but basically the same. Here is a reference value
 
-## **其他**
+| Fields      | Value                              | Description                                                                           |
+|-------------|------------------------------------|---------------------------------------------------------------------------------------|
+| protocol    | Reverse WebSocket                  | Liteyuki-NoneBot as server                                                            |
+| address     | ws://127.0.0.1:20216/onebot/v11/ws | The address depends on the configuration file, the default is `                       |
+| AccessToken | `""`                               | If you have configured `AccessToken` for Liteyuki, please fill in the same value here |  
 
-- 要使用其他通信方式请访问[OneBot Adapter](https://onebot.adapters.nonebot.dev/)获取详细信息
-- 轻雪不局限于OneBot适配器，你可以使用NoneBot2支持的任何适配器
+- To use other communication methods, please visit [OneBot Adapter](https://onebot.adapters.nonebot.dev/) for detailed information
+
+## **Other**
+
+- Liteyuki is not limited to the OneBot adapter and NoneBot2. You can use any adapter supported by NoneBot2 or use the Liteyuki message delivery plugin

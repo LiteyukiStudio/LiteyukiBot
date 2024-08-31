@@ -1,61 +1,57 @@
 ---
-title: Installation
-icon: download
+title: Install
 order: 1
-category: deployment
-tag:
-  - 安装
 ---
+# Install
 
-## **Installation**
+## **Normal Installation**
 
-### **Conventional deployment**
-
-1. Install [`Git`](https://git-scm.com/download/) and [`Python3.10+`](https://www.python.org/downloads/release/python-31010/) environment
+1. Install [`Git`](https://git-scm.com/download/) and [`Python3.10+`](https://www.python.org/downloads/release/python-31010/) Environment.
 
 ```bash
-# Clone the project locally, --depth=1 to reduce the size of the cloned repository, this project updates depend on Git
+# Clone the project
 git clone https://github.com/LiteyukiStudio/LiteyukiBot --depth=1
-# change the directory to the project root
+# change directory
 cd LiteyukiBot
-# install the project dependencies
+# install dependencies
 pip install -r requirements.txt
-# start bot
+# start the bot!
 python main.py
 ```
 
 > [!tip]
-> Recommended to use `venv` to run Liteyuki to avoid dependency conflicts, you can use `python -m venv .venv` to create a virtual environment, and then use `.venv\Scripts\activate` to activate the virtual environment (use `source .venv/bin/activate` to activate on Linux)
+> It is recommended to use a virtual environment to run Liteyuki to avoid dependency conflicts. 
+> You can use `python -m venv .venv` to create a virtual environment, and then use `.venv\Scripts\activate` to activate the virtual environment 
+> (use `source .venv/bin/activate` to activate on Linux).
 
-### **Use docker**
+
+## **Run with Docker**
 
 1. Install [`Docker`](https://docs.docker.com/get-docker/)
-2. Clone project repo `git clone https://github.com/LiteyukiStudio/LiteyukiBot --depth=1` 
-3. change directory `cd LiteyukiBot`
-4. build image with `docker build -t liteyukibot .`
-5. start container `docker run -p 20216:20216 -v $(pwd):/liteyukibot -v $(pwd)/.cache:/root/.cache liteyukibot`
+2. Clone Repo `git clone https://github.com/LiteyukiStudio/LiteyukiBot --depth=1` 
+3. Change directory `cd LiteyukiBot`
+4. Build docker image `docker build -t liteyukibot .`
+5. Run container `docker run -p 20216:20216 -v $(pwd):/liteyukibot -v $(pwd)/.cache:/root/.cache liteyukibot`
 
 > [!tip]
-> For Windows, please use the absolute project directory `/path/to/LiteyukiBot` instead of $(pwd) 
->
-> If you have changed the port number, replace `20216` in `20216:20216` with your port number
+> If you are using Windows, please use the absolute project directory `/path/to/LiteyukiBot` instead of `$&#40;pwd&#41;` <br>
+> If you have modified the port number, please replace `20216:20216` with your port number
 
-### **Use TRSS Scripts**
- [TRSS_Liteyuki LiteyukiBot manage script](https://timerainstarsky.github.io/TRSS_Liteyuki/), This feature is supported by TRSS and is not an official feature of LiteyukiBot. It is recommended to use Arch Linux.
+## **Use TRSS Script**
+ [TRSS_Liteyuki Management Script](https://timerainstarsky.github.io/TRSS_Liteyuki/), which provides a more convenient way to manage LiteyukiBot, recommended to use `Arch Linux`
 
 
-## **Device requirements**
-
-- Minimum Windows system version: `Windows 10+` / `Windows Server 2019+`
-- Linux systems need to support Python 3.10+, with `Ubuntu 20.04+` recommended
-- CPU: `1 vCPU` and more(Bot is multi processes, the more cores, the better the performance)
-- Memory: Without other plugins, the Bot will occupy `300~500MB`, including processes like `chromium` and `node`. The memory occupied by other plugins depends on the specific plugins, and it is recommended to have more than `1GB`.
-- Storage: At least `1GB` of space is required.
+## **Device Requirements**
+- Windows system version minimum `Windows10+`/`Windows Server 2019+`
+- Linux system requires Python3.10+, recommended `Ubuntu 20.04+`
+- CPU: at least `1vCPU`
+- Memory: Bot without other plugins will occupy `300~500MB`, including `chromium` and `node` processes, other plugins depend on specific plugins, recommended `1GB` or more
+- Disk: at least `1GB` of space
 
 > [!warning]
-> If there are multiple environments on the device, please use `path/to/python -m pip install -r requirements.txt` to install dependencies, where `path/to/python` is the path to your Python executable.
+> If there are multiple environments on the device, please use `path/to/python -m pip install -r requirements.txt` to install dependencies, `path/to/python` is the path to your Python executable
 
 > [!warning]
-> The update feature of Liteyuki depends on Git. If you have not installed Git and directly download the source code to run, you will not be able to use the update feature.
+> Liteyuki's update function depends on Git. If you do not have Git installed and run the source code directly, you will not be able to use the update function
 
-#### For other issues, please go to [Q&A](/deployment/fandq)
+#### For other questions, please refer to [FAQ](/deployment/fandq)
