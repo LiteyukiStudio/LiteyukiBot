@@ -22,7 +22,7 @@ export const ThemeConfig = {
                     }
                     return `https://github.com/LiteyukiStudio/LiteyukiBot/tree/main/liteyuki${filePath}`;
                 } else {
-                    return `https://github.com/LiteyukiStudio/LiteyukiBot/tree/main/docs${filePath}`;
+                    return `https://github.com/LiteyukiStudio/LiteyukiBot/tree/main/docs/${filePath}`;
                 }
             },
             text: editPageText
