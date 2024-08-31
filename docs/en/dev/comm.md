@@ -3,19 +3,18 @@ title: 进程通信
 order: 4
 ---
 
-# **通道通信**
+# **Channel Communication**
 
-### 简介
+### Introduction
 
-轻雪运行在主进程 MainProcess 里，其他插件框架进程是伴随的子进程，因此无法通过内存共享和直接对象传递的方式进行通信，
-轻雪提供了一个通道[`Channel`](./api/comm/channel#class-channel-generic-t)用于跨进程通信，
-你可以通过[`Channel`](./api/comm/channel#class-channel-generic-t)发送消息给其他进程，也可以监听其他进程的消息。
+LiteyukiBot is running in the main process MainProcess, and other plugin framework processes are child processes that come with it. 
+Therefore, it is impossible to communicate through shared memory and direct object transfer. 
+Liteyuki provides a channel [`Channel`](./api/comm/channel#class-channel-generic-t) for inter-process communication like `go`. 
+You can send messages to other processes through [`Channel`](./api/comm/channel#class-channel-generic-t) and listen to messages from other processes.
 
-例如子进程接收到用户信息需要重启机器人，这时可以通过通道对主进程发送消息，主进程接收到消息后重启对应子进程。
+### Example
 
-### 示例
-
-通道是全双工的，有两种接收模式，但一个通道只能使用一种，即被动模式和主动模式，被动模式由`chan.on_receive()`装饰回调函数实现，主动模式需调用`chan.receive()`实现
+The channel is full-duplex, with two receiving modes, but only one mode can be used for a channel, that is, passive mode and active mode, passive mode is implemented by the `chan.on_receive()` decorator callback function, and active mode needs to call `chan.receive()` to implement
 
 - 创建子进程的同时会初始化一个被动通道和一个主动通道，且通道标识为`{process_name}-active`和`{process_name}-passive`，
 - 主进程中通过`get_channel`函数获取通道对象

@@ -54,4 +54,4 @@ python main.py
 > [!warning]
 > Liteyuki's update function depends on Git. If you do not have Git installed and run the source code directly, you will not be able to use the update function
 
-#### For other questions, please refer to [FAQ](/deployment/fandq)
+#### For other questions, please refer to [FAQ](./fandq)

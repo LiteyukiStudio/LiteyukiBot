@@ -52,4 +52,4 @@ python main.py
 > [!warning]
 > 轻雪的更新功能依赖Git，如果你没有安装Git直接下载源代码运行，你将无法使用更新功能
 
-#### 其他问题请移步至[答疑](/deployment/fandq)
+#### 其他问题请移步至[答疑](./fandq)

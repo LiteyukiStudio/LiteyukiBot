@@ -60,3 +60,7 @@ result.json
 docs/zh/dev/api
 docs/en/dev/api
 mkdoc.bat
+
+# vitepress
+docs/.vitepress/dist/
+docs/.vitepress/cache
