@@ -1,9 +1,32 @@
 <script setup lang="ts">
+import {useData} from "vitepress";
+import {ref} from "vue";
 
-import {ref, onMounted, onUnmounted} from "vue";
-import getText from "./scripts/i18n";
+const i18nData = {
+  "zh": {
+    online: '当前在线',
+    offline: '离线',
+    total: '全球实例',
+    fetching: '获取中',
+  },
+  "en": {
+    online: 'Online',
+    offline: 'Offline',
+    total: 'Total',
+    fetching: 'Fetching',
+  }
+}
 
-
+function getText(key: string): string {
+  // 转换语言
+  // zh-Hans -> zh
+  // en-US -> en
+  if (useData().site.value.lang.includes('-')) {
+    return i18nData[useData().site.value.lang.split('-')[0]][key];
+  } else {
+    return i18nData[useData().site.value.lang][key];
+  }
+}
 
 const onlineText = getText('online');
 const totalText = getText('total');
@@ -27,13 +50,8 @@ function updateData() {
     .catch(error => console.error('Error fetching total data:', error));
 }
 
-onMounted(() => {
-  const intervalId = setInterval(updateData, 10000);
-  updateData();
-  onUnmounted(() => {
-    clearInterval(intervalId);
-  });
-});
+updateData();
+setInterval(updateData, 10000);
 
 </script>
 

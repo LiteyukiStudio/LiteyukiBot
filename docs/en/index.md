@@ -61,7 +61,4 @@ features:
 ---
 
 
-<script setup>
-import StatsBar from '../components/StatsBar.vue'
-</script>
 <StatsBar />
