@@ -48,6 +48,12 @@ The `src` directory is the application part, please develop business logic in th
   - Ensure that the comment style is [`Google Docstring`](https://google.github.io/styleguide/pyguide.html) or 
   [`Liteyuki Docstring`](https://github.com/LiteyukiStudio/litedoc?tab=readme-ov-file#liteyuki-docstring)(recommended) to ensure that Litedoc can parse and generate documentation correctly.
   - If there is a part for ordinary users, ensure that the documentation is complete (each language has corresponding documentation).
+- commit message should follow the following guidelines:
+  - You should commit the code after completing a feature or fixing a bug, and not mix the code of multiple features or bugs together.
+  - We use gitmoji to mark the type of commit, such as `:sparkles:` for introducing new features, `:bug:` for fixing bugs, etc., please refer to [gitmoji](https://gitmoji.dev/) for details.
+  - The format of the commit message is `<emoji> [module]: <message>`, such as `:sparkles: [liteyuki.event]: add new feature`,
+  where the module field is the affected part, such as `liteyuki.message`, `docs.en.guide.md`, etc., not much is required, but please fill in as much as possible; the message field is a brief description, in summary, what you did.
+  - There is no restriction on the language of the commit message, and bilingual use is possible if conditions permit.
 - The documentation should follow [`Markdown`](https://www.markdownguide.org/) syntax and support vitepress-related content:
   - Revise the documentation for each language when editing.
   - Ensure that the links in the document are correct and do not lead to inaccessible links.
