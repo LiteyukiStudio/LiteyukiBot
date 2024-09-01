@@ -10,6 +10,7 @@
   },
   "type": "module",
   "dependencies": {
-    "clipboard": "^2.0.11"
+    "clipboard": "^2.0.11",
+    "vue": "^3.4.38"
   }
 }
