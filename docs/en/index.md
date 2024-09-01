@@ -14,9 +14,9 @@ hero:
     - theme: alt
       text: 📦 Extensions
       link: ./store/
-
   image:
-    src: /liteyuki.svg
+    light: ./liteyuki.svg
+    dark: ./liteyuki-dark.svg
     alt: Liteyuki Logo
 
 features:
@@ -38,7 +38,7 @@ features:
   - title: Localization
     icon: 🌐
     details: Support for multiple languages through resource packs
-    link: https://baike.baidu.com/item/i18n/6771940 
+    link: https://baike.baidu.com/item/i18n/6771940
 
   - title: Easy to use
     icon: ⚙️
