@@ -2,16 +2,17 @@
 import {computed, ref} from 'vue'
 import ItemCard from './PluginItemCard.vue'
 import ToggleSwitch from "./ToggleSwitch.vue";
+import {getTextRef} from "./scripts/i18n";
 
 let showLiteyukiPluginOnly = ref(false)
 let filteredItems = computed(() => {
   let filtered = items.value
   if (search.value) {
     filtered = filtered.filter(item =>
-      item.name.toLowerCase().includes(search.value.toLowerCase()) ||
-      item.desc.toLowerCase().includes(search.value.toLowerCase()) ||
-      item.author.toLowerCase().includes(search.value.toLowerCase()) ||
-      item.module_name.toLowerCase().includes(search.value.toLowerCase())
+        item.name.toLowerCase().includes(search.value.toLowerCase()) ||
+        item.desc.toLowerCase().includes(search.value.toLowerCase()) ||
+        item.author.toLowerCase().includes(search.value.toLowerCase()) ||
+        item.module_name.toLowerCase().includes(search.value.toLowerCase())
     )
   }
   if (showLiteyukiPluginOnly.value) {
@@ -48,12 +49,13 @@ fetch('https://registry.nonebot.dev/plugins.json')
 
 <template>
   <div class="market">
-    <h1>插件商店</h1>
-    <p>内容来自轻雪商店及<a href="https://nonebot.dev/store/plugins">NoneBot插件商店</a>，轻雪通过nonebot插件实现兼容NoneBot，在此仅作引用，具体请访问NoneBot插件商店</p>
+    <h1>{{ getTextRef('pluginStore') }}</h1>
+    <p>{{ getTextRef('pluginStoreDesc') }}</p>
     <!--    搜索框-->
     <div class="search-box-div">
-      <input class="item-search-box" type="text" placeholder="搜索插件" v-model="search"/>
-      <ToggleSwitch v-model:modelValue="showLiteyukiPluginOnly" />仅轻雪插件
+      <input class="item-search-box" type="text" v-model="search" :placeholder="getTextRef('search')"/>
+      <ToggleSwitch v-model:modelValue="showLiteyukiPluginOnly"/>
+      {{ getTextRef('liteyukiOnly') }}
     </div>
     <div class="items">
       <!-- 使用filteredItems来布局商品 -->

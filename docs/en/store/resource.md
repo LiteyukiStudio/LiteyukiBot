@@ -1,6 +1,6 @@
 ---
-title: 资源商店
+title: Resource Store
 order: 1
 ---
 
-<resourceStoreComp />
+<ResStore />

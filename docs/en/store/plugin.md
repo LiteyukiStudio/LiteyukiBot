@@ -1,6 +1,6 @@
 ---
-title: 插件商店
+title: Plugin Store
 order: 2
 ---
 
-<pluginStoreComp />
+<PluginStore />

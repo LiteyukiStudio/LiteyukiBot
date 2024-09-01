@@ -2,6 +2,7 @@
 import {computed, ref} from 'vue'
 import ItemCard from './ResItemCard.vue'
 import * as url from "node:url";
+import {getTextRef} from "./scripts/i18n";
 
 // 从public/assets/resources.json加载插件
 let filteredItems = computed(() => {
@@ -29,8 +30,8 @@ fetch("/resources.json")
 
 <template>
   <div class="market">
-    <h1>主题/资源商店</h1>
-    <div class="search-box-div"><input class="item-search-box" type="text" placeholder="搜索资源" v-model="search" /></div>
+    <h1>{{ getTextRef('resourceStore') }}</h1>
+    <div class="search-box-div"><input class="item-search-box" type="text" :placeholder="getTextRef('search')" v-model="search" /></div>
     <div class="items">
       <!-- 使用filteredItems来布局商品 -->
       <ItemCard v-for="item in filteredItems" :key="item.id" :item="item"/>

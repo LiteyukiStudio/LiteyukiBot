@@ -15,6 +15,11 @@ const i18nData = {
         size: 'Size',
         plugins: 'Plugins',
         resources: 'Resources',
+        pluginStore: 'Plugin Store',
+        pluginStoreDesc: 'Content from the LightSnow Plugin Store, LightSnow supports NoneBot through the lpnonebot plugin, and references some NoneBot plugins',
+        liteyukiOnly: 'Liteyuki Only',
+        search: 'Search',
+        resourceStore: 'Resources Store',
     },
     zh: {
         online: '在线',
@@ -28,6 +33,12 @@ const i18nData = {
         size: '大小',
         plugins: '插件',
         resources: '主题资源',
+        store: '商店',
+        pluginStore: '插件商店',
+        pluginStoreDesc: '内容来自轻雪插件商店，轻雪通过lpnonebot插件对NoneBot实现支持，引用了部分NoneBot插件',
+        liteyukiOnly: '仅轻雪',
+        search: '搜索',
+        resourceStore: '资源商店',
     }
 }
 
