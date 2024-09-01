@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import DefaultTheme from "vitepress/theme";
 import {ref, onMounted, onUnmounted} from "vue";
-import {statsApi, GithubStats} from "./scripts/statsApi";
+import {statsApi, GithubStats, RepoUrl, StarMapUrl} from "./scripts/statsApi";
 import {getTextRef, updateRef} from "./scripts/i18n";
-
 
 const {Layout} = DefaultTheme;
 
@@ -13,32 +12,50 @@ const dataSections = {
   total: {
     name: 'total',
     color: '#00a6ff',
-    value: ref(0),
+    value: ref(2005),
+    link: StarMapUrl
   },
   online: {
     name: 'online',
     color: '#00ff00',
-    value: ref(0),
+    value: ref(1145),
+    link: StarMapUrl
   },
   stars: {
     name: 'stars',
     color: '#ffcc00',
-    value: ref(0),
+    value: ref(1234),
+    link: `${RepoUrl}/stargazers`
   },
   forks: {
     name: 'forks',
     color: '#ff6600',
-    value: ref(0),
+    value: ref(9420),
+    link: `${RepoUrl}/forks`
   },
   issues: {
     name: 'issues',
     color: '#ff0000',
-    value: ref(0),
+    value: ref(1145),
+    link: `${RepoUrl}/issues`
   },
   prs: {
     name: 'prs',
     color: '#ff00ff',
-    value: ref(0),
+    value: ref(6543),
+    link: `${RepoUrl}/pulls`
+  },
+  plugins: {
+    name: 'plugins',
+    color: '#ff003e',
+    value: ref(1763),
+    link: './store/plugin'
+  },
+  resources: {
+    name: 'resources',
+    color: '#ff00ff',
+    value: ref(6789),
+    link: './store/resource'
   },
 }
 
@@ -48,10 +65,15 @@ async function updateData() {
   [
     dataSections.online.value.value,
     dataSections.total.value.value,
+    dataSections.plugins.value.value,
+    dataSections.resources.value.value,
     githubStats,
+
   ] = await Promise.all([
     statsApi.getOnline(),
     statsApi.getTotal(),
+    statsApi.getPluginNum(),
+    statsApi.getResourceNum(),
     statsApi.getGithubStats(),
   ]);
   dataSections.stars.value.value = githubStats?.stars || 0;
@@ -77,11 +99,13 @@ onMounted(() => {
         <div class="stats-bar">
           <div class="stats-info">
             <div v-for="section in Object.values(dataSections)" :key="section.name" class="section">
-              <div class="section-tab">
-                <span class="dot" :style="{backgroundColor: section.color}"></span>
-                <span class="text">{{ getTextRef(section.name) }}</span>
-              </div>
-              <div class="number">{{ section.value.value }}</div>
+              <a :href="section.link" target="_blank">
+                <div class="section-tab">
+                  <span class="dot" :style="{backgroundColor: section.color}"></span>
+                  <span class="text">{{ getTextRef(section.name) }}</span>
+                </div>
+                <div class="number">{{ section.value.value }}</div>
+              </a>
             </div>
           </div>
           <div class="starmap">
@@ -89,7 +113,6 @@ onMounted(() => {
           </div>
         </div>
       </div>
-
     </template>
   </Layout>
 </template>
@@ -109,7 +132,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   padding: 20px;
-  margin: 30px;
+  margin: 10px;
   border-radius: var(--border-radius-2);
   background-color: var(--vp-c-gray-1);
   flex-direction: column; /* 默认纵向布局 */
@@ -117,16 +140,35 @@ onMounted(() => {
 
 .stats-info {
   width: 100%;
-  padding: 10px;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 15px;
-  margin: 20px;
+  margin: 10px;
 }
 
 .section {
   display: flex;
   flex-direction: column;
+  position: relative; /* 使伪元素相对于父元素定位 */
+  border-radius: var(--border-radius-2);
+}
+
+.section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border: 0 solid transparent; /* 初始边框为透明 */
+  transition: border 0.1s ease-in-out; /* 添加过渡效果 */
+  border-radius: var(--border-radius-2);
+  pointer-events: none; /* 确保伪元素不会阻挡点击事件 */
+}
+
+.section:hover::before {
+  border: 1px solid #00a6ff; /* 悬停时添加边框 */
+  border-radius: var(--border-radius-2);
 }
 
 .section-tab {
@@ -176,10 +218,12 @@ onMounted(() => {
   /* PC模式下的样式 */
   .stats-bar {
     flex-direction: row;
+    margin: 30px;
   }
 
   .stats-info {
     width: 40%;
+    margin: 20px;
   }
 
   .starmap {

@@ -11,6 +11,9 @@ const i18nData = {
         forks: 'Forks',
         issues: 'Issues',
         prs: 'Pull Requests',
+        size: 'Size',
+        plugins: 'Plugins',
+        resources: 'Resources',
     },
     zh: {
         online: '在线',
@@ -19,8 +22,11 @@ const i18nData = {
         fetching: '获取中',
         stars: '星星',
         forks: '叉子',
-        issues: '议题',
+        issues: '开启议题',
         prs: '合并请求',
+        size: '大小',
+        plugins: '插件',
+        resources: '主题资源',
     }
 }
 

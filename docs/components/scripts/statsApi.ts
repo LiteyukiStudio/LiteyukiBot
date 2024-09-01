@@ -1,11 +1,13 @@
 
 // URL
-const OWNER = "LiteyukiStudio"
-const REPO = "LiteyukiBot"
+export const OWNER = "LiteyukiStudio"
+export const REPO = "LiteyukiBot"
 const githubAPIUrl = "https://api.github.com"
 const onlineFetchUrl = "https://api.liteyuki.icu/online";
 const totalFetchUrl = "https://api.liteyuki.icu/count";
 
+export const RepoUrl = `https://github.com/${OWNER}/${REPO}`
+export const StarMapUrl = "https://starmap.liteyuki.icu"
 
 type GithubStats = {
     stars: number;
@@ -13,6 +15,7 @@ type GithubStats = {
     watchers: number;
     issues?: number;
     prs?: number;
+    size?: number;
 }
 
 // 异步接口
@@ -20,11 +23,12 @@ interface StatsApi {
     getTotal: () => Promise<number>;
     getOnline: () => Promise<number>;
     getGithubStats: () => Promise<GithubStats>;
+    getPluginNum: () => Promise<number>;
+    getResourceNum: () => Promise<number>;
 }
 
 
 export type { GithubStats };
-
 
 // 实现接口
 export const statsApi: StatsApi = {
@@ -56,6 +60,7 @@ export const statsApi: StatsApi = {
                 watchers: data.watchers_count,
                 issues: data.open_issues_count,
                 prs: data.open_issues_count,
+                size: data.size,
             };
         } catch (e) {
             return {
@@ -64,7 +69,26 @@ export const statsApi: StatsApi = {
                 watchers: -1,
                 issues: -1,
                 prs: -1,
+                size: -1,
             };
         }
     },
+    getPluginNum: async () => {
+        try {
+            const res = await fetch('./plugins.json');
+            const data = await res.json();
+            return data.length;
+        } catch (e) {
+            return -1;
+        }
+    },
+    getResourceNum: async () => {
+        try {
+            const res = await fetch('./resources.json');
+            const data = await res.json();
+            return data.length;
+        } catch (e) {
+            return -1;
+        }
+    }
 };
