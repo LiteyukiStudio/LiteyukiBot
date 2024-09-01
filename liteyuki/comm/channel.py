@@ -138,10 +138,8 @@ class Channel(Generic[T]):
         Returns:
             T: 数据
         """
-        print("等待接收数据")
         loop = asyncio.get_running_loop()
         data = await loop.run_in_executor(None, self.receive)
-        print("接收到数据")
         return data
 
     def on_receive(self, filter_func: Optional[FILTER_FUNC] = None) -> Callable[[Callable[[T], Any]], Callable[[T], Any]]:
