@@ -59,3 +59,7 @@ features:
     details: The project follows the LSO LICENSE and is open to contributions
     link: https://github.com/LiteyukiStudio/LiteyukiStudioOpensourceLICENSE
 ---
+<script setup>
+import StatsBar from '../components/StatsBar.vue'
+</script>
+<StatsBar></Statsbar>
