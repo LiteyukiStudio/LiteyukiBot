@@ -21,6 +21,7 @@ export default function getText(key: string): string {
     // en-US -> en
     if (useData().site.value.lang.includes('-')) {
         return i18nData[useData().site.value.lang.split('-')[0]][key];
+    } else {
+        return i18nData[useData().site.value.lang][key];
     }
-    return i18nData[useData().site.value.lang][key];
 }

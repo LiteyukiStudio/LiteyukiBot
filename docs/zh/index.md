@@ -60,7 +60,8 @@ features:
     link: https://github.com/LiteyukiStudio/LiteyukiStudioOpensourceLICENSE
 ---
 
+
 <script setup>
 import StatsBar from '../components/StatsBar.vue'
 </script>
-<StatsBar></Statsbar>
+<StatsBar />

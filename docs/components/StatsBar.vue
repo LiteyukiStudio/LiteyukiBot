@@ -1,5 +1,5 @@
 <script setup>
-import getText from "../scripts/i18nData";
+import getText from "../components/scripts/i18nData.ts";
 import {ref} from "vue";
 
 const onlineText = getText('online');
@@ -38,14 +38,14 @@ setInterval(updateData, 10000);
         <span class=dot style="background-color: #00a6ff"></span>
         <span class="text">{{ totalText }}</span>
       </div>
-      <div class="number">{{total.valueOf() < 0 ? getText('fetching') : total.valueOf()}}</div>
+      <div class="number">{{ total }}</div>
     </div>
     <div id="online" class="section">
       <div class="line">
         <span class=dot style="background-color: #00ff00"></span>
         <span class="text">{{ onlineText }}</span>
       </div>
-      <div class="number">{{ online.valueOf() < 0 ? getText('fetching') : online.valueOf()}}</div>
+      <div class="number">{{ online }}</div>
     </div>
   </div>
 </template>
