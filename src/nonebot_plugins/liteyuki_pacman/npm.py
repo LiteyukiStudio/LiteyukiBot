@@ -22,7 +22,7 @@ from src.utils.base.permission import GROUP_ADMIN, GROUP_OWNER
 from src.utils.message.tools import clamp
 from src.utils.message.message import MarkdownMessage as md
 from src.utils.message.markdown import MarkdownComponent as mdc, compile_md, escape_md
-from src.utils.htmlrender import md_to_pic
+from src.utils.message.html_tool import md_to_pic
 from .common import *
 
 

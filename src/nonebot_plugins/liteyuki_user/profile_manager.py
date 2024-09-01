@@ -8,7 +8,7 @@ from src.utils.base.data_manager import User, user_db, group_db
 from src.utils.base.language import Language, change_user_lang, get_all_lang, get_user_lang
 from src.utils.base.ly_typing import T_Bot, T_MessageEvent
 from src.utils.message.message import MarkdownMessage as md
-from src.utils.htmlrender import md_to_pic
+from src.utils.message.html_tool import md_to_pic
 from .const import representative_timezones_list
 from src.utils import event as event_utils
 

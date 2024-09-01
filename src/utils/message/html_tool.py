@@ -1,14 +1,14 @@
-import os.path
-
+import os
 import aiofiles  # type: ignore
 import nonebot
 from nonebot import require
 
-require("nonebot_plugin_htmlrender")
+# require("nonebot_plugin_htmlrender")
 
 from nonebot_plugin_htmlrender import (  # type: ignore
     template_to_html,
     template_to_pic,
+    md_to_pic
 )  # type: ignore
 
 
@@ -85,3 +85,5 @@ async def template2image(
         device_scale_factor=scale_factor
         ###
     )
+
+

@@ -18,11 +18,11 @@ from src.utils.base.config import get_config
 from src.utils.base.data_manager import TempConfig, common_db
 from src.utils.base.language import get_user_lang
 from src.utils.base.ly_typing import T_Bot, T_MessageEvent
-from src.utils.htmlrender import md_to_pic
 from src.utils.message.message import MarkdownMessage as md, broadcast_to_superusers
-from .api import update_liteyuki
-from ..utils.base import reload
-from ..utils.base.ly_function import get_function
+from .api import update_liteyuki  # type: ignore
+from ..utils.base import reload  # type: ignore
+from ..utils.base.ly_function import get_function  # type: ignore
+from ..utils.message.html_tool import md_to_pic
 
 require("nonebot_plugin_alconna")
 require("nonebot_plugin_apscheduler")
@@ -42,8 +42,8 @@ driver = get_driver()
 ).handle()
 # Satori OK
 async def _(bot: T_Bot, matcher: Matcher, result: Arparma):
-    if result.main_args.get("text"):
-        await matcher.finish(Message(unescape(result.main_args.get("text"))))
+    if text := result.main_args.get("text"):
+        await matcher.finish(Message(unescape(text)))
     else:
         await matcher.finish(f"Hello, Liteyuki!\nBot {bot.self_id}")
 
