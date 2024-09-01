@@ -47,6 +47,7 @@ The `src` directory is the application part, please develop business logic in th
   - Ensure that the type hints in the code are correct.
   - Ensure that the comment style is [`Google Docstring`](https://google.github.io/styleguide/pyguide.html) or 
   [`Liteyuki Docstring`](https://github.com/LiteyukiStudio/litedoc?tab=readme-ov-file#liteyuki-docstring)(recommended) to ensure that Litedoc can parse and generate documentation correctly.
+  - Strings should be enclosed in double quotes `"` as much as possible, and single quotes `'` should be used when nesting strings.
   - If there is a part for ordinary users, ensure that the documentation is complete (each language has corresponding documentation).
 - commit message should follow the following guidelines:
   - You should commit the code after completing a feature or fixing a bug, and not mix the code of multiple features or bugs together.
