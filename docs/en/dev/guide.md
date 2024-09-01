@@ -27,7 +27,7 @@ If you need to submit code to the Liteyuki repository, please read the following
   - Ensure that the code is runnable and harmless.
   - Ensure that the type hints in the code are correct.
   - Ensure that the comment style is [`Google Docstring`](https://google.github.io/styleguide/pyguide.html) or 
-  [`Liteyuki Docstring`](https://github.com/LiteyukiStudio/litedoc)(recommended) to ensure that Litedoc can parse and generate documentation correctly.
+  [`Liteyuki Docstring`](https://github.com/LiteyukiStudio/litedoc?tab=readme-ov-file#liteyuki-docstring)(recommended) to ensure that Litedoc can parse and generate documentation correctly.
   - If there is a part for ordinary users, ensure that the documentation is complete (each language has corresponding documentation).
 - The documentation should follow [`Markdown`](https://www.markdownguide.org/) syntax and support vitepress-related content:
   - Revise the documentation for each language when editing.
