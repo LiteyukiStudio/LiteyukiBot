@@ -25,7 +25,7 @@ order: 0
 - 此外，提交到轻雪仓库的代码，请遵循以下规范：
   - 请确保代码是可运行的，没有危害的。
   - 请确保代码的类型提示是正确的。
-  - 请确保注释风格为[`Google Docstring`](https://google.github.io/styleguide/pyguide.html)或[`Liteyuki Docstring`](https://github.com/LiteyukiStudio/litedoc)(推荐)以保证Litedoc能够正确解析并生成文档。
+  - 请确保注释风格为[`Google Docstring`](https://google.github.io/styleguide/pyguide.html)或[`Liteyuki Docstring`](https://github.com/LiteyukiStudio/litedoc?tab=readme-ov-file#liteyuki-docstring)(推荐)以保证Litedoc能够正确解析并生成文档。
   - 若有面向普通用户部分，请确保文档是完善的(每种语言都有对应的文档)。
 - 文档请遵循[`Markdown`](https://www.markdownguide.org/)语法，并且支持vitepress相关内容：
   - 编辑文档时每个语言的文档都要修订。
