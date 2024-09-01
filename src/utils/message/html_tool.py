@@ -1,5 +1,4 @@
 import os.path
-from os import getcwd
 
 import aiofiles  # type: ignore
 import nonebot
@@ -7,18 +6,10 @@ from nonebot import require
 
 require("nonebot_plugin_htmlrender")
 
-from nonebot_plugin_htmlrender import (
+from nonebot_plugin_htmlrender import (  # type: ignore
     template_to_html,
     template_to_pic,
-)
-from .tools import random_hex_string
-
-
-async def html2image(
-        html: str,
-        wait: int = 0,
-):
-    pass
+)  # type: ignore
 
 
 async def template2html(
@@ -63,8 +54,8 @@ async def template2image(
         pages = {
                 "viewport": {
                         "width" : 1080,
+                        "height": 10
                 },
-                "base_url": f"file://{getcwd()}",
         }
 
     template_path = os.path.dirname(template)
@@ -77,7 +68,7 @@ async def template2image(
             template_path=template_path,
             **templates,
         )
-        random_file_name = f"debug-{random_hex_string(6)}.html"
+        random_file_name = f"debug.html"
         async with aiofiles.open(
                 os.path.join(template_path, random_file_name), "w", encoding="utf-8"
         ) as f:
