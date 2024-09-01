@@ -64,3 +64,4 @@ mkdoc.bat
 # vitepress
 docs/.vitepress/dist/
 docs/.vitepress/cache
+docs/.vitepress/.temp

@@ -1,30 +1,63 @@
 <script setup lang="ts">
-
+import DefaultTheme from "vitepress/theme";
 import {ref, onMounted, onUnmounted} from "vue";
-import getText from "./scripts/i18n";
+import {statsApi, GithubStats} from "./scripts/statsApi";
+import {getTextRef, updateRef} from "./scripts/i18n";
 
 
+const {Layout} = DefaultTheme;
 
-const onlineText = getText('online');
-const totalText = getText('total');
+let githubStats: GithubStats | null = null;
 
-const onlineFetchUrl = "https://api.liteyuki.icu/online";
-const totalFetchUrl = "https://api.liteyuki.icu/count";
+const dataSections = {
+  total: {
+    name: 'total',
+    color: '#00a6ff',
+    value: ref(0),
+  },
+  online: {
+    name: 'online',
+    color: '#00ff00',
+    value: ref(0),
+  },
+  stars: {
+    name: 'stars',
+    color: '#ffcc00',
+    value: ref(0),
+  },
+  forks: {
+    name: 'forks',
+    color: '#ff6600',
+    value: ref(0),
+  },
+  issues: {
+    name: 'issues',
+    color: '#ff0000',
+    value: ref(0),
+  },
+  prs: {
+    name: 'prs',
+    color: '#ff00ff',
+    value: ref(0),
+  },
+}
 
-const online = ref(0);
-const total = ref(0);
-
-function updateData() {
-
-  fetch(onlineFetchUrl)
-    .then(response => response.json())
-    .then(data => online.value = data.online)
-    .catch(error => console.error('Error fetching online data:', error));
-
-  fetch(totalFetchUrl)
-    .then(response => response.json())
-    .then(data => total.value = data.register)
-    .catch(error => console.error('Error fetching total data:', error));
+async function updateData() {
+  // dataSections.online.value.value = await statsApi.getOnline();
+  // dataSections.total.value.value = await statsApi.getTotal();
+  [
+    dataSections.online.value.value,
+    dataSections.total.value.value,
+    githubStats,
+  ] = await Promise.all([
+    statsApi.getOnline(),
+    statsApi.getTotal(),
+    statsApi.getGithubStats(),
+  ]);
+  dataSections.stars.value.value = githubStats?.stars || 0;
+  dataSections.forks.value.value = githubStats?.forks || 0;
+  dataSections.issues.value.value = githubStats?.issues || 0;
+  dataSections.prs.value.value = githubStats?.prs || 0;
 }
 
 onMounted(() => {
@@ -38,37 +71,45 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="stats-bar">
-    <div class="stats-info">
-      <div id="total" class="section">
-        <div class="line">
-          <span class=dot style="background-color: #00a6ff"></span>
-          <span class="text">{{ totalText }}</span>
+  <Layout>
+    <template #home-features-before>
+      <div class="stats-bar-content">
+        <div class="stats-bar">
+          <div class="stats-info">
+            <div v-for="section in Object.values(dataSections)" :key="section.name" class="section">
+              <div class="section-tab">
+                <span class="dot" :style="{backgroundColor: section.color}"></span>
+                <span class="text">{{ getTextRef(section.name) }}</span>
+              </div>
+              <div class="number">{{ section.value.value }}</div>
+            </div>
+          </div>
+          <div class="starmap">
+            <iframe src="https://starmap.liteyuki.icu/" width="100%" height="300px"></iframe>
+          </div>
         </div>
-        <div class="number">{{ total }}</div>
       </div>
-      <div id="online" class="section">
-        <div class="line">
-          <span class=dot style="background-color: #00ff00"></span>
-          <span class="text">{{ onlineText }}</span>
-        </div>
-        <div class="number">{{ online }}</div>
-      </div>
-    </div>
-    <div class="starmap">
-      <iframe src="https://starmap.liteyuki.icu/" width="100%" height="300px"></iframe>
-    </div>
-  </div>
 
+    </template>
+  </Layout>
 </template>
 
 <style scoped>
 
+.stats-bar-content {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+
 .stats-bar {
+  width: 80%;
+  max-width: 1150px;
   display: flex;
   justify-content: space-between;
   padding: 20px;
-  margin: 30px 10px 10px 10px;
+  margin: 30px;
   border-radius: var(--border-radius-2);
   background-color: var(--vp-c-gray-1);
   flex-direction: column; /* 默认纵向布局 */
@@ -77,9 +118,10 @@ onMounted(() => {
 .stats-info {
   width: 100%;
   padding: 10px;
-  display: flex;
-  justify-content: space-evenly;
-  margin-bottom: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 15px;
+  margin: 20px;
 }
 
 .section {
@@ -87,16 +129,14 @@ onMounted(() => {
   flex-direction: column;
 }
 
-.section:not(:last-child) {
-  margin-right: 50px;
-}
-
-.line {
-  margin-bottom: 20px;
+.section-tab {
+  margin-left: 20px;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center; /* 确保垂直居中 */
 }
 
 .dot {
-  display: inline-block;
   width: 10px;
   height: 10px;
   border-radius: 50%;
@@ -105,12 +145,15 @@ onMounted(() => {
 
 .text {
   font-size: 14px;
+  white-space: nowrap;
+  align-items: center;
 }
 
 .number {
   font-size: 30px;
   font-weight: bold;
   margin-top: 5px;
+  margin-left: 20px;
 }
 
 .starmap {
