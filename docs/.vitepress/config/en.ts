@@ -10,7 +10,7 @@ export const en = defineConfig({
             {text: 'Deploy', link: '/en/deploy/install'},
             {text: 'Usage', link: '/en/usage/basic'},
             {text: 'Extension', link: '/en/store/resource'},
-            {text: 'Develop', link: '/en/dev/api'},
+            {text: 'Develop', link: '/en/dev/guide'},
         ],
         docFooter: {
             prev: 'Prev Page',

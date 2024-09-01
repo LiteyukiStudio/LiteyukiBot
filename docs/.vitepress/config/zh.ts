@@ -10,7 +10,7 @@ export const zh = defineConfig({
             {text: '部署', link: '/deploy/install'},
             {text: '使用', link: '/usage/basic'},
             {text: '扩展', link: '/store/resource'},
-            {text: '开发', link: '/dev/api'},
+            {text: '开发', link: '/dev/guide'},
         ],
         docFooter: {
             prev: '上一页',
