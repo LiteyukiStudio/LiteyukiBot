@@ -75,7 +75,7 @@ export const statsApi: StatsApi = {
     },
     getPluginNum: async () => {
         try {
-            const res = await fetch('./plugins.json');
+            const res = await fetch('/plugins.json');
             const data = await res.json();
             return data.length;
         } catch (e) {
@@ -84,7 +84,7 @@ export const statsApi: StatsApi = {
     },
     getResourceNum: async () => {
         try {
-            const res = await fetch('./resources.json');
+            const res = await fetch('/resources.json');
             const data = await res.json();
             return data.length;
         } catch (e) {
