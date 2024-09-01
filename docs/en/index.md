@@ -3,7 +3,6 @@ layout: home
 
 hero:
   name: "LiteyukiBot"
-  text: "Litedoc"
   tagline: "An integrated chat bot application and management framework"
   actions:
     - theme: brand

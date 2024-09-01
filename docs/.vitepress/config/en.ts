@@ -24,5 +24,12 @@ export const en = defineConfig({
             copyright: ThemeConfig.copyright
         },
         outline: ThemeConfig.getOutLine("Page Content"),
+
+        langMenuLabel: 'Language',
+        returnToTopLabel: 'Back to top',
+        sidebarMenuLabel: 'Menu',
+        darkModeSwitchLabel: 'Theme',
+        lightModeSwitchTitle: 'Light Mode',
+        darkModeSwitchTitle: 'Dark Mode',
     },
 })

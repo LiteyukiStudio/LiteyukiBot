@@ -24,5 +24,12 @@ export const zh = defineConfig({
             copyright: ThemeConfig.copyright
         },
         outline: ThemeConfig.getOutLine("页面内容"),
+
+        langMenuLabel: '语言',
+        returnToTopLabel: '返回顶部',
+        sidebarMenuLabel: '菜单',
+        darkModeSwitchLabel: '主题',
+        lightModeSwitchTitle: '轻色模式',
+        darkModeSwitchTitle: '深色模式',
     },
 })

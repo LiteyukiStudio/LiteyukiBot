@@ -4,6 +4,7 @@ import {useData} from "vitepress";
 
 const i18nData = {
     en: {
+        stats: 'Stats',
         online: 'Online',
         offline: 'Offline',
         total: 'Total',
@@ -22,6 +23,7 @@ const i18nData = {
         resourceStore: 'Resources Store',
     },
     zh: {
+        stats: '统计信息',
         online: '在线',
         offline: '离线',
         total: '实例',

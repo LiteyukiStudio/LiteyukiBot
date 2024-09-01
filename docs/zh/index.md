@@ -3,7 +3,6 @@ layout: home
 
 hero:
   name: "轻雪机器人"
-  text: "文档"
   tagline: "一个综合性的聊天机器人应用及管理框架"
   actions:
     - theme: brand

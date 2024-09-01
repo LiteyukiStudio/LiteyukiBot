@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import DefaultTheme from "vitepress/theme";
-import {ref, onMounted, onUnmounted, watch} from "vue";
+import {ref, onMounted, onUnmounted} from "vue";
 import {statsApi, GithubStats, RepoUrl, StarMapUrl} from "./scripts/statsApi";
 import {getTextRef, updateRefData} from "./scripts/i18n";
-import { onBeforeRouteUpdate } from 'vue-router';
-import {useData} from "vitepress";
+import {onBeforeRouteUpdate} from 'vue-router';
 
 const {Layout} = DefaultTheme;
 
@@ -104,17 +103,19 @@ onBeforeRouteUpdate(() => {
   <Layout>
     <template #home-features-before>
       <div class="stats-bar-content">
-        <div class="button" @click="updateRefData">Update</div>
         <div class="stats-bar">
           <div class="stats-info">
-            <div v-for="section in Object.values(dataSections)" :key="section.name" class="section">
-              <a :href="section.link" target="_blank">
-                <div class="section-tab">
-                  <span class="dot" :style="{backgroundColor: section.color}"></span>
-                  <span class="text">{{ getTextRef(section.name) }}</span>
-                </div>
-                <div class="number">{{ section.value.value }}</div>
-              </a>
+            <div class="stats-title">{{ getTextRef('stats') }}</div>
+            <div class="sections">
+              <div v-for="section in Object.values(dataSections)" :key="section.name" class="section">
+                <a :href="section.link" target="_blank">
+                  <div class="section-tab">
+                    <span class="dot" :style="{backgroundColor: section.color}"></span>
+                    <span class="text">{{ getTextRef(section.name) }}</span>
+                  </div>
+                  <div class="number">{{ section.value.value }}</div>
+                </a>
+              </div>
             </div>
           </div>
           <div class="starmap">
@@ -147,7 +148,19 @@ onBeforeRouteUpdate(() => {
   flex-direction: column; /* 默认纵向布局 */
 }
 
-.stats-info {
+.stats-info{
+  margin-bottom: 20px;
+}
+
+.stats-title {
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.sections {
+  height: 100%;
   width: 100%;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -232,7 +245,7 @@ onBeforeRouteUpdate(() => {
 
   .stats-info {
     width: 40%;
-    margin: 20px;
+    margin: 30px;
   }
 
   .starmap {
