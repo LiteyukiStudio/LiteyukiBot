@@ -56,6 +56,6 @@ features:
 
   - title: Open Source Project
     icon: 💻
-    details: The project follows the MIT LICENSE and is open to contributions
-    link: https://github.com/LiteyukiStudio/LiteyukiBot
+    details: The project follows the LSO LICENSE and is open to contributions
+    link: https://github.com/LiteyukiStudio/LiteyukiStudioOpensourceLICENSE
 ---

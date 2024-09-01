@@ -56,6 +56,6 @@ features:
 
   - title: 开源项目
     icon: 💻
-    details: 项目遵循MIT LICENCE开源，欢迎各位的贡献
-    link: https://github.com/LiteyukiStudio/LiteyukiBot
+    details: 项目遵循LSO LICENCE开源，欢迎各位的贡献
+    link: https://github.com/LiteyukiStudio/LiteyukiStudioOpensourceLICENSE
 ---
