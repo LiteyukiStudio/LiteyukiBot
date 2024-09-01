@@ -12,6 +12,8 @@
   "type": "module",
   "dependencies": {
     "clipboard": "^2.0.11",
-    "vue": "^3.4.38"
+    "vue": "^3.4.38",
+    "vue-route": "^1.5.1",
+    "vue-router": "4"
   }
 }

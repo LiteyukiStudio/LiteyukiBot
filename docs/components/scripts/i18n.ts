@@ -1,4 +1,5 @@
 import {ref} from "vue";
+
 import {useData} from "vitepress";
 
 const i18nData = {
@@ -34,7 +35,7 @@ let refData = {}
 
 function getText(lang: string, key: string): string {
     lang = formatLang(lang);
-    return i18nData[key][key];
+    return i18nData[lang][key];
 }
 
 function formatLang(lang: string): string {
@@ -44,8 +45,8 @@ function formatLang(lang: string): string {
     return lang;
 }
 
-export function updateRef() {
-    const lang = useData().site.value.lang;
+export function updateRefData() {
+    const lang = formatLang(useData().site.value.lang);
     for (let key in refData) {
         refData[key].value = getText(lang, key);
     }
@@ -53,6 +54,6 @@ export function updateRef() {
 
 export function getTextRef(key: string): any {
     const lang = formatLang(useData().site.value.lang);
-    refData[key] = ref(i18nData[lang][key]);
+    refData[key] = getText(lang, key);
     return refData[key]
 }

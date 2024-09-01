@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import DefaultTheme from "vitepress/theme";
-import {ref, onMounted, onUnmounted} from "vue";
+import {ref, onMounted, onUnmounted, watch} from "vue";
 import {statsApi, GithubStats, RepoUrl, StarMapUrl} from "./scripts/statsApi";
-import {getTextRef, updateRef} from "./scripts/i18n";
+import {getTextRef, updateRefData} from "./scripts/i18n";
+import { onBeforeRouteUpdate } from 'vue-router';
+import {useData} from "vitepress";
 
 const {Layout} = DefaultTheme;
 
@@ -82,12 +84,18 @@ async function updateData() {
   dataSections.prs.value.value = githubStats?.prs || 0;
 }
 
+
 onMounted(() => {
   const intervalId = setInterval(updateData, 10000);
   updateData();
+  updateRefData();
   onUnmounted(() => {
     clearInterval(intervalId);
   });
+});
+
+onBeforeRouteUpdate(() => {
+  updateRefData();
 });
 
 </script>
@@ -96,6 +104,7 @@ onMounted(() => {
   <Layout>
     <template #home-features-before>
       <div class="stats-bar-content">
+        <div class="button" @click="updateRefData">Update</div>
         <div class="stats-bar">
           <div class="stats-info">
             <div v-for="section in Object.values(dataSections)" :key="section.name" class="section">
