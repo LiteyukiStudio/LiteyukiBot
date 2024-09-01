@@ -18,7 +18,7 @@ const dataSections = {
   },
   online: {
     name: 'online',
-    color: '#00ff00',
+    color: '#7eff7e',
     value: ref(1145),
     link: StarMapUrl
   },
@@ -42,19 +42,19 @@ const dataSections = {
   },
   prs: {
     name: 'prs',
-    color: '#ff00ff',
+    color: '#f15df1',
     value: ref(6543),
     link: `${RepoUrl}/pulls`
   },
   plugins: {
     name: 'plugins',
-    color: '#ff003e',
+    color: '#a766ff',
     value: ref(1763),
     link: './store/plugin'
   },
   resources: {
     name: 'resources',
-    color: '#ff00ff',
+    color: '#5a54fa',
     value: ref(6789),
     link: './store/resource'
   },
