@@ -7,13 +7,13 @@ hero:
   tagline: "An integrated chat bot application and management framework"
   actions:
     - theme: brand
-      text: Get Started
+      text: 🚀 Get Started
       link: ./deploy/install
     - theme: alt
-      text: Manual
+      text: 📖 Manual
       link: ./usage/basic
     - theme: alt
-      text: Extensions
+      text: 📦 Extensions
       link: ./store/
 
   image:

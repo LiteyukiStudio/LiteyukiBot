@@ -7,13 +7,13 @@ hero:
   tagline: "一个综合性的机器人应用及管理框架"
   actions:
     - theme: brand
-      text: 快速开始
+      text: 🚀 快速开始
       link: ./deploy/install
     - theme: alt
-      text: 使用手册
+      text: 📖 使用手册
       link: ./usage/basic
     - theme: alt
-      text: 扩展
+      text: 📦 扩展
       link: ./store/resource
   image:
     light: ./liteyuki.svg

@@ -20,6 +20,24 @@ order: 0
 - 开发过程中可以使用`mypy`, `flake8`, `black`等工具进行代码检查和格式化。
 - 启用开发者模式，可以在`config.yml`中设置`dev_mode: true`，这样可以在控制台看到更多的调试信息。
 
+## 项目结构
+- `main.py`: 机器人入口文件
+- `liteyuki`: 框架目录（liteyukibot）
+- `src`: 机器人源码目录
+  - `liteyuki_plugins`: 轻雪插件目录
+  - `nonebot_plugins`: Nonebot插件目录
+  - `resources`: 内置资源包目录
+  - `utils`: 工具目录
+- `tests`: 单元测试目录
+- `docs`: 文档目录
+  - `en`: 英文文档
+  - `zh`: 中文文档
+- `docker`: Docker相关内容目录
+
+其中，`liteyuki`框架是包含在`LiteyukiBot`应用中的，所以此项目既是`LiteyukiBot`应用仓库，同时也是`liteyuki`框架的仓库
+
+`src`目录下为应用程序部分，业务逻辑请在此目录下进行开发，`liteyuki_plugins`和`nonebot_plugins`目录下为插件目录，插件开发请在此目录下进行开发。
+
 ## 规范化
 - 代码请遵循[`PEP8`](https://pep8.org/)和[`Google Python Style Guide`](https://google.github.io/styleguide/pyguide.html)
 - 此外，提交到轻雪仓库的代码，请遵循以下规范：

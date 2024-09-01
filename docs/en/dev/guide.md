@@ -21,6 +21,25 @@ If you need to submit code to the Liteyuki repository, please read the following
 - During development, you can use tools such as `mypy`, `flake8`, and `black` for code checking and formatting.
 - Enable developer mode by setting `dev_mode: true` in `config.yml` to see more debugging information in the console.
 
+## Project Structure
+- `main.py`: Bot entry file
+- `liteyuki`: Framework directory (liteyukibot)
+- `src`: Bot application source code directory
+  - `liteyuki_plugins`: Liteyuki plugin directory
+  - `nonebot_plugins`: Nonebot plugin directory
+  - `resources`: Built-in resource packs directory
+  - `utils`: Utility directory
+- `tests`: Unit test directory
+- `docs`: Documentation directory
+  - `en`: English documentation
+  - `zh`: Chinese documentation
+- `docker`: Docker related content directory
+
+The `liteyuki` framework is included in the `LiteyukiBot` application, so this project is both the `LiteyukiBot` application repository and the `liteyuki` framework repository.
+
+The `src` directory is the application part, please develop business logic in this directory. `liteyuki_plugins` and `nonebot_plugins` directories are plugin directories, please develop plugins in these directories.
+
+
 ## Standardization
 - Code should follow [`PEP8`](https://pep8.org/) and [`Google Python Style Guide`](https://google.github.io/styleguide/pyguide.html).
 - In addition, code submitted to the Liteyuki repository should follow the following guidelines:
