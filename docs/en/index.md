@@ -11,7 +11,7 @@ hero:
       link: ./deploy/install
     - theme: alt
       text: Manual
-      link: ./usage/basic_command
+      link: ./usage/basic
     - theme: alt
       text: Extensions
       link: ./store/
