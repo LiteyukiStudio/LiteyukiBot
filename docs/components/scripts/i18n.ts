@@ -20,7 +20,7 @@ const i18nData = {
         stars: '星星',
         forks: '叉子',
         issues: '议题',
-        prs: '合并',
+        prs: '合并请求',
     }
 }
 
