@@ -132,8 +132,6 @@ class ProcessManager:
         """
         对外启动方法，启动所有进程，创建asyncio task
         """
-        [asyncio.create_task(chan.start_receive_loop()) for chan in get_channels().values()]
-        [asyncio.create_task(sm.start_receive_loop()) for sm in [shared_memory]]
         [asyncio.create_task(self._run_process(name)) for name in self.targets]
 
     def add_target(self, name: str, target: TARGET_FUNC, args: tuple = (), kwargs=None):

@@ -191,22 +191,6 @@ class Channel(Generic[T]):
         else:
             [asyncio.create_task(_callback_funcs[func_id](data)) for func_id in self._on_sub_receive_func_ids]
 
-    async def start_receive_loop(self):
-        """
-        @litedoc-hide
-        开始接收数据
-        会自动判断主进程和子进程，需要在对应进程都调度一次
-        """
-        if len(self._on_main_receive_func_ids) == 0:
-            logger.warning(f"No on_receive function registered for {self.name}")
-            return
-
-        self.is_receive_loop_running = True
-        logger.debug(f"Starting receive loop for {self.name}")
-        while not self._closed:
-            data = await self.async_receive()
-            await self._run_on_receive_funcs(data)
-
 
 """子进程可用的主动和被动通道"""
 active_channel: Channel = Channel(name="active_channel")    # 主动通道
