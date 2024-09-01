@@ -119,7 +119,7 @@ onMounted(() => {
   width: 100%;
   padding: 10px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 15px;
   margin: 20px;
 }
@@ -130,7 +130,7 @@ onMounted(() => {
 }
 
 .section-tab {
-  margin-left: 20px;
+  margin-left: 15px;
   display: flex;
   justify-content: flex-start;
   align-items: center; /* 确保垂直居中 */
@@ -153,7 +153,7 @@ onMounted(() => {
   font-size: 30px;
   font-weight: bold;
   margin-top: 5px;
-  margin-left: 20px;
+  margin-left: 15px;
 }
 
 .starmap {
