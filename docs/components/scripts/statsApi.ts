@@ -1,10 +1,11 @@
-
 // URL
 export const OWNER = "LiteyukiStudio"
 export const REPO = "LiteyukiBot"
 const githubAPIUrl = "https://api.github.com"
 const onlineFetchUrl = "https://api.liteyuki.icu/online";
 const totalFetchUrl = "https://api.liteyuki.icu/count";
+const visitRecordUrl = "https://api.liteyuki.icu/visit";
+const visitCountUrl = "https://api.liteyuki.icu/visit_count";
 
 export const RepoUrl = `https://github.com/${OWNER}/${REPO}`
 export const StarMapUrl = "https://starmap.liteyuki.icu"
@@ -25,10 +26,11 @@ interface StatsApi {
     getGithubStats: () => Promise<GithubStats>;
     getPluginNum: () => Promise<number>;
     getResourceNum: () => Promise<number>;
+    getVisitCount: () => Promise<number>;
 }
 
 
-export type { GithubStats };
+export type {GithubStats};
 
 // 实现接口
 export const statsApi: StatsApi = {
@@ -90,5 +92,48 @@ export const statsApi: StatsApi = {
         } catch (e) {
             return -1;
         }
+    },
+    getVisitCount: async () => {
+        try {
+            const res = await fetch(visitCountUrl);
+            const data = await res.json();
+            return data.count;
+        } catch (e) {
+            return -1;
+        }
     }
 };
+
+function getDeviceId(): string {
+    // 用户每次访问时生成一个唯一的设备ID，储存在localStorage中，用于统计用户数量
+    const deviceIdKey = 'deviceId';
+    let deviceId = localStorage.getItem(deviceIdKey);
+
+    if (!deviceId) {
+        deviceId = generateUUID();
+        localStorage.setItem(deviceIdKey, deviceId);
+    }
+    return deviceId;
+}
+
+export async function uploadVisitRecord() {
+    const deviceId = getDeviceId();
+    try {
+        await fetch(visitRecordUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: new URLSearchParams({'device_id': deviceId}).toString(),
+        });
+    } catch (e) {
+        console.error('Failed to upload visit record:', e);
+    }
+}
+
+function generateUUID(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = (Math.random() * 16) | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import DefaultTheme from "vitepress/theme";
 import {ref, onMounted, onUnmounted} from "vue";
-import {statsApi, GithubStats, RepoUrl, StarMapUrl} from "./scripts/statsApi";
+import {statsApi, GithubStats, RepoUrl, StarMapUrl, uploadVisitRecord} from "./scripts/statsApi";
 import {getTextRef, updateRefData} from "./scripts/i18n";
 import {onBeforeRouteUpdate} from 'vue-router';
 
@@ -58,6 +58,12 @@ const dataSections = {
     value: ref(6789),
     link: './store/resource'
   },
+  visitors: {
+    name: 'visitors',
+    color: '#00a6ff',
+    value: ref(1234),
+    link: RepoUrl
+  },
 }
 
 async function updateData() {
@@ -68,6 +74,7 @@ async function updateData() {
     dataSections.total.value.value,
     dataSections.plugins.value.value,
     dataSections.resources.value.value,
+      dataSections.visitors.value.value,
     githubStats,
 
   ] = await Promise.all([
@@ -75,6 +82,7 @@ async function updateData() {
     statsApi.getTotal(),
     statsApi.getPluginNum(),
     statsApi.getResourceNum(),
+    statsApi.getVisitCount(),
     statsApi.getGithubStats(),
   ]);
   dataSections.stars.value.value = githubStats?.stars || 0;
@@ -83,11 +91,15 @@ async function updateData() {
   dataSections.prs.value.value = githubStats?.prs || 0;
 }
 
+function formatNumber(num: { value: number }): string {
+  return num.value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
 
 onMounted(() => {
   const intervalId = setInterval(updateData, 10000);
   updateData();
-  updateRefData();
+  uploadVisitRecord();
   onUnmounted(() => {
     clearInterval(intervalId);
   });
@@ -96,6 +108,8 @@ onMounted(() => {
 onBeforeRouteUpdate(() => {
   updateRefData();
 });
+
+
 
 </script>
 
@@ -113,7 +127,7 @@ onBeforeRouteUpdate(() => {
                     <span class="dot" :style="{backgroundColor: section.color}"></span>
                     <span class="text">{{ getTextRef(section.name) }}</span>
                   </div>
-                  <div class="number">{{ section.value.value }}</div>
+                  <div class="number">{{ formatNumber(section.value) }}</div>
                 </a>
               </div>
             </div>
@@ -222,7 +236,7 @@ onBeforeRouteUpdate(() => {
 }
 
 .number {
-  font-size: 30px;
+  font-size: 27px;
   font-weight: bold;
   margin-top: 5px;
   margin-left: 15px;
