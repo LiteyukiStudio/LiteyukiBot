@@ -55,17 +55,11 @@ class LiteyukiBot:
         """加载插件加载器"""
         load_plugin("liteyuki.plugins.plugin_loader")  # 加载轻雪插件
 
-        """信号处理"""
-        signal.signal(signal.SIGINT, self._handle_exit)
-        signal.signal(signal.SIGTERM, self._handle_exit)
-        atexit.register(self.process_manager.terminate_all)  # 注册退出时的函数
-
     async def _run(self):
         """
         启动逻辑
         """
         await self.lifespan.before_start()  # 启动前钩子
-        await self.process_manager.start_all()
         await self.lifespan.after_start()  # 启动后钩子
         await self.keep_alive()
 
@@ -73,34 +67,25 @@ class LiteyukiBot:
         """
         外部启动接口
         """
+        self.process_manager.start_all()
         try:
             asyncio.run(self._run())
         except KeyboardInterrupt:
-            logger.info("Liteyuki is stopping...")
+            logger.opt(colors=True).info("<y>Liteyuki is stopping...</y>")
+            self.stop()
+        logger.opt(colors=True).info("<y>Liteyuki is stopped...</y>")
 
     async def keep_alive(self):
         """
         保持轻雪运行
         """
+        logger.info("Liteyuki is keeping alive...")
         try:
             while not self.stop_event.is_set():
-                time.sleep(0.5)
-        except KeyboardInterrupt:
-            logger.info("Liteyuki is stopping...")
+                await asyncio.sleep(0.1)
+        except Exception:
+            logger.info("Liteyuki is exiting...")
             self.stop()
-
-    def _handle_exit(self, signum, frame):
-        """
-        @litedoc-hide
-
-        信号处理
-        Args:
-            signum: 信号
-            frame: 帧
-        """
-        logger.info("Received signal, stopping all processes.")
-        self.stop()
-        sys.exit(0)
 
     def restart(self, delay: int = 0):
         """
@@ -123,7 +108,7 @@ class LiteyukiBot:
                 cmd = "nohup"
             self.process_manager.terminate_all()
             # 进程退出后重启
-            threading.Thread(target=os.system, args=(f"{cmd} {executable} {' '.join(args)}",)).start()
+            threading.Thread(target=os.system, args=(f"{cmd} {executable} {' '.join(args)}",), daemon=True).start()
             sys.exit(0)
         self.call_restart_count += 1
 
@@ -161,8 +146,8 @@ class LiteyukiBot:
         """
         停止轻雪
         """
+        self.process_manager.terminate_all()
         self.stop_event.set()
-        self.loop.stop()
 
     def on_before_start(self, func: LIFESPAN_FUNC) -> LIFESPAN_FUNC:
         """

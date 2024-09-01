@@ -13,6 +13,7 @@ import nonebot
 from liteyuki.utils import IS_MAIN_PROCESS
 from liteyuki.plugin import PluginMetadata, PluginType
 from .nb_utils import adapter_manager, driver_manager  # type: ignore
+from liteyuki.log import logger
 
 __plugin_meta__ = PluginMetadata(
     name="NoneBot2启动器",
@@ -29,7 +30,6 @@ def nb_run(*args, **kwargs):
     Returns:
     """
     # 给子进程传递通道对象
-
     kwargs.update(kwargs.get("nonebot", {}))  # nonebot配置优先
     nonebot.init(**kwargs)
 
@@ -42,16 +42,12 @@ def nb_run(*args, **kwargs):
         nonebot.load_plugin("src.liteyuki_main")  # 尝试加载轻雪主插件（Nonebot插件）
     except Exception as e:
         pass
-
     nonebot.run()
 
 
 if IS_MAIN_PROCESS:
+    from liteyuki import get_bot
     from .dev_reloader import *
 
     liteyuki = get_bot()
-
-
-    @liteyuki.on_before_start
-    async def start_run_nonebot():
-        liteyuki.process_manager.add_target(name="nonebot", target=nb_run, args=(), kwargs=liteyuki.config)
+    liteyuki.process_manager.add_target(name="nonebot", target=nb_run, args=(), kwargs=liteyuki.config)

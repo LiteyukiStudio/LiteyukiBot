@@ -28,16 +28,15 @@ def _():
 
 
 @bot.on_before_process_shutdown
-def _():
+def _(name="name"):
     logger.info("生命周期监控器：准备停止")
 
 
 @bot.on_before_process_restart
-def _():
+def _(name="name"):
     logger.info("生命周期监控器：准备重启")
 
 
 @bot.on_after_start
 async def _():
-    await asyncio.sleep(6)
     logger.info("生命周期监控器：启动完成")

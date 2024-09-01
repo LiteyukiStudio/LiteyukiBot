@@ -130,12 +130,12 @@ class Lifespan:
         logger.debug("Running after_start functions")
         await self.run_funcs(self._after_start_funcs)
 
-    async def before_process_shutdown(self) -> None:
+    async def before_process_shutdown(self, *args, **kwargs) -> None:
         """
         停止前钩子
         """
         logger.debug("Running before_shutdown functions")
-        await self.run_funcs(self._before_process_shutdown_funcs)
+        await self.run_funcs(self._before_process_shutdown_funcs, *args, **kwargs)
 
     async def after_shutdown(self) -> None:
         """
@@ -144,12 +144,12 @@ class Lifespan:
         logger.debug("Running after_shutdown functions")
         await self.run_funcs(self._after_shutdown_funcs)
 
-    async def before_process_restart(self) -> None:
+    async def before_process_restart(self, *args, **kwargs) -> None:
         """
         重启前钩子
         """
         logger.debug("Running before_restart functions")
-        await self.run_funcs(self._before_process_restart_funcs)
+        await self.run_funcs(self._before_process_restart_funcs, *args, **kwargs)
 
     async def after_restart(self) -> None:
         """

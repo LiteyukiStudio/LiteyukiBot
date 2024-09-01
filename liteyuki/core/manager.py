@@ -10,6 +10,7 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 """
 import asyncio
 import multiprocessing
+import threading
 from multiprocessing import Process
 from typing import Any, Callable, TYPE_CHECKING, TypeAlias
 
@@ -20,8 +21,8 @@ if TYPE_CHECKING:
     from liteyuki.bot.lifespan import Lifespan
     from liteyuki.comm.storage import KeyValueStore
 
-
 from liteyuki.comm import Channel
+
 if IS_MAIN_PROCESS:
     from liteyuki.comm.channel import get_channel, publish_channel, get_channels
     from liteyuki.comm.storage import shared_memory
@@ -88,7 +89,7 @@ class ProcessManager:
         self.targets: dict[str, tuple[Callable, tuple, dict]] = {}
         self.processes: dict[str, Process] = {}
 
-    async def _run_process(self, name: str):
+    def _run_process(self, name: str):
         """
         开启后自动监控进程，并添加到进程字典中，会阻塞，请创建task
         Args:
@@ -108,31 +109,31 @@ class ProcessManager:
 
         # 启动进程并监听信号
         _start_process()
-
         while True:
-            data = await chan_active.async_receive()
+            data = chan_active.receive()
             if data == 0:
                 # 停止
                 logger.info(f"Stopping process {name}")
-                await self.lifespan.before_process_shutdown()
                 self.terminate(name)
                 break
             elif data == 1:
                 # 重启
                 logger.info(f"Restarting process {name}")
-                await self.lifespan.before_process_shutdown()
-                await self.lifespan.before_process_restart()
                 self.terminate(name)
                 _start_process()
                 continue
             else:
                 logger.warning("Unknown data received, ignored.")
 
-    async def start_all(self):
+    def start_all(self):
         """
         对外启动方法，启动所有进程，创建asyncio task
         """
-        [asyncio.create_task(self._run_process(name)) for name in self.targets]
+        # [asyncio.create_task(self._run_process(name)) for name in self.targets]
+
+        for name in self.targets:
+            logger.debug(f"Starting process {name}")
+            threading.Thread(target=self._run_process, args=(name, ), daemon=True).start()
 
     def add_target(self, name: str, target: TARGET_FUNC, args: tuple = (), kwargs=None):
         """
