@@ -21,41 +21,41 @@ hero:
     alt: Liteyuki Logo
 
 features:
-  - title: Supports Multiple Frameworks
+  - title: Ecological Diversity
     icon: 🛠️
-    details: Based on the liteyuki framework, compatible with nonebot, melobot, etc., with good ecological support
+    details: Based on the liteyuki framework, compatible with any Python bot framework and application
     link: ./dev/api/api
 
-  - title: Plugin Management
+  - title: Pluggable
     icon: 🧩
     details: Use package manager for convenient management of plugins and resource packs
     link: ./store/plugin
 
-  - title: Theme Support
+  - title: Customizable
     icon: 🎨
     details: Fully customize the appearance using resource packs
     link: ./store/resource
 
-  - title: Internationalization
+  - title: Localization
     icon: 🌐
     details: Support for multiple languages through resource packs
     link: https://baike.baidu.com/item/i18n/6771940 
 
-  - title: Easy to Use
+  - title: Easy to use
     icon: ⚙️
     details: No complicated pre-process, ready to use out of the box
     link: ./deploy/config
 
-  - title: Ultra-high Performance
-    icon: 🏎️
+  - title: High Performance
+    icon: 🚀
     details: 500 plugins, starts within 2 seconds
 
   - title: Rolling Updates
     icon: ☁️
     details: Keep your robot up to date with the latest commits
 
-  - title: Open Source Project
-    icon: 💻
+  - title: Open Source
+    icon: 📄
     details: The project follows the LSO LICENSE and is open to contributions
     link: https://github.com/LiteyukiStudio/LiteyukiStudioOpensourceLICENSE
 ---
