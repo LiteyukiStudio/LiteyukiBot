@@ -1,19 +1,18 @@
 import os.path
-# import time
 from os import getcwd
-# from typing import Literal
 
-import aiofiles
+import aiofiles  # type: ignore
 import nonebot
-"""
-from src.utils.htmlrender import (
+from nonebot import require
+
+require("nonebot_plugin_htmlrender")
+
+from nonebot_plugin_htmlrender import (
     template_to_html,
     template_to_pic,
-    # get_new_page,
 )
-"""
-from nonebot_plugin_htmlrender import *
 from .tools import random_hex_string
+
 
 async def html2image(
         html: str,
@@ -39,14 +38,12 @@ async def template2html(
 
 
 async def template2image(
-    template: str,
-    templates: dict,
-    ###
-    pages=None,
-    ###
-    wait: int = 0,
-    scale_factor: float = 1,
-    debug: bool = False,
+        template: str,
+        templates: dict,
+        pages=None,
+        wait: int = 0,
+        scale_factor: float = 1,
+        debug: bool = False,
 ) -> bytes:
     """
     template -> html -> image
@@ -66,11 +63,9 @@ async def template2image(
         pages = {
                 "viewport": {
                         "width" : 1080,
-                        "height": 10
                 },
                 "base_url": f"file://{getcwd()}",
         }
-    ###
 
     template_path = os.path.dirname(template)
     template_name = os.path.basename(template)
@@ -84,18 +79,10 @@ async def template2image(
         )
         random_file_name = f"debug-{random_hex_string(6)}.html"
         async with aiofiles.open(
-            os.path.join(template_path, random_file_name), "w", encoding="utf-8"
+                os.path.join(template_path, random_file_name), "w", encoding="utf-8"
         ) as f:
             await f.write(raw_html)
         nonebot.logger.info("Debug HTML: %s" % f"{random_file_name}")
-
-    """
-    viewport={
-        "width": 1080,
-        "height": 10,
-        "deviceScaleFactor": scale_factor,
-    },"""
-
     return await template_to_pic(
         template_name=template_name,
         template_path=template_path,
@@ -107,32 +94,3 @@ async def template2image(
         device_scale_factor=scale_factor
         ###
     )
-    
-async def url2image(
-        url: str,
-        wait: int = 0,
-        scale_factor: float = 1,
-        type: str = "png",
-        quality: int = 100,
-        **kwargs
-) -> bytes:
-    """
-    Args:
-        quality:
-        type:
-        url: str: URL
-        wait: int: 等待时间
-        scale_factor: float: 缩放因子
-        **kwargs: page 参数
-    Returns:
-        图片二进制数据
-    """
-    async with get_new_page(scale_factor) as page:
-        await page.goto(url)
-        await page.wait_for_timeout(wait)
-        return await page.screenshot(
-            full_page=True,
-            type=type,
-            quality=quality
-        )
-
