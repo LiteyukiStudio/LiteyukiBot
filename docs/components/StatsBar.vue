@@ -119,7 +119,7 @@ onBeforeRouteUpdate(() => {
             </div>
           </div>
           <div class="starmap">
-            <iframe src="https://starmap.liteyuki.icu/" width="100%" height="300px"></iframe>
+            <iframe src="https://starmap.liteyuki.icu/" width="100%" height="300px" class="gamma"></iframe>
           </div>
         </div>
       </div>
@@ -134,6 +134,14 @@ onBeforeRouteUpdate(() => {
   justify-content: center;
   align-items: center;
   flex-direction: column;
+}
+
+.gamma {
+  filter: brightness(1.8);
+}
+
+.dark .gamma {
+  filter: brightness(1.0);
 }
 
 .stats-bar {
