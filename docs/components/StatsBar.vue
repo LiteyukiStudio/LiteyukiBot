@@ -13,55 +13,55 @@ const dataSections = {
   total: {
     name: 'total',
     color: '#00a6ff',
-    value: ref(2005),
+    value: ref(-1),
     link: StarMapUrl
   },
   online: {
     name: 'online',
     color: '#7eff7e',
-    value: ref(1145),
+    value: ref(-1),
     link: StarMapUrl
   },
   stars: {
     name: 'stars',
     color: '#ffcc00',
-    value: ref(1234),
+    value: ref(-1),
     link: `${RepoUrl}/stargazers`
   },
   forks: {
     name: 'forks',
     color: '#ff6600',
-    value: ref(9420),
+    value: ref(-1),
     link: `${RepoUrl}/forks`
   },
   issues: {
     name: 'issues',
     color: '#ff0000',
-    value: ref(1145),
+    value: ref(-1),
     link: `${RepoUrl}/issues`
   },
   prs: {
     name: 'prs',
     color: '#f15df1',
-    value: ref(6543),
+    value: ref(-1),
     link: `${RepoUrl}/pulls`
   },
   plugins: {
     name: 'plugins',
     color: '#a766ff',
-    value: ref(1763),
+    value: ref(-1),
     link: './store/plugin'
   },
   resources: {
     name: 'resources',
     color: '#5a54fa',
-    value: ref(6789),
+    value: ref(-1),
     link: './store/resource'
   },
   visitors: {
     name: 'visitors',
     color: '#00a6ff',
-    value: ref(1234),
+    value: ref(-1),
     link: RepoUrl
   },
 }

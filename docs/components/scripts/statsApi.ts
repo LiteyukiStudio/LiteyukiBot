@@ -2,6 +2,7 @@
 export const OWNER = "LiteyukiStudio"
 export const REPO = "LiteyukiBot"
 const githubAPIUrl = "https://api.github.com"
+const giteaAPIUrl = "https://git.liteyuki.icu/api/v1"
 const onlineFetchUrl = "https://api.liteyuki.icu/online";
 const totalFetchUrl = "https://api.liteyuki.icu/count";
 const visitRecordUrl = "https://api.liteyuki.icu/visit";
@@ -32,28 +33,34 @@ interface StatsApi {
 
 export type {GithubStats};
 
-// 实现接口
-export const statsApi: StatsApi = {
-    getTotal: async () => {
-        try {
-            const res = await fetch(totalFetchUrl);
-            const data = await res.json();
-            return data.register;
-        } catch (e) {
-            return -1;
-        }
-    },
-    getOnline: async () => {
-        try {
-            const res = await fetch(onlineFetchUrl);
-            const data = await res.json();
-            return data.online;
-        } catch (e) {
-            return -1;
-        }
-    },
-    getGithubStats: async () => {
-        try {
+async function getGiteaStats() {
+    try {
+        const url = `${giteaAPIUrl}/repos/${OWNER}/${REPO}`;
+        console.log(url);
+        const res = await fetch(url);
+        const data = await res.json();
+        return {
+            stars: data.stars_count,
+            forks: data.forks_count,
+            watchers: data.watchers_count,
+            issues: 0,
+            prs: 0,
+            size: data.size,
+        };
+    } catch (e) {
+        return {
+            stars: -1,
+            forks: -1,
+            watchers: -1,
+            issues: -1,
+            prs: -1,
+            size: -1,
+        };
+    }
+}
+
+async function getGithubStats() {
+    try {
             const res = await fetch(`${githubAPIUrl}/repos/${OWNER}/${REPO}`);
             const data = await res.json();
             return {
@@ -74,7 +81,29 @@ export const statsApi: StatsApi = {
                 size: -1,
             };
         }
+}
+
+// 实现接口
+export const statsApi: StatsApi = {
+    getTotal: async () => {
+        try {
+            const res = await fetch(totalFetchUrl);
+            const data = await res.json();
+            return data.register;
+        } catch (e) {
+            return -1;
+        }
     },
+    getOnline: async () => {
+        try {
+            const res = await fetch(onlineFetchUrl);
+            const data = await res.json();
+            return data.online;
+        } catch (e) {
+            return -1;
+        }
+    },
+    getGithubStats: getGiteaStats,
     getPluginNum: async () => {
         try {
             const res = await fetch('/plugins.json');
