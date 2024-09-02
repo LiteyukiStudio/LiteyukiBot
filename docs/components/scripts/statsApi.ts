@@ -83,6 +83,20 @@ async function getGithubStats() {
         }
 }
 
+async function getRepoStats() {
+    // 两个接口各数据，哪个大取哪个
+    const githubStats = await getGithubStats();
+    const giteaStats = await getGiteaStats();
+    return {
+        stars: Math.max(githubStats.stars, giteaStats.stars),
+        forks: Math.max(githubStats.forks, giteaStats.forks),
+        watchers: Math.max(githubStats.watchers, giteaStats.watchers),
+        issues: Math.max(githubStats.issues, giteaStats.issues),
+        prs: Math.max(githubStats.prs, giteaStats.prs),
+        size: Math.max(githubStats.size, giteaStats.size),
+    };
+}
+
 // 实现接口
 export const statsApi: StatsApi = {
     getTotal: async () => {
@@ -103,7 +117,7 @@ export const statsApi: StatsApi = {
             return -1;
         }
     },
-    getGithubStats: getGiteaStats,
+    getGithubStats: getRepoStats,
     getPluginNum: async () => {
         try {
             const res = await fetch('/plugins.json');
