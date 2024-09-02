@@ -29,7 +29,7 @@ const i18nData = {
         offline: '离线',
         total: '实例',
         fetching: '获取中',
-        stars: '获星',
+        stars: '星标',
         forks: '分叉',
         issues: '开启议题',
         prs: '合并请求',
