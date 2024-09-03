@@ -22,6 +22,8 @@ const i18nData = {
         liteyukiOnly: 'Liteyuki Only',
         search: 'Search',
         resourceStore: 'Resources Store',
+
+        thx_contributors: 'Thanks the following contributors!',
     },
     zh: {
         stats: '统计信息',
@@ -43,6 +45,8 @@ const i18nData = {
         liteyukiOnly: '仅轻雪',
         search: '搜索',
         resourceStore: '资源商店',
+
+        thx_contributors: '感谢以下贡献者！',
     }
 }
 

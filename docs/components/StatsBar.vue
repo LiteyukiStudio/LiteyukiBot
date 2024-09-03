@@ -133,7 +133,8 @@ onBeforeRouteUpdate(() => {
             </div>
           </div>
           <div class="starmap">
-            <iframe src="https://starmap.liteyuki.icu/" width="100%" height="300px" class="gamma"></iframe>
+            <iframe src="https://starmap.liteyuki.icu/" width="100%" height="300px" class="gamma">
+            </iframe>
           </div>
         </div>
       </div>
@@ -267,7 +268,7 @@ onBeforeRouteUpdate(() => {
 
   .stats-info {
     width: 40%;
-    margin: 30px;
+    margin: 10px 30px 30px 30px;
   }
 
   .starmap {

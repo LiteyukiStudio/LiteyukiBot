@@ -2,6 +2,12 @@
 title: Development Guide
 order: 0
 ---
+
+<script setup>
+import ContributorBar from '../../components/ContributorBar.vue'
+</script>
+
+
 # Development Guide
 
 ## How to Develop
@@ -52,8 +58,8 @@ The `src` directory is the application part, please develop business logic in th
 - commit message should follow the following guidelines:
   - You should commit the code after completing a feature or fixing a bug, and not mix the code of multiple features or bugs together.
   - We use gitmoji to mark the type of commit, such as `:sparkles:` for introducing new features, `:bug:` for fixing bugs, etc., please refer to [gitmoji](https://gitmoji.dev/) for details.
-  - The format of the commit message is `<emoji> [module]: <message>`, such as `:sparkles: [liteyuki.event]: add new feature`,
-  where the module field is the affected part, such as `liteyuki.message`, `docs.en.guide.md`, etc., not much is required, but please fill in as much as possible; the message field is a brief description, in summary, what you did.
+  - The format of the commit message is `<emoji> [type:] <message>`, such as `:sparkles: feat: add new field to event`,
+  where the type field is the type of commit, not much is required, but please fill in as much as possible; the message field is a brief description, in summary, what you did.
   - There is no restriction on the language of the commit message, and bilingual use is possible if conditions permit.
 - The documentation should follow [`Markdown`](https://www.markdownguide.org/) syntax and support vitepress-related content:
   - Revise the documentation for each language when editing.
@@ -62,3 +68,6 @@ The `src` directory is the application part, please develop business logic in th
 
 ## Finally
 - This project is a non-profit open-source project, and we welcome anyone to participate in development. Your contributions will make Liteyuki better.
+
+
+<ContributorBar />

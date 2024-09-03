@@ -2,6 +2,13 @@
 title: 开发指南
 order: 0
 ---
+
+
+<script setup>
+import ContributorBar from '../../components/ContributorBar.vue'
+</script>
+
+
 # 开发指南
 
 ## 如何开发
@@ -49,8 +56,8 @@ order: 0
 - commit message请遵循以下规范：
   - 应在每次完成一个功能或修复一个bug后提交代码，不要将多个功能或多个bug的代码混在一起提交。
   - 我们使用gitmoji来标记commit的类型，如`:sparkles:`表示引入新功能，`:bug:`表示修复bug等，具体请参考[gitmoji](https://gitmoji.dev/)
-  - commit message的格式为`<emoji> [module]: <message>`，如`:sparkles: [liteyuki.event]: add new feature`，
-  其中module字段为受影响部分，例如`liteyuki.message`，`docs.en.guide.md`等，不作过多要求，但请尽量填写；message字段为简短的描述，总结来说就是你干了什么。
+  - commit message的格式为`<emoji> [type:] <message>`，如`:sparkles: feat: 给event添加新字段`，
+  其中`type`字段为commit类型且**可选**，message字段为简短的描述，总结来说就是你干了什么。
   - 不限制commit message的语言，有条件可以使用中英双语。
 - 文档请遵循[`Markdown`](https://www.markdownguide.org/)语法，并且支持vitepress相关内容：
   - 修订文档时，每个语言的文档都要修订。
@@ -59,3 +66,6 @@ order: 0
 
 ## 最后
 - 本项目是一个非盈利的开源项目，我们欢迎任何人参与开发，你的贡献将会使轻雪变得更好。
+
+
+<ContributorBar />
