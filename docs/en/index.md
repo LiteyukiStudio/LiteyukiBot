@@ -15,8 +15,8 @@ hero:
       text: 📦 Extensions
       link: ./store/
   image:
-    light: ./liteyuki.svg
-    dark: ./liteyuki-dark.svg
+    light: /liteyuki.svg
+    dark: /liteyuki-dark.svg
     alt: Liteyuki Logo
 
 features:
