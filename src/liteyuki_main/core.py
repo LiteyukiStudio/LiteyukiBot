@@ -107,7 +107,7 @@ async def _(matcher: Matcher, bot: T_Bot, event: T_MessageEvent):
 ).handle()
 # Satori OK
 async def _(matcher: Matcher):
-    await matcher.finish("https://bot.liteyuki.icu/usage")
+    await matcher.finish("https://bot.liteyuki.icu/usage/basic.html")
 
 
 @on_alconna(
