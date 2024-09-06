@@ -11,10 +11,9 @@
 [![][Python3.10+]][python-link]
 [![][Usage]][usage-link]
 
-- 基于[Nonebot2](https://github.com/nonebot/nonebot2)，有良好的生态支持
+- 原生支持与任意`Python`Bot框架互联，有良好的生态支持
 - 开箱即用，无需复杂配置
 - 集成包管理器，支持一键安装插件
-- 支持OneBot标准通信但不限于此
 - 自定义主题支持，满足审美需求
 - 国际化支持，支持多种语言
 - 高性能，500插件2s内启动
@@ -24,8 +23,7 @@
 </div>
 
 ### 感谢
-- [NoneBot2](https://nonebot.dev)提供的框架支持
-- [nonebot-plugin-alconna](https://github.com/ArcletProject/nonebot-plugin-alconna)提供的命令解析功能
+- 所有贡献者们
 
 
 [OneBot]: https://img.shields.io/badge/OneBot-11/12-blue?style=for-the-badge
