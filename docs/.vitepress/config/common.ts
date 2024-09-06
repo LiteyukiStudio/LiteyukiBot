@@ -2,7 +2,6 @@
 
 import {defineConfig} from 'vitepress'
 import {generateSidebar} from 'vitepress-sidebar';
-import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite'
 import {zh} from "./zh";
 import {en} from "./en";
 
