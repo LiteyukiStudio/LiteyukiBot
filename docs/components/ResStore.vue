@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import {computed, ref} from 'vue'
 import ItemCard from './ResItemCard.vue'
-import * as url from "node:url";
+import ResPubWindow from "./ResPubWindow.vue";
 import {getTextRef} from "./scripts/i18n";
+import {RepoUrl} from "./scripts/statsApi";
 
 // 从public/assets/resources.json加载插件
 let filteredItems = computed(() => {
@@ -19,23 +20,80 @@ let filteredItems = computed(() => {
 let items = ref([])
 let search = ref('')
 fetch("/resources.json")
-  .then(response => response.json())
-  .then(data => {
-    items.value = data
-  })
-  .catch(error => console.error(error))
+    .then(response => response.json())
+    .then(data => {
+      items.value = data
+    })
+    .catch(error => console.error(error))
 // 列表倒序
+
+const isPublishWindowOpen = ref(false)
+
+let newRes = ref({
+  name: '',
+  desc: '',
+  author: '',
+  homepage: '',
+  link: '',
+})
+
+function openPublishWindow() {
+  isPublishWindowOpen.value = true
+}
+
+function closePublishWindow() {
+  isPublishWindowOpen.value = false
+}
+
+const submitForm = () => {
+  const title = encodeURI(`Resource: ${newRes.value.name}`)
+  const body = encodeURI(
+      JSON.stringify(
+          {
+            name: newRes.value.name,
+            desc: newRes.value.desc,
+            author: newRes.value.author,
+            homepage: newRes.value.homepage,
+            link: newRes.value.link,
+          }
+      )
+  )
+  const issueURL = `${RepoUrl}/issues/new?labels=Resource&title=${title}&body=${body}`
+  window.open(issueURL, '_blank')
+}
 
 </script>
 
 <template>
   <div class="market">
     <h1>{{ getTextRef('resourceStore') }}</h1>
-    <div class="search-box-div"><input class="item-search-box" type="text" :placeholder="getTextRef('search')" v-model="search" /></div>
+    <div class="search-box-div"><input class="item-search-box" type="text" :placeholder="getTextRef('search')" v-model="search"/></div>
+    <div class="store-tabs" style="display: flex">
+      <button class="store-button publish-button" @click="openPublishWindow">{{ getTextRef('publishRes') }}</button>
+    </div>
     <div class="items">
       <!-- 使用filteredItems来布局商品 -->
       <ItemCard v-for="item in filteredItems" :key="item.id" :item="item"/>
     </div>
+    <ResPubWindow class="pub-window" :is-visible="isPublishWindowOpen">
+      <h2>{{ getTextRef("publishRes") }}</h2>
+      <form @submit.prevent="submitForm">
+        <label for="name">{{ getTextRef("resName") }}</label>
+        <input type="text" id="name" v-model="newRes.name" :placeholder="getTextRef('resNameText')"/>
+        <label for="desc">{{ getTextRef("resDesc") }}</label>
+        <input type="text" id="desc" v-model="newRes.desc" :placeholder="getTextRef('resDescText')"/>
+        <label for="author">{{ getTextRef("resAuthor") }}</label>
+        <input type="text" id="author" v-model="newRes.author" :placeholder="getTextRef('resAuthorText')"/>
+        <label for="link">{{ getTextRef("resLink") }}</label>
+        <input type="text" id="link" v-model="newRes.link" :placeholder="getTextRef('resLinkText')"/>
+        <label for="homepage">{{ getTextRef("resHomepage") }}</label>
+        <input type="text" id="homepage" v-model="newRes.homepage" :placeholder="getTextRef('resHomepageText')"/>
+        <div class="pub-options" style="display: flex; justify-content: center">
+          <button class="pub-option close" type="button" @click="closePublishWindow">{{ getTextRef("closeButtonText") }}</button>
+          <button class="pub-option submit" type="submit">{{ getTextRef("submitButtonText") }}</button>
+        </div>
+      </form>
+    </ResPubWindow>
   </div>
 </template>
 
@@ -51,4 +109,6 @@ h1 {
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 10px;
 }
+
+
 </style>

@@ -1,5 +1,5 @@
 import DefaultTheme from 'vitepress/theme'
-import './liteyuki.css'
+import './liteyuki.scss'
 
 import StatsBar from '../../components/StatsBar.vue'
 import PluginStore from '../../components/PluginStore.vue'

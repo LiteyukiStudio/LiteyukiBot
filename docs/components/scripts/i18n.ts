@@ -24,6 +24,23 @@ const i18nData = {
         resourceStore: 'Resources Store',
         thx_contributors: 'Thanks the following contributors!',
         easterEgg: 'Congratulations on finding the Easter egg!',
+
+        publishPlugin: 'Publish Plugin',
+        publishRes: 'Publish Resource',
+        closeButtonText: 'Close',
+        submitButtonText: 'Submit',
+
+        resName: 'Name',
+        resDesc: 'Description',
+        resAuthor: 'Author',
+        resLink: 'Download Link',
+        resHomepage: 'Homepage',
+
+        resNameText: 'Example: Kawaii Style Theme',
+        resDescText: 'Example: A kawaii style and color theme',
+        resAuthorText: 'Usually the github username, Example: yanyongyu',
+        resLinkText: 'Direct download link, usually zip package link',
+        resHomepageText: 'Optional, can be the name of the git platform repository"',
     },
     zh: {
         stats: '统计信息',
@@ -47,6 +64,23 @@ const i18nData = {
         resourceStore: '资源商店',
         thx_contributors: '感谢以下贡献者！',
         easterEgg: '恭喜你发现了彩蛋！',
+
+        publishPlugin: '发布插件',
+        publishRes: '发布资源',
+        closeButtonText: '关闭',
+        submitButtonText: '提交',
+
+        resName: '名称',
+        resDesc: '描述',
+        resAuthor: '作者',
+        resLink: '下载链接',
+        resHomepage: '主页',
+
+        resNameText: '示例：可爱风格主题',
+        resDescText: '示例：一个可爱风格和配色的主题',
+        resAuthorText: '通常为github用户名，示例：yanyongyu',
+        resLinkText: '直接下载链接，通常为zip包链接',
+        resHomepageText: '可选，可为git平台仓库名',
     }
 }
 
@@ -74,5 +108,5 @@ export function updateRefData() {
 export function getTextRef(key: string): any {
     const lang = formatLang(useData().site.value.lang);
     refData[key] = getText(lang, key);
-    return refData[key]
+    return refData[key] || key;
 }

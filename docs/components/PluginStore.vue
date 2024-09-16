@@ -57,6 +57,11 @@ fetch('https://registry.nonebot.dev/plugins.json')
       <ToggleSwitch v-model:modelValue="showLiteyukiPluginOnly"/>
       {{ getTextRef('liteyukiOnly') }}
     </div>
+
+<!--    按钮们-->
+<!--    <div class="tab">-->
+<!--        <button @click="open"-->
+<!--    </div>-->
     <div class="items">
       <!-- 使用filteredItems来布局商品 -->
       <ItemCard v-for="item in filteredItems" :key="item.id" :item="item"/>
