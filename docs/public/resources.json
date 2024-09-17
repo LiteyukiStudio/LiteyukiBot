@@ -73,12 +73,5 @@
         "link": "https://cdn.liteyuki.icu/static/lrp/kakyo.zip",
         "homepage": "https://github.com/Nanaloveyuki/liteyuki-langpack",
         "author": "Nanaloveyuki"
-    },
-    {
-        "name": "测试资源包2",
-        "description": "test",
-        "link": "https://cdn.liteyuki.icu/static/lrp/liteyuki_words_aojiao.zip",
-        "homepage": "",
-        "author": "snowykami"
     }
 ]
