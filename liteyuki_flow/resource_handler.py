@@ -14,6 +14,11 @@ from liteyuki_flow.const import OPENED, EDITED, CLOSED, REOPENED, RESOURCE_JSON
 from liteyuki_flow.markdown_parser import MarkdownParser
 from liteyuki_flow.typ import err, nil
 
+user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
+
+headers = {
+    "User-Agent": user_agent
+}
 
 # opened: 创建新的资源包，预审核
 # edited: 编辑资源包信息，需重新审核
@@ -34,8 +39,7 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
         return ValueError("name, desc, link, homepage 及 author 为必填字段.")
 
     # 下载并解析资源包
-    r = requests.get(link)
-    print(r.status_code)
+    r = requests.get(link, headers=headers)
     if r.status_code != 200:
         issue.create_comment("下载失败.")
         return ValueError("下载失败.")
