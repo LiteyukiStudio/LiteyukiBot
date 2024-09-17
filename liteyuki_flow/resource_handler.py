@@ -46,7 +46,7 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
     r = requests.get(link, headers=headers)
     print(r.text)
     if r.status_code != 200:
-        issue.create_comment("下载失败." + edit_tip)
+        issue.create_comment("下载失败.")
         return ValueError("下载失败.")
 
     try:
