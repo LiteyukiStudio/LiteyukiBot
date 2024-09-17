@@ -2,7 +2,7 @@ name: Issue Handler
 
 on:
   issues:
-    types: [ opened, edited, closed, reopened ]
+    types: [ opened, edited, closed ]
 
 concurrency:
   group: issue_handler
