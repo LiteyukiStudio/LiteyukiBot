@@ -32,6 +32,7 @@ def push_check_result(issue: Issue, result: str):
     else:
         issue.create_comment("检查结果: " + result)
 
+
 def push_publish_result(issue: Issue, result: str):
     cid = None
     for cm in issue.get_comments():
@@ -118,15 +119,32 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
 
 # closed
 def add_resource(github: Github, issue: Issue, repo: Repository) -> err:
-    # 检测关闭者是否为仓库管理员
+    # 检测关闭时是否有管理员发布的通过评论
     try:
-        closed_by = issue.closed_by
-        if closed_by is None:
-            push_publish_result(issue, "❌ 无法获取关闭者信息。")
-            return ValueError("无法获取关闭者信息。")
-        if not any([True for u in repo.get_collaborators() if u.login == closed_by.login]):
-            push_publish_result(issue, "❌ 你不是仓库管理员，无法发布资源包。")
-            return ValueError("你不是仓库管理员，无法发布资源包。")
+        # closed_by = issue.closed_by
+        # if closed_by is None:
+        #     print(issue.closed_by)
+        #     push_publish_result(issue, "❌ 无法获取关闭者信息。")
+        #     return ValueError("无法获取关闭者信息。")
+        # if not any([True for u in repo.get_collaborators() if u.login == closed_by.login]):
+        #     push_publish_result(issue, "❌ 你不是仓库管理员，无法发布资源包。")
+        #     return ValueError("你不是仓库管理员，无法发布资源包。")
+        if "pre-checked" not in issue.labels:
+            issue.edit(state="open")
+            push_publish_result(issue, "❌ 请先通过预检查。")
+            return ValueError("请先进行预检查。")
+
+        # 检测评论
+        for cm in issue.get_comments():
+            if cm.body.startswith(("通过", "pass",)):
+                # 检测用户是否是管理员
+                if cm.user.login not in [u.login for u in repo.get_collaborators()]:
+                    push_publish_result(issue, "❌ 你不是仓库管理员，无法发布资源包。")
+                    return ValueError("你不是仓库管理员，无法发布资源包。")
+                break
+        else:
+            push_publish_result(issue, "❌ 管理员未审核。")
+            return ValueError("管理员未审核。")
 
         parser = MarkdownParser(issue.body)
         parser.parse_front_matters()
@@ -165,8 +183,8 @@ def add_resource(github: Github, issue: Issue, repo: Repository) -> err:
         ref.edit(commit.sha)
         if "pre-checked" in issue.labels:
             issue.remove_from_labels("pre-checked")
-        issue.add_to_labels("passed")
         push_publish_result(issue, f"✅ 资源包 {name} 已发布！商店页面稍后就会更新。")
+        return nil
     except Exception as e:
         push_publish_result(issue, f"❌ 发布失败: {str(e)}")
         return e
