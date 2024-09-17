@@ -30,32 +30,33 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
     homepage = parser.front_matters.get("homepage")  # optional
     author = parser.front_matters.get("author")
     if not all((name, desc, link, author)):
-        issue.create_comment("name, desc, link, homepage and author are required.")
-        return ValueError("name, desc, link, homepage and author are required.")
+        issue.create_comment("name, desc, link, homepage 及 author 为必填字段.")
+        return ValueError("name, desc, link, homepage 及 author 为必填字段.")
 
     # 下载并解析资源包
     r = requests.get(link)
+    print(r.status_code)
     if r.status_code != 200:
-        issue.create_comment("Download failed.")
-        return ValueError("Download failed.")
+        issue.create_comment("下载失败.")
+        return ValueError("下载失败.")
 
-    with open(f"tmp/{name}.zip", "wb") as f:
-        f.write(r.content)
-    # 解压
-    with zipfile.ZipFile(f"tmp/{name}.zip", "r") as z:
-        z.extractall(f"tmp/{name}")
 
-    # 检测包内metadata.yml文件
     try:
+        with open(f"tmp/{name}.zip", "wb") as f:
+            f.write(r.content)
+        # 解压
+        with zipfile.ZipFile(f"tmp/{name}.zip", "r") as z:
+            z.extractall(f"tmp/{name}")
+        # 检测包内metadata.yml文件
         data = yaml.load(open(f"tmp/{name}/metadata.yml"), Loader=yaml.SafeLoader)
     except Exception:
-        issue.create_comment("metadata.yml not found or invalid.")
-        return ValueError("metadata.yml not found or invalid.")
+        issue.create_comment("解析资源包失败，可能是格式问题或metadata.yml不存在.")
+        return ValueError("解析资源包失败，可能是格式问题或metadata.yml不存在.")
 
     # 检测必要字段 name，description，version
     if not all((data.get("name"), data.get("description"), data.get("version"))):
-        issue.create_comment("name, description and version are required in metadata.yml.")
-        return ValueError("name, description and version are required in metadata.yml.")
+        issue.create_comment("元数据中缺少必要字段 name, description 或 version.")
+        return ValueError("元数据中缺少必要字段 name, description 或 version.")
 
     # 不检测重复资源包，因为资源包可能有多个版本
     # 检测通过，编辑原issue
