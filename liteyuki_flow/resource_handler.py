@@ -129,8 +129,7 @@ def add_resource(github: Github, issue: Issue, repo: Repository) -> err:
         # if not any([True for u in repo.get_collaborators() if u.login == closed_by.login]):
         #     push_publish_result(issue, "❌ 你不是仓库管理员，无法发布资源包。")
         #     return ValueError("你不是仓库管理员，无法发布资源包。")
-        print(issue.labels, )
-        if "pre-checked" not in issue.labels:
+        if "pre-checked" not in [l.name for l in issue.labels]:
             issue.edit(state="open")
             push_publish_result(issue, "❌ 请先通过预检查。")
             return ValueError("请先进行预检查。")
@@ -182,7 +181,7 @@ def add_resource(github: Github, issue: Issue, repo: Repository) -> err:
             parents=[repo.get_git_commit(ref.object.sha)]
         )
         ref.edit(commit.sha)
-        if "pre-checked" in issue.labels:
+        if "pre-checked" in [l.name for l in issue.labels]:
             issue.remove_from_labels("pre-checked")
         push_publish_result(issue, f"✅ 资源包 {name} 已发布！商店页面稍后就会更新。")
         return nil
