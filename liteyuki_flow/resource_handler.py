@@ -57,15 +57,14 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
     if r.status_code != 200:
         issue.get_comment(cid).edit("下载失败.")
         return ValueError("下载失败.")
-
     try:
-        with open(f"tmp/{name}.zip", "wb") as f:
+        with open(f"{name}.zip", "wb") as f:
             f.write(r.content)
         # 解压
-        with zipfile.ZipFile(f"tmp/{name}.zip", "r") as z:
-            z.extractall(f"tmp/{name}")
+        with zipfile.ZipFile(f"{name}.zip", "r") as z:
+            z.extractall(f"{name}")
         # 检测包内metadata.yml文件
-        data = yaml.load(open(f"tmp/{name}/metadata.yml"), Loader=yaml.SafeLoader)
+        data = yaml.load(open(f"{name}/metadata.yml"), Loader=yaml.SafeLoader)
     except Exception as e:
         issue.get_comment(cid).edit("解析资源包失败，可能是格式问题或metadata.yml不存在: " + str(e))
         return e
