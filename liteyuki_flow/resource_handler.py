@@ -88,13 +88,13 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
             metadata_markdown += f"**{k}**: {v}\n"
 
     new_issue_body = f"---\nname: {name}\ndesc: {desc}\nlink: {link}\nhomepage: {homepage}\nauthor: {author}\n---\n"
-    new_issue_body += f"# Resource: {name}\n"
-    new_issue_body += f"## 发布信息\n{desc}\n"
-    new_issue_body += f"**名称**: {name}\n"
-    new_issue_body += f"**描述**: {desc}\n"
-    new_issue_body += f"**作者**: {author}\n"
-    new_issue_body += f"**主页**: {homepage}\n"
-    new_issue_body += f"**下载**: {link}\n"
+
+    publish_info = f"## 发布信息\n{desc}\n"
+    publish_info += f"**名称**: {name}\n"
+    publish_info += f"**描述**: {desc}\n"
+    publish_info += f"**作者**: {author}\n"
+    publish_info += f"**主页**: {homepage}\n"
+    publish_info += f"**下载**: {link}\n"
     # 遍历其他字段
     for k, v in data.items():
         if k not in ("name", "description", "version"):
@@ -102,7 +102,7 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
 
     issue.edit(title=f"Resource: {name}", body=new_issue_body)
     issue.add_to_labels("pre-checked")
-    push_check_result(issue, "✅ 预检查通过，等待管理员人工审核\n## 元数据\n" + metadata_markdown)
+    push_check_result(issue, f"✅ 预检查通过，等待管理员人工审核\n{publish_info}\n## 元数据\n{metadata_markdown}")
     return nil
 
 
