@@ -26,15 +26,15 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
     parser.parse_front_matters()
     name = parser.front_matters.get("name")
     desc = parser.front_matters.get("desc")
-    url = parser.front_matters.get("url")
+    link = parser.front_matters.get("link")
     homepage = parser.front_matters.get("homepage")  # optional
     author = parser.front_matters.get("author")
-    if not all((name, desc, url, author)):
-        issue.create_comment("Name, desc, url, homepage and author are required.")
-        return ValueError("Name, desc, url, homepage and author are required.")
+    if not all((name, desc, link, author)):
+        issue.create_comment("name, desc, link, homepage and author are required.")
+        return ValueError("name, desc, link, homepage and author are required.")
 
     # 下载并解析资源包
-    r = requests.get(url)
+    r = requests.get(link)
     if r.status_code != 200:
         issue.create_comment("Download failed.")
         return ValueError("Download failed.")
@@ -64,14 +64,14 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
         if k not in ("name", "description", "version"):
             metadata_markdown += f"**{k}**: {v}\n"
 
-    new_issue_body = f"---\nname: {name}\ndesc: {desc}\nurl: {url}\nhomepage: {homepage}\nauthor: {author}\n---\n"
+    new_issue_body = f"---\nname: {name}\ndesc: {desc}\nlink: {link}\nhomepage: {homepage}\nauthor: {author}\n---\n"
     new_issue_body += f"# Resource: {name}\n"
     new_issue_body += f"## 发布信息\n{desc}\n"
     new_issue_body += f"**名称**: {name}\n"
     new_issue_body += f"**描述**: {desc}\n"
     new_issue_body += f"**作者**: {author}\n"
     new_issue_body += f"**主页**: {homepage}\n"
-    new_issue_body += f"**下载**: {url}\n"
+    new_issue_body += f"**下载**: {link}\n"
     # 遍历其他字段
     for k, v in data.items():
         if k not in ("name", "description", "version"):
@@ -88,7 +88,7 @@ def add_resource(github: Github, issue: Issue, repo: Repository):
     parser.parse_front_matters()
     name = parser.front_matters.get("name")
     desc = parser.front_matters.get("desc")
-    url = parser.front_matters.get("url")
+    link = parser.front_matters.get("link")
     homepage = parser.front_matters.get("homepage")  # optional
     author = parser.front_matters.get("author")
 
@@ -97,7 +97,7 @@ def add_resource(github: Github, issue: Issue, repo: Repository):
     resources.append({
             "name"    : name,
             "desc"    : desc,
-            "url"     : url,
+            "link"    : link,
             "homepage": homepage,
             "author"  : author
     })
