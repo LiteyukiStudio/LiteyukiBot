@@ -89,7 +89,7 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
 
     new_issue_body = f"---\nname: {name}\ndesc: {desc}\nlink: {link}\nhomepage: {homepage}\nauthor: {author}\n---\n"
 
-    publish_info = f"## 发布信息\n{desc}\n"
+    publish_info = f"## 发布信息\n"
     publish_info += f"**名称**: {name}\n"
     publish_info += f"**描述**: {desc}\n"
     publish_info += f"**作者**: {author}\n"
