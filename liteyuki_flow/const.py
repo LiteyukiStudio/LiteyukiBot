@@ -9,8 +9,8 @@ REOPENED = "reopened"
 RESOURCE_PREFIX = "Resource: "
 PLUGIN_PREFIX = "Plugin: "
 
-PLUGIN_JSON = "docs/publics/plugins.json"
-RESOURCE_JSON = "docs/publics/resources.json"
+PLUGIN_JSON = "docs/public/plugins.json"
+RESOURCE_JSON = "docs/public/resources.json"
 
 edit_content_tip = "若要修改请编辑这段front matter，不要编辑正文/If you want to modify, please edit the front matter, do not edit the body"
 
