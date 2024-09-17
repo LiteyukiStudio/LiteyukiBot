@@ -45,16 +45,16 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
     link = parser.front_matters.get("link")
     homepage = parser.front_matters.get("homepage")  # optional
     author = parser.front_matters.get("author")
-    cid = parser.front_matters.get("cid")  # optional auto
+    cid = int(parser.front_matters.get("cid"))  # optional auto
     if not all((name, desc, link, author)):
-        issue.create_comment("name, desc, link, homepage 及 author 为必填字段.")
+        issue.get_comment(cid).edit("name, desc, link, homepage 及 author 为必填字段.")
         return ValueError("name, desc, link, homepage 及 author 为必填字段.")
 
     # 下载并解析资源包
     r = requests.get(link, headers=headers)
     print(r.text)
     if r.status_code != 200:
-        issue.create_comment("下载失败.")
+        issue.get_comment(cid).edit("下载失败.")
         return ValueError("下载失败.")
 
     try:
@@ -66,12 +66,12 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
         # 检测包内metadata.yml文件
         data = yaml.load(open(f"tmp/{name}/metadata.yml"), Loader=yaml.SafeLoader)
     except Exception:
-        issue.create_comment("解析资源包失败，可能是格式问题或metadata.yml不存在.")
+        issue.get_comment(cid).edit("解析资源包失败，可能是格式问题或metadata.yml不存在.")
         return ValueError("解析资源包失败，可能是格式问题或metadata.yml不存在.")
 
     # 检测必要字段 name，description，version
     if not all((data.get("name"), data.get("description"), data.get("version"))):
-        issue.create_comment("元数据中缺少必要字段 name, description 或 version.")
+        issue.get_comment(cid).edit("元数据中缺少必要字段 name, description 或 version.")
         return ValueError("元数据中缺少必要字段 name, description 或 version.")
 
     # 不检测重复资源包，因为资源包可能有多个版本
@@ -96,7 +96,7 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
 
     issue.edit(body=new_issue_body)
     issue.add_to_labels("pre-checked")
-    issue.create_comment("✅ 预检查通过\n## 元数据\n" + metadata_markdown)
+    issue.get_comment(cid).edit("✅ 预检查通过\n## 元数据\n" + metadata_markdown)
     return nil
 
 
