@@ -52,5 +52,12 @@
         "author": "snowykami",
         "description": "自定义各种卡片的背景",
         "link": "https://cdn.liteyuki.icu/static/lrp/morebg.zip"
+    },
+    {
+        "name": "测试资源包",
+        "desc": "test",
+        "link": "https://cdn.liteyuki.icu/static/lrp/liteyuki_words_aojiao.zip",
+        "homepage": "",
+        "author": "snowykami"
     }
 ]
