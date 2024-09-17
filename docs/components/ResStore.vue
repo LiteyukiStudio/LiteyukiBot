@@ -47,17 +47,7 @@ function closePublishWindow() {
 
 const submitForm = () => {
   const title = encodeURI(`Resource: ${newRes.value.name}`)
-  const body = encodeURI(
-      JSON.stringify(
-          {
-            name: newRes.value.name,
-            desc: newRes.value.desc,
-            author: newRes.value.author,
-            homepage: newRes.value.homepage,
-            link: newRes.value.link,
-          }
-      )
-  )
+  let body = encodeURI(`---\nname: ${newRes.value.name}\ndesc: ${newRes.value.desc}\nauthor: ${newRes.value.author}\nhomepage: ${newRes.value.homepage}\nlink: ${newRes.value.link}\n---\n`)
   const issueURL = `${RepoUrl}/issues/new?labels=Resource&title=${title}&body=${body}`
   window.open(issueURL, '_blank')
 }
