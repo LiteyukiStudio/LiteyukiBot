@@ -100,7 +100,7 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
         if k not in ("name", "description", "version"):
             new_issue_body += f"**{k}**: {v}\n"
 
-    issue.edit(body=new_issue_body)
+    issue.edit(title=f"Resource: {name}", body=new_issue_body)
     issue.add_to_labels("pre-checked")
     push_check_result(issue, "✅ 预检查通过，等待管理员人工审核\n## 元数据\n" + metadata_markdown)
     return nil
