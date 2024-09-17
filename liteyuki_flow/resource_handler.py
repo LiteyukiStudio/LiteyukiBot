@@ -113,11 +113,11 @@ def add_resource(github: Github, issue: Issue, repo: Repository):
     # 编辑仓库内的json文件
     resources = json.load(open(RESOURCE_JSON))
     resources.append({
-            "name"    : name,
-            "desc"    : desc,
-            "link"    : link,
-            "homepage": homepage,
-            "author"  : author
+            "name"       : name,
+            "description": desc,
+            "link"       : link,
+            "homepage"   : homepage,
+            "author"     : author
     })
     ref = repo.get_git_ref("heads/main")
     tree = repo.create_git_tree(
