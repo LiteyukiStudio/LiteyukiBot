@@ -32,6 +32,17 @@ def push_check_result(issue: Issue, result: str):
     else:
         issue.create_comment("检查结果: " + result)
 
+def push_publish_result(issue: Issue, result: str):
+    cid = None
+    for cm in issue.get_comments():
+        if cm.body.startswith("发布结果") and cm.user.login == bot_id:
+            cid = cm.id
+            break
+    if cid is not None:
+        issue.get_comment(cid).edit("发布结果: " + result)
+    else:
+        issue.create_comment("发布结果: " + result)
+
 
 # opened: 创建新的资源包，预审核
 # edited: 编辑资源包信息，需重新审核
@@ -106,45 +117,59 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
 
 
 # closed
-def add_resource(github: Github, issue: Issue, repo: Repository):
-    parser = MarkdownParser(issue.body)
-    parser.parse_front_matters()
-    name = parser.front_matters.get("name")
-    desc = parser.front_matters.get("desc")
-    link = parser.front_matters.get("link")
-    homepage = parser.front_matters.get("homepage")  # optional
-    author = parser.front_matters.get("author")
+def add_resource(github: Github, issue: Issue, repo: Repository) -> err:
+    # 检测关闭者是否为仓库管理员
+    try:
+        closed_by = issue.closed_by
+        if closed_by is None:
+            push_publish_result(issue, "❌ 无法获取关闭者信息。")
+            return ValueError("无法获取关闭者信息。")
+        if not any([True for u in repo.get_collaborators() if u.login == closed_by.login]):
+            push_publish_result(issue, "❌ 你不是仓库管理员，无法发布资源包。")
+            return ValueError("你不是仓库管理员，无法发布资源包。")
 
-    # 编辑仓库内的json文件
-    resources = json.load(open(RESOURCE_JSON))
-    resources.append({
-            "name"       : name,
-            "description": desc,
-            "link"       : link,
-            "homepage"   : homepage,
-            "author"     : author
-    })
-    ref = repo.get_git_ref("heads/main")
-    tree = repo.create_git_tree(
-        base_tree=repo.get_git_commit(ref.object.sha).tree,
-        tree=[
-                InputGitTreeElement(
-                    path=RESOURCE_JSON,
-                    mode="100644",
-                    type="blob",
-                    content=json.dumps(resources, indent=4, ensure_ascii=False)
-                )
-        ]
-    )
-    commit = repo.create_git_commit(
-        message=f":package: 发布资源: {name}",
-        tree=tree,
-        parents=[repo.get_git_commit(ref.object.sha)]
-    )
-    ref.edit(commit.sha)
-    issue.remove_from_labels("pre-checked")
-    issue.add_to_labels("passed")
-    issue.create_comment(f"✅ 资源包 {name} 已发布！商店页面稍后就会更新。")
+        parser = MarkdownParser(issue.body)
+        parser.parse_front_matters()
+        name = parser.front_matters.get("name")
+        desc = parser.front_matters.get("desc")
+        link = parser.front_matters.get("link")
+        homepage = parser.front_matters.get("homepage")  # optional
+        author = parser.front_matters.get("author")
+
+        # 编辑仓库内的json文件
+        resources = json.load(open(RESOURCE_JSON))
+        resources.append({
+                "name"       : name,
+                "description": desc,
+                "link"       : link,
+                "homepage"   : homepage,
+                "author"     : author
+        })
+        ref = repo.get_git_ref("heads/main")
+        tree = repo.create_git_tree(
+            base_tree=repo.get_git_commit(ref.object.sha).tree,
+            tree=[
+                    InputGitTreeElement(
+                        path=RESOURCE_JSON,
+                        mode="100644",
+                        type="blob",
+                        content=json.dumps(resources, indent=4, ensure_ascii=False)
+                    )
+            ]
+        )
+        commit = repo.create_git_commit(
+            message=f":package: 发布资源: {name}",
+            tree=tree,
+            parents=[repo.get_git_commit(ref.object.sha)]
+        )
+        ref.edit(commit.sha)
+        if "pre-checked" in issue.labels:
+            issue.remove_from_labels("pre-checked")
+        issue.add_to_labels("passed")
+        push_publish_result(issue, f"✅ 资源包 {name} 已发布！商店页面稍后就会更新。")
+    except Exception as e:
+        push_publish_result(issue, f"❌ 发布失败: {str(e)}")
+        return e
 
 
 def handle_resource(github: Github, issue: Issue, repo: Repository, act_type: str):
@@ -153,6 +178,8 @@ def handle_resource(github: Github, issue: Issue, repo: Repository, act_type: st
             on_first_open(github, issue, repo)
         pre_check(github, issue, repo)
     elif act_type == CLOSED:
-        add_resource(github, issue, repo)
+        e = add_resource(github, issue, repo)
+        if e != nil:
+            print(f"Error: {e}")
     else:
         print("No operation found for the issue: ", act_type)
