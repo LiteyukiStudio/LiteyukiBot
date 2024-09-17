@@ -26,7 +26,8 @@ headers = {
 # closed: 审核通过，修改json并提交
 # reopened: 重新打开，无操作
 def on_first_open(github: Github, issue: Issue, repo: Repository):
-    cid = issue.create_comment("已收到资源包发布请求，我会马上开始预检. " + edit_tip).id
+    issue.create_comment("已收到资源包发布请求，我会马上开始预检. " + edit_tip)
+    cid = issue.create_comment("请等待检查结果").id
     parser = MarkdownParser(issue.body)
     parser.parse_front_matters()
     parser.front_matters["cid"] = str(cid)
