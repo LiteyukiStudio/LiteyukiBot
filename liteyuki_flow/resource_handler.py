@@ -137,6 +137,8 @@ def add_resource(github: Github, issue: Issue, repo: Repository):
         parents=[repo.get_git_commit(ref.object.sha)]
     )
     ref.edit(commit.sha)
+    issue.remove_from_labels("pre-checked")
+    issue.add_to_labels("passed")
 
 
 def handle_resource(github: Github, issue: Issue, repo: Repository, act_type: str):
