@@ -59,7 +59,6 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
 
     # 下载并解析资源包
     r = requests.get(link, headers=headers)
-    print(r.text)
     if r.status_code != 200:
         push_check_result(issue, "❌ 下载失败.")
         return ValueError("下载失败.")
