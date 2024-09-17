@@ -10,7 +10,7 @@ from github.Repository import Repository
 import json
 import yaml
 
-from liteyuki_flow.const import OPENED, EDITED, CLOSED, REOPENED, RESOURCE_JSON, edit_tip
+from liteyuki_flow.const import OPENED, EDITED, CLOSED, REOPENED, RESOURCE_JSON, bot_id, edit_tip
 from liteyuki_flow.markdown_parser import MarkdownParser
 from liteyuki_flow.typ import err, nil
 
@@ -21,20 +21,26 @@ headers = {
 }
 
 
+def push_check_result(issue: Issue, result: str):
+    cid = None
+    for cm in issue.get_comments():
+        if cm.body.startswith("检查结果") and cm.user.login == bot_id:
+            cid = cm.id
+            break
+    if cid is not None:
+        issue.get_comment(cid).edit("检查结果: " + result)
+    else:
+        issue.create_comment("检查结果: " + result)
+
+
 # opened: 创建新的资源包，预审核
 # edited: 编辑资源包信息，需重新审核
 # closed: 审核通过，修改json并提交
 # reopened: 重新打开，无操作
 def on_first_open(github: Github, issue: Issue, repo: Repository):
     issue.create_comment("已收到资源包发布请求，我会马上开始预检. " + edit_tip)
-    cid = issue.create_comment("请等待检查结果").id
-    parser = MarkdownParser(issue.body)
-    parser.parse_front_matters()
-    parser.front_matters["cid"] = str(cid)
-
-    new_issue_body = parser.build_front_matters()
+    push_check_result(issue, "请等待")
     issue.add_to_labels("Resource")
-    issue.edit(body=new_issue_body)
 
 
 # opened | edited
@@ -46,16 +52,16 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
     link = parser.front_matters.get("link")
     homepage = parser.front_matters.get("homepage")  # optional
     author = parser.front_matters.get("author")
-    cid = int(parser.front_matters.get("cid"))  # optional auto
+
     if not all((name, desc, link, author)):
-        issue.get_comment(cid).edit("name, desc, link, homepage 及 author 为必填字段.")
+        push_check_result(issue, "❌ name, desc, link, homepage 及 author 为必填字段.")
         return ValueError("name, desc, link, homepage 及 author 为必填字段.")
 
     # 下载并解析资源包
     r = requests.get(link, headers=headers)
     print(r.text)
     if r.status_code != 200:
-        issue.get_comment(cid).edit("下载失败.")
+        push_check_result(issue, "❌ 下载失败.")
         return ValueError("下载失败.")
     try:
         with open(f"{name}.zip", "wb") as f:
@@ -66,12 +72,12 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
         # 检测包内metadata.yml文件
         data = yaml.load(open(f"{name}/metadata.yml"), Loader=yaml.SafeLoader)
     except Exception as e:
-        issue.get_comment(cid).edit("解析资源包失败，可能是格式问题或metadata.yml不存在: " + str(e))
+        push_check_result(issue, "❌ 解析资源包失败，可能是格式问题或metadata.yml不存在: " + str(e))
         return e
 
     # 检测必要字段 name，description，version
     if not all((data.get("name"), data.get("description"), data.get("version"))):
-        issue.get_comment(cid).edit("元数据中缺少必要字段 name, description 或 version.")
+        push_check_result(issue, "❌ 元数据中缺少必要字段 name, description 或 version.")
         return ValueError("元数据中缺少必要字段 name, description 或 version.")
 
     # 不检测重复资源包，因为资源包可能有多个版本
@@ -96,7 +102,7 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
 
     issue.edit(body=new_issue_body)
     issue.add_to_labels("pre-checked")
-    issue.get_comment(cid).edit("✅ 预检查通过，等待管理员人工审核\n## 元数据\n" + metadata_markdown)
+    push_check_result(issue, "✅ 预检查通过，等待管理员人工审核\n## 元数据\n" + metadata_markdown)
     return nil
 
 
