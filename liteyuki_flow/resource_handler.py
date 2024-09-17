@@ -14,7 +14,7 @@ from liteyuki_flow.const import OPENED, EDITED, CLOSED, REOPENED, RESOURCE_JSON,
 from liteyuki_flow.markdown_parser import MarkdownParser
 from liteyuki_flow.typ import err, nil
 
-user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
+user_agent = "liteyuki-flow"
 
 headers = {
         "User-Agent": user_agent
