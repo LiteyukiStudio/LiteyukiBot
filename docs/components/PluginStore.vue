@@ -3,6 +3,7 @@ import {computed, ref} from 'vue'
 import ItemCard from './PluginItemCard.vue'
 import ToggleSwitch from "./ToggleSwitch.vue";
 import {getTextRef} from "./scripts/i18n";
+import pluginsJson from "../public/plugins.json"
 
 let showLiteyukiPluginOnly = ref(false)
 let filteredItems = computed(() => {
@@ -24,15 +25,7 @@ let filteredItems = computed(() => {
 let items = ref([])
 let search = ref('')
 // 从官方拉取
-fetch("/plugins.json")
-    .then(response => response.json())
-    .then(data => {
-      data.forEach(item => {
-        item.is_liteyuki_plugin = true
-      })
-      items.value = data
-    })
-    .catch(error => console.error(error))
+items.value = pluginsJson
 
 //追加
 fetch('https://registry.nonebot.dev/plugins.json')
@@ -58,10 +51,10 @@ fetch('https://registry.nonebot.dev/plugins.json')
       {{ getTextRef('liteyukiOnly') }}
     </div>
 
-<!--    按钮们-->
-<!--    <div class="tab">-->
-<!--        <button @click="open"-->
-<!--    </div>-->
+    <!--    按钮们-->
+    <!--    <div class="tab">-->
+    <!--        <button @click="open"-->
+    <!--    </div>-->
     <div class="items">
       <!-- 使用filteredItems来布局商品 -->
       <ItemCard v-for="item in filteredItems" :key="item.id" :item="item"/>

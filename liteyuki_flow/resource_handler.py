@@ -96,7 +96,7 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
 
     issue.edit(body=new_issue_body)
     issue.add_to_labels("pre-checked")
-    issue.get_comment(cid).edit("✅ 预检查通过\n## 元数据\n" + metadata_markdown)
+    issue.get_comment(cid).edit("✅ 预检查通过，等待管理员人工审核\n## 元数据\n" + metadata_markdown)
     return nil
 
 
@@ -139,6 +139,7 @@ def add_resource(github: Github, issue: Issue, repo: Repository):
     ref.edit(commit.sha)
     issue.remove_from_labels("pre-checked")
     issue.add_to_labels("passed")
+    issue.create_comment(f"✅ 资源包 {name} 已发布！商店页面稍后就会更新。")
 
 
 def handle_resource(github: Github, issue: Issue, repo: Repository, act_type: str):

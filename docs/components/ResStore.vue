@@ -5,6 +5,8 @@ import ResPubWindow from "./ResPubWindow.vue";
 import {getTextRef} from "./scripts/i18n";
 import {RepoUrl} from "./scripts/statsApi";
 
+import resourcesJson from "../public/resources.json"
+
 // 从public/assets/resources.json加载插件
 let filteredItems = computed(() => {
   if (!search.value) {
@@ -19,12 +21,7 @@ let filteredItems = computed(() => {
 // 插件商店Nonebot
 let items = ref([])
 let search = ref('')
-fetch("/resources.json")
-    .then(response => response.json())
-    .then(data => {
-      items.value = data
-    })
-    .catch(error => console.error(error))
+items.value = resourcesJson
 // 列表倒序
 
 const isPublishWindowOpen = ref(false)
