@@ -131,8 +131,9 @@ def add_resource(github: Github, issue: Issue, repo: Repository):
 
 def handle_resource(github: Github, issue: Issue, repo: Repository, act_type: str):
     if act_type in (OPENED, EDITED):
+        if act_type == OPENED:
+            on_first_open(github, issue, repo)
         pre_check(github, issue, repo)
-
     elif act_type == CLOSED:
         add_resource(github, issue, repo)
     else:
