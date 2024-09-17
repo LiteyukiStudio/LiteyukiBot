@@ -66,9 +66,9 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
             z.extractall(f"tmp/{name}")
         # 检测包内metadata.yml文件
         data = yaml.load(open(f"tmp/{name}/metadata.yml"), Loader=yaml.SafeLoader)
-    except Exception:
-        issue.get_comment(cid).edit("解析资源包失败，可能是格式问题或metadata.yml不存在.")
-        return ValueError("解析资源包失败，可能是格式问题或metadata.yml不存在.")
+    except Exception as e:
+        issue.get_comment(cid).edit("解析资源包失败，可能是格式问题或metadata.yml不存在: " + str(e))
+        return e
 
     # 检测必要字段 name，description，version
     if not all((data.get("name"), data.get("description"), data.get("version"))):
