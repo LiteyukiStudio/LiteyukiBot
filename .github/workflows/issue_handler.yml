@@ -43,7 +43,7 @@ jobs:
         if: steps.check_title.outputs.title_match == 'true'
         run: |
           echo "Running Plugin/Resource issue handler."
-          python -m liteyuki_flow
+          python -m liteyuki_flow --handle
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
