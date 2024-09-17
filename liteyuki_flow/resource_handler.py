@@ -139,10 +139,12 @@ def add_resource(github: Github, issue: Issue, repo: Repository) -> err:
             if cm.body.startswith(("通过", "pass",)):
                 # 检测用户是否是管理员
                 if cm.user.login not in [u.login for u in repo.get_collaborators()]:
+                    issue.edit(state="open")
                     push_publish_result(issue, "❌ 你不是仓库管理员，无法发布资源包。")
                     return ValueError("你不是仓库管理员，无法发布资源包。")
                 break
         else:
+            issue.edit(state="open")
             push_publish_result(issue, "❌ 管理员未审核。")
             return ValueError("管理员未审核。")
 
@@ -186,6 +188,7 @@ def add_resource(github: Github, issue: Issue, repo: Repository) -> err:
         push_publish_result(issue, f"✅ 资源包 {name} 已发布！商店页面稍后就会更新。")
         return nil
     except Exception as e:
+        issue.edit(state="open")
         push_publish_result(issue, f"❌ 发布失败: {str(e)}")
         return e
 
