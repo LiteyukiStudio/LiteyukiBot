@@ -10,15 +10,16 @@ from github.Repository import Repository
 import json
 import yaml
 
-from liteyuki_flow.const import OPENED, EDITED, CLOSED, REOPENED, RESOURCE_JSON
+from liteyuki_flow.const import OPENED, EDITED, CLOSED, REOPENED, RESOURCE_JSON, edit_tip
 from liteyuki_flow.markdown_parser import MarkdownParser
 from liteyuki_flow.typ import err, nil
 
 user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
 
 headers = {
-    "User-Agent": user_agent
+        "User-Agent": user_agent
 }
+
 
 # opened: 创建新的资源包，预审核
 # edited: 编辑资源包信息，需重新审核
@@ -35,15 +36,14 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
     homepage = parser.front_matters.get("homepage")  # optional
     author = parser.front_matters.get("author")
     if not all((name, desc, link, author)):
-        issue.create_comment("name, desc, link, homepage 及 author 为必填字段.")
+        issue.create_comment("name, desc, link, homepage 及 author 为必填字段." + edit_tip)
         return ValueError("name, desc, link, homepage 及 author 为必填字段.")
 
     # 下载并解析资源包
     r = requests.get(link, headers=headers)
     if r.status_code != 200:
-        issue.create_comment("下载失败.")
+        issue.create_comment("下载失败." + edit_tip)
         return ValueError("下载失败.")
-
 
     try:
         with open(f"tmp/{name}.zip", "wb") as f:
@@ -54,12 +54,12 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
         # 检测包内metadata.yml文件
         data = yaml.load(open(f"tmp/{name}/metadata.yml"), Loader=yaml.SafeLoader)
     except Exception:
-        issue.create_comment("解析资源包失败，可能是格式问题或metadata.yml不存在.")
+        issue.create_comment("解析资源包失败，可能是格式问题或metadata.yml不存在." + edit_tip)
         return ValueError("解析资源包失败，可能是格式问题或metadata.yml不存在.")
 
     # 检测必要字段 name，description，version
     if not all((data.get("name"), data.get("description"), data.get("version"))):
-        issue.create_comment("元数据中缺少必要字段 name, description 或 version.")
+        issue.create_comment("元数据中缺少必要字段 name, description 或 version." + edit_tip)
         return ValueError("元数据中缺少必要字段 name, description 或 version.")
 
     # 不检测重复资源包，因为资源包可能有多个版本
