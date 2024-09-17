@@ -30,12 +30,12 @@ if __name__ == "__main__":
 
         # 审资源
         if issue.title.strip().startswith(RESOURCE_PREFIX):
-            from resource_handler import handle_resource  # type: ignore
+            from liteyuki_flow.resource_handler import handle_resource  # type: ignore
             handle_resource(github=g, issue=issue, repo=repo, act_type=ACT_TYPE)
 
         # 审插件
         elif issue.title.strip().startswith(PLUGIN_PREFIX):
-            from plugin_handler import handle_plugin  # type: ignore
+            from liteyuki_flow.plugin_handler import handle_plugin  # type: ignore
             pass
 
         else:
@@ -43,7 +43,7 @@ if __name__ == "__main__":
 
     elif args.parse:
         print("Starting the markdown parser module...")
-        from .markdown_parser import MarkdownParser  # type: ignore
+        from liteyuki_flow.markdown_parser import MarkdownParser  # type: ignore
 
         if args.input is None:
             raise ValueError("Input file is required.")
