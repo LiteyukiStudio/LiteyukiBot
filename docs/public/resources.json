@@ -66,5 +66,12 @@
         "link": "https://cdn.liteyuki.icu/static/lrp/kakyo.zip",
         "homepage": "https://github.com/Nanaloveyuki/liteyuki-langpack",
         "author": "Nanaloveyuki"
+    },
+    {
+        "name": "轻雪Kakyo语言包 托管版",
+        "description": "Liteyuki Bot的语言包，用于提供多种语言的翻译。",
+        "link": "https://cdn.liteyuki.icu/static/lrp/kakyo.zip",
+        "homepage": "https://github.com/Nanaloveyuki/liteyuki-langpack",
+        "author": "Nanaloveyuki"
     }
 ]
