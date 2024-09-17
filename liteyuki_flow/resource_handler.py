@@ -185,6 +185,7 @@ def add_resource(github: Github, issue: Issue, repo: Repository) -> err:
         ref.edit(commit.sha)
         if "pre-checked" in [l.name for l in issue.labels]:
             issue.remove_from_labels("pre-checked")
+        issue.add_to_labels("published")
         push_publish_result(issue, f"✅ 资源包 {name} 已发布！商店页面稍后就会更新。")
         return nil
     except Exception as e:
