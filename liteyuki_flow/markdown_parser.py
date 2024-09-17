@@ -78,6 +78,9 @@ class MarkdownParser:
             self.front_matters[key.strip()] = value.strip()
         return nil
 
+    def build_front_matters(self) -> str:
+        return "---\n" + str(self.front_matters) + "\n---"
+
     def _parse_content(self) -> tuple[list[Any], err]:
         content: list[Any] = []
         while self.lineno < len(self.content_lines):

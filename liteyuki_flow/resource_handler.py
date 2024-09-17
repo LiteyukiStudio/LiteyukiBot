@@ -26,7 +26,14 @@ headers = {
 # closed: 审核通过，修改json并提交
 # reopened: 重新打开，无操作
 def on_first_open(github: Github, issue: Issue, repo: Repository):
-    issue.create_comment("已收到资源包发布请求，我会马上开始预检. " + edit_tip)
+    cid = issue.create_comment("已收到资源包发布请求，我会马上开始预检. " + edit_tip).id
+    parser = MarkdownParser(issue.body)
+    parser.parse_front_matters()
+    parser.front_matters["cid"] = str(cid)
+
+    new_issue_body = parser.build_front_matters()
+    issue.add_to_labels("Resource")
+    issue.edit(body=new_issue_body)
 
 
 # opened | edited
@@ -38,6 +45,7 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
     link = parser.front_matters.get("link")
     homepage = parser.front_matters.get("homepage")  # optional
     author = parser.front_matters.get("author")
+    cid = parser.front_matters.get("cid")  # optional auto
     if not all((name, desc, link, author)):
         issue.create_comment("name, desc, link, homepage 及 author 为必填字段.")
         return ValueError("name, desc, link, homepage 及 author 为必填字段.")
@@ -86,7 +94,8 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
         if k not in ("name", "description", "version"):
             new_issue_body += f"**{k}**: {v}\n"
 
-    issue.edit(new_issue_body)
+    issue.edit(body=new_issue_body)
+    issue.add_to_labels("pre-checked")
     issue.create_comment("✅ 预检查通过\n## 元数据\n" + metadata_markdown)
     return nil
 
