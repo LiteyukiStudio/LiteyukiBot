@@ -25,6 +25,9 @@ headers = {
 # edited: 编辑资源包信息，需重新审核
 # closed: 审核通过，修改json并提交
 # reopened: 重新打开，无操作
+def on_first_open(github: Github, issue: Issue, repo: Repository):
+    issue.create_comment("已收到资源包发布请求，我会马上开始预检. " + edit_tip)
+
 
 # opened | edited
 def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
@@ -36,7 +39,7 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
     homepage = parser.front_matters.get("homepage")  # optional
     author = parser.front_matters.get("author")
     if not all((name, desc, link, author)):
-        issue.create_comment("name, desc, link, homepage 及 author 为必填字段." + edit_tip)
+        issue.create_comment("name, desc, link, homepage 及 author 为必填字段.")
         return ValueError("name, desc, link, homepage 及 author 为必填字段.")
 
     # 下载并解析资源包
@@ -54,12 +57,12 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
         # 检测包内metadata.yml文件
         data = yaml.load(open(f"tmp/{name}/metadata.yml"), Loader=yaml.SafeLoader)
     except Exception:
-        issue.create_comment("解析资源包失败，可能是格式问题或metadata.yml不存在." + edit_tip)
+        issue.create_comment("解析资源包失败，可能是格式问题或metadata.yml不存在.")
         return ValueError("解析资源包失败，可能是格式问题或metadata.yml不存在.")
 
     # 检测必要字段 name，description，version
     if not all((data.get("name"), data.get("description"), data.get("version"))):
-        issue.create_comment("元数据中缺少必要字段 name, description 或 version." + edit_tip)
+        issue.create_comment("元数据中缺少必要字段 name, description 或 version.")
         return ValueError("元数据中缺少必要字段 name, description 或 version.")
 
     # 不检测重复资源包，因为资源包可能有多个版本
