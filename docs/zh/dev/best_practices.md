@@ -18,3 +18,4 @@ order: 10
 - [liteyuki starmap](https://starmap.liteyuki.icu)：轻雪官方星图，展示轻雪的所有实例及其位置分布
 - [TRSS_Liteyuki](https://timerainstarsky.github.io/TRSS_Liteyuki/)：TRSS LiteyukiBot 管理脚本
 - [litedoc](https://github.com/LiteyukiStudio/litedoc)：轻雪API文档生成器
+- liteyukibot-api （闭源）：轻雪机器人统计接口
