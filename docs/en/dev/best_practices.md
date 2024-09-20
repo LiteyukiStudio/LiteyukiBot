@@ -17,3 +17,4 @@ order: 10
 ## Others
 - [liteyuki starmap](https://starmap.liteyuki.icu): Liteyuki official star map, showing all instances of Liteyuki and their location distribution
 - [TRSS_Liteyuki](https://timerainstarsky.github.io/TRSS_Liteyuki/): LiteyukiBot management script
+- [litedoc](https://github.com/LiteyukiStudio/litedoc): Liteyuki API documentation generator
