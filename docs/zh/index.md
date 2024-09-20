@@ -23,7 +23,7 @@ features:
   - title: 生态良好
     icon: 🛠️
     details: 基于轻雪框架，原生支持任意Python Bot框架和应用程序
-    link: ./dev/api/api
+    link: ./dev/api
 
   - title: 插件管理
     icon: 🧩

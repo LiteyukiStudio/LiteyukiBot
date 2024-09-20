@@ -23,7 +23,7 @@ features:
   - title: Ecological Diversity
     icon: 🛠️
     details: Based on the liteyuki framework, compatible with any Python bot framework and application
-    link: ./dev/api/api
+    link: ./dev/api
 
   - title: Pluggable
     icon: 🧩
