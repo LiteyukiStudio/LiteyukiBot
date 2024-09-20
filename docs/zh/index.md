@@ -14,6 +14,9 @@ hero:
     - theme: alt
       text: 📦 扩展
       link: ./store/resource
+    - theme: alt
+      text: 🛠️ 开发
+      link: ./dev/
   image:
     light: ./liteyuki.svg
     dark: ./liteyuki-dark.svg
