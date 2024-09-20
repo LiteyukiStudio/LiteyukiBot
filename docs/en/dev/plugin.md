@@ -1,5 +1,5 @@
 ---
-title: 轻雪插件开发
+title: Liteyuki Plugin
 order: 3
 ---
 

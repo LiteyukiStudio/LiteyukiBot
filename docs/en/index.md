@@ -16,7 +16,7 @@ hero:
       link: ./store/
     - theme: alt
       text: 🛠️ Development
-      link: ./dev/
+      link: ./dev/guide
   image:
     light: /liteyuki.svg
     dark: /liteyuki-dark.svg

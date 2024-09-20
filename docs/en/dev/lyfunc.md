@@ -1,5 +1,5 @@
 ---
-title: 轻雪函数
+title: Liteyuki Function
 order: 2
 ---
 

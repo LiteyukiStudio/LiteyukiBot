@@ -1,5 +1,5 @@
 ---
-title: 资源包开发
+title: Resource Pack
 order: 1
 ---
 

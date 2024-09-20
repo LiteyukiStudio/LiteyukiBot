@@ -24,8 +24,11 @@ let filteredItems = computed(() => {
 // 插件商店Nonebot
 let items = ref([])
 let search = ref('')
-// 从官方拉取
+// 从轻雪官方拉取，添加轻雪插件属性
 items.value = pluginsJson
+items.value.forEach(item => {
+  item.is_liteyuki_plugin = true
+})
 
 //追加
 fetch('https://registry.nonebot.dev/plugins.json')
