@@ -33,7 +33,7 @@ body:
   - type: input
     id: link
     attributes:
-      label: Download Link
+      label: Link
       description: Direct download link of the resource pack
       placeholder: e.g. https://aaa.com/r.zip
     validations:
@@ -54,6 +54,6 @@ body:
       label: Tags
       description: Tags
       placeholder: 'e.g. [{"label": "Tag Name", "color": "#ea5252"}]'
-      value: [ { "label": "Tag Name", "color": "#a2d8f4" } ]
+      value: '[ { "label": "Text", "color": "#a2d8f4" } ]'
     validations:
-      required: true
+      required: false

@@ -54,6 +54,6 @@ body:
       label: 标签
       description: 标签
       placeholder: 'e.g. [{"label": "标签名", "color": "#ea5252"}]'
-      value: [ { "label": "标签名", "color": "#a2d8f4" } ]
+      value: '[ { "label": "标签名", "color": "#a2d8f4" } ]'
     validations:
-      required: true
+      required: false
