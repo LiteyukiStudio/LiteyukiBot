@@ -17,7 +17,7 @@ from liteyuki_flow.typ import err, nil
 user_agent = "liteyuki-flow"
 
 headers = {
-        "User-Agent": user_agent
+    "User-Agent": user_agent
 }
 
 
@@ -121,14 +121,6 @@ def pre_check(github: Github, issue: Issue, repo: Repository) -> err:
 def add_resource(github: Github, issue: Issue, repo: Repository) -> err:
     # 检测关闭时是否有管理员发布的通过评论
     try:
-        # closed_by = issue.closed_by
-        # if closed_by is None:
-        #     print(issue.closed_by)
-        #     push_publish_result(issue, "❌ 无法获取关闭者信息。")
-        #     return ValueError("无法获取关闭者信息。")
-        # if not any([True for u in repo.get_collaborators() if u.login == closed_by.login]):
-        #     push_publish_result(issue, "❌ 你不是仓库管理员，无法发布资源包。")
-        #     return ValueError("你不是仓库管理员，无法发布资源包。")
         if "pre-checked" not in [l.name for l in issue.labels]:
             issue.edit(state="open")
             push_publish_result(issue, "❌ 请先通过预检查。")
@@ -159,22 +151,22 @@ def add_resource(github: Github, issue: Issue, repo: Repository) -> err:
         # 编辑仓库内的json文件
         resources = json.load(open(RESOURCE_JSON))
         resources.append({
-                "name"       : name,
-                "description": desc,
-                "link"       : link,
-                "homepage"   : homepage,
-                "author"     : author
+            "name": name,
+            "description": desc,
+            "link": link,
+            "homepage": homepage,
+            "author": author
         })
         ref = repo.get_git_ref("heads/main")
         tree = repo.create_git_tree(
             base_tree=repo.get_git_commit(ref.object.sha).tree,
             tree=[
-                    InputGitTreeElement(
-                        path=RESOURCE_JSON,
-                        mode="100644",
-                        type="blob",
-                        content=json.dumps(resources, indent=4, ensure_ascii=False)
-                    )
+                InputGitTreeElement(
+                    path=RESOURCE_JSON,
+                    mode="100644",
+                    type="blob",
+                    content=json.dumps(resources, indent=4, ensure_ascii=False)
+                )
             ]
         )
         commit = repo.create_git_commit(

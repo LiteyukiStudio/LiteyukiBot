@@ -1,7 +1,7 @@
 name: 发布资源
-title: "Plugin: {name}"
+title: "Resource: {name}"
 description: 发布资源到轻雪机器人官方商店
-labels: ["Resource"]
+labels: [ "Resource" ]
 body:
   - type: input
     id: name
@@ -20,7 +20,7 @@ body:
       placeholder: e.g. 使渲染卡片的样式更美观
     validations:
       required: true
-      
+
   - type: input
     id: author
     attributes:
@@ -29,7 +29,7 @@ body:
       placeholder: e.g. snowykami
     validations:
       required: true
-      
+
   - type: input
     id: link
     attributes:
@@ -38,7 +38,7 @@ body:
       placeholder: e.g. https://aaa.com/r.zip
     validations:
       required: true
-      
+
   - type: input
     id: homepage
     attributes:

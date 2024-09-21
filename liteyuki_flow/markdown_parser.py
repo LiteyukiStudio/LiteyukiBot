@@ -3,9 +3,9 @@
 """
 from typing import Any
 
+from github.Issue import Issue
+
 from liteyuki_flow.typ import Nil, err, nil  # type: ignore
-
-
 
 
 # # xxx
@@ -137,3 +137,10 @@ class MarkdownParser:
         self._parsed = True
 
         return self._content_list, nil
+
+
+# 解析资源发布issue体
+def parse_resource_publish_info(issue: Issue) -> dict[str, str]:
+    parser = MarkdownParser(issue.body)
+    parser.parse_front_matters()
+    return parser.front_matters
