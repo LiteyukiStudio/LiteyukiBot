@@ -7,10 +7,7 @@ import {RepoUrl} from "./scripts/statsApi";
 
 import resourcesJson from "../public/resources.json"
 import {useData} from "vitepress";
-// formLang
-const lang = computed(
-    () => formatLang(useData().lang.value)
-)
+// formLan
 
 // 从public/assets/resources.json加载插件
 let filteredItems = computed(() => {
@@ -43,15 +40,15 @@ function closePublishWindow() {
   isPublishWindowOpen.value = false
 }
 
+let submitLang = ""
+if (formatLang(useData().site.value.lang) === "zh") {
+  submitLang = "zh"
+} else {
+  submitLang = "en"
+}
 
 function submitForm() {
   const title = encodeURI(`Resource: ${newRes.value.name}`)
-  let submitLang = ""
-  if (lang.value === "zh") {
-    submitLang = "zh"
-  } else {
-    submitLang = "en"
-  }
   const issueURL = `${RepoUrl}/issues/new?assignees=&labels=Resource&template=resource_publish_${submitLang}.yml&title=${title}`
   console.log(issueURL)
   window.open(issueURL, '_blank')
