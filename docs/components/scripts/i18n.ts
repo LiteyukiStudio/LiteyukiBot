@@ -91,7 +91,7 @@ function getText(lang: string, key: string): string {
     return i18nData[lang][key];
 }
 
-function formatLang(lang: string): string {
+export  function formatLang(lang: string): string {
     if (lang.includes('-')) {
         return lang.split('-')[0];
     }

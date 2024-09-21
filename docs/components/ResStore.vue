@@ -2,10 +2,15 @@
 import {computed, ref} from 'vue'
 import ItemCard from './ResItemCard.vue'
 import ResPubWindow from "./ResPubWindow.vue";
-import {getTextRef} from "./scripts/i18n";
+import {getTextRef, formatLang} from "./scripts/i18n";
 import {RepoUrl} from "./scripts/statsApi";
 
 import resourcesJson from "../public/resources.json"
+import {useData} from "vitepress";
+// formLang
+const lang = computed(
+    () => formatLang(useData().lang.value)
+)
 
 // 从public/assets/resources.json加载插件
 let filteredItems = computed(() => {
@@ -28,10 +33,6 @@ const isPublishWindowOpen = ref(false)
 
 let newRes = ref({
   name: '',
-  desc: '',
-  author: '',
-  homepage: '',
-  link: '',
 })
 
 function openPublishWindow() {
@@ -42,10 +43,17 @@ function closePublishWindow() {
   isPublishWindowOpen.value = false
 }
 
-const submitForm = () => {
+
+function submitForm() {
   const title = encodeURI(`Resource: ${newRes.value.name}`)
-  let body = encodeURI(`---\nname: ${newRes.value.name}\ndesc: ${newRes.value.desc}\nauthor: ${newRes.value.author}\nhomepage: ${newRes.value.homepage}\nlink: ${newRes.value.link}\n---\n`)
-  const issueURL = `${RepoUrl}/issues/new?title=${title}&body=${body}`
+  let submitLang = ""
+  if (lang.value === "zh") {
+    submitLang = "zh"
+  } else {
+    submitLang = "en"
+  }
+  const issueURL = `${RepoUrl}/issues/new?assignees=&labels=Resource&template=resource_publish_${submitLang}.yml&title=${title}`
+  console.log(issueURL)
   window.open(issueURL, '_blank')
 }
 
@@ -54,7 +62,8 @@ const submitForm = () => {
 <template>
   <div class="market">
     <h1>{{ getTextRef('resourceStore') }}</h1>
-    <div class="search-box-div"><input class="item-search-box" type="text" :placeholder="getTextRef('search')" v-model="search"/></div>
+    <div class="search-box-div"><input class="item-search-box" type="text" :placeholder="getTextRef('search')"
+                                       v-model="search"/></div>
     <div class="store-tabs" style="display: flex">
       <button class="store-button publish-button" @click="openPublishWindow">{{ getTextRef('publishRes') }}</button>
     </div>
@@ -67,17 +76,15 @@ const submitForm = () => {
       <form @submit.prevent="submitForm">
         <label for="name">{{ getTextRef("resName") }}</label>
         <input type="text" id="name" v-model="newRes.name" :placeholder="getTextRef('resNameText')"/>
-        <label for="desc">{{ getTextRef("resDesc") }}</label>
-        <input type="text" id="desc" v-model="newRes.desc" :placeholder="getTextRef('resDescText')"/>
-        <label for="author">{{ getTextRef("resAuthor") }}</label>
-        <input type="text" id="author" v-model="newRes.author" :placeholder="getTextRef('resAuthorText')"/>
-        <label for="link">{{ getTextRef("resLink") }}</label>
-        <input type="text" id="link" v-model="newRes.link" :placeholder="getTextRef('resLinkText')"/>
-        <label for="homepage">{{ getTextRef("resHomepage") }}</label>
-        <input type="text" id="homepage" v-model="newRes.homepage" :placeholder="getTextRef('resHomepageText')"/>
         <div class="pub-options" style="display: flex; justify-content: center">
-          <button class="pub-option close" type="button" @click="closePublishWindow">{{ getTextRef("closeButtonText") }}</button>
-          <button class="pub-option submit" type="submit">{{ getTextRef("submitButtonText") }}</button>
+          <button class="pub-option close" type="button" @click="closePublishWindow">{{
+              getTextRef("closeButtonText")
+            }}
+          </button>
+          <button class="pub-option submit" type="submit" @click="submitForm">{{
+              getTextRef("submitButtonText")
+            }}
+          </button>
         </div>
       </form>
     </ResPubWindow>
