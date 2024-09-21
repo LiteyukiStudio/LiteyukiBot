@@ -1,1 +1,32 @@
+name: 发布资源
+title: "Plugin: {name}"
+description: 发布资源到轻雪机器人官方商店
+labels: ["Resource"]
+body:
+  - type: input
+    id: name
+    attributes:
+      label: 名称
+      description: 资源包的可读名称
+      placeholder: e.g. 可爱UI资源包
+    validations:
+      required: true
 
+  - type: input
+    id: description
+    attributes:
+      label: 描述
+      description: 资源包的简短描述
+      placeholder: e.g. 使渲染卡片的样式更美观
+    validations:
+      required: true
+
+  - type: input
+    id: tags
+    attributes:
+      label: 标签
+      description: 标签
+      placeholder: 'e.g. [{"label": "标签名", "color": "#ea5252"}]'
+      value: "[]"
+    validations:
+      required: true
