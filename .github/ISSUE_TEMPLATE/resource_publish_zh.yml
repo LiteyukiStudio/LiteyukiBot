@@ -16,10 +16,37 @@ body:
     id: description
     attributes:
       label: 描述
-      description: 资源包的简短描述
+      description: 资源的简短描述
       placeholder: e.g. 使渲染卡片的样式更美观
     validations:
       required: true
+      
+  - type: input
+    id: author
+    attributes:
+      label: 作者
+      description: 作者的github用户名
+      placeholder: e.g. snowykami
+    validations:
+      required: true
+      
+  - type: input
+    id: link
+    attributes:
+      label: 下载链接
+      description: 资源包直接下载链接
+      placeholder: e.g. https://aaa.com/r.zip
+    validations:
+      required: true
+      
+  - type: input
+    id: homepage
+    attributes:
+      label: 主页
+      description: 资源包主页
+      placeholder: e.g. https://github.com/user/repo
+    validations:
+      required: false
 
   - type: input
     id: tags
