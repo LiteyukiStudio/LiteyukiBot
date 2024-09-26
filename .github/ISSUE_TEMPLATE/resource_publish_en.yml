@@ -1,6 +1,6 @@
 name: Publish Resource
 title: "Resource: {name}"
-description: Publish the resource to the Qingxue Bot official store
+description: Publish the resource to the LiteyukiBot official store
 labels: [ "Resource" ]
 body:
   - type: input
