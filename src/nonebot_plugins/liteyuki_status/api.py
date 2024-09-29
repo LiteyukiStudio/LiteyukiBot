@@ -64,6 +64,8 @@ data
         - percent: float
         - total: int
 """
+
+
 # status_card_cache = {}  # lang -> bytes
 
 
@@ -90,11 +92,11 @@ data
 # 获取状态卡片
 # bot_id 参数已经是bot参数的一部分了，不需要保留，但为了“兼容性”……
 async def generate_status_card(
-    bot: dict,
-    hardware: dict,
-    liteyuki: dict,
-    lang="zh-CN",
-    bot_id="0",
+        bot: dict,
+        hardware: dict,
+        liteyuki: dict,
+        lang="zh-CN",
+        bot_id="0",
 ) -> bytes:
     return await template2image(
         get_path("templates/status.html", abs_path=True),
@@ -269,7 +271,9 @@ async def get_hardware_data() -> dict:
     for disk in psutil.disk_partitions(all=True):
         try:
             disk_usage = psutil.disk_usage(disk.mountpoint)
-            if disk_usage.total == 0:
+            if disk_usage.total == 0 or disk.mountpoint.startswith(
+                    ("/var", "/boot", "/run", "/proc", "/sys", "/dev", "/tmp", "/snap")
+            ):
                 continue  # 虚拟磁盘
             result["disk"].append(
                 {
@@ -297,7 +301,7 @@ async def get_liteyuki_data() -> dict:
         "python": f"{platform.python_implementation()} {platform.python_version()}",
         "system": f"{platform.system()} {platform.release()}",
         "runtime": time.time()
-        - temp_data.data.get("start_time", time.time()),  # 运行时间秒数
+                   - temp_data.data.get("start_time", time.time()),  # 运行时间秒数
         "bots": len(nonebot.get_bots()),
     }
     return result
