@@ -1,7 +1,6 @@
 import aiohttp
 
 from .qw_models import *
-import httpx
 
 from ...utils.base.data_manager import get_memory_data
 from ...utils.base.language import Language
@@ -94,7 +93,7 @@ async def city_lookup(
             "key"     : key,
             "lang"    : lang,
     }
-    async with httpx.AsyncClient() as client:
+    async with aiohttp.ClientSession() as client:
         resp = await client.get(url, params=params)
         return CityLookup.parse_obj(resp.json())
 
@@ -114,9 +113,9 @@ async def get_weather_now(
             "lang"    : lang,
             "unit"    : unit,
     }
-    async with httpx.AsyncClient() as client:
+    async with aiohttp.ClientSession() as client:
         resp = await client.get(url, params=params)
-        return resp.json()
+        return await resp.json()
 
 
 async def get_weather_daily(
@@ -134,9 +133,9 @@ async def get_weather_daily(
             "lang"    : lang,
             "unit"    : unit,
     }
-    async with httpx.AsyncClient() as client:
+    async with aiohttp.ClientSession() as client:
         resp = await client.get(url, params=params)
-        return resp.json()
+        return await resp.json()
 
 
 async def get_weather_hourly(
@@ -154,9 +153,9 @@ async def get_weather_hourly(
             "lang"    : lang,
             "unit"    : unit,
     }
-    async with httpx.AsyncClient() as client:
+    async with aiohttp.ClientSession() as client:
         resp = await client.get(url, params=params)
-        return resp.json()
+        return await resp.json()
 
 
 async def get_airquality(
@@ -175,9 +174,9 @@ async def get_airquality(
             "pollutant": pollutant,
             "station"  : station,
     }
-    async with httpx.AsyncClient() as client:
+    async with aiohttp.ClientSession() as client:
         resp = await client.get(url, params=params)
-        return resp.json()
+        return await resp.json()
 
 async def get_astronomy(
         key: str,
@@ -192,6 +191,6 @@ async def get_astronomy(
             "location" : location,
             "date"     : date,
     }
-    async with httpx.AsyncClient() as client:
+    async with aiohttp.ClientSession() as client:
         resp = await client.get(url, params=params)
-        return resp.json()
+        return await resp.json()

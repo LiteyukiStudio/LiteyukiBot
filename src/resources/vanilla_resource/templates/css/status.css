@@ -121,9 +121,10 @@
     font-size: 24px;
     margin-left: 20px;
     text-align: left;
-    white-space: nowrap;
+    white-space: normal; /* 允许换行 */
     overflow: hidden;
     text-overflow: ellipsis;
+    word-break: break-all; /* 允许在单词内换行 */
     z-index: 2;
 }
 
