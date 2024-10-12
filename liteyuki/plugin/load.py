@@ -60,7 +60,6 @@ def load_plugin(module_path: str | Path) -> Optional[Plugin]:
                 f"{metadata.name}({module.__name__.split('.')[-1]})", metadata.type
             )
         else:
-
             logger.opt(colors=True).warning(
                 f'The metadata of Liteyuki plugin "{module.__name__}" is not specified, use empty.'
             )

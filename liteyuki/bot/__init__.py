@@ -8,18 +8,21 @@ import threading
 import time
 from typing import Any, Optional
 
-from liteyuki.bot.lifespan import (LIFESPAN_FUNC, Lifespan, PROCESS_LIFESPAN_FUNC)
+from liteyuki.bot.lifespan import LIFESPAN_FUNC, Lifespan, PROCESS_LIFESPAN_FUNC
 from liteyuki.comm.channel import get_channel
 from liteyuki.core.manager import ProcessManager
 from liteyuki.log import init_log, logger
 from liteyuki.plugin import load_plugin
 from liteyuki.utils import IS_MAIN_PROCESS
 
+# new version
+from liteyuki.core.manager import sub_process_manager
+
 __all__ = [
-        "LiteyukiBot",
-        "get_bot",
-        "get_config",
-        "get_config_with_compat",
+    "LiteyukiBot",
+    "get_bot",
+    "get_config",
+    "get_config_with_compat",
 ]
 
 
@@ -60,6 +63,7 @@ class LiteyukiBot:
         启动逻辑
         """
         await self.lifespan.before_start()  # 启动前钩子
+        sub_process_manager.start_all()
         await self.lifespan.after_start()  # 启动后钩子
         await self.keep_alive()
 
@@ -108,7 +112,11 @@ class LiteyukiBot:
                 cmd = "nohup"
             self.process_manager.terminate_all()
             # 进程退出后重启
-            threading.Thread(target=os.system, args=(f"{cmd} {executable} {' '.join(args)}",), daemon=True).start()
+            threading.Thread(
+                target=os.system,
+                args=(f"{cmd} {executable} {' '.join(args)}",),
+                daemon=True,
+            ).start()
             sys.exit(0)
         self.call_restart_count += 1
 
@@ -189,7 +197,9 @@ class LiteyukiBot:
         """
         return self.lifespan.on_before_process_shutdown(func)
 
-    def on_before_process_restart(self, func: PROCESS_LIFESPAN_FUNC) -> PROCESS_LIFESPAN_FUNC:
+    def on_before_process_restart(
+        self, func: PROCESS_LIFESPAN_FUNC
+    ) -> PROCESS_LIFESPAN_FUNC:
         """
         注册进程重启前的函数，为子进程重启时调用
         Args:
@@ -211,7 +221,7 @@ class LiteyukiBot:
         return self.lifespan.on_after_restart(func)
 
 
-_BOT_INSTANCE: LiteyukiBot
+_BOT_INSTANCE: LiteyukiBot | None = None
 
 
 def get_bot() -> LiteyukiBot:
@@ -241,7 +251,9 @@ def get_config(key: str, default: Any = None) -> Any:
     return get_bot().config.get(key, default)
 
 
-def get_config_with_compat(key: str, compat_keys: tuple[str], default: Any = None) -> Any:
+def get_config_with_compat(
+    key: str, compat_keys: tuple[str], default: Any = None
+) -> Any:
     """
     获取配置，兼容旧版本
     Args:
@@ -256,14 +268,18 @@ def get_config_with_compat(key: str, compat_keys: tuple[str], default: Any = Non
         return get_bot().config[key]
     for compat_key in compat_keys:
         if compat_key in get_bot().config:
-            logger.warning(f"Config key \"{compat_key}\" will be deprecated, use \"{key}\" instead.")
+            logger.warning(
+                f'Config key "{compat_key}" will be deprecated, use "{key}" instead.'
+            )
             return get_bot().config[compat_key]
     return default
 
 
 def print_logo():
     """@litedoc-hide"""
-    print("\033[34m" + r"""
+    print(
+        "\033[34m"
+        + r"""
      __        ______  ________  ________  __      __  __    __  __    __  ______ 
     /  |      /      |/        |/        |/  \    /  |/  |  /  |/  |  /  |/      |
     $$ |      $$$$$$/ $$$$$$$$/ $$$$$$$$/ $$  \  /$$/ $$ |  $$ |$$ | /$$/ $$$$$$/ 
@@ -273,4 +289,6 @@ def print_logo():
     $$ |_____  _$$ |_    $$ |   $$ |_____     $$ |    $$ \__$$ |$$ |$$  \  _$$ |_ 
     $$       |/ $$   |   $$ |   $$       |    $$ |    $$    $$/ $$ | $$  |/ $$   |
     $$$$$$$$/ $$$$$$/    $$/    $$$$$$$$/     $$/      $$$$$$/  $$/   $$/ $$$$$$/ 
-                """ + "\033[0m")
+                """
+        + "\033[0m"
+    )
