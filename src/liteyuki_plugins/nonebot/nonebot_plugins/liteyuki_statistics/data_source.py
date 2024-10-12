@@ -10,7 +10,7 @@ from .common import MessageEventModel, msg_db
 from src.utils.base.language import Language
 from src.utils.base.resource import get_path
 from src.utils.message.string_tool import convert_seconds_to_time
-from ...utils.external.logo import get_group_icon, get_user_icon
+from src.utils.external.logo import get_group_icon, get_user_icon
 
 
 async def count_msg_by_bot_id(bot_id: str) -> int:
