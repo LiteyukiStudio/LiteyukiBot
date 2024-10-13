@@ -13,9 +13,9 @@ from queue import Queue
 
 from liteyuki.comm.storage import shared_memory
 from liteyuki.log import logger
-from liteyuki.message.event import MessageEvent
-from liteyuki.message.matcher import Matcher
-from liteyuki.message.rule import Rule, empty_rule
+from liteyuki.session.event import MessageEvent
+from liteyuki.session.matcher import Matcher
+from liteyuki.session.rule import Rule, empty_rule
 
 _matcher_list: list[Matcher] = []
 _queue: Queue = Queue()

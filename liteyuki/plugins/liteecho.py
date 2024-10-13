@@ -9,9 +9,9 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @Software: PyCharm
 """
 
-from liteyuki.message.on import on_startswith
-from liteyuki.message.event import MessageEvent
-from liteyuki.message.rule import is_su_rule
+from liteyuki.session.on import on_startswith
+from liteyuki.session.event import MessageEvent
+from liteyuki.session.rule import is_su_rule
 
 
 @on_startswith(["liteecho"], rule=is_su_rule).handle()

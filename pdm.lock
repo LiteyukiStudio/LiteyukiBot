@@ -89,7 +89,7 @@ files = [
 
 [[package]]
 name = "croterline"
-version = "1.0.4"
+version = "1.0.5"
 requires_python = ">=3.10"
 summary = "Default template for PDM package"
 groups = ["default"]
@@ -97,8 +97,8 @@ dependencies = [
     "magicoca>=1.0.1",
 ]
 files = [
-    {file = "croterline-1.0.4-py3-none-any.whl", hash = "sha256:7af5f26c3cd66f965e7cd7cca2d5a839364ed65f281f9a7586aa20a62946f1d4"},
-    {file = "croterline-1.0.4.tar.gz", hash = "sha256:98754b1033665580c88e3ef4621d9b4293265450d4ff0a7352bb19852c4e113b"},
+    {file = "croterline-1.0.5-py3-none-any.whl", hash = "sha256:4c5ce5273dd7f47b5c96876452eb852dc6f3f7e4b17f9c4cadeb68665157857c"},
+    {file = "croterline-1.0.5.tar.gz", hash = "sha256:288484e52682f9c8029a73e1023e930d8548245fc1397ae0fc36e17f09ce8f56"},
 ]
 
 [[package]]

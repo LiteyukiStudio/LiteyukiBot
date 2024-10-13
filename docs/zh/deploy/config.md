@@ -14,7 +14,7 @@ order: 2
 
 ```yaml
 nonebot:
-  # Nonebot机器人的配置，以前的最外层配置项仍可为Nonebot服务，但是部分内容会被覆盖，请尽快迁移
+  # Nonebot机器人的配置，6.3.10版本后，NoneBot下配置已迁移至nonebot键下，不再使用外层配置，但是部分内容会被覆盖，请尽快迁移
   command_start: [ "/", "" ] # 指令前缀，若没有""空命令头，请开启alconna_use_command_start保证alconna解析正常
   host: 127.0.0.1 # 监听地址，默认为本机，若要接收外部请求请填写0.0.0.0
   port: 20216 # 绑定端口

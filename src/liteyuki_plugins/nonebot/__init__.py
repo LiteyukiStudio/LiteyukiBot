@@ -4,7 +4,6 @@ from pathlib import Path
 import nonebot
 from croterline.utils import IsMainProcess
 
-from liteyuki import get_bot
 from liteyuki.core import sub_process_manager
 from liteyuki.plugin import PluginMetadata, PluginType
 
@@ -28,6 +27,7 @@ def nb_run(*args, **kwargs):
 if IsMainProcess:
     from .dev_reloader import *
     bot = get_bot()
+
     sub_process_manager.add(
         name="nonebot", func=nb_run, **bot.config.get("nonebot", {})
     )

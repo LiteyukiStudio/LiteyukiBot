@@ -11,8 +11,8 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 import traceback
 from typing import Any, TypeAlias, Callable, Coroutine
 
-from liteyuki.message.event import MessageEvent
-from liteyuki.message.rule import Rule
+from liteyuki.session.event import MessageEvent
+from liteyuki.session.rule import Rule
 
 EventHandler: TypeAlias = Callable[[MessageEvent], Coroutine[None, None, Any]]
 

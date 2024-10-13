@@ -11,7 +11,7 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 import inspect
 from typing import Optional, TypeAlias, Callable, Coroutine
 
-from liteyuki.message.event import MessageEvent
+from liteyuki.session.event import MessageEvent
 from liteyuki import get_config
 
 _superusers: list[str] = get_config("liteyuki.superusers", [])

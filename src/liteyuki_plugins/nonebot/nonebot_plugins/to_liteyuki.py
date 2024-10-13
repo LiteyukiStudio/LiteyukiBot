@@ -17,7 +17,7 @@ from nonebot.adapters.onebot.v11 import MessageEvent, Bot
 from liteyuki import Channel
 from liteyuki.comm import get_channel
 from liteyuki.comm.storage import shared_memory
-from liteyuki.message.event import MessageEvent as LiteyukiMessageEvent
+from liteyuki.session.event import MessageEvent as LiteyukiMessageEvent
 
 __plugin_meta__ = PluginMetadata(
     name="轻雪push",

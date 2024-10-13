@@ -18,7 +18,6 @@ driver = get_driver()
 
 @driver.on_startup
 async def load_plugins():
-    print("load from", os.path.join(os.path.dirname(__file__), "../nonebot_plugins"))
     nonebot.plugin.load_plugins(os.path.abspath(os.path.join(os.path.dirname(__file__), "../nonebot_plugins")))
     # 从数据库读取已安装的插件
     if not get_config("safe_mode", False):

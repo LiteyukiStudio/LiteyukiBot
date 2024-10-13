@@ -11,7 +11,6 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 from typing import Any, Optional
 
 from liteyuki import Channel
-from liteyuki.comm.storage import shared_memory
 
 
 class MessageEvent:

@@ -25,6 +25,9 @@
 ### 感谢
 - 所有贡献者们
 
+### 参考
+- [nonebot-plugin-uninfo](https://github.com/RF-Tar-Railt/nonebot-plugin-uninfo)为会话部分用户信息提供了参考
+
 
 [OneBot]: https://img.shields.io/badge/OneBot-11/12-blue?style=for-the-badge
 

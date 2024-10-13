@@ -9,8 +9,8 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @Software: PyCharm
 """
 from liteyuki.plugin import PluginMetadata, PluginType
-from liteyuki.message.on import on_message
-from liteyuki.message.event import MessageEvent
+from liteyuki.session.on import on_message
+from liteyuki.session.event import MessageEvent
 
 __plugin_meta__ = PluginMetadata(
     name="你好轻雪",
