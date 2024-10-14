@@ -9,13 +9,23 @@ order: 1
 1. Install [`Git`](https://git-scm.com/download/) and [`Python3.10+`](https://www.python.org/downloads/release/python-31010/) Environment.
 
 ```bash
-# Clone the project
+# Clone Repo
 git clone https://github.com/LiteyukiStudio/LiteyukiBot --depth=1
-# change directory
+
+# Change directory
 cd LiteyukiBot
-# install dependencies
+
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+.\venv\Scripts\activate # Windows
+source venv/bin/activate # Linux
+
+# Install dependencies
 pip install -r requirements.txt
-# start the bot!
+
+# Run Liteyuki
 python main.py
 ```
 
@@ -36,9 +46,6 @@ python main.py
 > [!tip]
 > If you are using Windows, please use the absolute project directory `/path/to/LiteyukiBot` instead of `$&#40;pwd&#41;` <br>
 > If you have modified the port number, please replace `20216:20216` with your port number
-
-## **Use TRSS Script**
- [TRSS_Liteyuki Management Script](https://timerainstarsky.github.io/TRSS_Liteyuki/), which provides a more convenient way to manage LiteyukiBot, recommended to use `Arch Linux`
 
 
 ## **Device Requirements**

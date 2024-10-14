@@ -43,11 +43,6 @@ python main.py
 > Windows请使用项目绝对目录`/path/to/LiteyukiBot`代替`$(pwd)` <br>
 > 若你修改了端口号请将`20216:20216`中的`20216`替换为你的端口号
 
-## **使用TRSS Scripts部署**
-
-[TRSS_Liteyuki轻雪机器人管理脚本](https://timerainstarsky.github.io/TRSS_Liteyuki/)
-，该功能由TRSS提供支持，不是LiteyukiBot官方提供的功能，推荐使用`Arch Linux`
-
 ## **装置要求**
 
 - Windows系统版本最低`Windows10+`/`Windows Server 2019+`
