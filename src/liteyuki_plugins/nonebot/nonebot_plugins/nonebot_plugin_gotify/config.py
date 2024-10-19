@@ -1,5 +1,5 @@
 from nonebot import get_plugin_config
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 
 NOTICE = "notice"
 MESSAGE = "message"

@@ -1,11 +1,8 @@
 import asyncio
 from asyncio import Future
-from collections.abc import Coroutine
 from typing import Any
 
-import aiohttp
 from magicoca import Chan
-from nonebot import logger
 from pydantic import BaseModel
 
 from .config import plugin_config
