@@ -33,5 +33,5 @@ pip~=23.2.1
 fastapi~=0.115.0
 
 # liteyuki dependencies
-croterline>=1.0.5
+croterline>=1.0.7
 magicoca>=1.0.5
