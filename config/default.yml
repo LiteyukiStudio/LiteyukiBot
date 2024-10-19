@@ -6,3 +6,4 @@ nonebot:
   default_language: zh
   driver: ~fastapi+~httpx+~websockets
   alconna_use_command_start: true
+  gotify_token: "empty token"
