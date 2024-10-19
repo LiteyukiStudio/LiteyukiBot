@@ -11,32 +11,12 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 
 from queue import Queue
 
-from liteyuki.comm.storage import shared_memory
-from liteyuki.log import logger
 from liteyuki.session.event import MessageEvent
 from liteyuki.session.matcher import Matcher
 from liteyuki.session.rule import Rule, empty_rule
 
 _matcher_list: list[Matcher] = []
 _queue: Queue = Queue()
-
-
-@shared_memory.on_subscriber_receive("event_to_liteyuki")
-async def _(event: MessageEvent):
-    print("AA")
-    current_priority = -1
-    for i, matcher in enumerate(_matcher_list):
-        logger.info(f"Running matcher {matcher} for event: {event}")
-        await matcher.run(event)
-        # 同优先级不阻断，不同优先级阻断
-        if current_priority != matcher.priority:
-            current_priority = matcher.priority
-            if matcher.block:
-                break
-    else:
-        logger.info(f"No matcher matched for event: {event}")
-    print("BB")
-
 
 def add_matcher(matcher: Matcher):
     for i, m in enumerate(_matcher_list):

@@ -8,16 +8,11 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 @File    : to_liteyuki.py
 @Software: PyCharm
 """
-import asyncio
 
-from nonebot import Bot, get_bot, on_message, get_driver
+from croterline.process import get_ctx
+from nonebot.adapters.onebot.v11 import MessageEvent
 from nonebot.plugin import PluginMetadata
-from nonebot.adapters.onebot.v11 import MessageEvent, Bot
-
-from liteyuki import Channel
-from liteyuki.comm import get_channel
-from liteyuki.comm.storage import shared_memory
-from liteyuki.session.event import MessageEvent as LiteyukiMessageEvent
+from nonebot import on_message
 
 __plugin_meta__ = PluginMetadata(
     name="轻雪push",
@@ -25,31 +20,11 @@ __plugin_meta__ = PluginMetadata(
     usage="用户无需使用",
 )
 
-recv_channel = Channel[LiteyukiMessageEvent](name="event_to_nonebot")
+ctx = get_ctx()
 
+@on_message().handle()
+async def _(event: MessageEvent):
+    print("Push message to Liteyuki")
 
-# @on_message().handle()
-# async def _(bot: Bot, event: MessageEvent):
-#     liteyuki_event = LiteyukiMessageEvent(
-#         message_type=event.message_type,
-#         message=event.dict()["message"],
-#         raw_message=event.raw_message,
-#         data=event.dict(),
-#         bot_id=bot.self_id,
-#         user_id=str(event.user_id),
-#         session_id=str(event.user_id if event.message_type == "private" else event.group_id),
-#         session_type=event.message_type,
-#         receive_channel=recv_channel,
-#     )
-#     shared_memory.publish("event_to_liteyuki", liteyuki_event)
+    ctx.sub_chan << event.raw_message
 
-
-# @get_driver().on_bot_connect
-# async def _():
-#     while True:
-#         event = await recv_channel.async_receive()
-#         bot: Bot = get_bot(event.bot_id)  # type: ignore
-#         if event.message_type == "private":
-#             await bot.send_private_msg(user_id=int(event.session_id), message=event.data["message"])
-#         elif event.message_type == "group":
-#             await bot.send_group_msg(group_id=int(event.session_id), message=event.data["message"])

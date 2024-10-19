@@ -1,22 +1,22 @@
 import asyncio
-import atexit
 import os
 import platform
-import signal
 import sys
 import threading
 import time
 from typing import Any, Optional
 
+from magicoca import Chan
+
 from liteyuki.bot.lifespan import LIFESPAN_FUNC, Lifespan, PROCESS_LIFESPAN_FUNC
 from liteyuki.comm.channel import get_channel
 from liteyuki.core.manager import ProcessManager
-from liteyuki.log import init_log, logger
-from liteyuki.plugin import load_plugin
-from liteyuki.utils import IS_MAIN_PROCESS
-
 # new version
 from liteyuki.core.manager import sub_process_manager
+from liteyuki.log import init_log, logger
+from liteyuki.plugin import load_plugin
+from liteyuki.session import message_handler_thread
+from liteyuki.utils import IS_MAIN_PROCESS
 
 __all__ = [
     "LiteyukiBot",
@@ -33,6 +33,10 @@ class LiteyukiBot:
         Args:
             **kwargs: 配置
         """
+        """总通道"""
+        self.i_chan = Chan[Any]()   # 外部输入通道
+        self.o_chan = Chan[Any]()   # 外部输出通道
+
         """常规操作"""
         print_logo()
         global _BOT_INSTANCE
@@ -65,7 +69,7 @@ class LiteyukiBot:
         await self.lifespan.before_start()  # 启动前钩子
         sub_process_manager.start_all()
         await self.lifespan.after_start()  # 启动后钩子
-        await self.keep_alive()
+        message_handler_thread([_.ctx.sub_chan for _ in sub_process_manager.processes.values()])
 
     def run(self):
         """
@@ -77,19 +81,7 @@ class LiteyukiBot:
         except KeyboardInterrupt:
             logger.opt(colors=True).info("<y>Liteyuki is stopping...</y>")
             self.stop()
-        logger.opt(colors=True).info("<y>Liteyuki is stopped...</y>")
-
-    async def keep_alive(self):
-        """
-        保持轻雪运行
-        """
-        logger.info("Liteyuki is keeping alive...")
-        try:
-            while not self.stop_event.is_set():
-                await asyncio.sleep(0.1)
-        except Exception:
-            logger.info("Liteyuki is exiting...")
-            self.stop()
+        logger.opt(colors=True).info("<y>Liteyuki is stopped !</y>")
 
     def restart(self, delay: int = 0):
         """
