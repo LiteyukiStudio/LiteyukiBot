@@ -75,11 +75,6 @@ class Channel(Generic[T]):
             if name in _channel:
                 raise ValueError(f"Channel {name} already exists")
             _channel[name] = self
-            logger.debug(f"Channel {name} initialized in main process")
-        else:
-            logger.debug(
-                f"Channel {name} initialized in sub process, should manually set in main process"
-            )
 
     def _get_generic_type(self) -> Optional[type]:
         """

@@ -6,7 +6,6 @@ __NAME__ = "LiteyukiBot"
 __VERSION__ = "6.3.2"  # 60201
 
 from src.utils.base.config import load_from_yaml, config
-from src.utils.base.log import init_log
 from git import Repo
 
 major, minor, patch = map(int, __VERSION__.split("."))
@@ -20,7 +19,6 @@ def init():
 
     """
     # 检测python版本是否高于3.10
-    init_log()
     if sys.version_info < (3, 10):
         nonebot.logger.error("Requires Python3.10+ to run, please upgrade your Python Environment.")
         exit(1)

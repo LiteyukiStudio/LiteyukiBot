@@ -7,6 +7,8 @@ from typing import Iterable
 
 from magicoca import Chan, select
 
+from liteyuki.log import logger
+
 
 def message_handler_thread(i_chans: Iterable[Chan[Any]]):
     """
@@ -15,4 +17,5 @@ def message_handler_thread(i_chans: Iterable[Chan[Any]]):
     Returns:
     """
     for msg in select(*i_chans):
-        print("Recv from anybot", msg)
+        logger.debug(f"Recv from anybot {msg}")
+        logger.info(f"Recv from anybot {msg}")

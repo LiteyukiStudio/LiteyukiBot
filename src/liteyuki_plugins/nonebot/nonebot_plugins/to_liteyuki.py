@@ -12,6 +12,7 @@ Copyright (C) 2020-2024 LiteyukiStudio. All Rights Reserved
 from croterline.process import get_ctx
 from nonebot.adapters.onebot.v11 import MessageEvent
 from nonebot.plugin import PluginMetadata
+from nonebot.log import logger
 from nonebot import on_message
 
 __plugin_meta__ = PluginMetadata(
@@ -20,11 +21,13 @@ __plugin_meta__ = PluginMetadata(
     usage="用户无需使用",
 )
 
+
+
 ctx = get_ctx()
 
-@on_message().handle()
+@on_message(block=False, priority=100).handle()
 async def _(event: MessageEvent):
-    print("Push message to Liteyuki")
-
+    logger.debug("Pushing message to Liteyuki")
     ctx.sub_chan << event.raw_message
+    logger.debug("Pushed message to Liteyuki")
 

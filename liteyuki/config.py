@@ -118,6 +118,8 @@ def load_config_in_default(no_waring: bool = False) -> dict[str, Any]:
     从一个标准的轻雪项目加载配置文件
     项目目录下的config.*和config目录下的所有配置文件
     项目目录下的配置文件优先
+    Args:
+        no_waring: 是否关闭警告
     """
     config = load_configs_from_dirs("config", no_waring=no_waring)
     config.update(

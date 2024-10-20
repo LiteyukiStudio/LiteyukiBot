@@ -12,26 +12,34 @@ import sys
 
 import loguru
 
-logger = loguru.logger
+logger = loguru.logger.bind()
 
-# DEBUG日志格式
 debug_format: str = (
-        "<c>{time:YYYY-MM-DD HH:mm:ss}</c> "
-        "<lvl>[{level.icon}]</lvl> "
-        "<c><{name}.{module}.{function}:{line}></c> "
-        "{message}"
+    "<c>{time:YYYY-MM-DD HH:mm:ss}</c> "
+    "<lvl>[{level.icon}{level}]</lvl> "
+    "<c><{name}.{module}.{function}:{line}></c> "
+    "{message}"
 )
 
 # 默认日志格式
 default_format: str = (
-        "<c>{time:MM-DD HH:mm:ss}</c> "
-        "<lvl>[{level.icon}]</lvl> "
-        "<c><{name}></c> "
-        "{message}"
+    "<c>{time:MM-DD HH:mm:ss}</c> "
+    "<lvl>[{level.icon}{level}]</lvl> "
+    "<c><{name}></c> "
+    "{message}"
 )
 
-
 def get_format(level: str) -> str:
+    """
+    获取日志格式
+    Args:
+        level: 日志等级
+
+    Returns: 日志格式
+
+    """
+    # DEBUG日志格式
+
     if level == "DEBUG":
         return debug_format
     else:
@@ -41,23 +49,28 @@ def get_format(level: str) -> str:
 def init_log(config: dict):
     """
     在语言加载完成后执行
-    Returns:
-
+    Args:
+        config: 配置
     """
-
+    global logger
+    level = config.get("log_level", "DEBUG")
+    print("初始化日志系统", level)
     logger.remove()
     logger.add(
         sys.stdout,
-        level=0,
+        level=level,
         diagnose=False,
-        format=get_format(config.get("log_level", "INFO")),
+        format=get_format(level),
     )
     show_icon = config.get("log_icon", True)
-    logger.level("DEBUG", color="<blue>", icon=f"{'🐛' if show_icon else ''}DEBUG")
-    logger.level("INFO", color="<normal>", icon=f"{'ℹ️' if show_icon else ''}INFO")
-    logger.level("SUCCESS", color="<green>", icon=f"{'✅' if show_icon else ''}SUCCESS")
-    logger.level("WARNING", color="<yellow>", icon=f"{'⚠️' if show_icon else ''}WARNING")
-    logger.level("ERROR", color="<red>", icon=f"{'⭕' if show_icon else ''}ERROR")
+    logger.level("DEBUG", color="<blue>", icon=f"{'🐛' if show_icon else ''}")
+    logger.level("INFO", color="<normal>", icon=f"{'ℹ️' if show_icon else ''}")
+    logger.level("SUCCESS", color="<green>", icon=f"{'✅' if show_icon else ''}")
+    logger.level("WARNING", color="<yellow>", icon=f"{'⚠️' if show_icon else ''}")
+    logger.level("ERROR", color="<red>", icon=f"{'⭕' if show_icon else ''}")
+    logger.level("CRITICAL", color="<red>", icon=f"{'❌' if show_icon else ''}")
+    logger.level("TRACE", color="<cyan>", icon=f"{'🔍' if show_icon else ''}")
 
+    logger.bind()
 
-init_log(config={})
+init_log(config={"log_level": "DEBUG", "log_icon": True})

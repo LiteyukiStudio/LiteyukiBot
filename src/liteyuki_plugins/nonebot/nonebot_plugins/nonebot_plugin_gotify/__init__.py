@@ -50,7 +50,7 @@ async def start_push_thread():
     )
 
 if MESSAGE in plugin_config.gotify_includes:
-    @on_message().handle()
+    @on_message(block=False, priority=100).handle()
     async def _(event: Event):
         ctx = Context(
             user_id=event.get_user_id(),

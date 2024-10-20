@@ -1,7 +1,7 @@
 import os.path
 from pathlib import Path
 
-import nonebot
+
 from croterline.utils import IsMainProcess
 
 from liteyuki.core import sub_process_manager
@@ -14,9 +14,12 @@ __plugin_meta__ = PluginMetadata(
 
 
 def nb_run(*args, **kwargs):
+    import nonebot
+
     nonebot.init(**kwargs)
 
     from .nb_utils import driver_manager, adapter_manager
+
     driver_manager.init(config=kwargs)
     adapter_manager.init(kwargs)
     adapter_manager.register()
@@ -26,6 +29,7 @@ def nb_run(*args, **kwargs):
 
 if IsMainProcess:
     from .dev_reloader import *
+
     bot = get_bot()
 
     sub_process_manager.add(

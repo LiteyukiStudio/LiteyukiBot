@@ -4,14 +4,12 @@ from pathlib import Path
 
 import nonebot.plugin
 from nonebot import get_driver
-from src.utils import init_log
 from src.utils.base.config import get_config
 from src.utils.base.data_manager import InstalledPlugin, plugin_db
 from src.utils.base.resource import load_resources
 from src.utils.message.tools import check_for_package
 
 load_resources()
-init_log()
 
 driver = get_driver()
 
