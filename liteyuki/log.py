@@ -54,7 +54,6 @@ def init_log(config: dict):
     """
     global logger
     level = config.get("log_level", "DEBUG")
-    print("初始化日志系统", level)
     logger.remove()
     logger.add(
         sys.stdout,

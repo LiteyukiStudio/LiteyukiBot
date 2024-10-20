@@ -20,8 +20,8 @@ dependencies = [
     "toml>=0.10.2",
     "watchdog>=4.0.1",
     "pdm-backend>=2.3.3",
-    "magicoca>=1.0.5",
-    "croterline~=1.0.5",
+    "magicoca>=1.0.6",
+    "croterline>=1.0.7",
 ]
 
 [project.urls]
