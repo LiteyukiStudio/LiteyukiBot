@@ -1,10 +1,12 @@
 import aiofiles
+from pathlib import Path
 
 
 async def write_file(
-        file_path: str,
+        file_path: str | Path,
         content: str | bytes,
-        mode: str = "w"
+        mode: str = "w",
+        **kws,
 ):
     """
     写入文件
@@ -13,11 +15,15 @@ async def write_file(
         file_path: 文件路径
         content: 内容
     """
-    async with aiofiles.open(file_path, mode) as f:
+    async with aiofiles.open(file_path, mode, **kws) as f:
         await f.write(content)
 
 
-async def read_file(file_path: str, mode: str = "r") -> str:
+async def read_file(
+        file_path: str | Path,
+        mode: str = "r",
+        **kws,
+) -> str:
     """
     读取文件
     Args:
@@ -25,5 +31,5 @@ async def read_file(file_path: str, mode: str = "r") -> str:
         mode: 读取模式
     Returns:
     """
-    async with aiofiles.open(file_path, mode) as f:
+    async with aiofiles.open(file_path, mode, **kws) as f:
         return await f.read()
