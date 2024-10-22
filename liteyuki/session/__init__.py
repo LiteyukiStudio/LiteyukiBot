@@ -9,6 +9,8 @@ from magicoca import Chan, select
 
 from liteyuki.log import logger
 
+from .models import *
+
 
 def message_handler_thread(i_chans: Iterable[Chan[Any]]):
     """

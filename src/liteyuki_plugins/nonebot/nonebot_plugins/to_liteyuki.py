@@ -13,7 +13,15 @@ from croterline.process import get_ctx
 from nonebot.adapters.onebot.v11 import MessageEvent
 from nonebot.plugin import PluginMetadata
 from nonebot.log import logger
-from nonebot import on_message
+from nonebot import on_message, require
+from nonebot.adapters import Bot
+
+from liteyuki.session import Session, SceneType
+
+require("nonebot_plugin_uninfo")
+
+from nonebot_plugin_uninfo import get_session, Role, ROLE_LEVEL
+
 
 __plugin_meta__ = PluginMetadata(
     name="轻雪push",
@@ -22,12 +30,15 @@ __plugin_meta__ = PluginMetadata(
 )
 
 
-
 ctx = get_ctx()
 
-@on_message(block=False, priority=100).handle()
-async def _(event: MessageEvent):
+
+@on_message(block=False, priority=0).handle()
+async def _(bot: Bot, event: MessageEvent):
+    session = await get_session(bot, event)
+    print("Role", session.member.role)
+    new_session = Session(**session.dump())
+
+    logger.debug("SESSION", new_session)
     logger.debug("Pushing message to Liteyuki")
     ctx.sub_chan << event.raw_message
-    logger.debug("Pushed message to Liteyuki")
-
