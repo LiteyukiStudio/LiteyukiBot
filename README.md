@@ -1,7 +1,7 @@
 <div align="center">
 
 [//]: # (<img  src="https://cdn.liteyuki.icu/static/svg/lylogo-full.svg" style="align-content: center; width: 50%; margin-top:10%;" alt="a">)
-[![][banner]][lightyuki-link]
+[![][banner]][liteyuki-link]
 <h2><a href="https://bot.liteyuki.icu"> <span style="color: #a2d8f4">轻雪</span> <span style="color: #d0e9ff">6</span></a></h2>
 <h4> <span style="color: #a2d8f4">✨ 轻量，高效，易于扩展✨</span></h4>
 
@@ -13,7 +13,11 @@
 
 </div>
 
-## 特点
+## 关于
+
+访问[轻雪6.0](https://bot.liteyuki.icu)主页获取更多信息
+
+## 特点及优势
 
 - 原生支持与任意`Python`Bot框架互联，有良好的生态支持
 - 开箱即用，无需复杂配置
@@ -22,9 +26,12 @@
 - 国际化支持，支持多种语言
 - 高性能，500插件2s内启动
 
+## 服务及支持(敬请期待)
+- 提供Liteyuki Cloud官方的容器化托管服务，无需担心服务器问题
+
 **👇所有内容请访问👇**: [bot.liteyuki.icu](https://bot.liteyuki.icu)
 
-### 参考及鸣谢
+### 参考及鸣
 - [nonebot-plugin-uninfo](https://github.com/RF-Tar-Railt/nonebot-plugin-uninfo)为会话部分用户信息提供了参考
 - [nonebot-plugin-alconna](https://github.com/nonebot/plugin-alconna/)为消息部分提供了参考
 
