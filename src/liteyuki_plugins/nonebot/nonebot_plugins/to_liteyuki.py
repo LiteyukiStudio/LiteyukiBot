@@ -36,9 +36,5 @@ ctx = get_ctx()
 @on_message(block=False, priority=0).handle()
 async def _(bot: Bot, event: MessageEvent):
     session = await get_session(bot, event)
-    print("Role", session.member.role)
-    new_session = Session(**session.dump())
-
-    logger.debug("SESSION", new_session)
     logger.debug("Pushing message to Liteyuki")
-    ctx.sub_chan << event.raw_message
+    ctx.sub_chan << event.raw_message  # type: ignore
