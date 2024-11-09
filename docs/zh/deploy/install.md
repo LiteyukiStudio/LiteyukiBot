@@ -12,7 +12,7 @@ order: 1
 
 ```bash
 # 克隆项目到本地，轻雪使用Git进行版本管理，该步骤为必要项
-git clone https://github.com/LiteyukiStudio/LiteyukiBot --depth=1 # 若你不能访问Github，可以使用Liteyuki镜像：https://git.liteyuki.icu/LiteyukiStudio/LiteyukiBot
+git clone https://github.com/LiteyukiStudio/LiteyukiBot --depth=1 # 若你不能访问Github，可以使用Liteyuki镜像：https://git.liteyuki.icu/bot/app
 
 # 切换到Bot目录下
 cd LiteyukiBot
