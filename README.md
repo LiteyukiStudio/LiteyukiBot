@@ -31,7 +31,7 @@
 
 **👇所有内容请访问👇**: [bot.liteyuki.icu](https://bot.liteyuki.icu)
 
-### 参考及鸣
+### 参考及鸣谢
 - [nonebot-plugin-uninfo](https://github.com/RF-Tar-Railt/nonebot-plugin-uninfo)为会话部分用户信息提供了参考
 - [nonebot-plugin-alconna](https://github.com/nonebot/plugin-alconna/)为消息部分提供了参考
 
