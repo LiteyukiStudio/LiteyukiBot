@@ -5,11 +5,15 @@
 <h2><a href="https://bot.liteyuki.icu"> <span style="color: #a2d8f4">轻雪</span> <span style="color: #d0e9ff">6</span></a></h2>
 <h4> <span style="color: #a2d8f4">✨ 轻量，高效，易于扩展✨</span></h4>
 
-[![][OneBot]][onebot-link]
-[![][NoneBot2]][nonebot-link]
-[![][Liteyuki6.0]][lightyuki-link]
+[![][Liteyuki6.0]][liteyuki-link]
 [![][Python3.10+]][python-link]
 [![][Usage]][usage-link]
+[![][Repo]][repo-link]
+[![][Github]][github-link]
+
+</div>
+
+## 特点
 
 - 原生支持与任意`Python`Bot框架互联，有良好的生态支持
 - 开箱即用，无需复杂配置
@@ -18,36 +22,33 @@
 - 国际化支持，支持多种语言
 - 高性能，500插件2s内启动
 
-<h3>👇更多内容请访问👇</h3>
-<h2><a href="https://bot.liteyuki.icu">轻雪机器人主页</a></h2>
-</div>
-
-### 感谢
-- 所有贡献者们
+**👇所有内容请访问👇**: [bot.liteyuki.icu](https://bot.liteyuki.icu)
 
 ### 参考及鸣谢
 - [nonebot-plugin-uninfo](https://github.com/RF-Tar-Railt/nonebot-plugin-uninfo)为会话部分用户信息提供了参考
 - [nonebot-plugin-alconna](https://github.com/nonebot/plugin-alconna/)为消息部分提供了参考
 
 
-[OneBot]: https://img.shields.io/badge/OneBot-11/12-blue?style=for-the-badge
-
-[NoneBot2]: https://img.shields.io/badge/Nonebot-2-red?style=for-the-badge
-
 [Liteyuki6.0]: https://img.shields.io/badge/Liteyuki-6.0-blue?style=for-the-badge
 
 [Python3.10+]: https://img.shields.io/badge/Python-3.10+-blue?style=for-the-badge
 
-[Usage]: https://img.shields.io/badge/文档-页面-blue?style=for-the-badge
+[Usage]: https://img.shields.io/badge/主页-文档-blue?style=for-the-badge
 
-[onebot-link]:https://onebot.dev/
+[Repo]: https://img.shields.io/badge/官方托管-仓库-blue?style=for-the-badge
 
-[nonebot-link]:https://nonebot.dev/
+[Github]: https://img.shields.io/badge/Github-仓库-blue?style=for-the-badge
 
-[lightyuki-link]:/
+
 
 [python-link]:https://www.python.org/
 
 [usage-link]:https://bot.liteyuki.icu/
+
+[liteyuki-link]:https://bot.liteyuki.icu/
+
+[repo-link]:https://git.liteyuki.icu/bot/app
+
+[github-link]:https://github.com/LiteyukiStudio/LiteyukiBot
 
 [banner]: https://socialify.git.ci/LiteyukiStudio/LiteyukiBot/image?description=1&forks=1&issues=1&Plus&pulls=1&stargazers=1&theme=Auto&logo=https%3a%2f%2fcdn.liteyuki.icu%2fstatic%2fsvg%2flylogo-full.svg
