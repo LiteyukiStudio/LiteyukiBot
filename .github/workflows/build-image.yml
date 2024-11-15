@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pages
+  group: docker-build
   cancel-in-progress: false
 
 jobs:
