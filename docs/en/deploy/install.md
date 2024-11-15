@@ -37,11 +37,9 @@ python main.py
 
 ## **Run with Docker**
 
-1. Install [`Docker`](https://docs.docker.com/get-docker/)
-2. Clone Repo `git clone https://github.com/LiteyukiStudio/LiteyukiBot --depth=1` 
-3. Change directory `cd LiteyukiBot`
-4. Build docker image `docker build -t liteyukibot .`
-5. Run container `docker run -p 20216:20216 -v $(pwd):/liteyukibot -v $(pwd)/.cache:/root/.cache liteyukibot`
+```bash
+docker pull git.liteyuki.icu/bot/app:latest  # Nightly build
+```
 
 > [!tip]
 > If you are using Windows, please use the absolute project directory `/path/to/LiteyukiBot` instead of `$&#40;pwd&#41;` <br>

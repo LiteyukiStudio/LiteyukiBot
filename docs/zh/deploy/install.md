@@ -33,11 +33,9 @@ python main.py
 
 ## **使用Docker构建**
 
-1. 安装 [`Docker`](https://docs.docker.com/get-docker/)
-2. 克隆项目 `git clone https://github.com/LiteyukiStudio/LiteyukiBot --depth=1`
-3. 进入轻雪目录 `cd LiteyukiBot`
-4. 构建镜像 `docker build -t liteyukibot .`
-5. 启动容器 `docker run -p 20216:20216 -v $(pwd):/liteyukibot -v $(pwd)/.cache:/root/.cache liteyukibot`
+```bash
+docker pull git.liteyuki.icu/bot/app:latest  # 每夜版镜像
+```
 
 > [!tip]
 > Windows请使用项目绝对目录`/path/to/LiteyukiBot`代替`$(pwd)` <br>
