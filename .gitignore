@@ -24,7 +24,6 @@ config.yml
 config.example.yml
 
 # vuepress
-.github
 
 # mupy
 mypy.ini
