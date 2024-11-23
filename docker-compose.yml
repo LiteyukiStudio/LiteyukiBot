@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  app:
+    image: git.liteyuki.icu/bot/app:latest
+    ports:
+      - "20216:20216"
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - .:/liteyukibot
+    command: [ "python", "main.py" ]
