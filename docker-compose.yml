@@ -6,7 +6,7 @@ services:
     ports:
       - "20216:20216"
     environment:
-      - TZ=Asia/Shanghai
+      - TZ=Asia/Chongqing
     volumes:
       - .:/liteyukibot
     command: [ "python", "main.py" ]
