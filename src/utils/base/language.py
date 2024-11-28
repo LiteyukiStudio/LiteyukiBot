@@ -217,6 +217,7 @@ def get_system_lang_code() -> str:
     if l[0] is None:
         return "zh-CN"
     else:
+        
         return l[0].replace("_", "-")
 
 
