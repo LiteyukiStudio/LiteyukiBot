@@ -213,7 +213,11 @@ def get_system_lang_code() -> str:
     """
     获取系统语言代码
     """
-    return locale.getdefaultlocale()[0].replace("_", "-")
+    l = locale.getdefaultlocale()
+    if l[0] is None:
+        return "zh-CN"
+    else:
+        return l[0].replace("_", "-")
 
 
 def get_default_lang_code() -> str:
