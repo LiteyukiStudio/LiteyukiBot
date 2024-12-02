@@ -21,3 +21,4 @@ def message_handler_thread(i_chans: Iterable[Chan[Any]]):
     for msg in select(*i_chans):
         logger.debug(f"Recv from anybot {msg}")
         logger.info(f"Recv from anybot {msg}")
+    pass

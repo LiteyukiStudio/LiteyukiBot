@@ -132,3 +132,48 @@ def load_config_in_default(no_waring: bool = False) -> dict[str, Any]:
         )
     )
     return config
+
+# new config loader
+class Loader:
+    def __init__(self):
+        self.config = {}
+
+    def load_from_yaml(self, fp: str) -> "Loader":
+        """从yaml文件加载配置
+        Args:
+            fp
+        """
+        with open(fp, 'r') as file:
+            self.config.update(yaml.safe_load(file))
+        return self
+
+    def load_from_toml(self, fp: str) -> "Loader":
+        """从toml文件加载配置"""
+        with open(fp, 'r') as file:
+            self.config.update(toml.load(file))
+        return self
+
+    def load_from_json(self, fp: str) -> "Loader":
+        """从json文件加载配置"""
+        with open(fp, 'r') as file:
+            self.config.update(json.load(file))
+        return self
+
+    def load_from_env(self, prefix: str = "") -> "Loader":
+        """从环境变量加载配置"""
+        for key, value in os.environ.items():
+            if key.startswith(prefix):
+                self.config[key[len(prefix):]] = value
+        return self
+
+    def merge(self, loader: "Loader") -> "Loader":
+        """合并两个Loader键值对树"""
+        self.config.update(loader.config)
+        return self
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """获取配置值"""
+        return self.config.get(key, default)
+
+    def __repr__(self) -> str:
+        return f"Loader(config={self.config})"

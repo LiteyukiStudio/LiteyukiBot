@@ -1,5 +1,5 @@
 nonebot:
-  host: 127.0.0.1
+  host: 0.0.0.0
   port: 20216
   command_start: ["", "/"]
   nickname: [ "liteyuki" ]
@@ -7,3 +7,4 @@ nonebot:
   driver: ~fastapi+~httpx+~websockets
   alconna_use_command_start: true
   gotify_token: "empty token"
+
