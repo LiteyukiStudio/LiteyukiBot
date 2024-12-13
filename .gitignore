@@ -68,3 +68,7 @@ docs/.vitepress/.temp
 # python toolchain
 .mypy_cache/
 .pytest_cache/
+
+# pdm
+__pypackages__/
+pdm.lock
