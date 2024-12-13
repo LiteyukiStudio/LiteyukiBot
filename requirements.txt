@@ -31,7 +31,6 @@ jieba>=0.42.1
 python-dotenv>=1.0.1
 loguru~=0.7.2
 pydantic~=2.9.2
-pip~=23.2.1
 fastapi~=0.115.0
 
 # liteyuki dependencies
