@@ -37,16 +37,20 @@ build-backend = "pdm.backend"
 [tool.pdm.build]
 includes = ["liteyuki/", "LICENSE", "README.md"]
 excludes = ["tests/", "docs/", "src/"]
+fallback_version = "0.1.0"
 
 [tool.pdm.version]
 source = "scm"
 tag_filter = "v*"
 tag_regex = '^v(?:\D*)?(?P<version>([1-9][0-9]*!)?(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*((a|b|c|rc)(0|[1-9][0-9]*))?(\.post(0|[1-9][0-9]*))?(\.dev(0|[1-9][0-9]*))?$)$'
+fallback_version = "0.1.0"
 
-[tool.pdm.dev-dependencies]
+
+[dependency-groups]
 dev = [
     "pytest>=8.3.3",
     "black>=24.10.0",
     "uv>=0.4.20",
     "mypy>=1.11.2",
+    "pre-commit>=4.0.1",
 ]

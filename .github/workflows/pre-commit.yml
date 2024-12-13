@@ -1,0 +1,30 @@
+name: Pre-commit checks
+
+on: [push, pull_request]
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13']  # 添加你想要测试的 Python 版本
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: ${{ matrix.python-version }}  # 使用矩阵中的 Python 版本
+
+    - name: Install dependencies
+      run: |
+        python -m pip install pdm
+        python -m pip install pre-commit
+        pdm config python.use_venv false
+        pdm install --no-lock
+        pre-commit install
+
+    - name: Run pre-commit
+      run: pre-commit run --all-files
