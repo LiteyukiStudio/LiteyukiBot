@@ -10,6 +10,7 @@
 [![][Usage]][usage-link]
 [![][Repo]][repo-link]
 [![][Github]][github-link]
+[![][LiteyukiLab]][liteyukilab-link]
 
 </div>
 
@@ -49,6 +50,8 @@
 
 [Github]: https://img.shields.io/badge/Github-仓库-blue?style=for-the-badge
 
+[LiteyukiLab]: https://img.shields.io/badge/轻雪社区-官方-blue?style=for-the-badge
+
 
 
 [python-link]:https://www.python.org/
@@ -60,5 +63,7 @@
 [repo-link]:https://git.liteyuki.icu/bot/app
 
 [github-link]:https://github.com/LiteyukiStudio/LiteyukiBot
+
+[liteyukilab-link]:https://lab.liteyuki.icu/@LiteyukiBot
 
 [banner]: https://socialify.git.ci/LiteyukiStudio/LiteyukiBot/image?description=1&forks=1&issues=1&Plus&pulls=1&stargazers=1&theme=Auto&logo=https%3a%2f%2fcdn.liteyuki.icu%2fstatic%2fsvg%2flylogo-full.svg
