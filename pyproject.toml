@@ -21,7 +21,7 @@ dependencies = [
     "watchdog>=4.0.1",
     "pdm-backend>=2.3.3",
     "croterline>=1.0.9",
-    "magicoca>=1.0.8",
+    "magicoca>=1.0.7",
 ]
 
 [project.urls]
