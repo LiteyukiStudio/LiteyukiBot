@@ -20,8 +20,8 @@ dependencies = [
     "toml>=0.10.2",
     "watchdog>=4.0.1",
     "pdm-backend>=2.3.3",
-    "magicoca>=1.0.6",
     "croterline>=1.0.9",
+    "magicoca>=1.0.8",
 ]
 
 [project.urls]
@@ -37,7 +37,6 @@ build-backend = "pdm.backend"
 [tool.pdm.build]
 includes = ["liteyuki/", "LICENSE", "README.md"]
 excludes = ["tests/", "docs/", "src/"]
-fallback_version = "0.1.0"
 
 [tool.pdm.version]
 source = "scm"
