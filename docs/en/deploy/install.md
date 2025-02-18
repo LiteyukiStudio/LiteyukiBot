@@ -38,7 +38,7 @@ python main.py
 ## **Run with Docker**
 
 ```bash
-docker pull ghcr.io/LiteyukiStudio/LiteyukiBot:latest  # Nightly build
+docker pull ghcr.io/liteyukistudio/liteyukibot:latest  # Nightly build
 ```
 
 > [!tip]

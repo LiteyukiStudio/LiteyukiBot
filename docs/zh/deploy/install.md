@@ -34,7 +34,7 @@ python main.py
 ## **使用Docker构建**
 
 ```bash
-docker pull ghcr.io/LiteyukiStudio/LiteyukiBot:latest  # 每夜版镜像
+docker pull ghcr.io/liteyukistudio/liteyukibot:latest  # 每夜版镜像
 ```
 
 > [!tip]
