@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  statuses: write
 
 concurrency:
   group: pages
@@ -62,3 +63,4 @@ jobs:
             --release "$GITHUB_SHA"
         env:
           MELI_TOKEN: ${{ secrets.MELI_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
