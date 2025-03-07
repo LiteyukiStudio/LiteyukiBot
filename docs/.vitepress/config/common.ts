@@ -58,6 +58,7 @@ export const common = defineConfig({
     rewrites: {
         [`${defaultLocale}/:rest*`]: ":rest*",
     },
+    cleanUrls: false,
     themeConfig: {
         logo: {
             light: '/liteyuki.svg',
