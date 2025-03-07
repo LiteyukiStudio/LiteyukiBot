@@ -62,4 +62,3 @@ jobs:
             --release "$GITHUB_SHA"
         env:
           MELI_TOKEN: ${{ secrets.MELI_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
