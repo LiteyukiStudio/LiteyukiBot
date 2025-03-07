@@ -1,5 +1,4 @@
-
-name: Deploy VitePress site to Pages
+name: Deploy VitePress site to Liteyuki PaaS
 
 on:
   push:
@@ -11,6 +10,9 @@ permissions:
 concurrency:
   group: pages
   cancel-in-progress: false
+
+env:
+  MELI_SITE: "800a7c09-dd9c-4ba7-a43f-af9bc69808c4"
 
 jobs:
   # 构建工作
@@ -24,7 +26,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Setup API markdown
         run: |-
@@ -51,8 +53,13 @@ jobs:
           pnpm run docs:build
           > .vitepress/dist/.nojekyll
 
-      - name: 部署文档
-        uses: JamesIves/github-pages-deploy-action@v4
-        with:
-          branch: docs
-          folder: docs/.vitepress/dist
+      - name: "发布"
+        run: |
+          npx -p "@getmeli/cli" meli upload docs/.vitepress/dist \
+            --url "https://meli.liteyuki.icu" \
+            --site "$MELI_SITE" \
+            --token "$MELI_TOKEN" \
+            --release "$GITHUB_SHA"
+        env:
+          MELI_TOKEN: ${{ secrets.MELI_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
