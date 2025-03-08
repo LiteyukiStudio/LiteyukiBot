@@ -51,10 +51,6 @@ function generateSidebarConfig(): any[] {
 export const common = defineConfig({
   head: [
     // 配置favicon.ico
-    [
-      "script",
-      { async: "", src: "https://cdn.liteyuki.icu/js/liteyuki_footer.js" },
-    ],
     ["link", { rel: "icon", type: "image/x-icon", href: "favicon.ico" }],
     [
       "link",
@@ -63,6 +59,7 @@ export const common = defineConfig({
         href: "https://fonts.font.im/css?family=Cousine:400,400i,700,700i|Poppins:100,100i,200,200i,300,300i,400,400i,500,500i,600,600i,700,700i,800,800i,900,900i",
       },
     ],
+    ["script", { src: "https://cdn.liteyuki.icu/js/liteyuki_footer.js" }],
   ],
   rewrites: {
     [`${defaultLocale}/:rest*`]: ":rest*",
