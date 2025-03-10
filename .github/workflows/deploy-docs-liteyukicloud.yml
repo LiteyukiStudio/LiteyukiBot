@@ -57,7 +57,7 @@ jobs:
       - name: "发布"
         run: |
           npx -p "@getmeli/cli" meli upload docs/.vitepress/dist \
-            --url "https://meli.liteyuki.icu" \
+            --url "https://pages.liteyuki.icu" \
             --site "$MELI_SITE" \
             --token "$MELI_TOKEN" \
             --release "$GITHUB_SHA"
