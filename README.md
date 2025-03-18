@@ -11,6 +11,7 @@
 [![][Repo]][repo-link]
 [![][Github]][github-link]
 [![][LiteyukiLab]][liteyukilab-link]
+![docs uptime](https://uptime.liteyuki.icu/api/badge/8/uptime?labelPrefix=Docs+&style=for-the-badge)
 
 </div>
 
