@@ -1,0 +1,10 @@
+services:
+  server:
+    container_name: liteyukibot
+    image: liteyukibot:v7
+    restart: always
+    volumes:
+      - ./plugins:/liteyukibot/plugins
+      - ./data:/liteyukibot/data 
+    ports:
+      - "8090:8080"

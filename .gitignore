@@ -14,3 +14,9 @@ venv/
 # windows
 Thumbs.db
 # linux
+
+# development
+.env
+.env.*
+plugins/
+data/
