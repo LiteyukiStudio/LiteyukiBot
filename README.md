@@ -20,7 +20,7 @@
 > 受限的自由才是真正的自由
 
 ## 关于
-
+开发中
 访问[轻雪7.0](https://bot.liteyuki.icu)主页获取更多信息
 
 ## 特点及优势
@@ -30,14 +30,6 @@
 
 ## 服务及支持(敬请期待)
 - 提供Liteyuki Cloud官方的容器化托管服务(SaaS)，无需担心服务器问题
-
-
-## 参考及鸣谢
-- [nonebot-plugin-uninfo](https://github.com/RF-Tar-Railt/nonebot-plugin-uninfo)为会话部分用户信息提供了参考
-- [nonebot-plugin-alconna](https://github.com/nonebot/plugin-alconna/)为消息部分提供了参考
-
-## 其他
-- 本仓库是一个monorepo，包含了框架，文档，测试，内置资源包，内置插件，预设配置等
 
 
 [Liteyuki7.0]: https://img.shields.io/badge/Liteyuki-7.0-blue?style=for-the-badge
