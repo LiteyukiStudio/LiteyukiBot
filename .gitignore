@@ -1,0 +1,16 @@
+# python and toolchains
+.mypy_cache/
+__pycache__/
+
+# idea
+.idea/
+.vscode/
+.venv/
+venv/
+
+# platform
+# macOS
+**/.DS_Store
+# windows
+Thumbs.db
+# linux
