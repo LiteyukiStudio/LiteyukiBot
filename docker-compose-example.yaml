@@ -1,0 +1,14 @@
+services:
+  liteyukibot:
+    container_name: bot
+    # Liteyuki latest: reg.liteyuki.icu/bot/app:latest
+    # Liteyuki nightly: reg.liteyuki.icu/bot/app:nightly
+    # GHCR latest: ghcr.io/liteyukistudio/bot-app:latest  暂未发布
+    # Docker Hub latest: docker.io/liteyukistudio/bot-app:latest  暂未发布
+    image: reg.liteyuki.icu/bot/app:latest
+    restart: always
+    volumes:
+      - ./plugins:/liteyukibot/plugins  # 外部插件目录，插件开发者可用
+      - ./data:/liteyukibot/data  # 数据目录，包含下载器安装的插件目录
+    ports:
+      - "8090:8080"
