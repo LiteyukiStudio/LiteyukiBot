@@ -1,0 +1,38 @@
+name: Pytest API Testing
+
+on:
+  push:
+    branches: [ "v7" ]
+  pull_request:
+    branches: [ "v7" ]
+
+permissions:
+  contents: read
+
+jobs:
+  Pytes-API-Testing:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: "latest"
+
+    - name: Test with pytest
+      run: |
+        uv run pytest --junitxml=report/report.xml
+
+    - name: Archive Pytest test report
+      uses: actions/upload-artifact@v3
+      with:
+        name: SuperTest-test-report
+        path: report
+
+    - name: Upload Pytest report to GitHub
+      uses: actions/upload-artifact@v3
+      with:
+        name: Pytest-test-report
+        path: report

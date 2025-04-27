@@ -1,11 +1,23 @@
 [project]
 name = "liteyukibot"
 version = "7.0.0"
-description = "Add your description here"
+description = "neo-liteyukibot is coming soon!"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.12",
     "pydantic>=2.11.3",
+    "pyyaml>=6.0.2",
     "uvicorn>=0.34.2",
 ]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.15.0",
+    "pytest>=8.3.5",
+    "ruff>=0.11.7",
+]
+
+[tool.ruff]
+line-length = 80
+src = ["liteyukibot", "main.py"]
