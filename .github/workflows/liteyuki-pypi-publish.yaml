@@ -1,4 +1,4 @@
-name: Publish
+name: Liteyuki PyPI Publish
 
 on:
   push:
@@ -6,8 +6,8 @@ on:
       - 'v*'
 
 jobs:
-  pypi-publish:
-    name: upload release to PyPI
+  liteyuki-pypi-publish:
+    name: upload release to PyPI (Nightly)
     runs-on: ubuntu-latest
     permissions:
       contents: read

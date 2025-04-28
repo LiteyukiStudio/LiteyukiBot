@@ -7,37 +7,46 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.12",
     "loguru>=0.7.3",
-    "nonecorn>=0.17.3",
+    "pip>=25.1",
     "pydantic>=2.11.3",
     "pyyaml>=6.0.2",
     "uvicorn>=0.34.2",
     "yukilog>=0.1.1",
 ]
 
+# 开发依赖
 [dependency-groups]
 dev = [
     "mypy>=1.15.0",
-    "pip>=25.1",
     "pytest>=8.3.5",
     "ruff>=0.11.7",
 ]
 
-# build
+# 辅助工具配置
+[tool.ruff]
+line-length = 140
+src = ["liteyukibot", "main.py"]
+select = ["I", "F", "E"]
+
+
+# 构建相关
 [build-system]
 requires = ["pdm-backend >= 2.4.0"]
 build-backend = "pdm.backend"
 
-[tool.ruff]
-line-length = 80
-src = ["liteyukibot", "main.py"]
+[tool.pdm.build]
+includes = ["liteyukibot"]
 
-# index and sources
+
+# 索引和源
 [[tool.uv.index]]
 name = "liteyuki-pypi"
 url = "https://git.liteyuki.icu/api/packages/LiteyukiStudio/pypi/simple"
 publish-url = "https://git.liteyuki.icu/api/packages/LiteyukiStudio/pypi"
 explicit = true
 
+
+# 从轻雪源安装的包请在此标记
 [tool.uv.sources]
 yukilog = [
   { index = "liteyuki-pypi" },

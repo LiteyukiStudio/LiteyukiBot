@@ -1,13 +1,13 @@
+import json
+import os
+import tomllib
 from typing import Any
 
-import json
 import yaml
-import tomllib
 
-config: dict[str, Any] = {} # 全局配置map
-flat_config: dict[str, Any] = {} # 扁平化配置map
+type RawConfig = dict[str, Any]
 
-def load_from_yaml(file_path: str) -> dict[str, Any]:
+def load_from_yaml(file_path: str) -> RawConfig:
     """从yaml文件中加载配置并返回字典
     
     Args:
@@ -19,7 +19,7 @@ def load_from_yaml(file_path: str) -> dict[str, Any]:
     with open(file_path, "r", encoding="utf-8") as file:
         return yaml.safe_load(file)
     
-def load_from_json(file_path: str) -> dict[str, Any]:
+def load_from_json(file_path: str) -> RawConfig:
     """从json文件中加载配置并返回字典
 
     Args:
@@ -32,7 +32,7 @@ def load_from_json(file_path: str) -> dict[str, Any]:
     with open(file_path, "r", encoding="utf-8") as file:
         return json.load(file)
     
-def load_from_toml(file_path: str) -> dict[str, Any]:
+def load_from_toml(file_path: str) -> RawConfig:
     """从toml文件中加载配置并返回字典
 
     Args:
@@ -44,18 +44,26 @@ def load_from_toml(file_path: str) -> dict[str, Any]:
     with open(file_path, "rb") as file:
         return tomllib.load(file)
 
-def merge_to_config(new_config: dict[str, Any], warn: bool=True) -> None:
-    """加载配置到全局配置字典，该函数有副作用，开发者尽量不要在多份配置文件中使用重复的配置项，否则会被覆盖
+def merge_dicts(base: RawConfig, new: RawConfig) -> RawConfig:
+    """递归合并两个字典
 
     Args:
-        new_config (dict[str, Any]): 新的字典
-        warn (bool, optional): 是否启用重复键警告. 默认 True.
+        base (dict[str, Any]): 原始字典
+        new (dict[str, Any]): 新的字典
+
+    Returns:
+        dict[str, Any]: 合并后的字典
     """
-    global config, flat_config
-    config.update(new_config)
-    flat_config = flatten_dict(config)
+    for key, value in new.items():
+        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+            # 如果当前键对应的值是字典，则递归合并
+            base[key] = merge_dicts(base[key], value)
+        else:
+            # 否则直接更新值
+            base[key] = value
+    return base
     
-def flatten_dict(d: dict[str, Any], parent_key: str = '', sep: str = '.') -> dict[str, Any]:
+def flatten_dict(d: RawConfig, parent_key: str = '', sep: str = '.') -> RawConfig:
     """将嵌套字典扁平化
 
     Args:
@@ -89,10 +97,19 @@ def flatten_dict(d: dict[str, Any], parent_key: str = '', sep: str = '.') -> dic
             items.append((new_key, v))
     return dict(items)
 
-def load_config_to_global(reset: bool = False) -> None:
-    """加载配置到全局配置字典
+def load_from_dir(dir_path: str) -> RawConfig:
+    """从目录中加载配置文件
 
     Args:
-        reset (bool, optional): 是否重置配置项. 默认 False.
+        dir_path (str): 目录路径
     """
-    
+    config: RawConfig = {}
+    for file_name in os.listdir(dir_path):
+        if file_name.endswith(".yaml") or file_name.endswith(".yml"):
+            config = merge_dicts(config, load_from_yaml(os.path.join(dir_path, file_name)) or {})
+        elif file_name.endswith(".json"):
+            config = merge_dicts(config, load_from_json(os.path.join(dir_path, file_name)) or {})
+        elif file_name.endswith(".toml"):
+            config = merge_dicts(config, load_from_toml(os.path.join(dir_path, file_name)) or {})
+            
+    return config
