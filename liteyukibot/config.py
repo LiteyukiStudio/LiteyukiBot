@@ -3,7 +3,7 @@ import os
 import tomllib
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import]
 
 type RawConfig = dict[str, Any]
 

@@ -3,6 +3,10 @@ from fastapi import FastAPI
 
 app = FastAPI()
 
+def get_app() -> FastAPI:
+    """获取 FastAPI 实例"""
+    return app
+
 @app.get("/")
 async def root():
     return {"message": "Hello LiteyukiBot"}

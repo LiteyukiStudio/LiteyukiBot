@@ -25,7 +25,9 @@ dev = [
 # 辅助工具配置
 [tool.ruff]
 line-length = 140
-src = ["liteyukibot", "main.py"]
+src = ["liteyukibot", "cli", "main.py"]
+
+[tool.ruff.lint]
 select = ["I", "F", "E"]
 
 
