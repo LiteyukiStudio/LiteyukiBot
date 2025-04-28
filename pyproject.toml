@@ -11,6 +11,7 @@ dependencies = [
     "pydantic>=2.11.3",
     "pyyaml>=6.0.2",
     "uvicorn>=0.34.2",
+    "yukilog>=0.1.1",
 ]
 
 [dependency-groups]
@@ -21,6 +22,23 @@ dev = [
     "ruff>=0.11.7",
 ]
 
+# build
+[build-system]
+requires = ["pdm-backend >= 2.4.0"]
+build-backend = "pdm.backend"
+
 [tool.ruff]
 line-length = 80
 src = ["liteyukibot", "main.py"]
+
+# index and sources
+[[tool.uv.index]]
+name = "liteyuki-pypi"
+url = "https://git.liteyuki.icu/api/packages/LiteyukiStudio/pypi/simple"
+publish-url = "https://git.liteyuki.icu/api/packages/LiteyukiStudio/pypi"
+explicit = true
+
+[tool.uv.sources]
+yukilog = [
+  { index = "liteyuki-pypi" },
+]
