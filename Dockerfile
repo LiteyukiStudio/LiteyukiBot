@@ -1,4 +1,4 @@
-FROM python:3.12-alpine
+FROM reg.liteyuki.icu/dockerhub/python:3.12-alpine
 
 WORKDIR /liteyukibot
 
