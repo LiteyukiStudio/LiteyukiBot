@@ -21,3 +21,7 @@ Thumbs.db
 .env.*
 plugins/
 data/
+configs/
+config.yaml
+config-dev.yaml
+config-prod.yaml

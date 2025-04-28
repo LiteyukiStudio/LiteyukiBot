@@ -59,3 +59,21 @@
 [liteyukilab-link]:https://lab.liteyuki.icu/@LiteyukiBot
 
 [banner]: https://socialify.git.ci/LiteyukiStudio/LiteyukiBot/image?description=1&forks=1&issues=1&Plus&pulls=1&stargazers=1&theme=Auto&logo=https%3a%2f%2fcdn.liteyuki.icu%2fstatic%2fsvg%2flylogo-full.svg
+
+## 开发环境配置
+
+1. 项目使用uv进行包管理，你也可以使用uv进行环境管理，[安装uv](https://docs.astral.sh/uv/#installation)
+
+2. 进入项目目录使用uv同步环境和依赖
+
+```bash
+uv sync --all   # 安装包括dev和prod的所有依赖
+```
+
+3. VSCode扩展
+
+- Python
+- Mypy
+- Ruff
+
+4. 环境变量指定ENVIRONMENT=dev或prod或其他，然后加载.env.{}文件，环境变量
