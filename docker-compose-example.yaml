@@ -8,7 +8,8 @@ services:
     image: reg.liteyuki.icu/bot/app:latest
     restart: always
     volumes:
-      - ./plugins:/liteyukibot/plugins  # 外部插件目录，插件开发者可用
+      - ./configs:/liteyukibot/configs  # 配置目录，包含配置文件
       - ./data:/liteyukibot/data  # 数据目录，包含下载器安装的插件目录
+      - ./plugins:/liteyukibot/plugins  # 外部插件目录，插件开发者可用
     ports:
       - "8090:8080"

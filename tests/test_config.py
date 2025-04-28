@@ -41,3 +41,29 @@ def test_load_from_toml():
     result = config.load_from_toml(temp_file_path)
     assert result["info"]["name"] == "LiteyukiBot"
     assert result["info"]["version"] == "7.0.0"
+    
+    
+def test_flatten_dict():
+    nested_dict = {
+        "name": "LiteyukiBot",
+        "version": {
+            "major": 7,
+            "minor": 0,
+            "patch": 0
+        },
+        "server": {
+            "db": {
+                "host": "localhost",
+                "port": 8080
+            },
+            "tags": ["tag1", "tag2"]
+        }
+    }
+    flat_dict = config.flatten_dict(nested_dict)
+    assert flat_dict["name"] == "LiteyukiBot"
+    assert flat_dict["version.major"] == 7
+    assert flat_dict["version.minor"] == 0
+    assert flat_dict["version.patch"] == 0
+    assert flat_dict["server.db.host"] == "localhost"
+    assert flat_dict["server.db.port"] == 8080
+    assert flat_dict["server.tags"] == ["tag1", "tag2"]

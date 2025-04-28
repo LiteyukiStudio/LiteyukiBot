@@ -6,5 +6,6 @@ services:
     volumes:
       - ./plugins:/liteyukibot/plugins
       - ./data:/liteyukibot/data 
+      - ./configs:/liteyukibot/configs
     ports:
       - "8090:8080"
