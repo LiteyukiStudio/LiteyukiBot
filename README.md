@@ -1,6 +1,6 @@
 <div align="center">
 
-[//]: # (<img  src="https://cdn.liteyuki.icu/static/svg/lylogo-full.svg" style="align-content: center; width: 50%; margin-top:10%;" alt="a">)
+[//]: # (<img  src="https://cdn.liteyuki.icu/logos/bot.svg" style="align-content: center; width: 50%; margin-top:10%;" alt="a">)
 [![][banner]][liteyuki-link]
 <h2><a href="https://bot.liteyuki.icu"> <span style="color: #a2d8f4">轻雪</span> <span style="color: #d0e9ff">6</span></a></h2>
 <h4> <span style="color: #a2d8f4">✨ 轻量，高效，易于扩展✨</span></h4>
@@ -67,4 +67,4 @@
 
 [liteyukilab-link]:https://lab.liteyuki.icu/@LiteyukiBot
 
-[banner]: https://socialify.git.ci/LiteyukiStudio/LiteyukiBot/image?description=1&forks=1&issues=1&Plus&pulls=1&stargazers=1&theme=Auto&logo=https%3a%2f%2fcdn.liteyuki.icu%2fstatic%2fsvg%2flylogo-full.svg
+[banner]: https://socialify.git.ci/LiteyukiStudio/LiteyukiBot/image?description=1&forks=1&issues=1&Plus&pulls=1&stargazers=1&theme=Auto&logo=https%3a%2f%2fcdn.liteyuki.icu%2flogos%2fbot.svg
