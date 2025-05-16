@@ -67,4 +67,4 @@
 
 [liteyukilab-link]:https://lab.liteyuki.icu/@LiteyukiBot
 
-[banner]: https://socialify.git.ci/LiteyukiStudio/LiteyukiBot/image?description=1&forks=1&issues=1&Plus&pulls=1&stargazers=1&theme=Auto&logo=https%3a%2f%2fcdn.liteyuki.icu%2flogos%2fbot.svg
+[banner]: https://socialify.git.ci/LiteyukiStudio/LiteyukiBot/image?description=1&font=Source+Code+Pro&forks=1&issues=1&logo=https%3A%2F%2Fcdn.liteyuki.icu%2Flogos%2Fbot.svg&name=1&owner=1&pattern=Floating+Cogs&pulls=1&stargazers=1&theme=Auto
