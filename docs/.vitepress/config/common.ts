@@ -67,8 +67,8 @@ export const common = defineConfig({
   cleanUrls: false,
   themeConfig: {
     logo: {
-      light: "/liteyuki.svg",
-      dark: "/liteyuki-dark.svg",
+      light: "https://cdn.liteyuki.icu/logos/bot.svg",
+      dark: "https://cdn.liteyuki.icu/logos/bot.svg",
       alt: "LiteyukiBot Logo",
     },
     sidebar: generateSidebar([...generateSidebarConfig()]),
