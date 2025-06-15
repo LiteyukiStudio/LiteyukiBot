@@ -44,8 +44,8 @@ includes = ["liteyukibot"]
 # 索引和源
 [[tool.uv.index]]
 name = "liteyuki-pypi"
-url = "https://git.liteyuki.icu/api/packages/LiteyukiStudio/pypi/simple"
-publish-url = "https://git.liteyuki.icu/api/packages/LiteyukiStudio/pypi"
+url = "https://git.liteyuki.org/api/packages/LiteyukiStudio/pypi/simple"
+publish-url = "https://git.liteyuki.org/api/packages/LiteyukiStudio/pypi"
 explicit = true
 
 

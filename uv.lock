@@ -164,7 +164,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.11.3" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "uvicorn", specifier = ">=0.34.2" },
-    { name = "yukilog", specifier = ">=0.1.1", index = "https://git.liteyuki.icu/api/packages/LiteyukiStudio/pypi/simple" },
+    { name = "yukilog", specifier = ">=0.1.1", index = "https://git.liteyuki.org/api/packages/LiteyukiStudio/pypi/simple" },
 ]
 
 [package.metadata.requires-dev]
@@ -459,11 +459,11 @@ wheels = [
 [[package]]
 name = "yukilog"
 version = "1.0.11"
-source = { registry = "https://git.liteyuki.icu/api/packages/LiteyukiStudio/pypi/simple" }
+source = { registry = "https://git.liteyuki.org/api/packages/LiteyukiStudio/pypi/simple" }
 dependencies = [
     { name = "loguru" },
 ]
-sdist = { url = "https://git.liteyuki.icu/api/packages/LiteyukiStudio/pypi/files/yukilog/1.0.11/yukilog-1.0.11.tar.gz", hash = "sha256:84d1fbb2825b2e9b2bffa00617ec4d6b7a4723f7a9b100a9500b1f419d04faad" }
+sdist = { url = "https://git.liteyuki.org/api/packages/LiteyukiStudio/pypi/files/yukilog/1.0.11/yukilog-1.0.11.tar.gz", hash = "sha256:84d1fbb2825b2e9b2bffa00617ec4d6b7a4723f7a9b100a9500b1f419d04faad" }
 wheels = [
-    { url = "https://git.liteyuki.icu/api/packages/LiteyukiStudio/pypi/files/yukilog/1.0.11/yukilog-1.0.11-py3-none-any.whl", hash = "sha256:87aba342ee0b9fd51d2768eab7689bdc6e0a633d89055dcecca16168135013d8" },
+    { url = "https://git.liteyuki.org/api/packages/LiteyukiStudio/pypi/files/yukilog/1.0.11/yukilog-1.0.11-py3-none-any.whl", hash = "sha256:87aba342ee0b9fd51d2768eab7689bdc6e0a633d89055dcecca16168135013d8" },
 ]

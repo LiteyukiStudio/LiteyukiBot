@@ -1,8 +1,8 @@
 <div align="center">
 
-[//]: # (<img  src="https://cdn.liteyuki.icu/logos/bot.svg" style="align-content: center; width: 50%; margin-top:10%;" alt="a">)
+[//]: # (<img  src="https://cdn.liteyuki.org/logos/bot.svg" style="align-content: center; width: 50%; margin-top:10%;" alt="a">)
 [![][banner]][liteyuki-link]
-<h2><a href="https://bot.liteyuki.icu"> <span style="color: #a2d8f4">轻雪</span> <span style="color: #d0e9ff">7</span></a></h2>
+<h2><a href="https://bot.liteyuki.org"> <span style="color: #a2d8f4">轻雪</span> <span style="color: #d0e9ff">7</span></a></h2>
 <h4> <span style="color: #a2d8f4">✨ 轻量，高效，易于扩展✨</span></h4>
 
 [![][Liteyuki7.0]][liteyuki-link]
@@ -11,17 +11,17 @@
 [![][Repo]][repo-link]
 [![][Github]][github-link]
 [![][LiteyukiLab]][liteyukilab-link]
-![docs uptime](https://uptime.liteyuki.icu/api/badge/8/uptime?labelPrefix=Docs+&style=for-the-badge)
+![docs uptime](https://uptime.liteyuki.org/api/badge/8/uptime?labelPrefix=Docs+&style=for-the-badge)
 
 **👇所有内容请访问👇**
-[bot.liteyuki.icu](https://bot.liteyuki.icu)
+[bot.liteyuki.org](https://bot.liteyuki.org)
 </div>
 
 > 受限的自由才是真正的自由
 
 ## 关于
 开发中
-访问[轻雪7.0](https://bot.liteyuki.icu)主页获取更多信息
+访问[轻雪7.0](https://bot.liteyuki.org)主页获取更多信息
 
 ## 特点及优势
 
@@ -49,17 +49,17 @@
 
 [python-link]:https://www.python.org/
 
-[usage-link]:https://bot.liteyuki.icu/
+[usage-link]:https://bot.liteyuki.org/
 
-[liteyuki-link]:https://bot.liteyuki.icu/
+[liteyuki-link]:https://bot.liteyuki.org/
 
-[repo-link]:https://git.liteyuki.icu/bot/app
+[repo-link]:https://git.liteyuki.org/bot/app
 
 [github-link]:https://github.com/LiteyukiStudio/LiteyukiBot
 
-[liteyukilab-link]:https://lab.liteyuki.icu/@LiteyukiBot
+[liteyukilab-link]:https://lab.liteyuki.org/@LiteyukiBot
 
-[banner]: https://socialify.git.ci/LiteyukiStudio/LiteyukiBot/image?description=1&forks=1&issues=1&Plus&pulls=1&stargazers=1&theme=Auto&logo=https%3a%2f%2fcdn.liteyuki.icu%2flogos%2fbot.svg
+[banner]: https://socialify.git.ci/LiteyukiStudio/LiteyukiBot/image?description=1&forks=1&issues=1&Plus&pulls=1&stargazers=1&theme=Auto&logo=https%3a%2f%2fcdn.liteyuki.org%2flogos%2fbot.svg
 
 ## 开发环境配置
 
