@@ -1,8 +1,8 @@
 <div align="center">
 
-[//]: # (<img  src="https://cdn.liteyuki.icu/logos/bot.svg" style="align-content: center; width: 50%; margin-top:10%;" alt="a">)
+[//]: # (<img  src="https://cdn.liteyuki.org/logos/bot.svg" style="align-content: center; width: 50%; margin-top:10%;" alt="a">)
 [![][banner]][liteyuki-link]
-<h2><a href="https://bot.liteyuki.icu"> <span style="color: #a2d8f4">轻雪</span> <span style="color: #d0e9ff">6</span></a></h2>
+<h2><a href="https://bot.liteyuki.org"> <span style="color: #a2d8f4">轻雪</span> <span style="color: #d0e9ff">6</span></a></h2>
 <h4> <span style="color: #a2d8f4">✨ 轻量，高效，易于扩展✨</span></h4>
 
 [![][Liteyuki6.0]][liteyuki-link]
@@ -11,13 +11,13 @@
 [![][Repo]][repo-link]
 [![][Github]][github-link]
 [![][LiteyukiLab]][liteyukilab-link]
-![docs uptime](https://uptime.liteyuki.icu/api/badge/8/uptime?labelPrefix=Docs+&style=for-the-badge)
+![docs uptime](https://uptime.liteyuki.org/api/badge/8/uptime?labelPrefix=Docs+&style=for-the-badge)
 
 </div>
 
 ## 关于
 
-访问[轻雪6.0](https://bot.liteyuki.icu)主页获取更多信息
+访问[轻雪6.0](https://bot.liteyuki.org)主页获取更多信息
 
 ## 特点及优势
 
@@ -31,7 +31,7 @@
 ## 服务及支持(敬请期待)
 - 提供Liteyuki Cloud官方的容器化托管服务，无需担心服务器问题
 
-**👇所有内容请访问👇**: [bot.liteyuki.icu](https://bot.liteyuki.icu)
+**👇所有内容请访问👇**: [bot.liteyuki.org](https://bot.liteyuki.org)
 
 ## 参考及鸣谢
 - [nonebot-plugin-uninfo](https://github.com/RF-Tar-Railt/nonebot-plugin-uninfo)为会话部分用户信息提供了参考
@@ -57,14 +57,14 @@
 
 [python-link]:https://www.python.org/
 
-[usage-link]:https://bot.liteyuki.icu/
+[usage-link]:https://bot.liteyuki.org/
 
-[liteyuki-link]:https://bot.liteyuki.icu/
+[liteyuki-link]:https://bot.liteyuki.org/
 
-[repo-link]:https://git.liteyuki.icu/bot/app
+[repo-link]:https://git.liteyuki.org/bot/app
 
 [github-link]:https://github.com/LiteyukiStudio/LiteyukiBot
 
-[liteyukilab-link]:https://lab.liteyuki.icu/@LiteyukiBot
+[liteyukilab-link]:https://lab.liteyuki.org/@LiteyukiBot
 
-[banner]: https://socialify.git.ci/LiteyukiStudio/LiteyukiBot/image?description=1&font=Source+Code+Pro&forks=1&issues=1&logo=https%3A%2F%2Fcdn.liteyuki.icu%2Flogos%2Fbot.svg&name=1&owner=1&pattern=Floating+Cogs&pulls=1&stargazers=1&theme=Auto
+[banner]: https://socialify.git.ci/LiteyukiStudio/LiteyukiBot/image?description=1&font=Source+Code+Pro&forks=1&issues=1&logo=https%3A%2F%2Fcdn.liteyuki.org%2Flogos%2Fbot.svg&name=1&owner=1&pattern=Floating+Cogs&pulls=1&stargazers=1&theme=Auto
