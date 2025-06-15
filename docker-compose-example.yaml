@@ -1,11 +1,11 @@
 services:
   liteyukibot:
     container_name: bot
-    # Liteyuki latest: reg.liteyuki.icu/bot/app:latest
-    # Liteyuki nightly: reg.liteyuki.icu/bot/app:nightly
+    # Liteyuki latest: reg.liteyuki.org/bot/app:latest
+    # Liteyuki nightly: reg.liteyuki.org/bot/app:nightly
     # GHCR latest: ghcr.io/liteyukistudio/bot-app:latest  暂未发布
     # Docker Hub latest: docker.io/liteyukistudio/bot-app:latest  暂未发布
-    image: reg.liteyuki.icu/bot/app:latest
+    image: reg.liteyuki.org/bot/app:latest
     restart: always
     volumes:
       - ./configs:/liteyukibot/configs  # 配置目录，包含配置文件
