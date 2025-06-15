@@ -3,13 +3,13 @@ import {ref} from "vue";
 
 let total = ref(0);
 let online = ref(0);
-fetch("https://api.liteyuki.icu/count")
+fetch("https://api.liteyuki.org/count")
     .then(res => res.json())
     .then(data => {
       total.value = data.register;
     })
     .catch(err => console.error(err));
-fetch("https://api.liteyuki.icu/online")
+fetch("https://api.liteyuki.org/online")
     .then(res => res.json())
     .then(data => {
       online.value = data.online;

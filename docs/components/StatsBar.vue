@@ -146,7 +146,7 @@ console.log(
             </div>
           </div>
           <div class="starmap">
-            <iframe src="https://starmap.liteyuki.icu/" width="100%" height="300px" class="gamma">
+            <iframe src="https://starmap.liteyuki.org/" width="100%" height="300px" class="gamma">
             </iframe>
           </div>
         </div>

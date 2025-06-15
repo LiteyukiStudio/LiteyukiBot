@@ -18,8 +18,8 @@ hero:
       text: 🛠️ Development
       link: ./dev/guide
   image:
-    light: https://cdn.liteyuki.icu/logos/bot.svg
-    dark: https://cdn.liteyuki.icu/logos/bot.svg
+    light: https://cdn.liteyuki.org/logos/bot.svg
+    dark: https://cdn.liteyuki.org/logos/bot.svg
     alt: Liteyuki Logo
 
 features:

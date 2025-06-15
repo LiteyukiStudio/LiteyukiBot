@@ -27,7 +27,7 @@ order: 4
 
 ### **怎么对接聊天平台？**
 
-Bot 部分插件提供了对接特定平台的能力, 例如, 使用 NoneBot 插件可以对接支持的[适配器平台](https://bot.liteyuki.icu/deploy/adapter.html)
+Bot 部分插件提供了对接特定平台的能力, 例如, 使用 NoneBot 插件可以对接支持的[适配器平台](https://bot.liteyuki.org/deploy/adapter.html)
 
 ### **`Playwright` 安装失败**
 

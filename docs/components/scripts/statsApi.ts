@@ -2,14 +2,14 @@
 export const OWNER = "LiteyukiStudio"
 export const REPO = "LiteyukiBot"
 const githubAPIUrl = "https://api.github.com"
-const giteaAPIUrl = "https://git.liteyuki.icu/api/v1"
-const onlineFetchUrl = "https://api.liteyuki.icu/online";
-const totalFetchUrl = "https://api.liteyuki.icu/count";
-const visitRecordUrl = "https://api.liteyuki.icu/visit";
-const visitCountUrl = "https://api.liteyuki.icu/visit_count";
+const giteaAPIUrl = "https://git.liteyuki.org/api/v1"
+const onlineFetchUrl = "https://api.liteyuki.org/online";
+const totalFetchUrl = "https://api.liteyuki.org/count";
+const visitRecordUrl = "https://api.liteyuki.org/visit";
+const visitCountUrl = "https://api.liteyuki.org/visit_count";
 
 export const RepoUrl = `https://github.com/${OWNER}/${REPO}`
-export const StarMapUrl = "https://starmap.liteyuki.icu"
+export const StarMapUrl = "https://starmap.liteyuki.org"
 
 type GithubStats = {
     stars: number;
