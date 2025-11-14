@@ -164,7 +164,6 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.11.3" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "uvicorn", specifier = ">=0.34.2" },
-    { name = "yukilog", specifier = ">=0.1.1", index = "https://git.liteyuki.org/api/packages/LiteyukiStudio/pypi/simple" },
 ]
 
 [package.metadata.requires-dev]

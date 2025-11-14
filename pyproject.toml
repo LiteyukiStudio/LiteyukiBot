@@ -12,7 +12,6 @@ dependencies = [
     "pydantic>=2.11.3",
     "pyyaml>=6.0.2",
     "uvicorn>=0.34.2",
-    "yukilog>=0.1.1",
 ]
 
 # 开发依赖
