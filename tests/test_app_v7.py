@@ -64,6 +64,25 @@ async def test_app_lifecycle_and_local_control(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("descriptor", "message"),
+    [
+        ({"protocol": 1, "host": "192.0.2.1", "port": 1, "token": "secret"}, "loopback"),
+        ({"protocol": 2, "host": "127.0.0.1", "port": 1, "token": "secret"}, "protocol"),
+        ({"protocol": 1, "host": "127.0.0.1", "port": 0, "token": "secret"}, "port"),
+    ],
+)
+async def test_control_rejects_untrusted_descriptor(
+    tmp_path: Path, descriptor: dict[str, object], message: str
+) -> None:
+    path = tmp_path / "control.json"
+    path.write_text(json.dumps(descriptor), encoding="utf-8")
+
+    with pytest.raises(ControlError, match=message):
+        await request_control(path, "status")
+
+
+@pytest.mark.asyncio
 async def test_startup_failure_stops_plugins_already_set_up(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

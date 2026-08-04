@@ -7,6 +7,7 @@ import json
 import os
 import secrets
 from collections.abc import Awaitable, Callable, Mapping
+from ipaddress import ip_address
 from pathlib import Path
 from typing import Any
 
@@ -109,9 +110,7 @@ async def request_control(
     try:
         raw_descriptor = await asyncio.to_thread(descriptor_path.read_text, encoding="utf-8")
         descriptor = json.loads(raw_descriptor)
-        host = str(descriptor["host"])
-        port = int(descriptor["port"])
-        token = str(descriptor["token"])
+        host, port, token = _validate_descriptor(descriptor)
     except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
         raise ControlError(f"cannot read control descriptor {descriptor_path}: {error}") from error
 
@@ -136,6 +135,35 @@ async def request_control(
     finally:
         writer.close()
         await writer.wait_closed()
+
+
+def _validate_descriptor(value: Any) -> tuple[str, int, str]:
+    if not isinstance(value, dict):
+        raise ControlError("control descriptor must be an object")
+    protocol = value.get("protocol")
+    if type(protocol) is not int or protocol != 1:
+        raise ControlError("unsupported control descriptor protocol")
+
+    host = value.get("host")
+    if not isinstance(host, str) or not host.strip():
+        raise ControlError("control descriptor host must be a non-empty string")
+    host = host.strip()
+    is_loopback = host.lower() == "localhost"
+    if not is_loopback:
+        try:
+            is_loopback = ip_address(host).is_loopback
+        except ValueError:
+            is_loopback = False
+    if not is_loopback:
+        raise ControlError("control descriptor host must be loopback")
+
+    port = value.get("port")
+    if type(port) is not int or not 1 <= port <= 65535:
+        raise ControlError("control descriptor port must be between 1 and 65535")
+    token = value.get("token")
+    if not isinstance(token, str) or not token:
+        raise ControlError("control descriptor token must be a non-empty string")
+    return host, port, token
 
 
 __all__ = ["ControlError", "ControlServer", "request_control"]
