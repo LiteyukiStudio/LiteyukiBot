@@ -24,7 +24,7 @@ class HttpServer:
             uvicorn = importlib.import_module("uvicorn")
         except ModuleNotFoundError as error:
             raise RuntimeError(
-                "HTTP status API is enabled but not installed; run `uv add 'liteyukibot[http]'`"
+                "HTTP status API is enabled but not installed; run `uv add 'liteyukibot-v7[http]'`"
             ) from error
 
         app = fastapi.FastAPI(title="LiteyukiBot", docs_url=None, redoc_url=None, openapi_url=None)

@@ -254,7 +254,7 @@ class _FileLoader:
             self.issues.append(
                 ConfigIssue(
                     path,
-                    "YAML support is not installed; run `uv add 'liteyukibot[yaml]'` or use TOML/JSON",
+                    "YAML support is not installed; run `uv add 'liteyukibot-v7[yaml]'` or use TOML/JSON",
                 )
             )
             return None
