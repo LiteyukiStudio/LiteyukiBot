@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import asyncio
 import importlib.util
+import time
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from liteyukibot.runtime import RuntimeSpec, RuntimeState, RuntimeSupervisor
+from liteyukibot.runtime.protocol import Hello, write_message
+from liteyukibot.runtime.supervisor import RuntimeRecord
 
 
 class FakeLogger:
@@ -77,6 +82,65 @@ async def test_runtime_spawn_failure_is_reported_without_waiting_for_ready_timeo
 
     with pytest.raises(RuntimeError, match="failed before becoming ready"):
         await supervisor.start()
+
+
+@pytest.mark.asyncio
+async def test_runtime_rejects_bad_and_duplicate_connections() -> None:
+    supervisor = RuntimeSupervisor(logger=FakeLogger())
+    supervisor.add(
+        RuntimeSpec(
+            id="echo",
+            kind="noop",
+            ready_timeout=5,
+            heartbeat_interval=0.05,
+            stale_after=1,
+        )
+    )
+
+    await supervisor.start()
+    record = supervisor.records["echo"]
+    for token in ("wrong", record.token):
+        reader, writer = await asyncio.open_connection("127.0.0.1", supervisor._port)
+        await write_message(writer, Hello(runtime_id="echo", kind="noop", token=token))
+        assert await asyncio.wait_for(reader.read(), timeout=1) == b""
+        writer.close()
+        await writer.wait_closed()
+        assert record.state is RuntimeState.READY
+
+    await supervisor.stop()
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_timeout_terminates_stale_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeProcess:
+        terminated = False
+
+        def terminate(self) -> None:
+            self.terminated = True
+
+    supervisor = RuntimeSupervisor(logger=FakeLogger())
+    record = RuntimeRecord(
+        spec=RuntimeSpec(id="stale", kind="noop", heartbeat_interval=0.05, stale_after=0.1),
+        token="token",
+        state=RuntimeState.READY,
+        last_heartbeat=time.monotonic() - 1,
+    )
+    process = FakeProcess()
+    record.process = process  # type: ignore[assignment]
+    supervisor.records[record.spec.id] = record
+    sleeps = 0
+
+    async def fake_sleep(_seconds: float) -> None:
+        nonlocal sleeps
+        sleeps += 1
+        if sleeps > 1:
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+    with suppress(asyncio.CancelledError):
+        await supervisor._watch_heartbeats()
+
+    assert process.terminated is True
 
 
 @pytest.mark.asyncio
