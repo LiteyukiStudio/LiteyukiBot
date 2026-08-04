@@ -1,0 +1,46 @@
+FROM python:3.14-slim-bookworm AS builder
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    UV_NO_CACHE=1 \
+    UV_PROJECT_ENVIRONMENT=/opt/venv
+
+WORKDIR /build
+
+RUN pip install --no-cache-dir uv==0.11.16
+
+COPY pyproject.toml uv.lock README.md LICENSE ./
+COPY src ./src
+
+RUN uv sync --locked --no-dev --no-editable \
+    --extra yaml \
+    --extra http \
+    --extra nonebot \
+    --extra onebot \
+    --extra satori \
+    && /opt/venv/bin/liteyuki version
+
+FROM python:3.14-slim-bookworm
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:${PATH}" \
+    LITEYUKI__CORE__DATA_DIR=/app/data \
+    LITEYUKI__CORE__CACHE_DIR=/app/cache
+
+WORKDIR /app
+
+RUN groupadd --system --gid 10001 liteyuki \
+    && useradd --system --uid 10001 --gid liteyuki --home-dir /app --no-create-home liteyuki \
+    && mkdir -p /app/data /app/cache /app/plugins \
+    && chown -R liteyuki:liteyuki /app
+
+COPY --from=builder /opt/venv /opt/venv
+COPY --chown=liteyuki:liteyuki liteyuki.example.toml /app/liteyuki.example.toml
+
+VOLUME ["/app/data", "/app/cache", "/app/plugins"]
+
+USER liteyuki
+
+ENTRYPOINT ["liteyuki"]
+CMD ["run"]
