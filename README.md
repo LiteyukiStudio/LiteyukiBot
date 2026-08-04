@@ -1,80 +1,65 @@
-<div align="center">
+# LiteyukiBot v7
 
-[//]: # (<img  src="https://cdn.liteyuki.org/logos/bot.svg" style="align-content: center; width: 50%; margin-top:10%;" alt="a">)
-[![][banner]][liteyuki-link]
-<h2><a href="https://bot.liteyuki.org"> <span style="color: #a2d8f4">轻雪</span> <span style="color: #d0e9ff">7</span></a></h2>
-<h4> <span style="color: #a2d8f4">✨ 轻量，高效，易于扩展✨</span></h4>
+LiteyukiBot v7 is a protocol-neutral chatbot kernel for CPython 3.14. Native
+plugins run in the core process; NoneBot2 and LiteyukiBot v6 plugins run in
+supervised child runtimes.
 
-[![][Liteyuki7.0]][liteyuki-link]
-[![][Python3.12+]][python-link]
-[![][Usage]][usage-link]
-[![][Repo]][repo-link]
-[![][Github]][github-link]
-[![][LiteyukiLab]][liteyukilab-link]
-![docs uptime](https://uptime.liteyuki.org/api/badge/8/uptime?labelPrefix=Docs+&style=for-the-badge)
+The `v7` branch is a clean rewrite. The `main` branch remains the maintenance
+line for v6 and is not merged wholesale into v7.
 
-**👇所有内容请访问👇**
-[bot.liteyuki.org](https://bot.liteyuki.org)
-</div>
+## Current Foundation
 
-> 受限的自由才是真正的自由
+- immutable TOML/JSON configuration with ordered includes, environment
+  overrides, and CLI overrides;
+- Yukilog 1.x facade backed by Loguru, including structured child logs;
+- native plugin entry points, async lifecycle hooks, private storage, managed
+  tasks, and versioned services;
+- bounded protocol-neutral event/action dispatch with per-conversation order;
+- authenticated framed JSON IPC and supervised subprocess runtimes;
+- NoneBot2 plugin hosting and a deliberately bounded v6 compatibility shim;
+- local authenticated CLI control and an optional loopback-only HTTP status API.
 
-## 关于
-开发中
-访问[轻雪7.0](https://bot.liteyuki.org)主页获取更多信息
+## Requirements
 
-## 特点及优势
+- CPython 3.14+
+- [uv](https://docs.astral.sh/uv/)
+- a sibling checkout of `LiteyukiStudio/yukilog` until Yukilog 1.0 is published
 
-- 化繁为简, 加速开发
-- 轻量级，快速启动
-- 模块化设计，易于扩展
-
-## 服务及支持(敬请期待)
-- 提供Liteyuki Cloud官方的容器化托管服务(SaaS)，无需担心服务器问题
-
-
-[Liteyuki7.0]: https://img.shields.io/badge/Liteyuki-7.0-blue?style=for-the-badge
-
-[Python3.12+]: https://img.shields.io/badge/Python-3.12+-blue?style=for-the-badge
-
-[Usage]: https://img.shields.io/badge/主页-文档-blue?style=for-the-badge
-
-[Repo]: https://img.shields.io/badge/官方托管-仓库-blue?style=for-the-badge
-
-[Github]: https://img.shields.io/badge/Github-仓库-blue?style=for-the-badge
-
-[LiteyukiLab]: https://img.shields.io/badge/轻雪社区-官方-blue?style=for-the-badge
-
-
-
-[python-link]:https://www.python.org/
-
-[usage-link]:https://bot.liteyuki.org/
-
-[liteyuki-link]:https://bot.liteyuki.org/
-
-[repo-link]:https://git.liteyuki.org/bot/app
-
-[github-link]:https://github.com/LiteyukiStudio/LiteyukiBot
-
-[liteyukilab-link]:https://lab.liteyuki.org/@LiteyukiBot
-
-[banner]: https://socialify.git.ci/LiteyukiStudio/LiteyukiBot/image?description=1&forks=1&issues=1&Plus&pulls=1&stargazers=1&theme=Auto&logo=https%3a%2f%2fcdn.liteyuki.org%2flogos%2fbot.svg
-
-## 开发环境配置
-
-1. 项目使用uv进行包管理，你也可以使用uv进行环境管理，[安装uv](https://docs.astral.sh/uv/#installation)
-
-2. 进入项目目录使用uv同步环境和依赖
-
-```bash
-uv sync --all   # 安装包括dev和prod的所有依赖
+```text
+repo/
+|-- LiteyukiBot/
+`-- yukilog/
 ```
 
-3. VSCode扩展
+```bash
+uv sync --locked
+uv run liteyuki check
+uv run liteyuki run
+```
 
-- Python
-- Mypy
-- Ruff
+Optional integrations are installed explicitly:
 
-4. 环境变量指定ENVIRONMENT=dev或prod或其他，然后加载.env.{}文件，环境变量
+```bash
+uv sync --extra yaml
+uv sync --extra http
+uv sync --extra nonebot --extra onebot
+```
+
+Use `liteyuki.example.toml` as a configuration reference. CLI overrides must
+precede the subcommand, for example:
+
+```bash
+uv run liteyuki --config local.toml --set logging.level=DEBUG check
+```
+
+## Development
+
+```bash
+uv run ruff check src tests scripts
+uv run mypy
+uv run pytest
+uv build
+```
+
+The architecture contract is documented in `docs/architecture/v7.md`; the v6
+compatibility boundary is documented in `docs/migration-v6.md`.
