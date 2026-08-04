@@ -1,0 +1,46 @@
+[core]
+data_dir = "data"
+cache_dir = "cache"
+queue_capacity = 1024
+enqueue_timeout_seconds = 1.0
+handler_timeout_seconds = 30.0
+max_concurrent_events = 100
+
+[logging]
+level = "INFO"
+console = true
+json_lines = false
+
+[plugins]
+enabled = []
+local_modules = []
+
+[http]
+enabled = false
+host = "127.0.0.1"
+port = 20216
+
+[runtimes.nonebot]
+kind = "nonebot"
+enabled = false
+heartbeat_interval_seconds = 10.0
+stale_after_seconds = 30.0
+
+[runtimes.nonebot.options]
+plugins = []
+plugin_dirs = []
+adapters = ["nonebot.adapters.onebot.v11:Adapter"]
+
+[runtimes.nonebot.options.config]
+driver = "~fastapi"
+
+[runtimes.legacy]
+kind = "v6"
+enabled = false
+
+[runtimes.legacy.options]
+plugins = []
+plugin_dirs = ["plugins"]
+
+[runtimes.legacy.options.config]
+nickname = ["Liteyuki"]

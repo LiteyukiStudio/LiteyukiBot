@@ -2,6 +2,7 @@
 .mypy_cache/
 __pycache__/
 .pytest_cache/
+.ruff_cache/
 
 # idea
 .idea/
@@ -25,3 +26,5 @@ configs/
 config.yaml
 config-dev.yaml
 config-prod.yaml
+tmp/
+/benchmark.json

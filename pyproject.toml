@@ -1,55 +1,70 @@
 [project]
 name = "liteyukibot"
-version = "7.0.0"
-description = "neo-liteyukibot is coming soon!"
+version = "7.0.0.dev0"
+description = "A protocol-neutral, multi-runtime chatbot kernel."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
+license = "LicenseRef-LSO"
+license-files = ["LICENSE"]
+authors = [
+    { name = "LiteyukiStudio" },
+]
 dependencies = [
-    "fastapi>=0.115.12",
-    "hypercorn>=0.17.3",
-    "loguru>=0.7.3",
-    "pip>=25.1",
-    "pydantic>=2.11.3",
-    "pyyaml>=6.0.2",
-    "uvicorn>=0.34.2",
+    "pydantic>=2.13,<3",
+    "yukilog>=1,<2",
 ]
 
-# 开发依赖
+[project.optional-dependencies]
+yaml = [
+    "PyYAML>=6,<7",
+]
+http = [
+    "fastapi>=0.141,<1",
+    "uvicorn>=0.52,<1",
+]
+nonebot = [
+    "nonebot2[fastapi,httpx,websockets]>=2.5,<3",
+]
+onebot = [
+    "nonebot-adapter-onebot>=2.4,<3",
+]
+satori = [
+    "nonebot-adapter-satori>=1.3,<2",
+]
+
+[project.scripts]
+liteyuki = "liteyukibot.cli:main"
+ly = "liteyukibot.cli:main"
+
 [dependency-groups]
 dev = [
-    "mypy>=1.15.0",
-    "pytest>=8.3.5",
-    "ruff>=0.11.7",
+    "mypy>=1.18,<2",
+    "pytest>=9,<10",
+    "pytest-asyncio>=1.2,<2",
+    "ruff>=0.14,<1",
 ]
 
-# 辅助工具配置
+[build-system]
+requires = ["uv_build>=0.11.32,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = "src"
+module-name = ["liteyukibot", "liteyuki"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
 [tool.ruff]
-line-length = 140
-src = ["liteyukibot", "cli", "main.py"]
+line-length = 120
+target-version = "py314"
+src = ["src", "tests", "scripts"]
 
 [tool.ruff.lint]
-select = ["I", "F", "E"]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
 
-
-# 构建相关
-[build-system]
-requires = ["pdm-backend >= 2.4.0"]
-build-backend = "pdm.backend"
-
-[tool.pdm.build]
-includes = ["liteyukibot"]
-
-
-# 索引和源
-[[tool.uv.index]]
-name = "liteyuki-pypi"
-url = "https://git.liteyuki.org/api/packages/LiteyukiStudio/pypi/simple"
-publish-url = "https://git.liteyuki.org/api/packages/LiteyukiStudio/pypi"
-explicit = true
-
-
-# 从轻雪源安装的包请在此标记
-[tool.uv.sources]
-yukilog = [
-  { index = "liteyuki-pypi" },
-]
+[tool.mypy]
+python_version = "3.14"
+strict = true
+files = ["src", "tests", "scripts"]

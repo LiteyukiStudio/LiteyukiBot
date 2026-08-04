@@ -1,0 +1,61 @@
+name: v7 CI
+
+on:
+  push:
+    branches: [v7]
+  pull_request:
+    branches: [v7]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: LiteyukiBot
+      - uses: astral-sh/setup-uv@v8.3.2
+        with:
+          version: "0.11.16"
+          enable-cache: true
+      - name: Install Python and dependencies
+        working-directory: LiteyukiBot
+        run: |
+          uv python install 3.14
+          uv sync --locked
+      - name: Quality checks
+        working-directory: LiteyukiBot
+        run: |
+          uv run ruff check src tests scripts
+          uv run mypy
+          uv run pytest
+          uv build
+      - name: Capture baseline
+        working-directory: LiteyukiBot
+        run: uv run python scripts/benchmark_v7.py --output benchmark.json
+      - uses: actions/upload-artifact@v7
+        with:
+          name: v7-baseline-${{ matrix.os }}
+          path: LiteyukiBot/benchmark.json
+
+  nonebot-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: LiteyukiBot
+      - uses: astral-sh/setup-uv@v8.3.2
+        with:
+          version: "0.11.16"
+      - name: Run NoneBot runtime contract
+        working-directory: LiteyukiBot
+        run: |
+          uv python install 3.14
+          uv sync --locked --extra nonebot
+          uv run --extra nonebot pytest tests/test_runtime_v7.py::test_nonebot_runtime_loads_an_existing_plugin
