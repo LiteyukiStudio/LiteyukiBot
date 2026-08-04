@@ -48,6 +48,20 @@ precede the subcommand, for example:
 uv run liteyuki --config local.toml --set logging.level=DEBUG check
 ```
 
+## Docker
+
+The v7 pre-release image is published to GHCR as
+`ghcr.io/liteyukistudio/liteyukibot:v7.0.0a1`. It includes the optional YAML,
+HTTP, NoneBot2, OneBot, and Satori integrations, and runs as a non-root user.
+
+```bash
+docker pull ghcr.io/liteyukistudio/liteyukibot:v7.0.0a1
+docker run --rm ghcr.io/liteyukistudio/liteyukibot:v7.0.0a1 version
+```
+
+Mount a `liteyuki.toml` at `/app/liteyuki.toml` and persistent volumes at
+`/app/data`, `/app/cache`, and `/app/plugins` for a configured deployment.
+
 ## Development
 
 ```bash

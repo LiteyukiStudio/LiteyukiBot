@@ -19,4 +19,4 @@ __all__ = [
     "logger",
 ]
 
-__version__ = "7.0.0.dev0"
+__version__ = "7.0.0a1"
