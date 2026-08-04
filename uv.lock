@@ -284,7 +284,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.13,<3" },
     { name = "pyyaml", marker = "extra == 'yaml'", specifier = ">=6,<7" },
     { name = "uvicorn", marker = "extra == 'http'", specifier = ">=0.52,<1" },
-    { name = "yukilog", git = "https://github.com/LiteyukiStudio/yukilog?rev=26894380e07a67255d6a84bc74b600892d26c9d6" },
+    { name = "yukilog", specifier = ">=1,<2" },
 ]
 provides-extras = ["yaml", "http", "nonebot", "onebot", "satori"]
 
@@ -933,7 +933,11 @@ wheels = [
 [[package]]
 name = "yukilog"
 version = "1.0.0"
-source = { git = "https://github.com/LiteyukiStudio/yukilog?rev=26894380e07a67255d6a84bc74b600892d26c9d6#26894380e07a67255d6a84bc74b600892d26c9d6" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "loguru" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9d/40/9bef35f0d167e38bc89467bd0caa40439e4643613a7c868e90f4d19b8770/yukilog-1.0.0.tar.gz", hash = "sha256:2462b7074c03a08660e6b82ae10fc60122df4f12883f7fe125ecefac9eb6f8b1", size = 7569, upload-time = "2026-08-04T10:21:31.909Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e8/97/9a5e0bf3215778c0767922aeebe1736bd8f81c2d82e75309d8c686f92f23/yukilog-1.0.0-py3-none-any.whl", hash = "sha256:8e5fac4f6b57078b6f357fe2f0116b8d11a13caf2867708d80a7e1a0bd93bc5b", size = 10946, upload-time = "2026-08-04T10:21:30.843Z" },
 ]

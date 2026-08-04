@@ -52,9 +52,6 @@ build-backend = "uv_build"
 module-root = "src"
 module-name = ["liteyukibot", "liteyuki"]
 
-[tool.uv.sources]
-yukilog = { git = "https://github.com/LiteyukiStudio/yukilog", rev = "26894380e07a67255d6a84bc74b600892d26c9d6" }
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
