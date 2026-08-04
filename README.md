@@ -23,13 +23,12 @@ line for v6 and is not merged wholesale into v7.
 
 - CPython 3.14+
 - [uv](https://docs.astral.sh/uv/)
-- a sibling checkout of `LiteyukiStudio/yukilog` until Yukilog 1.0 is published
+- network access for uv to resolve the pinned Yukilog 1.0 Git revision
 
-```text
-repo/
-|-- LiteyukiBot/
-`-- yukilog/
-```
+The lockfile currently pins Yukilog to the merged 1.0.0 commit because its
+PyPI Trusted Publisher is not configured yet. No sibling Yukilog checkout is
+required. Once `yukilog==1.0.0` is available on PyPI, the source override can
+be removed and the lockfile regenerated.
 
 ```bash
 uv sync --locked
