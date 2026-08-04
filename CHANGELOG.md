@@ -14,6 +14,9 @@ single-host chatbot runtime:
 - `liteyuki`/`ly` CLI, optional loopback HTTP status API, and cross-platform CI baselines;
 - Python 3.14, uv, PyPI packaging, and a non-root GHCR Docker image.
 
+The PyPI distribution is named `liteyukibot-v7`; the import namespaces remain
+`liteyukibot` and `liteyuki`.
+
 This is an integration pre-release. Public contracts, compatibility coverage, and
 operational behavior remain subject to the Phase 2 stabilization work described
 in `docs/architecture/v7.md`.

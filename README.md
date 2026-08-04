@@ -26,6 +26,8 @@ line for v6 and is not merged wholesale into v7.
 - network access for uv to resolve PyPI dependencies
 
 Yukilog 1.x is installed from PyPI; no sibling checkout is required.
+The v7 distribution on PyPI is named `liteyukibot-v7`; Python imports remain
+`liteyukibot` and `liteyuki` for the native and v6 compatibility namespaces.
 
 ```bash
 uv sync --locked

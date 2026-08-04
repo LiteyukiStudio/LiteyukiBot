@@ -284,7 +284,7 @@ def run() -> None:
         nonebot = importlib.import_module("nonebot")
     except ModuleNotFoundError as error:
         raise RuntimeError(
-            "NoneBot runtime is not installed; run `uv add 'liteyukibot[nonebot]'`"
+            "NoneBot runtime is not installed; run `uv add 'liteyukibot-v7[nonebot]'`"
         ) from error
     configure_child_runtime()
     bridge = SupervisorBridge()

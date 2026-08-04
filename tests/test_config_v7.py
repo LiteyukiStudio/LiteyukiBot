@@ -185,7 +185,7 @@ def test_yaml_support_is_lazy_and_has_an_actionable_missing_extra_error(
         return real_import_module(name)
 
     monkeypatch.setattr(importlib, "import_module", fail_yaml_import)
-    with pytest.raises(ConfigurationError, match=r"liteyukibot\[yaml\]"):
+    with pytest.raises(ConfigurationError, match=r"liteyukibot-v7\[yaml\]"):
         load_settings(yaml_path, environ={})
 
 
