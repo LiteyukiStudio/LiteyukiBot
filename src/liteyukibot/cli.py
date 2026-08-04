@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import signal
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -90,10 +91,51 @@ def _list_plugins(settings: AppSettings) -> None:
 
 def _run(settings: AppSettings) -> int:
     try:
-        asyncio.run(LiteyukiApp(settings).run())
+        asyncio.run(_run_until_signal(settings))
     except KeyboardInterrupt:
         return 130
     return 0
+
+
+async def _run_until_signal(settings: AppSettings) -> None:
+    """Run the app until SIGINT/SIGTERM and always perform graceful cleanup."""
+
+    app = LiteyukiApp(settings)
+    stop_event = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    async_handlers: list[signal.Signals] = []
+    fallback_handlers: dict[signal.Signals, Any] = {}
+
+    def request_stop() -> None:
+        loop.call_soon_threadsafe(stop_event.set)
+
+    for signum in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(signum, request_stop)
+        except (NotImplementedError, RuntimeError, ValueError):
+            try:
+                previous = signal.getsignal(signum)
+                signal.signal(signum, lambda _signum, _frame: request_stop())
+            except (OSError, RuntimeError, ValueError):
+                continue
+            fallback_handlers[signum] = previous
+        else:
+            async_handlers.append(signum)
+
+    started = False
+    try:
+        await app.start()
+        started = True
+        await stop_event.wait()
+    finally:
+        try:
+            if started:
+                await app.stop()
+        finally:
+            for signum in async_handlers:
+                loop.remove_signal_handler(signum)
+            for signum, previous in fallback_handlers.items():
+                signal.signal(signum, previous)
 
 
 async def _runtime_command(settings: AppSettings, command: str, args: argparse.Namespace) -> int:
