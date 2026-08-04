@@ -1,0 +1,108 @@
+from __future__ import annotations
+
+import importlib.util
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from liteyukibot.runtime import RuntimeSpec, RuntimeState, RuntimeSupervisor
+
+
+class FakeLogger:
+    def bind(self, **fields: Any) -> FakeLogger:
+        return self
+
+    def debug(self, message: str, *args: Any, **kwargs: Any) -> None:
+        pass
+
+    def info(self, message: str, *args: Any, **kwargs: Any) -> None:
+        pass
+
+    def warning(self, message: str, *args: Any, **kwargs: Any) -> None:
+        pass
+
+    def error(self, message: str, *args: Any, **kwargs: Any) -> None:
+        pass
+
+
+@pytest.mark.asyncio
+async def test_noop_runtime_handshake_action_and_shutdown() -> None:
+    supervisor = RuntimeSupervisor(logger=FakeLogger())
+    supervisor.add(
+        RuntimeSpec(
+            id="echo",
+            kind="noop",
+            ready_timeout=5,
+            heartbeat_interval=0.05,
+            stale_after=1,
+        )
+    )
+
+    await supervisor.start()
+    assert supervisor.records["echo"].state.value == RuntimeState.READY
+
+    result = await supervisor.execute_action("echo", "action-1", {"message": "hello"})
+    assert result.ok is True
+    assert result.data == {"echo": {"message": "hello"}}
+
+    await supervisor.restart("echo")
+    assert supervisor.records["echo"].state.value == RuntimeState.READY
+    assert supervisor.records["echo"].launch_count == 2
+
+    await supervisor.stop()
+    assert supervisor.records["echo"].state.value == RuntimeState.STOPPED
+
+
+@pytest.mark.asyncio
+async def test_runtime_rejects_duplicate_ids() -> None:
+    supervisor = RuntimeSupervisor(logger=FakeLogger())
+    supervisor.add(RuntimeSpec(id="same", kind="noop"))
+    with pytest.raises(ValueError, match="duplicate runtime id"):
+        supervisor.add(RuntimeSpec(id="same", kind="noop"))
+
+
+@pytest.mark.asyncio
+async def test_runtime_spawn_failure_is_reported_without_waiting_for_ready_timeout() -> None:
+    supervisor = RuntimeSupervisor(logger=FakeLogger())
+    supervisor.add(
+        RuntimeSpec(
+            id="missing",
+            kind="custom",
+            command=("definitely-not-a-real-liteyuki-command",),
+            restart_limit=1,
+            ready_timeout=10,
+        )
+    )
+
+    with pytest.raises(RuntimeError, match="failed before becoming ready"):
+        await supervisor.start()
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(importlib.util.find_spec("nonebot") is None, reason="NoneBot extra is not installed")
+async def test_nonebot_runtime_loads_an_existing_plugin(tmp_path: Path) -> None:
+    (tmp_path / "nonebot_fixture.py").write_text(
+        "from nonebot import on_message\nfixture = on_message()\n",
+        encoding="utf-8",
+    )
+    supervisor = RuntimeSupervisor(logger=FakeLogger())
+    supervisor.add(
+        RuntimeSpec(
+            id="nonebot",
+            kind="nonebot",
+            options={
+                "config": {"driver": "~none"},
+                "plugins": ["nonebot_fixture"],
+            },
+            working_directory=tmp_path,
+            ready_timeout=10,
+            heartbeat_interval=0.1,
+            stale_after=2,
+        )
+    )
+
+    await supervisor.start()
+    assert supervisor.records["nonebot"].state.value == RuntimeState.READY
+    await supervisor.stop()
+    assert supervisor.records["nonebot"].state.value == RuntimeState.STOPPED
