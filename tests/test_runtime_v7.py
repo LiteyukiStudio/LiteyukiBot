@@ -144,6 +144,113 @@ async def test_heartbeat_timeout_terminates_stale_runtime(monkeypatch: pytest.Mo
 
 
 @pytest.mark.asyncio
+async def test_runtime_handshake_timeout_closes_unresponsive_client() -> None:
+    supervisor = RuntimeSupervisor(logger=FakeLogger())
+    supervisor.add(
+        RuntimeSpec(
+            id="slow",
+            kind="custom",
+            handshake_timeout=0.05,
+            ready_timeout=1,
+        )
+    )
+    server = await asyncio.start_server(supervisor._accept, "127.0.0.1", 0)
+    supervisor._server = server
+    supervisor._port = int(server.sockets[0].getsockname()[1])
+    reader, writer = await asyncio.open_connection("127.0.0.1", supervisor._port)
+    try:
+        assert await asyncio.wait_for(reader.read(), timeout=1) == b""
+    finally:
+        writer.close()
+        await writer.wait_closed()
+        server.close()
+        await server.wait_closed()
+
+
+@pytest.mark.asyncio
+async def test_action_timeout_removes_pending_request(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeWriter:
+        def write(self, _value: bytes) -> None:
+            return None
+
+        async def drain(self) -> None:
+            return None
+
+        def close(self) -> None:
+            return None
+
+        async def wait_closed(self) -> None:
+            return None
+
+    supervisor = RuntimeSupervisor(logger=FakeLogger())
+    record = RuntimeRecord(
+        spec=RuntimeSpec(id="action", kind="custom"),
+        token="token",
+        state=RuntimeState.READY,
+        writer=FakeWriter(),  # type: ignore[arg-type]
+    )
+    supervisor.records[record.spec.id] = record
+
+    async def ignore_action(_record: RuntimeRecord, _message: Any) -> None:
+        return None
+
+    monkeypatch.setattr(supervisor, "_send", ignore_action)
+    with pytest.raises(TimeoutError):
+        await supervisor.execute_action("action", "request", {}, timeout_seconds=0.01)
+
+    assert record.pending_actions == {}
+
+
+@pytest.mark.asyncio
+async def test_disconnect_fails_pending_action(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeWriter:
+        def write(self, _value: bytes) -> None:
+            return None
+
+        async def drain(self) -> None:
+            return None
+
+        def close(self) -> None:
+            return None
+
+        async def wait_closed(self) -> None:
+            return None
+
+    sent = asyncio.Event()
+    supervisor = RuntimeSupervisor(logger=FakeLogger())
+    record = RuntimeRecord(
+        spec=RuntimeSpec(id="action", kind="custom"),
+        token="token",
+        state=RuntimeState.READY,
+        writer=FakeWriter(),  # type: ignore[arg-type]
+    )
+    supervisor.records[record.spec.id] = record
+
+    async def hold_action(_record: RuntimeRecord, _message: Any) -> None:
+        sent.set()
+
+    monkeypatch.setattr(supervisor, "_send", hold_action)
+    action = asyncio.create_task(supervisor.execute_action("action", "request", {}))
+    await sent.wait()
+    await supervisor._disconnect(record)
+
+    with pytest.raises(ConnectionError, match="disconnected"):
+        await action
+    assert record.pending_actions == {}
+
+
+def test_runtime_failure_limit_transitions_to_failed() -> None:
+    record = RuntimeRecord(
+        spec=RuntimeSpec(id="crash", kind="custom", restart_limit=2),
+        token="token",
+    )
+
+    assert RuntimeSupervisor._register_failure(record) is True
+    assert RuntimeSupervisor._register_failure(record) is False
+    assert record.state is RuntimeState.FAILED
+
+
+@pytest.mark.asyncio
 @pytest.mark.skipif(importlib.util.find_spec("nonebot") is None, reason="NoneBot extra is not installed")
 async def test_nonebot_runtime_loads_an_existing_plugin(tmp_path: Path) -> None:
     (tmp_path / "nonebot_fixture.py").write_text(
