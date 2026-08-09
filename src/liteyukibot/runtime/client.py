@@ -6,11 +6,14 @@ import asyncio
 import os
 import time
 from collections.abc import Mapping, Sequence
+from typing import Any
 
 from ..exceptions import RuntimeProtocolError
 from .protocol import (
     PROTOCOL_VERSION,
     SUPPORTED_PROTOCOL_VERSIONS,
+    ActionRequest,
+    ActionResponse,
     ConfigMessage,
     Heartbeat,
     Hello,
@@ -19,6 +22,7 @@ from .protocol import (
     Ready,
     Welcome,
     WireMessage,
+    json_mapping,
     read_message,
     write_message,
 )
@@ -51,8 +55,11 @@ class RuntimeClient:
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
         self._send_lock = asyncio.Lock()
+        self._receive_lock = asyncio.Lock()
         self._heartbeat_interval: float | None = None
         self._heartbeat_task: asyncio.Task[None] | None = None
+        self._capabilities: frozenset[str] = frozenset()
+        self._pending_actions: dict[str, asyncio.Future[ActionResponse]] = {}
         self._closed = False
 
     @classmethod
@@ -112,7 +119,9 @@ class RuntimeClient:
     async def ready(self, capabilities: Sequence[str] = ()) -> None:
         if self._heartbeat_task is not None:
             raise RuntimeError("runtime client is already ready")
-        await self.send(Ready(capabilities=tuple(capabilities)))
+        normalized = tuple(capabilities)
+        await self.send(Ready(capabilities=normalized))
+        self._capabilities = frozenset(normalized)
         assert self._heartbeat_interval is not None
         self._heartbeat_task = asyncio.create_task(
             self._heartbeat(self._heartbeat_interval),
@@ -122,7 +131,51 @@ class RuntimeClient:
     async def receive(self) -> WireMessage:
         if self._reader is None or self._closed:
             raise ConnectionError("runtime client is not connected")
-        return await read_message(self._reader)
+        if self._receive_lock.locked():
+            raise RuntimeError("runtime client already has an active receiver")
+        async with self._receive_lock:
+            while True:
+                try:
+                    message = await read_message(self._reader)
+                except (EOFError, ConnectionError, RuntimeProtocolError) as error:
+                    self._fail_pending_actions(error)
+                    raise
+                if isinstance(message, ActionResponse):
+                    future = self._pending_actions.pop(message.correlation_id, None)
+                    if future is not None and not future.done():
+                        future.set_result(message)
+                        continue
+                return message
+
+    async def execute_action(
+        self,
+        correlation_id: str,
+        payload: Mapping[str, Any],
+        timeout_seconds: float = 30.0,
+    ) -> ActionResponse:
+        if timeout_seconds <= 0:
+            raise ValueError("runtime action timeout must be positive")
+        if self.negotiated_protocol != 3:
+            raise RuntimeError("child-originated actions require runtime protocol v3")
+        if self._heartbeat_task is None:
+            raise RuntimeError("runtime client is not ready")
+        if "runtime.actions.send" not in self._capabilities:
+            raise RuntimeError("runtime client did not declare runtime.actions.send")
+        if correlation_id in self._pending_actions:
+            raise ValueError(f"duplicate action correlation id: {correlation_id}")
+
+        request = ActionRequest(
+            correlation_id=correlation_id,
+            payload=json_mapping(payload),
+        )
+        future: asyncio.Future[ActionResponse] = asyncio.get_running_loop().create_future()
+        self._pending_actions[correlation_id] = future
+        try:
+            await self.send(request)
+            async with asyncio.timeout(timeout_seconds):
+                return await future
+        finally:
+            self._pending_actions.pop(correlation_id, None)
 
     async def send(self, message: WireMessage) -> None:
         writer = self._writer
@@ -137,7 +190,9 @@ class RuntimeClient:
         if self._closed:
             return
         self._closed = True
+        self._fail_pending_actions(ConnectionError("runtime client closed"))
         heartbeat, self._heartbeat_task = self._heartbeat_task, None
+        self._capabilities = frozenset()
         if heartbeat is not None:
             heartbeat.cancel()
             await asyncio.gather(heartbeat, return_exceptions=True)
@@ -148,6 +203,12 @@ class RuntimeClient:
             if writer is not None:
                 writer.close()
                 await writer.wait_closed()
+
+    def _fail_pending_actions(self, error: BaseException) -> None:
+        for future in self._pending_actions.values():
+            if not future.done():
+                future.set_exception(error)
+        self._pending_actions.clear()
 
     async def _heartbeat(self, interval: float) -> None:
         while True:
