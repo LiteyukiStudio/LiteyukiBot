@@ -144,6 +144,86 @@ async def test_startup_failure_stops_plugins_already_set_up(
 
 
 @pytest.mark.asyncio
+async def test_partial_plugin_startup_stops_handles_in_reverse_order(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = ServiceKey("test.partial-start")
+    calls: list[str] = []
+
+    async def provider_setup(context: Any) -> PluginHandle:
+        context.services.provide(service, "ready")
+        calls.append("provider.setup")
+
+        async def start() -> None:
+            calls.append("provider.start")
+
+        async def stop() -> None:
+            calls.append("provider.stop")
+
+        return PluginHandle(start=start, stop=stop)
+
+    async def consumer_setup(context: Any) -> PluginHandle:
+        assert context.services.require(service) == "ready"
+        calls.append("consumer.setup")
+
+        async def start() -> None:
+            calls.append("consumer.start")
+            raise RuntimeError("consumer start failed")
+
+        async def stop() -> None:
+            calls.append("consumer.stop")
+
+        return PluginHandle(start=start, stop=stop)
+
+    provider = ModuleType("test_v7_partial_provider")
+    cast(Any, provider).plugin = PluginDefinition(
+        PluginManifest(
+            id="provider",
+            name="Provider",
+            version="1",
+            provides=(service,),
+        ),
+        provider_setup,
+    )
+    consumer = ModuleType("test_v7_partial_consumer")
+    cast(Any, consumer).plugin = PluginDefinition(
+        PluginManifest(
+            id="consumer",
+            name="Consumer",
+            version="1",
+            requires=(ServiceRequirement(service),),
+        ),
+        consumer_setup,
+    )
+    monkeypatch.setitem(sys.modules, provider.__name__, provider)
+    monkeypatch.setitem(sys.modules, consumer.__name__, consumer)
+
+    settings = AppSettings(
+        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"),
+        plugins=PluginSettings(
+            enabled=("provider", "consumer"),
+            local_modules=(provider.__name__, consumer.__name__),
+        ),
+    )
+    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
+
+    with pytest.raises(RuntimeError, match="consumer start failed"):
+        await app.start()
+
+    assert app.state is AppState.FAILED
+    assert calls == [
+        "provider.setup",
+        "consumer.setup",
+        "provider.start",
+        "consumer.start",
+        "consumer.stop",
+        "provider.stop",
+    ]
+    assert app.services.get(service) is None
+
+
+@pytest.mark.asyncio
 @pytest.mark.skipif(importlib.util.find_spec("fastapi") is None, reason="HTTP extra is not installed")
 async def test_optional_http_status_is_loopback_and_read_only(tmp_path: Path) -> None:
     with socket.socket() as listener:
