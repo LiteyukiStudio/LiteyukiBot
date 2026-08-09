@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- completed Phase 2 kernel stabilization with accepted v1 ADRs, deterministic
+  runtime failure coverage, and cross-platform published-install verification;
+- recorded informational alpha performance references on Linux, macOS, and Windows;
+- made installed distribution metadata the runtime version source and added
+  release tag/build verification;
+- retained the non-root local Docker build while remote image publication is paused.
+
 ## 7.0.0a1 - 2026-08-04
 
 The first v7 pre-release provides the kernel foundation for a protocol-neutral,
@@ -12,7 +21,7 @@ single-host chatbot runtime:
 - authenticated framed IPC, runtime supervision, heartbeat, restart, and local control;
 - isolated NoneBot2 hosting and an explicit LiteyukiBot v6 compatibility boundary;
 - `liteyuki`/`ly` CLI, optional loopback HTTP status API, and cross-platform CI baselines;
-- Python 3.14, uv, PyPI packaging, and a non-root GHCR Docker image.
+- Python 3.14, uv, PyPI packaging, and a non-root local Docker image.
 
 The PyPI distribution is named `liteyukibot-v7`; the import namespaces remain
 `liteyukibot` and `liteyuki`.

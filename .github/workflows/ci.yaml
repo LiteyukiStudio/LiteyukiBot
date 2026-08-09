@@ -32,6 +32,7 @@ jobs:
       - name: Quality checks
         working-directory: LiteyukiBot
         run: |
+          uv run python scripts/check_release.py
           uv run ruff check src tests scripts
           uv run mypy
           uv run pytest
