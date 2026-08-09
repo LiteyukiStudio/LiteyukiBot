@@ -10,7 +10,16 @@ from typing import Any
 import pytest
 
 from liteyukibot.runtime import RuntimeSpec, RuntimeState, RuntimeSupervisor
-from liteyukibot.runtime.protocol import Hello, write_message
+from liteyukibot.runtime.protocol import (
+    ConfigMessage,
+    EventAccepted,
+    EventMessage,
+    Hello,
+    Ready,
+    Welcome,
+    read_message,
+    write_message,
+)
 from liteyukibot.runtime.supervisor import RuntimeRecord
 
 
@@ -29,6 +38,20 @@ class FakeLogger:
 
     def error(self, message: str, *args: Any, **kwargs: Any) -> None:
         pass
+
+
+class NullWriter:
+    def write(self, _value: bytes) -> None:
+        return None
+
+    async def drain(self) -> None:
+        return None
+
+    def close(self) -> None:
+        return None
+
+    async def wait_closed(self) -> None:
+        return None
 
 
 @pytest.mark.asyncio
@@ -50,6 +73,9 @@ async def test_noop_runtime_handshake_action_and_shutdown() -> None:
     result = await supervisor.execute_action("echo", "action-1", {"message": "hello"})
     assert result.ok is True
     assert result.data == {"echo": {"message": "hello"}}
+
+    event_result = await supervisor.dispatch_event("echo", "event-1", {"message": "hello"})
+    assert event_result == EventAccepted(correlation_id="event-1", status="accepted")
 
     await supervisor.restart("echo")
     assert supervisor.records["echo"].state.value == RuntimeState.READY
@@ -108,6 +134,65 @@ async def test_runtime_rejects_bad_and_duplicate_connections() -> None:
         assert record.state is RuntimeState.READY
 
     await supervisor.stop()
+
+
+@pytest.mark.asyncio
+async def test_runtime_negotiates_v1_and_v2_connections_concurrently() -> None:
+    supervisor = RuntimeSupervisor(logger=FakeLogger())
+    supervisor.add(RuntimeSpec(id="legacy", kind="custom"))
+    supervisor.add(RuntimeSpec(id="modern", kind="custom"))
+    legacy = supervisor.records["legacy"]
+    modern = supervisor.records["modern"]
+    server = await asyncio.start_server(supervisor._accept, "127.0.0.1", 0)
+    port = int(server.sockets[0].getsockname()[1])
+    legacy_reader, legacy_writer = await asyncio.open_connection("127.0.0.1", port)
+    modern_reader, modern_writer = await asyncio.open_connection("127.0.0.1", port)
+    try:
+        await write_message(
+            legacy_writer,
+            Hello(protocol=1, runtime_id="legacy", kind="custom", token=legacy.token),
+        )
+        assert await read_message(legacy_reader) == Welcome(protocol=1)
+        assert isinstance(await read_message(legacy_reader), ConfigMessage)
+        await write_message(legacy_writer, Ready(capabilities=("runtime.events.receive",)))
+
+        await write_message(
+            modern_writer,
+            Hello(protocol=2, runtime_id="modern", kind="custom", token=modern.token),
+        )
+        assert await read_message(modern_reader) == Welcome(protocol=2)
+        assert isinstance(await read_message(modern_reader), ConfigMessage)
+        await write_message(modern_writer, Ready(capabilities=("runtime.events.receive",)))
+        await asyncio.wait_for(
+            asyncio.gather(legacy.ready.wait(), modern.ready.wait()),
+            timeout=1,
+        )
+
+        assert legacy.protocol_version == 1
+        assert modern.protocol_version == 2
+        with pytest.raises(RuntimeError, match="did not negotiate protocol v2"):
+            await supervisor.dispatch_event("legacy", "event-v1", {})
+
+        delivery = asyncio.create_task(
+            supervisor.dispatch_event("modern", "event-v2", {"message": "hello"})
+        )
+        outbound = await asyncio.wait_for(read_message(modern_reader), timeout=1)
+        assert outbound == EventMessage(
+            correlation_id="event-v2",
+            payload={"message": "hello"},
+        )
+        await write_message(
+            modern_writer,
+            EventAccepted(correlation_id="event-v2", status="accepted"),
+        )
+        assert (await delivery).status == "accepted"
+    finally:
+        legacy_writer.close()
+        modern_writer.close()
+        await legacy_writer.wait_closed()
+        await modern_writer.wait_closed()
+        server.close()
+        await server.wait_closed()
 
 
 @pytest.mark.asyncio
@@ -199,6 +284,111 @@ async def test_action_timeout_removes_pending_request(monkeypatch: pytest.Monkey
         await supervisor.execute_action("action", "request", {}, timeout_seconds=0.01)
 
     assert record.pending_actions == {}
+
+
+@pytest.mark.asyncio
+async def test_event_delivery_timeout_removes_pending_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    supervisor = RuntimeSupervisor(logger=FakeLogger())
+    record = RuntimeRecord(
+        spec=RuntimeSpec(id="event", kind="custom"),
+        token="token",
+        state=RuntimeState.READY,
+        writer=NullWriter(),  # type: ignore[arg-type]
+        protocol_version=2,
+        capabilities=frozenset({"runtime.events.receive"}),
+    )
+    supervisor.records[record.spec.id] = record
+
+    async def ignore_event(_record: RuntimeRecord, _message: Any) -> None:
+        return None
+
+    monkeypatch.setattr(supervisor, "_send", ignore_event)
+    with pytest.raises(TimeoutError):
+        await supervisor.dispatch_event("event", "request", {}, timeout_seconds=0.01)
+
+    assert record.pending_events == {}
+
+
+@pytest.mark.asyncio
+async def test_v2_event_delivery_requires_receive_capability() -> None:
+    supervisor = RuntimeSupervisor(logger=FakeLogger())
+    record = RuntimeRecord(
+        spec=RuntimeSpec(id="event", kind="custom"),
+        token="token",
+        state=RuntimeState.READY,
+        writer=NullWriter(),  # type: ignore[arg-type]
+        protocol_version=2,
+    )
+    supervisor.records[record.spec.id] = record
+
+    with pytest.raises(RuntimeError, match="does not accept core events"):
+        await supervisor.dispatch_event("event", "request", {})
+
+    assert record.pending_events == {}
+
+
+@pytest.mark.asyncio
+async def test_event_delivery_returns_child_rejection(monkeypatch: pytest.MonkeyPatch) -> None:
+    supervisor = RuntimeSupervisor(logger=FakeLogger())
+    record = RuntimeRecord(
+        spec=RuntimeSpec(id="event", kind="custom"),
+        token="token",
+        state=RuntimeState.READY,
+        writer=NullWriter(),  # type: ignore[arg-type]
+        protocol_version=2,
+        capabilities=frozenset({"runtime.events.receive"}),
+    )
+    supervisor.records[record.spec.id] = record
+
+    async def reject_event(_record: RuntimeRecord, message: Any) -> None:
+        await supervisor._handle_message(
+            record,
+            EventAccepted(
+                correlation_id=message.correlation_id,
+                status="invalid",
+                detail="unsupported event",
+            ),
+        )
+
+    monkeypatch.setattr(supervisor, "_send", reject_event)
+    result = await supervisor.dispatch_event("event", "request", {})
+
+    assert result.status == "invalid"
+    assert result.detail == "unsupported event"
+    assert record.pending_events == {}
+
+
+@pytest.mark.asyncio
+async def test_duplicate_event_delivery_and_disconnect_are_deterministic(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sent = asyncio.Event()
+    supervisor = RuntimeSupervisor(logger=FakeLogger())
+    record = RuntimeRecord(
+        spec=RuntimeSpec(id="event", kind="custom"),
+        token="token",
+        state=RuntimeState.READY,
+        writer=NullWriter(),  # type: ignore[arg-type]
+        protocol_version=2,
+        capabilities=frozenset({"runtime.events.receive"}),
+    )
+    supervisor.records[record.spec.id] = record
+
+    async def hold_event(_record: RuntimeRecord, _message: Any) -> None:
+        sent.set()
+
+    monkeypatch.setattr(supervisor, "_send", hold_event)
+    delivery = asyncio.create_task(supervisor.dispatch_event("event", "duplicate", {}))
+    await sent.wait()
+    with pytest.raises(ValueError, match="duplicate event correlation id"):
+        await supervisor.dispatch_event("event", "duplicate", {})
+
+    await supervisor._disconnect(record)
+    with pytest.raises(ConnectionError, match="disconnected"):
+        await delivery
+    assert record.pending_events == {}
 
 
 @pytest.mark.asyncio

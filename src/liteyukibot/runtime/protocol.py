@@ -12,11 +12,13 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from ..exceptions import RuntimeProtocolError
 
-PROTOCOL_VERSION = 1
-MAX_FRAME_SIZE = 8 * 1024 * 1024
-
+type ProtocolVersion = Literal[1, 2]
 type JsonScalar = str | int | float | bool | None
 type JsonValue = JsonScalar | list[JsonValue] | dict[str, JsonValue]
+
+PROTOCOL_VERSION: ProtocolVersion = 2
+SUPPORTED_PROTOCOL_VERSIONS: tuple[ProtocolVersion, ...] = (1, 2)
+MAX_FRAME_SIZE = 8 * 1024 * 1024
 
 
 class WireModel(BaseModel):
@@ -25,7 +27,7 @@ class WireModel(BaseModel):
 
 class Hello(WireModel):
     type: Literal["hello"] = "hello"
-    protocol: Literal[1] = 1
+    protocol: ProtocolVersion = PROTOCOL_VERSION
     runtime_id: str
     kind: str
     token: str
@@ -33,7 +35,7 @@ class Hello(WireModel):
 
 class Welcome(WireModel):
     type: Literal["welcome"] = "welcome"
-    protocol: Literal[1] = 1
+    protocol: ProtocolVersion = PROTOCOL_VERSION
     heartbeat_interval: float = 10.0
 
 

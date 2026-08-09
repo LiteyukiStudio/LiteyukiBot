@@ -3,6 +3,8 @@
 from .client import RuntimeClient
 from .protocol import (
     MAX_FRAME_SIZE,
+    PROTOCOL_VERSION,
+    SUPPORTED_PROTOCOL_VERSIONS,
     ActionRequest,
     ActionResponse,
     ConfigMessage,
@@ -10,6 +12,7 @@ from .protocol import (
     EventMessage,
     Heartbeat,
     Hello,
+    ProtocolVersion,
     Ready,
     Shutdown,
     Welcome,
@@ -20,6 +23,8 @@ from .supervisor import RuntimeSpec, RuntimeState, RuntimeSupervisor
 
 __all__ = [
     "MAX_FRAME_SIZE",
+    "PROTOCOL_VERSION",
+    "SUPPORTED_PROTOCOL_VERSIONS",
     "ActionRequest",
     "ActionResponse",
     "ConfigMessage",
@@ -27,6 +32,7 @@ __all__ = [
     "EventMessage",
     "Heartbeat",
     "Hello",
+    "ProtocolVersion",
     "Ready",
     "RuntimeClient",
     "RuntimeSpec",
