@@ -110,6 +110,7 @@ class LiteyukiApp:
         self._runtimes_started = False
         self._control_started = False
         self._http_started = False
+        v6_runtime_ids: list[str] = []
 
         for runtime_id, runtime in settings.runtimes.items():
             if not runtime.enabled:
@@ -129,6 +130,14 @@ class LiteyukiApp:
                     heartbeat_interval=runtime.heartbeat_interval_seconds,
                     stale_after=runtime.stale_after_seconds,
                 )
+            )
+            if runtime.kind == "v6":
+                v6_runtime_ids.append(runtime_id)
+        self._v6_runtime_ids = tuple(v6_runtime_ids)
+        if self._v6_runtime_ids:
+            self.events.subscribe(
+                self._forward_v6_event,
+                name="runtime.v6",
             )
 
     async def start(self) -> None:
@@ -298,6 +307,48 @@ class LiteyukiApp:
             data=result.model_dump(mode="json"),
             error=result.error_message,
         )
+
+    async def _forward_v6_event(self, event: EventEnvelope) -> None:
+        if event.message is None:
+            return
+        runtime_ids = tuple(
+            runtime_id
+            for runtime_id in self._v6_runtime_ids
+            if runtime_id != event.runtime_id
+        )
+        if not runtime_ids:
+            return
+        outcomes = await asyncio.gather(
+            *(self._deliver_v6_event(runtime_id, event) for runtime_id in runtime_ids),
+            return_exceptions=True,
+        )
+        fatal = next(
+            (
+                outcome
+                for outcome in outcomes
+                if isinstance(outcome, BaseException) and not isinstance(outcome, Exception)
+            ),
+            None,
+        )
+        if fatal is not None:
+            raise fatal
+        errors = [outcome for outcome in outcomes if isinstance(outcome, Exception)]
+        if len(errors) == 1:
+            raise errors[0]
+        if len(errors) > 1:
+            raise ExceptionGroup("v6 runtime event delivery failed", errors)
+
+    async def _deliver_v6_event(self, runtime_id: str, event: EventEnvelope) -> None:
+        result = await self.runtimes.dispatch_event(
+            runtime_id,
+            event.id,
+            event.model_dump(mode="json"),
+        )
+        if result.status != "accepted":
+            detail = f": {result.detail}" if result.detail else ""
+            raise RuntimeError(
+                f"v6 runtime {runtime_id} rejected event {event.id} as {result.status}{detail}"
+            )
 
     @staticmethod
     def _plugin_configs(config: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:

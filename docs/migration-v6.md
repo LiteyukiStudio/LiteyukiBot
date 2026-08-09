@@ -12,7 +12,9 @@ namespace is a compatibility package; new plugins should import `liteyukibot`.
 - before/after startup and shutdown lifecycle decorators;
 - process restart requests for the compatibility runtime;
 - `MessageEvent`, session identity models, composable rules, matcher decorators,
-  stable priority dispatch, and synchronous reply-intent collection.
+  stable priority dispatch, and synchronous reply-intent collection;
+- supervised delivery of normalized message events and ordered string or
+  mapping replies through protocol-neutral Actions.
 
 ## Unsupported
 
@@ -27,9 +29,14 @@ gap remains visible. Compatibility also requires every plugin dependency to
 support CPython 3.14.
 
 Session matchers are process-local. `event.reply()` records an ordered reply
-intent; it does not send through a v6 Channel. Runtime event delivery and reply
-Action translation are introduced separately so plugins cannot observe a
-partially emulated cross-process object.
+intent; it does not send through a v6 Channel. The v6 runtime translates each
+intent after matcher dispatch and waits for its Action result before submitting
+the next reply. Handler, reply validation, and Action failures are isolated from
+later replies.
+
+Only events with normalized message content are forwarded by the application
+bridge. `MessageEvent.data` is a deep JSON copy of the adapter event's raw
+payload; no adapter object or synthetic `Session` crosses into the plugin.
 
 Supported matcher constructors are `on_message`, `on_keywords`,
 `on_startswith`, `on_endswith`, and `on_fullmatch`. Larger numeric priorities
@@ -45,6 +52,8 @@ kind = "v6"
 [runtimes.legacy.options]
 plugins = ["my_legacy_plugin"]
 plugin_dirs = ["plugins"]
+max_concurrent_events = 32
+action_timeout_seconds = 10.0
 
 [runtimes.legacy.options.config]
 nickname = ["Liteyuki"]
