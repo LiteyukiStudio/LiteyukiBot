@@ -9,17 +9,27 @@ from .protocol import (
     ActionResponse,
     ConfigMessage,
     ErrorMessage,
+    EventAccepted,
     EventMessage,
     Heartbeat,
     Hello,
+    JsonValue,
     ProtocolVersion,
     Ready,
     Shutdown,
     Welcome,
+    WireMessage,
     read_message,
     write_message,
 )
-from .supervisor import ActionSinkResult, RuntimeSpec, RuntimeState, RuntimeSupervisor
+from .supervisor import (
+    ActionSink,
+    ActionSinkResult,
+    EventSink,
+    RuntimeSpec,
+    RuntimeState,
+    RuntimeSupervisor,
+)
 
 __all__ = [
     "MAX_FRAME_SIZE",
@@ -27,12 +37,16 @@ __all__ = [
     "SUPPORTED_PROTOCOL_VERSIONS",
     "ActionRequest",
     "ActionResponse",
+    "ActionSink",
     "ActionSinkResult",
     "ConfigMessage",
     "ErrorMessage",
+    "EventAccepted",
     "EventMessage",
+    "EventSink",
     "Heartbeat",
     "Hello",
+    "JsonValue",
     "ProtocolVersion",
     "Ready",
     "RuntimeClient",
@@ -41,6 +55,7 @@ __all__ = [
     "RuntimeSupervisor",
     "Shutdown",
     "Welcome",
+    "WireMessage",
     "read_message",
     "write_message",
 ]
