@@ -18,6 +18,8 @@
   Actions routed through the core's existing protocol-neutral Action service.
 - connected the v6 message matcher runtime to EventBus delivery and translated
   ordered reply intents into correlated protocol-v3 SendMessage Actions.
+- added structured OneBot v11/v12 and Satori event/message translation with
+  exact reply routing, supported proactive sends, and strict JSON Action results.
 
 ## 7.0.0a1 - 2026-08-04
 
