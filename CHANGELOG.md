@@ -16,6 +16,8 @@
   needed by ordinary message plugins without restoring Channel semantics.
 - added negotiated runtime protocol v3 with capability-gated child-originated
   Actions routed through the core's existing protocol-neutral Action service.
+- connected the v6 message matcher runtime to EventBus delivery and translated
+  ordered reply intents into correlated protocol-v3 SendMessage Actions.
 
 ## 7.0.0a1 - 2026-08-04
 

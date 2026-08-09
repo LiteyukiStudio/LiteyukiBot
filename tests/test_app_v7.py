@@ -13,11 +13,26 @@ from urllib.request import urlopen
 import pytest
 
 from liteyukibot.app import AppState, LiteyukiApp
-from liteyukibot.config import AppSettings, CoreSettings, HttpSettings, PluginSettings
+from liteyukibot.config import (
+    AppSettings,
+    CoreSettings,
+    HttpSettings,
+    PluginSettings,
+    RuntimeSettings,
+)
 from liteyukibot.control import ControlError, ControlServer, request_control
-from liteyukibot.events import ActionEnvelope, ActionResult, Message, Segment, SendMessage
+from liteyukibot.events import (
+    ActionEnvelope,
+    ActionResult,
+    ConversationRef,
+    EventEnvelope,
+    Message,
+    Segment,
+    SendMessage,
+)
 from liteyukibot.exceptions import PluginError
 from liteyukibot.plugins import PluginDefinition, PluginHandle, PluginManifest
+from liteyukibot.runtime.protocol import EventAccepted
 from liteyukibot.services import ServiceKey, ServiceRequirement
 
 
@@ -111,6 +126,126 @@ async def test_app_rejects_invalid_and_self_targeted_child_actions(tmp_path: Pat
     assert invalid.error == "invalid ActionEnvelope"
     assert self_target.ok is False
     assert self_target.error == "child-originated action cannot target its source runtime"
+
+
+def _message_event() -> EventEnvelope:
+    return EventEnvelope(
+        id="event-1",
+        runtime_id="adapter",
+        adapter="onebot-v11",
+        bot_id="bot-1",
+        type="message.group.normal",
+        conversation=ConversationRef(id="group-1", type="group"),
+        message=Message(segments=(Segment(type="text", data={"text": "hello"}),)),
+    )
+
+
+@pytest.mark.asyncio
+async def test_app_event_bus_fans_out_messages_to_v6_runtimes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = AppSettings(
+        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"),
+        runtimes={
+            "legacy-a": RuntimeSettings(kind="v6"),
+            "legacy-b": RuntimeSettings(kind="v6"),
+            "nonebot": RuntimeSettings(kind="nonebot"),
+        },
+    )
+    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
+    started: set[str] = set()
+    both_started = asyncio.Event()
+
+    async def dispatch(
+        runtime_id: str,
+        correlation_id: str,
+        payload: dict[str, Any],
+        timeout_seconds: float = 30.0,
+    ) -> EventAccepted:
+        assert correlation_id == "event-1"
+        event = EventEnvelope.model_validate(payload)
+        assert event.id == "event-1"
+        assert event.message is not None and event.message.plain_text == "hello"
+        assert timeout_seconds == 30.0
+        started.add(runtime_id)
+        if len(started) == 2:
+            both_started.set()
+        await asyncio.wait_for(both_started.wait(), timeout=1)
+        return EventAccepted(correlation_id=correlation_id, status="accepted")
+
+    monkeypatch.setattr(app.runtimes, "dispatch_event", dispatch)
+    try:
+        result = await app.events.publish(_message_event())
+    finally:
+        await app.events.aclose()
+
+    assert started == {"legacy-a", "legacy-b"}
+    assert result.handlers_called == 1
+    assert result.failures == ()
+
+
+@pytest.mark.asyncio
+async def test_app_v6_bridge_filters_non_messages_and_isolates_rejection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = AppSettings(
+        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"),
+        runtimes={
+            "legacy-a": RuntimeSettings(kind="v6"),
+            "legacy-b": RuntimeSettings(kind="v6"),
+        },
+    )
+    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
+    delivered: list[str] = []
+
+    async def dispatch(
+        runtime_id: str,
+        correlation_id: str,
+        _payload: dict[str, Any],
+        timeout_seconds: float = 30.0,
+    ) -> EventAccepted:
+        assert timeout_seconds == 30.0
+        delivered.append(runtime_id)
+        if runtime_id == "legacy-a":
+            return EventAccepted(
+                correlation_id=correlation_id,
+                status="invalid",
+                detail="fixture rejection",
+            )
+        return EventAccepted(correlation_id=correlation_id, status="accepted")
+
+    monkeypatch.setattr(app.runtimes, "dispatch_event", dispatch)
+    no_message_payload = _message_event().model_dump(mode="json")
+    no_message_payload["message"] = None
+    try:
+        ignored = await app.events.publish(EventEnvelope.model_validate(no_message_payload))
+        rejected = await app.events.publish(_message_event())
+    finally:
+        await app.events.aclose()
+
+    assert ignored.failures == ()
+    assert delivered == ["legacy-a", "legacy-b"]
+    assert len(rejected.failures) == 1
+    assert rejected.failures[0].handler == "runtime.v6"
+    assert "fixture rejection" in rejected.failures[0].message
+
+
+@pytest.mark.asyncio
+async def test_app_without_v6_runtime_does_not_register_bridge(tmp_path: Path) -> None:
+    settings = AppSettings(
+        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"),
+        runtimes={
+            "nonebot": RuntimeSettings(kind="nonebot"),
+            "disabled-legacy": RuntimeSettings(kind="v6", enabled=False),
+        },
+    )
+    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
+    try:
+        result = await app.events.publish(_message_event())
+    finally:
+        await app.events.aclose()
+
+    assert result.handlers_called == 0
 
 
 @pytest.mark.asyncio
