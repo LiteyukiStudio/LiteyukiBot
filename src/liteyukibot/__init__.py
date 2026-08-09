@@ -2,7 +2,14 @@
 
 from ._version import __version__
 from .app import LiteyukiApp
-from .plugins import PluginContext, PluginDefinition, PluginHandle, PluginManifest
+from .plugins import (
+    PluginContext,
+    PluginDefinition,
+    PluginHandle,
+    PluginManifest,
+    PluginPaths,
+    PluginServices,
+)
 from .services import ServiceKey, ServiceRegistry, ServiceRequirement
 
 __all__ = [
@@ -11,6 +18,8 @@ __all__ = [
     "PluginDefinition",
     "PluginHandle",
     "PluginManifest",
+    "PluginPaths",
+    "PluginServices",
     "ServiceKey",
     "ServiceRegistry",
     "ServiceRequirement",

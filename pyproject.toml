@@ -59,7 +59,7 @@ asyncio_mode = "auto"
 [tool.ruff]
 line-length = 120
 target-version = "py314"
-src = ["src", "tests", "scripts"]
+src = ["src", "tests", "scripts", "examples"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC"]
@@ -67,4 +67,4 @@ select = ["E", "F", "I", "UP", "B", "ASYNC"]
 [tool.mypy]
 python_version = "3.14"
 strict = true
-files = ["src", "tests", "scripts"]
+files = ["src", "tests", "scripts", "examples"]

@@ -645,6 +645,52 @@ async def test_disconnect_fails_pending_action(monkeypatch: pytest.MonkeyPatch) 
     assert record.pending_actions == {}
 
 
+@pytest.mark.asyncio
+async def test_duplicate_action_request_does_not_replace_pending_future(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sent = asyncio.Event()
+    supervisor = RuntimeSupervisor(logger=FakeLogger())
+    record = RuntimeRecord(
+        spec=RuntimeSpec(id="action", kind="custom"),
+        token="token",
+        state=RuntimeState.READY,
+        writer=NullWriter(),  # type: ignore[arg-type]
+    )
+    supervisor.records[record.spec.id] = record
+
+    async def hold_action(_record: RuntimeRecord, _message: Any) -> None:
+        sent.set()
+
+    monkeypatch.setattr(supervisor, "_send", hold_action)
+    first = asyncio.create_task(supervisor.execute_action("action", "duplicate", {}))
+    await sent.wait()
+    pending = record.pending_actions["duplicate"]
+
+    with pytest.raises(ValueError, match="duplicate action correlation id"):
+        await supervisor.execute_action("action", "duplicate", {})
+    assert record.pending_actions["duplicate"] is pending
+
+    await supervisor._disconnect(record)
+    with pytest.raises(ConnectionError, match="disconnected"):
+        await first
+    assert record.pending_actions == {}
+
+
+@pytest.mark.asyncio
+async def test_runtime_dispatch_rejects_non_positive_timeouts_before_lookup() -> None:
+    supervisor = RuntimeSupervisor(logger=FakeLogger())
+
+    with pytest.raises(ValueError, match="action timeout must be positive"):
+        await supervisor.execute_action("missing", "action", {}, timeout_seconds=0)
+    with pytest.raises(ValueError, match="action timeout must be positive"):
+        await supervisor.execute_action("missing", "action", {}, timeout_seconds=-1)
+    with pytest.raises(ValueError, match="event timeout must be positive"):
+        await supervisor.dispatch_event("missing", "event", {}, timeout_seconds=0)
+    with pytest.raises(ValueError, match="event timeout must be positive"):
+        await supervisor.dispatch_event("missing", "event", {}, timeout_seconds=-1)
+
+
 def test_runtime_failure_limit_transitions_to_failed() -> None:
     record = RuntimeRecord(
         spec=RuntimeSpec(id="crash", kind="custom", restart_limit=2),
