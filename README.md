@@ -73,5 +73,6 @@ uv run pytest
 uv build
 ```
 
-The architecture contract is documented in `docs/architecture/v7.md`; the v6
-compatibility boundary is documented in `docs/migration-v6.md`.
+The architecture overview is documented in `docs/architecture/v7.md`; accepted
+v1 contracts are indexed in `docs/adr/README.md`; the v6 compatibility boundary
+is documented in `docs/migration-v6.md`.
