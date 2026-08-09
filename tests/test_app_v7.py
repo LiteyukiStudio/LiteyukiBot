@@ -15,6 +15,7 @@ import pytest
 from liteyukibot.app import AppState, LiteyukiApp
 from liteyukibot.config import AppSettings, CoreSettings, HttpSettings, PluginSettings
 from liteyukibot.control import ControlError, ControlServer, request_control
+from liteyukibot.events import ActionEnvelope, ActionResult, Message, Segment, SendMessage
 from liteyukibot.exceptions import PluginError
 from liteyukibot.plugins import PluginDefinition, PluginHandle, PluginManifest
 from liteyukibot.services import ServiceKey, ServiceRequirement
@@ -38,6 +39,78 @@ class FakeLogger:
 
     def exception(self, message: str, *args: Any, **kwargs: Any) -> None:
         pass
+
+
+@pytest.mark.asyncio
+async def test_app_routes_child_action_to_distinct_adapter_runtime(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = AppSettings(
+        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache")
+    )
+    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
+    action = ActionEnvelope(
+        action_id="reply-1",
+        event_id="event-1",
+        runtime_id="adapter",
+        bot_id="bot-1",
+        action=SendMessage(
+            message=Message(segments=(Segment(type="text", data={"text": "hello"}),)),
+            reply_token="reply-token",
+        ),
+    )
+    observed: list[ActionEnvelope] = []
+
+    async def execute(envelope: ActionEnvelope) -> ActionResult:
+        observed.append(envelope)
+        return ActionResult(
+            action_id=envelope.action_id,
+            success=True,
+            data={"message_id": "sent-1"},
+        )
+
+    monkeypatch.setattr(app.actions, "execute", execute)
+    result = await app._execute_runtime_action(
+        "compat", action.model_dump(mode="json")
+    )
+
+    assert result.ok is True
+    assert result.data == {
+        "schema_version": 1,
+        "action_id": "reply-1",
+        "success": True,
+        "data": {"message_id": "sent-1"},
+        "error_code": None,
+        "error_message": None,
+    }
+    assert observed == [action]
+
+
+@pytest.mark.asyncio
+async def test_app_rejects_invalid_and_self_targeted_child_actions(tmp_path: Path) -> None:
+    settings = AppSettings(
+        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache")
+    )
+    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
+
+    invalid = await app._execute_runtime_action("compat", {"invalid": True})
+    self_target = await app._execute_runtime_action(
+        "compat",
+        ActionEnvelope(
+            action_id="reply-1",
+            runtime_id="compat",
+            bot_id="bot-1",
+            action=SendMessage(
+                message=Message(segments=(Segment(type="text", data={"text": "hello"}),)),
+                reply_token="reply-token",
+            ),
+        ).model_dump(mode="json"),
+    )
+
+    assert invalid.ok is False
+    assert invalid.error == "invalid ActionEnvelope"
+    assert self_target.ok is False
+    assert self_target.error == "child-originated action cannot target its source runtime"
 
 
 @pytest.mark.asyncio
