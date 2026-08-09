@@ -7,6 +7,10 @@ supervised child runtimes.
 The `v7` branch is a clean rewrite. The `main` branch remains the maintenance
 line for v6 and is not merged wholesale into v7.
 
+The current pre-release is `liteyukibot-v7==7.0.0a2`. Kernel stabilization and
+the first bounded compatibility phase are complete. Runtime protocol v3 remains
+an alpha contract and may change under ADR 0011 before the first stable release.
+
 ## Current Foundation
 
 - immutable TOML/JSON configuration with ordered includes, environment
@@ -41,6 +45,7 @@ Optional integrations are installed explicitly:
 uv sync --extra yaml
 uv sync --extra http
 uv sync --extra nonebot --extra onebot
+uv sync --extra nonebot --extra satori
 ```
 
 Use `liteyuki.example.toml` as a configuration reference. CLI overrides must
@@ -67,15 +72,18 @@ Mount a `liteyuki.toml` at `/app/liteyuki.toml` and persistent volumes at
 ## Development
 
 ```bash
-uv run ruff check src tests scripts
+uv run ruff check src tests scripts examples
 uv run mypy
 uv run pytest
 uv build
+uv build --project examples/native-plugin --out-dir dist/examples
+uv build --project examples/custom-runtime --out-dir dist/examples
+uv run python scripts/run_developer_kit_install.py
 ```
 
 The architecture overview is documented in `docs/architecture/v7.md`; accepted
-v1 contracts are indexed in `docs/adr/README.md`; the v6 compatibility boundary
-is documented in `docs/migration-v6.md`.
+architecture contracts are indexed in `docs/adr/README.md`; the v6 compatibility
+boundary is documented in `docs/migration-v6.md`.
 
 Plugin and runtime authors should start with the installable examples and their
 focused guides:
