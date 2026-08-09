@@ -19,7 +19,7 @@ from .protocol import (
     read_message,
     write_message,
 )
-from .supervisor import RuntimeSpec, RuntimeState, RuntimeSupervisor
+from .supervisor import ActionSinkResult, RuntimeSpec, RuntimeState, RuntimeSupervisor
 
 __all__ = [
     "MAX_FRAME_SIZE",
@@ -27,6 +27,7 @@ __all__ = [
     "SUPPORTED_PROTOCOL_VERSIONS",
     "ActionRequest",
     "ActionResponse",
+    "ActionSinkResult",
     "ConfigMessage",
     "ErrorMessage",
     "EventMessage",

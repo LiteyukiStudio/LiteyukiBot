@@ -12,12 +12,12 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from ..exceptions import RuntimeProtocolError
 
-type ProtocolVersion = Literal[1, 2]
+type ProtocolVersion = Literal[1, 2, 3]
 type JsonScalar = str | int | float | bool | None
 type JsonValue = JsonScalar | list[JsonValue] | dict[str, JsonValue]
 
-PROTOCOL_VERSION: ProtocolVersion = 2
-SUPPORTED_PROTOCOL_VERSIONS: tuple[ProtocolVersion, ...] = (1, 2)
+PROTOCOL_VERSION: ProtocolVersion = 3
+SUPPORTED_PROTOCOL_VERSIONS: tuple[ProtocolVersion, ...] = (1, 2, 3)
 MAX_FRAME_SIZE = 8 * 1024 * 1024
 
 

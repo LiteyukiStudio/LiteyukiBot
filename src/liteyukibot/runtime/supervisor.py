@@ -39,6 +39,16 @@ from .protocol import (
 EventSink = Callable[[str, dict[str, JsonValue]], Awaitable[str]]
 
 
+@dataclass(frozen=True, slots=True)
+class ActionSinkResult:
+    ok: bool
+    data: JsonValue = None
+    error: str | None = None
+
+
+ActionSink = Callable[[str, dict[str, JsonValue]], Awaitable[ActionSinkResult]]
+
+
 class RuntimeState(StrEnum):
     STOPPED = "stopped"
     STARTING = "starting"
@@ -91,6 +101,7 @@ class RuntimeRecord:
     output_tasks: tuple[asyncio.Task[None], ...] = ()
     pending_actions: dict[str, asyncio.Future[ActionResponse]] = field(default_factory=dict)
     pending_events: dict[str, asyncio.Future[EventAccepted]] = field(default_factory=dict)
+    inbound_actions: dict[str, asyncio.Task[None]] = field(default_factory=dict)
     protocol_version: ProtocolVersion | None = None
     capabilities: frozenset[str] = frozenset()
     send_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
@@ -98,9 +109,16 @@ class RuntimeRecord:
 
 
 class RuntimeSupervisor:
-    def __init__(self, *, logger: Any, event_sink: EventSink | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        logger: Any,
+        event_sink: EventSink | None = None,
+        action_sink: ActionSink | None = None,
+    ) -> None:
         self.logger = logger
         self.event_sink = event_sink
+        self.action_sink = action_sink
         self.records: dict[str, RuntimeRecord] = {}
         self._server: asyncio.Server | None = None
         self._host = "127.0.0.1"
@@ -296,6 +314,8 @@ class RuntimeSupervisor:
             event_future = record.pending_events.pop(message.correlation_id, None)
             if event_future is not None and not event_future.done():
                 event_future.set_result(message)
+        elif isinstance(message, ActionRequest):
+            await self._accept_child_action(record, message)
         elif isinstance(message, ActionResponse):
             action_future = record.pending_actions.pop(message.correlation_id, None)
             if action_future is not None and not action_future.done():
@@ -304,6 +324,86 @@ class RuntimeSupervisor:
             self.logger.error("runtime {} error {}: {}", record.spec.id, message.code, message.message)
         else:
             self.logger.debug("ignored runtime {} message {}", record.spec.id, message.type)
+
+    async def _accept_child_action(
+        self, record: RuntimeRecord, request: ActionRequest
+    ) -> None:
+        if record.protocol_version != 3:
+            await self._reject_child_action(
+                record,
+                request,
+                "child-originated actions require runtime protocol v3",
+            )
+            return
+        if "runtime.actions.send" not in record.capabilities:
+            await self._reject_child_action(
+                record,
+                request,
+                "child runtime did not declare runtime.actions.send",
+            )
+            return
+        if self.action_sink is None:
+            await self._reject_child_action(record, request, "core action sink is unavailable")
+            return
+        if request.correlation_id in record.inbound_actions:
+            await self._reject_child_action(
+                record,
+                request,
+                f"duplicate action correlation id: {request.correlation_id}",
+            )
+            return
+
+        task = asyncio.create_task(
+            self._execute_child_action(record, request),
+            name=f"runtime-action:{record.spec.id}:{request.correlation_id}",
+        )
+        record.inbound_actions[request.correlation_id] = task
+
+    async def _execute_child_action(
+        self, record: RuntimeRecord, request: ActionRequest
+    ) -> None:
+        try:
+            assert self.action_sink is not None
+            result = await self.action_sink(record.spec.id, request.payload)
+            response = ActionResponse(
+                correlation_id=request.correlation_id,
+                ok=result.ok,
+                data=result.data,
+                error=result.error,
+            )
+        except Exception as error:
+            self.logger.error(
+                "runtime {} child action {} failed: {}",
+                record.spec.id,
+                request.correlation_id,
+                error,
+            )
+            response = ActionResponse(
+                correlation_id=request.correlation_id,
+                ok=False,
+                error="core action sink failed",
+            )
+        try:
+            await self._send(record, response)
+        except (ConnectionError, RuntimeError):
+            pass
+        finally:
+            record.inbound_actions.pop(request.correlation_id, None)
+
+    async def _reject_child_action(
+        self,
+        record: RuntimeRecord,
+        request: ActionRequest,
+        error: str,
+    ) -> None:
+        await self._send(
+            record,
+            ActionResponse(
+                correlation_id=request.correlation_id,
+                ok=False,
+                error=error,
+            ),
+        )
 
     async def execute_action(
         self,
@@ -337,8 +437,8 @@ class RuntimeSupervisor:
         record = self.records[runtime_id]
         if record.state is not RuntimeState.READY:
             raise RuntimeError(f"runtime {runtime_id} is not ready")
-        if record.protocol_version != 2:
-            raise RuntimeError(f"runtime {runtime_id} did not negotiate protocol v2")
+        if record.protocol_version not in (2, 3):
+            raise RuntimeError(f"runtime {runtime_id} did not negotiate protocol v2 or v3")
         if "runtime.events.receive" not in record.capabilities:
             raise RuntimeError(f"runtime {runtime_id} does not accept core events")
         if correlation_id in record.pending_events:
@@ -446,6 +546,12 @@ class RuntimeSupervisor:
                     ConnectionError(f"runtime {record.spec.id} disconnected")
                 )
         record.pending_events.clear()
+        inbound_actions = tuple(record.inbound_actions.values())
+        record.inbound_actions.clear()
+        for task in inbound_actions:
+            task.cancel()
+        if inbound_actions:
+            await asyncio.gather(*inbound_actions, return_exceptions=True)
         if writer is not None:
             writer.close()
             await writer.wait_closed()

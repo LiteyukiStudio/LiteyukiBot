@@ -11,16 +11,19 @@ import pytest
 
 from liteyukibot.runtime import RuntimeSpec, RuntimeState, RuntimeSupervisor
 from liteyukibot.runtime.protocol import (
+    ActionRequest,
+    ActionResponse,
     ConfigMessage,
     EventAccepted,
     EventMessage,
     Hello,
+    ProtocolVersion,
     Ready,
     Welcome,
     read_message,
     write_message,
 )
-from liteyukibot.runtime.supervisor import RuntimeRecord
+from liteyukibot.runtime.supervisor import ActionSinkResult, RuntimeRecord
 
 
 class FakeLogger:
@@ -137,16 +140,19 @@ async def test_runtime_rejects_bad_and_duplicate_connections() -> None:
 
 
 @pytest.mark.asyncio
-async def test_runtime_negotiates_v1_and_v2_connections_concurrently() -> None:
+async def test_runtime_negotiates_v1_v2_and_v3_connections_concurrently() -> None:
     supervisor = RuntimeSupervisor(logger=FakeLogger())
     supervisor.add(RuntimeSpec(id="legacy", kind="custom"))
     supervisor.add(RuntimeSpec(id="modern", kind="custom"))
+    supervisor.add(RuntimeSpec(id="current", kind="custom"))
     legacy = supervisor.records["legacy"]
     modern = supervisor.records["modern"]
+    current = supervisor.records["current"]
     server = await asyncio.start_server(supervisor._accept, "127.0.0.1", 0)
     port = int(server.sockets[0].getsockname()[1])
     legacy_reader, legacy_writer = await asyncio.open_connection("127.0.0.1", port)
     modern_reader, modern_writer = await asyncio.open_connection("127.0.0.1", port)
+    current_reader, current_writer = await asyncio.open_connection("127.0.0.1", port)
     try:
         await write_message(
             legacy_writer,
@@ -163,14 +169,22 @@ async def test_runtime_negotiates_v1_and_v2_connections_concurrently() -> None:
         assert await read_message(modern_reader) == Welcome(protocol=2)
         assert isinstance(await read_message(modern_reader), ConfigMessage)
         await write_message(modern_writer, Ready(capabilities=("runtime.events.receive",)))
+        await write_message(
+            current_writer,
+            Hello(protocol=3, runtime_id="current", kind="custom", token=current.token),
+        )
+        assert await read_message(current_reader) == Welcome(protocol=3)
+        assert isinstance(await read_message(current_reader), ConfigMessage)
+        await write_message(current_writer, Ready(capabilities=("runtime.events.receive",)))
         await asyncio.wait_for(
-            asyncio.gather(legacy.ready.wait(), modern.ready.wait()),
+            asyncio.gather(legacy.ready.wait(), modern.ready.wait(), current.ready.wait()),
             timeout=1,
         )
 
         assert legacy.protocol_version == 1
         assert modern.protocol_version == 2
-        with pytest.raises(RuntimeError, match="did not negotiate protocol v2"):
+        assert current.protocol_version == 3
+        with pytest.raises(RuntimeError, match="did not negotiate protocol v2 or v3"):
             await supervisor.dispatch_event("legacy", "event-v1", {})
 
         delivery = asyncio.create_task(
@@ -186,13 +200,215 @@ async def test_runtime_negotiates_v1_and_v2_connections_concurrently() -> None:
             EventAccepted(correlation_id="event-v2", status="accepted"),
         )
         assert (await delivery).status == "accepted"
+
+        current_delivery = asyncio.create_task(
+            supervisor.dispatch_event("current", "event-v3", {"message": "hello"})
+        )
+        current_outbound = await asyncio.wait_for(read_message(current_reader), timeout=1)
+        assert current_outbound == EventMessage(
+            correlation_id="event-v3",
+            payload={"message": "hello"},
+        )
+        await write_message(
+            current_writer,
+            EventAccepted(correlation_id="event-v3", status="accepted"),
+        )
+        assert (await current_delivery).status == "accepted"
     finally:
         legacy_writer.close()
         modern_writer.close()
+        current_writer.close()
         await legacy_writer.wait_closed()
         await modern_writer.wait_closed()
+        await current_writer.wait_closed()
         server.close()
         await server.wait_closed()
+
+
+@pytest.mark.asyncio
+async def test_v3_child_action_reaches_core_sink_with_correlation() -> None:
+    observed: list[tuple[str, dict[str, Any]]] = []
+
+    async def execute_child_action(
+        runtime_id: str, payload: dict[str, Any]
+    ) -> ActionSinkResult:
+        observed.append((runtime_id, payload))
+        return ActionSinkResult(ok=True, data={"message_id": "sent-1"})
+
+    supervisor = RuntimeSupervisor(
+        logger=FakeLogger(),
+        action_sink=execute_child_action,
+    )
+    supervisor.add(RuntimeSpec(id="compat", kind="custom"))
+    record = supervisor.records["compat"]
+    server = await asyncio.start_server(supervisor._accept, "127.0.0.1", 0)
+    port = int(server.sockets[0].getsockname()[1])
+    reader, writer = await asyncio.open_connection("127.0.0.1", port)
+    try:
+        await write_message(
+            writer,
+            Hello(protocol=3, runtime_id="compat", kind="custom", token=record.token),
+        )
+        assert await read_message(reader) == Welcome(protocol=3)
+        assert isinstance(await read_message(reader), ConfigMessage)
+        await write_message(writer, Ready(capabilities=("runtime.actions.send",)))
+        await asyncio.wait_for(record.ready.wait(), timeout=1)
+
+        await write_message(
+            writer,
+            ActionRequest(correlation_id="reply-1", payload={"type": "send_message"}),
+        )
+        response = await asyncio.wait_for(read_message(reader), timeout=1)
+
+        assert response == ActionResponse(
+            correlation_id="reply-1",
+            ok=True,
+            data={"message_id": "sent-1"},
+        )
+        assert observed == [("compat", {"type": "send_message"})]
+    finally:
+        writer.close()
+        await writer.wait_closed()
+        server.close()
+        await server.wait_closed()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("protocol_version", "capabilities", "with_sink", "error"),
+    [
+        (1, frozenset({"runtime.actions.send"}), True, "require runtime protocol v3"),
+        (2, frozenset({"runtime.actions.send"}), True, "require runtime protocol v3"),
+        (3, frozenset(), True, "did not declare runtime.actions.send"),
+        (3, frozenset({"runtime.actions.send"}), False, "action sink is unavailable"),
+    ],
+)
+async def test_child_action_requires_v3_capability_and_sink(
+    monkeypatch: pytest.MonkeyPatch,
+    protocol_version: ProtocolVersion,
+    capabilities: frozenset[str],
+    with_sink: bool,
+    error: str,
+) -> None:
+    async def sink(_runtime_id: str, _payload: dict[str, Any]) -> ActionSinkResult:
+        return ActionSinkResult(ok=True)
+
+    supervisor = RuntimeSupervisor(
+        logger=FakeLogger(),
+        action_sink=sink if with_sink else None,
+    )
+    record = RuntimeRecord(
+        spec=RuntimeSpec(id="compat", kind="custom"),
+        token="token",
+        state=RuntimeState.READY,
+        writer=NullWriter(),  # type: ignore[arg-type]
+        protocol_version=protocol_version,
+        capabilities=capabilities,
+    )
+    responses: list[ActionResponse] = []
+
+    async def capture(_record: RuntimeRecord, message: Any) -> None:
+        assert isinstance(message, ActionResponse)
+        responses.append(message)
+
+    monkeypatch.setattr(supervisor, "_send", capture)
+    await supervisor._handle_message(
+        record,
+        ActionRequest(correlation_id="reply-1", payload={}),
+    )
+
+    assert len(responses) == 1
+    assert responses[0].correlation_id == "reply-1"
+    assert responses[0].ok is False
+    assert responses[0].error is not None and error in responses[0].error
+    assert record.inbound_actions == {}
+
+
+@pytest.mark.asyncio
+async def test_child_action_sink_failure_is_isolated(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fail(_runtime_id: str, _payload: dict[str, Any]) -> ActionSinkResult:
+        raise RuntimeError("adapter failed")
+
+    supervisor = RuntimeSupervisor(logger=FakeLogger(), action_sink=fail)
+    record = RuntimeRecord(
+        spec=RuntimeSpec(id="compat", kind="custom"),
+        token="token",
+        state=RuntimeState.READY,
+        writer=NullWriter(),  # type: ignore[arg-type]
+        protocol_version=3,
+        capabilities=frozenset({"runtime.actions.send"}),
+    )
+    response_seen = asyncio.Event()
+    responses: list[ActionResponse] = []
+
+    async def capture(_record: RuntimeRecord, message: Any) -> None:
+        assert isinstance(message, ActionResponse)
+        responses.append(message)
+        response_seen.set()
+
+    monkeypatch.setattr(supervisor, "_send", capture)
+    await supervisor._handle_message(
+        record,
+        ActionRequest(correlation_id="reply-1", payload={}),
+    )
+    await asyncio.wait_for(response_seen.wait(), timeout=1)
+
+    assert responses == [
+        ActionResponse(
+            correlation_id="reply-1",
+            ok=False,
+            error="core action sink failed",
+        )
+    ]
+    assert record.inbound_actions == {}
+
+
+@pytest.mark.asyncio
+async def test_duplicate_child_action_is_rejected_and_disconnect_cancels_sink(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    started = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    async def hold(_runtime_id: str, _payload: dict[str, Any]) -> ActionSinkResult:
+        started.set()
+        try:
+            await asyncio.Future()
+            return ActionSinkResult(ok=True)
+        finally:
+            cancelled.set()
+
+    supervisor = RuntimeSupervisor(logger=FakeLogger(), action_sink=hold)
+    record = RuntimeRecord(
+        spec=RuntimeSpec(id="compat", kind="custom"),
+        token="token",
+        state=RuntimeState.READY,
+        writer=NullWriter(),  # type: ignore[arg-type]
+        protocol_version=3,
+        capabilities=frozenset({"runtime.actions.send"}),
+    )
+    responses: list[ActionResponse] = []
+
+    async def capture(_record: RuntimeRecord, message: Any) -> None:
+        assert isinstance(message, ActionResponse)
+        responses.append(message)
+
+    monkeypatch.setattr(supervisor, "_send", capture)
+    request = ActionRequest(correlation_id="duplicate", payload={})
+    await supervisor._handle_message(record, request)
+    await asyncio.wait_for(started.wait(), timeout=1)
+    await supervisor._handle_message(record, request)
+
+    assert len(responses) == 1
+    assert responses[0].ok is False
+    assert responses[0].error == "duplicate action correlation id: duplicate"
+
+    await supervisor._disconnect(record)
+
+    assert cancelled.is_set()
+    assert record.inbound_actions == {}
 
 
 @pytest.mark.asyncio

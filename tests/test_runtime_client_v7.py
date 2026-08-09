@@ -8,6 +8,7 @@ import pytest
 from liteyukibot.exceptions import RuntimeProtocolError
 from liteyukibot.runtime import RuntimeClient
 from liteyukibot.runtime.protocol import (
+    PROTOCOL_VERSION,
     ConfigMessage,
     ErrorMessage,
     Heartbeat,
@@ -40,7 +41,7 @@ async def _server(handler: ServerHandler) -> tuple[asyncio.Server, int, asyncio.
     return server, port, done
 
 
-def _client(port: int, protocol_version: ProtocolVersion = 2) -> RuntimeClient:
+def _client(port: int, protocol_version: ProtocolVersion = PROTOCOL_VERSION) -> RuntimeClient:
     return RuntimeClient(
         host="127.0.0.1",
         port=port,
@@ -59,7 +60,7 @@ def test_runtime_client_rejects_unsupported_protocol_before_connecting() -> None
             runtime_id="fixture",
             kind="test",
             token="secret",
-            protocol_version=3,  # type: ignore[arg-type]
+            protocol_version=4,  # type: ignore[arg-type]
         )
 
 
@@ -95,6 +96,7 @@ async def test_runtime_client_handshake_ready_heartbeat_and_close() -> None:
         await server.wait_closed()
 
     assert isinstance(observed[0], Hello)
+    assert observed[0].protocol == 3
     assert observed[1] == Ready(capabilities=("events",))
     assert isinstance(observed[2], Heartbeat)
     assert client.connected is False
@@ -182,22 +184,25 @@ async def test_runtime_client_reports_eof_after_handshake() -> None:
 
 
 @pytest.mark.asyncio
-async def test_runtime_client_can_negotiate_protocol_v1() -> None:
+@pytest.mark.parametrize("protocol_version", [1, 2])
+async def test_runtime_client_can_negotiate_older_protocol(
+    protocol_version: ProtocolVersion,
+) -> None:
     async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         hello = await read_message(reader)
         assert isinstance(hello, Hello)
-        assert hello.protocol == 1
-        await write_message(writer, Welcome(protocol=1))
+        assert hello.protocol == protocol_version
+        await write_message(writer, Welcome(protocol=protocol_version))
         await write_message(writer, ConfigMessage())
         assert await reader.read() == b""
         writer.close()
         await writer.wait_closed()
 
     server, port, server_done = await _server(handle)
-    client = _client(port, protocol_version=1)
+    client = _client(port, protocol_version=protocol_version)
     try:
         assert await client.connect() == {}
-        assert client.negotiated_protocol == 1
+        assert client.negotiated_protocol == protocol_version
     finally:
         await client.close()
         await server_done
@@ -210,7 +215,7 @@ async def test_runtime_client_rejects_protocol_version_mismatch() -> None:
     async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         hello = await read_message(reader)
         assert isinstance(hello, Hello)
-        assert hello.protocol == 2
+        assert hello.protocol == 3
         await write_message(writer, Welcome(protocol=1))
         assert await reader.read() == b""
         writer.close()
