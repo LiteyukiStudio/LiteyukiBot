@@ -25,20 +25,14 @@ from ..events import (
     Segment,
     SendMessage,
 )
+from .client import RuntimeClient
 from .protocol import (
     ActionRequest,
     ActionResponse,
-    ConfigMessage,
     EventMessage,
-    Heartbeat,
-    Hello,
-    Ready,
     Shutdown,
-    Welcome,
     WireMessage,
     json_mapping,
-    read_message,
-    write_message,
 )
 
 logger = get_logger(component="nonebot", runtime=os.environ.get("LITEYUKI_RUNTIME_ID"))
@@ -54,8 +48,7 @@ class SupervisorBridge:
         self._configured = threading.Event()
         self._thread = threading.Thread(target=self._thread_main, name="liteyuki-nonebot-ipc", daemon=True)
         self._loop: asyncio.AbstractEventLoop | None = None
-        self._writer: asyncio.StreamWriter | None = None
-        self._send_lock: asyncio.Lock | None = None
+        self._client: RuntimeClient | None = None
         self._action_handler: ActionHandler | None = None
         self._shutdown: Callable[[], None] | None = None
         self._main_loop: asyncio.AbstractEventLoop | None = None
@@ -77,8 +70,11 @@ class SupervisorBridge:
         self._main_loop = main_loop
 
     def ready(self) -> None:
-        message = Ready(capabilities=("nonebot.plugins", "nonebot.events", "nonebot.actions"))
-        self._submit(self._send(message)).result(10)
+        if self._client is None:
+            raise RuntimeError("NoneBot supervisor bridge is not connected")
+        self._submit(
+            self._client.ready(("nonebot.plugins", "nonebot.events", "nonebot.actions"))
+        ).result(10)
 
     def emit_event(self, event: EventEnvelope) -> None:
         future = self._submit(
@@ -105,23 +101,13 @@ class SupervisorBridge:
 
     async def _run(self) -> None:
         self._loop = asyncio.get_running_loop()
-        host = os.environ["LITEYUKI_RUNTIME_HOST"]
-        port = int(os.environ["LITEYUKI_RUNTIME_PORT"])
-        runtime_id = os.environ["LITEYUKI_RUNTIME_ID"]
-        token = os.environ["LITEYUKI_RUNTIME_TOKEN"]
-        reader, self._writer = await asyncio.open_connection(host, port)
-        self._send_lock = asyncio.Lock()
-        await self._send(Hello(runtime_id=runtime_id, kind="nonebot", token=token))
-        welcome = await read_message(reader)
-        config = await read_message(reader)
-        if not isinstance(welcome, Welcome) or not isinstance(config, ConfigMessage):
-            raise RuntimeError("invalid supervisor handshake")
-        self.options = config.options
+        client = RuntimeClient.from_environment("nonebot")
+        self._client = client
+        self.options = await client.connect()
         self._configured.set()
-        heartbeat = asyncio.create_task(self._heartbeat(welcome.heartbeat_interval))
         try:
             while True:
-                message = await read_message(reader)
+                message = await client.receive()
                 if isinstance(message, Shutdown):
                     if self._shutdown is not None:
                         self._shutdown()
@@ -129,11 +115,7 @@ class SupervisorBridge:
                 if isinstance(message, ActionRequest):
                     await self._handle_action(message)
         finally:
-            heartbeat.cancel()
-            await asyncio.gather(heartbeat, return_exceptions=True)
-            if self._writer is not None:
-                self._writer.close()
-                await self._writer.wait_closed()
+            await client.close()
 
     async def _handle_action(self, request: ActionRequest) -> None:
         if self._action_handler is None or self._main_loop is None:
@@ -164,15 +146,9 @@ class SupervisorBridge:
         await self._send(response)
 
     async def _send(self, message: WireMessage) -> None:
-        if self._writer is None or self._send_lock is None:
+        if self._client is None:
             raise ConnectionError("NoneBot supervisor bridge is not connected")
-        async with self._send_lock:
-            await write_message(self._writer, message)
-
-    async def _heartbeat(self, interval: float) -> None:
-        while True:
-            await asyncio.sleep(interval)
-            await self._send(Heartbeat(monotonic=asyncio.get_running_loop().time()))
+        await self._client.send(message)
 
 
 class NoneBotHost:

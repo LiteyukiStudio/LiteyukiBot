@@ -8,6 +8,8 @@
 - made installed distribution metadata the runtime version source and added
   release tag/build verification;
 - retained the non-root local Docker build while remote image publication is paused.
+- centralized child-runtime handshake, heartbeat, serialized writes, and cleanup
+  in a reusable protocol-v1 client shared by all built-in child hosts.
 
 ## 7.0.0a1 - 2026-08-04
 

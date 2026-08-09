@@ -1,5 +1,6 @@
 """Child runtime protocol and supervision."""
 
+from .client import RuntimeClient
 from .protocol import (
     MAX_FRAME_SIZE,
     ActionRequest,
@@ -27,6 +28,7 @@ __all__ = [
     "Heartbeat",
     "Hello",
     "Ready",
+    "RuntimeClient",
     "RuntimeSpec",
     "RuntimeState",
     "RuntimeSupervisor",
