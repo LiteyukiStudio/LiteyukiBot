@@ -44,6 +44,25 @@ jobs:
           name: v7-baseline-${{ matrix.os }}
           path: LiteyukiBot/benchmark.json
 
+  published-install:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: LiteyukiBot
+      - uses: astral-sh/setup-uv@v8.3.2
+        with:
+          version: "0.11.16"
+      - name: Verify published wheel in isolation
+        working-directory: LiteyukiBot
+        run: |
+          uv python install 3.14
+          uv run --no-project --python 3.14 --with "liteyukibot-v7==7.0.0a1" python scripts/verify_published_install.py --expected-version 7.0.0a1
+
   nonebot-contract:
     runs-on: ubuntu-latest
     steps:
