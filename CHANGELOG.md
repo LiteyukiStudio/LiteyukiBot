@@ -12,6 +12,8 @@
   in a reusable versioned client shared by all built-in child hosts.
 - added negotiated runtime protocol v2 with capability-gated core-to-child event
   delivery while retaining concurrent v1 child support.
+- restored the process-local v6 session, rule, matcher, and reply-intent API
+  needed by ordinary message plugins without restoring Channel semantics.
 
 ## 7.0.0a1 - 2026-08-04
 

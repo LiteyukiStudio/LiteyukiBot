@@ -1,7 +1,5 @@
-from typing import NoReturn
+"""LiteyukiBot v6-compatible message segment exports."""
 
-from liteyuki._unsupported import unsupported
+from .segments import BaseSeg, Image, Text
 
-
-def __getattr__(name: str) -> NoReturn:
-    unsupported(__name__, name)
+__all__ = ["BaseSeg", "Image", "Text"]
