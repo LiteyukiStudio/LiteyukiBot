@@ -242,7 +242,7 @@ wheels = [
 
 [[package]]
 name = "liteyukibot-v7"
-version = "7.0.0a1"
+version = "7.0.0a2"
 source = { editable = "." }
 dependencies = [
     { name = "pydantic" },

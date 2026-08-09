@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 7.0.0a2 - 2026-08-09
+
+The second v7 alpha completes kernel stabilization and the first bounded
+message-plugin compatibility phase:
+
 - completed Phase 2 kernel stabilization with accepted v1 ADRs, deterministic
   runtime failure coverage, and cross-platform published-install verification;
 - recorded informational alpha performance references on Linux, macOS, and Windows;
@@ -24,6 +29,10 @@
   installable examples, and explicit lifecycle/single-reader authoring guidance.
 - bounded pre-stable protocol numbering at v5 and made v3 the direct iteration
   target without an alpha backwards-compatibility guarantee.
+
+This remains a rapid-iteration pre-release. Protocol v3 is the current direct
+development target and may change without backwards-compatibility shims under
+ADR 0011.
 
 ## 7.0.0a1 - 2026-08-04
 
