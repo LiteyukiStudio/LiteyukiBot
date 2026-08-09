@@ -1,5 +1,6 @@
 """LiteyukiBot v7 public API."""
 
+from ._version import __version__
 from .app import LiteyukiApp
 from .plugins import PluginContext, PluginDefinition, PluginHandle, PluginManifest
 from .services import ServiceKey, ServiceRegistry, ServiceRequirement
@@ -13,6 +14,5 @@ __all__ = [
     "ServiceKey",
     "ServiceRegistry",
     "ServiceRequirement",
+    "__version__",
 ]
-
-__version__ = "7.0.0a1"

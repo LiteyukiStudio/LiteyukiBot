@@ -4,6 +4,11 @@ on:
   push:
     tags: ["v7.*"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: Exact project version to publish
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -12,6 +17,8 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
     environment: pypi
     steps:
       - uses: actions/checkout@v6
@@ -20,7 +27,13 @@ jobs:
           version: "0.11.16"
       - name: Require published Yukilog 1.x
         run: uv run --no-project --with "yukilog>=1,<2" python -c "import yukilog"
-      - name: Build and publish
+      - name: Validate release identity
+        run: uv run python scripts/check_release.py --tag "$RELEASE_TAG"
+      - name: Build distribution
         run: |
           uv build
+          wheel="$(find dist -maxdepth 1 -name '*.whl' -print -quit)"
+          uv run --no-project --with "$wheel" python scripts/verify_published_install.py --expected-version "${RELEASE_TAG#v}"
+      - name: Publish distribution
+        run: |
           uv publish
