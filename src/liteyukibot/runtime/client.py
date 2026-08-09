@@ -1,4 +1,4 @@
-"""Reusable protocol-v1 client for supervised child runtimes."""
+"""Reusable versioned client for supervised child runtimes."""
 
 from __future__ import annotations
 
@@ -9,10 +9,13 @@ from collections.abc import Mapping, Sequence
 
 from ..exceptions import RuntimeProtocolError
 from .protocol import (
+    PROTOCOL_VERSION,
+    SUPPORTED_PROTOCOL_VERSIONS,
     ConfigMessage,
     Heartbeat,
     Hello,
     JsonValue,
+    ProtocolVersion,
     Ready,
     Welcome,
     WireMessage,
@@ -30,16 +33,21 @@ class RuntimeClient:
         runtime_id: str,
         kind: str,
         token: str,
+        protocol_version: ProtocolVersion = PROTOCOL_VERSION,
     ) -> None:
         if not host or not runtime_id or not kind or not token:
             raise ValueError("runtime connection identity must not be empty")
         if not 1 <= port <= 65535:
             raise ValueError("runtime port must be between 1 and 65535")
+        if protocol_version not in SUPPORTED_PROTOCOL_VERSIONS:
+            raise ValueError(f"unsupported runtime protocol version: {protocol_version}")
         self.host = host
         self.port = port
         self.runtime_id = runtime_id
         self.kind = kind
         self.token = token
+        self.protocol_version = protocol_version
+        self.negotiated_protocol: ProtocolVersion | None = None
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
         self._send_lock = asyncio.Lock()
@@ -52,6 +60,8 @@ class RuntimeClient:
         cls,
         kind: str,
         environment: Mapping[str, str] | None = None,
+        *,
+        protocol_version: ProtocolVersion = PROTOCOL_VERSION,
     ) -> RuntimeClient:
         values = os.environ if environment is None else environment
         return cls(
@@ -60,6 +70,7 @@ class RuntimeClient:
             runtime_id=values["LITEYUKI_RUNTIME_ID"],
             kind=kind,
             token=values["LITEYUKI_RUNTIME_TOKEN"],
+            protocol_version=protocol_version,
         )
 
     @property
@@ -76,17 +87,23 @@ class RuntimeClient:
                     runtime_id=self.runtime_id,
                     kind=self.kind,
                     token=self.token,
+                    protocol=self.protocol_version,
                 )
             )
             welcome = await self.receive()
             if not isinstance(welcome, Welcome):
                 raise RuntimeProtocolError("expected welcome during runtime handshake")
+            if welcome.protocol != self.protocol_version:
+                raise RuntimeProtocolError(
+                    "supervisor confirmed a different runtime protocol version"
+                )
             config = await self.receive()
             if not isinstance(config, ConfigMessage):
                 raise RuntimeProtocolError("expected config during runtime handshake")
             if welcome.heartbeat_interval <= 0:
                 raise RuntimeProtocolError("runtime heartbeat interval must be positive")
             self._heartbeat_interval = welcome.heartbeat_interval
+            self.negotiated_protocol = welcome.protocol
             return config.options
         except BaseException:
             await self.close()
@@ -127,6 +144,7 @@ class RuntimeClient:
         async with self._send_lock:
             writer, self._writer = self._writer, None
             self._reader = None
+            self.negotiated_protocol = None
             if writer is not None:
                 writer.close()
                 await writer.wait_closed()

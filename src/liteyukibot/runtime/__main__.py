@@ -9,6 +9,8 @@ from .client import RuntimeClient
 from .protocol import (
     ActionRequest,
     ActionResponse,
+    EventAccepted,
+    EventMessage,
     Shutdown,
 )
 
@@ -19,7 +21,7 @@ async def run_noop(kind: str) -> None:
         await client.connect()
         if kind != "noop":
             raise RuntimeError(f"runtime kind {kind!r} is not installed")
-        await client.ready(("noop",))
+        await client.ready(("noop", "runtime.events.receive"))
         while True:
             message = await client.receive()
             if isinstance(message, Shutdown):
@@ -31,6 +33,13 @@ async def run_noop(kind: str) -> None:
                         ok=True,
                         data={"echo": message.payload},
                     ),
+                )
+            if isinstance(message, EventMessage):
+                await client.send(
+                    EventAccepted(
+                        correlation_id=message.correlation_id,
+                        status="accepted",
+                    )
                 )
     finally:
         await client.close()

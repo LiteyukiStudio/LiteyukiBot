@@ -26,6 +26,7 @@ from .protocol import (
     Heartbeat,
     Hello,
     JsonValue,
+    ProtocolVersion,
     Ready,
     Shutdown,
     Welcome,
@@ -89,6 +90,9 @@ class RuntimeRecord:
     runner: asyncio.Task[None] | None = None
     output_tasks: tuple[asyncio.Task[None], ...] = ()
     pending_actions: dict[str, asyncio.Future[ActionResponse]] = field(default_factory=dict)
+    pending_events: dict[str, asyncio.Future[EventAccepted]] = field(default_factory=dict)
+    protocol_version: ProtocolVersion | None = None
+    capabilities: frozenset[str] = frozenset()
     send_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     launch_count: int = 0
 
@@ -241,7 +245,14 @@ class RuntimeSupervisor:
             record.writer = writer
             record.connected.set()
             record.last_heartbeat = time.monotonic()
-            await self._send(record, Welcome(heartbeat_interval=record.spec.heartbeat_interval))
+            record.protocol_version = message.protocol
+            await self._send(
+                record,
+                Welcome(
+                    protocol=message.protocol,
+                    heartbeat_interval=record.spec.heartbeat_interval,
+                ),
+            )
             await self._send(record, ConfigMessage(options=json_mapping(record.spec.options)))
             await self._receive_loop(record)
         except (EOFError, ConnectionError):
@@ -263,6 +274,7 @@ class RuntimeSupervisor:
 
     async def _handle_message(self, record: RuntimeRecord, message: WireMessage) -> None:
         if isinstance(message, Ready):
+            record.capabilities = frozenset(message.capabilities)
             record.state = RuntimeState.READY
             record.ready.set()
         elif isinstance(message, Heartbeat):
@@ -280,10 +292,14 @@ class RuntimeSupervisor:
                 record,
                 EventAccepted(correlation_id=message.correlation_id, status=normalized),
             )
+        elif isinstance(message, EventAccepted):
+            event_future = record.pending_events.pop(message.correlation_id, None)
+            if event_future is not None and not event_future.done():
+                event_future.set_result(message)
         elif isinstance(message, ActionResponse):
-            future = record.pending_actions.pop(message.correlation_id, None)
-            if future is not None and not future.done():
-                future.set_result(message)
+            action_future = record.pending_actions.pop(message.correlation_id, None)
+            if action_future is not None and not action_future.done():
+                action_future.set_result(message)
         elif isinstance(message, ErrorMessage):
             self.logger.error("runtime {} error {}: {}", record.spec.id, message.code, message.message)
         else:
@@ -310,6 +326,34 @@ class RuntimeSupervisor:
                 return await future
         finally:
             record.pending_actions.pop(correlation_id, None)
+
+    async def dispatch_event(
+        self,
+        runtime_id: str,
+        correlation_id: str,
+        payload: Mapping[str, Any],
+        timeout_seconds: float = 30.0,
+    ) -> EventAccepted:
+        record = self.records[runtime_id]
+        if record.state is not RuntimeState.READY:
+            raise RuntimeError(f"runtime {runtime_id} is not ready")
+        if record.protocol_version != 2:
+            raise RuntimeError(f"runtime {runtime_id} did not negotiate protocol v2")
+        if "runtime.events.receive" not in record.capabilities:
+            raise RuntimeError(f"runtime {runtime_id} does not accept core events")
+        if correlation_id in record.pending_events:
+            raise ValueError(f"duplicate event correlation id: {correlation_id}")
+        future: asyncio.Future[EventAccepted] = asyncio.get_running_loop().create_future()
+        record.pending_events[correlation_id] = future
+        try:
+            await self._send(
+                record,
+                EventMessage(correlation_id=correlation_id, payload=json_mapping(payload)),
+            )
+            async with asyncio.timeout(timeout_seconds):
+                return await future
+        finally:
+            record.pending_events.pop(correlation_id, None)
 
     async def restart(self, runtime_id: str) -> None:
         record = self.records[runtime_id]
@@ -388,10 +432,20 @@ class RuntimeSupervisor:
         record.reader = None
         record.connected.clear()
         record.ready.clear()
-        for future in record.pending_actions.values():
-            if not future.done():
-                future.set_exception(ConnectionError(f"runtime {record.spec.id} disconnected"))
+        record.protocol_version = None
+        record.capabilities = frozenset()
+        for action_future in record.pending_actions.values():
+            if not action_future.done():
+                action_future.set_exception(
+                    ConnectionError(f"runtime {record.spec.id} disconnected")
+                )
         record.pending_actions.clear()
+        for event_future in record.pending_events.values():
+            if not event_future.done():
+                event_future.set_exception(
+                    ConnectionError(f"runtime {record.spec.id} disconnected")
+                )
+        record.pending_events.clear()
         if writer is not None:
             writer.close()
             await writer.wait_closed()
