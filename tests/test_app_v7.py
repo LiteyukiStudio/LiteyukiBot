@@ -14,7 +14,7 @@ import pytest
 
 from liteyukibot.app import AppState, LiteyukiApp
 from liteyukibot.config import AppSettings, CoreSettings, HttpSettings, PluginSettings
-from liteyukibot.control import ControlError, request_control
+from liteyukibot.control import ControlError, ControlServer, request_control
 from liteyukibot.exceptions import PluginError
 from liteyukibot.plugins import PluginDefinition, PluginHandle, PluginManifest
 from liteyukibot.services import ServiceKey, ServiceRequirement
@@ -61,6 +61,93 @@ async def test_app_lifecycle_and_local_control(tmp_path: Path) -> None:
     assert not descriptor.exists()
     with pytest.raises(ControlError, match="cannot read control descriptor"):
         await request_control(descriptor, "status")
+
+
+@pytest.mark.asyncio
+async def test_app_rejects_restart_and_repeated_stop_is_safe(tmp_path: Path) -> None:
+    settings = AppSettings(
+        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache")
+    )
+    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
+    descriptor = settings.core.data_dir / "control.json"
+
+    await app.start()
+    with pytest.raises(RuntimeError, match="cannot start from state ready"):
+        await app.start()
+    assert descriptor.is_file()
+
+    await app.stop()
+    await app.stop()
+
+    assert app.state is AppState.STOPPED
+    assert not descriptor.exists()
+    with pytest.raises(RuntimeError, match="cannot start from state stopped"):
+        await app.start()
+
+
+@pytest.mark.asyncio
+async def test_startup_preserves_primary_error_when_cleanup_also_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = AppSettings(
+        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache")
+    )
+    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
+
+    async def fail_start() -> None:
+        raise RuntimeError("startup failed")
+
+    async def fail_cleanup() -> None:
+        raise RuntimeError("cleanup failed")
+
+    monkeypatch.setattr(app.events, "start", fail_start)
+    monkeypatch.setattr(app.events, "aclose", fail_cleanup)
+
+    with pytest.raises(RuntimeError, match="startup failed") as raised:
+        await app.start()
+
+    assert app.state is AppState.FAILED
+    assert any(
+        "startup cleanup also failed: application cleanup failed" in note
+        for note in getattr(raised.value, "__notes__", ())
+    )
+
+
+@pytest.mark.asyncio
+async def test_control_descriptor_replacement_is_owner_safe(tmp_path: Path) -> None:
+    descriptor = tmp_path / "data" / "control.json"
+
+    async def restart(_runtime_id: str) -> None:
+        return None
+
+    first = ControlServer(
+        descriptor,
+        status_provider=lambda: {"instance": "first"},
+        runtime_restarter=restart,
+    )
+    second = ControlServer(
+        descriptor,
+        status_provider=lambda: {"instance": "second"},
+        runtime_restarter=restart,
+    )
+
+    await first.start()
+    try:
+        first_descriptor = json.loads(descriptor.read_text(encoding="utf-8"))
+        await second.start()
+        try:
+            second_descriptor = json.loads(descriptor.read_text(encoding="utf-8"))
+            assert second_descriptor["token"] != first_descriptor["token"]
+
+            await first.stop()
+
+            assert json.loads(descriptor.read_text(encoding="utf-8")) == second_descriptor
+        finally:
+            await second.stop()
+    finally:
+        await first.stop()
+
+    assert not descriptor.exists()
 
 
 @pytest.mark.asyncio
