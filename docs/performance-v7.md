@@ -1,0 +1,46 @@
+# LiteyukiBot v7 Performance Reference
+
+## Published Install Contract
+
+CI installs `liteyukibot-v7==7.0.0a1` from PyPI in an isolated uv environment
+on Ubuntu, Windows, and macOS. It verifies the distribution metadata and imports
+both `liteyukibot` and the `liteyuki` v6 compatibility namespace. The check does
+not use the repository virtual environment or install the source checkout.
+
+Run the same contract locally with:
+
+```bash
+uv run --no-project --python 3.14 --with "liteyukibot-v7==7.0.0a1" python scripts/verify_published_install.py --expected-version 7.0.0a1
+```
+
+## Alpha Reference
+
+The first reference set is stored in
+`benchmarks/v7-alpha-reference.json`. Each value is the median of three samples
+from successful `v7` push workflows after PRs #96, #97, and #98. All samples
+used CPython 3.14.5 and 5,000 independently ordered events.
+
+| Runner | Startup ms | Events/s | Median latency ms | p95 latency ms | Peak RSS MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `macos-latest` | 2.913 | 31,690 | 1.776 | 2.359 | 46.3 |
+| `ubuntu-latest` | 2.333 | 24,400 | 2.311 | 2.665 | 51.5 |
+| `windows-latest` | 6.916 | 18,011 | 3.337 | 4.532 | 45.6 |
+
+Source workflow runs:
+
+- [31300636600](https://github.com/LiteyukiStudio/LiteyukiBot/actions/runs/31300636600)
+- [31300865414](https://github.com/LiteyukiStudio/LiteyukiBot/actions/runs/31300865414)
+- [31301376697](https://github.com/LiteyukiStudio/LiteyukiBot/actions/runs/31301376697)
+
+## Interpretation
+
+This alpha reference is auditable but not an automatic performance gate.
+GitHub-hosted runner load remains visible in the individual artifacts; for
+example, one macOS startup sample was 20.8 ms while the other two were below
+3 ms. Median aggregation limits a single outlier without hiding the raw runs.
+
+After the first stable v7 release, replace this file with a stable reference
+captured from three clean runs per platform. A regression review is required
+when startup, latency, or RSS rises by more than 20%, or throughput falls by more
+than 20%. The comparison must use the same Python minor version, event count,
+runner architecture, and benchmark schema.
