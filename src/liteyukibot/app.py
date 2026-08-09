@@ -13,7 +13,7 @@ from .events import ActionEnvelope, ActionResult, EventBus, EventEnvelope
 from .http import HttpServer
 from .logging import Logger, configure_logging, get_logger, shutdown_logging
 from .plugins import PluginManager
-from .runtime import RuntimeSpec, RuntimeSupervisor
+from .runtime import ActionSinkResult, RuntimeSpec, RuntimeSupervisor
 from .services import ServiceRegistry
 
 
@@ -70,7 +70,11 @@ class LiteyukiApp:
         self.logger = logger or get_logger(component="core")
         self.state = AppState.CREATED
         self.services = ServiceRegistry()
-        self.runtimes = RuntimeSupervisor(logger=self.logger, event_sink=self._ingest_runtime_event)
+        self.runtimes = RuntimeSupervisor(
+            logger=self.logger,
+            event_sink=self._ingest_runtime_event,
+            action_sink=self._execute_runtime_action,
+        )
         self.actions = ActionService(self.runtimes)
         core = settings.core
         self.events = EventBus(
@@ -272,6 +276,28 @@ class LiteyukiApp:
             return "invalid"
         result = await self.events.publish(event)
         return "accepted" if result.status == "processed" else result.status
+
+    async def _execute_runtime_action(
+        self, source_runtime_id: str, payload: dict[str, Any]
+    ) -> ActionSinkResult:
+        try:
+            action = ActionEnvelope.model_validate(payload)
+        except ValueError as error:
+            self.logger.bind(runtime=source_runtime_id, component="runtime").warning(
+                "runtime action failed validation: {}", error
+            )
+            return ActionSinkResult(ok=False, error="invalid ActionEnvelope")
+        if action.runtime_id == source_runtime_id:
+            return ActionSinkResult(
+                ok=False,
+                error="child-originated action cannot target its source runtime",
+            )
+        result = await self.actions.execute(action)
+        return ActionSinkResult(
+            ok=result.success,
+            data=result.model_dump(mode="json"),
+            error=result.error_message,
+        )
 
     @staticmethod
     def _plugin_configs(config: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:

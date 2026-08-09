@@ -92,7 +92,7 @@ async def test_protocol_accepts_discriminated_ready_message() -> None:
     assert await read_message(_reader(frame)) == Ready(capabilities=("events",))
 
 
-@pytest.mark.parametrize("protocol", [1, 2])
+@pytest.mark.parametrize("protocol", [1, 2, 3])
 @pytest.mark.asyncio
 async def test_protocol_accepts_negotiated_hello_versions(protocol: int) -> None:
     payload = json.dumps(
@@ -116,7 +116,7 @@ async def test_protocol_rejects_unsupported_hello_version() -> None:
     payload = json.dumps(
         {
             "type": "hello",
-            "protocol": 3,
+            "protocol": 4,
             "runtime_id": "fixture",
             "kind": "custom",
             "token": "secret",

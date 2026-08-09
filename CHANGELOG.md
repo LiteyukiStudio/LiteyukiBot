@@ -14,6 +14,8 @@
   delivery while retaining concurrent v1 child support.
 - restored the process-local v6 session, rule, matcher, and reply-intent API
   needed by ordinary message plugins without restoring Channel semantics.
+- added negotiated runtime protocol v3 with capability-gated child-originated
+  Actions routed through the core's existing protocol-neutral Action service.
 
 ## 7.0.0a1 - 2026-08-04
 
