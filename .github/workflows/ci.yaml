@@ -65,7 +65,7 @@ jobs:
         working-directory: LiteyukiBot
         run: |
           uv python install 3.14
-          uv run --no-project --python 3.14 --with "liteyukibot-v7==7.0.0a1" python scripts/verify_published_install.py --expected-version 7.0.0a1
+          uv run --no-project --python 3.14 --with "liteyukibot-v7==7.0.0a2" python scripts/verify_published_install.py --expected-version 7.0.0a2
 
   nonebot-contract:
     runs-on: ubuntu-latest
