@@ -12,3 +12,4 @@ new, explicitly versioned decision.
 6. [v6 session compatibility](0006-v6-session-compatibility.md)
 7. [Runtime IPC v3 and bidirectional Actions](0007-runtime-ipc-protocol-v3.md)
 8. [v6 runtime Event and reply integration](0008-v6-runtime-event-integration.md)
+9. [NoneBot OneBot and Satori adapter contracts](0009-nonebot-adapter-contracts.md)
