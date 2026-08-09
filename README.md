@@ -76,3 +76,9 @@ uv build
 The architecture overview is documented in `docs/architecture/v7.md`; accepted
 v1 contracts are indexed in `docs/adr/README.md`; the v6 compatibility boundary
 is documented in `docs/migration-v6.md`.
+
+Plugin and runtime authors should start with the installable examples and their
+focused guides:
+
+- `examples/native-plugin` and `docs/development/native-plugins.md`;
+- `examples/custom-runtime` and `docs/development/custom-runtimes.md`.

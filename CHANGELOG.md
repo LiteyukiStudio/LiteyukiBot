@@ -20,6 +20,10 @@
   ordered reply intents into correlated protocol-v3 SendMessage Actions.
 - added structured OneBot v11/v12 and Satori event/message translation with
   exact reply routing, supported proactive sends, and strict JSON Action results.
+- added dependency-free native-plugin and custom-runtime conformance harnesses,
+  installable examples, and explicit lifecycle/single-reader authoring guidance.
+- bounded pre-stable protocol numbering at v5 and made v3 the direct iteration
+  target without an alpha backwards-compatibility guarantee.
 
 ## 7.0.0a1 - 2026-08-04
 

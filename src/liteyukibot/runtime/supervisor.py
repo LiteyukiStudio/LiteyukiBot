@@ -82,6 +82,10 @@ class RuntimeSpec:
             raise ValueError("runtime lifecycle timeouts must be positive")
         if self.heartbeat_interval <= 0 or self.stale_after <= self.heartbeat_interval:
             raise ValueError("runtime stale_after must exceed its positive heartbeat interval")
+        if self.command is not None and (
+            not self.command or any(not part for part in self.command)
+        ):
+            raise ValueError("runtime command arguments must not be empty")
 
 
 @dataclass(slots=True)
@@ -412,9 +416,13 @@ class RuntimeSupervisor:
         payload: Mapping[str, Any],
         timeout_seconds: float = 30.0,
     ) -> ActionResponse:
+        if timeout_seconds <= 0:
+            raise ValueError("runtime action timeout must be positive")
         record = self.records[runtime_id]
         if record.state is not RuntimeState.READY:
             raise RuntimeError(f"runtime {runtime_id} is not ready")
+        if correlation_id in record.pending_actions:
+            raise ValueError(f"duplicate action correlation id: {correlation_id}")
         future: asyncio.Future[ActionResponse] = asyncio.get_running_loop().create_future()
         record.pending_actions[correlation_id] = future
         try:
@@ -434,6 +442,8 @@ class RuntimeSupervisor:
         payload: Mapping[str, Any],
         timeout_seconds: float = 30.0,
     ) -> EventAccepted:
+        if timeout_seconds <= 0:
+            raise ValueError("runtime event timeout must be positive")
         record = self.records[runtime_id]
         if record.state is not RuntimeState.READY:
             raise RuntimeError(f"runtime {runtime_id} is not ready")
