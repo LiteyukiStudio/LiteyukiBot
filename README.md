@@ -52,13 +52,13 @@ uv run liteyuki --config local.toml --set logging.level=DEBUG check
 
 ## Docker
 
-The v7 pre-release image is published to GHCR as
-`ghcr.io/liteyukistudio/liteyukibot:v7.0.0a1`. It includes the optional YAML,
-HTTP, NoneBot2, OneBot, and Satori integrations, and runs as a non-root user.
+The v7 image can be built locally with the optional YAML, HTTP, NoneBot2,
+OneBot, and Satori integrations. It runs as a non-root user. GHCR publication
+is currently paused; the Docker workflow validates builds without pushing.
 
 ```bash
-docker pull ghcr.io/liteyukistudio/liteyukibot:v7.0.0a1
-docker run --rm ghcr.io/liteyukistudio/liteyukibot:v7.0.0a1 version
+docker build -t liteyukibot:v7-local .
+docker run --rm liteyukibot:v7-local version
 ```
 
 Mount a `liteyuki.toml` at `/app/liteyuki.toml` and persistent volumes at
