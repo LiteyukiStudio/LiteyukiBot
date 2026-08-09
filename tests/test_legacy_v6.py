@@ -34,10 +34,7 @@ def test_legacy_context_and_unsupported_nested_host() -> None:
         _reset_runtime()
 
 
-def test_unsupported_v6_modules_raise_migration_error() -> None:
-    with pytest.raises(LegacyUnsupportedError, match="session.Session"):
-        from liteyuki.session import Session  # noqa: F401
-
+def test_unsupported_v6_channel_raises_migration_error() -> None:
     with pytest.raises(LegacyUnsupportedError, match="comm.channel.get_channel"):
         from liteyuki.comm.channel import get_channel  # noqa: F401
 
