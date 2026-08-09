@@ -65,8 +65,19 @@ class PluginManifest(BaseModel):
     @field_validator("id")
     @classmethod
     def validate_id(cls, value: str) -> str:
-        if not value or value.strip("abcdefghijklmnopqrstuvwxyz0123456789-_."):
+        if (
+            not value
+            or value.strip("abcdefghijklmnopqrstuvwxyz0123456789-_.")
+            or any(not part for part in value.split("."))
+        ):
             raise ValueError("plugin id must use lowercase ASCII letters, digits, '-', '_' or '.'")
+        return value
+
+    @field_validator("name", "version")
+    @classmethod
+    def validate_required_metadata(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("plugin manifest metadata must not be blank")
         return value
 
 
