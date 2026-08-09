@@ -11,6 +11,7 @@ from liteyukibot.exceptions import RuntimeProtocolError
 from liteyukibot.runtime.protocol import (
     MAX_FRAME_SIZE,
     ConfigMessage,
+    Hello,
     Ready,
     json_mapping,
     read_message,
@@ -89,3 +90,39 @@ async def test_protocol_accepts_discriminated_ready_message() -> None:
     frame = struct.pack(">I", len(payload)) + payload
 
     assert await read_message(_reader(frame)) == Ready(capabilities=("events",))
+
+
+@pytest.mark.parametrize("protocol", [1, 2])
+@pytest.mark.asyncio
+async def test_protocol_accepts_negotiated_hello_versions(protocol: int) -> None:
+    payload = json.dumps(
+        {
+            "type": "hello",
+            "protocol": protocol,
+            "runtime_id": "fixture",
+            "kind": "custom",
+            "token": "secret",
+        }
+    ).encode()
+    frame = struct.pack(">I", len(payload)) + payload
+
+    message = await read_message(_reader(frame))
+    assert isinstance(message, Hello)
+    assert message.protocol == protocol
+
+
+@pytest.mark.asyncio
+async def test_protocol_rejects_unsupported_hello_version() -> None:
+    payload = json.dumps(
+        {
+            "type": "hello",
+            "protocol": 3,
+            "runtime_id": "fixture",
+            "kind": "custom",
+            "token": "secret",
+        }
+    ).encode()
+    frame = struct.pack(">I", len(payload)) + payload
+
+    with pytest.raises(RuntimeProtocolError):
+        await read_message(_reader(frame))
