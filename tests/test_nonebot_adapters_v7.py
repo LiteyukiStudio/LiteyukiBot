@@ -31,8 +31,11 @@ _ADAPTER_MODULES = (
     "nonebot.adapters.onebot.v12",
     "nonebot.adapters.satori",
 )
+_ADAPTERS_INSTALLED = importlib.util.find_spec("nonebot") is not None and all(
+    importlib.util.find_spec(module) is not None for module in _ADAPTER_MODULES
+)
 pytestmark = pytest.mark.skipif(
-    any(importlib.util.find_spec(module) is None for module in _ADAPTER_MODULES),
+    not _ADAPTERS_INSTALLED,
     reason="NoneBot OneBot and Satori extras are not installed",
 )
 
