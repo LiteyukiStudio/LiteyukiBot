@@ -57,6 +57,22 @@ RELEASE_PROJECTS: dict[str, ReleaseProject] = {
         tag_selector="commands-v",
         verifier="scripts/verify_commands_install.py",
     ),
+    "resources": ReleaseProject(
+        name="resources",
+        project_dir="packages/resources",
+        distribution="liteyukibot-v7-resources",
+        tag_prefix="resources-v",
+        tag_selector="resources-v",
+        verifier="scripts/verify_resources_install.py",
+    ),
+    "profile": ReleaseProject(
+        name="profile",
+        project_dir="packages/profile",
+        distribution="liteyukibot-v7-profile",
+        tag_prefix="profile-v",
+        tag_selector="profile-v",
+        verifier="scripts/verify_profile_install.py",
+    ),
     "essentials": ReleaseProject(
         name="essentials",
         project_dir="packages/essentials",
