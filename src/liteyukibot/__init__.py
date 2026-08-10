@@ -11,9 +11,13 @@ from .plugins import (
     PluginServices,
 )
 from .services import ServiceKey, ServiceRegistry, ServiceRequirement
+from .status import KERNEL_STATUS_SERVICE, KernelStatusProvider, KernelStatusSnapshot
 
 __all__ = [
     "LiteyukiApp",
+    "KERNEL_STATUS_SERVICE",
+    "KernelStatusProvider",
+    "KernelStatusSnapshot",
     "PluginContext",
     "PluginDefinition",
     "PluginHandle",

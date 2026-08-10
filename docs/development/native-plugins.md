@@ -66,3 +66,25 @@ records the Action and returns a correlated success.
 The harness is single-use and intentionally tests one plugin. Use
 `LiteyukiApp` or the kernel components directly for multi-plugin topology and
 full configuration tests.
+
+## Kernel status
+
+Plugins that need operational state declare the versioned kernel service rather
+than importing or retaining `LiteyukiApp`:
+
+```python
+from typing import cast
+
+from liteyukibot import KERNEL_STATUS_SERVICE, KernelStatusProvider
+
+provider = cast(
+    KernelStatusProvider,
+    context.services.require(KERNEL_STATUS_SERVICE),
+)
+snapshot = provider.snapshot()
+```
+
+Add `ServiceRequirement(KERNEL_STATUS_SERVICE)` to the plugin manifest before
+requiring it. Snapshots are immutable and contain only kernel version, state,
+uptime, plugin/runtime states, and outstanding event count. Presentation and
+access policy belong to the consuming plugin.

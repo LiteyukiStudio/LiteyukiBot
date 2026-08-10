@@ -15,3 +15,4 @@ stable-release guarantee.
 9. [NoneBot OneBot and Satori adapter contracts](0009-nonebot-adapter-contracts.md)
 10. [Developer conformance harnesses](0010-developer-kit-contracts.md)
 11. [Pre-stable protocol versioning](0011-pre-stable-protocol-policy.md)
+12. [Kernel status service](0012-kernel-status-service.md)

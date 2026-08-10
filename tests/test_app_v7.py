@@ -12,6 +12,8 @@ from urllib.request import urlopen
 
 import pytest
 
+import liteyukibot.app as app_module
+from liteyukibot import __version__
 from liteyukibot.app import AppState, LiteyukiApp
 from liteyukibot.config import (
     AppSettings,
@@ -34,6 +36,7 @@ from liteyukibot.exceptions import PluginError
 from liteyukibot.plugins import PluginDefinition, PluginHandle, PluginManifest
 from liteyukibot.runtime.protocol import EventAccepted
 from liteyukibot.services import ServiceKey, ServiceRequirement
+from liteyukibot.status import KERNEL_STATUS_SERVICE
 
 
 class FakeLogger:
@@ -54,6 +57,98 @@ class FakeLogger:
 
     def exception(self, message: str, *args: Any, **kwargs: Any) -> None:
         pass
+
+
+def test_kernel_status_service_is_available_before_plugin_resolution(tmp_path: Path) -> None:
+    settings = AppSettings(
+        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache")
+    )
+    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
+
+    provider = app.services.require(KERNEL_STATUS_SERVICE)
+    snapshot = provider.snapshot()
+
+    assert app.services.provider_for(KERNEL_STATUS_SERVICE) == "liteyukibot.kernel"
+    assert snapshot.version == __version__
+    assert snapshot.state == "created"
+    assert snapshot.uptime_seconds == 0
+    assert snapshot.plugins == {}
+    assert snapshot.runtimes == {}
+    assert snapshot.events_outstanding == 0
+    with pytest.raises(TypeError):
+        cast(dict[str, str], snapshot.plugins)["unexpected"] = "ready"
+
+
+@pytest.mark.asyncio
+async def test_kernel_status_uptime_freezes_after_stop(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = [10.0]
+    monkeypatch.setattr(app_module, "monotonic", lambda: now[0])
+    settings = AppSettings(
+        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache")
+    )
+    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
+
+    await app.start()
+    now[0] = 12.5
+    assert app.status_snapshot().uptime_seconds == 2.5
+
+    now[0] = 15.0
+    await app.stop()
+    now[0] = 99.0
+
+    snapshot = app.status_snapshot()
+    assert snapshot.state == "stopped"
+    assert snapshot.uptime_seconds == 5.0
+
+
+@pytest.mark.asyncio
+async def test_kernel_status_uptime_freezes_after_startup_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = [20.0]
+    monkeypatch.setattr(app_module, "monotonic", lambda: now[0])
+    settings = AppSettings(
+        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache")
+    )
+    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
+
+    async def fail_start() -> None:
+        now[0] = 23.0
+        raise RuntimeError("startup failed")
+
+    monkeypatch.setattr(app.events, "start", fail_start)
+
+    with pytest.raises(RuntimeError, match="startup failed"):
+        await app.start()
+
+    now[0] = 99.0
+    snapshot = app.status_snapshot()
+    assert snapshot.state == "failed"
+    assert snapshot.uptime_seconds == 3.0
+
+
+def test_plugin_topology_can_require_kernel_status(tmp_path: Path) -> None:
+    settings = AppSettings(
+        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache")
+    )
+    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
+
+    async def setup(_context: Any) -> None:
+        return None
+
+    definition = PluginDefinition(
+        PluginManifest(
+            id="status-consumer",
+            name="Status consumer",
+            version="1",
+            requires=(ServiceRequirement(KERNEL_STATUS_SERVICE),),
+        ),
+        setup,
+    )
+
+    assert app.plugins.resolve_order({"status-consumer": definition}) == ("status-consumer",)
 
 
 @pytest.mark.asyncio
