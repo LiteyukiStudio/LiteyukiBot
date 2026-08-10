@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7"
-version = "7.0.0a3"
+version = "7.0.0a4"
 description = "A protocol-neutral, multi-runtime chatbot kernel."
 readme = "README.md"
 requires-python = ">=3.14"

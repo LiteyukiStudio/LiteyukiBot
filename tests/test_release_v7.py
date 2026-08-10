@@ -25,7 +25,7 @@ def test_kernel_import_namespace_uses_distribution_version() -> None:
 @pytest.mark.parametrize(
     ("name", "tag"),
     [
-        ("root", "v7.0.0a3"),
+        ("root", "v7.0.0a4"),
         ("permissions", "permissions-v0.2.0a1"),
         ("commands", "commands-v0.2.0a1"),
         ("resources", "resources-v0.1.0a1"),
@@ -48,8 +48,8 @@ def test_current_release_identities_accept_exact_tags(name: str, tag: str) -> No
 @pytest.mark.parametrize(
     ("identity", "project_name", "tag", "message"),
     [
-        (ReleaseIdentity("liteyukibot", "7.0.0a3"), "root", None, "project.name"),
-        (ReleaseIdentity("liteyukibot-v7", "7.0.0a3"), "root", "v7.0.0a2", "release tag"),
+        (ReleaseIdentity("liteyukibot", "7.0.0a4"), "root", None, "project.name"),
+        (ReleaseIdentity("liteyukibot-v7", "7.0.0a4"), "root", "v7.0.0a2", "release tag"),
         (
             ReleaseIdentity("liteyukibot-v7-commands", "0.2.0a1"),
             "commands",

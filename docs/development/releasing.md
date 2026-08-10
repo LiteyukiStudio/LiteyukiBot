@@ -37,7 +37,7 @@ distribution inside the workflow.
 
 | Package | Source | Tag |
 | --- | --- | --- |
-| `liteyukibot-v7==7.0.0a3` | `pyproject.toml` | `v7.0.0a3` |
+| `liteyukibot-v7==7.0.0a4` | `pyproject.toml` | `v7.0.0a4` |
 | `liteyukibot-v7-permissions==0.2.0a1` | `packages/permissions` | `permissions-v0.2.0a1` |
 | `liteyukibot-v7-commands==0.2.0a1` | `packages/commands` | `commands-v0.2.0a1` |
 | `liteyukibot-v7-resources==0.1.0a1` | `packages/resources` | `resources-v0.1.0a1` |
@@ -53,7 +53,7 @@ tag that does not exactly match the selected source version and distribution.
 
 Push and wait for each release before creating the next tag:
 
-1. `v7.0.0a3`;
+1. `v7.0.0a4`;
 2. `permissions-v0.2.0a1`;
 3. `commands-v0.2.0a1`;
 4. `resources-v0.1.0a1`;
