@@ -12,7 +12,16 @@ from liteyukibot_resources import RESOURCE_SERVICE, ResourceField, ResourceServi
 
 from liteyukibot import LiteyukiApp
 from liteyukibot.config import AppSettings, CoreSettings, PluginSettings
-from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope
+from liteyukibot.events import (
+    ActionEnvelope,
+    ActionResult,
+    ActorRef,
+    ConversationRef,
+    EventEnvelope,
+    Message,
+    Segment,
+    SendMessage,
+)
 from liteyukibot.logging import get_logger
 
 
@@ -91,7 +100,12 @@ async def test_profile_plugin_uses_private_storage_and_registers_resource(tmp_pa
     settings = AppSettings(
         core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"),
         plugins=PluginSettings(
-            enabled=("liteyukibot.permissions", "liteyukibot.resources", "liteyukibot.profile"),
+            enabled=(
+                "liteyukibot.permissions",
+                "liteyukibot.commands",
+                "liteyukibot.resources",
+                "liteyukibot.profile",
+            ),
         ),
     )
     app = LiteyukiApp(settings, logger=get_logger(component="profile-tests"))
@@ -110,9 +124,63 @@ async def test_profile_plugin_uses_private_storage_and_registers_resource(tmp_pa
     assert plugin.manifest.storage == "private"
 
 
+@pytest.mark.asyncio
+async def test_profile_resource_commands_mutate_data_and_describe_limits(tmp_path: Path) -> None:
+    settings = AppSettings(
+        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"),
+        plugins=PluginSettings(
+            enabled=(
+                "liteyukibot.permissions",
+                "liteyukibot.commands",
+                "liteyukibot.resources",
+                "liteyukibot.profile",
+                "liteyukibot.essentials",
+            ),
+        ),
+    )
+    actions: list[ActionEnvelope] = []
+
+    async def record(action: ActionEnvelope) -> ActionResult:
+        actions.append(action)
+        return ActionResult(action_id=action.action_id, success=True)
+
+    app = LiteyukiApp(settings, logger=get_logger(component="profile-command-tests"))
+    app.events._action_executor = record
+    await app.start()
+    try:
+        for text in ("/profile", "/profile set nickname Alice", "/profile", "/profile delete nickname"):
+            await app.events.publish(_message_event(text))
+        rendered = [cast(SendMessage, action.action).message.plain_text for action in actions]
+        assert rendered == [
+            "nickname: \nlanguage: zh-CN",
+            "Updated profile.nickname",
+            "nickname: Alice\nlanguage: zh-CN",
+            "Reset profile.nickname",
+        ]
+
+        await app.events.publish(_message_event("/help profile set"))
+        help_text = cast(SendMessage, actions[-1].action).message.plain_text
+        assert "nickname: Display name; 1 to 32 characters" in help_text
+    finally:
+        await app.stop()
+
+
 def _nickname_field() -> ResourceField:
     return ResourceField("nickname", nickname_value)
 
 
 def _language_field() -> ResourceField:
     return ResourceField("language", language_value)
+
+
+def _message_event(text: str) -> EventEnvelope:
+    return EventEnvelope(
+        runtime_id="runtime",
+        adapter="test",
+        bot_id="bot",
+        type="message",
+        conversation=ConversationRef(id="conversation", type="group"),
+        actor=ActorRef(id="user"),
+        message=Message(segments=(Segment(type="text", data={"text": text}),)),
+        reply_token="reply",
+    )

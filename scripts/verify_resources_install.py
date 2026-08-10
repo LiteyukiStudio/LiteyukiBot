@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import cast
 
 import liteyukibot_resources
+from liteyukibot_commands import COMMAND_SERVICE, CommandService
+from liteyukibot_commands.service import create_command_service
 from liteyukibot_permissions import PERMISSION_SERVICE, PermissionService
 from liteyukibot_resources import RESOURCE_SERVICE, ResourceField, ResourceProvider, ResourceSpec
 from liteyukibot_resources.service import ResourceService
@@ -18,6 +20,7 @@ from liteyukibot_resources.service import ResourceService
 import liteyukibot
 from liteyukibot import PluginDefinition
 from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope
+from liteyukibot.logging import get_logger
 from liteyukibot.testing import PluginTestHarness
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
@@ -72,7 +75,17 @@ async def verify(expected_version: str | None = None) -> None:
         async with PluginTestHarness(
             definition,
             root=Path(directory),
-            dependencies={PERMISSION_SERVICE: cast(PermissionService, _PermissionStub())},
+            dependencies={
+                PERMISSION_SERVICE: cast(PermissionService, _PermissionStub()),
+                COMMAND_SERVICE: cast(
+                    CommandService,
+                    create_command_service(
+                        {},
+                        cast(PermissionService, _PermissionStub()),
+                        get_logger(component="verify"),
+                    ),
+                ),
+            },
         ) as harness:
             service = cast(ResourceService, harness.require_service(RESOURCE_SERVICE))
             service.register(
