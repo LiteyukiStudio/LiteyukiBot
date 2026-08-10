@@ -112,12 +112,16 @@ The first-party `liteyukibot-v7-commands` package provides
 handler. The handler receives `CommandInvocation` and returns the kernel's
 `HandlerResult`; `invocation.reply()` builds a correlated `SendMessage` result.
 The invocation also exposes the actual matched `prefix`, the canonical command
-name, the alias used, and unparsed argument text.
+name, the alias used, and unparsed argument text. Attach an explicit
+`CommandSchema` to the spec and call `invocation.parse()` for shared quoting,
+positionals, options, flags, repeatable values, and typed conversion. Handler
+annotations are not inspected.
 
 Registrations are explicitly owned and must be unregistered in the consumer's
 stop callback. `register_many()` is atomic, so a duplicate name or alias leaves
-the previous registry unchanged. The alpha parser supplies unparsed argument
-text and does not implement options, subcommands, or typed conversion.
+the previous registry unchanged. Raw argument text is always retained.
+Hierarchical subcommand routing and automatic localized parse-error replies are
+not implemented yet.
 
 ## Essentials
 

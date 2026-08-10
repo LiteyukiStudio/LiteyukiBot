@@ -12,8 +12,17 @@ from typing import cast
 
 import liteyukibot_commands
 import liteyukibot_permissions
-from liteyukibot_commands import COMMAND_SERVICE, CommandInvocation, CommandService, CommandSpec
-from liteyukibot_permissions import PERMISSION_SERVICE, PUBLIC, Principal
+from liteyukibot_commands import (
+    COMMAND_SERVICE,
+    ArgumentSpec,
+    CommandInvocation,
+    CommandSchema,
+    CommandService,
+    CommandSpec,
+    OptionSpec,
+    integer_value,
+)
+from liteyukibot_permissions import PERMISSION_SERVICE, PUBLIC, PermissionSnapshot, Principal
 
 import liteyukibot
 from liteyukibot import PluginDefinition
@@ -36,6 +45,9 @@ class PublicPermissions:
         if event.actor is None:
             return None
         return Principal(event.runtime_id, event.bot_id, event.actor.id)
+
+    def resolve(self, event: EventEnvelope) -> PermissionSnapshot:
+        return PermissionSnapshot(self.principal(event), frozenset(), frozenset({PUBLIC}))
 
     def allows(self, _event: EventEnvelope, permission: str) -> bool:
         return permission == PUBLIC
@@ -75,7 +87,7 @@ async def verify(expected_version: str | None = None) -> None:
         type="message",
         conversation=ConversationRef(id="conversation"),
         actor=ActorRef(id="user"),
-        message=Message(segments=(Segment(type="text", data={"text": "/echo wheel"}),)),
+        message=Message(segments=(Segment(type="text", data={"text": '/echo "wheel value" --times 2'}),)),
         reply_token="reply-token",
     )
     with tempfile.TemporaryDirectory() as directory:
@@ -87,14 +99,27 @@ async def verify(expected_version: str | None = None) -> None:
             service = cast(CommandService, harness.require_service(COMMAND_SERVICE))
 
             def echo(invocation: CommandInvocation) -> HandlerResult:
-                return invocation.reply(invocation.raw_arguments)
+                parsed = invocation.parse()
+                text = cast(str, parsed.arguments["text"])
+                times = cast(int, parsed.options["times"])
+                return invocation.reply(text * times)
 
-            service.register(CommandSpec("echo"), echo, owner="wheel-verifier")
+            service.register(
+                CommandSpec(
+                    "echo",
+                    schema=CommandSchema(
+                        arguments=(ArgumentSpec("text"),),
+                        options=(OptionSpec("times", converter=integer_value, default=1),),
+                    ),
+                ),
+                echo,
+                owner="wheel-verifier",
+            )
             result = await harness.publish(event)
             if not result.stopped or len(harness.recorded_actions) != 1:
                 raise RuntimeError("installed command router did not stop and reply")
             action = harness.recorded_actions[0].action
-            if not isinstance(action, SendMessage) or action.message.plain_text != "wheel":
+            if not isinstance(action, SendMessage) or action.message.plain_text != "wheel valuewheel value":
                 raise RuntimeError("installed command router produced an invalid reply")
 
     observed = {

@@ -1,6 +1,6 @@
 # ADR 0014: Route Native Commands Through a Plugin Service
 
-- Status: Accepted
+- Status: Superseded in part by ADR 0017
 - Date: 2026-08-10
 
 ## Context

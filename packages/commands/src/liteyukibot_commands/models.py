@@ -16,6 +16,8 @@ from liteyukibot.events import (
     SendMessage,
 )
 
+from .parsing import CommandSchema, ParsedCommand, parse_command
+
 
 def _validate_token(name: str, value: str) -> None:
     if not isinstance(value, str):
@@ -31,6 +33,7 @@ class CommandSpec:
     summary: str = ""
     usage: str = ""
     permission: str = PUBLIC
+    schema: CommandSchema = CommandSchema()
 
     def __post_init__(self) -> None:
         _validate_token("name", self.name)
@@ -52,6 +55,8 @@ class CommandSpec:
             raise TypeError("command permission must be a string")
         if not self.permission or self.permission != self.permission.strip():
             raise ValueError("command permission must be a non-empty trimmed string")
+        if not isinstance(self.schema, CommandSchema):
+            raise TypeError("command schema must be CommandSchema")
         object.__setattr__(self, "aliases", aliases)
 
 
@@ -62,6 +67,10 @@ class CommandInvocation:
     invoked_as: str
     prefix: str
     raw_arguments: str
+    schema: CommandSchema = CommandSchema()
+
+    def parse(self) -> ParsedCommand:
+        return parse_command(self.raw_arguments, self.schema)
 
     def reply(self, message: Message | str) -> HandlerResult:
         if isinstance(message, str):

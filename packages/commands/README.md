@@ -3,9 +3,9 @@
 `liteyukibot-v7-commands` provides the versioned `liteyukibot.commands@1`
 service and a protocol-neutral EventBus command router.
 
-The alpha parser recognizes configurable non-empty prefixes, command names,
-and aliases. It deliberately leaves options, subcommands, and typed argument
-parsing to command handlers.
+The parser recognizes configurable non-empty prefixes, command names, aliases,
+and explicit argument/option schemas. Hierarchical subcommand routing remains a
+separate alpha step.
 
 ```toml
 [plugins]
@@ -18,3 +18,29 @@ prefixes = ["/"]
 Consumers register `CommandSpec` and a synchronous or asynchronous handler.
 The handler receives `CommandInvocation`, including the normalized command and
 unparsed argument text, and returns the kernel's `HandlerResult`.
+
+```python
+from liteyukibot_commands import (
+    ArgumentSpec,
+    CommandSchema,
+    CommandSpec,
+    OptionSpec,
+    integer_value,
+)
+
+spec = CommandSpec(
+    "echo",
+    schema=CommandSchema(
+        arguments=(ArgumentSpec("text"),),
+        options=(OptionSpec("times", aliases=("n",), converter=integer_value, default=1),),
+    ),
+)
+
+def echo(invocation):
+    parsed = invocation.parse()
+    return invocation.reply(str(parsed.arguments["text"]) * int(parsed.options["times"]))
+```
+
+Quoting, escaping, `--name value`, `--name=value`, short aliases, flags,
+repeatable options, `--`, and conversion failures have platform-independent
+semantics. Parsing errors expose stable codes through `CommandParseError`.
