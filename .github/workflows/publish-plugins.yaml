@@ -1,0 +1,57 @@
+name: Publish LiteyukiBot Plugins
+
+on:
+  push:
+    tags:
+      - "permissions-v*"
+      - "commands-v*"
+      - "essentials-v*"
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Plugin package to publish
+        required: true
+        type: choice
+        options:
+          - permissions
+          - commands
+          - essentials
+      version:
+        description: Exact plugin version to publish
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('{0}-v{1}', inputs.package, inputs.version) || github.ref_name }}
+    environment: pypi
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.3.2
+        with:
+          version: "0.11.16"
+      - name: Install Python
+        run: uv python install 3.14
+      - name: Resolve and validate release
+        id: release
+        run: >-
+          uv run --no-project --python 3.14 python scripts/check_release.py
+          --tag "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT"
+      - name: Build plugin distribution
+        run: >-
+          uv build --project "${{ steps.release.outputs.project }}"
+          --out-dir dist/release --clear
+      - name: Verify plugin wheel with published dependencies
+        run: |
+          wheel="$(find dist/release -maxdepth 1 -name '*.whl' -print -quit)"
+          uv run --no-project --python 3.14 python scripts/run_isolated_install.py \
+            --with "$wheel" --verifier "${{ steps.release.outputs.verifier }}" -- \
+            --expected-version "${{ steps.release.outputs.version }}"
+      - name: Publish plugin distribution
+        run: uv publish dist/release/*

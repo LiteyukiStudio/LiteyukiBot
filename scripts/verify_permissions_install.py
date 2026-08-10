@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import importlib.metadata
 import json
@@ -43,7 +44,7 @@ def _installed_plugin() -> PluginDefinition:
     return candidate
 
 
-async def verify() -> None:
+async def verify(expected_version: str | None = None) -> None:
     _verify_import_sources()
 
     definition = _installed_plugin()
@@ -72,8 +73,15 @@ async def verify() -> None:
             "liteyukibot-v7-permissions"
         ),
     }
+    if expected_version is not None and observed["liteyukibot-v7-permissions"] != expected_version:
+        raise RuntimeError(
+            f"expected liteyukibot-v7-permissions {expected_version}; observed {observed}"
+        )
     print(json.dumps(observed, sort_keys=True))
 
 
 if __name__ == "__main__":
-    asyncio.run(verify())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--expected-version")
+    arguments = parser.parse_args()
+    asyncio.run(verify(arguments.expected_version))

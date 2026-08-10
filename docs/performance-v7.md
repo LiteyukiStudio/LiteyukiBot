@@ -2,15 +2,19 @@
 
 ## Published Install Contract
 
-CI installs `liteyukibot-v7==7.0.0a2` from PyPI in an isolated uv environment
-on Ubuntu, Windows, and macOS. It verifies the distribution metadata and imports
-both `liteyukibot` and the `liteyuki` v6 compatibility namespace. The check does
-not use the repository virtual environment or install the source checkout.
+CI installs the newest published `liteyukibot-v7` in the
+`>=7.0.0a2,<7.0.0a4` release window from PyPI in an isolated uv environment on
+Ubuntu, Windows, and macOS. It verifies that distribution metadata and both the
+`liteyukibot` and `liteyuki` compatibility namespaces report the same version.
+The check does not use the repository virtual environment or install the source
+checkout, and remains valid before and after the a3 upload.
 
 Run the same contract locally with:
 
 ```bash
-uv run --no-project --python 3.14 --with "liteyukibot-v7==7.0.0a2" python scripts/verify_published_install.py --expected-version 7.0.0a2
+uv run --no-project --python 3.14 python scripts/run_isolated_install.py \
+  --with "liteyukibot-v7>=7.0.0a2,<7.0.0a4" \
+  --verifier scripts/verify_published_install.py
 ```
 
 ## Alpha Reference

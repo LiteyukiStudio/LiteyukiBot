@@ -7,9 +7,10 @@ supervised child runtimes.
 The `v7` branch is a clean rewrite. The `main` branch remains the maintenance
 line for v6 and is not merged wholesale into v7.
 
-The current pre-release is `liteyukibot-v7==7.0.0a2`. Kernel stabilization and
-the first bounded compatibility phase are complete. Runtime protocol v3 remains
-an alpha contract and may change under ADR 0011 before the first stable release.
+The current pre-release is `liteyukibot-v7==7.0.0a3`. Kernel stabilization,
+the first bounded compatibility phase, and the first-party plugin foundation
+are complete. Runtime protocol v3 remains an alpha contract and may change
+under ADR 0011 before the first stable release.
 
 ## Current Foundation
 
@@ -22,6 +23,8 @@ an alpha contract and may change under ADR 0011 before the first stable release.
 - authenticated framed JSON IPC and supervised subprocess runtimes;
 - NoneBot2 plugin hosting and a deliberately bounded v6 compatibility shim;
 - local authenticated CLI control and an optional loopback-only HTTP status API.
+- read-only kernel status plus separately distributable permission, command,
+  help, and operator-status plugins.
 
 ## Requirements
 
@@ -47,6 +50,15 @@ uv sync --extra http
 uv sync --extra nonebot --extra onebot
 uv sync --extra nonebot --extra satori
 ```
+
+Install the complete first-party plugin chain with:
+
+```bash
+uv add "liteyukibot-v7-essentials==0.1.0a1"
+```
+
+This resolves `liteyukibot-v7-commands` and
+`liteyukibot-v7-permissions`; enable all three plugin IDs in configuration.
 
 Use `liteyuki.example.toml` as a configuration reference. CLI overrides must
 precede the subcommand, for example:
@@ -89,6 +101,8 @@ uv run python scripts/run_essentials_install.py
 The architecture overview is documented in `docs/architecture/v7.md`; accepted
 architecture contracts are indexed in `docs/adr/README.md`; the v6 compatibility
 boundary is documented in `docs/migration-v6.md`.
+
+Release maintainers should follow `docs/development/releasing.md`.
 
 Plugin and runtime authors should start with the installable examples and their
 focused guides:
