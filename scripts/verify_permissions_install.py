@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import cast
 
 import liteyukibot_permissions
-from liteyukibot_permissions import OPERATOR, PERMISSION_SERVICE, PermissionService
+from liteyukibot_permissions import PERMISSION_SERVICE, PermissionService
 
 import liteyukibot
 from liteyukibot import PluginDefinition
@@ -48,10 +48,17 @@ async def verify(expected_version: str | None = None) -> None:
     _verify_import_sources()
 
     definition = _installed_plugin()
+    capability = "verify.status.read"
     config = {
-        "operators": [
-            {"runtime_id": "runtime", "bot_id": "bot", "actor_id": "operator"},
-        ]
+        "roles": {"operator": [capability]},
+        "grants": [
+            {
+                "runtime_id": "runtime",
+                "bot_id": "bot",
+                "actor_id": "operator",
+                "roles": ["operator"],
+            },
+        ],
     }
     event = EventEnvelope(
         runtime_id="runtime",
@@ -64,8 +71,8 @@ async def verify(expected_version: str | None = None) -> None:
     with tempfile.TemporaryDirectory() as directory:
         async with PluginTestHarness(definition, root=Path(directory), config=config) as harness:
             service = cast(PermissionService, harness.require_service(PERMISSION_SERVICE))
-            if not service.allows(event, OPERATOR):
-                raise RuntimeError("installed permission service rejected its configured operator")
+            if not service.allows(event, capability):
+                raise RuntimeError("installed permission service rejected its configured capability")
 
     observed = {
         "liteyukibot-v7": importlib.metadata.version("liteyukibot-v7"),

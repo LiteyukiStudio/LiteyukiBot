@@ -7,7 +7,7 @@ import pytest
 from liteyukibot_commands import COMMAND_SERVICE, CommandService
 from liteyukibot_commands.service import create_command_service
 from liteyukibot_essentials import plugin, render_status
-from liteyukibot_permissions import OPERATOR, PERMISSION_SERVICE, PUBLIC, Principal
+from liteyukibot_permissions import PERMISSION_SERVICE, PUBLIC, PermissionSnapshot, Principal
 
 from liteyukibot import KERNEL_STATUS_SERVICE, LiteyukiApp
 from liteyukibot.config import AppSettings, CoreSettings, PluginSettings
@@ -26,6 +26,8 @@ from liteyukibot.logging import get_logger
 from liteyukibot.status import KernelStatusSnapshot
 from liteyukibot.testing import PluginTestHarness
 
+STATUS_READ = "liteyukibot.status.read"
+
 
 class PermissionStub:
     def principal(self, event: EventEnvelope) -> Principal | None:
@@ -33,10 +35,15 @@ class PermissionStub:
             return None
         return Principal(event.runtime_id, event.bot_id, event.actor.id)
 
+    def resolve(self, event: EventEnvelope) -> PermissionSnapshot:
+        principal = self.principal(event)
+        capabilities = {PUBLIC}
+        if event.actor is not None and event.actor.id == "operator":
+            capabilities.add(STATUS_READ)
+        return PermissionSnapshot(principal, frozenset(), frozenset(capabilities))
+
     def allows(self, event: EventEnvelope, permission: str) -> bool:
-        if permission == PUBLIC:
-            return True
-        return permission == OPERATOR and event.actor is not None and event.actor.id == "operator"
+        return self.resolve(event).allows(permission)
 
 
 class StatusStub:
@@ -149,11 +156,13 @@ async def test_three_plugin_topology_filters_help_and_correlates_status(tmp_path
             ),
             config={
                 "liteyukibot.permissions": {
-                    "operators": [
+                    "roles": {"operator": [STATUS_READ]},
+                    "grants": [
                         {
                             "runtime_id": "runtime",
                             "bot_id": "bot",
                             "actor_id": "operator",
+                            "roles": ["operator"],
                         }
                     ]
                 },

@@ -3,7 +3,7 @@
 from importlib.metadata import PackageNotFoundError, version
 
 from .plugin import create_plugin
-from .service import OPERATOR, PERMISSION_SERVICE, PUBLIC, PermissionService, Principal
+from .service import PERMISSION_SERVICE, PUBLIC, PermissionService, PermissionSnapshot, Principal
 
 try:
     __version__ = version("liteyukibot-v7-permissions")
@@ -13,10 +13,10 @@ except PackageNotFoundError:
 plugin = create_plugin(__version__)
 
 __all__ = [
-    "OPERATOR",
     "PERMISSION_SERVICE",
     "PUBLIC",
     "PermissionService",
+    "PermissionSnapshot",
     "Principal",
     "__version__",
     "plugin",

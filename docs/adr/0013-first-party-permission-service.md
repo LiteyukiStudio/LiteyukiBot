@@ -1,6 +1,6 @@
 # ADR 0013: Keep Access Policy in a First-Party Plugin
 
-- Status: Accepted
+- Status: Superseded in part by ADR 0016
 - Date: 2026-08-10
 
 ## Context

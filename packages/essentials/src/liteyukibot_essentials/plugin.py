@@ -21,7 +21,7 @@ from liteyukibot.status import KERNEL_STATUS_SERVICE, KernelStatusProvider
 from .render import Language, messages, render_help, render_status
 
 _PUBLIC_PERMISSION = "public"
-_OPERATOR_PERMISSION = "operator"
+_STATUS_READ_CAPABILITY = "liteyukibot.status.read"
 
 
 def _language(config: Mapping[str, Any]) -> Language:
@@ -62,7 +62,7 @@ async def setup(context: PluginContext) -> PluginHandle:
                 "status",
                 aliases=("状态",),
                 summary=text.status_summary,
-                permission=_OPERATOR_PERMISSION,
+                permission=_STATUS_READ_CAPABILITY,
             ),
             status_command,
         ),
