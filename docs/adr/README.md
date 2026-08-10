@@ -18,3 +18,4 @@ stable-release guarantee.
 12. [Kernel status service](0012-kernel-status-service.md)
 13. [First-party permission service](0013-first-party-permission-service.md)
 14. [First-party command service](0014-first-party-command-service.md)
+15. [First-party essential commands](0015-first-party-essential-commands.md)

@@ -60,6 +60,7 @@ class CommandInvocation:
     event: EventEnvelope
     command: str
     invoked_as: str
+    prefix: str
     raw_arguments: str
 
     def reply(self, message: Message | str) -> HandlerResult:
