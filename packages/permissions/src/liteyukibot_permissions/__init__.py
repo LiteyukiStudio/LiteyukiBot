@@ -8,7 +8,7 @@ from .service import PERMISSION_SERVICE, PUBLIC, PermissionService, PermissionSn
 try:
     __version__ = version("liteyukibot-v7-permissions")
 except PackageNotFoundError:
-    __version__ = "0.1.0a1"
+    __version__ = "0.2.0a1"
 
 plugin = create_plugin(__version__)
 

@@ -237,5 +237,5 @@ def test_permission_snapshot_requires_public_capability() -> None:
 
 def test_permission_plugin_manifest_publishes_versioned_service() -> None:
     assert plugin.manifest.id == "liteyukibot.permissions"
-    assert plugin.manifest.version == "0.1.0a1"
+    assert plugin.manifest.version == "0.2.0a1"
     assert plugin.manifest.provides == (PERMISSION_SERVICE,)
