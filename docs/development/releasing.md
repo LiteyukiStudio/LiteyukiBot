@@ -40,7 +40,7 @@ distribution inside the workflow.
 | `liteyukibot-v7-commands==0.2.0a1` | `packages/commands` | `commands-v0.2.0a1` |
 | `liteyukibot-v7-resources==0.1.0a1` | `packages/resources` | `resources-v0.1.0a1` |
 | `liteyukibot-v7-profile==0.1.0a1` | `packages/profile` | `profile-v0.1.0a1` |
-| `liteyukibot-v7-essentials==0.2.0a1` | `packages/essentials` | `essentials-v0.2.0a1` |
+| `liteyukibot-v7-essentials==0.2.0a2` | `packages/essentials` | `essentials-v0.2.0a2` |
 
 `scripts/check_release.py` owns this mapping. Both publish workflows reject a
 tag that does not exactly match the selected source version and distribution.
@@ -54,7 +54,7 @@ Push and wait for each release before creating the next tag:
 3. `commands-v0.2.0a1`;
 4. `resources-v0.1.0a1`;
 5. `profile-v0.1.0a1`;
-6. `essentials-v0.2.0a1`.
+6. `essentials-v0.2.0a2`.
 
 Each plugin workflow builds only its selected project, installs that wheel in a
 temporary uv environment against already published dependencies, exercises its
@@ -65,7 +65,7 @@ After the final upload, verify the public dependency chain without a checkout:
 
 ```bash
 uv run --no-project --python 3.14 \
-  --with "liteyukibot-v7-essentials==0.2.0a1" \
+  --with "liteyukibot-v7-essentials==0.2.0a2" \
   python -c "import importlib.metadata as m; print(m.version('liteyukibot-v7'))"
 ```
 
