@@ -17,7 +17,7 @@ from liteyukibot_commands import (
 )
 from liteyukibot_permissions import Principal
 
-from liteyukibot import PluginContext, PluginDefinition, PluginHandle, PluginManifest
+from liteyukibot import PluginContext, PluginDefinition, PluginManifest
 from liteyukibot.events import HandlerResult
 from liteyukibot.services import ServiceKey, ServiceRequirement
 from liteyukibot.status import KERNEL_STATUS_SERVICE, KernelStatusProvider
@@ -47,7 +47,7 @@ def _language(config: Mapping[str, Any]) -> Language:
     return cast(Language, value)
 
 
-async def setup(context: PluginContext) -> PluginHandle:
+async def setup(context: PluginContext) -> None:
     language = _language(context.config)
     command_service = cast(CommandService, context.services.require(COMMAND_SERVICE))
     status_provider = cast(KernelStatusProvider, context.services.require(KERNEL_STATUS_SERVICE))
@@ -119,13 +119,8 @@ async def setup(context: PluginContext) -> PluginHandle:
             status_command,
         ),
     )
-    registrations = command_service.register_many(bindings, owner=context.id)
-
-    async def stop() -> None:
-        for registration in reversed(registrations):
-            command_service.unregister(registration)
-
-    return PluginHandle(stop=stop)
+    command_service.register_many(bindings, owner=context.id)
+    context.defer_cleanup(lambda: command_service.unregister_owner(context.id))
 
 
 def create_plugin(version: str) -> PluginDefinition:

@@ -16,9 +16,10 @@ from liteyukibot_commands import (
     integer_value,
     plugin,
 )
+from liteyukibot_commands.service import create_command_service
 from liteyukibot_permissions import PERMISSION_SERVICE, PUBLIC, PermissionSnapshot, Principal
 
-from liteyukibot import LiteyukiApp
+from liteyukibot import LiteyukiApp, PluginContext, PluginDefinition, PluginManifest
 from liteyukibot.config import AppSettings, CoreSettings, PluginSettings
 from liteyukibot.events import (
     ActorRef,
@@ -31,6 +32,7 @@ from liteyukibot.events import (
 )
 from liteyukibot.exceptions import PluginError, ServiceError
 from liteyukibot.logging import get_logger
+from liteyukibot.services import ServiceRequirement
 from liteyukibot.testing import PluginTestHarness
 
 ADMIN = "tests.admin"
@@ -224,6 +226,59 @@ async def test_command_registration_is_atomic_and_explicitly_owned(tmp_path: Pat
         assert service.unregister(first) is True
         assert service.unregister(first) is False
         assert service.snapshot() == ()
+
+
+@pytest.mark.asyncio
+async def test_command_owner_unregistration_removes_all_owned_paths(tmp_path: Path) -> None:
+    async with make_harness(tmp_path) as harness:
+        service = cast(CommandService, harness.require_service(COMMAND_SERVICE))
+
+        def handler(_invocation: CommandInvocation) -> None:
+            return None
+
+        service.register_many(
+            (
+                (CommandSpec("plugin", aliases=("plugins",)), handler),
+                (CommandSpec("list", aliases=("ls",), path=("plugin",)), handler),
+            ),
+            owner="owner.one",
+        )
+        retained = service.register(CommandSpec("ping"), handler, owner="owner.two")
+
+        assert service.unregister_owner("owner.one") == 2
+        assert service.snapshot() == (retained,)
+        assert service.unregister_owner("owner.one") == 0
+
+
+@pytest.mark.asyncio
+async def test_failed_plugin_setup_removes_its_owned_command_registrations(tmp_path: Path) -> None:
+    commands = create_command_service({}, PermissionStub(), get_logger(component="commands-cleanup"))
+
+    async def setup(context: PluginContext) -> None:
+        service = cast(CommandService, context.services.require(COMMAND_SERVICE))
+        service.register(CommandSpec("transient"), lambda _invocation: None, owner=context.id)
+        context.defer_cleanup(lambda: service.unregister_owner(context.id))
+        raise RuntimeError("setup failed")
+
+    definition = PluginDefinition(
+        PluginManifest(
+            id="commands.transient",
+            name="Commands transient",
+            version="1.0.0",
+            requires=(ServiceRequirement(COMMAND_SERVICE),),
+        ),
+        setup,
+    )
+    harness = PluginTestHarness(
+        definition,
+        root=tmp_path,
+        dependencies={COMMAND_SERVICE: commands},
+    )
+
+    with pytest.raises(PluginError, match="commands.transient setup failed"):
+        await harness.start()
+
+    assert commands.snapshot() == ()
 
 
 @pytest.mark.asyncio

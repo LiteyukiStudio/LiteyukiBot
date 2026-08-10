@@ -37,10 +37,13 @@ manifest. Services use `name@major` keys, have exactly one provider, and form a
 startup dependency graph. Missing required services, conflicting providers, and
 cycles are startup errors.
 
-Setup occurs in dependency order. Stop callbacks and managed task cleanup occur
-in reverse dependency order, including after partial startup. If setup fails,
-services already provided by that plugin are removed and its tasks are stopped.
-Task failures are reported through the plugin-bound logger.
+Setup occurs in dependency order. Plugins may register synchronous or async
+cleanup through `context.defer_cleanup()`; callbacks run in reverse registration
+order after a stop callback and before managed-task cancellation. They also run
+when setup fails, so a plugin can safely undo EventBus subscriptions or service
+registrations created before a later setup error. Services already provided by a
+failed plugin are removed and its tasks are stopped. Task failures are reported
+through the plugin-bound logger.
 
 ## Consequences
 

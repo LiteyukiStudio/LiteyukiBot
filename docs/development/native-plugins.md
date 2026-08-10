@@ -10,8 +10,8 @@ entry-point name and `PluginManifest.id` must be identical.
 ```
 
 The complete minimal package is in [`examples/native-plugin`](../../examples/native-plugin).
-Its setup function subscribes an async handler and returns a stop callback that
-removes that subscription. Event handlers return protocol-neutral
+Its setup function subscribes an async handler and registers the matching
+unsubscription through `context.defer_cleanup()`. Event handlers return protocol-neutral
 `HandlerResult` values containing Actions; adapter objects do not belong in a
 native plugin.
 
@@ -32,7 +32,7 @@ Use only the ownership surfaces supplied by `PluginContext`:
   required;
 - background coroutines are started through `context.tasks.start()`;
 - private data/cache paths exist only when `storage = "private"`;
-- EventBus subscriptions are removed by the plugin's stop callback;
+- EventBus subscriptions and other registrations use `context.defer_cleanup()`;
 - replies and API calls use frozen models from `liteyukibot.events`.
 
 ## Testing
