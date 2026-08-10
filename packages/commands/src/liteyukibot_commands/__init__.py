@@ -9,6 +9,20 @@ from .models import (
     CommandRegistration,
     CommandSpec,
 )
+from .parsing import (
+    ArgumentSpec,
+    CommandParseError,
+    CommandSchema,
+    OptionSpec,
+    ParsedCommand,
+    ValueConverter,
+    boolean_value,
+    float_value,
+    integer_value,
+    parse_command,
+    string_value,
+    tokenize_command,
+)
 from .plugin import create_plugin
 from .service import COMMAND_SERVICE, CommandService
 
@@ -21,12 +35,24 @@ plugin = create_plugin(__version__)
 
 __all__ = [
     "COMMAND_SERVICE",
+    "ArgumentSpec",
     "CommandBinding",
     "CommandHandler",
     "CommandInvocation",
+    "CommandParseError",
     "CommandRegistration",
     "CommandService",
+    "CommandSchema",
     "CommandSpec",
+    "OptionSpec",
+    "ParsedCommand",
+    "ValueConverter",
     "__version__",
     "plugin",
+    "boolean_value",
+    "float_value",
+    "integer_value",
+    "parse_command",
+    "string_value",
+    "tokenize_command",
 ]
