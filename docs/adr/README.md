@@ -17,3 +17,4 @@ stable-release guarantee.
 11. [Pre-stable protocol versioning](0011-pre-stable-protocol-policy.md)
 12. [Kernel status service](0012-kernel-status-service.md)
 13. [First-party permission service](0013-first-party-permission-service.md)
+14. [First-party command service](0014-first-party-command-service.md)

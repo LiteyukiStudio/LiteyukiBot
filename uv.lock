@@ -9,6 +9,7 @@ resolution-markers = [
 [manifest]
 members = [
     "liteyukibot-v7",
+    "liteyukibot-v7-commands",
     "liteyukibot-v7-permissions",
 ]
 
@@ -300,6 +301,21 @@ dev = [
     { name = "pytest", specifier = ">=9,<10" },
     { name = "pytest-asyncio", specifier = ">=1.2,<2" },
     { name = "ruff", specifier = ">=0.14,<1" },
+]
+
+[[package]]
+name = "liteyukibot-v7-commands"
+version = "0.1.0a1"
+source = { editable = "packages/commands" }
+dependencies = [
+    { name = "liteyukibot-v7" },
+    { name = "liteyukibot-v7-permissions" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "liteyukibot-v7", editable = "." },
+    { name = "liteyukibot-v7-permissions", editable = "packages/permissions" },
 ]
 
 [[package]]

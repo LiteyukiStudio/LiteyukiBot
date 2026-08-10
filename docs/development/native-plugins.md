@@ -101,3 +101,16 @@ exact runtime, bot, and actor triples configured under
 `plugins.config."liteyukibot.permissions"`. Unknown permission strings are
 denied. The service is application policy for trusted plugins; it is not a
 sandbox boundary.
+
+## Commands
+
+The first-party `liteyukibot-v7-commands` package provides
+`liteyukibot.commands@1`. A consumer declares `COMMAND_SERVICE`, resolves a
+`CommandService`, and registers `CommandSpec` plus a synchronous or asynchronous
+handler. The handler receives `CommandInvocation` and returns the kernel's
+`HandlerResult`; `invocation.reply()` builds a correlated `SendMessage` result.
+
+Registrations are explicitly owned and must be unregistered in the consumer's
+stop callback. `register_many()` is atomic, so a duplicate name or alias leaves
+the previous registry unchanged. The alpha parser supplies unparsed argument
+text and does not implement options, subcommands, or typed conversion.
