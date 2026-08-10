@@ -58,7 +58,7 @@ class CommandService(Protocol):
 class _RegisteredCommand:
     registration: CommandRegistration
     handler: CommandHandler
-    tokens: tuple[str, ...]
+    paths: tuple[tuple[str, ...], ...]
 
 
 class _CommandService:
@@ -72,7 +72,8 @@ class _CommandService:
         self._permissions = permissions
         self._logger = logger
         self._commands: dict[int, _RegisteredCommand] = {}
-        self._tokens: dict[str, int] = {}
+        self._paths: dict[tuple[str, ...], int] = {}
+        self._max_path_length = 0
         self._next_id = 0
 
     def register(
@@ -96,30 +97,34 @@ class _CommandService:
         if not pending:
             return ()
 
-        claimed = set(self._tokens)
-        prepared: list[tuple[CommandSpec, CommandHandler, tuple[str, ...]]] = []
+        claimed = set(self._paths)
+        prepared: list[tuple[CommandSpec, CommandHandler, tuple[tuple[str, ...], ...]]] = []
         for spec, handler in pending:
             if not isinstance(spec, CommandSpec):
                 raise TypeError("command binding must contain CommandSpec")
             if not callable(handler):
                 raise TypeError(f"handler for command {spec.name} must be callable")
-            raw_tokens = (spec.name, *spec.aliases)
+            raw_tokens = (*spec.path, spec.name, *spec.aliases)
             if any(token.startswith(prefix) for token in raw_tokens for prefix in self._prefixes):
                 raise ValueError(f"command {spec.name} names and aliases must not include a prefix")
-            tokens = tuple(token.casefold() for token in raw_tokens)
-            conflict = next((token for token in tokens if token in claimed), None)
+            paths = (
+                tuple(token.casefold() for token in spec.command_path),
+                *(tuple(token.casefold() for token in (*spec.path, alias)) for alias in spec.aliases),
+            )
+            conflict = next((path for path in paths if path in claimed), None)
             if conflict is not None:
-                raise ValueError(f"command name or alias is already registered: {conflict}")
-            claimed.update(tokens)
-            prepared.append((spec, handler, tokens))
+                raise ValueError(f"command name or alias is already registered: {' '.join(conflict)}")
+            claimed.update(paths)
+            prepared.append((spec, handler, paths))
 
         registrations: list[CommandRegistration] = []
-        for spec, handler, tokens in prepared:
+        for spec, handler, paths in prepared:
             registration = CommandRegistration(self._next_id, owner, spec)
             self._next_id += 1
-            self._commands[registration.id] = _RegisteredCommand(registration, handler, tokens)
-            for token in tokens:
-                self._tokens[token] = registration.id
+            self._commands[registration.id] = _RegisteredCommand(registration, handler, paths)
+            for path in paths:
+                self._paths[path] = registration.id
+                self._max_path_length = max(self._max_path_length, len(path))
             registrations.append(registration)
         return tuple(registrations)
 
@@ -128,8 +133,9 @@ class _CommandService:
         if registered is None or registered.registration != registration:
             return False
         del self._commands[registration.id]
-        for token in registered.tokens:
-            self._tokens.pop(token, None)
+        for path in registered.paths:
+            self._paths.pop(path, None)
+        self._max_path_length = max((len(path) for path in self._paths), default=0)
         return True
 
     def snapshot(self) -> tuple[CommandRegistration, ...]:
@@ -137,7 +143,10 @@ class _CommandService:
             item.registration
             for item in sorted(
                 self._commands.values(),
-                key=lambda item: (item.registration.spec.name.casefold(), item.registration.id),
+                key=lambda item: (
+                    tuple(segment.casefold() for segment in item.registration.spec.command_path),
+                    item.registration.id,
+                ),
             )
         )
 
@@ -164,6 +173,7 @@ class _CommandService:
             prefix=prefix,
             raw_arguments=raw_arguments,
             schema=spec.schema,
+            command_path=spec.command_path,
         )
         try:
             result: Any = registered.handler(invocation)
@@ -211,13 +221,31 @@ class _CommandService:
         body = text[len(prefix) :]
         if not body or body[0].isspace():
             return None
-        parts = body.split(maxsplit=1)
-        invoked_as = parts[0]
-        command_id = self._tokens.get(invoked_as.casefold())
-        if command_id is None:
-            return None
-        raw_arguments = "" if len(parts) == 1 else parts[1]
-        return self._commands[command_id], invoked_as, prefix, raw_arguments
+        tokens = _command_tokens(body)
+        for length in range(min(self._max_path_length, len(tokens)), 0, -1):
+            candidate = tuple(token.casefold() for token, _, _ in tokens[:length])
+            command_id = self._paths.get(candidate)
+            if command_id is None:
+                continue
+            _, _, end = tokens[length - 1]
+            return self._commands[command_id], body[:end], prefix, body[end:].lstrip()
+        return None
+
+
+def _command_tokens(value: str) -> tuple[tuple[str, int, int], ...]:
+    tokens: list[tuple[str, int, int]] = []
+    start = 0
+    while start < len(value):
+        while start < len(value) and value[start].isspace():
+            start += 1
+        if start == len(value):
+            break
+        end = start
+        while end < len(value) and not value[end].isspace():
+            end += 1
+        tokens.append((value[start:end], start, end))
+        start = end
+    return tuple(tokens)
 
 
 def create_command_service(

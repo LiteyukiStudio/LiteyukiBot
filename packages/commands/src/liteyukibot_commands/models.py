@@ -34,6 +34,7 @@ class CommandSpec:
     usage: str = ""
     permission: str = PUBLIC
     schema: CommandSchema = CommandSchema()
+    path: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         _validate_token("name", self.name)
@@ -57,7 +58,17 @@ class CommandSpec:
             raise ValueError("command permission must be a non-empty trimmed string")
         if not isinstance(self.schema, CommandSchema):
             raise TypeError("command schema must be CommandSchema")
+        if isinstance(self.path, str):
+            raise TypeError("command path must be a sequence of tokens")
+        path = tuple(self.path)
+        for segment in path:
+            _validate_token("path segment", segment)
         object.__setattr__(self, "aliases", aliases)
+        object.__setattr__(self, "path", path)
+
+    @property
+    def command_path(self) -> tuple[str, ...]:
+        return (*self.path, self.name)
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +79,7 @@ class CommandInvocation:
     prefix: str
     raw_arguments: str
     schema: CommandSchema = CommandSchema()
+    command_path: tuple[str, ...] = ()
 
     def parse(self) -> ParsedCommand:
         return parse_command(self.raw_arguments, self.schema)
