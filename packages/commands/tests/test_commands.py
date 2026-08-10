@@ -7,9 +7,13 @@ from typing import Any, cast
 import pytest
 from liteyukibot_commands import (
     COMMAND_SERVICE,
+    ArgumentSpec,
     CommandInvocation,
+    CommandSchema,
     CommandService,
     CommandSpec,
+    OptionSpec,
+    integer_value,
     plugin,
 )
 from liteyukibot_permissions import PERMISSION_SERVICE, PUBLIC, PermissionSnapshot, Principal
@@ -82,6 +86,7 @@ async def test_command_router_dispatches_alias_and_preserves_arguments(tmp_path:
         service = cast(CommandService, harness.require_service(COMMAND_SERVICE))
 
         async def echo(invocation: CommandInvocation) -> HandlerResult:
+            parsed = invocation.parse()
             observed.append(
                 (
                     invocation.command,
@@ -90,9 +95,22 @@ async def test_command_router_dispatches_alias_and_preserves_arguments(tmp_path:
                     invocation.raw_arguments,
                 )
             )
+            assert parsed.arguments == {"values": ("Hello", "world")}
+            assert parsed.options == {"times": 1}
             return invocation.reply(f"echo: {invocation.raw_arguments}")
 
-        service.register(CommandSpec("echo", aliases=("E",)), echo, owner="tests.echo")
+        service.register(
+            CommandSpec(
+                "echo",
+                aliases=("E",),
+                schema=CommandSchema(
+                    arguments=(ArgumentSpec("values", required=False, variadic=True),),
+                    options=(OptionSpec("times", converter=integer_value, default=1),),
+                ),
+            ),
+            echo,
+            owner="tests.echo",
+        )
         result = await harness.publish(message_event("  /e Hello  world  "))
 
         assert result.stopped is True

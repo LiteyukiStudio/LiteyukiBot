@@ -163,6 +163,7 @@ class _CommandService:
             invoked_as=invoked_as,
             prefix=prefix,
             raw_arguments=raw_arguments,
+            schema=spec.schema,
         )
         try:
             result: Any = registered.handler(invocation)
