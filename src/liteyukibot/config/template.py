@@ -1,42 +1,48 @@
-# LiteyukiBot configuration schema. Do not edit config_version manually.
-config_version = 1
+"""Versioned project configuration template owned by the kernel package."""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Iterable
+
+CONFIG_VERSION = 1
+
+
+def _toml_string(value: str) -> str:
+    return json.dumps(value, ensure_ascii=True)
+
+
+def render_config_template(
+    *,
+    data_dir: str = "data",
+    cache_dir: str = "cache",
+    logging_level: str = "INFO",
+    payload_mode: str = "metadata",
+    payload_exclude_runtimes: Iterable[str] = (),
+) -> str:
+    excluded = ", ".join(_toml_string(item) for item in payload_exclude_runtimes)
+    return f'''# LiteyukiBot configuration schema. Do not edit config_version manually.
+config_version = {CONFIG_VERSION}
 
 [core]
-data_dir = "data"
-cache_dir = "cache"
+data_dir = {_toml_string(data_dir)}
+cache_dir = {_toml_string(cache_dir)}
 queue_capacity = 1024
 enqueue_timeout_seconds = 1.0
 handler_timeout_seconds = 30.0
 max_concurrent_events = 100
 
 [logging]
-level = "INFO"
+level = {_toml_string(logging_level)}
 console = true
 json_lines = false
 # Full payload logs can contain message content and identifiers. Keep metadata unless debugging.
-payload_mode = "metadata"
-payload_exclude_runtimes = []
+payload_mode = {_toml_string(payload_mode)}
+payload_exclude_runtimes = [{excluded}]
 
 [plugins]
 enabled = []
 local_modules = []
-
-# After installing liteyukibot-v7-essentials, enable:
-# enabled = [
-#   "liteyukibot.permissions",
-#   "liteyukibot.commands",
-#   "liteyukibot.essentials",
-# ]
-#
-# After installing liteyukibot-v7-profile as well, enable resources and profile
-# before Essentials to persist per-bot nickname and language preferences:
-# enabled = [
-#   "liteyukibot.permissions",
-#   "liteyukibot.commands",
-#   "liteyukibot.resources",
-#   "liteyukibot.profile",
-#   "liteyukibot.essentials",
-# ]
 
 [plugins.config."liteyukibot.permissions"]
 grants = []
@@ -82,3 +88,4 @@ plugin_dirs = ["plugins"]
 
 [runtimes.legacy.options.config]
 nickname = ["Liteyuki"]
+'''

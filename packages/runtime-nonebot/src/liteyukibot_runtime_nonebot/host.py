@@ -12,9 +12,8 @@ from collections.abc import Callable, Coroutine, Mapping, Sequence
 from concurrent.futures import Future
 from typing import Any
 
-from yukilog import configure_child_runtime, get_logger
-
 from liteyukibot.events import ActionEnvelope, CallApi, EventEnvelope, SendMessage
+from liteyukibot.logging import configure_runtime_child_logging, get_logger
 from liteyukibot.runtime import RuntimeClient
 from liteyukibot.runtime.protocol import (
     ActionRequest,
@@ -254,15 +253,18 @@ def run() -> None:
         raise RuntimeError(
             "NoneBot runtime is not installed; install `liteyukibot-v7-runtime-nonebot`"
         ) from error
-    configure_child_runtime()
+    configure_runtime_child_logging()
+    logger.info("starting NoneBot runtime host")
     bridge = SupervisorBridge()
     options = bridge.start()
     host = NoneBotHost(nonebot, bridge)
     host.install(options)
+    logger.info("NoneBot runtime host is ready")
     try:
         nonebot.run()
     finally:
         bridge.close()
+        logger.info("NoneBot runtime host stopped")
 
 
 def _mapping_option(options: Mapping[str, Any], key: str) -> dict[str, Any]:

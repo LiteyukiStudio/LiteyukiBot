@@ -78,8 +78,9 @@ preferences. Install `liteyukibot-v7-profile` to resolve resources, then enable
 a business plugin: its SQLite database is private to the plugin, and resources
 only supplies the declaration, command, and authorization boundary.
 
-Use `liteyuki.example.toml` as a configuration reference. CLI overrides must
-precede the subcommand, for example:
+Create a project-local configuration with `uv run liteyuki init`; use
+`liteyuki.example.toml` as a configuration reference. CLI overrides must precede
+the subcommand, for example:
 
 ```bash
 uv run liteyuki --config local.toml --set logging.level=DEBUG check
@@ -97,8 +98,9 @@ docker build -t liteyukibot:v7-local .
 docker run --rm liteyukibot:v7-local version
 ```
 
-Mount a `liteyuki.toml` at `/app/liteyuki.toml` and persistent volumes at
-`/app/data`, `/app/cache`, and `/app/plugins` for a configured deployment.
+When `/app/liteyuki.toml` is absent, the container creates the versioned default
+template once. Mount a configuration at that path to control a deployment, and
+persist `/app/data`, `/app/cache`, and `/app/plugins`.
 
 ## Development
 

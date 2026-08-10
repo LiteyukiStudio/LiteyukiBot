@@ -1,0 +1,62 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+from pydantic import ValidationError
+
+import liteyukibot.cli as cli_module
+from liteyukibot.config import ConfigUpgradeRequired, ConfigWorkspace, load_settings
+
+
+def test_workspace_init_creates_current_valid_template(tmp_path: Path) -> None:
+    workspace = ConfigWorkspace(tmp_path)
+
+    path = workspace.initialize(payload_exclude_runtimes=("mofox",))
+
+    assert path == tmp_path / "liteyuki.toml"
+    assert load_settings(path, environ={}).config_version == 1
+    assert load_settings(path, environ={}).logging.payload_exclude_runtimes == ("mofox",)
+
+
+def test_workspace_init_rejects_invalid_logging_values_without_writing(tmp_path: Path) -> None:
+    with pytest.raises(ValidationError):
+        ConfigWorkspace(tmp_path).initialize(payload_mode="everything")
+
+    assert not (tmp_path / "liteyuki.toml").exists()
+
+
+def test_outdated_workspace_config_is_backed_up_and_blocks_start(tmp_path: Path) -> None:
+    config = tmp_path / "liteyuki.toml"
+    config.write_text("[core]\nqueue_capacity = 1\n", encoding="utf-8")
+
+    with pytest.raises(ConfigUpgradeRequired, match="manual upgrade"):
+        ConfigWorkspace(tmp_path).prepare()
+
+    backups = list((tmp_path / ".liteyuki" / "config-backups").glob("*/liteyuki.toml"))
+    assert len(backups) == 1
+    template = tmp_path / ".liteyuki" / "config-upgrades" / "liteyuki.v1.toml"
+    assert "config_version = 1" in template.read_text(encoding="utf-8")
+
+
+def test_regular_workspace_without_config_does_not_write(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(ConfigWorkspace, "is_docker", staticmethod(lambda: False))
+
+    assert ConfigWorkspace(tmp_path).prepare() is None
+    assert not (tmp_path / "liteyuki.toml").exists()
+
+
+def test_docker_workspace_without_config_initializes_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(ConfigWorkspace, "is_docker", staticmethod(lambda: True))
+
+    path = ConfigWorkspace(tmp_path).prepare()
+
+    assert path == tmp_path / "liteyuki.toml"
+    assert path.is_file()
+
+
+def test_cli_init_noninteractive_writes_project_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert cli_module.main(["init", "--non-interactive"]) == 0
+    assert (tmp_path / "liteyuki.toml").is_file()

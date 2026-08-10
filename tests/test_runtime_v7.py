@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 
+from liteyukibot.config import LoggingSettings
 from liteyukibot.runtime import RuntimeCatalog, RuntimeSpec, RuntimeState, RuntimeSupervisor
 from liteyukibot.runtime.protocol import (
     ActionRequest,
@@ -43,6 +44,22 @@ class FakeLogger:
 
     def error(self, message: str, *args: Any, **kwargs: Any) -> None:
         pass
+
+
+class RecordingLogger(FakeLogger):
+    def __init__(
+        self,
+        fields: dict[str, Any] | None = None,
+        records: list[dict[str, Any]] | None = None,
+    ) -> None:
+        self.fields = fields or {}
+        self.records = records if records is not None else []
+
+    def bind(self, **fields: Any) -> RecordingLogger:
+        return RecordingLogger({**self.fields, **fields}, self.records)
+
+    def debug(self, _message: str, *args: Any, **kwargs: Any) -> None:
+        self.records.append(dict(self.fields))
 
 
 class NullWriter:
@@ -96,6 +113,25 @@ async def test_runtime_rejects_duplicate_ids() -> None:
     supervisor.add(RuntimeSpec(id="same", kind="noop"))
     with pytest.raises(ValueError, match="duplicate runtime id"):
         supervisor.add(RuntimeSpec(id="same", kind="noop"))
+
+
+def test_runtime_payload_logs_default_to_metadata_and_can_be_enabled() -> None:
+    logger = RecordingLogger()
+    supervisor = RuntimeSupervisor(logger=logger)
+    supervisor.add(RuntimeSpec(id="private", kind="custom"))
+    record = supervisor.records["private"]
+
+    supervisor._log_payload(record, "event.dispatch", "evt-1", {"message": "secret"})
+    assert logger.records[-1]["payload_keys"] == ("message",)
+    assert "payload" not in logger.records[-1]
+
+    supervisor.set_logging_settings(LoggingSettings(payload_mode="full", payload_exclude_runtimes=("private",)))
+    supervisor._log_payload(record, "event.dispatch", "evt-2", {"message": "secret"})
+    assert "payload" not in logger.records[-1]
+
+    supervisor.set_logging_settings(LoggingSettings(payload_mode="full"))
+    supervisor._log_payload(record, "event.dispatch", "evt-3", {"message": "secret"})
+    assert logger.records[-1]["payload"] == {"message": "secret"}
 
 
 @pytest.mark.asyncio

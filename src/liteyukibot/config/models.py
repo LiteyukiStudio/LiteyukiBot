@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from ipaddress import ip_address
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator, model_validator
 
@@ -49,6 +49,8 @@ class LoggingSettings(FrozenSettingsModel):
     file: Path | None = None
     rotation: str | int | None = None
     retention: str | int | None = None
+    payload_mode: Literal["metadata", "full"] = "metadata"
+    payload_exclude_runtimes: tuple[str, ...] = ()
 
     @field_validator("level")
     @classmethod
@@ -57,6 +59,15 @@ class LoggingSettings(FrozenSettingsModel):
         if not normalized:
             raise ValueError("logging level must not be empty")
         return normalized
+
+    @field_validator("payload_exclude_runtimes")
+    @classmethod
+    def validate_payload_exclude_runtimes(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not item.strip() or item != item.strip() for item in value):
+            raise ValueError("payload exclusion runtime identifiers must be non-empty and trimmed")
+        if len(set(value)) != len(value):
+            raise ValueError("payload exclusion runtime identifiers must not contain duplicates")
+        return value
 
 
 class PluginSettings(FrozenSettingsModel):
@@ -210,6 +221,7 @@ class HttpSettings(FrozenSettingsModel):
 
 
 class AppSettings(FrozenSettingsModel):
+    config_version: int = Field(default=1, ge=1)
     core: CoreSettings = Field(default_factory=CoreSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     plugins: PluginSettings = Field(default_factory=PluginSettings)

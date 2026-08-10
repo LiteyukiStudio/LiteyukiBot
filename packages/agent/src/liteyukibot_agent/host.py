@@ -8,9 +8,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from uuid import uuid4
 
-from yukilog import configure_child_runtime, get_logger
-
 from liteyukibot.events import ActionEnvelope, EventEnvelope, Message, Segment, SendMessage
+from liteyukibot.logging import configure_runtime_child_logging, get_logger
 from liteyukibot.runtime import RuntimeClient
 from liteyukibot.runtime.protocol import ActionRequest, ActionResponse, EventAccepted, EventMessage, Shutdown
 
@@ -144,11 +143,12 @@ class NativeAgentHost:
 
 
 async def run() -> None:
-    configure_child_runtime()
+    configure_runtime_child_logging()
     logger = get_logger(component="agent", runtime=os.environ.get("LITEYUKI_RUNTIME_ID", "agent"))
     client = RuntimeClient.from_environment("agent")
     host: NativeAgentHost | None = None
     try:
+        logger.info("starting native agent runtime")
         options = await client.connect()
         state_directory = Path(os.environ["LITEYUKI_RUNTIME_STATE_DIR"])
         api_key = _environment_secret(options, "api_key_env", "OPENAI_API_KEY")
@@ -167,6 +167,7 @@ async def run() -> None:
             max_concurrent_events=_positive_int(options, "max_concurrent_events", 16),
         )
         await client.ready(("runtime.events.receive", "runtime.actions.send", "agent.tools.execute"))
+        logger.info("native agent runtime is ready")
         await host.serve()
     except Exception as error:
         logger.error("native agent runtime failed: {}", error)
@@ -175,6 +176,7 @@ async def run() -> None:
         if host is not None:
             await host.close()
         await client.close()
+        logger.info("native agent runtime stopped")
 
 
 def _assistant_tool_message(reply: ModelReply) -> Mapping[str, object]:

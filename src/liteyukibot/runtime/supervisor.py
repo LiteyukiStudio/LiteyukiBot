@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import secrets
 import time
@@ -15,6 +16,7 @@ from typing import Any
 
 from yukilog import decode_child_runtime_line
 
+from ..config import LoggingSettings
 from .catalog import RuntimeCatalog
 from .protocol import (
     ActionRequest,
@@ -158,6 +160,7 @@ class RuntimeSupervisor:
         self._port = 0
         self._closing = False
         self._heartbeat_task: asyncio.Task[None] | None = None
+        self._logging_settings = LoggingSettings()
 
     def add(self, spec: RuntimeSpec) -> None:
         if spec.id in self.records:
@@ -168,6 +171,11 @@ class RuntimeSupervisor:
         if self._server is not None:
             raise RuntimeError("agent tool sink cannot change after runtime startup")
         self.agent_tool_sink = sink
+
+    def set_logging_settings(self, settings: LoggingSettings) -> None:
+        if self._server is not None:
+            raise RuntimeError("runtime logging settings cannot change after runtime startup")
+        self._logging_settings = settings
 
     def merge_options(self, runtime_id: str, options: Mapping[str, Any]) -> None:
         if self._server is not None:
@@ -218,6 +226,9 @@ class RuntimeSupervisor:
             record.ready.clear()
             record.connected.clear()
             command = list(record.spec.command or self._default_command(record.spec))
+            self.logger.bind(runtime=record.spec.id, component="runtime").info(
+                "starting {} runtime (attempt {})", record.spec.kind, record.launch_count + 1
+            )
             env = os.environ.copy()
             env.update(record.spec.env)
             env.update(
@@ -228,6 +239,8 @@ class RuntimeSupervisor:
                     "LITEYUKI_RUNTIME_ID": record.spec.id,
                     "LITEYUKI_RUNTIME_KIND": record.spec.kind,
                     "LITEYUKI_RUNTIME_RESTART_COUNT": str(record.launch_count),
+                    "LITEYUKI_RUNTIME_LOG_LEVEL": self._logging_settings.level,
+                    "LITEYUKI_RUNTIME_PAYLOAD_MODE": self._payload_mode(record),
                 }
             )
             record.launch_count += 1
@@ -258,6 +271,9 @@ class RuntimeSupervisor:
             await asyncio.gather(*record.output_tasks, return_exceptions=True)
             await self._disconnect(record)
             record.process = None
+            self.logger.bind(runtime=record.spec.id, component="runtime", exit_code=exit_code).info(
+                "runtime process exited"
+            )
             if not record.desired or self._closing:
                 record.state = RuntimeState.STOPPED
                 return
@@ -339,6 +355,12 @@ class RuntimeSupervisor:
             record.capabilities = frozenset(message.capabilities)
             record.state = RuntimeState.READY
             record.ready.set()
+            self.logger.bind(
+                runtime=record.spec.id,
+                component="runtime",
+                protocol=record.protocol_version,
+                capabilities=tuple(sorted(record.capabilities)),
+            ).info("runtime is ready")
         elif isinstance(message, Heartbeat):
             record.last_heartbeat = time.monotonic()
         elif isinstance(message, EventMessage):
@@ -616,12 +638,20 @@ class RuntimeSupervisor:
         future: asyncio.Future[ActionResponse] = asyncio.get_running_loop().create_future()
         record.pending_actions[correlation_id] = future
         try:
+            self._log_payload(record, "action.request", correlation_id, payload)
             await self._send(
                 record,
                 ActionRequest(correlation_id=correlation_id, payload=json_mapping(payload)),
             )
             async with asyncio.timeout(timeout_seconds):
-                return await future
+                response = await future
+            self._log_payload(
+                record,
+                "action.response",
+                correlation_id,
+                {"ok": response.ok, "data": response.data, "error": response.error},
+            )
+            return response
         finally:
             record.pending_actions.pop(correlation_id, None)
 
@@ -647,12 +677,20 @@ class RuntimeSupervisor:
         record.pending_events[correlation_id] = future
         record.pending_event_payloads[correlation_id] = json_mapping(payload)
         try:
+            self._log_payload(record, "event.dispatch", correlation_id, payload)
             await self._send(
                 record,
                 EventMessage(correlation_id=correlation_id, payload=record.pending_event_payloads[correlation_id]),
             )
             async with asyncio.timeout(timeout_seconds):
-                return await future
+                accepted = await future
+            self._log_payload(
+                record,
+                "event.accepted",
+                correlation_id,
+                {"status": accepted.status, "detail": accepted.detail},
+            )
+            return accepted
         finally:
             record.pending_events.pop(correlation_id, None)
             record.pending_event_payloads.pop(correlation_id, None)
@@ -775,7 +813,12 @@ class RuntimeSupervisor:
     async def _capture_output(
         self, record: RuntimeRecord, stream: asyncio.StreamReader, channel: str
     ) -> None:
-        logger = self.logger.bind(runtime=record.spec.id, component="runtime", stream=channel)
+        logger = self.logger.bind(
+            runtime=record.spec.id,
+            component="runtime",
+            stream=channel,
+            upstream=record.spec.kind,
+        )
         while line := await stream.readline():
             text = line.decode("utf-8", errors="replace").rstrip("\r\n")
             structured = decode_child_runtime_line(text)
@@ -791,7 +834,16 @@ class RuntimeSupervisor:
     def _emit_structured_output(logger: Any, payload: Mapping[str, object]) -> None:
         context = {
             key: payload[key]
-            for key in ("component", "plugin", "event_id", "bot_id")
+            for key in (
+                "component",
+                "plugin",
+                "event_id",
+                "bot_id",
+                "correlation_id",
+                "action_id",
+                "upstream",
+                "upstream_category",
+            )
             if payload.get(key) is not None
         }
         extra = payload.get("extra")
@@ -801,6 +853,31 @@ class RuntimeSupervisor:
         level = str(payload.get("level", "INFO")).lower()
         method = getattr(child_logger, level, child_logger.info)
         method("{}", str(payload.get("message", "")))
+
+    def _payload_mode(self, record: RuntimeRecord) -> str:
+        if record.spec.id in self._logging_settings.payload_exclude_runtimes:
+            return "metadata"
+        return self._logging_settings.payload_mode
+
+    def _log_payload(
+        self,
+        record: RuntimeRecord,
+        operation: str,
+        correlation_id: str,
+        payload: Mapping[str, Any],
+    ) -> None:
+        serialized = json_mapping(payload)
+        context: dict[str, Any] = {
+            "runtime": record.spec.id,
+            "component": "ipc",
+            "correlation_id": correlation_id,
+            "operation": operation,
+            "payload_keys": tuple(sorted(serialized)),
+            "payload_bytes": len(json.dumps(serialized, ensure_ascii=True, separators=(",", ":"))),
+        }
+        if self._payload_mode(record) == "full":
+            context["payload"] = serialized
+        self.logger.bind(**context).debug("runtime IPC {}", operation)
 
     async def _watch_heartbeats(self) -> None:
         while True:

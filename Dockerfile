@@ -39,7 +39,6 @@ RUN groupadd --system --gid 10001 liteyuki \
     && chown -R liteyuki:liteyuki /app
 
 COPY --from=builder /opt/venv /opt/venv
-COPY --chown=liteyuki:liteyuki liteyuki.example.toml /app/liteyuki.example.toml
 
 VOLUME ["/app/data", "/app/cache", "/app/plugins"]
 

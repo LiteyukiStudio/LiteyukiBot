@@ -94,6 +94,7 @@ class LiteyukiApp:
             event_sink=self._ingest_runtime_event,
             action_sink=self._execute_runtime_action,
         )
+        self.runtimes.set_logging_settings(settings.logging)
         self.actions = ActionService(self.runtimes)
         core = settings.core
         self.events = EventBus(
