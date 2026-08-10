@@ -5,8 +5,10 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Mapping
 from enum import StrEnum
+from time import monotonic
 from typing import Any
 
+from ._version import __version__
 from .config import AppSettings
 from .control import ControlServer
 from .events import ActionEnvelope, ActionResult, EventBus, EventEnvelope
@@ -15,6 +17,7 @@ from .logging import Logger, configure_logging, get_logger, shutdown_logging
 from .plugins import PluginManager
 from .runtime import ActionSinkResult, RuntimeSpec, RuntimeSupervisor
 from .services import ServiceRegistry
+from .status import KERNEL_STATUS_SERVICE, KernelStatusSnapshot
 
 
 class AppState(StrEnum):
@@ -60,6 +63,14 @@ class ActionService:
             error_code="RUNTIME_ACTION_FAILED",
             error_message=response.error or "runtime rejected the action",
         )
+
+
+class _AppStatusProvider:
+    def __init__(self, app: LiteyukiApp) -> None:
+        self._app = app
+
+    def snapshot(self) -> KernelStatusSnapshot:
+        return self._app.status_snapshot()
 
 
 class LiteyukiApp:
@@ -110,6 +121,8 @@ class LiteyukiApp:
         self._runtimes_started = False
         self._control_started = False
         self._http_started = False
+        self._started_at: float | None = None
+        self._stopped_at: float | None = None
         v6_runtime_ids: list[str] = []
 
         for runtime_id, runtime in settings.runtimes.items():
@@ -139,11 +152,18 @@ class LiteyukiApp:
                 self._forward_v6_event,
                 name="runtime.v6",
             )
+        self.services.provide(
+            KERNEL_STATUS_SERVICE,
+            _AppStatusProvider(self),
+            provider="liteyukibot.kernel",
+        )
 
     async def start(self) -> None:
         if self.state is not AppState.CREATED:
             raise RuntimeError(f"application cannot start from state {self.state}")
         self.state = AppState.STARTING
+        self._started_at = monotonic()
+        self._stopped_at = None
         try:
             if self._logging_owned:
                 self.logger = configure_logging(self.settings.logging)
@@ -185,11 +205,13 @@ class LiteyukiApp:
                 await self._cleanup()
             except BaseException as cleanup_error:
                 start_error.add_note(f"startup cleanup also failed: {cleanup_error}")
+            self._freeze_uptime()
             raise
 
     async def stop(self) -> None:
         if self.state in {AppState.STOPPED, AppState.CREATED}:
             self.state = AppState.STOPPED
+            self._freeze_uptime()
             return
         if self.state is AppState.STOPPING:
             return
@@ -201,6 +223,8 @@ class LiteyukiApp:
             raise
         else:
             self.state = AppState.STOPPED
+        finally:
+            self._freeze_uptime()
 
     async def run(self) -> None:
         await self.start()
@@ -216,17 +240,32 @@ class LiteyukiApp:
     async def __aexit__(self, *_exc_info: object) -> None:
         await self.stop()
 
+    def status_snapshot(self) -> KernelStatusSnapshot:
+        return KernelStatusSnapshot(
+            version=__version__,
+            state=self.state.value,
+            uptime_seconds=self._uptime_seconds(),
+            plugins={
+                plugin_id: plugin.state.value for plugin_id, plugin in self.plugins.loaded.items()
+            },
+            runtimes={
+                runtime_id: record.state.value for runtime_id, record in self.runtimes.records.items()
+            },
+            events_outstanding=self.events.outstanding,
+        )
+
     def status(self) -> dict[str, Any]:
-        return {
-            "state": self.state,
-            "plugins": {
-                plugin_id: plugin.state for plugin_id, plugin in self.plugins.loaded.items()
-            },
-            "runtimes": {
-                runtime_id: record.state for runtime_id, record in self.runtimes.records.items()
-            },
-            "events_outstanding": self.events.outstanding,
-        }
+        return self.status_snapshot().as_dict()
+
+    def _uptime_seconds(self) -> float:
+        if self._started_at is None:
+            return 0.0
+        end = self._stopped_at if self._stopped_at is not None else monotonic()
+        return max(0.0, end - self._started_at)
+
+    def _freeze_uptime(self) -> None:
+        if self._started_at is not None and self._stopped_at is None:
+            self._stopped_at = monotonic()
 
     async def _cleanup(self) -> None:
         self._accepting_events = False
