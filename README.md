@@ -24,7 +24,7 @@ under ADR 0011 before the first stable release.
 - NoneBot2 plugin hosting and a deliberately bounded v6 compatibility shim;
 - local authenticated CLI control and an optional loopback-only HTTP status API.
 - read-only kernel status plus separately distributable capability, command,
-  help, and protected-status plugins.
+  resource-management, profile, help, and protected-status plugins.
 
 ## Requirements
 
@@ -51,7 +51,7 @@ uv sync --extra nonebot --extra onebot
 uv sync --extra nonebot --extra satori
 ```
 
-Install the complete first-party plugin chain with:
+Install the Essentials command layer with:
 
 ```bash
 uv add "liteyukibot-v7-essentials==0.2.0a1"
@@ -59,6 +59,12 @@ uv add "liteyukibot-v7-essentials==0.2.0a1"
 
 This resolves `liteyukibot-v7-commands` and
 `liteyukibot-v7-permissions`; enable all three plugin IDs in configuration.
+
+The optional profile layer adds persistent per-bot user nickname and language
+preferences. Install `liteyukibot-v7-profile` to resolve resources, then enable
+`liteyukibot.resources` and `liteyukibot.profile` before Essentials. Profile is
+a business plugin: its SQLite database is private to the plugin, and resources
+only supplies the declaration, command, and authorization boundary.
 
 Use `liteyuki.example.toml` as a configuration reference. CLI overrides must
 precede the subcommand, for example:
@@ -95,6 +101,8 @@ uv build --project examples/custom-runtime --out-dir dist/examples
 uv run python scripts/run_developer_kit_install.py
 uv run python scripts/run_permissions_install.py
 uv run python scripts/run_commands_install.py
+uv run python scripts/run_resources_install.py
+uv run python scripts/run_profile_install.py
 uv run python scripts/run_essentials_install.py
 ```
 
