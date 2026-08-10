@@ -4,7 +4,15 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from liteyukibot_commands import COMMAND_SERVICE, CommandService
+from liteyukibot_commands import (
+    COMMAND_SERVICE,
+    ArgumentSpec,
+    CommandSchema,
+    CommandService,
+    CommandSpec,
+    OptionSpec,
+    integer_value,
+)
 from liteyukibot_commands.service import create_command_service
 from liteyukibot_essentials import plugin, render_status
 from liteyukibot_permissions import PERMISSION_SERVICE, PUBLIC, PermissionSnapshot, Principal
@@ -222,6 +230,90 @@ async def test_three_plugin_topology_filters_help_and_correlates_status(tmp_path
         await app.stop()
 
     assert commands.snapshot() == ()
+
+
+@pytest.mark.asyncio
+async def test_help_resolves_visible_hierarchical_aliases_and_renders_schema(tmp_path: Path) -> None:
+    settings = AppSettings(
+        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"),
+        plugins=PluginSettings(
+            enabled=(
+                "liteyukibot.permissions",
+                "liteyukibot.commands",
+                "liteyukibot.essentials",
+            ),
+            config={"liteyukibot.essentials": {"language": "en"}},
+        ),
+    )
+    recorded: list[ActionEnvelope] = []
+
+    async def record_action(action: ActionEnvelope) -> ActionResult:
+        recorded.append(action)
+        return ActionResult(action_id=action.action_id, success=True)
+
+    app = LiteyukiApp(settings, logger=get_logger(component="essentials-help"))
+    app.events._action_executor = record_action
+    await app.start()
+    try:
+        commands = cast(CommandService, app.services.require(COMMAND_SERVICE))
+
+        def handler(_invocation: object) -> None:
+            return None
+
+        commands.register_many(
+            (
+                (CommandSpec("plugin", summary="Manage plugins"), handler),
+                (
+                    CommandSpec(
+                        "list",
+                        aliases=("ls",),
+                        path=("plugin",),
+                        summary="List installed plugins",
+                        schema=CommandSchema(
+                            arguments=(ArgumentSpec("filter", required=False),),
+                            options=(
+                                OptionSpec("limit", aliases=("n",), converter=integer_value, default=10),
+                                OptionSpec("verbose", aliases=("v",), flag=True),
+                            ),
+                        ),
+                    ),
+                    handler,
+                ),
+                (CommandSpec("hidden", permission=STATUS_READ), handler),
+            ),
+            owner="tests.help",
+        )
+
+        root = await app.events.publish(message_event("/help"))
+        detail = await app.events.publish(message_event("/help plugin ls"))
+        missing = await app.events.publish(message_event("/help hidden"))
+
+        assert root.stopped is True
+        assert detail.stopped is True
+        assert missing.stopped is True
+        assert cast(SendMessage, recorded[0].action).message.plain_text == "\n".join(
+            (
+                "Available commands:",
+                "/help (/帮助) - Show available commands",
+                "/plugin - Manage plugins",
+            )
+        )
+        assert cast(SendMessage, recorded[1].action).message.plain_text == "\n".join(
+            (
+                "/plugin list",
+                "Aliases: /plugin ls",
+                "List installed plugins",
+                "Usage: /plugin list [FILTER] [--limit LIMIT] [--verbose]",
+                "Arguments:",
+                "- filter (optional)",
+                "Options:",
+                "- --limit, -n (optional)",
+                "- --verbose, -v (optional)",
+            )
+        )
+        assert cast(SendMessage, recorded[2].action).message.plain_text == "Command not found"
+    finally:
+        await app.stop()
 
 
 def test_essentials_manifest_declares_only_required_services() -> None:
