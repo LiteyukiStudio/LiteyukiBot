@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import importlib.metadata
 import json
@@ -73,7 +74,7 @@ def _event(text: str, actor_id: str) -> EventEnvelope:
     )
 
 
-async def verify() -> None:
+async def verify(expected_version: str | None = None) -> None:
     _verify_import_sources()
     _verify_entry_points()
     with tempfile.TemporaryDirectory() as directory:
@@ -132,7 +133,7 @@ async def verify() -> None:
                 raise RuntimeError("installed operator status command did not reply")
             status_message = actions[-1].action
             if not isinstance(status_message, SendMessage) or not status_message.message.plain_text.startswith(
-                "LiteyukiBot 7.0.0a2\nState: ready"
+                "LiteyukiBot 7.0.0a3\nState: ready"
             ):
                 raise RuntimeError("installed status command produced invalid text")
         finally:
@@ -147,8 +148,15 @@ async def verify() -> None:
             "liteyukibot-v7-essentials",
         )
     }
+    if expected_version is not None and observed["liteyukibot-v7-essentials"] != expected_version:
+        raise RuntimeError(
+            f"expected liteyukibot-v7-essentials {expected_version}; observed {observed}"
+        )
     print(json.dumps(observed, sort_keys=True))
 
 
 if __name__ == "__main__":
-    asyncio.run(verify())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--expected-version")
+    arguments = parser.parse_args()
+    asyncio.run(verify(arguments.expected_version))

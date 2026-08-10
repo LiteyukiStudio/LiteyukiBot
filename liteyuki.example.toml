@@ -15,6 +15,22 @@ json_lines = false
 enabled = []
 local_modules = []
 
+# After installing liteyukibot-v7-essentials, enable:
+# enabled = [
+#   "liteyukibot.permissions",
+#   "liteyukibot.commands",
+#   "liteyukibot.essentials",
+# ]
+
+[plugins.config."liteyukibot.permissions"]
+operators = []
+
+[plugins.config."liteyukibot.commands"]
+prefixes = ["/"]
+
+[plugins.config."liteyukibot.essentials"]
+language = "zh-CN"
+
 [http]
 enabled = false
 host = "127.0.0.1"
