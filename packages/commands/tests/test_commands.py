@@ -70,19 +70,26 @@ def make_harness(
 
 @pytest.mark.asyncio
 async def test_command_router_dispatches_alias_and_preserves_arguments(tmp_path: Path) -> None:
-    observed: list[tuple[str, str, str]] = []
+    observed: list[tuple[str, str, str, str]] = []
     async with make_harness(tmp_path) as harness:
         service = cast(CommandService, harness.require_service(COMMAND_SERVICE))
 
         async def echo(invocation: CommandInvocation) -> HandlerResult:
-            observed.append((invocation.command, invocation.invoked_as, invocation.raw_arguments))
+            observed.append(
+                (
+                    invocation.command,
+                    invocation.invoked_as,
+                    invocation.prefix,
+                    invocation.raw_arguments,
+                )
+            )
             return invocation.reply(f"echo: {invocation.raw_arguments}")
 
         service.register(CommandSpec("echo", aliases=("E",)), echo, owner="tests.echo")
         result = await harness.publish(message_event("  /e Hello  world  "))
 
         assert result.stopped is True
-        assert observed == [("echo", "e", "Hello  world  ")]
+        assert observed == [("echo", "e", "/", "Hello  world  ")]
         sent = cast(SendMessage, harness.recorded_actions[0].action)
         assert sent.message.plain_text == "echo: Hello  world  "
         assert sent.reply_token == "reply-token"
@@ -90,12 +97,12 @@ async def test_command_router_dispatches_alias_and_preserves_arguments(tmp_path:
 
 @pytest.mark.asyncio
 async def test_command_router_uses_longest_prefix_and_ignores_unknown_input(tmp_path: Path) -> None:
-    calls: list[str] = []
+    calls: list[tuple[str, str]] = []
     async with make_harness(tmp_path, config={"prefixes": ["/", "//"]}) as harness:
         service = cast(CommandService, harness.require_service(COMMAND_SERVICE))
         service.register(
             CommandSpec("echo"),
-            lambda invocation: calls.append(invocation.command),
+            lambda invocation: calls.append((invocation.command, invocation.prefix)),
             owner="tests.echo",
         )
 
@@ -105,7 +112,7 @@ async def test_command_router_uses_longest_prefix_and_ignores_unknown_input(tmp_
         plain = await harness.publish(message_event("echo"))
 
         assert matched.stopped is True
-        assert calls == ["echo"]
+        assert calls == [("echo", "//")]
         assert spaced.stopped is False
         assert unknown.stopped is False
         assert plain.stopped is False

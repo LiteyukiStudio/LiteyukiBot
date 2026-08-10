@@ -10,6 +10,7 @@ resolution-markers = [
 members = [
     "liteyukibot-v7",
     "liteyukibot-v7-commands",
+    "liteyukibot-v7-essentials",
     "liteyukibot-v7-permissions",
 ]
 
@@ -316,6 +317,21 @@ dependencies = [
 requires-dist = [
     { name = "liteyukibot-v7", editable = "." },
     { name = "liteyukibot-v7-permissions", editable = "packages/permissions" },
+]
+
+[[package]]
+name = "liteyukibot-v7-essentials"
+version = "0.1.0a1"
+source = { editable = "packages/essentials" }
+dependencies = [
+    { name = "liteyukibot-v7" },
+    { name = "liteyukibot-v7-commands" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "liteyukibot-v7", editable = "." },
+    { name = "liteyukibot-v7-commands", editable = "packages/commands" },
 ]
 
 [[package]]
