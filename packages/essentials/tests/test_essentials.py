@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from liteyukibot_commands import (
@@ -31,10 +31,12 @@ from liteyukibot.events import (
 )
 from liteyukibot.exceptions import PluginError
 from liteyukibot.logging import get_logger
+from liteyukibot.services import ServiceKey
 from liteyukibot.status import KernelStatusSnapshot
 from liteyukibot.testing import PluginTestHarness
 
 STATUS_READ = "liteyukibot.status.read"
+PROFILE_SERVICE = ServiceKey("liteyukibot.profile", 1)
 
 
 class PermissionStub:
@@ -64,6 +66,17 @@ class StatusStub:
             runtimes={"runtime-b": "ready", "runtime-a": "failed"},
             events_outstanding=3,
         )
+
+
+class ProfileStub:
+    def __init__(self, language: str = "en", *, fail: bool = False) -> None:
+        self.language = language
+        self.fail = fail
+
+    async def get(self, _principal: Principal) -> object:
+        if self.fail:
+            raise RuntimeError("profile unavailable")
+        return self
 
 
 def message_event(text: str, *, actor_id: str = "user") -> EventEnvelope:
@@ -133,6 +146,50 @@ async def test_essentials_rejects_unknown_configuration(tmp_path: Path) -> None:
     assert "unknown essentials config keys" in str(raised.value.__cause__)
 
 
+@pytest.mark.asyncio
+async def test_essentials_uses_optional_profile_language_and_falls_back(tmp_path: Path) -> None:
+    commands = command_service()
+    harness = PluginTestHarness(
+        plugin,
+        root=tmp_path,
+        dependencies={
+            COMMAND_SERVICE: commands,
+            KERNEL_STATUS_SERVICE: StatusStub(),
+            PROFILE_SERVICE: ProfileStub("en"),
+        },
+    )
+    async with harness:
+        subscription = harness._events.subscribe(cast(Any, commands).dispatch, order=-100, name="commands-test")
+        result = await harness.publish(message_event("/help"))
+        assert result.stopped is True
+        assert harness.recorded_actions[-1].action.type == "send_message"
+        action = harness.recorded_actions[-1].action
+        assert isinstance(action, SendMessage)
+        assert action.message.plain_text.startswith("Available commands:")
+        harness._events.unsubscribe(subscription)
+
+    failing = PluginTestHarness(
+        plugin,
+        root=tmp_path / "fallback",
+        dependencies={
+            COMMAND_SERVICE: command_service(),
+            KERNEL_STATUS_SERVICE: StatusStub(),
+            PROFILE_SERVICE: ProfileStub(fail=True),
+        },
+    )
+    async with failing:
+        subscription = failing._events.subscribe(
+            cast(Any, failing.require_service(COMMAND_SERVICE)).dispatch,
+            order=-100,
+            name="commands-test",
+        )
+        await failing.publish(message_event("/help"))
+        fallback_action = failing.recorded_actions[-1].action
+        assert isinstance(fallback_action, SendMessage)
+        assert fallback_action.message.plain_text.startswith("可用命令：")
+        failing._events.unsubscribe(subscription)
+
+
 def test_english_status_is_stable_and_sorted() -> None:
     rendered = render_status(StatusStub().snapshot(), language="en")
 
@@ -172,7 +229,7 @@ async def test_three_plugin_topology_filters_help_and_correlates_status(tmp_path
                             "actor_id": "operator",
                             "roles": ["operator"],
                         }
-                    ]
+                    ],
                 },
                 "liteyukibot.commands": {"prefixes": ["/", "//"]},
             },
@@ -316,12 +373,13 @@ async def test_help_resolves_visible_hierarchical_aliases_and_renders_schema(tmp
         await app.stop()
 
 
-def test_essentials_manifest_declares_only_required_services() -> None:
+def test_essentials_manifest_declares_optional_profile_service() -> None:
     assert plugin.manifest.id == "liteyukibot.essentials"
     assert plugin.manifest.version == "0.2.0a1"
     assert plugin.manifest.provides == ()
     assert tuple(item.key for item in plugin.manifest.requires) == (
         COMMAND_SERVICE,
         KERNEL_STATUS_SERVICE,
+        PROFILE_SERVICE,
     )
     assert PERMISSION_SERVICE not in tuple(item.key for item in plugin.manifest.requires)
