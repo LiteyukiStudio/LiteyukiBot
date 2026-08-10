@@ -96,11 +96,13 @@ The first-party `liteyukibot-v7-permissions` package provides
 `PermissionService` from `liteyukibot_permissions`, declare the service in
 their manifest, and call `allows(event, permission)`.
 
-The alpha implementation recognizes `public` and `operator`. Operators are
-exact runtime, bot, and actor triples configured under
-`plugins.config."liteyukibot.permissions"`. Unknown permission strings are
-denied. The service is application policy for trusted plugins; it is not a
-sandbox boundary.
+The alpha implementation maps exact runtime, bot, and actor principals to
+static named roles and exact capability tokens configured under
+`plugins.config."liteyukibot.permissions"`. Every event has `public`;
+`resolve(event)` exposes a frozen diagnostic snapshot and unknown capabilities
+are denied. Plugins check capabilities rather than deployment role names. The
+service is application policy for trusted plugins; it is not a sandbox
+boundary.
 
 ## Commands
 
@@ -120,11 +122,12 @@ text and does not implement options, subcommands, or typed conversion.
 ## Essentials
 
 `liteyukibot-v7-essentials` is a consumer plugin, not a kernel feature. It
-registers public `help`/`帮助` and operator-only `status`/`状态`, renders only
-protocol-neutral text, and provides no service. Enable permissions and commands
-before essentials in deployment configuration. Help filters registrations
-through the command service for the current event; status reads the immutable
-kernel status provider.
+registers public `help`/`帮助` and capability-protected `status`/`状态`, renders
+only protocol-neutral text, and provides no service. Status requires
+`liteyukibot.status.read`. Enable permissions and commands before essentials in
+deployment configuration. Help filters registrations through the command
+service for the current event; status reads the immutable kernel status
+provider.
 
 The `language` setting accepts `zh-CN` or `en`. This dictionary is intentionally
 local to the package and does not define a localization API for other plugins.

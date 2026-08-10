@@ -89,11 +89,13 @@ async def verify(expected_version: str | None = None) -> None:
                 ),
                 config={
                     "liteyukibot.permissions": {
-                        "operators": [
+                        "roles": {"operator": ["liteyukibot.status.read"]},
+                        "grants": [
                             {
                                 "runtime_id": "runtime",
                                 "bot_id": "bot",
                                 "actor_id": "operator",
+                                "roles": ["operator"],
                             }
                         ]
                     },
@@ -124,13 +126,13 @@ async def verify(expected_version: str | None = None) -> None:
             if not isinstance(message, SendMessage):
                 raise TypeError("installed help command did not produce SendMessage")
             if "/status" in message.message.plain_text or "Available commands:" not in message.message.plain_text:
-                raise RuntimeError("installed help command did not filter operator commands")
+                raise RuntimeError("installed help command did not filter protected commands")
             if help_action.event_id != user_help.id or message.reply_token != user_help.reply_token:
                 raise RuntimeError("installed help reply lost event correlation")
 
             result = await app.events.publish(_event("/status", "operator"))
             if not result.stopped or len(actions) != 2:
-                raise RuntimeError("installed operator status command did not reply")
+                raise RuntimeError("installed capability-protected status command did not reply")
             status_message = actions[-1].action
             if not isinstance(status_message, SendMessage) or not status_message.message.plain_text.startswith(
                 "LiteyukiBot 7.0.0a3\nState: ready"

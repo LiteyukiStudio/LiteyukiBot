@@ -8,7 +8,7 @@ from .service import PERMISSION_SERVICE, create_permission_service
 
 
 async def setup(context: PluginContext) -> None:
-    service = create_permission_service(context.config, context.logger)
+    service = create_permission_service(context.config)
     context.services.provide(PERMISSION_SERVICE, service)
 
 
