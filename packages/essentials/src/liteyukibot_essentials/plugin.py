@@ -7,8 +7,11 @@ from typing import Any, cast
 
 from liteyukibot_commands import (
     COMMAND_SERVICE,
+    ArgumentSpec,
     CommandBinding,
     CommandInvocation,
+    CommandParseError,
+    CommandSchema,
     CommandService,
     CommandSpec,
 )
@@ -18,7 +21,7 @@ from liteyukibot.events import HandlerResult
 from liteyukibot.services import ServiceRequirement
 from liteyukibot.status import KERNEL_STATUS_SERVICE, KernelStatusProvider
 
-from .render import Language, messages, render_help, render_status
+from .render import Language, messages, render_help, render_parse_error, render_status
 
 _PUBLIC_PERMISSION = "public"
 _STATUS_READ_CAPABILITY = "liteyukibot.status.read"
@@ -41,8 +44,27 @@ async def setup(context: PluginContext) -> PluginHandle:
     text = messages(language)
 
     def help_command(invocation: CommandInvocation) -> HandlerResult:
+        try:
+            parsed = invocation.parse()
+        except CommandParseError as error:
+            return invocation.reply(render_parse_error(error, language=language))
+        target = cast(tuple[str, ...], parsed.arguments["path"])
         visible = command_service.visible(invocation.event)
-        return invocation.reply(render_help(visible, prefix=invocation.prefix, language=language))
+        if target:
+            registration = command_service.resolve(invocation.event, target)
+            if registration is None:
+                visible = ()
+            else:
+                visible = (registration,)
+                target = registration.spec.command_path
+        return invocation.reply(
+            render_help(
+                visible,
+                prefix=invocation.prefix,
+                language=language,
+                target=target or None,
+            )
+        )
 
     def status_command(invocation: CommandInvocation) -> HandlerResult:
         return invocation.reply(render_status(status_provider.snapshot(), language=language))
@@ -54,6 +76,9 @@ async def setup(context: PluginContext) -> PluginHandle:
                 aliases=("帮助",),
                 summary=text.help_summary,
                 permission=_PUBLIC_PERMISSION,
+                schema=CommandSchema(
+                    arguments=(ArgumentSpec("path", required=False, variadic=True),),
+                ),
             ),
             help_command,
         ),

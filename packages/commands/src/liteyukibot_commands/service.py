@@ -53,6 +53,8 @@ class CommandService(Protocol):
 
     def visible(self, event: EventEnvelope) -> tuple[CommandRegistration, ...]: ...
 
+    def resolve(self, event: EventEnvelope, path: Sequence[str]) -> CommandRegistration | None: ...
+
 
 @dataclass(frozen=True, slots=True)
 class _RegisteredCommand:
@@ -156,6 +158,14 @@ class _CommandService:
             for registration in self.snapshot()
             if self._allows(event, registration.spec)
         )
+
+    def resolve(self, event: EventEnvelope, path: Sequence[str]) -> CommandRegistration | None:
+        tokens = tuple(item.casefold() for item in path)
+        registration_id = self._paths.get(tokens)
+        if registration_id is None:
+            return None
+        registration = self._commands[registration_id].registration
+        return registration if self._allows(event, registration.spec) else None
 
     async def dispatch(self, event: EventEnvelope) -> HandlerResult | None:
         parsed = self._parse(event)
