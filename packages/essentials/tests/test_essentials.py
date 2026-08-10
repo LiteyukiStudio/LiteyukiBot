@@ -375,7 +375,7 @@ async def test_help_resolves_visible_hierarchical_aliases_and_renders_schema(tmp
 
 def test_essentials_manifest_declares_optional_profile_service() -> None:
     assert plugin.manifest.id == "liteyukibot.essentials"
-    assert plugin.manifest.version == "0.2.0a1"
+    assert plugin.manifest.version == "0.2.0a2"
     assert plugin.manifest.provides == ()
     assert tuple(item.key for item in plugin.manifest.requires) == (
         COMMAND_SERVICE,

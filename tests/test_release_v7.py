@@ -32,7 +32,7 @@ def test_import_namespaces_use_distribution_version() -> None:
         ("commands", "commands-v0.2.0a1"),
         ("resources", "resources-v0.1.0a1"),
         ("profile", "profile-v0.1.0a1"),
-        ("essentials", "essentials-v0.2.0a1"),
+        ("essentials", "essentials-v0.2.0a2"),
     ],
 )
 def test_current_release_identities_accept_exact_tags(name: str, tag: str) -> None:
