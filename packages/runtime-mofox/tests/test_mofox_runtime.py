@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
 import importlib.metadata
+from collections.abc import Awaitable, Callable
 from importlib.metadata import PackageNotFoundError
 from pathlib import Path
 
