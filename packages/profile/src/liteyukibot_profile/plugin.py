@@ -6,13 +6,13 @@ from typing import cast
 
 from liteyukibot_resources import RESOURCE_SERVICE, ResourceField, ResourceService, ResourceSpec
 
-from liteyukibot import PluginContext, PluginDefinition, PluginHandle, PluginManifest
+from liteyukibot import PluginContext, PluginDefinition, PluginManifest
 from liteyukibot.services import ServiceRequirement
 
 from .service import PROFILE_SERVICE, SQLiteProfileService, language_value, nickname_value
 
 
-async def setup(context: PluginContext) -> PluginHandle:
+async def setup(context: PluginContext) -> None:
     if context.paths is None:
         raise RuntimeError("profile plugin requires private storage")
     resources = cast(ResourceService, context.services.require(RESOURCE_SERVICE))
@@ -39,11 +39,11 @@ async def setup(context: PluginContext) -> PluginHandle:
     )
     context.services.provide(PROFILE_SERVICE, service)
 
-    async def stop() -> None:
+    async def close() -> None:
         resources.unregister(registration)
         await service.close()
 
-    return PluginHandle(stop=stop)
+    context.defer_cleanup(close)
 
 
 def create_plugin(version: str) -> PluginDefinition:

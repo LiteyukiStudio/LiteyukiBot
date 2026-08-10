@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractContextManager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from functools import partial
 from importlib import import_module, metadata
@@ -82,6 +82,36 @@ class PluginManifest(BaseModel):
 
 
 PluginCallback = Callable[[], Awaitable[None]]
+type CleanupCallback = Callable[[], object]
+
+
+class _PluginCleanup:
+    def __init__(self) -> None:
+        self._callbacks: list[CleanupCallback] = []
+        self._closed = False
+
+    def defer(self, callback: CleanupCallback) -> None:
+        if self._closed:
+            raise RuntimeError("plugin cleanup is already closed")
+        if not callable(callback):
+            raise TypeError("plugin cleanup callback must be callable")
+        self._callbacks.append(callback)
+
+    async def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        errors: list[BaseException] = []
+        while self._callbacks:
+            callback = self._callbacks.pop()
+            try:
+                result = callback()
+                if inspect.isawaitable(result):
+                    await result
+            except BaseException as error:
+                errors.append(error)
+        if errors:
+            raise BaseExceptionGroup("plugin cleanup failed", errors)
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,6 +176,12 @@ class PluginContext:
     events: EventBus
     actions: ActionServiceLike
     paths: PluginPaths | None
+    _cleanup: _PluginCleanup = field(repr=False, compare=False)
+
+    def defer_cleanup(self, callback: CleanupCallback) -> None:
+        """Run a synchronous or asynchronous callback during plugin cleanup."""
+
+        self._cleanup.defer(callback)
 
 
 class PluginState(StrEnum):
@@ -287,6 +323,7 @@ class PluginManager:
             )
             paths = self._create_paths(plugin_id) if manifest.storage == "private" else None
             plugin_services = PluginServices(manifest, self.services)
+            cleanup = _PluginCleanup()
             context = PluginContext(
                 id=plugin_id,
                 config=MappingProxyType(dict(configs.get(plugin_id, {}))),
@@ -296,13 +333,28 @@ class PluginManager:
                 events=self.events,
                 actions=self.actions,
                 paths=paths,
+                _cleanup=cleanup,
             )
+            handle = PluginHandle()
             try:
-                handle = await definition.setup(context) or PluginHandle()
+                handle = await definition.setup(context) or handle
                 plugin_services.validate_provided()
             except Exception as exc:
-                self.services.remove_provider(plugin_id)
-                await tasks.stop()
+                try:
+                    if handle.stop is not None:
+                        await handle.stop()
+                except BaseException:
+                    logger.exception("plugin {} stop after setup failure failed", plugin_id)
+                finally:
+                    try:
+                        await cleanup.close()
+                    except BaseException:
+                        logger.exception("plugin {} cleanup after setup failure failed", plugin_id)
+                    finally:
+                        try:
+                            await tasks.stop()
+                        finally:
+                            self.services.remove_provider(plugin_id)
                 raise PluginError(f"plugin {plugin_id} setup failed") from exc
             self.loaded[plugin_id] = LoadedPlugin(definition, context, handle)
 
@@ -321,6 +373,10 @@ class PluginManager:
             except BaseException as error:
                 errors.append(error)
             finally:
+                try:
+                    await plugin.context._cleanup.close()
+                except BaseException as error:
+                    errors.append(error)
                 try:
                     await plugin.context.tasks.stop()
                 except BaseException as error:

@@ -147,6 +147,83 @@ async def test_plugin_setup_failure_removes_its_provided_services(tmp_path: Path
 
 
 @pytest.mark.asyncio
+async def test_plugin_setup_failure_runs_deferred_cleanup_in_reverse_order(tmp_path: Path) -> None:
+    manager = make_manager(tmp_path)
+    calls: list[str] = []
+
+    async def async_cleanup() -> None:
+        calls.append("async")
+
+    async def setup(context: PluginContext) -> None:
+        context.defer_cleanup(lambda: calls.append("sync"))
+        context.defer_cleanup(async_cleanup)
+        raise RuntimeError("setup failed")
+
+    definition = PluginDefinition(
+        PluginManifest(id="cleanup", name="Cleanup", version="1.0.0"),
+        setup,
+    )
+
+    with pytest.raises(PluginError, match="cleanup setup failed"):
+        await manager.setup({"cleanup": definition}, {})
+
+    assert calls == ["async", "sync"]
+
+
+@pytest.mark.asyncio
+async def test_plugin_setup_validation_failure_runs_stop_and_deferred_cleanup(tmp_path: Path) -> None:
+    manager = make_manager(tmp_path)
+    calls: list[str] = []
+
+    async def setup(context: PluginContext) -> PluginHandle:
+        context.defer_cleanup(lambda: calls.append("cleanup"))
+
+        async def stop() -> None:
+            calls.append("stop")
+
+        return PluginHandle(stop=stop)
+
+    definition = PluginDefinition(
+        PluginManifest(
+            id="cleanup-validation",
+            name="Cleanup validation",
+            version="1.0.0",
+            provides=(ServiceKey("example.required"),),
+        ),
+        setup,
+    )
+
+    with pytest.raises(PluginError, match="cleanup-validation setup failed"):
+        await manager.setup({"cleanup-validation": definition}, {})
+
+    assert calls == ["stop", "cleanup"]
+
+
+@pytest.mark.asyncio
+async def test_plugin_stop_runs_deferred_cleanup_after_stop_callback(tmp_path: Path) -> None:
+    manager = make_manager(tmp_path)
+    calls: list[str] = []
+
+    async def setup(context: PluginContext) -> PluginHandle:
+        context.defer_cleanup(lambda: calls.append("cleanup"))
+
+        async def stop() -> None:
+            calls.append("stop")
+
+        return PluginHandle(stop=stop)
+
+    definition = PluginDefinition(
+        PluginManifest(id="cleanup", name="Cleanup", version="1.0.0"),
+        setup,
+    )
+
+    await manager.setup({"cleanup": definition}, {})
+    await manager.stop()
+
+    assert calls == ["stop", "cleanup"]
+
+
+@pytest.mark.asyncio
 async def test_plugin_managed_task_failure_is_logged(tmp_path: Path) -> None:
     logger = RecordingLogger()
     manager = make_manager(tmp_path, logger=logger)
