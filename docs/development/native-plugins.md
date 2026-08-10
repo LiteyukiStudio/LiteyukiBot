@@ -109,8 +109,22 @@ The first-party `liteyukibot-v7-commands` package provides
 `CommandService`, and registers `CommandSpec` plus a synchronous or asynchronous
 handler. The handler receives `CommandInvocation` and returns the kernel's
 `HandlerResult`; `invocation.reply()` builds a correlated `SendMessage` result.
+The invocation also exposes the actual matched `prefix`, the canonical command
+name, the alias used, and unparsed argument text.
 
 Registrations are explicitly owned and must be unregistered in the consumer's
 stop callback. `register_many()` is atomic, so a duplicate name or alias leaves
 the previous registry unchanged. The alpha parser supplies unparsed argument
 text and does not implement options, subcommands, or typed conversion.
+
+## Essentials
+
+`liteyukibot-v7-essentials` is a consumer plugin, not a kernel feature. It
+registers public `help`/`帮助` and operator-only `status`/`状态`, renders only
+protocol-neutral text, and provides no service. Enable permissions and commands
+before essentials in deployment configuration. Help filters registrations
+through the command service for the current event; status reads the immutable
+kernel status provider.
+
+The `language` setting accepts `zh-CN` or `en`. This dictionary is intentionally
+local to the package and does not define a localization API for other plugins.

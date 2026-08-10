@@ -152,7 +152,7 @@ class _CommandService:
         parsed = self._parse(event)
         if parsed is None:
             return None
-        registered, invoked_as, raw_arguments = parsed
+        registered, invoked_as, prefix, raw_arguments = parsed
         spec = registered.registration.spec
         if not self._allows(event, spec):
             return HandlerResult(stop_propagation=True)
@@ -161,6 +161,7 @@ class _CommandService:
             event=event,
             command=spec.name,
             invoked_as=invoked_as,
+            prefix=prefix,
             raw_arguments=raw_arguments,
         )
         try:
@@ -199,7 +200,7 @@ class _CommandService:
             )
             return False
 
-    def _parse(self, event: EventEnvelope) -> tuple[_RegisteredCommand, str, str] | None:
+    def _parse(self, event: EventEnvelope) -> tuple[_RegisteredCommand, str, str, str] | None:
         if event.message is None:
             return None
         text = event.message.plain_text.lstrip()
@@ -215,7 +216,7 @@ class _CommandService:
         if command_id is None:
             return None
         raw_arguments = "" if len(parts) == 1 else parts[1]
-        return self._commands[command_id], invoked_as, raw_arguments
+        return self._commands[command_id], invoked_as, prefix, raw_arguments
 
 
 def create_command_service(
