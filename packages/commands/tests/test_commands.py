@@ -144,6 +144,65 @@ async def test_command_router_uses_longest_prefix_and_ignores_unknown_input(tmp_
 
 
 @pytest.mark.asyncio
+async def test_command_router_matches_longest_hierarchical_path_and_preserves_parent_fallback(tmp_path: Path) -> None:
+    calls: list[tuple[str, tuple[str, ...], str, str]] = []
+    async with make_harness(tmp_path) as harness:
+        service = cast(CommandService, harness.require_service(COMMAND_SERVICE))
+
+        def parent(invocation: CommandInvocation) -> None:
+            calls.append((invocation.command, invocation.command_path, invocation.invoked_as, invocation.raw_arguments))
+
+        def child(invocation: CommandInvocation) -> None:
+            calls.append((invocation.command, invocation.command_path, invocation.invoked_as, invocation.raw_arguments))
+
+        service.register_many(
+            (
+                (CommandSpec("plugin"), parent),
+                (CommandSpec("list", aliases=("ls",), path=("plugin",)), child),
+            ),
+            owner="tests.hierarchy",
+        )
+
+        child_result = await harness.publish(message_event("/plugin list   --all"))
+        alias_result = await harness.publish(message_event("/plugin ls value"))
+        parent_result = await harness.publish(message_event("/plugin unknown value"))
+
+        assert child_result.stopped is True
+        assert alias_result.stopped is True
+        assert parent_result.stopped is True
+        assert calls == [
+            ("list", ("plugin", "list"), "plugin list", "--all"),
+            ("list", ("plugin", "list"), "plugin ls", "value"),
+            ("plugin", ("plugin",), "plugin", "unknown value"),
+        ]
+        assert [item.spec.command_path for item in service.snapshot()] == [
+            ("plugin",),
+            ("plugin", "list"),
+        ]
+
+
+@pytest.mark.asyncio
+async def test_hierarchical_registration_rejects_same_path_or_alias_atomically(tmp_path: Path) -> None:
+    async with make_harness(tmp_path) as harness:
+        service = cast(CommandService, harness.require_service(COMMAND_SERVICE))
+
+        def handler(_invocation: CommandInvocation) -> None:
+            return None
+
+        parent = service.register(CommandSpec("plugin"), handler, owner="tests.hierarchy")
+        with pytest.raises(ValueError, match="plugin list"):
+            service.register_many(
+                (
+                    (CommandSpec("list", path=("plugin",)), handler),
+                    (CommandSpec("show", aliases=("list",), path=("plugin",)), handler),
+                ),
+                owner="tests.hierarchy",
+            )
+
+        assert service.snapshot() == (parent,)
+
+
+@pytest.mark.asyncio
 async def test_command_registration_is_atomic_and_explicitly_owned(tmp_path: Path) -> None:
     async with make_harness(tmp_path) as harness:
         service = cast(CommandService, harness.require_service(COMMAND_SERVICE))
@@ -250,6 +309,8 @@ def test_command_spec_rejects_invalid_and_duplicate_tokens() -> None:
         CommandSpec("echo", aliases=("ECHO",))
     with pytest.raises(ValueError, match="permission"):
         CommandSpec("echo", permission="")
+    with pytest.raises(TypeError, match="path"):
+        CommandSpec("echo", path=cast(tuple[str, ...], "parent"))
 
 
 @pytest.mark.asyncio

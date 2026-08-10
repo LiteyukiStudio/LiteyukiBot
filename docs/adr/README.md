@@ -21,3 +21,4 @@ stable-release guarantee.
 15. [First-party essential commands](0015-first-party-essential-commands.md)
 16. [Static capability and role policy](0016-capability-permission-policy.md)
 17. [Explicit structured command schemas](0017-structured-command-schema.md)
+18. [Hierarchical command routing](0018-hierarchical-command-routing.md)
