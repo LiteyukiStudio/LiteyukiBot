@@ -48,18 +48,21 @@ dev = [
 requires = ["uv_build>=0.11.32,<0.12"]
 build-backend = "uv_build"
 
+[tool.uv.workspace]
+members = ["packages/*"]
+
 [tool.uv.build-backend]
 module-root = "src"
 module-name = ["liteyukibot", "liteyuki"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "packages"]
 asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 120
 target-version = "py314"
-src = ["src", "tests", "scripts", "examples"]
+src = ["src", "tests", "scripts", "examples", "packages"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC"]
@@ -67,4 +70,4 @@ select = ["E", "F", "I", "UP", "B", "ASYNC"]
 [tool.mypy]
 python_version = "3.14"
 strict = true
-files = ["src", "tests", "scripts", "examples"]
+files = ["src", "tests", "scripts", "examples", "packages"]
