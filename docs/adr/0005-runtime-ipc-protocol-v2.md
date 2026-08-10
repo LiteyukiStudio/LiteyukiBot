@@ -47,6 +47,14 @@ Timeout removes the pending request. Disconnect fails it with
 before another frame is sent. An unmatched or late `event_accepted` has no
 effect.
 
+Child-originated Event handling runs in tracked work outside the connection
+reader. This keeps later Action responses and heartbeats routable when an Event
+handler waits for an Action result on the same runtime connection. The
+supervisor bounds that tracked work with each runtime's `max_inbound_events`
+limit (default `100`), replying `overloaded` before creating a task when full.
+A duplicate in-flight child Event correlation ID receives `invalid`, and
+disconnect cancels unfinished Event work.
+
 ## Consequences
 
 V1 and v2 children may connect to the same supervisor concurrently. Existing v1

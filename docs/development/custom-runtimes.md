@@ -39,6 +39,11 @@ The host must also:
 - never reconnect itself, because restart limits and backoff belong to the
   supervisor.
 
+The supervisor applies the same protection to child-to-core Events. Each
+runtime has `max_inbound_events` (default `100`); additional Events receive
+`overloaded` without creating another handler task. Set it in the runtime's
+TOML table when the adapter has a known, bounded concurrency requirement.
+
 Protocol v2/v3 Event receipt requires `runtime.events.receive`. Child-originated
 Actions require protocol v3 and `runtime.actions.send`. Capability names and
 protocol versions are negotiated exactly rather than inferred.
