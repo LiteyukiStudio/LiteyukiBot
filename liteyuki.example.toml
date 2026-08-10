@@ -21,6 +21,16 @@ local_modules = []
 #   "liteyukibot.commands",
 #   "liteyukibot.essentials",
 # ]
+#
+# After installing liteyukibot-v7-profile as well, enable resources and profile
+# before Essentials to persist per-bot nickname and language preferences:
+# enabled = [
+#   "liteyukibot.permissions",
+#   "liteyukibot.commands",
+#   "liteyukibot.resources",
+#   "liteyukibot.profile",
+#   "liteyukibot.essentials",
+# ]
 
 [plugins.config."liteyukibot.permissions"]
 grants = []
