@@ -28,7 +28,7 @@ jobs:
         working-directory: LiteyukiBot
         run: |
           uv python install 3.14
-          uv sync --locked --all-packages
+          uv sync --locked --all-packages --extra onebot --extra satori
       - name: Quality checks
         working-directory: LiteyukiBot
         run: |
@@ -94,7 +94,7 @@ jobs:
         run: |
           uv python install 3.14
           uv sync --locked --all-packages --extra onebot --extra satori
-          uv run --extra onebot --extra satori pytest \
+          uv run pytest \
             tests/test_runtime_v7.py::test_nonebot_runtime_loads_an_existing_plugin \
             packages/runtime-nonebot/tests/test_nonebot_adapters.py \
             packages/runtime-nonebot/tests/test_nonebot_runtime_e2e.py
