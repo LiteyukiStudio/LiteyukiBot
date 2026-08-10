@@ -54,7 +54,7 @@ uv sync --extra nonebot --extra satori
 Install the Essentials command layer with:
 
 ```bash
-uv add "liteyukibot-v7-essentials==0.2.0a1"
+uv add "liteyukibot-v7-essentials==0.2.0a2"
 ```
 
 This resolves `liteyukibot-v7-commands` and

@@ -323,7 +323,7 @@ requires-dist = [
 
 [[package]]
 name = "liteyukibot-v7-essentials"
-version = "0.2.0a1"
+version = "0.2.0a2"
 source = { editable = "packages/essentials" }
 dependencies = [
     { name = "liteyukibot-v7" },
