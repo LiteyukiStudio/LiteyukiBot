@@ -25,15 +25,18 @@ jobs:
       - uses: astral-sh/setup-uv@v8.3.2
         with:
           version: "0.11.16"
+      - name: Install Python
+        run: uv python install 3.14
       - name: Require published Yukilog 1.x
-        run: uv run --no-project --with "yukilog>=1,<2" python -c "import yukilog"
+        run: uv run --no-project --python 3.14 --with "yukilog>=1,<2" python -c "import yukilog"
       - name: Validate release identity
-        run: uv run python scripts/check_release.py --tag "$RELEASE_TAG"
+        run: uv run --no-project --python 3.14 python scripts/check_release.py --tag "$RELEASE_TAG"
       - name: Build distribution
         run: |
           uv build
           wheel="$(find dist -maxdepth 1 -name '*.whl' -print -quit)"
-          uv run --no-project --with "$wheel" python scripts/verify_published_install.py --expected-version "${RELEASE_TAG#v}"
+          uv run --no-project --python 3.14 python scripts/run_isolated_install.py \
+            --with "$wheel" --verifier scripts/verify_published_install.py -- \
+            --expected-version "${RELEASE_TAG#v}"
       - name: Publish distribution
-        run: |
-          uv publish
+        run: uv publish

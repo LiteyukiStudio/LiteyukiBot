@@ -4,7 +4,14 @@ import importlib.metadata
 from pathlib import Path
 
 import pytest
-from scripts.check_release import ReleaseIdentity, read_release_identity, validate_release
+from scripts.check_release import (
+    RELEASE_PROJECTS,
+    ReleaseIdentity,
+    project_for_tag,
+    read_release_identity,
+    validate_release,
+)
+from scripts.run_isolated_install import _clean_environment, _requirement
 
 import liteyuki
 import liteyukibot
@@ -17,24 +24,69 @@ def test_import_namespaces_use_distribution_version() -> None:
     assert liteyuki.__version__ == expected
 
 
-def test_current_release_identity_accepts_matching_tag() -> None:
-    identity = read_release_identity(Path("pyproject.toml"))
+@pytest.mark.parametrize(
+    ("name", "tag"),
+    [
+        ("root", "v7.0.0a3"),
+        ("permissions", "permissions-v0.1.0a1"),
+        ("commands", "commands-v0.1.0a1"),
+        ("essentials", "essentials-v0.1.0a1"),
+    ],
+)
+def test_current_release_identities_accept_exact_tags(name: str, tag: str) -> None:
+    project = RELEASE_PROJECTS[name]
+    identity = read_release_identity(project.project_file)
 
-    validate_release(identity, tag=f"v{identity.version}")
-    assert identity.distribution == "liteyukibot-v7"
+    validate_release(identity, project=project, tag=tag)
+    assert identity.distribution == project.distribution
+    assert project_for_tag(tag) == project
 
 
 @pytest.mark.parametrize(
-    ("identity", "tag", "message"),
+    ("identity", "project_name", "tag", "message"),
     [
-        (ReleaseIdentity("liteyukibot", "7.0.0a2"), None, "project.name"),
-        (ReleaseIdentity("liteyukibot-v7", "7.0.0a2"), "v7.0.0a1", "release tag"),
+        (ReleaseIdentity("liteyukibot", "7.0.0a3"), "root", None, "project.name"),
+        (ReleaseIdentity("liteyukibot-v7", "7.0.0a3"), "root", "v7.0.0a2", "release tag"),
+        (
+            ReleaseIdentity("liteyukibot-v7-commands", "0.1.0a1"),
+            "commands",
+            "permissions-v0.1.0a1",
+            "release tag",
+        ),
     ],
 )
 def test_release_identity_rejects_mismatches(
     identity: ReleaseIdentity,
+    project_name: str,
     tag: str | None,
     message: str,
 ) -> None:
     with pytest.raises(RuntimeError, match=message):
-        validate_release(identity, tag=tag)
+        validate_release(identity, project=RELEASE_PROJECTS[project_name], tag=tag)
+
+
+@pytest.mark.parametrize("tag", ["v6.9.0", "plugin-v0.1.0", ""])
+def test_release_tag_must_select_a_known_project(tag: str) -> None:
+    with pytest.raises(RuntimeError, match="does not select"):
+        project_for_tag(tag)
+
+
+def test_isolated_install_environment_removes_workspace_inheritance() -> None:
+    cleaned = _clean_environment(
+        {
+            "PATH": "bin",
+            "VIRTUAL_ENV": "workspace/.venv",
+            "PYTHONPATH": "workspace/src",
+            "UV_PROJECT_ENVIRONMENT": "workspace/.venv",
+            "UV_WORKING_DIRECTORY": "workspace",
+        }
+    )
+
+    assert cleaned == {"PATH": "bin"}
+
+
+def test_isolated_install_rejects_empty_and_directory_requirements(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="must not be empty"):
+        _requirement("")
+    with pytest.raises(ValueError, match="must be a file"):
+        _requirement(str(tmp_path))

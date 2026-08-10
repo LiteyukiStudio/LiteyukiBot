@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## 7.0.0a3 - 2026-08-10
+
+The third v7 alpha establishes the first-party native plugin foundation:
+
+- added the immutable `liteyukibot.kernel.status@1` service without changing
+  runtime IPC protocol v3;
+- added independently distributable permissions, commands, and essentials
+  packages in one uv workspace with no new third-party runtime dependencies;
+- added exact-principal `public`/`operator` policy, atomic protocol-neutral
+  command routing, permission-filtered help, and operator-only kernel status;
+- added Chinese and English plain-text essentials rendering while keeping
+  localization outside the kernel;
+- added real three-plugin topology tests, isolated wheel installation checks,
+  multi-package release identity validation, and Trusted Publisher workflows.
+
+The plugin packages begin at `0.1.0a1`. Their required publication order is
+root, permissions, commands, then essentials.
+
 ## 7.0.0a2 - 2026-08-09
 
 The second v7 alpha completes kernel stabilization and the first bounded
