@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 from liteyukibot_commands import (
     COMMAND_SERVICE,
@@ -15,16 +15,26 @@ from liteyukibot_commands import (
     CommandService,
     CommandSpec,
 )
+from liteyukibot_permissions import Principal
 
 from liteyukibot import PluginContext, PluginDefinition, PluginHandle, PluginManifest
 from liteyukibot.events import HandlerResult
-from liteyukibot.services import ServiceRequirement
+from liteyukibot.services import ServiceKey, ServiceRequirement
 from liteyukibot.status import KERNEL_STATUS_SERVICE, KernelStatusProvider
 
 from .render import Language, messages, render_help, render_parse_error, render_status
 
 _PUBLIC_PERMISSION = "public"
 _STATUS_READ_CAPABILITY = "liteyukibot.status.read"
+_PROFILE_SERVICE = ServiceKey("liteyukibot.profile", 1)
+
+
+class _ProfileSnapshot(Protocol):
+    language: str
+
+
+class _ProfileService(Protocol):
+    async def get(self, principal: Principal) -> _ProfileSnapshot: ...
 
 
 def _language(config: Mapping[str, Any]) -> Language:
@@ -41,13 +51,30 @@ async def setup(context: PluginContext) -> PluginHandle:
     language = _language(context.config)
     command_service = cast(CommandService, context.services.require(COMMAND_SERVICE))
     status_provider = cast(KernelStatusProvider, context.services.require(KERNEL_STATUS_SERVICE))
+    profile_service = cast(_ProfileService | None, context.services.get_optional(_PROFILE_SERVICE))
     text = messages(language)
 
-    def help_command(invocation: CommandInvocation) -> HandlerResult:
+    async def event_language(invocation: CommandInvocation) -> Language:
+        if profile_service is None or invocation.event.actor is None:
+            return language
+        try:
+            profile = await profile_service.get(
+                Principal(invocation.event.runtime_id, invocation.event.bot_id, invocation.event.actor.id)
+            )
+        except Exception:
+            context.logger.warning(
+                "profile language lookup failed; using essentials default",
+                event_id=invocation.event.id,
+            )
+            return language
+        return cast(Language, profile.language) if profile.language in {"zh-CN", "en"} else language
+
+    async def help_command(invocation: CommandInvocation) -> HandlerResult:
+        current_language = await event_language(invocation)
         try:
             parsed = invocation.parse()
         except CommandParseError as error:
-            return invocation.reply(render_parse_error(error, language=language))
+            return invocation.reply(render_parse_error(error, language=current_language))
         target = cast(tuple[str, ...], parsed.arguments["path"])
         visible = command_service.visible(invocation.event)
         if target:
@@ -61,13 +88,13 @@ async def setup(context: PluginContext) -> PluginHandle:
             render_help(
                 visible,
                 prefix=invocation.prefix,
-                language=language,
+                language=current_language,
                 target=target or None,
             )
         )
 
-    def status_command(invocation: CommandInvocation) -> HandlerResult:
-        return invocation.reply(render_status(status_provider.snapshot(), language=language))
+    async def status_command(invocation: CommandInvocation) -> HandlerResult:
+        return invocation.reply(render_status(status_provider.snapshot(), language=await event_language(invocation)))
 
     bindings: tuple[CommandBinding, ...] = (
         (
@@ -110,6 +137,7 @@ def create_plugin(version: str) -> PluginDefinition:
             requires=(
                 ServiceRequirement(COMMAND_SERVICE),
                 ServiceRequirement(KERNEL_STATUS_SERVICE),
+                ServiceRequirement(_PROFILE_SERVICE, optional=True),
             ),
         ),
         setup=setup,
