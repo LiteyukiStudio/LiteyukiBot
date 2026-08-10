@@ -368,12 +368,14 @@ version = "0.1.0a1"
 source = { editable = "packages/resources" }
 dependencies = [
     { name = "liteyukibot-v7" },
+    { name = "liteyukibot-v7-commands" },
     { name = "liteyukibot-v7-permissions" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "liteyukibot-v7", editable = "." },
+    { name = "liteyukibot-v7-commands", editable = "packages/commands" },
     { name = "liteyukibot-v7-permissions", editable = "packages/permissions" },
 ]
 

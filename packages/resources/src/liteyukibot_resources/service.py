@@ -5,11 +5,22 @@ from __future__ import annotations
 import inspect
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, cast
 
+from liteyukibot_commands import (
+    ArgumentSpec,
+    CommandBinding,
+    CommandInvocation,
+    CommandParseError,
+    CommandRegistration,
+    CommandSchema,
+    CommandService,
+    CommandSpec,
+    OptionSpec,
+)
 from liteyukibot_permissions import PermissionService, Principal
 
-from liteyukibot.events import EventEnvelope
+from liteyukibot.events import EventEnvelope, HandlerResult
 from liteyukibot.services import ServiceKey
 
 from .models import ResourceField, ResourceOperation, ResourceProvider, ResourceRegistration, ResourceSpec
@@ -75,11 +86,13 @@ class ResourceService(Protocol):
 class _RegisteredResource:
     registration: ResourceRegistration
     provider: ResourceProvider
+    commands: tuple[CommandRegistration, ...]
 
 
 class _ResourceService:
-    def __init__(self, permissions: PermissionService) -> None:
+    def __init__(self, permissions: PermissionService, commands: CommandService) -> None:
         self._permissions = permissions
+        self._commands = commands
         self._resources: dict[int, _RegisteredResource] = {}
         self._paths: dict[tuple[str, ...], int] = {}
         self._next_id = 0
@@ -115,11 +128,19 @@ class _ResourceService:
                 raise ValueError(f"resource path is already registered: {' '.join(path)}")
             claimed.add(path)
             prepared.append((spec, provider, path))
+        command_bindings: list[CommandBinding] = []
+        for spec, _provider, _path in prepared:
+            command_bindings.extend(self._command_bindings(spec))
+        commands = self._commands.register_many(command_bindings, owner=owner)
+
         registrations: list[ResourceRegistration] = []
+        command_offset = 0
         for spec, provider, path in prepared:
             registration = ResourceRegistration(self._next_id, owner, spec)
             self._next_id += 1
-            self._resources[registration.id] = _RegisteredResource(registration, provider)
+            resource_commands = commands[command_offset : command_offset + 3]
+            command_offset += 3
+            self._resources[registration.id] = _RegisteredResource(registration, provider, resource_commands)
             self._paths[path] = registration.id
             registrations.append(registration)
         return tuple(registrations)
@@ -130,6 +151,8 @@ class _ResourceService:
             return False
         del self._resources[registration.id]
         self._paths.pop(tuple(segment.casefold() for segment in registration.spec.resource_path), None)
+        for command in reversed(registered.commands):
+            self._commands.unregister(command)
         return True
 
     def snapshot(self) -> tuple[ResourceRegistration, ...]:
@@ -235,6 +258,103 @@ class _ResourceService:
                 return field
         raise ResourceError(f"resource field not found: {name}")
 
+    def _command_bindings(self, spec: ResourceSpec) -> tuple[CommandBinding, ...]:
+        fields = "; ".join(f"{field.name}: {field.description}" for field in spec.fields if field.description)
+        set_summary = f"Set a {spec.name} field"
+        if fields:
+            set_summary += f". Fields: {fields}"
+
+        async def inspect_command(invocation: CommandInvocation) -> HandlerResult:
+            try:
+                parsed = invocation.parse()
+                actor_id = parsed.options["actor"]
+                if actor_id is not None and not isinstance(actor_id, str):
+                    raise RuntimeError("resource actor option must be a string")
+                values = await self.inspect(invocation.event, spec.resource_path, actor_id=actor_id)
+            except CommandParseError:
+                return invocation.reply("Invalid resource command arguments")
+            except ResourceError as error:
+                return invocation.reply(_error_text(error))
+            if not values:
+                return invocation.reply("No readable resource fields")
+            return invocation.reply("\n".join(f"{name}: {value}" for name, value in values.items()))
+
+        async def set_command(invocation: CommandInvocation) -> HandlerResult:
+            try:
+                parsed = invocation.parse()
+                field = parsed.arguments["field"]
+                value = parsed.arguments["value"]
+                actor_id = parsed.options["actor"]
+                if not all(isinstance(item, str) for item in (field, value)):
+                    raise RuntimeError("resource command arguments must be strings")
+                if actor_id is not None and not isinstance(actor_id, str):
+                    raise RuntimeError("resource actor option must be a string")
+                await self.set(
+                    invocation.event,
+                    spec.resource_path,
+                    cast(str, field),
+                    cast(str, value),
+                    actor_id=actor_id,
+                )
+            except CommandParseError:
+                return invocation.reply("Invalid resource command arguments")
+            except ResourceError as error:
+                return invocation.reply(_error_text(error))
+            return invocation.reply(f"Updated {' '.join(spec.resource_path)}.{field}")
+
+        async def delete_command(invocation: CommandInvocation) -> HandlerResult:
+            try:
+                parsed = invocation.parse()
+                field = parsed.arguments["field"]
+                actor_id = parsed.options["actor"]
+                if not isinstance(field, str):
+                    raise RuntimeError("resource command field must be a string")
+                if actor_id is not None and not isinstance(actor_id, str):
+                    raise RuntimeError("resource actor option must be a string")
+                await self.delete(invocation.event, spec.resource_path, field, actor_id=actor_id)
+            except CommandParseError:
+                return invocation.reply("Invalid resource command arguments")
+            except ResourceError as error:
+                return invocation.reply(_error_text(error))
+            return invocation.reply(f"Reset {' '.join(spec.resource_path)}.{field}")
+
+        actor_option = OptionSpec("actor", aliases=("a",), required=False, default=None)
+        return (
+            (
+                CommandSpec(
+                    spec.name,
+                    path=spec.path,
+                    summary=spec.summary,
+                    schema=CommandSchema(options=(actor_option,)),
+                ),
+                inspect_command,
+            ),
+            (
+                CommandSpec(
+                    "set",
+                    path=spec.resource_path,
+                    summary=set_summary,
+                    schema=CommandSchema(
+                        arguments=(ArgumentSpec("field"), ArgumentSpec("value")),
+                        options=(actor_option,),
+                    ),
+                ),
+                set_command,
+            ),
+            (
+                CommandSpec(
+                    "delete",
+                    path=spec.resource_path,
+                    summary=f"Reset a {spec.name} field to its default",
+                    schema=CommandSchema(
+                        arguments=(ArgumentSpec("field"),),
+                        options=(actor_option,),
+                    ),
+                ),
+                delete_command,
+            ),
+        )
+
 
 async def _await_provider(value: object) -> object:
     if not inspect.isawaitable(value):
@@ -242,8 +362,12 @@ async def _await_provider(value: object) -> object:
     return await value
 
 
-def create_resource_service(permissions: PermissionService) -> ResourceService:
-    return _ResourceService(permissions)
+def _error_text(error: ResourceError) -> str:
+    return f"Resource request failed: {error}"
+
+
+def create_resource_service(permissions: PermissionService, commands: CommandService) -> ResourceService:
+    return _ResourceService(permissions, commands)
 
 
 __all__ = ["RESOURCE_SERVICE", "ResourceError", "ResourceService", "create_resource_service"]
