@@ -33,6 +33,7 @@ def test_kernel_import_namespace_uses_distribution_version() -> None:
         ("essentials", "essentials-v0.2.0a2"),
         ("runtime-nonebot", "runtime-nonebot-v0.1.0a1"),
         ("runtime-v6", "runtime-v6-v0.1.0a1"),
+        ("agent-resolver", "agent-resolver-v0.1.0a1"),
         ("agent", "agent-v0.1.0a1"),
     ],
 )

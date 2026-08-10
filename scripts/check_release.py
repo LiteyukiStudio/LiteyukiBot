@@ -97,6 +97,14 @@ RELEASE_PROJECTS: dict[str, ReleaseProject] = {
         tag_selector="runtime-v6-v",
         verifier="scripts/verify_v6_runtime_install.py",
     ),
+    "agent-resolver": ReleaseProject(
+        name="agent-resolver",
+        project_dir="packages/agent-resolver",
+        distribution="liteyukibot-v7-agent-resolver",
+        tag_prefix="agent-resolver-v",
+        tag_selector="agent-resolver-v",
+        verifier="scripts/verify_agent_resolver_install.py",
+    ),
     "agent": ReleaseProject(
         name="agent",
         project_dir="packages/agent",
