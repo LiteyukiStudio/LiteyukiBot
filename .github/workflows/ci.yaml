@@ -28,18 +28,20 @@ jobs:
         working-directory: LiteyukiBot
         run: |
           uv python install 3.14
-          uv sync --locked
+          uv sync --locked --all-packages
       - name: Quality checks
         working-directory: LiteyukiBot
         run: |
           uv run python scripts/check_release.py
-          uv run ruff check src tests scripts examples
+          uv run ruff check src tests scripts examples packages
           uv run mypy
           uv run pytest
           uv build
+          uv build --all-packages --out-dir dist/workspace --clear
           uv build --project examples/native-plugin --out-dir dist/examples
           uv build --project examples/custom-runtime --out-dir dist/examples
           uv run python scripts/run_developer_kit_install.py
+          uv run python scripts/run_permissions_install.py
       - name: Capture baseline
         working-directory: LiteyukiBot
         run: uv run python scripts/benchmark_v7.py --output benchmark.json
