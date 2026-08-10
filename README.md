@@ -82,6 +82,7 @@ uv build --project examples/native-plugin --out-dir dist/examples
 uv build --project examples/custom-runtime --out-dir dist/examples
 uv run python scripts/run_developer_kit_install.py
 uv run python scripts/run_permissions_install.py
+uv run python scripts/run_commands_install.py
 ```
 
 The architecture overview is documented in `docs/architecture/v7.md`; accepted
