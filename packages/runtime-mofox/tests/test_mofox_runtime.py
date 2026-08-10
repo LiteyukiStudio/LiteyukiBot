@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
+import importlib.metadata
 from importlib.metadata import PackageNotFoundError
 from pathlib import Path
 
 import pytest
-from liteyukibot_runtime_mofox import host as mofox_host
 from liteyukibot_runtime_mofox.host import MoFoxRuntimeHost, _enforce_headless_config, _install_upstream_namespace
 from liteyukibot_runtime_mofox.translate import to_mofox_envelope, to_mofox_event_input, to_send_action
 
@@ -68,7 +68,7 @@ def test_mofox_reports_the_pinned_upstream_requirement_when_missing(monkeypatch:
     def missing_distribution(_name: str) -> None:
         raise PackageNotFoundError
 
-    monkeypatch.setattr(mofox_host.importlib.metadata, "distribution", missing_distribution)
+    monkeypatch.setattr(importlib.metadata, "distribution", missing_distribution)
 
     with pytest.raises(RuntimeError, match="e2ee2ff73b494428bbdfd983c7569c6f074a9c76"):
         _install_upstream_namespace()
