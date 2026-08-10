@@ -88,3 +88,16 @@ Add `ServiceRequirement(KERNEL_STATUS_SERVICE)` to the plugin manifest before
 requiring it. Snapshots are immutable and contain only kernel version, state,
 uptime, plugin/runtime states, and outstanding event count. Presentation and
 access policy belong to the consuming plugin.
+
+## Permissions
+
+The first-party `liteyukibot-v7-permissions` package provides
+`liteyukibot.permissions@1`. Consumers import `PERMISSION_SERVICE` and
+`PermissionService` from `liteyukibot_permissions`, declare the service in
+their manifest, and call `allows(event, permission)`.
+
+The alpha implementation recognizes `public` and `operator`. Operators are
+exact runtime, bot, and actor triples configured under
+`plugins.config."liteyukibot.permissions"`. Unknown permission strings are
+denied. The service is application policy for trusted plugins; it is not a
+sandbox boundary.

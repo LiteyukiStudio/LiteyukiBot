@@ -72,13 +72,16 @@ Mount a `liteyuki.toml` at `/app/liteyuki.toml` and persistent volumes at
 ## Development
 
 ```bash
-uv run ruff check src tests scripts examples
+uv sync --locked --all-packages
+uv run ruff check src tests scripts examples packages
 uv run mypy
 uv run pytest
 uv build
+uv build --all-packages --out-dir dist/workspace --clear
 uv build --project examples/native-plugin --out-dir dist/examples
 uv build --project examples/custom-runtime --out-dir dist/examples
 uv run python scripts/run_developer_kit_install.py
+uv run python scripts/run_permissions_install.py
 ```
 
 The architecture overview is documented in `docs/architecture/v7.md`; accepted
