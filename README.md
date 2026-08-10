@@ -1,8 +1,8 @@
 # LiteyukiBot v7
 
 LiteyukiBot v7 is a protocol-neutral chatbot kernel for CPython 3.14. Native
-plugins run in the core process; NoneBot2 and LiteyukiBot v6 plugins run in
-supervised child runtimes.
+plugins run in the core process; separately distributed framework hosts and
+LiteyukiBot v6 plugins run in supervised child runtimes.
 
 The `v7` branch is a clean rewrite. The `main` branch remains the maintenance
 line for v6 and is not merged wholesale into v7.
@@ -21,7 +21,7 @@ under ADR 0011 before the first stable release.
   tasks, and versioned services;
 - bounded protocol-neutral event/action dispatch with per-conversation order;
 - authenticated framed JSON IPC and supervised subprocess runtimes;
-- NoneBot2 plugin hosting and a deliberately bounded v6 compatibility shim;
+- runtime-host discovery plus a deliberately bounded v6 compatibility shim;
 - local authenticated CLI control and an optional loopback-only HTTP status API.
 - read-only kernel status plus separately distributable capability, command,
   resource-management, profile, help, and protected-status plugins.
@@ -33,8 +33,9 @@ under ADR 0011 before the first stable release.
 - network access for uv to resolve PyPI dependencies
 
 Yukilog 1.x is installed from PyPI; no sibling checkout is required.
-The v7 distribution on PyPI is named `liteyukibot-v7`; Python imports remain
-`liteyukibot` and `liteyuki` for the native and v6 compatibility namespaces.
+The v7 kernel distribution on PyPI is named `liteyukibot-v7` and provides the
+`liteyukibot` namespace. The separately installed v6 runtime provides the
+`liteyuki` compatibility namespace.
 
 ```bash
 uv sync --locked
@@ -42,13 +43,24 @@ uv run liteyuki check
 uv run liteyuki run
 ```
 
-Optional integrations are installed explicitly:
+Optional kernel integrations are installed explicitly:
 
 ```bash
 uv sync --extra yaml
 uv sync --extra http
-uv sync --extra nonebot --extra onebot
-uv sync --extra nonebot --extra satori
+```
+
+Framework hosts are independent packages. Install NoneBot2 with an adapter:
+
+```bash
+uv add "liteyukibot-v7-runtime-nonebot[onebot]"
+# or: uv add "liteyukibot-v7-runtime-nonebot[satori]"
+```
+
+Install bounded v6 compatibility when legacy plugins are required:
+
+```bash
+uv add "liteyukibot-v7-runtime-v6"
 ```
 
 Install the Essentials command layer with:
@@ -75,9 +87,10 @@ uv run liteyuki --config local.toml --set logging.level=DEBUG check
 
 ## Docker
 
-The v7 image can be built locally with the optional YAML, HTTP, NoneBot2,
-OneBot, and Satori integrations. It runs as a non-root user. GHCR publication
-is currently paused; the Docker workflow validates builds without pushing.
+The v7 image can be built locally with the optional YAML, HTTP, NoneBot,
+OneBot, Satori, and v6 compatibility runtime packages. It runs as a non-root user. GHCR
+publication is currently paused; the Docker workflow validates builds without
+pushing.
 
 ```bash
 docker build -t liteyukibot:v7-local .
@@ -104,6 +117,7 @@ uv run python scripts/run_commands_install.py
 uv run python scripts/run_resources_install.py
 uv run python scripts/run_profile_install.py
 uv run python scripts/run_essentials_install.py
+uv run python scripts/run_nonebot_runtime_install.py
 ```
 
 The architecture overview is documented in `docs/architecture/v7.md`; accepted

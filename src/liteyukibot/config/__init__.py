@@ -1,8 +1,18 @@
 from .errors import ConfigIssue, ConfigurationError
 from .loader import load_settings
-from .models import AppSettings, CoreSettings, HttpSettings, LoggingSettings, PluginSettings, RuntimeSettings
+from .models import (
+    AgentSettings,
+    AppSettings,
+    CoreSettings,
+    HttpSettings,
+    LoggingSettings,
+    PluginSettings,
+    RuntimeEventRoute,
+    RuntimeSettings,
+)
 
 __all__ = (
+    "AgentSettings",
     "AppSettings",
     "ConfigIssue",
     "ConfigurationError",
@@ -10,6 +20,7 @@ __all__ = (
     "HttpSettings",
     "LoggingSettings",
     "PluginSettings",
+    "RuntimeEventRoute",
     "RuntimeSettings",
     "load_settings",
 )

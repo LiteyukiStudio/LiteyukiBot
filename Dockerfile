@@ -14,9 +14,11 @@ COPY src ./src
 COPY packages ./packages
 
 RUN uv sync --locked --no-dev --no-editable \
+    --package liteyukibot-v7 \
+    --package liteyukibot-v7-runtime-nonebot \
+    --package liteyukibot-v7-runtime-v6 \
     --extra yaml \
     --extra http \
-    --extra nonebot \
     --extra onebot \
     --extra satori \
     && /opt/venv/bin/liteyuki version

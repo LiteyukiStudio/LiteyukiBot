@@ -7,7 +7,7 @@ from typing import Any
 
 from liteyuki.session import MessageEvent, ReplyPayload
 
-from ..events import ActionEnvelope, EventEnvelope, Message, Segment, SendMessage
+from liteyukibot.events import ActionEnvelope, EventEnvelope, Message, Segment, SendMessage
 
 _PORTABLE_SEGMENT_TYPES = frozenset({"text", "media", "mention", "reply", "adapter"})
 

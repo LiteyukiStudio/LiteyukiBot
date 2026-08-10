@@ -17,7 +17,8 @@ adapter Messages while keeping NoneBot and all adapter packages optional.
 
 ## Decision
 
-The NoneBot child owns adapter-specific translation. The core continues to see
+The separately published `liteyukibot-v7-runtime-nonebot` child owns
+adapter-specific translation. The core continues to see
 only the frozen schema-v1 `EventEnvelope`, `Message`, `Segment`, and Action
 models. Adapter modules are loaded lazily inside the child and are never
 imported by core modules.
@@ -97,8 +98,9 @@ adapter objects across processes. Group FIFO identity is stable across actors,
 and unknown adapter segments remain available through an explicit escape hatch.
 
 The default kernel dependency set is unchanged. Adapter contract tests run in
-a dedicated CI job that installs all three explicit extras; the normal
-three-platform quality matrix continues to prove the minimal installation.
+a dedicated CI job that installs the runtime package with its OneBot and Satori
+extras; the normal three-platform quality matrix continues to prove the minimal
+kernel installation.
 
 This record does not promise a portable notice/request taxonomy, arbitrary
 cross-adapter media conversion, automatic file upload, user-ID-based Satori

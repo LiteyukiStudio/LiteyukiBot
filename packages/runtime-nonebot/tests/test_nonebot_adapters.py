@@ -9,6 +9,15 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+from liteyukibot_runtime_nonebot import host as nonebot_runtime
+from liteyukibot_runtime_nonebot.contracts import (
+    AdapterContractError,
+    adapter_id,
+    json_value,
+    normalize_event,
+    to_native_message,
+)
+from liteyukibot_runtime_nonebot.host import NoneBotHost
 
 from liteyukibot.events import (
     ActionEnvelope,
@@ -17,15 +26,6 @@ from liteyukibot.events import (
     Message,
     Segment,
     SendMessage,
-)
-from liteyukibot.runtime import nonebot as nonebot_runtime
-from liteyukibot.runtime.nonebot import NoneBotHost
-from liteyukibot.runtime.nonebot_contracts import (
-    AdapterContractError,
-    adapter_id,
-    json_value,
-    normalize_event,
-    to_native_message,
 )
 
 _ADAPTER_MODULES = (

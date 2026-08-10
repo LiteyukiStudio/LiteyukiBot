@@ -14,6 +14,8 @@ from .protocol import (
     SUPPORTED_PROTOCOL_VERSIONS,
     ActionRequest,
     ActionResponse,
+    AgentToolRequest,
+    AgentToolResponse,
     ConfigMessage,
     Heartbeat,
     Hello,
@@ -60,6 +62,7 @@ class RuntimeClient:
         self._heartbeat_task: asyncio.Task[None] | None = None
         self._capabilities: frozenset[str] = frozenset()
         self._pending_actions: dict[str, asyncio.Future[ActionResponse]] = {}
+        self._pending_agent_tools: dict[str, asyncio.Future[AgentToolResponse]] = {}
         self._closed = False
 
     @classmethod
@@ -139,11 +142,17 @@ class RuntimeClient:
                     message = await read_message(self._reader)
                 except (EOFError, ConnectionError, RuntimeProtocolError) as error:
                     self._fail_pending_actions(error)
+                    self._fail_pending_agent_tools(error)
                     raise
                 if isinstance(message, ActionResponse):
                     future = self._pending_actions.pop(message.correlation_id, None)
                     if future is not None and not future.done():
                         future.set_result(message)
+                        continue
+                if isinstance(message, AgentToolResponse):
+                    agent_tool_future = self._pending_agent_tools.pop(message.correlation_id, None)
+                    if agent_tool_future is not None and not agent_tool_future.done():
+                        agent_tool_future.set_result(message)
                         continue
                 return message
 
@@ -177,6 +186,42 @@ class RuntimeClient:
         finally:
             self._pending_actions.pop(correlation_id, None)
 
+    async def execute_agent_tool(
+        self,
+        correlation_id: str,
+        delivery_correlation_id: str,
+        tool_id: str,
+        arguments: Mapping[str, Any],
+        timeout_seconds: float = 30.0,
+    ) -> AgentToolResponse:
+        if timeout_seconds <= 0:
+            raise ValueError("agent tool timeout must be positive")
+        if not delivery_correlation_id or not tool_id:
+            raise ValueError("agent tool delivery correlation id and tool id must not be empty")
+        if self.negotiated_protocol != 3:
+            raise RuntimeError("agent tools require runtime protocol v3")
+        if self._heartbeat_task is None:
+            raise RuntimeError("runtime client is not ready")
+        if "agent.tools.execute" not in self._capabilities:
+            raise RuntimeError("runtime client did not declare agent.tools.execute")
+        if correlation_id in self._pending_agent_tools:
+            raise ValueError(f"duplicate agent tool correlation id: {correlation_id}")
+
+        request = AgentToolRequest(
+            correlation_id=correlation_id,
+            delivery_correlation_id=delivery_correlation_id,
+            tool_id=tool_id,
+            arguments=json_mapping(arguments),
+        )
+        future: asyncio.Future[AgentToolResponse] = asyncio.get_running_loop().create_future()
+        self._pending_agent_tools[correlation_id] = future
+        try:
+            await self.send(request)
+            async with asyncio.timeout(timeout_seconds):
+                return await future
+        finally:
+            self._pending_agent_tools.pop(correlation_id, None)
+
     async def send(self, message: WireMessage) -> None:
         writer = self._writer
         if writer is None or self._closed:
@@ -191,6 +236,7 @@ class RuntimeClient:
             return
         self._closed = True
         self._fail_pending_actions(ConnectionError("runtime client closed"))
+        self._fail_pending_agent_tools(ConnectionError("runtime client closed"))
         heartbeat, self._heartbeat_task = self._heartbeat_task, None
         self._capabilities = frozenset()
         if heartbeat is not None:
@@ -209,6 +255,12 @@ class RuntimeClient:
             if not future.done():
                 future.set_exception(error)
         self._pending_actions.clear()
+
+    def _fail_pending_agent_tools(self, error: BaseException) -> None:
+        for future in self._pending_agent_tools.values():
+            if not future.done():
+                future.set_exception(error)
+        self._pending_agent_tools.clear()
 
     async def _heartbeat(self, interval: float) -> None:
         while True:

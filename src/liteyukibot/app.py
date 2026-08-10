@@ -9,13 +9,21 @@ from time import monotonic
 from typing import Any
 
 from ._version import __version__
-from .config import AppSettings
+from .agents import AGENT_TOOL_BROKER_SERVICE, AgentToolBroker, AgentToolCatalog, AgentToolResult
+from .config import AppSettings, RuntimeEventRoute
 from .control import ControlServer
 from .events import ActionEnvelope, ActionResult, EventBus, EventEnvelope
 from .http import HttpServer
 from .logging import Logger, configure_logging, get_logger, shutdown_logging
 from .plugins import PluginManager
-from .runtime import ActionSinkResult, RuntimeSpec, RuntimeSupervisor
+from .runtime import (
+    ActionSinkResult,
+    AgentToolSinkResult,
+    RuntimeCatalog,
+    RuntimeSpec,
+    RuntimeSupervisor,
+    json_value,
+)
 from .services import ServiceRegistry
 from .status import KERNEL_STATUS_SERVICE, KernelStatusSnapshot
 
@@ -123,11 +131,13 @@ class LiteyukiApp:
         self._http_started = False
         self._started_at: float | None = None
         self._stopped_at: float | None = None
-        v6_runtime_ids: list[str] = []
-
+        self._runtime_state_directories: dict[str, Any] = {}
+        runtime_plugins = RuntimeCatalog().discover()
         for runtime_id, runtime in settings.runtimes.items():
             if not runtime.enabled:
                 continue
+            state_directory = (core.data_dir / "runtimes" / runtime_id).resolve()
+            self._runtime_state_directories[runtime_id] = state_directory
             self.runtimes.add(
                 RuntimeSpec(
                     id=runtime_id,
@@ -135,7 +145,10 @@ class LiteyukiApp:
                     options=runtime.options,
                     command=runtime.command or None,
                     working_directory=runtime.working_directory,
-                    env=runtime.env,
+                    env={
+                        **runtime.env,
+                        "LITEYUKI_RUNTIME_STATE_DIR": str(state_directory),
+                    },
                     handshake_timeout=runtime.handshake_timeout_seconds,
                     restart_limit=runtime.max_failures,
                     restart_window=runtime.failure_window_seconds,
@@ -143,15 +156,18 @@ class LiteyukiApp:
                     heartbeat_interval=runtime.heartbeat_interval_seconds,
                     stale_after=runtime.stale_after_seconds,
                     max_inbound_events=runtime.max_inbound_events,
+                    agent_harness=(
+                        runtime_plugins[runtime.kind].agent_harness
+                        if runtime.kind in runtime_plugins
+                        else None
+                    ),
                 )
             )
-            if runtime.kind == "v6":
-                v6_runtime_ids.append(runtime_id)
-        self._v6_runtime_ids = tuple(v6_runtime_ids)
-        if self._v6_runtime_ids:
+        self._runtime_event_routes = self._event_routes(settings)
+        if self._runtime_event_routes:
             self.events.subscribe(
-                self._forward_v6_event,
-                name="runtime.v6",
+                self._forward_runtime_event,
+                name="runtime.routes",
             )
         self.services.provide(
             KERNEL_STATUS_SERVICE,
@@ -173,6 +189,8 @@ class LiteyukiApp:
                 self._logging_started = True
             self.settings.core.data_dir.mkdir(parents=True, exist_ok=True)
             self.settings.core.cache_dir.mkdir(parents=True, exist_ok=True)
+            for state_directory in self._runtime_state_directories.values():
+                state_directory.mkdir(parents=True, exist_ok=True)
             await self.events.start()
 
             definitions = self.plugins.discover(
@@ -182,6 +200,16 @@ class LiteyukiApp:
             plugin_configs = self._plugin_configs(self.settings.plugins.config)
             self._plugins_setup = True
             await self.plugins.setup(definitions, plugin_configs)
+            broker = self.services.get(AGENT_TOOL_BROKER_SERVICE)
+            if broker is not None:
+                if not isinstance(broker, AgentToolBroker):
+                    raise RuntimeError("agent tool broker service has an invalid implementation")
+                self.runtimes.set_agent_tool_sink(self._execute_agent_tool)
+                if isinstance(broker, AgentToolCatalog):
+                    catalog = broker.catalog()
+                    for runtime_id, record in self.runtimes.records.items():
+                        if record.spec.agent_harness is not None:
+                            self.runtimes.merge_options(runtime_id, {"agent_tool_catalog": catalog})
 
             await self.runtimes.start()
             self._runtimes_started = True
@@ -348,18 +376,103 @@ class LiteyukiApp:
             error=result.error_message,
         )
 
-    async def _forward_v6_event(self, event: EventEnvelope) -> None:
-        if event.message is None:
-            return
-        runtime_ids = tuple(
-            runtime_id
-            for runtime_id in self._v6_runtime_ids
-            if runtime_id != event.runtime_id
+    def _event_routes(self, settings: AppSettings) -> tuple[RuntimeEventRoute, ...]:
+        routes = list(settings.runtime_event_routes)
+        configured_targets = {route.target for route in routes}
+        runtime_plugins = RuntimeCatalog().discover()
+        enabled_ids = tuple(
+            runtime_id for runtime_id, runtime in settings.runtimes.items() if runtime.enabled
         )
-        if not runtime_ids:
+        for runtime_id, runtime in settings.runtimes.items():
+            plugin = runtime_plugins.get(runtime.kind)
+            if (
+                not runtime.enabled
+                or runtime_id in configured_targets
+                or plugin is None
+                or not plugin.default_event_route_messages_only
+            ):
+                continue
+            sources = tuple(source for source in enabled_ids if source != runtime_id)
+            if sources:
+                routes.append(
+                    RuntimeEventRoute(
+                        sources=sources,
+                        target=runtime_id,
+                        messages_only=True,
+                    )
+                )
+        if settings.agent.enabled:
+            agent_targets = tuple(
+                runtime_id
+                for runtime_id, runtime in settings.runtimes.items()
+                if runtime.enabled
+                and (plugin := runtime_plugins.get(runtime.kind)) is not None
+                and plugin.agent_harness == settings.agent.agent_harness
+            )
+            if not agent_targets:
+                raise RuntimeError(
+                    f"agent harness {settings.agent.agent_harness!r} is enabled but no matching runtime is installed"
+                )
+            if len(agent_targets) > 1:
+                raise RuntimeError(
+                    f"agent harness {settings.agent.agent_harness!r} is ambiguous: {', '.join(agent_targets)}"
+                )
+            target = agent_targets[0]
+            if target not in configured_targets:
+                sources = tuple(
+                    runtime_id
+                    for runtime_id, runtime in settings.runtimes.items()
+                    if runtime.enabled
+                    and runtime_id != target
+                    and (
+                        (source_plugin := runtime_plugins.get(runtime.kind)) is None
+                        or source_plugin.agent_harness is None
+                    )
+                )
+                if sources:
+                    routes.append(
+                        RuntimeEventRoute(
+                            sources=sources,
+                            target=target,
+                            messages_only=True,
+                        )
+                    )
+        return tuple(routes)
+
+    async def _execute_agent_tool(
+        self,
+        _agent_runtime_id: str,
+        _delivery_correlation_id: str,
+        event_payload: dict[str, Any],
+        tool_id: str,
+        arguments: dict[str, Any],
+    ) -> AgentToolSinkResult:
+        broker = self.services.get(AGENT_TOOL_BROKER_SERVICE)
+        if broker is None or not isinstance(broker, AgentToolBroker):
+            return AgentToolSinkResult(ok=False, error="agent tool broker is unavailable")
+        try:
+            event = EventEnvelope.model_validate(event_payload)
+        except ValueError:
+            return AgentToolSinkResult(ok=False, error="agent tool delivery has an invalid EventEnvelope")
+        try:
+            result = await broker.execute(event, tool_id, arguments)
+        except Exception as error:
+            self.logger.bind(component="agent").error("agent tool {} failed: {}", tool_id, error)
+            return AgentToolSinkResult(ok=False, error="agent tool broker failed")
+        if not isinstance(result, AgentToolResult):
+            return AgentToolSinkResult(ok=False, error="agent tool broker returned an invalid result")
+        return AgentToolSinkResult(ok=result.ok, data=json_value(result.data), error=result.error)
+
+    async def _forward_runtime_event(self, event: EventEnvelope) -> None:
+        targets = tuple(
+            route.target
+            for route in self._runtime_event_routes
+            if event.runtime_id in route.sources and (not route.messages_only or event.message is not None)
+        )
+        if not targets:
             return
         outcomes = await asyncio.gather(
-            *(self._deliver_v6_event(runtime_id, event) for runtime_id in runtime_ids),
+            *(self._deliver_runtime_event(runtime_id, event) for runtime_id in targets),
             return_exceptions=True,
         )
         fatal = next(
@@ -376,9 +489,9 @@ class LiteyukiApp:
         if len(errors) == 1:
             raise errors[0]
         if len(errors) > 1:
-            raise ExceptionGroup("v6 runtime event delivery failed", errors)
+            raise ExceptionGroup("runtime event delivery failed", errors)
 
-    async def _deliver_v6_event(self, runtime_id: str, event: EventEnvelope) -> None:
+    async def _deliver_runtime_event(self, runtime_id: str, event: EventEnvelope) -> None:
         result = await self.runtimes.dispatch_event(
             runtime_id,
             event.id,
@@ -387,7 +500,7 @@ class LiteyukiApp:
         if result.status != "accepted":
             detail = f": {result.detail}" if result.detail else ""
             raise RuntimeError(
-                f"v6 runtime {runtime_id} rejected event {event.id} as {result.status}{detail}"
+                f"runtime {runtime_id} rejected event {event.id} as {result.status}{detail}"
             )
 
     @staticmethod

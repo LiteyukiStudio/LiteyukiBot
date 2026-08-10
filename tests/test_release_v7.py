@@ -13,15 +13,13 @@ from scripts.check_release import (
 )
 from scripts.run_isolated_install import _clean_environment, _requirement
 
-import liteyuki
 import liteyukibot
 
 
-def test_import_namespaces_use_distribution_version() -> None:
+def test_kernel_import_namespace_uses_distribution_version() -> None:
     expected = importlib.metadata.version("liteyukibot-v7")
 
     assert liteyukibot.__version__ == expected
-    assert liteyuki.__version__ == expected
 
 
 @pytest.mark.parametrize(
@@ -33,6 +31,9 @@ def test_import_namespaces_use_distribution_version() -> None:
         ("resources", "resources-v0.1.0a1"),
         ("profile", "profile-v0.1.0a1"),
         ("essentials", "essentials-v0.2.0a2"),
+        ("runtime-nonebot", "runtime-nonebot-v0.1.0a1"),
+        ("runtime-v6", "runtime-v6-v0.1.0a1"),
+        ("agent", "agent-v0.1.0a1"),
     ],
 )
 def test_current_release_identities_accept_exact_tags(name: str, tag: str) -> None:

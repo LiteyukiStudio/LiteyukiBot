@@ -6,7 +6,6 @@ from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
-
 from liteyuki.bot import _install_runtime, _reset_runtime
 from liteyuki.session import (
     Matcher,
@@ -25,6 +24,7 @@ from liteyuki.session import (
 )
 from liteyuki.session.message import BaseSeg, Image, Text
 from liteyuki.session.on import _dispatch_matchers, _reset_matchers, get_matchers
+
 from liteyukibot.exceptions import LegacyUnsupportedError
 
 

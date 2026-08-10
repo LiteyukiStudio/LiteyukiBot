@@ -5,9 +5,12 @@ from collections.abc import Iterator
 from typing import Any, cast
 
 import pytest
-
+from _support import FakeLogger
 from liteyuki.session import MessageEvent, on_message
 from liteyuki.session.on import _reset_matchers
+from liteyukibot_runtime_v6.events import reply_to_action, to_legacy_message_event
+from liteyukibot_runtime_v6.host import _V6RuntimeHost
+
 from liteyukibot.events import (
     ActorRef,
     ConversationRef,
@@ -18,10 +21,6 @@ from liteyukibot.events import (
 )
 from liteyukibot.runtime import RuntimeClient
 from liteyukibot.runtime.protocol import ActionResponse, EventAccepted, EventMessage
-from liteyukibot.runtime.v6 import _V6RuntimeHost
-from liteyukibot.runtime.v6_events import reply_to_action, to_legacy_message_event
-
-from .test_runtime_v7 import FakeLogger
 
 
 @pytest.fixture(autouse=True)

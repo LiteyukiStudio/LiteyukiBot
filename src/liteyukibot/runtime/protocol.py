@@ -6,7 +6,7 @@ import asyncio
 import json
 import struct
 from collections.abc import Mapping, Sequence
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
@@ -86,6 +86,24 @@ class ActionResponse(WireModel):
     error: str | None = None
 
 
+class AgentToolRequest(WireModel):
+    """A capability-gated request bound to an active kernel event delivery."""
+
+    type: Literal["agent_tool"] = "agent_tool"
+    correlation_id: str = Field(min_length=1)
+    delivery_correlation_id: str = Field(min_length=1)
+    tool_id: str = Field(min_length=1)
+    arguments: dict[str, JsonValue] = Field(default_factory=dict)
+
+
+class AgentToolResponse(WireModel):
+    type: Literal["agent_tool_result"] = "agent_tool_result"
+    correlation_id: str = Field(min_length=1)
+    ok: bool
+    data: JsonValue = None
+    error: str | None = None
+
+
 class ErrorMessage(WireModel):
     type: Literal["error"] = "error"
     code: str
@@ -104,6 +122,8 @@ type WireMessage = Annotated[
     | EventAccepted
     | ActionRequest
     | ActionResponse
+    | AgentToolRequest
+    | AgentToolResponse
     | ErrorMessage,
     Field(discriminator="type"),
 ]
@@ -142,6 +162,15 @@ async def write_message(writer: asyncio.StreamWriter, message: WireMessage) -> N
 def json_mapping(value: Mapping[str, Any]) -> dict[str, JsonValue]:
     """Validate an arbitrary mapping as JSON-safe data."""
 
+    decoded = json_value(value)
+    if not isinstance(decoded, dict):
+        raise TypeError("expected a JSON object")
+    return decoded
+
+
+def json_value(value: Any) -> JsonValue:
+    """Validate an arbitrary value as JSON-safe protocol data."""
+
     encoded = json.dumps(
         _mutable_json(value),
         ensure_ascii=False,
@@ -149,9 +178,7 @@ def json_mapping(value: Mapping[str, Any]) -> dict[str, JsonValue]:
         allow_nan=False,
     )
     decoded = json.loads(encoded)
-    if not isinstance(decoded, dict):
-        raise TypeError("expected a JSON object")
-    return decoded
+    return cast(JsonValue, decoded)
 
 
 def _mutable_json(value: Any) -> Any:

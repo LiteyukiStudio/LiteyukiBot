@@ -14,22 +14,23 @@ from typing import Any
 
 from yukilog import configure_child_runtime, get_logger
 
-from ..events import ActionEnvelope, CallApi, EventEnvelope, SendMessage
-from .client import RuntimeClient
-from .nonebot_contracts import (
+from liteyukibot.events import ActionEnvelope, CallApi, EventEnvelope, SendMessage
+from liteyukibot.runtime import RuntimeClient
+from liteyukibot.runtime.protocol import (
+    ActionRequest,
+    ActionResponse,
+    EventMessage,
+    Shutdown,
+    WireMessage,
+)
+
+from .contracts import (
     AdapterContractError,
     adapter_id,
     json_value,
     normalize_event,
     send_proactive,
     to_native_message,
-)
-from .protocol import (
-    ActionRequest,
-    ActionResponse,
-    EventMessage,
-    Shutdown,
-    WireMessage,
 )
 
 logger = get_logger(component="nonebot", runtime=os.environ.get("LITEYUKI_RUNTIME_ID"))
@@ -251,7 +252,7 @@ def run() -> None:
         nonebot = importlib.import_module("nonebot")
     except ModuleNotFoundError as error:
         raise RuntimeError(
-            "NoneBot runtime is not installed; run `uv add 'liteyukibot-v7[nonebot]'`"
+            "NoneBot runtime is not installed; install `liteyukibot-v7-runtime-nonebot`"
         ) from error
     configure_child_runtime()
     bridge = SupervisorBridge()

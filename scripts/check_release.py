@@ -81,6 +81,30 @@ RELEASE_PROJECTS: dict[str, ReleaseProject] = {
         tag_selector="essentials-v",
         verifier="scripts/verify_essentials_install.py",
     ),
+    "runtime-nonebot": ReleaseProject(
+        name="runtime-nonebot",
+        project_dir="packages/runtime-nonebot",
+        distribution="liteyukibot-v7-runtime-nonebot",
+        tag_prefix="runtime-nonebot-v",
+        tag_selector="runtime-nonebot-v",
+        verifier="scripts/verify_nonebot_runtime_install.py",
+    ),
+    "runtime-v6": ReleaseProject(
+        name="runtime-v6",
+        project_dir="packages/runtime-v6",
+        distribution="liteyukibot-v7-runtime-v6",
+        tag_prefix="runtime-v6-v",
+        tag_selector="runtime-v6-v",
+        verifier="scripts/verify_v6_runtime_install.py",
+    ),
+    "agent": ReleaseProject(
+        name="agent",
+        project_dir="packages/agent",
+        distribution="liteyukibot-v7-agent",
+        tag_prefix="agent-v",
+        tag_selector="agent-v",
+        verifier="scripts/verify_agent_install.py",
+    ),
 }
 
 

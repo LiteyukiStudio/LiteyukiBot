@@ -65,14 +65,10 @@ class LegacyBot:
     def on_after_shutdown(self, callback: LifespanFunction) -> LifespanFunction:
         return self._context.add("after_shutdown", callback)
 
-    def on_before_process_shutdown(
-        self, callback: ProcessLifespanFunction
-    ) -> ProcessLifespanFunction:
+    def on_before_process_shutdown(self, callback: ProcessLifespanFunction) -> ProcessLifespanFunction:
         return self._context.add("before_process_shutdown", callback)
 
-    def on_before_process_restart(
-        self, callback: ProcessLifespanFunction
-    ) -> ProcessLifespanFunction:
+    def on_before_process_restart(self, callback: ProcessLifespanFunction) -> ProcessLifespanFunction:
         return self._context.add("before_process_restart", callback)
 
     def on_after_restart(self, callback: LifespanFunction) -> LifespanFunction:

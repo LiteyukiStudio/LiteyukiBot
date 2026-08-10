@@ -9,10 +9,12 @@ from typing import Any
 
 import pytest
 
-from liteyukibot.runtime import RuntimeSpec, RuntimeState, RuntimeSupervisor
+from liteyukibot.runtime import RuntimeCatalog, RuntimeSpec, RuntimeState, RuntimeSupervisor
 from liteyukibot.runtime.protocol import (
     ActionRequest,
     ActionResponse,
+    AgentToolRequest,
+    AgentToolResponse,
     ConfigMessage,
     EventAccepted,
     EventMessage,
@@ -23,7 +25,7 @@ from liteyukibot.runtime.protocol import (
     read_message,
     write_message,
 )
-from liteyukibot.runtime.supervisor import ActionSinkResult, RuntimeRecord
+from liteyukibot.runtime.supervisor import ActionSinkResult, AgentToolSinkResult, RuntimeRecord
 
 
 class FakeLogger:
@@ -271,6 +273,68 @@ async def test_v3_child_action_reaches_core_sink_with_correlation() -> None:
         await writer.wait_closed()
         server.close()
         await server.wait_closed()
+
+
+@pytest.mark.asyncio
+async def test_agent_tool_request_requires_an_agent_harness_and_active_delivery() -> None:
+    outbound: list[object] = []
+    observed: list[tuple[str, str, dict[str, object], str, dict[str, object]]] = []
+
+    async def broker(
+        runtime_id: str,
+        delivery_id: str,
+        payload: dict[str, object],
+        tool_id: str,
+        arguments: dict[str, object],
+    ) -> AgentToolSinkResult:
+        observed.append((runtime_id, delivery_id, payload, tool_id, arguments))
+        return AgentToolSinkResult(ok=True, data={"ok": True})
+
+    supervisor = RuntimeSupervisor(logger=FakeLogger(), agent_tool_sink=broker)  # type: ignore[arg-type]
+    record = RuntimeRecord(
+        spec=RuntimeSpec(id="agent", kind="custom", agent_harness="native"),
+        token="token",
+        state=RuntimeState.READY,
+        writer=NullWriter(),  # type: ignore[arg-type]
+        protocol_version=3,
+        capabilities=frozenset({"agent.tools.execute"}),
+    )
+    supervisor.records["agent"] = record
+
+    async def capture(_record: RuntimeRecord, message: object) -> None:
+        outbound.append(message)
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(supervisor, "_send", capture)
+    try:
+        request = AgentToolRequest(
+            correlation_id="tool-1",
+            delivery_correlation_id="missing",
+            tool_id="docs.search",
+            arguments={"query": "runtime"},
+        )
+        await supervisor._accept_agent_tool_request(record, request)
+        assert outbound == [
+            AgentToolResponse(
+                correlation_id="tool-1",
+                ok=False,
+                error="agent tool request is not bound to an active event delivery",
+            )
+        ]
+
+        record.active_delivery_contexts["delivery-1"] = (float("inf"), {"event": "payload"})
+        accepted = request.model_copy(
+            update={"correlation_id": "tool-2", "delivery_correlation_id": "delivery-1"}
+        )
+        await supervisor._accept_agent_tool_request(record, accepted)
+        await asyncio.gather(*record.inbound_agent_tools.values())
+    finally:
+        monkeypatch.undo()
+
+    assert observed == [
+        ("agent", "delivery-1", {"event": "payload"}, "docs.search", {"query": "runtime"})
+    ]
+    assert outbound[-1] == AgentToolResponse(correlation_id="tool-2", ok=True, data={"ok": True})
 
 
 @pytest.mark.asyncio
@@ -804,6 +868,20 @@ def test_runtime_failure_limit_transitions_to_failed() -> None:
     assert RuntimeSupervisor._register_failure(record) is True
     assert RuntimeSupervisor._register_failure(record) is False
     assert record.state is RuntimeState.FAILED
+
+
+def test_runtime_catalog_discovers_nonebot_host_without_importing_nonebot() -> None:
+    command = RuntimeCatalog().command_for("nonebot")
+
+    assert command[1:] == ("-m", "liteyukibot_runtime_nonebot")
+
+
+def test_runtime_catalog_discovers_v6_compatibility_host() -> None:
+    plugin = RuntimeCatalog().discover().get("v6")
+
+    assert plugin is not None
+    assert plugin.command[1:] == ("-m", "liteyukibot_runtime_v6")
+    assert plugin.default_event_route_messages_only
 
 
 @pytest.mark.asyncio

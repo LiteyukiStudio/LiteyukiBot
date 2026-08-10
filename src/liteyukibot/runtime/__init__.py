@@ -1,5 +1,6 @@
 """Child runtime protocol and supervision."""
 
+from .catalog import RuntimeCatalog, RuntimePlugin
 from .client import RuntimeClient
 from .protocol import (
     MAX_FRAME_SIZE,
@@ -7,6 +8,8 @@ from .protocol import (
     SUPPORTED_PROTOCOL_VERSIONS,
     ActionRequest,
     ActionResponse,
+    AgentToolRequest,
+    AgentToolResponse,
     ConfigMessage,
     ErrorMessage,
     EventAccepted,
@@ -19,12 +22,15 @@ from .protocol import (
     Shutdown,
     Welcome,
     WireMessage,
+    json_value,
     read_message,
     write_message,
 )
 from .supervisor import (
     ActionSink,
     ActionSinkResult,
+    AgentToolSink,
+    AgentToolSinkResult,
     EventSink,
     RuntimeSpec,
     RuntimeState,
@@ -37,6 +43,10 @@ __all__ = [
     "SUPPORTED_PROTOCOL_VERSIONS",
     "ActionRequest",
     "ActionResponse",
+    "AgentToolRequest",
+    "AgentToolResponse",
+    "AgentToolSink",
+    "AgentToolSinkResult",
     "ActionSink",
     "ActionSinkResult",
     "ConfigMessage",
@@ -50,12 +60,15 @@ __all__ = [
     "ProtocolVersion",
     "Ready",
     "RuntimeClient",
+    "RuntimeCatalog",
+    "RuntimePlugin",
     "RuntimeSpec",
     "RuntimeState",
     "RuntimeSupervisor",
     "Shutdown",
     "Welcome",
     "WireMessage",
+    "json_value",
     "read_message",
     "write_message",
 ]

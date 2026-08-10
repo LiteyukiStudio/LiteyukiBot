@@ -7,22 +7,22 @@ import os
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from yukilog import configure_child_runtime, get_logger
-
 from liteyuki.bot import _emit_lifecycle, _install_runtime, _reset_runtime
 from liteyuki.plugin import load_plugin, load_plugins
 from liteyuki.session.on import _dispatch_matchers
+from yukilog import configure_child_runtime, get_logger
 
-from ..events import EventEnvelope
-from .client import RuntimeClient
-from .protocol import (
+from liteyukibot.events import EventEnvelope
+from liteyukibot.runtime import RuntimeClient
+from liteyukibot.runtime.protocol import (
     ActionRequest,
     ActionResponse,
     EventAccepted,
     EventMessage,
     Shutdown,
 )
-from .v6_events import reply_to_action, to_legacy_message_event
+
+from .events import reply_to_action, to_legacy_message_event
 
 
 class _V6RuntimeHost:
@@ -219,6 +219,7 @@ async def run() -> None:
     if restarting:
         logger.info("v6 compatibility runtime requested restart")
         raise RuntimeError("v6 compatibility runtime requested restart")
+
 
 def _mapping_option(options: Mapping[str, Any], key: str) -> Mapping[str, Any]:
     value = options.get(key, {})

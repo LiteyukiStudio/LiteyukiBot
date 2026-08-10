@@ -14,7 +14,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel
 
-from ..events import ActorRef, ConversationRef, EventEnvelope, Message, Segment, SendMessage
+from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope, Message, Segment, SendMessage
 
 _MESSAGE_MODULES = {
     "onebot-v11": "nonebot.adapters.onebot.v11",
