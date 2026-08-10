@@ -94,6 +94,7 @@ class RuntimeSettings(FrozenSettingsModel):
     ready_timeout_seconds: float = Field(default=30.0, gt=0)
     heartbeat_interval_seconds: float = Field(default=10.0, gt=0)
     stale_after_seconds: float = Field(default=30.0, gt=0)
+    max_inbound_events: int = Field(default=100, ge=1)
     max_failures: int = Field(default=5, ge=1)
     failure_window_seconds: float = Field(default=60.0, gt=0)
 

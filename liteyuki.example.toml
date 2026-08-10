@@ -54,6 +54,7 @@ kind = "nonebot"
 enabled = false
 heartbeat_interval_seconds = 10.0
 stale_after_seconds = 30.0
+max_inbound_events = 100
 
 [runtimes.nonebot.options]
 plugins = []

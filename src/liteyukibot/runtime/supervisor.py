@@ -72,6 +72,7 @@ class RuntimeSpec:
     heartbeat_interval: float = 10.0
     stale_after: float = 30.0
     shutdown_timeout: float = 10.0
+    max_inbound_events: int = 100
 
     def __post_init__(self) -> None:
         if not self.id or not self.kind:
@@ -82,6 +83,8 @@ class RuntimeSpec:
             raise ValueError("runtime lifecycle timeouts must be positive")
         if self.heartbeat_interval <= 0 or self.stale_after <= self.heartbeat_interval:
             raise ValueError("runtime stale_after must exceed its positive heartbeat interval")
+        if self.max_inbound_events < 1:
+            raise ValueError("runtime max_inbound_events must be at least 1")
         if self.command is not None and (
             not self.command or any(not part for part in self.command)
         ):
@@ -106,6 +109,7 @@ class RuntimeRecord:
     pending_actions: dict[str, asyncio.Future[ActionResponse]] = field(default_factory=dict)
     pending_events: dict[str, asyncio.Future[EventAccepted]] = field(default_factory=dict)
     inbound_actions: dict[str, asyncio.Task[None]] = field(default_factory=dict)
+    inbound_events: dict[str, asyncio.Task[None]] = field(default_factory=dict)
     protocol_version: ProtocolVersion | None = None
     capabilities: frozenset[str] = frozenset()
     send_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
@@ -302,18 +306,7 @@ class RuntimeSupervisor:
         elif isinstance(message, Heartbeat):
             record.last_heartbeat = time.monotonic()
         elif isinstance(message, EventMessage):
-            status = "accepted"
-            if self.event_sink is not None:
-                status = await self.event_sink(record.spec.id, message.payload)
-            match status:
-                case "accepted" | "overloaded" | "invalid":
-                    normalized = status
-                case _:
-                    normalized = "invalid"
-            await self._send(
-                record,
-                EventAccepted(correlation_id=message.correlation_id, status=normalized),
-            )
+            await self._accept_child_event(record, message)
         elif isinstance(message, EventAccepted):
             event_future = record.pending_events.pop(message.correlation_id, None)
             if event_future is not None and not event_future.done():
@@ -328,6 +321,60 @@ class RuntimeSupervisor:
             self.logger.error("runtime {} error {}: {}", record.spec.id, message.code, message.message)
         else:
             self.logger.debug("ignored runtime {} message {}", record.spec.id, message.type)
+
+    async def _accept_child_event(self, record: RuntimeRecord, message: EventMessage) -> None:
+        if message.correlation_id in record.inbound_events:
+            await self._send(
+                record,
+                EventAccepted(
+                    correlation_id=message.correlation_id,
+                    status="invalid",
+                    detail="duplicate child event correlation id",
+                ),
+            )
+            return
+        if len(record.inbound_events) >= record.spec.max_inbound_events:
+            await self._send(
+                record,
+                EventAccepted(
+                    correlation_id=message.correlation_id,
+                    status="overloaded",
+                    detail="runtime inbound event capacity is exhausted",
+                ),
+            )
+            return
+        task = asyncio.create_task(
+            self._execute_child_event(record, message),
+            name=f"runtime-event:{record.spec.id}:{message.correlation_id}",
+        )
+        record.inbound_events[message.correlation_id] = task
+
+    async def _execute_child_event(self, record: RuntimeRecord, message: EventMessage) -> None:
+        detail: str | None = None
+        try:
+            status = "accepted" if self.event_sink is None else await self.event_sink(record.spec.id, message.payload)
+            match status:
+                case "accepted" | "overloaded" | "invalid":
+                    normalized = status
+                case _:
+                    normalized = "invalid"
+        except Exception as error:
+            self.logger.error("runtime {} child event {} failed: {}", record.spec.id, message.correlation_id, error)
+            normalized = "invalid"
+            detail = "core event sink failed"
+        try:
+            await self._send(
+                record,
+                EventAccepted(
+                    correlation_id=message.correlation_id,
+                    status=normalized,
+                    detail=detail,
+                ),
+            )
+        except (ConnectionError, RuntimeError):
+            pass
+        finally:
+            record.inbound_events.pop(message.correlation_id, None)
 
     async def _accept_child_action(
         self, record: RuntimeRecord, request: ActionRequest
@@ -562,6 +609,12 @@ class RuntimeSupervisor:
             task.cancel()
         if inbound_actions:
             await asyncio.gather(*inbound_actions, return_exceptions=True)
+        inbound_events = tuple(record.inbound_events.values())
+        record.inbound_events.clear()
+        for task in inbound_events:
+            task.cancel()
+        if inbound_events:
+            await asyncio.gather(*inbound_events, return_exceptions=True)
         if writer is not None:
             writer.close()
             await writer.wait_closed()

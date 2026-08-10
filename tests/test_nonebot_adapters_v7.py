@@ -4,6 +4,7 @@ import importlib
 import importlib.util
 import json
 import math
+import signal
 from datetime import UTC, datetime
 from typing import Any
 
@@ -17,6 +18,7 @@ from liteyukibot.events import (
     Segment,
     SendMessage,
 )
+from liteyukibot.runtime import nonebot as nonebot_runtime
 from liteyukibot.runtime.nonebot import NoneBotHost
 from liteyukibot.runtime.nonebot_contracts import (
     AdapterContractError,
@@ -76,6 +78,29 @@ class FakeNoneBot:
 
     def get_bot(self, bot_id: str) -> FakeBot:
         return self.bots[bot_id]
+
+
+def test_nonebot_shutdown_prefers_driver_exit_and_falls_back_to_sigint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class ExitDriver:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def exit(self) -> None:
+            self.calls += 1
+
+    class CombinedDriver:
+        pass
+
+    exit_driver = ExitDriver()
+    nonebot_runtime._stop_driver(exit_driver)
+    assert exit_driver.calls == 1
+
+    signals: list[int] = []
+    monkeypatch.setattr(signal, "raise_signal", signals.append)
+    nonebot_runtime._stop_driver(CombinedDriver())
+    assert signals == [signal.SIGINT]
 
 
 def _onebot_v11_group_event() -> Any:
