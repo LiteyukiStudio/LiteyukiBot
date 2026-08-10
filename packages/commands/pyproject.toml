@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7-commands"
-version = "0.1.0a1"
+version = "0.2.0a1"
 description = "Protocol-neutral command routing for LiteyukiBot v7 native plugins."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -11,7 +11,7 @@ authors = [
 ]
 dependencies = [
     "liteyukibot-v7>=7.0.0a3,<8",
-    "liteyukibot-v7-permissions>=0.1.0a1,<0.2",
+    "liteyukibot-v7-permissions>=0.2.0a1,<0.3",
 ]
 
 [project.entry-points."liteyukibot.plugins"]

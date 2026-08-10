@@ -28,9 +28,9 @@ def test_import_namespaces_use_distribution_version() -> None:
     ("name", "tag"),
     [
         ("root", "v7.0.0a3"),
-        ("permissions", "permissions-v0.1.0a1"),
-        ("commands", "commands-v0.1.0a1"),
-        ("essentials", "essentials-v0.1.0a1"),
+        ("permissions", "permissions-v0.2.0a1"),
+        ("commands", "commands-v0.2.0a1"),
+        ("essentials", "essentials-v0.2.0a1"),
     ],
 )
 def test_current_release_identities_accept_exact_tags(name: str, tag: str) -> None:
@@ -48,9 +48,9 @@ def test_current_release_identities_accept_exact_tags(name: str, tag: str) -> No
         (ReleaseIdentity("liteyukibot", "7.0.0a3"), "root", None, "project.name"),
         (ReleaseIdentity("liteyukibot-v7", "7.0.0a3"), "root", "v7.0.0a2", "release tag"),
         (
-            ReleaseIdentity("liteyukibot-v7-commands", "0.1.0a1"),
+            ReleaseIdentity("liteyukibot-v7-commands", "0.2.0a1"),
             "commands",
-            "permissions-v0.1.0a1",
+            "permissions-v0.2.0a1",
             "release tag",
         ),
     ],

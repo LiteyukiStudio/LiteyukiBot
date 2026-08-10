@@ -54,7 +54,7 @@ uv sync --extra nonebot --extra satori
 Install the complete first-party plugin chain with:
 
 ```bash
-uv add "liteyukibot-v7-essentials==0.1.0a1"
+uv add "liteyukibot-v7-essentials==0.2.0a1"
 ```
 
 This resolves `liteyukibot-v7-commands` and
