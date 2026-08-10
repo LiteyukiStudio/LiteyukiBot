@@ -75,6 +75,7 @@ nested = { primary = true }
     "nb": {
       "kind": "nonebot",
       "working_directory": "runtime",
+      "max_inbound_events": 7,
       "options": {"adapter": "onebot", "features": ["messages", "notices"]}
     }
   }
@@ -100,6 +101,7 @@ nested = { primary = true }
         "nested": {"include": True, "primary": True},
     }
     assert settings.runtimes["nb"].working_directory == additional_directory / "runtime"
+    assert settings.runtimes["nb"].max_inbound_events == 7
     assert settings.runtimes["nb"].options["features"] == ("messages", "notices")
     serialized = settings.model_dump(mode="json")
     assert serialized["runtimes"]["nb"]["options"]["features"] == ["messages", "notices"]
@@ -116,6 +118,11 @@ def test_runtime_options_reject_non_json_values(tmp_path: Path) -> None:
             command=("runtime",),
             options={"path": tmp_path},  # type: ignore[dict-item]
         )
+
+
+def test_runtime_rejects_non_positive_inbound_event_capacity() -> None:
+    with pytest.raises(ValidationError, match="max_inbound_events"):
+        RuntimeSettings(kind="nonebot", max_inbound_events=0)
 
 
 def test_nested_includes_merge_in_declared_order(tmp_path: Path) -> None:

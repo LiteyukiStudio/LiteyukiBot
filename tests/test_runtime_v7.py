@@ -274,6 +274,110 @@ async def test_v3_child_action_reaches_core_sink_with_correlation() -> None:
 
 
 @pytest.mark.asyncio
+async def test_child_event_does_not_block_action_response_reader(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    action_sent = asyncio.Event()
+    event_accepted = asyncio.Event()
+    outbound: list[Any] = []
+
+    async def event_sink(runtime_id: str, _payload: dict[str, Any]) -> str:
+        response = await supervisor.execute_action(runtime_id, "reply-1", {"message": "reply"})
+        assert response.ok is True
+        return "accepted"
+
+    supervisor = RuntimeSupervisor(logger=FakeLogger(), event_sink=event_sink)
+    record = RuntimeRecord(
+        spec=RuntimeSpec(id="runtime", kind="custom"),
+        token="token",
+        state=RuntimeState.READY,
+        writer=NullWriter(),  # type: ignore[arg-type]
+    )
+    supervisor.records[record.spec.id] = record
+
+    async def capture(_record: RuntimeRecord, message: Any) -> None:
+        outbound.append(message)
+        if isinstance(message, ActionRequest):
+            action_sent.set()
+        if isinstance(message, EventAccepted):
+            event_accepted.set()
+
+    monkeypatch.setattr(supervisor, "_send", capture)
+    await supervisor._handle_message(
+        record,
+        EventMessage(correlation_id="event-1", payload={"message": "hello"}),
+    )
+    await asyncio.wait_for(action_sent.wait(), timeout=1)
+    await supervisor._handle_message(
+        record,
+        ActionResponse(correlation_id="reply-1", ok=True, data={"message_id": "sent"}),
+    )
+    await asyncio.wait_for(event_accepted.wait(), timeout=1)
+
+    assert outbound == [
+        ActionRequest(correlation_id="reply-1", payload={"message": "reply"}),
+        EventAccepted(correlation_id="event-1", status="accepted"),
+    ]
+    assert record.inbound_events == {}
+
+
+@pytest.mark.asyncio
+async def test_child_event_limit_rejects_duplicates_and_overload_then_cancels_sink(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    started = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    async def hold(_runtime_id: str, _payload: dict[str, Any]) -> str:
+        started.set()
+        try:
+            await asyncio.Future[None]()
+            raise AssertionError("unreachable")
+        finally:
+            cancelled.set()
+
+    supervisor = RuntimeSupervisor(logger=FakeLogger(), event_sink=hold)
+    record = RuntimeRecord(
+        spec=RuntimeSpec(id="runtime", kind="custom", max_inbound_events=1),
+        token="token",
+        state=RuntimeState.READY,
+        writer=NullWriter(),  # type: ignore[arg-type]
+    )
+    responses: list[EventAccepted] = []
+
+    async def capture(_record: RuntimeRecord, message: Any) -> None:
+        assert isinstance(message, EventAccepted)
+        responses.append(message)
+
+    monkeypatch.setattr(supervisor, "_send", capture)
+    message = EventMessage(correlation_id="duplicate", payload={})
+    await supervisor._handle_message(record, message)
+    await asyncio.wait_for(started.wait(), timeout=1)
+    await supervisor._handle_message(record, message)
+    await supervisor._handle_message(
+        record,
+        EventMessage(correlation_id="overloaded", payload={}),
+    )
+
+    assert responses == [
+        EventAccepted(
+            correlation_id="duplicate",
+            status="invalid",
+            detail="duplicate child event correlation id",
+        ),
+        EventAccepted(
+            correlation_id="overloaded",
+            status="overloaded",
+            detail="runtime inbound event capacity is exhausted",
+        ),
+    ]
+    await supervisor._disconnect(record)
+
+    assert cancelled.is_set()
+    assert record.inbound_events == {}
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("protocol_version", "capabilities", "with_sink", "error"),
     [

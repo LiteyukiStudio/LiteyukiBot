@@ -87,7 +87,8 @@ jobs:
         working-directory: LiteyukiBot
         run: |
           uv python install 3.14
-          uv sync --locked --extra nonebot --extra onebot --extra satori
+          uv sync --locked --all-packages --extra nonebot --extra onebot --extra satori
           uv run --extra nonebot --extra onebot --extra satori pytest \
             tests/test_runtime_v7.py::test_nonebot_runtime_loads_an_existing_plugin \
-            tests/test_nonebot_adapters_v7.py
+            tests/test_nonebot_adapters_v7.py \
+            tests/test_nonebot_runtime_e2e_v7.py

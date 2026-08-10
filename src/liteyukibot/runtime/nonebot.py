@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import importlib
 import os
+import signal
 import threading
 from collections import OrderedDict
 from collections.abc import Callable, Coroutine, Mapping, Sequence
@@ -36,6 +37,14 @@ type ActionHandler = Callable[
     [Mapping[str, Any]],
     Coroutine[Any, Any, tuple[bool, Any, str | None]],
 ]
+
+
+def _stop_driver(driver: Any) -> None:
+    exit_driver = getattr(driver, "exit", None)
+    if callable(exit_driver):
+        exit_driver()
+        return
+    signal.raise_signal(signal.SIGINT)
 
 
 class SupervisorBridge:
@@ -189,7 +198,7 @@ class NoneBotHost:
             main_loop = asyncio.get_running_loop()
 
             def shutdown() -> None:
-                main_loop.call_soon_threadsafe(driver.exit)
+                main_loop.call_soon_threadsafe(_stop_driver, driver)
 
             self.bridge.set_handlers(
                 self.execute_action,

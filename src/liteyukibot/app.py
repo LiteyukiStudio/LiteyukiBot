@@ -142,6 +142,7 @@ class LiteyukiApp:
                     ready_timeout=runtime.ready_timeout_seconds,
                     heartbeat_interval=runtime.heartbeat_interval_seconds,
                     stale_after=runtime.stale_after_seconds,
+                    max_inbound_events=runtime.max_inbound_events,
                 )
             )
             if runtime.kind == "v6":
