@@ -325,7 +325,7 @@ async def test_command_plugin_service_is_removed_on_stop(tmp_path: Path) -> None
 
 def test_command_plugin_manifest_declares_permission_dependency() -> None:
     assert plugin.manifest.id == "liteyukibot.commands"
-    assert plugin.manifest.version == "0.1.0a1"
+    assert plugin.manifest.version == "0.2.0a1"
     assert plugin.manifest.provides == (COMMAND_SERVICE,)
     assert tuple(item.key for item in plugin.manifest.requires) == (PERMISSION_SERVICE,)
 

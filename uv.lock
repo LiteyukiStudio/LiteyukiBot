@@ -306,7 +306,7 @@ dev = [
 
 [[package]]
 name = "liteyukibot-v7-commands"
-version = "0.1.0a1"
+version = "0.2.0a1"
 source = { editable = "packages/commands" }
 dependencies = [
     { name = "liteyukibot-v7" },
@@ -321,7 +321,7 @@ requires-dist = [
 
 [[package]]
 name = "liteyukibot-v7-essentials"
-version = "0.1.0a1"
+version = "0.2.0a1"
 source = { editable = "packages/essentials" }
 dependencies = [
     { name = "liteyukibot-v7" },
@@ -336,7 +336,7 @@ requires-dist = [
 
 [[package]]
 name = "liteyukibot-v7-permissions"
-version = "0.1.0a1"
+version = "0.2.0a1"
 source = { editable = "packages/permissions" }
 dependencies = [
     { name = "liteyukibot-v7" },
