@@ -8,15 +8,21 @@ from a clean `v7` commit only after the full CI matrix passes.
 The PyPI publisher settings use:
 
 - owner/repository: `LiteyukiStudio/LiteyukiBot`;
-- environment: `pypi`;
-- root workflow: `publish.yml`;
-- plugin workflow: `publish-plugins.yaml`.
+- root workflow/environment: `publish.yml` / `pypi`;
+- plugin workflow: `publish-plugins.yaml`;
+- one environment per plugin, as listed below.
 
-Before the first plugin upload, create Pending Publishers for:
+Before the first plugin upload, create these Pending Publishers:
 
-- `liteyukibot-v7-permissions`;
-- `liteyukibot-v7-commands`;
-- `liteyukibot-v7-essentials`.
+| Project | GitHub environment |
+| --- | --- |
+| `liteyukibot-v7-permissions` | `pypi-permissions` |
+| `liteyukibot-v7-commands` | `pypi-commands` |
+| `liteyukibot-v7-essentials` | `pypi-essentials` |
+
+PyPI requires different pending project names to use distinct publisher
+identities. The workflow selects the environment from the release tag (or the
+manual dispatch package), while the repository and workflow name stay shared.
 
 Do not create tags until every corresponding publisher is configured. A 404
 from the PyPI JSON endpoint is expected before the first trusted upload; an

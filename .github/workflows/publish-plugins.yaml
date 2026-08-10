@@ -30,7 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('{0}-v{1}', inputs.package, inputs.version) || github.ref_name }}
-    environment: pypi
+    environment:
+      name: ${{ github.event_name == 'workflow_dispatch' && format('pypi-{0}', inputs.package) || startsWith(github.ref_name, 'permissions-v') && 'pypi-permissions' || startsWith(github.ref_name, 'commands-v') && 'pypi-commands' || 'pypi-essentials' }}
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v8.3.2
