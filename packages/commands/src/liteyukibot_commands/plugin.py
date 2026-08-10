@@ -6,13 +6,13 @@ from typing import cast
 
 from liteyukibot_permissions import PERMISSION_SERVICE, PermissionService
 
-from liteyukibot import PluginContext, PluginDefinition, PluginHandle, PluginManifest
+from liteyukibot import PluginContext, PluginDefinition, PluginManifest
 from liteyukibot.services import ServiceRequirement
 
 from .service import COMMAND_SERVICE, create_command_service
 
 
-async def setup(context: PluginContext) -> PluginHandle:
+async def setup(context: PluginContext) -> None:
     permissions = cast(PermissionService, context.services.require(PERMISSION_SERVICE))
     service = create_command_service(context.config, permissions, context.logger)
     context.services.provide(COMMAND_SERVICE, service)
@@ -22,10 +22,7 @@ async def setup(context: PluginContext) -> PluginHandle:
         name="liteyukibot.commands",
     )
 
-    async def stop() -> None:
-        context.events.unsubscribe(subscription)
-
-    return PluginHandle(stop=stop)
+    context.defer_cleanup(lambda: context.events.unsubscribe(subscription))
 
 
 def create_plugin(version: str) -> PluginDefinition:

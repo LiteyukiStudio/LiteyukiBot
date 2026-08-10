@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from liteyukibot import PluginContext, PluginDefinition, PluginHandle, PluginManifest
+from liteyukibot import PluginContext, PluginDefinition, PluginManifest
 from liteyukibot.events import (
     ActionEnvelope,
     EventEnvelope,
@@ -13,7 +13,7 @@ from liteyukibot.events import (
 )
 
 
-async def setup(context: PluginContext) -> PluginHandle:
+async def setup(context: PluginContext) -> None:
     prefix = context.config.get("prefix", "echo: ")
     if not isinstance(prefix, str):
         raise TypeError("example.echo config prefix must be a string")
@@ -36,10 +36,7 @@ async def setup(context: PluginContext) -> PluginHandle:
 
     subscription = context.events.subscribe(echo, name="example.echo")
 
-    async def stop() -> None:
-        context.events.unsubscribe(subscription)
-
-    return PluginHandle(stop=stop)
+    context.defer_cleanup(lambda: context.events.unsubscribe(subscription))
 
 
 plugin = PluginDefinition(

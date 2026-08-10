@@ -49,6 +49,8 @@ class CommandService(Protocol):
 
     def unregister(self, registration: CommandRegistration) -> bool: ...
 
+    def unregister_owner(self, owner: str) -> int: ...
+
     def snapshot(self) -> tuple[CommandRegistration, ...]: ...
 
     def visible(self, event: EventEnvelope) -> tuple[CommandRegistration, ...]: ...
@@ -93,8 +95,7 @@ class _CommandService:
         *,
         owner: str,
     ) -> tuple[CommandRegistration, ...]:
-        if not owner or owner != owner.strip():
-            raise ValueError("command owner must be a non-empty trimmed string")
+        _validate_owner(owner)
         pending = tuple(bindings)
         if not pending:
             return ()
@@ -134,11 +135,22 @@ class _CommandService:
         registered = self._commands.get(registration.id)
         if registered is None or registered.registration != registration:
             return False
-        del self._commands[registration.id]
-        for path in registered.paths:
-            self._paths.pop(path, None)
-        self._max_path_length = max((len(path) for path in self._paths), default=0)
+        self._remove(registered)
+        self._refresh_max_path_length()
         return True
+
+    def unregister_owner(self, owner: str) -> int:
+        _validate_owner(owner)
+        registrations = tuple(
+            registered
+            for registered in self._commands.values()
+            if registered.registration.owner == owner
+        )
+        for registered in registrations:
+            self._remove(registered)
+        if registrations:
+            self._refresh_max_path_length()
+        return len(registrations)
 
     def snapshot(self) -> tuple[CommandRegistration, ...]:
         return tuple(
@@ -221,6 +233,14 @@ class _CommandService:
             )
             return False
 
+    def _remove(self, registered: _RegisteredCommand) -> None:
+        del self._commands[registered.registration.id]
+        for path in registered.paths:
+            self._paths.pop(path, None)
+
+    def _refresh_max_path_length(self) -> None:
+        self._max_path_length = max((len(path) for path in self._paths), default=0)
+
     def _parse(self, event: EventEnvelope) -> tuple[_RegisteredCommand, str, str, str] | None:
         if event.message is None:
             return None
@@ -256,6 +276,11 @@ def _command_tokens(value: str) -> tuple[tuple[str, int, int], ...]:
         tokens.append((value[start:end], start, end))
         start = end
     return tuple(tokens)
+
+
+def _validate_owner(owner: str) -> None:
+    if not owner or owner != owner.strip():
+        raise ValueError("command owner must be a non-empty trimmed string")
 
 
 def create_command_service(
