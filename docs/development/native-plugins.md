@@ -120,8 +120,11 @@ annotations are not inspected.
 Registrations are explicitly owned and must be unregistered in the consumer's
 stop callback. `register_many()` is atomic, so a duplicate name or alias leaves
 the previous registry unchanged. Raw argument text is always retained.
-Hierarchical subcommand routing and automatic localized parse-error replies are
-not implemented yet.
+Hierarchical subcommand routing and schema-backed help are supported by
+`CommandSpec(path=("parent",))`; aliases apply only to the final segment.
+Essentials renders visible root commands and `/help <path>` details. Parse
+errors are converted to short localized usage messages without exposing
+converter exceptions.
 
 ## Essentials
 
