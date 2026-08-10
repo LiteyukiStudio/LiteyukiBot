@@ -30,6 +30,8 @@ def test_import_namespaces_use_distribution_version() -> None:
         ("root", "v7.0.0a3"),
         ("permissions", "permissions-v0.2.0a1"),
         ("commands", "commands-v0.2.0a1"),
+        ("resources", "resources-v0.1.0a1"),
+        ("profile", "profile-v0.1.0a1"),
         ("essentials", "essentials-v0.2.0a1"),
     ],
 )
