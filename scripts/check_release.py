@@ -113,6 +113,14 @@ RELEASE_PROJECTS: dict[str, ReleaseProject] = {
         tag_selector="agent-v",
         verifier="scripts/verify_agent_install.py",
     ),
+    "runtime-astrbot": ReleaseProject(
+        name="runtime-astrbot",
+        project_dir="packages/runtime-astrbot",
+        distribution="liteyukibot-v7-runtime-astrbot",
+        tag_prefix="runtime-astrbot-v",
+        tag_selector="runtime-astrbot-v",
+        verifier="scripts/verify_astrbot_runtime_install.py",
+    ),
 }
 
 

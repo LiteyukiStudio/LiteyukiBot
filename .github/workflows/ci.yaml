@@ -39,6 +39,7 @@ jobs:
           uv run python scripts/check_release.py --package runtime-nonebot
           uv run python scripts/check_release.py --package runtime-v6
           uv run python scripts/check_release.py --package agent
+          uv run python scripts/check_release.py --package runtime-astrbot
           uv run ruff check src tests scripts examples packages
           uv run mypy
           uv run pytest
@@ -53,6 +54,7 @@ jobs:
           uv run python scripts/run_nonebot_runtime_install.py
           uv run python scripts/run_v6_runtime_install.py
           uv run python scripts/run_agent_install.py
+          uv run python scripts/run_astrbot_runtime_install.py
       - name: Capture baseline
         working-directory: LiteyukiBot
         run: uv run python scripts/benchmark_v7.py --output benchmark.json
