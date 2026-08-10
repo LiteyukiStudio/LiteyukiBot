@@ -25,6 +25,11 @@ from .translate import to_mofox_envelope, to_mofox_event_input, to_send_action
 
 type TextSink = Callable[[str], Awaitable[None]]
 
+NEO_MOFOX_REQUIREMENT = (
+    "neo-mofox @ git+https://github.com/MoFox-Studio/Neo-MoFox.git@"
+    "e2ee2ff73b494428bbdfd983c7569c6f074a9c76"
+)
+
 
 class _HeadlessMessageSender:
     """MoFox sender replacement that forwards output to the active Liteyuki event."""
@@ -205,7 +210,11 @@ def _install_upstream_namespace() -> None:
     exists only in the isolated child runtime process and points solely at the
     installed ``neo-mofox`` distribution root.
     """
-    distribution_root = Path(str(importlib.metadata.distribution("neo-mofox").locate_file("")))
+    try:
+        distribution = importlib.metadata.distribution("neo-mofox")
+    except importlib.metadata.PackageNotFoundError as error:
+        raise RuntimeError(f"Neo-MoFox must be installed before this runtime: {NEO_MOFOX_REQUIREMENT}") from error
+    distribution_root = Path(str(distribution.locate_file("")))
     if not all((distribution_root / name).is_dir() for name in ("app", "core", "kernel")):
         raise RuntimeError(f"neo-mofox installation is missing its runtime modules: {distribution_root}")
     namespace = ModuleType("src")

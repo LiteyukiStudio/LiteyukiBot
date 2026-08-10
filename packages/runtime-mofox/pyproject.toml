@@ -10,7 +10,6 @@ authors = [
 ]
 dependencies = [
     "liteyukibot-v7>=7.0.0a3,<8",
-    "neo-mofox @ git+https://github.com/MoFox-Studio/Neo-MoFox.git@e2ee2ff73b494428bbdfd983c7569c6f074a9c76",
 ]
 
 [project.entry-points."liteyukibot.runtimes"]
