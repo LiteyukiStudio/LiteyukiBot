@@ -8,8 +8,10 @@ Accepted for the alpha resource/profile chapter.
 
 The optional `liteyukibot.resources@1` plugin provides a registry for
 declarative resource fields. It owns path resolution, field capability checks,
-and the inspect/set/delete operation boundary. A resource provider owns its
-data, storage, transactions, and migrations.
+and the inspect/set/delete operation boundary. It registers canonical resource
+commands through `liteyukibot.commands@1`: `<path>`, `<path> set <field>
+<value>`, and `<path> delete <field>`. A resource provider owns its data,
+storage, transactions, and migrations.
 
 Resources target an exact `(runtime_id, bot_id, actor_id)` principal. A command
 without `--actor` targets the event actor. A different actor is rejected unless

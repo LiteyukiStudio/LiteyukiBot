@@ -11,6 +11,7 @@ authors = [
 ]
 dependencies = [
     "liteyukibot-v7>=7.0.0a3,<8",
+    "liteyukibot-v7-commands>=0.2.0a1,<0.3",
     "liteyukibot-v7-permissions>=0.2.0a1,<0.3",
 ]
 
@@ -23,6 +24,7 @@ build-backend = "uv_build"
 
 [tool.uv.sources]
 liteyukibot-v7 = { workspace = true }
+liteyukibot-v7-commands = { workspace = true }
 liteyukibot-v7-permissions = { workspace = true }
 
 [tool.uv.build-backend]

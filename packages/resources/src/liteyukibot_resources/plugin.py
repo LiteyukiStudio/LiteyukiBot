@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import cast
 
+from liteyukibot_commands import COMMAND_SERVICE, CommandService
 from liteyukibot_permissions import PERMISSION_SERVICE, PermissionService
 
 from liteyukibot import PluginContext, PluginDefinition, PluginHandle, PluginManifest
@@ -14,7 +15,8 @@ from .service import RESOURCE_SERVICE, create_resource_service
 
 async def setup(context: PluginContext) -> PluginHandle:
     permissions = cast(PermissionService, context.services.require(PERMISSION_SERVICE))
-    context.services.provide(RESOURCE_SERVICE, create_resource_service(permissions))
+    commands = cast(CommandService, context.services.require(COMMAND_SERVICE))
+    context.services.provide(RESOURCE_SERVICE, create_resource_service(permissions, commands))
     return PluginHandle()
 
 
@@ -25,7 +27,10 @@ def create_plugin(version: str) -> PluginDefinition:
             name="LiteyukiBot Resources",
             version=version,
             provides=(RESOURCE_SERVICE,),
-            requires=(ServiceRequirement(PERMISSION_SERVICE),),
+            requires=(
+                ServiceRequirement(PERMISSION_SERVICE),
+                ServiceRequirement(COMMAND_SERVICE),
+            ),
         ),
         setup=setup,
     )
