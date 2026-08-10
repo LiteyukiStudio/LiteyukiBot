@@ -19,3 +19,4 @@ stable-release guarantee.
 13. [First-party permission service](0013-first-party-permission-service.md)
 14. [First-party command service](0014-first-party-command-service.md)
 15. [First-party essential commands](0015-first-party-essential-commands.md)
+16. [Static capability and role policy](0016-capability-permission-policy.md)

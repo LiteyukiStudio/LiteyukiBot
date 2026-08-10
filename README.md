@@ -23,8 +23,8 @@ under ADR 0011 before the first stable release.
 - authenticated framed JSON IPC and supervised subprocess runtimes;
 - NoneBot2 plugin hosting and a deliberately bounded v6 compatibility shim;
 - local authenticated CLI control and an optional loopback-only HTTP status API.
-- read-only kernel status plus separately distributable permission, command,
-  help, and operator-status plugins.
+- read-only kernel status plus separately distributable capability, command,
+  help, and protected-status plugins.
 
 ## Requirements
 

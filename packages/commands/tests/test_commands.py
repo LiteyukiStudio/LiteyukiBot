@@ -12,7 +12,7 @@ from liteyukibot_commands import (
     CommandSpec,
     plugin,
 )
-from liteyukibot_permissions import OPERATOR, PERMISSION_SERVICE, PUBLIC, Principal
+from liteyukibot_permissions import PERMISSION_SERVICE, PUBLIC, PermissionSnapshot, Principal
 
 from liteyukibot import LiteyukiApp
 from liteyukibot.config import AppSettings, CoreSettings, PluginSettings
@@ -29,6 +29,8 @@ from liteyukibot.exceptions import PluginError, ServiceError
 from liteyukibot.logging import get_logger
 from liteyukibot.testing import PluginTestHarness
 
+ADMIN = "tests.admin"
+
 
 class PermissionStub:
     def principal(self, event: EventEnvelope) -> Principal | None:
@@ -36,10 +38,15 @@ class PermissionStub:
             return None
         return Principal(event.runtime_id, event.bot_id, event.actor.id)
 
+    def resolve(self, event: EventEnvelope) -> PermissionSnapshot:
+        principal = self.principal(event)
+        capabilities = {PUBLIC}
+        if event.actor is not None and event.actor.id == "operator":
+            capabilities.add(ADMIN)
+        return PermissionSnapshot(principal, frozenset(), frozenset(capabilities))
+
     def allows(self, event: EventEnvelope, permission: str) -> bool:
-        if permission == PUBLIC:
-            return True
-        return permission == OPERATOR and event.actor is not None and event.actor.id == "operator"
+        return self.resolve(event).allows(permission)
 
 
 def message_event(text: str, *, actor_id: str = "user") -> EventEnvelope:
@@ -159,7 +166,7 @@ async def test_recognized_denied_and_failed_commands_stop_propagation(tmp_path: 
             calls.append("invalid")
             return "not a HandlerResult"
 
-        service.register(CommandSpec("denied", permission=OPERATOR), denied, owner="tests")
+        service.register(CommandSpec("denied", permission=ADMIN), denied, owner="tests")
         service.register(CommandSpec("failed"), failed, owner="tests")
         service.register(CommandSpec("invalid"), invalid, owner="tests")  # type: ignore[arg-type]
 
@@ -182,7 +189,7 @@ async def test_visible_commands_are_sorted_and_permission_filtered(tmp_path: Pat
             return None
 
         service.register(CommandSpec("zeta"), handler, owner="tests")
-        service.register(CommandSpec("admin", permission=OPERATOR), handler, owner="tests")
+        service.register(CommandSpec("admin", permission=ADMIN), handler, owner="tests")
         service.register(CommandSpec("alpha"), handler, owner="tests")
 
         user_commands = service.visible(message_event("unused"))

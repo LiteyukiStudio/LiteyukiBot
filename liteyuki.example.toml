@@ -23,7 +23,10 @@ local_modules = []
 # ]
 
 [plugins.config."liteyukibot.permissions"]
-operators = []
+grants = []
+
+[plugins.config."liteyukibot.permissions".roles]
+operator = ["liteyukibot.status.read"]
 
 [plugins.config."liteyukibot.commands"]
 prefixes = ["/"]

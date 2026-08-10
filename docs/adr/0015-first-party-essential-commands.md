@@ -1,6 +1,6 @@
 # ADR 0015: Keep Essential Commands in a Consumer Plugin
 
-- Status: Accepted
+- Status: Superseded in part by ADR 0016
 - Date: 2026-08-10
 
 ## Context

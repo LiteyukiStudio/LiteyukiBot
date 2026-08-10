@@ -5,8 +5,8 @@ commands for native LiteyukiBot v7 deployments.
 
 The plugin adds no service. It consumes `liteyukibot.commands@1` and the
 kernel's `liteyukibot.kernel.status@1` snapshot service. Help only lists
-commands visible to the current actor; status requires the `operator`
-permission.
+commands visible to the current actor; status requires the
+`liteyukibot.status.read` capability.
 
 ```toml
 [plugins]
