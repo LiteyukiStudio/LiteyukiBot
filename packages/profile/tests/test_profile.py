@@ -165,6 +165,42 @@ async def test_profile_resource_commands_mutate_data_and_describe_limits(tmp_pat
         await app.stop()
 
 
+@pytest.mark.asyncio
+async def test_profile_language_drives_essentials_and_falls_back_after_reset(tmp_path: Path) -> None:
+    settings = AppSettings(
+        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"),
+        plugins=PluginSettings(
+            enabled=(
+                "liteyukibot.permissions",
+                "liteyukibot.commands",
+                "liteyukibot.resources",
+                "liteyukibot.profile",
+                "liteyukibot.essentials",
+            ),
+            config={"liteyukibot.essentials": {"language": "zh-CN"}},
+        ),
+    )
+    actions: list[ActionEnvelope] = []
+
+    async def record(action: ActionEnvelope) -> ActionResult:
+        actions.append(action)
+        return ActionResult(action_id=action.action_id, success=True)
+
+    app = LiteyukiApp(settings, logger=get_logger(component="profile-language-tests"))
+    app.events._action_executor = record
+    await app.start()
+    try:
+        await app.events.publish(_message_event("/profile set language en"))
+        await app.events.publish(_message_event("/help"))
+        assert cast(SendMessage, actions[-1].action).message.plain_text.startswith("Available commands:")
+
+        await app.events.publish(_message_event("/profile delete language"))
+        await app.events.publish(_message_event("/help"))
+        assert cast(SendMessage, actions[-1].action).message.plain_text.startswith("可用命令：")
+    finally:
+        await app.stop()
+
+
 def _nickname_field() -> ResourceField:
     return ResourceField("nickname", nickname_value)
 

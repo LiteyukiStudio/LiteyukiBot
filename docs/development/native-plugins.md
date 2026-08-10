@@ -126,6 +126,29 @@ Essentials renders visible root commands and `/help <path>` details. Parse
 errors are converted to short localized usage messages without exposing
 converter exceptions.
 
+## Resources and Profiles
+
+`liteyukibot-v7-resources` provides the optional
+`liteyukibot.resources@1` declaration layer. A resource spec defines a stable
+path and named fields; a provider keeps ownership of its data, transactions,
+schema migrations, and validation. Resources generate three commands through
+the command service: `<path>`, `<path> set <field> <value>`, and
+`<path> delete <field>`. Direct command registrations remain valid when this
+convention does not fit a plugin.
+
+The event actor is the target principal by default. `--actor <id>` requests an
+operation for another actor in the same runtime and bot; it is denied unless
+that field explicitly declares the capability for the requested operation.
+Resources never permit overriding runtime or bot identity, and cross-principal
+access is fail-closed.
+
+`liteyukibot-v7-profile` is the reference business plugin. It stores nickname
+and language under the exact `(runtime_id, bot_id, actor_id)` key in its private
+SQLite database and provides `liteyukibot.profile@1`. It has no kernel database
+dependency. Consumers may declare the profile service as optional, as
+Essentials does for per-user language, and must preserve a documented fallback
+when profile is not enabled or cannot be read.
+
 ## Essentials
 
 `liteyukibot-v7-essentials` is a consumer plugin, not a kernel feature. It
@@ -136,5 +159,8 @@ deployment configuration. Help filters registrations through the command
 service for the current event; status reads the immutable kernel status
 provider.
 
-The `language` setting accepts `zh-CN` or `en`. This dictionary is intentionally
-local to the package and does not define a localization API for other plugins.
+The `language` setting accepts `zh-CN` or `en`. When the optional profile
+service is enabled and has a valid value for the event principal, Essentials
+uses it; anonymous events, missing profile, and lookup failures use the static
+setting. This dictionary is intentionally local to the package and does not
+define a localization API for other plugins.
