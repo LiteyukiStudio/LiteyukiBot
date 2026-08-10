@@ -12,6 +12,7 @@ members = [
     "liteyukibot-v7-commands",
     "liteyukibot-v7-essentials",
     "liteyukibot-v7-permissions",
+    "liteyukibot-v7-profile",
     "liteyukibot-v7-resources",
 ]
 
@@ -345,6 +346,21 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "liteyukibot-v7", editable = "." }]
+
+[[package]]
+name = "liteyukibot-v7-profile"
+version = "0.1.0a1"
+source = { editable = "packages/profile" }
+dependencies = [
+    { name = "liteyukibot-v7" },
+    { name = "liteyukibot-v7-resources" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "liteyukibot-v7", editable = "." },
+    { name = "liteyukibot-v7-resources", editable = "packages/resources" },
+]
 
 [[package]]
 name = "liteyukibot-v7-resources"
