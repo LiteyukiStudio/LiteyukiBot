@@ -5,13 +5,13 @@ from __future__ import annotations
 import asyncio
 import os
 from collections.abc import Awaitable, Callable, Mapping
+from contextlib import suppress
 from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-from yukilog import configure_child_runtime, get_logger
-
 from liteyukibot.events import EventEnvelope
+from liteyukibot.logging import configure_runtime_child_logging, get_logger
 from liteyukibot.runtime import RuntimeClient
 from liteyukibot.runtime.protocol import ActionRequest, ActionResponse, EventAccepted, EventMessage, Shutdown
 
@@ -20,27 +20,75 @@ from .translate import AstrEventInput, to_astr_event_input, to_send_action
 type TextSink = Callable[[str], Awaitable[None]]
 
 
+class AstrBotLogBridge:
+    """Forward AstrBot's public LogBroker records into child Yukilog output."""
+
+    def __init__(self, broker: Any, logger: Any) -> None:
+        self._broker = broker
+        self._logger = logger
+        self._queue: Any | None = None
+        self._task: asyncio.Task[None] | None = None
+
+    def start(self, log_manager: Any, source_logger: Any) -> None:
+        log_manager.set_queue_handler(source_logger, self._broker)
+        self._queue = self._broker.register()
+        self._task = asyncio.create_task(self._forward(), name="astrbot-log-bridge")
+
+    async def close(self) -> None:
+        task, self._task = self._task, None
+        if task is not None:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+        if self._queue is not None:
+            with suppress(ValueError):
+                self._broker.unregister(self._queue)
+            self._queue = None
+
+    async def _forward(self) -> None:
+        assert self._queue is not None
+        while True:
+            entry = await self._queue.get()
+            if not isinstance(entry, Mapping):
+                continue
+            level = str(entry.get("level", "INFO")).lower()
+            message = str(entry.get("data", ""))
+            category = str(entry.get("category", "system"))
+            logger = self._logger.bind(upstream="astrbot", upstream_category=category)
+            getattr(logger, level, logger.info)("{}", message)
+
+
 class AstrBotHeadlessEngine:
     """Own an isolated AstrBot lifecycle without any AstrBot platform adapter."""
 
-    def __init__(self, state_directory: Path, options: Mapping[str, object]) -> None:
+    def __init__(self, state_directory: Path, options: Mapping[str, object], logger: Any) -> None:
         self.state_directory = state_directory
         self.options = options
         self._lifecycle: Any | None = None
         self._schedulers: Mapping[str, Any] = {}
+        self._logger = logger
+        self._log_bridge: AstrBotLogBridge | None = None
 
     async def start(self) -> None:
         root = self.state_directory / "astrbot"
         root.mkdir(parents=True, exist_ok=True)
         os.environ["ASTRBOT_ROOT"] = str(root)
-        log_broker_type = import_module("astrbot.core").LogBroker
+        astrbot_core = import_module("astrbot.core")
+        log_broker_type = astrbot_core.LogBroker
         lifecycle_type = import_module("astrbot.core.core_lifecycle").AstrBotCoreLifecycle
         database_type = import_module("astrbot.core.db.sqlite").SQLiteDatabase
 
-        lifecycle = lifecycle_type(log_broker_type(), database_type(str(root / "astrbot.db")))
-        await lifecycle.initialize()
+        broker = log_broker_type()
+        bridge = AstrBotLogBridge(broker, self._logger)
+        bridge.start(astrbot_core.LogManager, astrbot_core.logger)
+        lifecycle = lifecycle_type(broker, database_type(str(root / "astrbot.db")))
+        try:
+            await lifecycle.initialize()
+        except BaseException:
+            await bridge.close()
+            raise
         self._lifecycle = lifecycle
         self._schedulers = lifecycle.pipeline_scheduler_mapping
+        self._log_bridge = bridge
         if not self._schedulers:
             raise RuntimeError("AstrBot headless lifecycle did not create a PipelineScheduler")
 
@@ -53,9 +101,14 @@ class AstrBotHeadlessEngine:
 
     async def close(self) -> None:
         lifecycle, self._lifecycle = self._lifecycle, None
+        bridge, self._log_bridge = self._log_bridge, None
         self._schedulers = {}
-        if lifecycle is not None:
-            await lifecycle.stop()
+        try:
+            if lifecycle is not None:
+                await lifecycle.stop()
+        finally:
+            if bridge is not None:
+                await bridge.close()
 
     def _scheduler(self) -> Any:
         requested = self.options.get("scheduler_id")
@@ -145,14 +198,15 @@ class AstrBotRuntimeHost:
 
 
 async def run() -> None:
-    configure_child_runtime()
+    configure_runtime_child_logging()
     logger = get_logger(component="astrbot", runtime=os.environ.get("LITEYUKI_RUNTIME_ID", "astrbot"))
     client = RuntimeClient.from_environment("astrbot")
     host: AstrBotRuntimeHost | None = None
     try:
+        logger.info("starting AstrBot headless runtime")
         options = await client.connect()
         state_directory = Path(os.environ["LITEYUKI_RUNTIME_STATE_DIR"])
-        engine = AstrBotHeadlessEngine(state_directory, options)
+        engine = AstrBotHeadlessEngine(state_directory, options, logger)
         await engine.start()
         host = AstrBotRuntimeHost(
             client,
@@ -160,6 +214,7 @@ async def run() -> None:
             max_concurrent_events=_positive_int(options, "max_concurrent_events", 8),
         )
         await client.ready(("runtime.events.receive", "runtime.actions.send", "astrbot.pipeline"))
+        logger.info("AstrBot headless runtime is ready")
         await host.serve()
     except Exception as error:
         logger.error("AstrBot headless runtime failed: {}", error)
@@ -170,6 +225,7 @@ async def run() -> None:
         elif "engine" in locals():
             await engine.close()
         await client.close()
+        logger.info("AstrBot headless runtime stopped")
 
 
 def _create_astr_event(value: AstrEventInput, sink: TextSink) -> Any:

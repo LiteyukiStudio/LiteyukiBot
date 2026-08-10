@@ -4,7 +4,7 @@ import asyncio
 from collections.abc import Awaitable, Callable
 
 import pytest
-from liteyukibot_runtime_astrbot.host import AstrBotRuntimeHost
+from liteyukibot_runtime_astrbot.host import AstrBotLogBridge, AstrBotRuntimeHost
 from liteyukibot_runtime_astrbot.translate import to_astr_event_input, to_send_action
 
 from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope, Message, Segment, SendMessage
@@ -70,6 +70,41 @@ class FakeEngine:
         return None
 
 
+class RecordingLogger:
+    def __init__(self, records: list[tuple[dict[str, object], str, str]] | None = None, **fields: object) -> None:
+        self.records = records if records is not None else []
+        self.fields = fields
+
+    def bind(self, **fields: object) -> RecordingLogger:
+        return RecordingLogger(self.records, **self.fields, **fields)
+
+    def info(self, _format: str, message: str) -> None:
+        self.records.append((self.fields, "INFO", message))
+
+    def warning(self, _format: str, message: str) -> None:
+        self.records.append((self.fields, "WARNING", message))
+
+
+class FakeBroker:
+    def __init__(self) -> None:
+        self.queue: asyncio.Queue[object] = asyncio.Queue()
+        self.unregistered = False
+
+    def register(self) -> asyncio.Queue[object]:
+        return self.queue
+
+    def unregister(self, _queue: object) -> None:
+        self.unregistered = True
+
+
+class FakeLogManager:
+    def __init__(self) -> None:
+        self.calls: list[tuple[object, object]] = []
+
+    def set_queue_handler(self, logger: object, broker: object) -> None:
+        self.calls.append((logger, broker))
+
+
 @pytest.mark.asyncio
 async def test_astrbot_host_returns_pipeline_output_to_the_source_runtime() -> None:
     client = FakeClient()
@@ -83,3 +118,20 @@ async def test_astrbot_host_returns_pipeline_output_to_the_source_runtime() -> N
     assert client.sent == [EventAccepted(correlation_id="delivery-1", status="accepted")]
     assert client.actions[0]["runtime_id"] == "nonebot"
     assert client.actions[0]["event_id"] == "event-1"
+
+
+@pytest.mark.asyncio
+async def test_astrbot_log_bridge_forwards_public_broker_records() -> None:
+    broker = FakeBroker()
+    logger = RecordingLogger()
+    manager = FakeLogManager()
+    bridge = AstrBotLogBridge(broker, logger)
+
+    bridge.start(manager, "astrbot")
+    await broker.queue.put({"level": "WARNING", "data": "upstream warning", "category": "plugin"})
+    await asyncio.sleep(0)
+    await bridge.close()
+
+    assert manager.calls == [("astrbot", broker)]
+    assert logger.records == [({"upstream": "astrbot", "upstream_category": "plugin"}, "WARNING", "upstream warning")]
+    assert broker.unregistered is True
