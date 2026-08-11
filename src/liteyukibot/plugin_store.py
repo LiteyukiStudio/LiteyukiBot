@@ -65,6 +65,16 @@ def _json_object(value: object, subject: str) -> dict[str, Any]:
     return {str(key): item for key, item in value.items()}
 
 
+def _artifact_specs(value: list[object], subject: str) -> tuple[ArtifactSpec, ...]:
+    return tuple(
+        ArtifactSpec(
+            str(_json_object(raw_artifact, subject)["url"]),
+            str(_json_object(raw_artifact, subject)["sha256"]),
+        )
+        for raw_artifact in value
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class PlatformTarget:
     """The concrete Python target for one locally resolved dependency closure."""
@@ -141,19 +151,18 @@ class PluginFacet:
 
     runtime_kind: str
     artifacts: tuple[ArtifactSpec, ...]
-    requirements: tuple[str, ...] = ()
+    wheels: tuple[ArtifactSpec, ...] = ()
     platform: PlatformConstraint = field(default_factory=PlatformConstraint)
     load: dict[str, Any] = field(default_factory=dict)
     capabilities: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "runtime_kind", _identifier(self.runtime_kind, "runtime kind"))
-        if not self.artifacts:
-            raise PluginStoreError("plugin facet requires at least one artifact")
-        if len({artifact.sha256 for artifact in self.artifacts}) != len(self.artifacts):
-            raise PluginStoreError("plugin facet cannot repeat an artifact")
-        if any(not item.strip() for item in self.requirements):
-            raise PluginStoreError("plugin facet requirements must not be empty")
+        if not self.artifacts and not self.wheels:
+            raise PluginStoreError("plugin facet requires at least one artifact or wheel")
+        inputs = (*self.artifacts, *self.wheels)
+        if len({artifact.sha256 for artifact in inputs}) != len(inputs):
+            raise PluginStoreError("plugin facet cannot repeat an artifact or wheel")
         if any(not item.strip() for item in self.capabilities):
             raise PluginStoreError("plugin facet capabilities must not be empty")
         object.__setattr__(self, "load", _json_object(self.load, "plugin facet load plan"))
@@ -162,7 +171,7 @@ class PluginFacet:
         return {
             "runtime_kind": self.runtime_kind,
             "artifacts": [item.document() for item in self.artifacts],
-            "requirements": list(self.requirements),
+            "wheels": [item.document() for item in self.wheels],
             "platform": self.platform.document(),
             "load": self.load,
             "capabilities": list(self.capabilities),
@@ -240,20 +249,19 @@ class PluginIndex:
                 raw_artifacts = facet.get("artifacts")
                 if not isinstance(raw_artifacts, list):
                     raise PluginStoreError("plugin facet artifacts must be an array")
-                artifacts = tuple(
-                    ArtifactSpec(
-                        str(_json_object(raw_artifact, "plugin artifact")["url"]),
-                        str(_json_object(raw_artifact, "plugin artifact")["sha256"]),
-                    )
-                    for raw_artifact in raw_artifacts
-                )
+                if "requirements" in facet:
+                    raise PluginStoreError("plugin facet requirements are unsupported; declare hash-verified wheels")
+                artifacts = _artifact_specs(raw_artifacts, "plugin artifact")
+                raw_wheels = facet.get("wheels", [])
+                if not isinstance(raw_wheels, list):
+                    raise PluginStoreError("plugin facet wheels must be an array")
                 raw_platform = facet.get("platform", {})
                 platform_document = _json_object(raw_platform, "plugin facet platform")
                 facets.append(
                     PluginFacet(
                         runtime_kind=str(facet["runtime_kind"]),
                         artifacts=artifacts,
-                        requirements=_strings(facet.get("requirements", []), "plugin facet requirements"),
+                        wheels=_artifact_specs(raw_wheels, "plugin wheel"),
                         platform=PlatformConstraint(
                             systems=_strings(platform_document.get("systems", []), "platform systems"),
                             machines=_strings(platform_document.get("machines", []), "platform machines"),
