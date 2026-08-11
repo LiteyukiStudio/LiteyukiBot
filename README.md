@@ -37,6 +37,26 @@ The v7 kernel distribution on PyPI is named `liteyukibot-v7` and provides the
 `liteyukibot` namespace. The separately installed v6 runtime provides the
 `liteyuki` compatibility namespace.
 
+## Tool Installation
+
+Install the v7 CLI into uv's isolated tool environment:
+
+```bash
+uv tool install --python 3.14 liteyukibot-v7
+liteyuki init
+liteyuki run
+```
+
+The commands operate on the current directory by default. Use
+`liteyuki --workspace PATH ...` to select another project. `liteyukibot` and
+`ly` are equivalent executable aliases. Upgrade only the v7 tool with:
+
+```bash
+uv tool upgrade --python 3.14 liteyukibot-v7
+```
+
+This does not replace a separately installed v6 `liteyukibot` distribution.
+
 ```bash
 uv sync --locked
 uv run liteyuki check

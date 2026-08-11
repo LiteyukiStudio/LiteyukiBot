@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import signal
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, ClassVar
 
 import pytest
+from filelock import Timeout
 
 import liteyukibot.cli as cli_module
 from liteyukibot.config import AppSettings
@@ -90,3 +92,27 @@ async def test_run_until_signal_uses_windows_signal_fallback(monkeypatch: pytest
         signal.SIGTERM,
     ]
     assert assignments[-2:] == [(signal.SIGINT, previous), (signal.SIGTERM, previous)]
+
+
+def test_run_rejects_an_active_workspace_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from liteyukibot.config import ConfigWorkspace
+
+    ConfigWorkspace(tmp_path).initialize()
+
+    class LockedFileLock:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            pass
+
+        def __enter__(self) -> None:
+            raise Timeout("instance.lock")
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+    monkeypatch.setattr(cli_module, "FileLock", LockedFileLock)
+    monkeypatch.setattr(cli_module, "_runtime_secrets", lambda *_args: (_ for _ in ()).throw(AssertionError()))
+
+    assert cli_module.main(["--workspace", str(tmp_path), "run"]) == 2
+    assert "another LiteyukiBot command is active" in capsys.readouterr().err

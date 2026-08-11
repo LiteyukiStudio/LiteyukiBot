@@ -1116,6 +1116,7 @@ version = "7.0.0a4"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
+    { name = "filelock" },
     { name = "pydantic" },
     { name = "tomli-w" },
     { name = "yukilog" },
@@ -1142,6 +1143,7 @@ dev = [
 requires-dist = [
     { name = "cryptography", specifier = ">=46,<51" },
     { name = "fastapi", marker = "extra == 'http'", specifier = ">=0.141,<1" },
+    { name = "filelock", specifier = ">=3.19,<4" },
     { name = "pydantic", specifier = ">=2.13,<3" },
     { name = "pyyaml", marker = "extra == 'yaml'", specifier = ">=6,<7" },
     { name = "tomli-w", specifier = ">=1.2,<2" },

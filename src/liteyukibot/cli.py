@@ -9,9 +9,11 @@ import json
 import os
 import signal
 import sys
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from typing import Any
 
+from filelock import FileLock, Timeout
 from tomli_w import dumps as dump_toml
 
 from . import __version__
@@ -34,6 +36,8 @@ from .exceptions import LiteyukiError
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="liteyuki")
+    parser.add_argument("--version", action="version", version=__version__)
+    parser.add_argument("--workspace", default=".", metavar="PATH", help="project workspace directory")
     parser.add_argument("--config", action="append", default=[], metavar="PATH")
     parser.add_argument("--set", action="append", default=[], dest="overrides", metavar="KEY=VALUE")
     subcommands = parser.add_subparsers(dest="command", required=True)
@@ -80,18 +84,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     try:
         if args.command == "init":
-            return _init(args.non_interactive)
+            return _init(args.workspace, args.non_interactive)
         if args.command == "config" and args.config_command == "upgrade":
-            return _upgrade(args.refresh)
+            return _upgrade(args.workspace, args.refresh)
         if args.command == "config" and args.config_command == "show":
             return _config_show(args)
         if args.command == "config" and args.config_command == "explain":
             return _config_explain(args)
         if args.command == "vault":
             return _vault(args)
-        settings = _load(args.config, args.overrides)
+        workspace = ConfigWorkspace(args.workspace)
+        settings = _load(workspace, args.config, args.overrides)
         if args.command == "run":
-            return _run(settings, _runtime_secrets(settings))
+            return _run(settings, workspace)
         if args.command in {"check", "config"}:
             if args.command == "check":
                 _check(settings)
@@ -108,8 +113,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     return 2
 
 
-def _load(config_paths: Sequence[str], overrides: Sequence[str]) -> AppSettings:
-    primary = ConfigWorkspace().prepare()
+def _load(workspace: ConfigWorkspace, config_paths: Sequence[str], overrides: Sequence[str]) -> AppSettings:
+    primary = workspace.prepare()
     return load_settings(
         primary,
         config_paths=config_paths,
@@ -117,36 +122,37 @@ def _load(config_paths: Sequence[str], overrides: Sequence[str]) -> AppSettings:
     )
 
 
-def _init(non_interactive: bool) -> int:
-    workspace = ConfigWorkspace()
-    if non_interactive:
-        path = workspace.initialize()
-    else:
-        plan = build_initialization_plan(
-            prompt=_prompt,
-            output=lambda message: print(message, file=sys.stderr),
-            secret_prompt=_prompt_secret,
-        )
-        if plan.secrets:
-            vault = SecretVault(workspace.management_directory)
-            vault.initialize(_vault_password(workspace, create=True), plan.secrets)
-        path = workspace.initialize(
-            data_dir=plan.data_dir,
-            cache_dir=plan.cache_dir,
-            logging_level=plan.logging_level,
-            payload_mode=plan.payload_mode,
-            payload_exclude_runtimes=plan.payload_exclude_runtimes,
-            plugins=plan.plugins,
-            plugin_config=plan.plugin_config,
-            runtimes=plan.runtimes,
-            runtime_event_routes=plan.runtime_event_routes,
-        )
+def _init(directory: str, non_interactive: bool) -> int:
+    workspace = ConfigWorkspace(directory)
+    with _exclusive_workspace(workspace):
+        if non_interactive:
+            path = workspace.initialize()
+        else:
+            plan = build_initialization_plan(
+                prompt=_prompt,
+                output=lambda message: print(message, file=sys.stderr),
+                secret_prompt=_prompt_secret,
+            )
+            if plan.secrets:
+                vault = SecretVault(workspace.management_directory)
+                vault.initialize(_vault_password(workspace, create=True), plan.secrets)
+            path = workspace.initialize(
+                data_dir=plan.data_dir,
+                cache_dir=plan.cache_dir,
+                logging_level=plan.logging_level,
+                payload_mode=plan.payload_mode,
+                payload_exclude_runtimes=plan.payload_exclude_runtimes,
+                plugins=plan.plugins,
+                plugin_config=plan.plugin_config,
+                runtimes=plan.runtimes,
+                runtime_event_routes=plan.runtime_event_routes,
+            )
     print(f"created {path}")
     return 0
 
 
-def _upgrade(refresh: bool) -> int:
-    result = ConfigWorkspace().upgrade(refresh=refresh)
+def _upgrade(directory: str, refresh: bool) -> int:
+    result = ConfigWorkspace(directory).upgrade(refresh=refresh)
     if result is None:
         print("configuration is current")
     return 0
@@ -182,7 +188,7 @@ def _config_explain(args: argparse.Namespace) -> int:
 
 
 def _inspect(args: argparse.Namespace) -> ConfigInspection:
-    primary = ConfigWorkspace().prepare()
+    primary = ConfigWorkspace(args.workspace).prepare()
     return inspect_settings(
         primary,
         config_paths=args.config,
@@ -191,7 +197,7 @@ def _inspect(args: argparse.Namespace) -> ConfigInspection:
 
 
 def _vault(args: argparse.Namespace) -> int:
-    workspace = ConfigWorkspace()
+    workspace = ConfigWorkspace(args.workspace)
     workspace.prepare()
     vault = SecretVault(workspace.management_directory)
     if args.vault_command == "set":
@@ -244,7 +250,7 @@ def _vault_password(workspace: ConfigWorkspace, *, create: bool = False) -> str:
     return value
 
 
-def _runtime_secrets(settings: AppSettings) -> dict[str, str]:
+def _runtime_secrets(settings: AppSettings, workspace: ConfigWorkspace) -> dict[str, str]:
     names = {
         secret_name
         for runtime in settings.runtimes.values()
@@ -253,7 +259,6 @@ def _runtime_secrets(settings: AppSettings) -> dict[str, str]:
     }
     if not names:
         return {}
-    workspace = ConfigWorkspace()
     values = SecretVault(workspace.management_directory).read(_vault_password(workspace))
     missing = sorted(names - values.keys())
     if missing:
@@ -275,12 +280,26 @@ def _list_plugins(settings: AppSettings) -> None:
         print(f"{manifest.id}\t{manifest.version}\t{manifest.name}")
 
 
-def _run(settings: AppSettings, runtime_secrets: Mapping[str, str]) -> int:
+def _run(settings: AppSettings, workspace: ConfigWorkspace) -> int:
     try:
-        asyncio.run(_run_until_signal(settings, runtime_secrets))
+        with _exclusive_workspace(workspace):
+            asyncio.run(_run_until_signal(settings, _runtime_secrets(settings, workspace)))
     except KeyboardInterrupt:
         return 130
     return 0
+
+
+@contextmanager
+def _exclusive_workspace(workspace: ConfigWorkspace) -> Iterator[None]:
+    """Prevent init or run from replacing one workspace's live control state."""
+
+    workspace.management_directory.mkdir(parents=True, exist_ok=True)
+    lock = FileLock(workspace.management_directory / "instance.lock", timeout=0)
+    try:
+        with lock:
+            yield
+    except Timeout as error:
+        raise RuntimeError(f"another LiteyukiBot command is active for {workspace.directory}") from error
 
 
 async def _run_until_signal(settings: AppSettings, runtime_secrets: Mapping[str, str] | None = None) -> None:
