@@ -11,6 +11,7 @@ from filelock import Timeout
 import liteyukibot.cli as cli_module
 from liteyukibot.config import AppSettings
 from liteyukibot.init_wizard import InitWizardResult
+from liteyukibot.plugin_store import PlatformTarget, RuntimeGeneration, RuntimeGenerationStore
 
 
 class StubApp:
@@ -153,3 +154,28 @@ def test_inspect_topology_emits_the_resolved_graph(
 
     assert cli_module.main(["--workspace", str(tmp_path), "inspect", "topology"]) == 0
     assert capsys.readouterr().out.strip() == '{"schema_version": 1, "runtimes": []}'
+
+
+def test_plugin_list_runtime_shows_managed_generation_state(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from liteyukibot.config import ConfigWorkspace
+
+    ConfigWorkspace(tmp_path).initialize(runtimes={"legacy": {"kind": "v6"}})
+    generation = RuntimeGeneration(
+        "generation-one",
+        "legacy",
+        "v6",
+        "2026-08-11T00:00:00+00:00",
+        PlatformTarget("windows", "amd64", "3.14"),
+        ("example.echo",),
+        ("a" * 64,),
+        {"modules": [], "directories": []},
+    )
+    store = RuntimeGenerationStore(tmp_path)
+    store.write(generation)
+    store.activate("legacy", generation.id)
+
+    assert cli_module.main(["--workspace", str(tmp_path), "plugin", "list", "--runtime", "legacy"]) == 0
+
+    assert capsys.readouterr().out.strip() == "active\tgeneration-one\t-\texample.echo"
