@@ -11,6 +11,7 @@ authors = [
 ]
 dependencies = [
     "cryptography>=46,<51",
+    "filelock>=3.19,<4",
     "pydantic>=2.13,<3",
     "tomli-w>=1.2,<2",
     "yukilog>=1,<2",
@@ -26,6 +27,7 @@ http = [
 ]
 
 [project.scripts]
+liteyukibot = "liteyukibot.cli:main"
 liteyuki = "liteyukibot.cli:main"
 ly = "liteyukibot.cli:main"
 

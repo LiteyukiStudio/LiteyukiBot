@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 import liteyukibot.cli as cli_module
+from liteyukibot import __version__
 from liteyukibot.config import ConfigUpgradeRequired, ConfigurationError, ConfigWorkspace, load_settings
 
 
@@ -91,3 +92,19 @@ def test_cli_init_noninteractive_writes_project_config(tmp_path: Path, monkeypat
 
     assert cli_module.main(["init", "--non-interactive"]) == 0
     assert (tmp_path / "liteyuki.toml").is_file()
+
+
+def test_cli_init_uses_explicit_workspace(tmp_path: Path) -> None:
+    workspace = tmp_path / "instance"
+
+    assert cli_module.main(["--workspace", str(workspace), "init", "--non-interactive"]) == 0
+
+    assert (workspace / "liteyuki.toml").is_file()
+
+
+def test_cli_version_option_exits_successfully(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as raised:
+        cli_module.main(["--version"])
+
+    assert raised.value.code == 0
+    assert capsys.readouterr().out.strip() == __version__

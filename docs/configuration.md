@@ -19,6 +19,22 @@ choices.
 liteyuki init --non-interactive and a missing Docker configuration both create
 a minimal configuration with no enabled plugins, runtimes, or secrets.
 
+## Workspace Selection
+
+The current directory is the default workspace. Use `--workspace PATH` before
+the subcommand to operate on another project without changing the shell's
+current directory:
+
+~~~bash
+liteyuki --workspace /srv/liteyuki init --non-interactive
+liteyuki --workspace /srv/liteyuki run
+~~~
+
+`init` and `run` hold `.liteyuki/instance.lock` for the duration of the
+operation. A second process for the same workspace exits rather than replacing
+the active control descriptor. `liteyuki --version` is equivalent to
+`liteyuki version`.
+
 ## Precedence And Inspection
 
 The effective order is:
