@@ -65,6 +65,14 @@ RELEASE_PROJECTS: dict[str, ReleaseProject] = {
         tag_selector="resources-v",
         verifier="scripts/verify_resources_install.py",
     ),
+    "functions": ReleaseProject(
+        name="functions",
+        project_dir="packages/functions",
+        distribution="liteyukibot-v7-functions",
+        tag_prefix="functions-v",
+        tag_selector="functions-v",
+        verifier="scripts/verify_functions_install.py",
+    ),
     "profile": ReleaseProject(
         name="profile",
         project_dir="packages/profile",
@@ -161,9 +169,7 @@ def validate_release(
     tag: str | None = None,
 ) -> None:
     if identity.distribution != project.distribution:
-        raise RuntimeError(
-            f"expected project.name={project.distribution!r}, got {identity.distribution!r}"
-        )
+        raise RuntimeError(f"expected project.name={project.distribution!r}, got {identity.distribution!r}")
     if tag is not None:
         expected_tag = f"{project.tag_prefix}{identity.version}"
         if tag != expected_tag:

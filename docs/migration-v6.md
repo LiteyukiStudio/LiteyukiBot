@@ -16,6 +16,8 @@ new plugins should import `liteyukibot`.
   stable priority dispatch, and synchronous reply-intent collection;
 - supervised delivery of normalized message events and ordered string or
   mapping replies through protocol-neutral Actions.
+- separately installed execution of legacy resource functions with `.lyf`,
+  `.lyfunction`, and `.mcfunction` extensions.
 
 ## Unsupported
 
@@ -59,3 +61,15 @@ action_timeout_seconds = 10.0
 [runtimes.legacy.options.config]
 nickname = ["Liteyuki"]
 ```
+
+## Resource Functions
+
+Install `liteyukibot-v7-functions` only for v6 resource packs that use the
+legacy function language. It supports `var`, `api`, `function`, `sleep`,
+`nohup`, `await`, `end`, and `cmd`, including the legacy placeholder forms.
+
+The historical implementation evaluated values with Python `eval` and executed
+`cmd` through the process shell. The v7 executor parses literals safely and
+requires the caller to explicitly provide both API and command capabilities.
+No capability is installed by default, so a resource pack alone cannot invoke
+an adapter API or execute a local command.

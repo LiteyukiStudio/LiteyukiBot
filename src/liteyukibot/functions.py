@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import inspect
-from collections.abc import Awaitable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from importlib import metadata
 from pathlib import PurePosixPath
@@ -27,6 +27,10 @@ class FunctionExecutorUnavailableError(FunctionError):
     pass
 
 
+class FunctionRecursionError(FunctionError):
+    pass
+
+
 @dataclass(frozen=True, slots=True)
 class FunctionDocument:
     id: str
@@ -41,12 +45,22 @@ class FunctionDocument:
 class FunctionCall:
     id: str
     arguments: Mapping[str, Any]
+    positional: tuple[str, ...] = ()
+    capabilities: object | None = None
+
+
+type FunctionInvoker = Callable[[FunctionCall], Awaitable[object]]
 
 
 class FunctionExecutor(Protocol):
     extensions: tuple[str, ...]
 
-    def execute(self, document: FunctionDocument, call: FunctionCall) -> Awaitable[object]: ...
+    def execute(
+        self,
+        document: FunctionDocument,
+        call: FunctionCall,
+        invoke: FunctionInvoker,
+    ) -> Awaitable[object]: ...
 
 
 class FunctionCatalog:
@@ -85,7 +99,11 @@ class FunctionDispatcher:
         executors: dict[str, FunctionExecutor] = {}
         for entry in metadata.entry_points(group=cls.ENTRY_POINT_GROUP):
             candidate = entry.load()
-            executor = candidate() if callable(candidate) and not hasattr(candidate, "execute") else candidate
+            executor = (
+                candidate()
+                if inspect.isclass(candidate) or (callable(candidate) and not hasattr(candidate, "execute"))
+                else candidate
+            )
             if not hasattr(executor, "extensions") or not callable(getattr(executor, "execute", None)):
                 raise FunctionError(f"function executor {entry.name!r} has an invalid contract")
             for extension in executor.extensions:
@@ -96,13 +114,25 @@ class FunctionDispatcher:
         return executors
 
     async def dispatch(self, call: FunctionCall) -> object:
+        return await self._dispatch(call, ())
+
+    async def _dispatch(self, call: FunctionCall, stack: tuple[str, ...]) -> object:
         document = self.catalog.require(call.id)
+        if document.id in stack:
+            cycle = " -> ".join((*stack, document.id))
+            raise FunctionRecursionError(f"function recursion is not allowed: {cycle}")
+        if len(stack) >= 32:
+            raise FunctionRecursionError("function nesting exceeds the maximum depth of 32")
         executor = self._executors.get(document.extension)
         if executor is None:
             raise FunctionExecutorUnavailableError(
                 f"no executor is installed for {document.extension} functions; install a matching function package"
             )
-        result = executor.execute(document, call)
+
+        async def invoke(nested_call: FunctionCall) -> object:
+            return await self._dispatch(nested_call, (*stack, document.id))
+
+        result = executor.execute(document, call, invoke)
         if not inspect.isawaitable(result):
             raise FunctionError("function executor execute() must return an awaitable")
         return await result
@@ -118,4 +148,5 @@ __all__ = [
     "FunctionExecutor",
     "FunctionExecutorUnavailableError",
     "FunctionNotFoundError",
+    "FunctionRecursionError",
 ]

@@ -7,7 +7,7 @@ LiteyukiBot v6 plugins run in supervised child runtimes.
 The `v7` branch is a clean rewrite. The `main` branch remains the maintenance
 line for v6 and is not merged wholesale into v7.
 
-The current pre-release is `liteyukibot-v7==7.0.0a5`. Kernel stabilization,
+The current pre-release is `liteyukibot-v7==7.0.0a6`. Kernel stabilization,
 the first bounded compatibility phase, and the first-party plugin foundation
 are complete. Runtime protocol v3 remains an alpha contract and may change
 under ADR 0011 before the first stable release.
@@ -85,6 +85,17 @@ Install bounded v6 compatibility when legacy plugins are required:
 uv add "liteyukibot-v7-runtime-v6"
 ```
 
+Install the v6 resource-function executor only when workspace resource packs
+contain `.lyf`, `.lyfunction`, or `.mcfunction` files:
+
+```bash
+uv add "liteyukibot-v7-functions"
+```
+
+It preserves the v6 function language but does not grant resource files shell
+or adapter API access by itself; callers must explicitly provide those
+capabilities.
+
 Install the Essentials command layer with:
 
 ```bash
@@ -144,6 +155,7 @@ uv run python -m scripts.run_developer_kit_install
 uv run python -m scripts.run_permissions_install
 uv run python -m scripts.run_commands_install
 uv run python -m scripts.run_resources_install
+uv run python -m scripts.run_functions_install
 uv run python -m scripts.run_profile_install
 uv run python -m scripts.run_essentials_install
 uv run python -m scripts.run_nonebot_runtime_install

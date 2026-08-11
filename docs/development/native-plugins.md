@@ -57,9 +57,15 @@ read the resolved catalog.
 
 `FUNCTION_DISPATCH_SERVICE` resolves read-only files under `functions/` and
 dispatches them to a separately installed executor registered through
-`liteyukibot.function_executors`. The kernel intentionally provides no function
-language or command-execution capability; an unavailable executor raises an
-explicit error.
+`liteyukibot.function_executors`. `liteyukibot-v7-functions` is the first
+executor and supports only the v6 `.lyf`, `.lyfunction`, and `.mcfunction`
+language. The kernel intentionally provides no function language or
+command-execution capability; an unavailable executor raises an explicit error.
+
+The v6 `api` and `cmd` instructions remain capability-gated. A caller must
+explicitly supply the adapter API or command runner it intends to authorize;
+resource packs never gain API access, Python evaluation, or shell execution
+merely by being discovered.
 
 ## Testing
 

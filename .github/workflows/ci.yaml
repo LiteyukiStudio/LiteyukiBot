@@ -35,6 +35,7 @@ jobs:
           uv run python scripts/check_release.py
           uv run python scripts/check_release.py --package permissions
           uv run python scripts/check_release.py --package commands
+          uv run python scripts/check_release.py --package functions
           uv run python scripts/check_release.py --package essentials
           uv run python scripts/check_release.py --package runtime-nonebot
           uv run python scripts/check_release.py --package runtime-v6
@@ -51,6 +52,7 @@ jobs:
           uv run python -m scripts.run_developer_kit_install
           uv run python -m scripts.run_permissions_install
           uv run python -m scripts.run_commands_install
+          uv run python -m scripts.run_functions_install
           uv run python -m scripts.run_essentials_install
           uv run python -m scripts.run_nonebot_runtime_install
           uv run python -m scripts.run_v6_runtime_install
