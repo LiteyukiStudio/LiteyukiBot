@@ -58,7 +58,8 @@ class RecordingLogger(FakeLogger):
     def bind(self, **fields: Any) -> RecordingLogger:
         return RecordingLogger({**self.fields, **fields}, self.records)
 
-    def debug(self, _message: str, *args: Any, **kwargs: Any) -> None:
+    def debug(self, message: str, *args: Any, **kwargs: Any) -> None:
+        del message, args, kwargs
         self.records.append(dict(self.fields))
 
 
