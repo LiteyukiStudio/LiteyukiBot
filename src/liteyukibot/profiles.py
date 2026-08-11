@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from .exceptions import LiteyukiError
 
@@ -28,20 +29,50 @@ class ProfileManifest:
     requirements: tuple[str, ...]
     python: str
     distributions: dict[str, str]
+    direct_urls: dict[str, dict[str, str]]
 
     def document(self) -> dict[str, Any]:
         return {
-            "schema": 1,
+            "schema": 2,
             "id": self.id,
             "created_at": self.created_at,
             "requirements": list(self.requirements),
             "python": self.python,
             "distributions": dict(sorted(self.distributions.items())),
+            "direct_urls": {
+                name: dict(sorted(provenance.items()))
+                for name, provenance in sorted(self.direct_urls.items())
+            },
         }
 
     @property
     def digest(self) -> str:
         return hashlib.sha256(json.dumps(self.document(), sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+    @staticmethod
+    def sanitize_direct_urls(value: dict[str, Any]) -> dict[str, dict[str, str]]:
+        normalized: dict[str, dict[str, str]] = {}
+        for name, raw in value.items():
+            if not isinstance(name, str) or not name or not isinstance(raw, dict):
+                continue
+            url = raw.get("url")
+            if not isinstance(url, str) or not url:
+                continue
+            parsed = urlsplit(url)
+            hostname = parsed.hostname
+            if hostname is not None:
+                host = hostname if parsed.port is None else f"{hostname}:{parsed.port}"
+                netloc = host
+            else:
+                netloc = parsed.netloc
+            sanitized = urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
+            provenance = {"url": sanitized}
+            vcs = raw.get("vcs_info")
+            commit_id = vcs.get("commit_id") if isinstance(vcs, dict) else raw.get("commit_id")
+            if isinstance(commit_id, str) and commit_id:
+                provenance["commit_id"] = commit_id
+            normalized[name.lower()] = provenance
+        return normalized
 
 
 class ProfileStore:
@@ -77,7 +108,7 @@ class ProfileStore:
         path = self.profile_path(profile_id) / "manifest.json"
         try:
             value = json.loads(path.read_text(encoding="utf-8"))
-            if value.get("schema") != 1 or value.get("id") != profile_id:
+            if value.get("schema") not in (1, 2) or value.get("id") != profile_id:
                 raise ValueError("invalid profile manifest")
             return ProfileManifest(
                 id=profile_id,
@@ -85,6 +116,9 @@ class ProfileStore:
                 requirements=tuple(str(item) for item in value["requirements"]),
                 python=str(value["python"]),
                 distributions={str(k): str(v) for k, v in dict(value["distributions"]).items()},
+                direct_urls=ProfileManifest.sanitize_direct_urls(
+                    dict(value.get("direct_urls", {})) if isinstance(value.get("direct_urls", {}), dict) else {}
+                ),
             )
         except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
             raise ProfileError(f"profile {profile_id!r} is not verified") from error
