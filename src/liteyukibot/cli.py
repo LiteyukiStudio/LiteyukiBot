@@ -82,6 +82,12 @@ def build_parser() -> argparse.ArgumentParser:
     plugin_install.add_argument("bundle_id")
     plugin_install.add_argument("--runtime", required=True, dest="runtime_id")
     plugin_install.add_argument("--source", dest="source_id")
+    plugin_update = plugin_commands.add_parser("update", help="rebuild a runtime plugin generation from its source")
+    plugin_update.add_argument("--runtime", required=True, dest="runtime_id")
+    plugin_update.add_argument("--source", dest="source_id")
+    plugin_uninstall = plugin_commands.add_parser("uninstall", help="remove one runtime plugin bundle root")
+    plugin_uninstall.add_argument("bundle_id")
+    plugin_uninstall.add_argument("--runtime", required=True, dest="runtime_id")
     plugin_rollback = plugin_commands.add_parser("rollback", help="restore a runtime's previous plugin generation")
     plugin_rollback.add_argument("--runtime", required=True, dest="runtime_id")
     plugin_source = plugin_commands.add_parser("source", help="plugin index source operations")
@@ -154,6 +160,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 return _plugin_install(args, settings, workspace)
             if args.plugin_command == "rollback":
                 return _plugin_rollback(args, settings, workspace)
+            if args.plugin_command == "update":
+                return _plugin_update(args, settings, workspace)
+            if args.plugin_command == "uninstall":
+                return _plugin_uninstall(args, settings, workspace)
             _list_plugins(settings)
             return 0
         if args.command == "inspect":
@@ -269,12 +279,7 @@ def _plugin_source(args: argparse.Namespace) -> int:
 
 
 def _plugin_install(args: argparse.Namespace, settings: AppSettings, workspace: ConfigWorkspace) -> int:
-    try:
-        runtime = settings.runtimes[args.runtime_id]
-    except KeyError as error:
-        raise ValueError(f"runtime {args.runtime_id!r} is not configured") from error
-    if not runtime.enabled:
-        raise ValueError(f"runtime {args.runtime_id!r} is disabled")
+    runtime = _configured_runtime(args.runtime_id, settings)
     with _exclusive_workspace(workspace):
         result = PluginInstallationService(workspace.directory).install(
             args.bundle_id,
@@ -293,6 +298,43 @@ def _plugin_rollback(args: argparse.Namespace, settings: AppSettings, workspace:
         deployment = RuntimeGenerationStore(workspace.directory).rollback(args.runtime_id)
     print(f"activated {deployment.runtime_generations[args.runtime_id]}")
     return 0
+
+
+def _plugin_update(args: argparse.Namespace, settings: AppSettings, workspace: ConfigWorkspace) -> int:
+    runtime = _configured_runtime(args.runtime_id, settings)
+    with _exclusive_workspace(workspace):
+        result = PluginInstallationService(workspace.directory).update(
+            runtime_id=args.runtime_id,
+            runtime_kind=runtime.kind,
+            source_id=args.source_id,
+        )
+    print(f"updated {args.runtime_id} from {result.source_id} as {result.generation.id}")
+    return 0
+
+
+def _plugin_uninstall(args: argparse.Namespace, settings: AppSettings, workspace: ConfigWorkspace) -> int:
+    runtime = _configured_runtime(args.runtime_id, settings)
+    with _exclusive_workspace(workspace):
+        result = PluginInstallationService(workspace.directory).uninstall(
+            args.bundle_id,
+            runtime_id=args.runtime_id,
+            runtime_kind=runtime.kind,
+        )
+    if result.generation is None:
+        print(f"uninstalled {args.bundle_id}; deactivated {args.runtime_id}")
+    else:
+        print(f"uninstalled {args.bundle_id}; activated {result.generation.id}")
+    return 0
+
+
+def _configured_runtime(runtime_id: str, settings: AppSettings) -> Any:
+    try:
+        runtime = settings.runtimes[runtime_id]
+    except KeyError as error:
+        raise ValueError(f"runtime {runtime_id!r} is not configured") from error
+    if not runtime.enabled:
+        raise ValueError(f"runtime {runtime_id!r} is disabled")
+    return runtime
 
 
 def _profile_unlocked(args: argparse.Namespace, workspace: ConfigWorkspace) -> int:

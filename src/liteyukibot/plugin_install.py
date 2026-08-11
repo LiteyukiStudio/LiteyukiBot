@@ -34,6 +34,14 @@ class PluginInstallResult:
     generation: RuntimeGeneration
 
 
+@dataclass(frozen=True, slots=True)
+class PluginUninstallResult:
+    """The deployment state produced by removing one requested bundle root."""
+
+    source_id: str
+    generation: RuntimeGeneration | None
+
+
 class PluginInstallationService:
     """Resolve source metadata into a runtime-owned, independently restartable generation."""
 
@@ -52,8 +60,60 @@ class PluginInstallationService:
         runtime_kind: str,
         source_id: str | None = None,
     ) -> PluginInstallResult:
-        source, index = self._resolve_source(bundle_id, source_id)
-        bundles = _resolve_bundles(index, bundle_id)
+        current = self._active_generation(runtime_id, runtime_kind)
+        roots: tuple[str, ...]
+        if current is None:
+            source, index = self._resolve_source(bundle_id, source_id)
+            roots = (bundle_id,)
+        else:
+            self._require_resolution(current)
+            if bundle_id in current.roots:
+                raise PluginStoreError(f"plugin bundle {bundle_id!r} is already an enabled root")
+            source, index = self._refresh_source(current, source_id)
+            roots = (*current.roots, bundle_id)
+        return self._build(runtime_id, runtime_kind, source.id, index, roots)
+
+    def update(
+        self,
+        *,
+        runtime_id: str,
+        runtime_kind: str,
+        source_id: str | None = None,
+    ) -> PluginInstallResult:
+        current = self._require_active_generation(runtime_id, runtime_kind)
+        self._require_resolution(current)
+        source, index = self._refresh_source(current, source_id)
+        return self._build(runtime_id, runtime_kind, source.id, index, current.roots)
+
+    def uninstall(
+        self,
+        bundle_id: str,
+        *,
+        runtime_id: str,
+        runtime_kind: str,
+    ) -> PluginUninstallResult:
+        current = self._require_active_generation(runtime_id, runtime_kind)
+        self._require_resolution(current)
+        if bundle_id not in current.roots:
+            raise PluginStoreError(f"plugin bundle {bundle_id!r} is not an enabled root")
+        roots = tuple(item for item in current.roots if item != bundle_id)
+        if not roots:
+            self.generations.deactivate(runtime_id)
+            return PluginUninstallResult(current.source_id or "", None)
+        index = PluginIndex(current.resolved_bundles)
+        result = self._build(runtime_id, runtime_kind, current.source_id or "", index, roots, current.index_digest)
+        return PluginUninstallResult(result.source_id, result.generation)
+
+    def _build(
+        self,
+        runtime_id: str,
+        runtime_kind: str,
+        source_id: str,
+        index: PluginIndex,
+        roots: tuple[str, ...],
+        index_digest: str | None = None,
+    ) -> PluginInstallResult:
+        bundles = _resolve_bundles(index, roots)
         target = PlatformTarget.current()
         facets = {bundle.id: bundle.facet_for(runtime_kind, target) for bundle in bundles}
         runtime = self._require_runtime(runtime_kind)
@@ -82,6 +142,10 @@ class PluginInstallationService:
                     for artifact in (*facet.artifacts, *facet.wheels)
                 ),
                 load_plan=load_plan,
+                source_id=source_id,
+                index_digest=index_digest or index.digest,
+                roots=roots,
+                resolved_bundles=bundles,
             )
             self.generations.write(generation)
             self.generations.activate(runtime_id, generation_id)
@@ -89,7 +153,7 @@ class PluginInstallationService:
             shutil.rmtree(generation_path, ignore_errors=True)
             _prune_empty_generation_parents(generation_path)
             raise
-        return PluginInstallResult(source.id, generation)
+        return PluginInstallResult(source_id, generation)
 
     def _resolve_source(self, bundle_id: str, source_id: str | None) -> tuple[PluginSource, PluginIndex]:
         if source_id is not None:
@@ -107,6 +171,38 @@ class PluginInstallationService:
                 diagnostics.append(f"{source.id}: {error}")
         details = "; ".join(diagnostics)
         raise PluginStoreError(f"plugin bundle {bundle_id!r} was not found in any source ({details})")
+
+    def _refresh_source(self, generation: RuntimeGeneration, source_id: str | None) -> tuple[PluginSource, PluginIndex]:
+        if source_id is not None and source_id != generation.source_id:
+            raise PluginStoreError("an active runtime generation cannot combine plugin sources")
+        if generation.source_id is None:
+            raise PluginStoreError("active runtime generation has no source provenance; reinstall its plugin roots")
+        index = self.sources.fetch(generation.source_id, refresh=True)
+        source = next(item for item in self.sources.list() if item.id == generation.source_id)
+        return source, index
+
+    def _active_generation(self, runtime_id: str, runtime_kind: str) -> RuntimeGeneration | None:
+        deployment = self.generations.active()
+        generation_id = deployment.runtime_generations.get(runtime_id)
+        if generation_id is None:
+            return None
+        generation = self.generations.read(runtime_id, generation_id)
+        if generation.runtime_kind != runtime_kind:
+            raise PluginStoreError(
+                f"runtime {runtime_id!r} has {generation.runtime_kind!r} plugins, not {runtime_kind!r} plugins"
+            )
+        return generation
+
+    def _require_active_generation(self, runtime_id: str, runtime_kind: str) -> RuntimeGeneration:
+        generation = self._active_generation(runtime_id, runtime_kind)
+        if generation is None:
+            raise PluginStoreError(f"runtime {runtime_id!r} has no active plugin generation")
+        return generation
+
+    @staticmethod
+    def _require_resolution(generation: RuntimeGeneration) -> None:
+        if generation.source_id is None:
+            raise PluginStoreError("active runtime generation has no source provenance; reinstall its plugin roots")
 
     @staticmethod
     def _require_runtime(runtime_kind: str) -> RuntimePlugin:
@@ -144,7 +240,7 @@ class PluginInstallationService:
             self._run(["uv", "pip", "install", "--no-index", "--no-deps", "--python", str(python), *wheel_paths])
 
 
-def _resolve_bundles(index: PluginIndex, bundle_id: str) -> tuple[PluginBundle, ...]:
+def _resolve_bundles(index: PluginIndex, roots: tuple[str, ...]) -> tuple[PluginBundle, ...]:
     resolved: list[PluginBundle] = []
     visiting: set[str] = set()
     visited: set[str] = set()
@@ -162,7 +258,8 @@ def _resolve_bundles(index: PluginIndex, bundle_id: str) -> tuple[PluginBundle, 
         visited.add(current_id)
         resolved.append(bundle)
 
-    visit(bundle_id)
+    for root in roots:
+        visit(root)
     return tuple(resolved)
 
 
@@ -187,4 +284,4 @@ def _utc_now() -> str:
     return datetime.now(UTC).isoformat()
 
 
-__all__ = ["PluginInstallResult", "PluginInstallationService"]
+__all__ = ["PluginInstallResult", "PluginInstallationService", "PluginUninstallResult"]
