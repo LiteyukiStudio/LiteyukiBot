@@ -75,6 +75,9 @@ def build_parser() -> argparse.ArgumentParser:
     plugin = subcommands.add_parser("plugin", help="plugin operations")
     plugin.add_subparsers(dest="plugin_command", required=True).add_parser("list")
 
+    inspect = subcommands.add_parser("inspect", help="read-only resolved module information")
+    inspect.add_subparsers(dest="inspect_command", required=True).add_parser("topology")
+
     runtime = subcommands.add_parser("runtime", help="runtime operations")
     runtime_commands = runtime.add_subparsers(dest="runtime_command", required=True)
     runtime_commands.add_parser("list")
@@ -127,6 +130,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         if args.command == "plugin":
             _list_plugins(settings)
+            return 0
+        if args.command == "inspect":
+            print(json.dumps(LiteyukiApp(settings).topology(discover_plugins=True), ensure_ascii=False, default=str))
             return 0
         if args.command == "runtime":
             return asyncio.run(_runtime_command(settings, args.runtime_command, args))
@@ -483,9 +489,15 @@ async def _runtime_command(settings: AppSettings, command: str, args: argparse.N
     if command == "list":
         if descriptor.is_file():
             status = await request_control(descriptor, "status")
-            runtimes = status.get("runtimes", {}) if isinstance(status, dict) else {}
-            for runtime_id, state in runtimes.items():
-                print(f"{runtime_id}\t{state}")
+            health = status.get("runtime_health", {}) if isinstance(status, dict) else {}
+            if isinstance(health, dict):
+                for runtime_id, snapshot in health.items():
+                    if isinstance(snapshot, dict):
+                        protocol = snapshot.get("protocol")
+                        fields = [str(runtime_id), str(snapshot.get("state")), str(snapshot.get("kind"))]
+                        if protocol is not None:
+                            fields.append(f"v{protocol}")
+                        print("\t".join(fields))
         else:
             for runtime_id, runtime in settings.runtimes.items():
                 state = "disabled" if not runtime.enabled else "configured"
