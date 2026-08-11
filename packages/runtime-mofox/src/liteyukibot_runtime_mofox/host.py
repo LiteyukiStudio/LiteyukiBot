@@ -15,9 +15,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-from yukilog import configure_child_runtime, get_logger
-
 from liteyukibot.events import EventEnvelope
+from liteyukibot.logging import configure_runtime_child_logging, get_logger
 from liteyukibot.runtime import RuntimeClient
 from liteyukibot.runtime.protocol import ActionRequest, ActionResponse, EventAccepted, EventMessage, Shutdown
 
@@ -168,11 +167,12 @@ class MoFoxRuntimeHost:
 
 
 async def run() -> None:
-    configure_child_runtime()
+    configure_runtime_child_logging()
     logger = get_logger(component="mofox", runtime=os.environ.get("LITEYUKI_RUNTIME_ID", "mofox"))
     client = RuntimeClient.from_environment("mofox")
     host: MoFoxRuntimeHost | None = None
     try:
+        logger.info("starting MoFox headless runtime")
         options = await client.connect()
         state_directory = Path(os.environ["LITEYUKI_RUNTIME_STATE_DIR"])
         engine = MoFoxHeadlessEngine(state_directory, options)
@@ -183,6 +183,7 @@ async def run() -> None:
             max_concurrent_events=_positive_int(options, "max_concurrent_events", 8),
         )
         await client.ready(("runtime.events.receive", "runtime.actions.send", "mofox.chatter"))
+        logger.info("MoFox headless runtime is ready")
         await host.serve()
     except Exception as error:
         logger.error("MoFox headless runtime failed: {}", error)
@@ -193,6 +194,7 @@ async def run() -> None:
         elif "engine" in locals():
             await engine.close()
         await client.close()
+        logger.info("MoFox headless runtime stopped")
 
 
 def _positive_int(options: Mapping[str, object], key: str, default: int) -> int:
