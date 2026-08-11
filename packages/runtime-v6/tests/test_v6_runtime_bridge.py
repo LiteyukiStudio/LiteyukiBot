@@ -20,7 +20,7 @@ from liteyukibot.events import (
     SendMessage,
 )
 from liteyukibot.runtime import RuntimeClient
-from liteyukibot.runtime.protocol import ActionResponse, EventAccepted, EventMessage
+from liteyukibot.runtime.protocol import ActionResponse, EventAccepted, EventCompleted, EventMessage
 
 
 @pytest.fixture(autouse=True)
@@ -183,7 +183,10 @@ async def test_v6_host_preserves_reply_order_and_isolates_action_failure() -> No
     actions = [payload for _correlation_id, payload in client.actions]
     assert actions[0]["action"]["message"]["segments"][0]["data"]["text"] == "first"
     assert actions[1]["action"]["message"]["segments"][0]["data"]["text"] == "second"
-    assert client.sent == [EventAccepted(correlation_id="delivery-1", status="accepted")]
+    assert client.sent == [
+        EventAccepted(correlation_id="delivery-1", status="accepted"),
+        EventCompleted(correlation_id="delivery-1", status="completed"),
+    ]
 
 
 @pytest.mark.asyncio
@@ -211,6 +214,7 @@ async def test_v6_host_accepts_non_message_and_rejects_malformed_event() -> None
     assert calls == 0
     assert client.sent == [
         EventAccepted(correlation_id="notice", status="accepted"),
+        EventCompleted(correlation_id="notice", status="completed"),
         EventAccepted(
             correlation_id="invalid",
             status="invalid",

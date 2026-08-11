@@ -18,7 +18,15 @@ from typing import Any
 from liteyukibot.events import EventEnvelope
 from liteyukibot.logging import configure_runtime_child_logging, get_logger
 from liteyukibot.runtime import RuntimeClient
-from liteyukibot.runtime.protocol import ActionRequest, ActionResponse, EventAccepted, EventMessage, Shutdown
+from liteyukibot.runtime.protocol import (
+    ActionRequest,
+    ActionResponse,
+    EventAccepted,
+    EventCompleted,
+    EventMessage,
+    EventTrace,
+    Shutdown,
+)
 
 from .translate import to_mofox_envelope, to_mofox_event_input, to_send_action
 
@@ -102,6 +110,7 @@ class MoFoxRuntimeHost:
         self.client = client
         self.engine = engine
         self.max_concurrent_events = max_concurrent_events
+        self.logger = get_logger(component="mofox", runtime=os.environ.get("LITEYUKI_RUNTIME_ID", "mofox"))
         self._tasks: set[asyncio.Task[None]] = set()
 
     async def serve(self) -> None:
@@ -152,18 +161,49 @@ class MoFoxRuntimeHost:
             )
             return
         await self.client.send(EventAccepted(correlation_id=message.correlation_id, status="accepted"))
-        task = asyncio.create_task(self._process_event(event), name=f"mofox-event:{message.correlation_id}")
+        task = asyncio.create_task(
+            self._process_event(message.correlation_id, event, message.trace),
+            name=f"mofox-event:{message.correlation_id}",
+        )
         self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
+        task.add_done_callback(self._event_finished)
 
-    async def _process_event(self, event: EventEnvelope) -> None:
+    def _event_finished(self, task: asyncio.Task[None]) -> None:
+        self._tasks.discard(task)
+        if task.cancelled():
+            return
+        error = task.exception()
+        if error is not None:
+            self.logger.error("MoFox event task failed: {}", error)
+
+    async def _process_event(
+        self,
+        correlation_id: str,
+        event: EventEnvelope,
+        trace: EventTrace | None,
+    ) -> None:
         async def emit(text: str) -> None:
             action = to_send_action(event, text)
             result = await self.client.execute_action(action.action_id, action.model_dump(mode="json"))
             if not result.ok:
                 raise RuntimeError(result.error or "source runtime rejected MoFox output")
 
-        await self.engine.process(event, emit)
+        try:
+            await self.engine.process(event, emit)
+        except Exception as error:
+            self.logger.bind(
+                correlation_id=correlation_id,
+                trace_id=trace.trace_id if trace is not None else None,
+            ).error("MoFox event failed: {}", error)
+            await self.client.send(
+                EventCompleted(
+                    correlation_id=correlation_id,
+                    status="failed",
+                    detail=f"{type(error).__name__}: {error}",
+                )
+            )
+            raise
+        await self.client.send(EventCompleted(correlation_id=correlation_id, status="completed"))
 
 
 async def run() -> None:
@@ -182,7 +222,9 @@ async def run() -> None:
             engine,
             max_concurrent_events=_positive_int(options, "max_concurrent_events", 8),
         )
-        await client.ready(("runtime.events.receive", "runtime.actions.send", "mofox.chatter"))
+        await client.ready(
+            ("runtime.events.receive", "runtime.events.complete", "runtime.actions.send", "mofox.chatter")
+        )
         logger.info("MoFox headless runtime is ready")
         await host.serve()
     except Exception as error:

@@ -18,7 +18,9 @@ from liteyukibot.runtime.protocol import (
     AgentToolResponse,
     ConfigMessage,
     EventAccepted,
+    EventCompleted,
     EventMessage,
+    EventTrace,
     Hello,
     ProtocolVersion,
     Ready,
@@ -59,6 +61,10 @@ class RecordingLogger(FakeLogger):
         return RecordingLogger({**self.fields, **fields}, self.records)
 
     def debug(self, message: str, *args: Any, **kwargs: Any) -> None:
+        del message, args, kwargs
+        self.records.append(dict(self.fields))
+
+    def info(self, message: str, *args: Any, **kwargs: Any) -> None:
         del message, args, kwargs
         self.records.append(dict(self.fields))
 
@@ -244,7 +250,7 @@ async def test_runtime_negotiates_v1_v2_and_v3_connections_concurrently() -> Non
         assert legacy.protocol_version == 1
         assert modern.protocol_version == 2
         assert current.protocol_version == 3
-        with pytest.raises(RuntimeError, match="did not negotiate protocol v2 or v3"):
+        with pytest.raises(RuntimeError, match="did not negotiate protocol v2, v3, or v4"):
             await supervisor.dispatch_event("legacy", "event-v1", {})
 
         delivery = asyncio.create_task(
@@ -380,7 +386,7 @@ async def test_agent_tool_request_requires_an_agent_harness_and_active_delivery(
             )
         ]
 
-        record.active_delivery_contexts["delivery-1"] = (float("inf"), {"event": "payload"})
+        record.active_delivery_contexts["delivery-1"] = (float("inf"), {"event": "payload"}, None)
         accepted = request.model_copy(
             update={"correlation_id": "tool-2", "delivery_correlation_id": "delivery-1"}
         )
@@ -800,6 +806,90 @@ async def test_event_delivery_returns_child_rejection(monkeypatch: pytest.Monkey
     assert result.status == "invalid"
     assert result.detail == "unsupported event"
     assert record.pending_events == {}
+
+
+@pytest.mark.asyncio
+async def test_v4_event_delivery_carries_trace_and_records_terminal_outcome(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    logger = RecordingLogger()
+    supervisor = RuntimeSupervisor(logger=logger)
+    record = RuntimeRecord(
+        spec=RuntimeSpec(id="agent", kind="custom"),
+        token="token",
+        state=RuntimeState.READY,
+        writer=NullWriter(),  # type: ignore[arg-type]
+        protocol_version=4,
+        capabilities=frozenset({"runtime.events.receive", "runtime.events.complete"}),
+    )
+    supervisor.records[record.spec.id] = record
+    outbound: list[EventMessage] = []
+
+    async def accept_event(_record: RuntimeRecord, message: Any) -> None:
+        assert isinstance(message, EventMessage)
+        outbound.append(message)
+        await supervisor._handle_message(
+            record,
+            EventAccepted(correlation_id=message.correlation_id, status="accepted"),
+        )
+
+    monkeypatch.setattr(supervisor, "_send", accept_event)
+    result = await supervisor.dispatch_event(
+        "agent",
+        "delivery-1",
+        {"id": "event-1", "runtime_id": "nonebot", "message": "hello"},
+    )
+
+    assert result.status == "accepted"
+    assert outbound == [
+        EventMessage(
+            correlation_id="delivery-1",
+            payload={"id": "event-1", "runtime_id": "nonebot", "message": "hello"},
+            trace=EventTrace(
+                trace_id="event-1",
+                source_runtime_id="nonebot",
+                source_event_id="event-1",
+            ),
+        )
+    ]
+    assert "delivery-1" in record.active_delivery_contexts
+
+    await supervisor._handle_message(
+        record,
+        EventCompleted(correlation_id="delivery-1", status="completed"),
+    )
+
+    assert record.active_delivery_contexts == {}
+    assert logger.records[-1]["operation"] == "event.completed"
+    assert logger.records[-1]["trace_id"] == "event-1"
+
+
+@pytest.mark.asyncio
+async def test_v3_event_delivery_does_not_serialize_v4_trace(monkeypatch: pytest.MonkeyPatch) -> None:
+    supervisor = RuntimeSupervisor(logger=FakeLogger())
+    record = RuntimeRecord(
+        spec=RuntimeSpec(id="legacy", kind="custom"),
+        token="token",
+        state=RuntimeState.READY,
+        writer=NullWriter(),  # type: ignore[arg-type]
+        protocol_version=3,
+        capabilities=frozenset({"runtime.events.receive"}),
+    )
+    supervisor.records[record.spec.id] = record
+    outbound: list[EventMessage] = []
+
+    async def accept_event(_record: RuntimeRecord, message: Any) -> None:
+        assert isinstance(message, EventMessage)
+        outbound.append(message)
+        await supervisor._handle_message(
+            record,
+            EventAccepted(correlation_id=message.correlation_id, status="accepted"),
+        )
+
+    monkeypatch.setattr(supervisor, "_send", accept_event)
+    await supervisor.dispatch_event("legacy", "delivery-1", {"id": "event-1", "runtime_id": "nonebot"})
+
+    assert outbound[0].trace is None
 
 
 @pytest.mark.asyncio

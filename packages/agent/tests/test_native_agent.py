@@ -10,7 +10,13 @@ from liteyukibot_agent.host import NativeAgentHost, _environment_secret
 from liteyukibot_agent.store import ConversationStore
 
 from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope, Message, Segment
-from liteyukibot.runtime.protocol import ActionResponse, AgentToolResponse, EventAccepted, EventMessage
+from liteyukibot.runtime.protocol import (
+    ActionResponse,
+    AgentToolResponse,
+    EventAccepted,
+    EventCompleted,
+    EventMessage,
+)
 
 
 class FakeClient:
@@ -47,6 +53,11 @@ class FakeEngine(AgentEngine):
         return next(self._replies)
 
 
+class FailingEngine(AgentEngine):
+    async def complete(self, _messages: Sequence[Mapping[str, object]]) -> ModelReply:
+        raise RuntimeError("model unavailable")
+
+
 def _event() -> EventEnvelope:
     return EventEnvelope(
         id="event-1",
@@ -77,7 +88,10 @@ async def test_native_agent_returns_ordered_chunks_to_source_runtime(tmp_path: P
     await asyncio.gather(*host._tasks)
     await host.close()
 
-    assert client.sent == [EventAccepted(correlation_id="delivery-1", status="accepted")]
+    assert client.sent == [
+        EventAccepted(correlation_id="delivery-1", status="accepted"),
+        EventCompleted(correlation_id="delivery-1", status="completed"),
+    ]
     assert [
         action["action"]["message"]["segments"][0]["data"]["text"]  # type: ignore[index]
         for action in client.actions
@@ -110,6 +124,36 @@ async def test_native_agent_binds_tool_calls_to_the_delivered_event(tmp_path: Pa
 
     assert client.tool_calls == [("delivery-1", "docs.search", {"query": "liteyuki"})]
     assert len(engine.calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_native_agent_reports_terminal_failure_without_leaking_the_task(tmp_path: Path) -> None:
+    client = FakeClient()
+    host = NativeAgentHost(
+        client,  # type: ignore[arg-type]
+        FailingEngine(),
+        ConversationStore(tmp_path / "history.sqlite3"),
+        history_limit=10,
+        message_chunk_size=100,
+        max_concurrent_events=1,
+    )
+
+    await host._accept_event(EventMessage(correlation_id="delivery-1", payload=_event().model_dump(mode="json")))
+    tasks = tuple(host._tasks)
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    await host.close()
+
+    assert len(results) == 1
+    assert isinstance(results[0], RuntimeError)
+    assert host._tasks == set()
+    assert client.sent == [
+        EventAccepted(correlation_id="delivery-1", status="accepted"),
+        EventCompleted(
+            correlation_id="delivery-1",
+            status="failed",
+            detail="RuntimeError: model unavailable",
+        ),
+    ]
 
 
 def test_conversation_history_is_partitioned_by_runtime_bot_and_conversation(tmp_path: Path) -> None:

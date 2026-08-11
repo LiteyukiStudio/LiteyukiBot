@@ -18,6 +18,7 @@ from liteyukibot.runtime.protocol import (
     ActionRequest,
     ActionResponse,
     EventAccepted,
+    EventCompleted,
     EventMessage,
     Shutdown,
 )
@@ -158,6 +159,12 @@ class _V6RuntimeHost:
                 status="accepted",
             )
         )
+        await self.client.send(
+            EventCompleted(
+                correlation_id=message.correlation_id,
+                status="completed",
+            )
+        )
 
 
 async def run() -> None:
@@ -200,6 +207,7 @@ async def run() -> None:
                 "v6.plugins",
                 "v6.lifecycle",
                 "runtime.events.receive",
+                "runtime.events.complete",
                 "runtime.actions.send",
             )
         )

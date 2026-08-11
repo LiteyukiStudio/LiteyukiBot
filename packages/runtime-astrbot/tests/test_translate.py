@@ -8,7 +8,7 @@ from liteyukibot_runtime_astrbot.host import AstrBotLogBridge, AstrBotRuntimeHos
 from liteyukibot_runtime_astrbot.translate import to_astr_event_input, to_send_action
 
 from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope, Message, Segment, SendMessage
-from liteyukibot.runtime.protocol import ActionResponse, EventAccepted, EventMessage
+from liteyukibot.runtime.protocol import ActionResponse, EventAccepted, EventCompleted, EventMessage
 
 
 def _event() -> EventEnvelope:
@@ -115,7 +115,10 @@ async def test_astrbot_host_returns_pipeline_output_to_the_source_runtime() -> N
     await asyncio.gather(*host._tasks)
     await host.close()
 
-    assert client.sent == [EventAccepted(correlation_id="delivery-1", status="accepted")]
+    assert client.sent == [
+        EventAccepted(correlation_id="delivery-1", status="accepted"),
+        EventCompleted(correlation_id="delivery-1", status="completed"),
+    ]
     assert client.actions[0]["runtime_id"] == "nonebot"
     assert client.actions[0]["event_id"] == "event-1"
 
