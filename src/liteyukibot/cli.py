@@ -12,9 +12,20 @@ import sys
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from tomli_w import dumps as dump_toml
+
 from . import __version__
 from .app import LiteyukiApp
-from .config import AppSettings, ConfigurationError, ConfigWorkspace, load_settings
+from .config import (
+    AppSettings,
+    ConfigInspection,
+    ConfigurationError,
+    ConfigWorkspace,
+    inspect_settings,
+    load_settings,
+    redact_config,
+    toml_compatible_config,
+)
 from .config.initializer import build_initialization_plan
 from .config.vault import SecretVault
 from .control import ControlError, request_control
@@ -37,6 +48,10 @@ def build_parser() -> argparse.ArgumentParser:
     config_commands.add_parser("validate")
     upgrade = config_commands.add_parser("upgrade")
     upgrade.add_argument("--refresh", action="store_true")
+    show = config_commands.add_parser("show")
+    show.add_argument("--format", choices=("json", "toml"), default="json")
+    explain = config_commands.add_parser("explain")
+    explain.add_argument("pointer")
 
     vault = subcommands.add_parser("vault", help="encrypted secret vault operations")
     vault_commands = vault.add_subparsers(dest="vault_command", required=True)
@@ -68,6 +83,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _init(args.non_interactive)
         if args.command == "config" and args.config_command == "upgrade":
             return _upgrade(args.refresh)
+        if args.command == "config" and args.config_command == "show":
+            return _config_show(args)
+        if args.command == "config" and args.config_command == "explain":
+            return _config_explain(args)
         if args.command == "vault":
             return _vault(args)
         settings = _load(args.config, args.overrides)
@@ -131,6 +150,44 @@ def _upgrade(refresh: bool) -> int:
     if result is None:
         print("configuration is current")
     return 0
+
+
+def _config_show(args: argparse.Namespace) -> int:
+    inspection = _inspect(args)
+    document = redact_config(inspection.settings.model_dump(mode="json"))
+    if args.format == "toml":
+        print(dump_toml(toml_compatible_config(document)), end="")
+    else:
+        print(json.dumps(document, ensure_ascii=False, indent=2, sort_keys=True))
+    return 0
+
+
+def _config_explain(args: argparse.Namespace) -> int:
+    explanation = _inspect(args).explain(args.pointer)
+    print(
+        json.dumps(
+            {
+                "pointer": explanation.pointer,
+                "value": redact_config(explanation.value),
+                "sources": [
+                    {"kind": source.kind, "source": source.source}
+                    for source in explanation.sources
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
+def _inspect(args: argparse.Namespace) -> ConfigInspection:
+    primary = ConfigWorkspace().prepare()
+    return inspect_settings(
+        primary,
+        config_paths=args.config,
+        cli_overrides=args.overrides,
+    )
 
 
 def _vault(args: argparse.Namespace) -> int:
