@@ -14,6 +14,7 @@ def _manifest(profile_id: str) -> ProfileManifest:
         ("liteyukibot-v7==7.0.0a7",),
         "python",
         {"liteyukibot-v7": "7.0.0a7"},
+        {},
     )
 
 
@@ -45,3 +46,31 @@ def test_profile_rejects_unverified_or_unsafe_profiles(tmp_path: Path) -> None:
         store.profile_path("../escape")
     with pytest.raises(ProfileError, match="not verified"):
         store.activate("missing")
+
+
+def test_profile_manifest_sanitizes_direct_url_provenance(tmp_path: Path) -> None:
+    store = ProfileStore(tmp_path)
+    profile_id, _path = store.create(("example",))
+    manifest = ProfileManifest(
+        profile_id,
+        "2026-08-11T00:00:00+00:00",
+        ("example",),
+        "python",
+        {"example": "1"},
+        ProfileManifest.sanitize_direct_urls(
+            {
+                "Example": {
+                    "url": "https://user:secret@example.invalid/org/project.git",
+                    "vcs_info": {"commit_id": "abc123"},
+                }
+            }
+        ),
+    )
+
+    store.write_manifest(manifest)
+    observed = store.read_manifest(profile_id)
+
+    assert observed.direct_urls == {
+        "example": {"url": "https://example.invalid/org/project.git", "commit_id": "abc123"}
+    }
+    assert "secret" not in (store.profile_path(profile_id) / "manifest.json").read_text(encoding="utf-8")
