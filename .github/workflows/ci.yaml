@@ -48,15 +48,15 @@ jobs:
           uv build --all-packages --out-dir dist/workspace --clear
           uv build --project examples/native-plugin --out-dir dist/examples
           uv build --project examples/custom-runtime --out-dir dist/examples
-          uv run python scripts/run_developer_kit_install.py
-          uv run python scripts/run_permissions_install.py
-          uv run python scripts/run_commands_install.py
-          uv run python scripts/run_essentials_install.py
-          uv run python scripts/run_nonebot_runtime_install.py
-          uv run python scripts/run_v6_runtime_install.py
-          uv run python scripts/run_agent_install.py
-          uv run python scripts/run_astrbot_runtime_install.py
-          uv run python scripts/run_mofox_runtime_install.py
+          uv run python -m scripts.run_developer_kit_install
+          uv run python -m scripts.run_permissions_install
+          uv run python -m scripts.run_commands_install
+          uv run python -m scripts.run_essentials_install
+          uv run python -m scripts.run_nonebot_runtime_install
+          uv run python -m scripts.run_v6_runtime_install
+          uv run python -m scripts.run_agent_install
+          uv run python -m scripts.run_astrbot_runtime_install
+          uv run python -m scripts.run_mofox_runtime_install
       - name: Capture baseline
         working-directory: LiteyukiBot
         run: uv run python scripts/benchmark_v7.py --output benchmark.json

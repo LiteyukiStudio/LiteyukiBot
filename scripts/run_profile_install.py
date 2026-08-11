@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+
+from scripts.run_isolated_install import _clean_environment
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -37,7 +40,7 @@ def main() -> int:
         command.extend(("--with", str(wheel)))
     command.extend(("python", str(ROOT / "scripts" / "verify_profile_install.py")))
     with tempfile.TemporaryDirectory() as directory:
-        subprocess.run(command, cwd=directory, check=True)
+        subprocess.run(command, cwd=directory, env=_clean_environment(os.environ), check=True)
     return 0
 
 

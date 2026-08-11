@@ -135,7 +135,7 @@ async def verify(expected_version: str | None = None) -> None:
                 raise RuntimeError("installed capability-protected status command did not reply")
             status_message = actions[-1].action
             if not isinstance(status_message, SendMessage) or not status_message.message.plain_text.startswith(
-                "LiteyukiBot 7.0.0a4\nState: ready"
+                f"LiteyukiBot {liteyukibot.__version__}\nState: ready"
             ):
                 raise RuntimeError("installed status command produced invalid text")
         finally:

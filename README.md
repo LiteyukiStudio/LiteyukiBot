@@ -7,7 +7,7 @@ LiteyukiBot v6 plugins run in supervised child runtimes.
 The `v7` branch is a clean rewrite. The `main` branch remains the maintenance
 line for v6 and is not merged wholesale into v7.
 
-The current pre-release is `liteyukibot-v7==7.0.0a4`. Kernel stabilization,
+The current pre-release is `liteyukibot-v7==7.0.0a5`. Kernel stabilization,
 the first bounded compatibility phase, and the first-party plugin foundation
 are complete. Runtime protocol v3 remains an alpha contract and may change
 under ADR 0011 before the first stable release.
@@ -136,13 +136,13 @@ uv build
 uv build --all-packages --out-dir dist/workspace --clear
 uv build --project examples/native-plugin --out-dir dist/examples
 uv build --project examples/custom-runtime --out-dir dist/examples
-uv run python scripts/run_developer_kit_install.py
-uv run python scripts/run_permissions_install.py
-uv run python scripts/run_commands_install.py
-uv run python scripts/run_resources_install.py
-uv run python scripts/run_profile_install.py
-uv run python scripts/run_essentials_install.py
-uv run python scripts/run_nonebot_runtime_install.py
+uv run python -m scripts.run_developer_kit_install
+uv run python -m scripts.run_permissions_install
+uv run python -m scripts.run_commands_install
+uv run python -m scripts.run_resources_install
+uv run python -m scripts.run_profile_install
+uv run python -m scripts.run_essentials_install
+uv run python -m scripts.run_nonebot_runtime_install
 ```
 
 The architecture overview is documented in `docs/architecture/v7.md`; accepted
