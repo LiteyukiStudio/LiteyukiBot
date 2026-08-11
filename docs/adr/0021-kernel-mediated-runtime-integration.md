@@ -7,7 +7,7 @@
 
 NoneBot, v6, and external compatibility hosts such as AstrBot or MoFox need to
 cooperate without importing each other's framework objects or opening
-unmanaged process connections. Runtime IPC v3 already provides bidirectional
+unmanaged process connections. Runtime IPC v4 already provides bidirectional
 Events and Actions, but only v6 had an application-level event forwarding rule.
 
 ## Decision
@@ -15,11 +15,12 @@ Events and Actions, but only v6 had an application-level event forwarding rule.
 The kernel is the sole runtime communication hub. Child runtimes connect only
 to the authenticated supervisor socket and never to another child runtime.
 
-Runtime IPC v3 is the external child ABI during alpha. A host depends on the
+Runtime IPC v4 is the external child ABI during alpha. A host depends on the
 public `liteyukibot.runtime` client/protocol surface plus frozen Event and
 Action models. It receives kernel Events only after declaring
 `runtime.events.receive`, and it submits Actions only after declaring
-`runtime.actions.send`. No new protocol version is required for this decision.
+`runtime.actions.send`. V4 event consumers may also opt into terminal delivery
+telemetry with `runtime.events.complete`.
 
 `runtime_event_routes` configures core-to-child Event forwarding. Each route
 has one target, explicit distinct source runtime IDs, and an optional

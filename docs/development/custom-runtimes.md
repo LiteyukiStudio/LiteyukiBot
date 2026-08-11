@@ -15,7 +15,7 @@ command = ["liteyuki-example-runtime"]
 mode = "example"
 ```
 
-The complete protocol-v3 child is in
+The complete protocol-v4 child is in
 [`examples/custom-runtime`](../../examples/custom-runtime). It uses
 `RuntimeClient.from_environment("custom")`, calls `connect()`, then declares
 capabilities with `ready()`.
@@ -59,6 +59,8 @@ The host must also:
 
 - bound the number of handler tasks and return `overloaded` when full;
 - send exactly one `EventAccepted` for each Event message;
+- when declaring `runtime.events.complete`, send exactly one terminal
+  `EventCompleted` after each accepted core-to-child Event;
 - send exactly one `ActionResponse` for each Action request;
 - validate payloads before acting on them;
 - cancel and await all owned tasks on Shutdown;
@@ -71,14 +73,18 @@ runtime has `max_inbound_events` (default `100`); additional Events receive
 `overloaded` without creating another handler task. Set it in the runtime's
 TOML table when the adapter has a known, bounded concurrency requirement.
 
-Protocol v2/v3 Event receipt requires `runtime.events.receive`. Child-originated
-Actions require protocol v3 and `runtime.actions.send`. Capability names and
-protocol versions are negotiated exactly rather than inferred.
+Protocol v2/v3/v4 Event receipt requires `runtime.events.receive`.
+Child-originated Actions require protocol v3 or v4 and `runtime.actions.send`.
+Protocol v4 carries `EventTrace(trace_id, source_runtime_id, source_event_id)`
+on core-to-child Events. A v4 child may opt into terminal delivery outcomes with
+`runtime.events.complete`; its `EventCompleted` is operational telemetry, not a
+second response to `dispatch_event()`. Capability names and protocol versions
+are negotiated exactly rather than inferred.
 
-The protocol is pre-stable. v3 remains the normal development target and may
-change without backwards-compatibility shims during alpha. v4/v5 are reserved
-for large protocol redesigns, and no pre-stable version will exceed v5. Pin the
-LiteyukiBot alpha version used to build and test an external runtime.
+The protocol is pre-stable. Protocol v4 is the current development target and
+may change without backwards-compatibility shims during alpha. Only v5 remains
+for another large protocol redesign, and no pre-stable version will exceed v5.
+Pin the LiteyukiBot alpha version used to build and test an external runtime.
 
 ## Testing
 

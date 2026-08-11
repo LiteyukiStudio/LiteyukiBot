@@ -13,6 +13,7 @@ from liteyukibot.runtime import (
     ActionRequest,
     ActionResponse,
     EventAccepted,
+    EventCompleted,
     EventMessage,
     RuntimeClient,
     Shutdown,
@@ -67,6 +68,13 @@ async def _handle_event(client: RuntimeClient, message: EventMessage) -> None:
             detail=detail,
         )
     )
+    if status == "accepted":
+        await client.send(
+            EventCompleted(
+                correlation_id=message.correlation_id,
+                status="completed",
+            )
+        )
 
 
 async def _handle_action(client: RuntimeClient, message: ActionRequest) -> None:
@@ -95,7 +103,7 @@ async def run() -> None:
 
     try:
         await client.connect()
-        await client.ready(("runtime.events.receive", "runtime.actions.send"))
+        await client.ready(("runtime.events.receive", "runtime.events.complete", "runtime.actions.send"))
         while True:
             message = await client.receive()
             if isinstance(message, Shutdown):

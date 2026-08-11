@@ -11,7 +11,15 @@ from uuid import uuid4
 from liteyukibot.events import ActionEnvelope, EventEnvelope, Message, Segment, SendMessage
 from liteyukibot.logging import configure_runtime_child_logging, get_logger
 from liteyukibot.runtime import RuntimeClient
-from liteyukibot.runtime.protocol import ActionRequest, ActionResponse, EventAccepted, EventMessage, Shutdown
+from liteyukibot.runtime.protocol import (
+    ActionRequest,
+    ActionResponse,
+    EventAccepted,
+    EventCompleted,
+    EventMessage,
+    EventTrace,
+    Shutdown,
+)
 
 from .engine import AgentEngine, ModelReply, OpenAIChatEngine
 from .store import ConversationStore
@@ -34,6 +42,7 @@ class NativeAgentHost:
         self.history_limit = history_limit
         self.message_chunk_size = message_chunk_size
         self.max_concurrent_events = max_concurrent_events
+        self.logger = get_logger(component="agent", runtime=os.environ.get("LITEYUKI_RUNTIME_ID", "agent"))
         self._tasks: set[asyncio.Task[None]] = set()
 
     async def serve(self) -> None:
@@ -75,6 +84,9 @@ class NativeAgentHost:
             return
         if event.message is None or not event.message.plain_text.strip():
             await self.client.send(EventAccepted(correlation_id=message.correlation_id, status="accepted"))
+            await self.client.send(
+                EventCompleted(correlation_id=message.correlation_id, status="completed")
+            )
             return
         if len(self._tasks) >= self.max_concurrent_events:
             await self.client.send(
@@ -87,59 +99,87 @@ class NativeAgentHost:
             return
         await self.client.send(EventAccepted(correlation_id=message.correlation_id, status="accepted"))
         task = asyncio.create_task(
-            self._process_event(message.correlation_id, event),
+            self._process_event(message.correlation_id, event, message.trace),
             name=f"agent-event:{message.correlation_id}",
         )
         self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
+        task.add_done_callback(self._event_finished)
 
-    async def _process_event(self, delivery_correlation_id: str, event: EventEnvelope) -> None:
-        key = (event.runtime_id, event.bot_id, event.conversation.ordering_key)
-        self.store.append(*key, "user", event.message.plain_text if event.message is not None else "")
-        messages: list[Mapping[str, object]] = [
-            item for item in self.store.messages(*key, limit=self.history_limit)
-        ]
-        reply = await self.engine.complete(messages)
-        for _index in range(4):
-            if not reply.tool_calls:
-                break
-            messages.append(_assistant_tool_message(reply))
-            for call in reply.tool_calls:
-                result = await self.client.execute_agent_tool(
-                    f"tool-{uuid4()}",
-                    delivery_correlation_id,
-                    call.tool_id,
-                    call.arguments,
-                )
-                messages.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": call.id,
-                        "content": result.data if result.ok else {"error": result.error or "tool failed"},
-                    }
-                )
+    def _event_finished(self, task: asyncio.Task[None]) -> None:
+        self._tasks.discard(task)
+        if task.cancelled():
+            return
+        error = task.exception()
+        if error is not None:
+            self.logger.error("native agent event task failed: {}", error)
+
+    async def _process_event(
+        self,
+        delivery_correlation_id: str,
+        event: EventEnvelope,
+        trace: EventTrace | None,
+    ) -> None:
+        try:
+            key = (event.runtime_id, event.bot_id, event.conversation.ordering_key)
+            self.store.append(*key, "user", event.message.plain_text if event.message is not None else "")
+            messages: list[Mapping[str, object]] = [
+                item for item in self.store.messages(*key, limit=self.history_limit)
+            ]
             reply = await self.engine.complete(messages)
-        if reply.tool_calls:
-            raise RuntimeError("agent exceeded maximum tool-call rounds")
-        if reply.text:
-            self.store.append(*key, "assistant", reply.text)
-            for chunk in _chunks(reply.text, self.message_chunk_size):
-                action = ActionEnvelope(
-                    event_id=event.id,
-                    runtime_id=event.runtime_id,
-                    bot_id=event.bot_id,
-                    action=SendMessage(
-                        message=Message(segments=(Segment(type="text", data={"text": chunk}),)),
-                        conversation=event.conversation,
-                        reply_token=event.reply_token,
-                    ),
+            for _index in range(4):
+                if not reply.tool_calls:
+                    break
+                messages.append(_assistant_tool_message(reply))
+                for call in reply.tool_calls:
+                    result = await self.client.execute_agent_tool(
+                        f"tool-{uuid4()}",
+                        delivery_correlation_id,
+                        call.tool_id,
+                        call.arguments,
+                    )
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": call.id,
+                            "content": result.data if result.ok else {"error": result.error or "tool failed"},
+                        }
+                    )
+                reply = await self.engine.complete(messages)
+            if reply.tool_calls:
+                raise RuntimeError("agent exceeded maximum tool-call rounds")
+            if reply.text:
+                self.store.append(*key, "assistant", reply.text)
+                for chunk in _chunks(reply.text, self.message_chunk_size):
+                    action = ActionEnvelope(
+                        event_id=event.id,
+                        runtime_id=event.runtime_id,
+                        bot_id=event.bot_id,
+                        action=SendMessage(
+                            message=Message(segments=(Segment(type="text", data={"text": chunk}),)),
+                            conversation=event.conversation,
+                            reply_token=event.reply_token,
+                        ),
+                    )
+                    response = await self.client.execute_action(
+                        action.action_id,
+                        action.model_dump(mode="json"),
+                    )
+                    if not response.ok:
+                        raise RuntimeError(response.error or "source runtime rejected agent output")
+        except Exception as error:
+            self.logger.bind(
+                correlation_id=delivery_correlation_id,
+                trace_id=trace.trace_id if trace is not None else None,
+            ).error("native agent event failed: {}", error)
+            await self.client.send(
+                EventCompleted(
+                    correlation_id=delivery_correlation_id,
+                    status="failed",
+                    detail=f"{type(error).__name__}: {error}",
                 )
-                response = await self.client.execute_action(
-                    action.action_id,
-                    action.model_dump(mode="json"),
-                )
-                if not response.ok:
-                    raise RuntimeError(response.error or "source runtime rejected agent output")
+            )
+            raise
+        await self.client.send(EventCompleted(correlation_id=delivery_correlation_id, status="completed"))
 
 
 async def run() -> None:
@@ -166,7 +206,9 @@ async def run() -> None:
             message_chunk_size=_positive_int(options, "message_chunk_size", 1500),
             max_concurrent_events=_positive_int(options, "max_concurrent_events", 16),
         )
-        await client.ready(("runtime.events.receive", "runtime.actions.send", "agent.tools.execute"))
+        await client.ready(
+            ("runtime.events.receive", "runtime.events.complete", "runtime.actions.send", "agent.tools.execute")
+        )
         logger.info("native agent runtime is ready")
         await host.serve()
     except Exception as error:

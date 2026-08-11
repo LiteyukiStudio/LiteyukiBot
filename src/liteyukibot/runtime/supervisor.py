@@ -26,7 +26,9 @@ from .protocol import (
     ConfigMessage,
     ErrorMessage,
     EventAccepted,
+    EventCompleted,
     EventMessage,
+    EventTrace,
     Heartbeat,
     Hello,
     JsonValue,
@@ -130,10 +132,13 @@ class RuntimeRecord:
     pending_actions: dict[str, asyncio.Future[ActionResponse]] = field(default_factory=dict)
     pending_events: dict[str, asyncio.Future[EventAccepted]] = field(default_factory=dict)
     pending_event_payloads: dict[str, dict[str, JsonValue]] = field(default_factory=dict)
+    pending_event_traces: dict[str, EventTrace] = field(default_factory=dict)
     inbound_actions: dict[str, asyncio.Task[None]] = field(default_factory=dict)
     inbound_events: dict[str, asyncio.Task[None]] = field(default_factory=dict)
     inbound_agent_tools: dict[str, asyncio.Task[None]] = field(default_factory=dict)
-    active_delivery_contexts: dict[str, tuple[float, dict[str, JsonValue]]] = field(default_factory=dict)
+    active_delivery_contexts: dict[str, tuple[float, dict[str, JsonValue], EventTrace | None]] = field(
+        default_factory=dict
+    )
     protocol_version: ProtocolVersion | None = None
     capabilities: frozenset[str] = frozenset()
     send_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
@@ -393,8 +398,11 @@ class RuntimeSupervisor:
                         record.active_delivery_contexts[message.correlation_id] = (
                             time.monotonic() + 30.0,
                             payload,
+                            record.pending_event_traces.pop(message.correlation_id, None),
                         )
                 event_future.set_result(message)
+        elif isinstance(message, EventCompleted):
+            await self._accept_event_completed(record, message)
         elif isinstance(message, ActionRequest):
             await self._accept_child_action(record, message)
         elif isinstance(message, ActionResponse):
@@ -407,6 +415,35 @@ class RuntimeSupervisor:
             self.logger.error("runtime {} error {}: {}", record.spec.id, message.code, message.message)
         else:
             self.logger.debug("ignored runtime {} message {}", record.spec.id, message.type)
+
+    async def _accept_event_completed(self, record: RuntimeRecord, message: EventCompleted) -> None:
+        if record.protocol_version != 4 or "runtime.events.complete" not in record.capabilities:
+            self.logger.warning(
+                "runtime {} sent an unsupported event outcome over protocol v{}",
+                record.spec.id,
+                record.protocol_version,
+            )
+            return
+        delivery = record.active_delivery_contexts.pop(message.correlation_id, None)
+        if delivery is None:
+            self.logger.warning(
+                "runtime {} completed unknown event delivery {}",
+                record.spec.id,
+                message.correlation_id,
+            )
+            return
+        _deadline, _payload, trace = delivery
+        self.logger.bind(
+            runtime=record.spec.id,
+            component="ipc",
+            correlation_id=message.correlation_id,
+            trace_id=trace.trace_id if trace is not None else None,
+            source_runtime_id=trace.source_runtime_id if trace is not None else None,
+            source_event_id=trace.source_event_id if trace is not None else None,
+            operation="event.completed",
+            status=message.status,
+            detail=message.detail,
+        ).info("runtime event delivery {}", message.status)
 
     async def _accept_child_event(self, record: RuntimeRecord, message: EventMessage) -> None:
         if message.correlation_id in record.inbound_events:
@@ -463,11 +500,11 @@ class RuntimeSupervisor:
             record.inbound_events.pop(message.correlation_id, None)
 
     async def _accept_child_action(self, record: RuntimeRecord, request: ActionRequest) -> None:
-        if record.protocol_version != 3:
+        if record.protocol_version not in (3, 4):
             await self._reject_child_action(
                 record,
                 request,
-                "child-originated actions require runtime protocol v3",
+                "child-originated actions require runtime protocol v3 or v4",
             )
             return
         if "runtime.actions.send" not in record.capabilities:
@@ -540,8 +577,10 @@ class RuntimeSupervisor:
 
     async def _accept_agent_tool_request(self, record: RuntimeRecord, request: AgentToolRequest) -> None:
         self._clear_expired_delivery_contexts(record)
-        if record.protocol_version != 3:
-            await self._reject_agent_tool_request(record, request, "agent tools require runtime protocol v3")
+        if record.protocol_version not in (3, 4):
+            await self._reject_agent_tool_request(
+                record, request, "agent tools require runtime protocol v3 or v4"
+            )
             return
         if record.spec.agent_harness is None:
             await self._reject_agent_tool_request(record, request, "runtime is not an agent harness")
@@ -572,7 +611,7 @@ class RuntimeSupervisor:
     async def _execute_agent_tool_request(self, record: RuntimeRecord, request: AgentToolRequest) -> None:
         try:
             assert self.agent_tool_sink is not None
-            _deadline, payload = record.active_delivery_contexts[request.delivery_correlation_id]
+            _deadline, payload, _trace = record.active_delivery_contexts[request.delivery_correlation_id]
             result = await self.agent_tool_sink(
                 record.spec.id,
                 request.delivery_correlation_id,
@@ -618,7 +657,7 @@ class RuntimeSupervisor:
     @staticmethod
     def _clear_expired_delivery_contexts(record: RuntimeRecord) -> None:
         now = time.monotonic()
-        for correlation_id, (deadline, _payload) in tuple(record.active_delivery_contexts.items()):
+        for correlation_id, (deadline, _payload, _trace) in tuple(record.active_delivery_contexts.items()):
             if deadline <= now:
                 record.active_delivery_contexts.pop(correlation_id, None)
 
@@ -668,8 +707,8 @@ class RuntimeSupervisor:
         record = self.records[runtime_id]
         if record.state is not RuntimeState.READY:
             raise RuntimeError(f"runtime {runtime_id} is not ready")
-        if record.protocol_version not in (2, 3):
-            raise RuntimeError(f"runtime {runtime_id} did not negotiate protocol v2 or v3")
+        if record.protocol_version not in (2, 3, 4):
+            raise RuntimeError(f"runtime {runtime_id} did not negotiate protocol v2, v3, or v4")
         if "runtime.events.receive" not in record.capabilities:
             raise RuntimeError(f"runtime {runtime_id} does not accept core events")
         if correlation_id in record.pending_events:
@@ -677,11 +716,18 @@ class RuntimeSupervisor:
         future: asyncio.Future[EventAccepted] = asyncio.get_running_loop().create_future()
         record.pending_events[correlation_id] = future
         record.pending_event_payloads[correlation_id] = json_mapping(payload)
+        trace = self._event_trace(record, correlation_id, record.pending_event_payloads[correlation_id])
+        if record.protocol_version == 4:
+            record.pending_event_traces[correlation_id] = trace
         try:
-            self._log_payload(record, "event.dispatch", correlation_id, payload)
+            self._log_payload(record, "event.dispatch", correlation_id, payload, trace=trace)
             await self._send(
                 record,
-                EventMessage(correlation_id=correlation_id, payload=record.pending_event_payloads[correlation_id]),
+                EventMessage(
+                    correlation_id=correlation_id,
+                    payload=record.pending_event_payloads[correlation_id],
+                    trace=trace if record.protocol_version == 4 else None,
+                ),
             )
             async with asyncio.timeout(timeout_seconds):
                 accepted = await future
@@ -690,11 +736,13 @@ class RuntimeSupervisor:
                 "event.accepted",
                 correlation_id,
                 {"status": accepted.status, "detail": accepted.detail},
+                trace=trace,
             )
             return accepted
         finally:
             record.pending_events.pop(correlation_id, None)
             record.pending_event_payloads.pop(correlation_id, None)
+            record.pending_event_traces.pop(correlation_id, None)
 
     async def restart(self, runtime_id: str) -> None:
         record = self.records[runtime_id]
@@ -785,6 +833,7 @@ class RuntimeSupervisor:
                 event_future.set_exception(ConnectionError(f"runtime {record.spec.id} disconnected"))
         record.pending_events.clear()
         record.pending_event_payloads.clear()
+        record.pending_event_traces.clear()
         inbound_actions = tuple(record.inbound_actions.values())
         record.inbound_actions.clear()
         for task in inbound_actions:
@@ -836,6 +885,9 @@ class RuntimeSupervisor:
                 "bot_id",
                 "correlation_id",
                 "action_id",
+                "trace_id",
+                "source_runtime_id",
+                "source_event_id",
                 "upstream",
                 "upstream_category",
             )
@@ -860,6 +912,8 @@ class RuntimeSupervisor:
         operation: str,
         correlation_id: str,
         payload: Mapping[str, Any],
+        *,
+        trace: EventTrace | None = None,
     ) -> None:
         serialized = json_mapping(payload)
         context: dict[str, Any] = {
@@ -870,9 +924,40 @@ class RuntimeSupervisor:
             "payload_keys": tuple(sorted(serialized)),
             "payload_bytes": len(json.dumps(serialized, ensure_ascii=True, separators=(",", ":"))),
         }
+        if trace is not None:
+            context.update(
+                trace_id=trace.trace_id,
+                source_runtime_id=trace.source_runtime_id,
+                source_event_id=trace.source_event_id,
+            )
         if self._payload_mode(record) == "full":
             context["payload"] = serialized
         self.logger.bind(**context).debug("runtime IPC {}", operation)
+
+    @staticmethod
+    def _event_trace(
+        record: RuntimeRecord,
+        correlation_id: str,
+        payload: Mapping[str, JsonValue],
+    ) -> EventTrace:
+        source_runtime_id = payload.get("runtime_id")
+        source_event_id = payload.get("id")
+        if (
+            isinstance(source_runtime_id, str)
+            and source_runtime_id
+            and isinstance(source_event_id, str)
+            and source_event_id
+        ):
+            return EventTrace(
+                trace_id=source_event_id,
+                source_runtime_id=source_runtime_id,
+                source_event_id=source_event_id,
+            )
+        return EventTrace(
+            trace_id=correlation_id,
+            source_runtime_id=record.spec.id,
+            source_event_id=correlation_id,
+        )
 
     async def _watch_heartbeats(self) -> None:
         while True:
