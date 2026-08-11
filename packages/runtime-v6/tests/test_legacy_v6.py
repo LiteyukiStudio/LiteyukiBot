@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import importlib.metadata
 from pathlib import Path
 from typing import Any
 
+import liteyuki
 import pytest
-
+from _support import FakeLogger
 from liteyuki import LiteyukiBot, get_bot, get_config
 from liteyuki.bot import _emit_lifecycle, _install_runtime, _reset_runtime
+
 from liteyukibot.events import (
     ActionEnvelope,
     ActorRef,
@@ -19,7 +22,9 @@ from liteyukibot.events import (
 from liteyukibot.exceptions import LegacyUnsupportedError
 from liteyukibot.runtime import ActionSinkResult, RuntimeSpec, RuntimeSupervisor
 
-from .test_runtime_v7 import FakeLogger
+
+def test_v6_compatibility_namespace_uses_kernel_version() -> None:
+    assert importlib.metadata.version("liteyukibot-v7") == liteyuki.__version__
 
 
 def test_legacy_context_and_unsupported_nested_host() -> None:
@@ -142,9 +147,7 @@ async def echo(event: MessageEvent):
         type="message.group.normal",
         conversation=ConversationRef(id="group-1", type="group"),
         actor=ActorRef(id="user-1"),
-        message=Message(
-            segments=(Segment(type="text", data={"text": "liteecho hello"}),)
-        ),
+        message=Message(segments=(Segment(type="text", data={"text": "liteecho hello"}),)),
         reply_token="reply-token",
         raw={"message_id": 42},
     )

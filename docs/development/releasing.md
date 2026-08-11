@@ -21,6 +21,8 @@ Before the first plugin upload, create these Pending Publishers:
 | `liteyukibot-v7-resources` | `pypi-resources` |
 | `liteyukibot-v7-profile` | `pypi-profile` |
 | `liteyukibot-v7-essentials` | `pypi-essentials` |
+| `liteyukibot-v7-runtime-nonebot` | `pypi-runtime-nonebot` |
+| `liteyukibot-v7-runtime-v6` | `pypi-runtime-v6` |
 
 PyPI requires different pending project names to use distinct publisher
 identities. The workflow selects the environment from the release tag (or the
@@ -35,12 +37,14 @@ distribution inside the workflow.
 
 | Package | Source | Tag |
 | --- | --- | --- |
-| `liteyukibot-v7==7.0.0a3` | `pyproject.toml` | `v7.0.0a3` |
+| `liteyukibot-v7==7.0.0a4` | `pyproject.toml` | `v7.0.0a4` |
 | `liteyukibot-v7-permissions==0.2.0a1` | `packages/permissions` | `permissions-v0.2.0a1` |
 | `liteyukibot-v7-commands==0.2.0a1` | `packages/commands` | `commands-v0.2.0a1` |
 | `liteyukibot-v7-resources==0.1.0a1` | `packages/resources` | `resources-v0.1.0a1` |
 | `liteyukibot-v7-profile==0.1.0a1` | `packages/profile` | `profile-v0.1.0a1` |
 | `liteyukibot-v7-essentials==0.2.0a2` | `packages/essentials` | `essentials-v0.2.0a2` |
+| `liteyukibot-v7-runtime-nonebot==0.1.0a1` | `packages/runtime-nonebot` | `runtime-nonebot-v0.1.0a1` |
+| `liteyukibot-v7-runtime-v6==0.1.0a1` | `packages/runtime-v6` | `runtime-v6-v0.1.0a1` |
 
 `scripts/check_release.py` owns this mapping. Both publish workflows reject a
 tag that does not exactly match the selected source version and distribution.
@@ -49,12 +53,14 @@ tag that does not exactly match the selected source version and distribution.
 
 Push and wait for each release before creating the next tag:
 
-1. `v7.0.0a3`;
+1. `v7.0.0a4`;
 2. `permissions-v0.2.0a1`;
 3. `commands-v0.2.0a1`;
 4. `resources-v0.1.0a1`;
 5. `profile-v0.1.0a1`;
-6. `essentials-v0.2.0a2`.
+6. `essentials-v0.2.0a2`;
+7. `runtime-nonebot-v0.1.0a1`.
+8. `runtime-v6-v0.1.0a1`.
 
 Each plugin workflow builds only its selected project, installs that wheel in a
 temporary uv environment against already published dependencies, exercises its

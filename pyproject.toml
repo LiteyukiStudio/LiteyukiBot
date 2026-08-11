@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7"
-version = "7.0.0a3"
+version = "7.0.0a4"
 description = "A protocol-neutral, multi-runtime chatbot kernel."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -21,15 +21,6 @@ yaml = [
 http = [
     "fastapi>=0.141,<1",
     "uvicorn>=0.52,<1",
-]
-nonebot = [
-    "nonebot2[fastapi,httpx,websockets]>=2.5,<3",
-]
-onebot = [
-    "nonebot-adapter-onebot>=2.4,<3",
-]
-satori = [
-    "nonebot-adapter-satori>=1.3,<2",
 ]
 
 [project.scripts]
@@ -53,7 +44,7 @@ members = ["packages/*"]
 
 [tool.uv.build-backend]
 module-root = "src"
-module-name = ["liteyukibot", "liteyuki"]
+module-name = "liteyukibot"
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "packages"]

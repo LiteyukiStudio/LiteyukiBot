@@ -8,12 +8,11 @@ import json
 import signal
 import sys
 from collections.abc import Sequence
-from pathlib import Path
 from typing import Any
 
 from . import __version__
 from .app import LiteyukiApp
-from .config import AppSettings, ConfigurationError, load_settings
+from .config import AppSettings, ConfigurationError, ConfigWorkspace, load_settings
 from .control import ControlError, request_control
 from .exceptions import LiteyukiError
 
@@ -26,6 +25,8 @@ def build_parser() -> argparse.ArgumentParser:
     subcommands.add_parser("run", help="start the application")
     subcommands.add_parser("check", help="validate configuration and plugin topology")
     subcommands.add_parser("version", help="show the installed version")
+    init = subcommands.add_parser("init", help="create a project configuration")
+    init.add_argument("--non-interactive", action="store_true")
 
     config = subcommands.add_parser("config", help="configuration operations")
     config.add_subparsers(dest="config_command", required=True).add_parser("validate")
@@ -47,6 +48,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(__version__)
         return 0
     try:
+        if args.command == "init":
+            return _init(args.non_interactive)
         settings = _load(args.config, args.overrides)
         if args.command == "run":
             return _run(settings)
@@ -67,12 +70,40 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _load(config_paths: Sequence[str], overrides: Sequence[str]) -> AppSettings:
-    primary = Path("liteyuki.toml")
+    primary = ConfigWorkspace().prepare()
     return load_settings(
-        primary if primary.is_file() else None,
+        primary,
         config_paths=config_paths,
         cli_overrides=overrides,
     )
+
+
+def _init(non_interactive: bool) -> int:
+    workspace = ConfigWorkspace()
+    if non_interactive:
+        path = workspace.initialize()
+    else:
+        path = workspace.initialize(
+            data_dir=_prompt("Data directory", "data"),
+            cache_dir=_prompt("Cache directory", "cache"),
+            logging_level=_prompt("Logging level", "INFO").upper(),
+            payload_mode=_prompt("Payload logging mode (metadata/full)", "metadata").lower(),
+            payload_exclude_runtimes=tuple(
+                item.strip()
+                for item in _prompt("Payload exclusion runtime IDs (comma-separated)", "").split(",")
+                if item.strip()
+            ),
+        )
+    print(f"created {path}")
+    return 0
+
+
+def _prompt(label: str, default: str) -> str:
+    try:
+        value = input(f"{label} [{default}]: ").strip()
+    except EOFError:
+        return default
+    return value or default
 
 
 def _check(settings: AppSettings) -> None:

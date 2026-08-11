@@ -49,6 +49,8 @@ class LoggingSettings(FrozenSettingsModel):
     file: Path | None = None
     rotation: str | int | None = None
     retention: str | int | None = None
+    payload_mode: Literal["metadata", "full"] = "metadata"
+    payload_exclude_runtimes: tuple[str, ...] = ()
 
     @field_validator("level")
     @classmethod
@@ -57,6 +59,15 @@ class LoggingSettings(FrozenSettingsModel):
         if not normalized:
             raise ValueError("logging level must not be empty")
         return normalized
+
+    @field_validator("payload_exclude_runtimes")
+    @classmethod
+    def validate_payload_exclude_runtimes(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not item.strip() or item != item.strip() for item in value):
+            raise ValueError("payload exclusion runtime identifiers must be non-empty and trimmed")
+        if len(set(value)) != len(value):
+            raise ValueError("payload exclusion runtime identifiers must not contain duplicates")
+        return value
 
 
 class PluginSettings(FrozenSettingsModel):
@@ -83,8 +94,22 @@ class PluginSettings(FrozenSettingsModel):
         return cast(dict[str, Any], _thaw(value))
 
 
+class AgentSettings(FrozenSettingsModel):
+    """Select the single v1 agent harness that processes routed events."""
+
+    enabled: bool = False
+    agent_harness: str = "native"
+
+    @field_validator("agent_harness")
+    @classmethod
+    def validate_agent_harness(cls, value: str) -> str:
+        if not value.strip() or value != value.strip():
+            raise ValueError("agent_harness must be a non-empty trimmed string")
+        return value
+
+
 class RuntimeSettings(FrozenSettingsModel):
-    kind: Literal["nonebot", "v6", "custom"]
+    kind: str
     enabled: bool = True
     command: tuple[str, ...] = ()
     working_directory: Path | None = None
@@ -103,6 +128,13 @@ class RuntimeSettings(FrozenSettingsModel):
     def validate_command(cls, value: tuple[str, ...]) -> tuple[str, ...]:
         if any(not argument for argument in value):
             raise ValueError("runtime command arguments must not be empty")
+        return value
+
+    @field_validator("kind")
+    @classmethod
+    def validate_kind(cls, value: str) -> str:
+        if not value.strip() or value != value.strip():
+            raise ValueError("runtime kind must be a non-empty trimmed string")
         return value
 
     @field_validator("env", mode="after")
@@ -132,6 +164,38 @@ class RuntimeSettings(FrozenSettingsModel):
         return self
 
 
+class RuntimeEventRoute(FrozenSettingsModel):
+    """Forward matching core Events from configured source runtimes to one child."""
+
+    sources: tuple[str, ...]
+    target: str
+    messages_only: bool = False
+
+    @field_validator("sources")
+    @classmethod
+    def validate_sources(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if not value:
+            raise ValueError("runtime event route requires at least one source")
+        if any(not source.strip() or source != source.strip() for source in value):
+            raise ValueError("runtime event route sources must be non-empty trimmed strings")
+        if len(set(value)) != len(value):
+            raise ValueError("runtime event route sources must not contain duplicates")
+        return value
+
+    @field_validator("target")
+    @classmethod
+    def validate_target(cls, value: str) -> str:
+        if not value.strip() or value != value.strip():
+            raise ValueError("runtime event route target must be a non-empty trimmed string")
+        return value
+
+    @model_validator(mode="after")
+    def validate_no_self_routes(self) -> RuntimeEventRoute:
+        if self.target in self.sources:
+            raise ValueError("runtime event route cannot target one of its sources")
+        return self
+
+
 class HttpSettings(FrozenSettingsModel):
     enabled: bool = False
     host: str = "127.0.0.1"
@@ -157,10 +221,13 @@ class HttpSettings(FrozenSettingsModel):
 
 
 class AppSettings(FrozenSettingsModel):
+    config_version: int = Field(default=1, ge=1)
     core: CoreSettings = Field(default_factory=CoreSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     plugins: PluginSettings = Field(default_factory=PluginSettings)
+    agent: AgentSettings = Field(default_factory=AgentSettings)
     runtimes: Mapping[str, RuntimeSettings] = Field(default_factory=dict)
+    runtime_event_routes: tuple[RuntimeEventRoute, ...] = ()
     http: HttpSettings = Field(default_factory=HttpSettings)
 
     @field_validator("runtimes", mode="after")
@@ -173,3 +240,27 @@ class AppSettings(FrozenSettingsModel):
     @field_serializer("runtimes")
     def serialize_runtimes(self, value: Mapping[str, RuntimeSettings]) -> dict[str, RuntimeSettings]:
         return dict(value)
+
+    @model_validator(mode="after")
+    def validate_runtime_event_routes(self) -> AppSettings:
+        enabled = {
+            runtime_id
+            for runtime_id, runtime in self.runtimes.items()
+            if runtime.enabled
+        }
+        routes: set[tuple[tuple[str, ...], str, bool]] = set()
+        for route in self.runtime_event_routes:
+            if route.target not in self.runtimes:
+                raise ValueError(f"runtime event route target {route.target!r} is not configured")
+            if route.target not in enabled:
+                raise ValueError(f"runtime event route target {route.target!r} is disabled")
+            for source in route.sources:
+                if source not in self.runtimes:
+                    raise ValueError(f"runtime event route source {source!r} is not configured")
+                if source not in enabled:
+                    raise ValueError(f"runtime event route source {source!r} is disabled")
+            key = (route.sources, route.target, route.messages_only)
+            if key in routes:
+                raise ValueError("runtime event routes must not contain duplicates")
+            routes.add(key)
+        return self

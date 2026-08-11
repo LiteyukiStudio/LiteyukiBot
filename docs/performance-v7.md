@@ -4,8 +4,10 @@
 
 CI installs the newest published `liteyukibot-v7` in the
 `>=7.0.0a2,<7.0.0a4` release window from PyPI in an isolated uv environment on
-Ubuntu, Windows, and macOS. It verifies that distribution metadata and both the
-`liteyukibot` and `liteyuki` compatibility namespaces report the same version.
+Ubuntu, Windows, and macOS. It verifies that distribution metadata and the
+`liteyukibot` kernel namespace report the same version. The separately released
+v6 runtime has its own isolated-install verifier for the `liteyuki`
+compatibility namespace.
 The check does not use the repository virtual environment or install the source
 checkout, and remains valid before and after the a3 upload.
 

@@ -20,6 +20,33 @@ The complete protocol-v3 child is in
 `RuntimeClient.from_environment("custom")`, calls `connect()`, then declares
 capabilities with `ready()`.
 
+## Kernel-mediated routes
+
+Child runtimes never connect to each other. A runtime reports normalized
+`EventEnvelope` values to the kernel and submits `ActionEnvelope` values back
+to it. The kernel owns cross-runtime delivery and routes an Action to the
+runtime named by its `runtime_id`.
+
+An external compatibility host such as AstrBot or MoFox should initially use
+`kind = "custom"` and an explicit command. Its bridge translates between the
+framework's local event/action objects and these frozen LiteyukiBot models; it
+must not serialize framework objects over IPC.
+
+Configure core-to-child event delivery explicitly:
+
+```toml
+[[runtime_event_routes]]
+sources = ["nonebot"]
+target = "astrbot"
+messages_only = true
+```
+
+Each source and target must name a distinct, enabled configured runtime. Route
+delivery is concurrent for matching targets and a rejection is reported as an
+EventBus handler failure. The v6 compatibility runtime retains its historical
+message-only route by default; an explicit route targeting that runtime
+replaces the default.
+
 ## Single reader rule
 
 Exactly one coroutine calls `RuntimeClient.receive()`. `execute_action()` sends

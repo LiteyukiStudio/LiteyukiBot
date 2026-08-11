@@ -16,8 +16,9 @@ shared-memory transport.
 
 ## Decision
 
-`LiteyukiApp` registers one internal EventBus handler when at least one enabled
-`kind = "v6"` runtime is configured. It forwards message-bearing
+`LiteyukiApp` registers one internal EventBus handler when an enabled runtime
+plugin declares its default message-only route. The separately installed v6
+runtime declares that route. It forwards message-bearing
 `EventEnvelope` schema-v1 payloads to every v6 runtime concurrently through
 `RuntimeSupervisor.dispatch_event()`. Events without a message remain valid but
 are not forwarded by the application bridge. A runtime rejection or delivery
