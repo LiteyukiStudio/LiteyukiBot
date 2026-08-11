@@ -300,11 +300,72 @@ class LiteyukiApp:
             uptime_seconds=self._uptime_seconds(),
             plugins={plugin_id: plugin.state.value for plugin_id, plugin in self.plugins.loaded.items()},
             runtimes={runtime_id: record.state.value for runtime_id, record in self.runtimes.records.items()},
+            runtime_health=self.runtimes.health(),
             events_outstanding=self.events.outstanding,
         )
 
     def status(self) -> dict[str, Any]:
         return self.status_snapshot().as_dict()
+
+    def topology(self, *, discover_plugins: bool = False) -> dict[str, object]:
+        """Return a redacted module graph without starting processes or plugins."""
+
+        definitions = (
+            self.plugins.discover(self.settings.plugins.enabled, self.settings.plugins.local_modules)
+            if discover_plugins
+            else {plugin_id: loaded.definition for plugin_id, loaded in self.plugins.loaded.items()}
+        )
+        runtime_health = self.runtimes.health()
+        return {
+            "schema_version": 1,
+            "kernel": {"version": __version__, "state": self.state.value},
+            "services": [
+                {"key": str(item.key), "provider": item.provider}
+                for item in self.services.snapshot()
+            ],
+            "plugins": [
+                {
+                    "id": definition.manifest.id,
+                    "name": definition.manifest.name,
+                    "version": definition.manifest.version,
+                    "api_version": definition.manifest.api_version,
+                    "state": self.plugins.loaded[plugin_id].state.value
+                    if plugin_id in self.plugins.loaded
+                    else "configured",
+                    "storage": definition.manifest.storage,
+                    "provides": [str(key) for key in definition.manifest.provides],
+                    "requires": [
+                        {"key": str(requirement.key), "optional": requirement.optional}
+                        for requirement in definition.manifest.requires
+                    ],
+                    "resource_packs": [
+                        {"package": pack.package, "root": pack.root}
+                        for pack in definition.manifest.resource_packs
+                    ],
+                }
+                for plugin_id, definition in sorted(definitions.items())
+            ],
+            "runtimes": [
+                {
+                    "id": runtime_id,
+                    "kind": runtime.kind,
+                    "enabled": runtime.enabled,
+                    "agent_harness": self.runtimes.records[runtime_id].spec.agent_harness
+                    if runtime_id in self.runtimes.records
+                    else None,
+                    "health": runtime_health.get(runtime_id),
+                }
+                for runtime_id, runtime in sorted(self.settings.runtimes.items())
+            ],
+            "event_routes": [
+                {
+                    "sources": list(route.sources),
+                    "target": route.target,
+                    "messages_only": route.messages_only,
+                }
+                for route in self._runtime_event_routes
+            ],
+        }
 
     def _uptime_seconds(self) -> float:
         if self._started_at is None:

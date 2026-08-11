@@ -43,7 +43,7 @@ class HttpServer:
             return self.status_provider().get("plugins", {})
 
         async def runtimes() -> Any:
-            return self.status_provider().get("runtimes", {})
+            return self.status_provider().get("runtime_health", {})
 
         app.add_api_route("/health", health, methods=["GET"])
         app.add_api_route("/ready", readiness, methods=["GET"])

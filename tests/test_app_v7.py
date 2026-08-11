@@ -102,6 +102,7 @@ def test_kernel_status_service_is_available_before_plugin_resolution(tmp_path: P
     assert snapshot.uptime_seconds == 0
     assert snapshot.plugins == {}
     assert snapshot.runtimes == {}
+    assert snapshot.runtime_health == {}
     assert snapshot.events_outstanding == 0
     with pytest.raises(TypeError):
         cast(dict[str, str], snapshot.plugins)["unexpected"] = "ready"
@@ -177,6 +178,75 @@ def test_plugin_topology_can_require_kernel_status(tmp_path: Path) -> None:
     )
 
     assert app.plugins.resolve_order({"status-consumer": definition}) == ("status-consumer",)
+
+
+def test_topology_reports_redacted_runtime_edges_and_health(tmp_path: Path) -> None:
+    settings = AppSettings(
+        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"),
+        runtimes={
+            "source": RuntimeSettings(kind="noop"),
+            "target": RuntimeSettings(kind="noop"),
+        },
+        runtime_event_routes=(
+            RuntimeEventRoute(sources=("source",), target="target", messages_only=True),
+        ),
+    )
+    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
+
+    topology = app.topology()
+
+    assert topology["schema_version"] == 1
+    assert topology["kernel"] == {"version": __version__, "state": "created"}
+    assert topology["plugins"] == []
+    assert topology["runtimes"] == [
+        {
+            "id": "source",
+            "kind": "noop",
+            "enabled": True,
+            "agent_harness": None,
+            "health": {
+                "kind": "noop",
+                "state": "stopped",
+                "connected": False,
+                "protocol": None,
+                "capabilities": (),
+                "launch_count": 0,
+                "heartbeat_age_seconds": None,
+                "failures_in_window": 0,
+                "pending_actions": 0,
+                "pending_events": 0,
+                "inbound_actions": 0,
+                "inbound_events": 0,
+                "inbound_agent_tools": 0,
+                "active_deliveries": 0,
+            },
+        },
+        {
+            "id": "target",
+            "kind": "noop",
+            "enabled": True,
+            "agent_harness": None,
+            "health": {
+                "kind": "noop",
+                "state": "stopped",
+                "connected": False,
+                "protocol": None,
+                "capabilities": (),
+                "launch_count": 0,
+                "heartbeat_age_seconds": None,
+                "failures_in_window": 0,
+                "pending_actions": 0,
+                "pending_events": 0,
+                "inbound_actions": 0,
+                "inbound_events": 0,
+                "inbound_agent_tools": 0,
+                "active_deliveries": 0,
+            },
+        },
+    ]
+    assert topology["event_routes"] == [
+        {"sources": ["source"], "target": "target", "messages_only": True}
+    ]
 
 
 @pytest.mark.asyncio
@@ -425,6 +495,7 @@ async def test_app_lifecycle_and_local_control(tmp_path: Path) -> None:
     assert status["state"] == "ready"
     assert status["plugins"] == {}
     assert status["runtimes"] == {}
+    assert status["runtime_health"] == {}
 
     await app.stop()
     assert app.state.value == AppState.STOPPED

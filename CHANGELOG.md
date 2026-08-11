@@ -8,6 +8,8 @@
   optional, capability-gated terminal event outcome;
 - updated the agent, AstrBot, MoFox, and v6 child hosts to report completed or
   failed asynchronous event deliveries.
+- added redacted runtime health snapshots and `liteyuki inspect topology` for
+  protocol, capability, liveness, IPC pressure, and configured route diagnosis.
 
 ## 7.0.0a8 - 2026-08-11
 
