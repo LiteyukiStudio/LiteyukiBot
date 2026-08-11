@@ -138,3 +138,38 @@ def test_initializer_rejects_unavailable_required_provider(monkeypatch: pytest.M
 
     with pytest.raises(ValueError, match="unavailable service"):
         build_initialization_plan(prompt=prompt, output=lambda _message: None)
+
+
+def test_initializer_collects_runtime_secrets_without_storing_plaintext(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime = RuntimePlugin(
+        kind="agent",
+        command=("agent",),
+        init_spec=RuntimeInitSpec(
+            default_id="agent",
+            fields=(
+                InitFieldSpec(
+                    key="api_key_secret",
+                    label="API key",
+                    kind=InitFieldKind.SECRET,
+                    required=True,
+                    secret_environment="LITEYUKI_AGENT_API_KEY",
+                ),
+            ),
+        ),
+    )
+    monkeypatch.setattr(PluginManager, "discover_installed", classmethod(lambda _cls: ({}, ())))
+    monkeypatch.setattr(RuntimeCatalog, "discover_installed", lambda _self: ({"agent": runtime}, ()))
+
+    plan = build_initialization_plan(
+        prompt=lambda label, default: "y" if label.startswith("Enable runtime") else default,
+        output=lambda _message: None,
+        secret_prompt=lambda _label: "api-value",
+    )
+
+    assert plan.secrets == {"runtime.agent.api_key_secret": "api-value"}
+    assert plan.runtimes["agent"]["options"]["api_key_secret"] == "runtime.agent.api_key_secret"
+    assert plan.runtimes["agent"]["secret_env"] == {
+        "LITEYUKI_AGENT_API_KEY": "runtime.agent.api_key_secret"
+    }

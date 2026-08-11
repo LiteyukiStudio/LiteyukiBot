@@ -82,6 +82,7 @@ class RuntimeSpec:
     command: Sequence[str] | None = None
     working_directory: str | Path | None = None
     env: Mapping[str, str] = field(default_factory=dict)
+    secret_env: Mapping[str, str] = field(default_factory=dict)
     handshake_timeout: float = 10.0
     restart_limit: int = 5
     restart_window: float = 60.0
@@ -103,9 +104,7 @@ class RuntimeSpec:
             raise ValueError("runtime stale_after must exceed its positive heartbeat interval")
         if self.max_inbound_events < 1:
             raise ValueError("runtime max_inbound_events must be at least 1")
-        if self.command is not None and (
-            not self.command or any(not part for part in self.command)
-        ):
+        if self.command is not None and (not self.command or any(not part for part in self.command)):
             raise ValueError("runtime command arguments must not be empty")
         if self.agent_harness is not None and (
             not self.agent_harness or self.agent_harness != self.agent_harness.strip()
@@ -149,11 +148,13 @@ class RuntimeSupervisor:
         event_sink: EventSink | None = None,
         action_sink: ActionSink | None = None,
         agent_tool_sink: AgentToolSink | None = None,
+        secret_values: Mapping[str, str] | None = None,
     ) -> None:
         self.logger = logger
         self.event_sink = event_sink
         self.action_sink = action_sink
         self.agent_tool_sink = agent_tool_sink
+        self.secret_values = dict(secret_values or {})
         self.records: dict[str, RuntimeRecord] = {}
         self._server: asyncio.Server | None = None
         self._host = "127.0.0.1"
@@ -229,8 +230,7 @@ class RuntimeSupervisor:
             self.logger.bind(runtime=record.spec.id, component="runtime").info(
                 "starting {} runtime (attempt {})", record.spec.kind, record.launch_count + 1
             )
-            env = os.environ.copy()
-            env.update(record.spec.env)
+            env = self._child_environment(record)
             env.update(
                 {
                     "LITEYUKI_RUNTIME_HOST": self._host,
@@ -282,9 +282,7 @@ class RuntimeSupervisor:
                 return
             if not self._register_failure(record):
                 return
-            self.logger.warning(
-                "runtime {} exited with {}; restarting in {:.1f}s", record.spec.id, exit_code, delay
-            )
+            self.logger.warning("runtime {} exited with {}; restarting in {:.1f}s", record.spec.id, exit_code, delay)
             await asyncio.sleep(delay)
             delay = min(delay * 2, 30.0)
 
@@ -298,6 +296,21 @@ class RuntimeSupervisor:
             record.state = RuntimeState.FAILED
             return False
         return True
+
+    def _child_environment(self, record: RuntimeRecord) -> dict[str, str]:
+        """Construct a child-only environment without retaining vault credentials."""
+
+        env = os.environ.copy()
+        env.pop("LITEYUKI_VAULT_PASSWORD", None)
+        env.update(record.spec.env)
+        for environment_name, secret_name in record.spec.secret_env.items():
+            try:
+                env[environment_name] = self.secret_values[secret_name]
+            except KeyError as error:
+                raise RuntimeError(
+                    f"runtime {record.spec.id} requires unavailable secret {secret_name!r}"
+                ) from error
+        return env
 
     @staticmethod
     def _default_command(spec: RuntimeSpec) -> tuple[str, ...]:
@@ -333,7 +346,7 @@ class RuntimeSupervisor:
             )
             await self._send(record, ConfigMessage(options=json_mapping(record.spec.options)))
             await self._receive_loop(record)
-        except (EOFError, ConnectionError):
+        except EOFError, ConnectionError:
             pass
         except BaseException as exc:
             self.logger.error("runtime connection rejected: {}", exc)
@@ -444,14 +457,12 @@ class RuntimeSupervisor:
                     detail=detail,
                 ),
             )
-        except (ConnectionError, RuntimeError):
+        except ConnectionError, RuntimeError:
             pass
         finally:
             record.inbound_events.pop(message.correlation_id, None)
 
-    async def _accept_child_action(
-        self, record: RuntimeRecord, request: ActionRequest
-    ) -> None:
+    async def _accept_child_action(self, record: RuntimeRecord, request: ActionRequest) -> None:
         if record.protocol_version != 3:
             await self._reject_child_action(
                 record,
@@ -483,9 +494,7 @@ class RuntimeSupervisor:
         )
         record.inbound_actions[request.correlation_id] = task
 
-    async def _execute_child_action(
-        self, record: RuntimeRecord, request: ActionRequest
-    ) -> None:
+    async def _execute_child_action(self, record: RuntimeRecord, request: ActionRequest) -> None:
         try:
             assert self.action_sink is not None
             result = await self.action_sink(record.spec.id, request.payload)
@@ -509,7 +518,7 @@ class RuntimeSupervisor:
             )
         try:
             await self._send(record, response)
-        except (ConnectionError, RuntimeError):
+        except ConnectionError, RuntimeError:
             pass
         finally:
             record.inbound_actions.pop(request.correlation_id, None)
@@ -529,9 +538,7 @@ class RuntimeSupervisor:
             ),
         )
 
-    async def _accept_agent_tool_request(
-        self, record: RuntimeRecord, request: AgentToolRequest
-    ) -> None:
+    async def _accept_agent_tool_request(self, record: RuntimeRecord, request: AgentToolRequest) -> None:
         self._clear_expired_delivery_contexts(record)
         if record.protocol_version != 3:
             await self._reject_agent_tool_request(record, request, "agent tools require runtime protocol v3")
@@ -540,9 +547,7 @@ class RuntimeSupervisor:
             await self._reject_agent_tool_request(record, request, "runtime is not an agent harness")
             return
         if "agent.tools.execute" not in record.capabilities:
-            await self._reject_agent_tool_request(
-                record, request, "child runtime did not declare agent.tools.execute"
-            )
+            await self._reject_agent_tool_request(record, request, "child runtime did not declare agent.tools.execute")
             return
         delivery_context = record.active_delivery_contexts.get(request.delivery_correlation_id)
         if delivery_context is None:
@@ -564,9 +569,7 @@ class RuntimeSupervisor:
         )
         record.inbound_agent_tools[request.correlation_id] = task
 
-    async def _execute_agent_tool_request(
-        self, record: RuntimeRecord, request: AgentToolRequest
-    ) -> None:
+    async def _execute_agent_tool_request(self, record: RuntimeRecord, request: AgentToolRequest) -> None:
         try:
             assert self.agent_tool_sink is not None
             _deadline, payload = record.active_delivery_contexts[request.delivery_correlation_id]
@@ -584,9 +587,7 @@ class RuntimeSupervisor:
                 error=result.error,
             )
         except Exception as error:
-            self.logger.error(
-                "runtime {} agent tool {} failed: {}", record.spec.id, request.tool_id, error
-            )
+            self.logger.error("runtime {} agent tool {} failed: {}", record.spec.id, request.tool_id, error)
             response = AgentToolResponse(
                 correlation_id=request.correlation_id,
                 ok=False,
@@ -594,7 +595,7 @@ class RuntimeSupervisor:
             )
         try:
             await self._send(record, response)
-        except (ConnectionError, RuntimeError):
+        except ConnectionError, RuntimeError:
             pass
         finally:
             record.inbound_agent_tools.pop(request.correlation_id, None)
@@ -739,7 +740,7 @@ class RuntimeSupervisor:
         if record.writer is not None:
             try:
                 await self._send(record, Shutdown(reason=reason))
-            except (ConnectionError, RuntimeError):
+            except ConnectionError, RuntimeError:
                 pass
         process = record.process
         if process is None:
@@ -777,15 +778,11 @@ class RuntimeSupervisor:
         record.active_delivery_contexts.clear()
         for action_future in record.pending_actions.values():
             if not action_future.done():
-                action_future.set_exception(
-                    ConnectionError(f"runtime {record.spec.id} disconnected")
-                )
+                action_future.set_exception(ConnectionError(f"runtime {record.spec.id} disconnected"))
         record.pending_actions.clear()
         for event_future in record.pending_events.values():
             if not event_future.done():
-                event_future.set_exception(
-                    ConnectionError(f"runtime {record.spec.id} disconnected")
-                )
+                event_future.set_exception(ConnectionError(f"runtime {record.spec.id} disconnected"))
         record.pending_events.clear()
         record.pending_event_payloads.clear()
         inbound_actions = tuple(record.inbound_actions.values())
@@ -810,9 +807,7 @@ class RuntimeSupervisor:
             writer.close()
             await writer.wait_closed()
 
-    async def _capture_output(
-        self, record: RuntimeRecord, stream: asyncio.StreamReader, channel: str
-    ) -> None:
+    async def _capture_output(self, record: RuntimeRecord, stream: asyncio.StreamReader, channel: str) -> None:
         logger = self.logger.bind(
             runtime=record.spec.id,
             component="runtime",
