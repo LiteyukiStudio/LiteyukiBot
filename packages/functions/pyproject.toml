@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7-functions"
-version = "0.1.0a1"
+version = "0.1.0a2"
 description = "V6 Liteyuki resource-function executor for LiteyukiBot v7."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -10,7 +10,7 @@ authors = [
     { name = "LiteyukiStudio" },
 ]
 dependencies = [
-    "liteyukibot-v7>=7.0.0a6,<8",
+    "liteyukibot-v7>=7.0.0a7,<8",
 ]
 
 [project.entry-points."liteyukibot.function_executors"]

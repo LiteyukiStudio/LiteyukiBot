@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 7.0.0a7 - 2026-08-11
+
+- cached v6 function source for each read-only dispatcher lifetime, reducing
+  repeated resource reads without introducing a resource-pack hot-reload path;
+- moved v6 `nohup` tasks into the kernel's managed task lifecycle, so shutdown
+  cancels them deterministically and Yukilog records background failures;
+- added a configurable function benchmark alongside the kernel event benchmark.
+
 ## 7.0.0a6 - 2026-08-11
 
 - added nested function invocation and explicit capability plumbing to the
