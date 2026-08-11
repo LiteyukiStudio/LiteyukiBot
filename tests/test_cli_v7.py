@@ -10,6 +10,7 @@ from filelock import Timeout
 
 import liteyukibot.cli as cli_module
 from liteyukibot.config import AppSettings
+from liteyukibot.init_wizard import InitWizardResult
 
 
 class StubApp:
@@ -116,3 +117,18 @@ def test_run_rejects_an_active_workspace_lock(
 
     assert cli_module.main(["--workspace", str(tmp_path), "run"]) == 2
     assert "another LiteyukiBot command is active" in capsys.readouterr().err
+
+
+def test_init_minimal_wizard_writes_locale_and_resource_index(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "wizard"
+    monkeypatch.setattr(
+        cli_module,
+        "run_init_wizard",
+        lambda *_args: InitWizardResult(str(workspace), "zh-CN", "minimal", None),
+    )
+
+    assert cli_module.main(["init"]) == 0
+    assert 'locale = "zh-CN"' in (workspace / "liteyuki.toml").read_text(encoding="utf-8")
+    assert (workspace / "resources" / "index.json").read_text(encoding="utf-8") == "[]\n"

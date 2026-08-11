@@ -2,6 +2,7 @@
 
 from ._version import __version__
 from .app import LiteyukiApp
+from .functions import FUNCTION_DISPATCH_SERVICE, FunctionCall, FunctionDispatcher
 from .init_specs import InitFieldKind, InitFieldSpec, PluginInitSpec, RuntimeInitSpec
 from .plugins import (
     PluginContext,
@@ -11,6 +12,7 @@ from .plugins import (
     PluginPaths,
     PluginServices,
 )
+from .resource_packs import RESOURCE_CATALOG_SERVICE, ResourceCatalog, ResourcePackDeclaration
 from .services import ServiceKey, ServiceRegistry, ServiceRequirement
 from .status import KERNEL_STATUS_SERVICE, KernelStatusProvider, KernelStatusSnapshot
 
@@ -32,5 +34,11 @@ __all__ = [
     "ServiceRegistry",
     "ServiceRequirement",
     "RuntimeInitSpec",
+    "FUNCTION_DISPATCH_SERVICE",
+    "FunctionCall",
+    "FunctionDispatcher",
+    "RESOURCE_CATALOG_SERVICE",
+    "ResourceCatalog",
+    "ResourcePackDeclaration",
     "__version__",
 ]

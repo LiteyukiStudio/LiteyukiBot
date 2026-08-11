@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from .events import ActionEnvelope, ActionResult, EventBus
 from .exceptions import PluginError, ServiceError
 from .init_specs import PluginInitSpec
+from .resource_packs import ResourcePackDeclaration
 from .services import ServiceKey, ServiceRegistry, ServiceRequirement
 from .tasks import ManagedTasks
 
@@ -62,6 +63,7 @@ class PluginManifest(BaseModel):
     provides: tuple[ServiceKey, ...] = ()
     requires: tuple[ServiceRequirement, ...] = ()
     storage: Literal["none", "private"] = "none"
+    resource_packs: tuple[ResourcePackDeclaration, ...] = ()
 
     @field_validator("id")
     @classmethod

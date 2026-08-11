@@ -35,6 +35,32 @@ Use only the ownership surfaces supplied by `PluginContext`:
 - EventBus subscriptions and other registrations use `context.defer_cleanup()`;
 - replies and API calls use frozen models from `liteyukibot.events`.
 
+## Resource packs and functions
+
+Plugins may declare packaged static resources without implementing a service:
+
+```python
+from liteyukibot import PluginManifest, ResourcePackDeclaration
+
+manifest = PluginManifest(
+    id="example.echo",
+    name="Example",
+    version="1.0.0",
+    resource_packs=(ResourcePackDeclaration("liteyukibot_example_plugin"),),
+)
+```
+
+The declared package root defaults to `resources/` and must contain
+`metadata.yml`. Enabled plugin packs overlay kernel resources but are overridden
+by workspace packs. Declare `RESOURCE_CATALOG_SERVICE` when a plugin needs to
+read the resolved catalog.
+
+`FUNCTION_DISPATCH_SERVICE` resolves read-only files under `functions/` and
+dispatches them to a separately installed executor registered through
+`liteyukibot.function_executors`. The kernel intentionally provides no function
+language or command-execution capability; an unavailable executor raises an
+explicit error.
+
 ## Testing
 
 `PluginTestHarness` uses the production lifecycle and EventBus without importing

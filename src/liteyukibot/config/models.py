@@ -70,6 +70,20 @@ class LoggingSettings(FrozenSettingsModel):
         return value
 
 
+class I18nSettings(FrozenSettingsModel):
+    locale: str = "auto"
+
+    @field_validator("locale")
+    @classmethod
+    def validate_locale(cls, value: str) -> str:
+        normalized = value.strip().replace("_", "-")
+        aliases = {"en": "en-US", "zh": "zh-CN", "zh-Hans": "zh-CN"}
+        normalized = aliases.get(normalized, normalized)
+        if normalized not in {"auto", "en-US", "zh-CN"}:
+            raise ValueError("i18n locale must be auto, en-US, or zh-CN")
+        return normalized
+
+
 class PluginSettings(FrozenSettingsModel):
     enabled: tuple[str, ...] = ()
     local_modules: tuple[str, ...] = ()
@@ -242,6 +256,7 @@ class AppSettings(FrozenSettingsModel):
     config_version: int = Field(default=1, ge=1)
     core: CoreSettings = Field(default_factory=CoreSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
+    i18n: I18nSettings = Field(default_factory=I18nSettings)
     plugins: PluginSettings = Field(default_factory=PluginSettings)
     agent: AgentSettings = Field(default_factory=AgentSettings)
     runtimes: Mapping[str, RuntimeSettings] = Field(default_factory=dict)

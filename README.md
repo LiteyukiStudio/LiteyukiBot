@@ -23,6 +23,8 @@ under ADR 0011 before the first stable release.
 - authenticated framed JSON IPC and supervised subprocess runtimes;
 - runtime-host discovery plus a deliberately bounded v6 compatibility shim;
 - local authenticated CLI control and an optional loopback-only HTTP status API.
+- layered resource packs for language catalogs, functions, and future static
+  assets, with workspace packs overriding built-in and enabled-plugin content;
 - read-only kernel status plus separately distributable capability, command,
   resource-management, profile, help, and protected-status plugins.
 
@@ -108,6 +110,8 @@ uv run liteyuki --config local.toml --set logging.level=DEBUG check
 
 Initialization, encrypted runtime secrets, upgrade recovery, and configuration
 provenance are documented in [docs/configuration.md](docs/configuration.md).
+`liteyuki init` opens a full-screen setup wizard; use `--non-interactive` for
+automation and `--locale auto|zh-CN|en-US` to control its language.
 
 ## Docker
 

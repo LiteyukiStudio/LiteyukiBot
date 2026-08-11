@@ -9,8 +9,10 @@ liteyuki.toml. Create it with:
 uv run liteyuki init
 ~~~
 
-The interactive initializer discovers installed native plugins and runtime
-packages without importing framework internals. It prompts for selected
+The interactive initializer is a full-screen terminal wizard. It starts with
+language, workspace, and a minimal-versus-custom choice; Back and Cancel never
+write configuration. Minimal setup creates safe defaults without optional
+plugins or runtimes. Custom setup discovers installed native plugins and runtime
 packages, resolves required native service providers, writes only package-owned
 safe options, and can add message routes to an agent runtime. A broken,
 unrelated entry point is reported as a diagnostic instead of preventing other
@@ -18,6 +20,25 @@ choices.
 
 liteyuki init --non-interactive and a missing Docker configuration both create
 a minimal configuration with no enabled plugins, runtimes, or secrets.
+
+`init --locale auto|zh-CN|en-US` selects the wizard and stored CLI language.
+`auto` follows the system locale, but falls back to English when terminal CJK
+font support cannot be detected. An explicit Chinese choice remains in effect
+and emits a warning instead. Interactive setup requires a TTY; automation must
+use `--non-interactive`.
+
+## Resource Packs
+
+The kernel loads read-only resource packs for language catalogs, functions, and
+future static assets. Built-in packs are lowest priority, enabled plugin package
+packs are next, and workspace packs listed in `resources/index.json` override
+them. Workspace packs may be directories or ZIP files containing `metadata.yml`.
+Their contents use paths such as `lang/zh-CN.lang`, `functions/`, and
+`templates/`; packs are indexed directly and are never extracted into a merged
+temporary directory.
+
+The existing `liteyukibot-v7-resources` distribution is a separate user-resource
+and permission-aware command plugin. It is not the resource-pack loader.
 
 ## Workspace Selection
 
