@@ -62,6 +62,7 @@ def test_mofox_headless_config_disables_listening_and_dynamic_install(tmp_path: 
     assert "enable_watchdog = false" in rendered
     assert "[plugin_deps]" in rendered
     assert "enabled = false" in rendered
+    assert "[plugin_market]" in rendered
 
 
 def test_mofox_reports_the_pinned_upstream_requirement_when_missing(monkeypatch: pytest.MonkeyPatch) -> None:

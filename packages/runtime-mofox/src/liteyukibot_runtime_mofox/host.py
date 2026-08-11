@@ -18,6 +18,7 @@ from typing import Any
 from liteyukibot.events import EventEnvelope
 from liteyukibot.logging import configure_runtime_child_logging, get_logger
 from liteyukibot.runtime import RuntimeClient
+from liteyukibot.runtime.projection import project_managed_plugins
 from liteyukibot.runtime.protocol import (
     ActionRequest,
     ActionResponse,
@@ -73,6 +74,7 @@ class MoFoxHeadlessEngine:
         root.mkdir(parents=True, exist_ok=True)
         os.chdir(root)
         _enforce_headless_config(root / "config" / "core.toml")
+        _prepare_managed_plugins(root, self.options)
         _install_upstream_namespace()
         bot_type = import_module("src.app.runtime.bot").Bot
         bot = bot_type(config_path="config/core.toml", plugins_dir="plugins", log_dir="logs")
@@ -276,10 +278,26 @@ def _enforce_headless_config(path: Path) -> None:
         ("bot", "enable_watchdog"),
         ("http_router", "enable_http_router"),
         ("plugin_deps", "enabled"),
+        ("plugin_market", "enabled"),
     ):
         document = _set_toml_boolean(document, section, key, False)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(document, encoding="utf-8")
+
+
+def _prepare_managed_plugins(root: Path, options: Mapping[str, object]) -> None:
+    generation = os.environ.get("LITEYUKI_RUNTIME_GENERATION_DIR")
+    if generation is None:
+        return
+    mode = options.get("projection_mode", "copy")
+    if not isinstance(mode, str):
+        raise ValueError("MoFox runtime option 'projection_mode' must be a string")
+    project_managed_plugins(
+        generation,
+        root / "plugins",
+        root / "managed-plugin-backups",
+        mode=mode,
+    )
 
 
 def _set_toml_boolean(document: str, section: str, key: str, value: bool) -> str:

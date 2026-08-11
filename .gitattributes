@@ -2,6 +2,7 @@
 
 *.py text eol=lf
 *.toml text eol=lf
+*.lock text eol=lf
 *.json text eol=lf
 *.yaml text eol=lf
 *.yml text eol=lf
