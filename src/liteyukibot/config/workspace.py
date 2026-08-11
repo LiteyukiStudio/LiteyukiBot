@@ -90,6 +90,7 @@ class ConfigWorkspace:
         logging_level: str = "INFO",
         payload_mode: str = "metadata",
         payload_exclude_runtimes: tuple[str, ...] = (),
+        locale: str = "auto",
         plugins: tuple[str, ...] = (),
         plugin_config: dict[str, dict[str, Any]] | None = None,
         runtimes: dict[str, dict[str, Any]] | None = None,
@@ -111,6 +112,7 @@ class ConfigWorkspace:
             logging_level=logging.level,
             payload_mode=logging.payload_mode,
             payload_exclude_runtimes=logging.payload_exclude_runtimes,
+            locale=locale,
             plugins=plugins,
             plugin_config=plugin_config,
             runtimes=runtimes,
@@ -118,6 +120,11 @@ class ConfigWorkspace:
         )
         AppSettings.model_validate(tomllib.loads(rendered))
         self.path.write_text(rendered, encoding="utf-8")
+        resources = self.directory / "resources"
+        resources.mkdir(exist_ok=True)
+        index = resources / "index.json"
+        if not index.exists():
+            index.write_text("[]\n", encoding="utf-8")
         return self.path
 
     def _read_root_document(self) -> dict[str, Any]:

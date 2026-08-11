@@ -1,0 +1,15 @@
+cli.error.non_tty=交互式初始化需要终端。请改用 --non-interactive。
+cli.init.created=已创建 {path}
+cli.init.cancelled=已取消初始化。
+cli.init.font_warning=未检测到中文终端字体支持。
+wizard.title=LiteyukiBot 设置
+wizard.workspace=工作区
+wizard.mode=设置模式
+wizard.mode.minimal=最小配置
+wizard.mode.custom=自定义配置
+wizard.language=语言
+wizard.review=确认
+wizard.create=创建配置
+wizard.back=返回
+wizard.continue=继续
+wizard.cancel=取消

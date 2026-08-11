@@ -13,6 +13,8 @@ dependencies = [
     "cryptography>=46,<51",
     "filelock>=3.19,<4",
     "pydantic>=2.13,<3",
+    "PyYAML>=6,<7",
+    "prompt_toolkit>=3.0,<4",
     "tomli-w>=1.2,<2",
     "yukilog>=1,<2",
 ]
@@ -34,6 +36,7 @@ ly = "liteyukibot.cli:main"
 [dependency-groups]
 dev = [
     "mypy>=1.18,<2",
+    "types-PyYAML>=6.0.12,<7",
     "pytest>=9,<10",
     "pytest-asyncio>=1.2,<2",
     "ruff>=0.14,<1",

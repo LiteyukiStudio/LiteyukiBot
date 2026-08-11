@@ -28,10 +28,10 @@ from .config import (
     redact_config,
     toml_compatible_config,
 )
-from .config.initializer import build_initialization_plan
 from .config.vault import SecretVault
 from .control import ControlError, request_control
 from .exceptions import LiteyukiError
+from .init_wizard import WizardCancelled, build_custom_initialization_plan, run_init_wizard
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -46,6 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
     subcommands.add_parser("version", help="show the installed version")
     init = subcommands.add_parser("init", help="create a project configuration")
     init.add_argument("--non-interactive", action="store_true")
+    init.add_argument("--locale", choices=("auto", "zh-CN", "en-US"), default="auto")
 
     config = subcommands.add_parser("config", help="configuration operations")
     config_commands = config.add_subparsers(dest="config_command", required=True)
@@ -84,7 +85,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     try:
         if args.command == "init":
-            return _init(args.workspace, args.non_interactive)
+            return _init(args.workspace, args.non_interactive, args.locale)
         if args.command == "config" and args.config_command == "upgrade":
             return _upgrade(args.workspace, args.refresh)
         if args.command == "config" and args.config_command == "show":
@@ -122,17 +123,28 @@ def _load(workspace: ConfigWorkspace, config_paths: Sequence[str], overrides: Se
     )
 
 
-def _init(directory: str, non_interactive: bool) -> int:
-    workspace = ConfigWorkspace(directory)
+def _init(directory: str, non_interactive: bool, locale: str) -> int:
+    if non_interactive:
+        workspace = ConfigWorkspace(directory)
+        with _exclusive_workspace(workspace):
+            path = workspace.initialize(locale=locale)
+        print(f"created {path}")
+        return 0
+    try:
+        selection = run_init_wizard(directory, locale)
+    except WizardCancelled:
+        print("initialization cancelled")
+        return 130
+    if selection.warning:
+        print(selection.warning, file=sys.stderr)
+    workspace = ConfigWorkspace(selection.workspace)
     with _exclusive_workspace(workspace):
-        if non_interactive:
-            path = workspace.initialize()
+        if selection.mode == "minimal":
+            path = workspace.initialize(locale=selection.locale)
         else:
-            plan = build_initialization_plan(
-                prompt=_prompt,
-                output=lambda message: print(message, file=sys.stderr),
-                secret_prompt=_prompt_secret,
-            )
+            plan, diagnostics = build_custom_initialization_plan(selection.locale)
+            for diagnostic in diagnostics:
+                print(diagnostic, file=sys.stderr)
             if plan.secrets:
                 vault = SecretVault(workspace.management_directory)
                 vault.initialize(_vault_password(workspace, create=True), plan.secrets)
@@ -142,6 +154,7 @@ def _init(directory: str, non_interactive: bool) -> int:
                 logging_level=plan.logging_level,
                 payload_mode=plan.payload_mode,
                 payload_exclude_runtimes=plan.payload_exclude_runtimes,
+                locale=selection.locale,
                 plugins=plan.plugins,
                 plugin_config=plan.plugin_config,
                 runtimes=plan.runtimes,
@@ -283,7 +296,7 @@ def _list_plugins(settings: AppSettings) -> None:
 def _run(settings: AppSettings, workspace: ConfigWorkspace) -> int:
     try:
         with _exclusive_workspace(workspace):
-            asyncio.run(_run_until_signal(settings, _runtime_secrets(settings, workspace)))
+            asyncio.run(_run_until_signal(settings, _runtime_secrets(settings, workspace), workspace.directory))
     except KeyboardInterrupt:
         return 130
     return 0
@@ -302,10 +315,26 @@ def _exclusive_workspace(workspace: ConfigWorkspace) -> Iterator[None]:
         raise RuntimeError(f"another LiteyukiBot command is active for {workspace.directory}") from error
 
 
-async def _run_until_signal(settings: AppSettings, runtime_secrets: Mapping[str, str] | None = None) -> None:
+async def _run_until_signal(
+    settings: AppSettings,
+    runtime_secrets: Mapping[str, str] | None = None,
+    resource_workspace: str | os.PathLike[str] = ".",
+) -> None:
     """Run the app until SIGINT/SIGTERM and always perform graceful cleanup."""
 
-    app = LiteyukiApp(settings) if runtime_secrets is None else LiteyukiApp(settings, runtime_secrets=runtime_secrets)
+    if resource_workspace == ".":
+        if runtime_secrets is None:
+            app = LiteyukiApp(settings)
+        else:
+            app = LiteyukiApp(settings, runtime_secrets=runtime_secrets)
+    elif runtime_secrets is None:
+        app = LiteyukiApp(settings, resource_workspace=str(resource_workspace))
+    else:
+        app = LiteyukiApp(
+            settings,
+            resource_workspace=str(resource_workspace),
+            runtime_secrets=runtime_secrets,
+        )
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()
     async_handlers: list[signal.Signals] = []
