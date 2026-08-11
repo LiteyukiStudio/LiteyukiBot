@@ -13,6 +13,7 @@ from typing import Any
 from liteyukibot.events import EventEnvelope
 from liteyukibot.logging import configure_runtime_child_logging, get_logger
 from liteyukibot.runtime import RuntimeClient
+from liteyukibot.runtime.projection import project_managed_plugins
 from liteyukibot.runtime.protocol import (
     ActionRequest,
     ActionResponse,
@@ -80,6 +81,8 @@ class AstrBotHeadlessEngine:
         root = self.state_directory / "astrbot"
         root.mkdir(parents=True, exist_ok=True)
         os.environ["ASTRBOT_ROOT"] = str(root)
+        os.environ["ASTRBOT_RELOAD"] = "0"
+        _prepare_managed_plugins(root, self.options)
         astrbot_core = import_module("astrbot.core")
         log_broker_type = astrbot_core.LogBroker
         lifecycle_type = import_module("astrbot.core.core_lifecycle").AstrBotCoreLifecycle
@@ -128,6 +131,21 @@ class AstrBotHeadlessEngine:
             return self._schedulers[requested]
         except KeyError as error:
             raise RuntimeError(f"AstrBot scheduler {requested!r} is not available") from error
+
+
+def _prepare_managed_plugins(root: Path, options: Mapping[str, object]) -> None:
+    generation = os.environ.get("LITEYUKI_RUNTIME_GENERATION_DIR")
+    if generation is None:
+        return
+    mode = options.get("projection_mode", "copy")
+    if not isinstance(mode, str):
+        raise ValueError("AstrBot runtime option 'projection_mode' must be a string")
+    project_managed_plugins(
+        generation,
+        root / "data" / "plugins",
+        root / "managed-plugin-backups",
+        mode=mode,
+    )
 
 
 class AstrBotRuntimeHost:
