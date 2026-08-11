@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from collections.abc import Mapping, Sequence
+from pathlib import Path, PurePath
 from typing import Any
 
 from liteyuki.bot import _emit_lifecycle, _install_runtime, _reset_runtime
@@ -249,13 +251,47 @@ def _string_list_option(options: Mapping[str, Any], key: str) -> tuple[str, ...]
 
 
 def _load_configured_plugins(options: Mapping[str, Any]) -> None:
-    failed = [name for name in _string_list_option(options, "plugins") if load_plugin(name) is None]
-    directories = _string_list_option(options, "plugin_dirs")
+    managed = _managed_plugin_options()
+    configured_modules = _string_list_option(options, "plugins")
+    configured_directories = _string_list_option(options, "plugin_dirs")
+    if managed is not None and (configured_modules or configured_directories):
+        raise RuntimeError("managed v6 generation cannot combine plugins or plugin_dirs runtime options")
+    modules, directories = managed if managed is not None else (configured_modules, configured_directories)
+    failed = [name for name in modules if load_plugin(name) is None]
     loaded_from_directories = load_plugins(*directories, ignore_warning=False)
     if failed:
         raise RuntimeError(f"failed to load v6 plugins: {', '.join(failed)}")
     if directories and not loaded_from_directories:
         raise RuntimeError("configured v6 plugin directories did not load any plugins")
+
+
+def _managed_plugin_options() -> tuple[tuple[str, ...], tuple[str, ...]] | None:
+    raw_generation = os.environ.get("LITEYUKI_RUNTIME_GENERATION_DIR")
+    if raw_generation is None:
+        return None
+    generation = Path(raw_generation).resolve(strict=True)
+    plan_path = generation / "load-plan.json"
+    try:
+        document = json.loads(plan_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        raise RuntimeError("managed v6 generation has an invalid load plan") from error
+    if not isinstance(document, Mapping):
+        raise RuntimeError("managed v6 generation load plan must be an object")
+    modules = _string_list_option(document, "modules")
+    raw_directories = _string_list_option(document, "directories")
+    payload = (generation / "payload").resolve()
+    directories: list[str] = []
+    for raw_directory in raw_directories:
+        relative = PurePath(raw_directory)
+        if relative.is_absolute() or any(part in {"", ".", ".."} for part in relative.parts):
+            raise RuntimeError("managed v6 generation directory must be a safe payload-relative path")
+        directory = (payload / relative).resolve()
+        try:
+            directory.relative_to(payload)
+        except ValueError as error:
+            raise RuntimeError("managed v6 generation directory escapes payload") from error
+        directories.append(str(directory))
+    return modules, tuple(directories)
 
 
 def _positive_int_option(options: Mapping[str, Any], key: str, default: int) -> int:
