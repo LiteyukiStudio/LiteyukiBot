@@ -1,5 +1,6 @@
 """Child runtime protocol and supervision."""
 
+from ..init_specs import InitFieldKind, InitFieldSpec, RuntimeInitSpec
 from .catalog import RuntimeCatalog, RuntimePlugin
 from .client import RuntimeClient
 from .protocol import (
@@ -55,6 +56,8 @@ __all__ = [
     "EventMessage",
     "EventSink",
     "Heartbeat",
+    "InitFieldKind",
+    "InitFieldSpec",
     "Hello",
     "JsonValue",
     "ProtocolVersion",
@@ -62,6 +65,7 @@ __all__ = [
     "RuntimeClient",
     "RuntimeCatalog",
     "RuntimePlugin",
+    "RuntimeInitSpec",
     "RuntimeSpec",
     "RuntimeState",
     "RuntimeSupervisor",

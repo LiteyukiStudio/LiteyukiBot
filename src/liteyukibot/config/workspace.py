@@ -34,14 +34,16 @@ class ConfigWorkspace:
     def is_docker() -> bool:
         return Path("/.dockerenv").is_file() or os.environ.get("container") == "docker"
 
-    def prepare(self) -> Path | None:
+    def prepare(self) -> Path:
         """Return the primary path after applying Docker/bootstrap upgrade policy."""
 
         if not self.path.exists():
             if self.is_docker():
                 self.initialize()
                 return self.path
-            return None
+            raise ConfigurationError(
+                [ConfigIssue(self.path, "project configuration is missing; run `liteyuki init` first")]
+            )
         if not self.path.is_file():
             raise ConfigurationError([ConfigIssue(self.path, "project configuration path is not a file")])
 
@@ -69,6 +71,10 @@ class ConfigWorkspace:
         logging_level: str = "INFO",
         payload_mode: str = "metadata",
         payload_exclude_runtimes: tuple[str, ...] = (),
+        plugins: tuple[str, ...] = (),
+        plugin_config: dict[str, dict[str, Any]] | None = None,
+        runtimes: dict[str, dict[str, Any]] | None = None,
+        runtime_event_routes: tuple[dict[str, Any], ...] = (),
     ) -> Path:
         if self.path.exists():
             raise ConfigurationError([ConfigIssue(self.path, "project configuration already exists")])
@@ -87,6 +93,10 @@ class ConfigWorkspace:
                 logging_level=logging.level,
                 payload_mode=logging.payload_mode,
                 payload_exclude_runtimes=logging.payload_exclude_runtimes,
+                plugins=plugins,
+                plugin_config=plugin_config,
+                runtimes=runtimes,
+                runtime_event_routes=runtime_event_routes,
             ),
             encoding="utf-8",
         )

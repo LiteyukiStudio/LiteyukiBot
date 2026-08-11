@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 
-from liteyukibot.runtime import RuntimePlugin
+from liteyukibot.runtime import RuntimeInitSpec, RuntimePlugin
 
 
 def runtime_plugin() -> RuntimePlugin:
@@ -12,6 +12,10 @@ def runtime_plugin() -> RuntimePlugin:
         kind="astrbot",
         command=(sys.executable, "-m", "liteyukibot_runtime_astrbot"),
         agent_harness="astrbot",
+        init_spec=RuntimeInitSpec(
+            default_id="astrbot",
+            description="Headless AstrBot agent host; AstrBot plugins remain runtime-owned.",
+        ),
     )
 
 

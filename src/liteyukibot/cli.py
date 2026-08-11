@@ -13,6 +13,7 @@ from typing import Any
 from . import __version__
 from .app import LiteyukiApp
 from .config import AppSettings, ConfigurationError, ConfigWorkspace, load_settings
+from .config.initializer import build_initialization_plan
 from .control import ControlError, request_control
 from .exceptions import LiteyukiError
 
@@ -83,16 +84,20 @@ def _init(non_interactive: bool) -> int:
     if non_interactive:
         path = workspace.initialize()
     else:
+        plan = build_initialization_plan(
+            prompt=_prompt,
+            output=lambda message: print(message, file=sys.stderr),
+        )
         path = workspace.initialize(
-            data_dir=_prompt("Data directory", "data"),
-            cache_dir=_prompt("Cache directory", "cache"),
-            logging_level=_prompt("Logging level", "INFO").upper(),
-            payload_mode=_prompt("Payload logging mode (metadata/full)", "metadata").lower(),
-            payload_exclude_runtimes=tuple(
-                item.strip()
-                for item in _prompt("Payload exclusion runtime IDs (comma-separated)", "").split(",")
-                if item.strip()
-            ),
+            data_dir=plan.data_dir,
+            cache_dir=plan.cache_dir,
+            logging_level=plan.logging_level,
+            payload_mode=plan.payload_mode,
+            payload_exclude_runtimes=plan.payload_exclude_runtimes,
+            plugins=plan.plugins,
+            plugin_config=plan.plugin_config,
+            runtimes=plan.runtimes,
+            runtime_event_routes=plan.runtime_event_routes,
         )
     print(f"created {path}")
     return 0
@@ -143,11 +148,11 @@ async def _run_until_signal(settings: AppSettings) -> None:
     for signum in (signal.SIGINT, signal.SIGTERM):
         try:
             loop.add_signal_handler(signum, request_stop)
-        except (NotImplementedError, RuntimeError, ValueError):
+        except NotImplementedError, RuntimeError, ValueError:
             try:
                 previous = signal.getsignal(signum)
                 signal.signal(signum, lambda _signum, _frame: request_stop())
-            except (OSError, RuntimeError, ValueError):
+            except OSError, RuntimeError, ValueError:
                 continue
             fallback_handlers[signum] = previous
         else:

@@ -7,7 +7,7 @@ from typing import cast
 from liteyukibot_commands import COMMAND_SERVICE, CommandService
 from liteyukibot_permissions import PERMISSION_SERVICE, PermissionService
 
-from liteyukibot import PluginContext, PluginDefinition, PluginHandle, PluginManifest
+from liteyukibot import PluginContext, PluginDefinition, PluginHandle, PluginInitSpec, PluginManifest
 from liteyukibot.services import ServiceRequirement
 
 from .service import RESOURCE_SERVICE, create_resource_service
@@ -33,6 +33,7 @@ def create_plugin(version: str) -> PluginDefinition:
             ),
         ),
         setup=setup,
+        init_spec=PluginInitSpec(description="Resource registry required by persistent profile plugins."),
     )
 
 
