@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 7.0.0a5 - 2026-08-11
+
+- added an installable v7 CLI workflow with `uv tool install liteyukibot-v7`;
+- added explicit workspace selection, conventional `--version`, and
+  `liteyukibot`/`ly` executable aliases;
+- serialized workspace initialization and foreground runs so a competing
+  instance cannot replace the active local control descriptor.
+
 ## 7.0.0a3 - 2026-08-10
 
 The third v7 alpha establishes the first-party native plugin foundation:
