@@ -14,6 +14,7 @@ from ..status import KERNEL_STATUS_SERVICE
 
 Prompt = Callable[[str, str], str]
 Output = Callable[[str], None]
+SecretPrompt = Callable[[str], str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,10 +30,16 @@ class InitializationPlan:
     plugin_config: dict[str, dict[str, Any]]
     runtimes: dict[str, dict[str, Any]]
     runtime_event_routes: tuple[dict[str, Any], ...]
+    secrets: dict[str, str]
     diagnostics: tuple[str, ...]
 
 
-def build_initialization_plan(*, prompt: Prompt, output: Output) -> InitializationPlan:
+def build_initialization_plan(
+    *,
+    prompt: Prompt,
+    output: Output,
+    secret_prompt: SecretPrompt | None = None,
+) -> InitializationPlan:
     """Collect a safe configuration using only package-owned initialization metadata."""
 
     data_dir = prompt("Data directory", "data")
@@ -49,7 +56,12 @@ def build_initialization_plan(*, prompt: Prompt, output: Output) -> Initializati
 
     selected_plugins = _select_plugins(plugin_definitions, prompt=prompt, output=output)
     plugin_config = _collect_plugin_config(selected_plugins, plugin_definitions, prompt=prompt)
-    runtimes = _select_runtimes(runtime_plugins, prompt=prompt, output=output)
+    runtimes, secrets = _select_runtimes(
+        runtime_plugins,
+        prompt=prompt,
+        output=output,
+        secret_prompt=secret_prompt,
+    )
     routes = _collect_agent_routes(runtimes, runtime_plugins, prompt=prompt)
 
     return InitializationPlan(
@@ -62,6 +74,7 @@ def build_initialization_plan(*, prompt: Prompt, output: Output) -> Initializati
         plugin_config=plugin_config,
         runtimes=runtimes,
         runtime_event_routes=routes,
+        secrets=secrets,
         diagnostics=diagnostics,
     )
 
@@ -163,14 +176,17 @@ def _select_runtimes(
     *,
     prompt: Prompt,
     output: Output,
-) -> dict[str, dict[str, Any]]:
+    secret_prompt: SecretPrompt | None,
+) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
     runtimes: dict[str, dict[str, Any]] = {}
+    secrets: dict[str, str] = {}
     for kind, plugin in sorted(plugins.items()):
         spec = plugin.init_spec
         if spec is None:
             output(f"warning: runtime {kind!r} has no initialization metadata and was skipped")
             continue
-        if any(field.kind is InitFieldKind.SECRET for field in spec.fields):
+        secret_fields = tuple(field for field in spec.fields if field.kind is InitFieldKind.SECRET)
+        if secret_fields and secret_prompt is None:
             output(f"runtime {kind!r} requires the secure vault and was skipped during this initialization")
             continue
         if not _confirm(prompt, f"Enable runtime {kind}", default=False):
@@ -180,6 +196,19 @@ def _select_runtimes(
             raise ValueError(f"runtime initialization id collision: {runtime_id}")
         options = dict(spec.default_options)
         options.update(_collect_fields(spec.fields, prompt=prompt, subject=f"Runtime {kind}"))
+        secret_env: dict[str, str] = {}
+        if secret_fields:
+            assert secret_prompt is not None
+            for field in secret_fields:
+                secret_name = f"runtime.{runtime_id}.{field.key}"
+                secret_value = secret_prompt(f"Runtime {kind}: {field.label}")
+                if not secret_value and field.required:
+                    raise ValueError(f"Runtime {kind}: {field.label} is required")
+                if secret_value:
+                    secrets[secret_name] = secret_value
+                    options[field.key] = secret_name
+                    assert field.secret_environment is not None
+                    secret_env[field.secret_environment] = secret_name
         runtimes[runtime_id] = {
             "kind": kind,
             "enabled": True,
@@ -187,8 +216,9 @@ def _select_runtimes(
             "stale_after_seconds": 30.0,
             "max_inbound_events": 100,
             "options": options,
+            "secret_env": secret_env,
         }
-    return runtimes
+    return runtimes, secrets
 
 
 def _collect_agent_routes(

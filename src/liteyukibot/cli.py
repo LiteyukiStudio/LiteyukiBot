@@ -4,16 +4,19 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import getpass
 import json
+import os
 import signal
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from . import __version__
 from .app import LiteyukiApp
 from .config import AppSettings, ConfigurationError, ConfigWorkspace, load_settings
 from .config.initializer import build_initialization_plan
+from .config.vault import SecretVault
 from .control import ControlError, request_control
 from .exceptions import LiteyukiError
 
@@ -30,7 +33,19 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--non-interactive", action="store_true")
 
     config = subcommands.add_parser("config", help="configuration operations")
-    config.add_subparsers(dest="config_command", required=True).add_parser("validate")
+    config_commands = config.add_subparsers(dest="config_command", required=True)
+    config_commands.add_parser("validate")
+    upgrade = config_commands.add_parser("upgrade")
+    upgrade.add_argument("--refresh", action="store_true")
+
+    vault = subcommands.add_parser("vault", help="encrypted secret vault operations")
+    vault_commands = vault.add_subparsers(dest="vault_command", required=True)
+    vault_set = vault_commands.add_parser("set")
+    vault_set.add_argument("name")
+    vault_delete = vault_commands.add_parser("delete")
+    vault_delete.add_argument("name")
+    vault_commands.add_parser("list")
+    vault_commands.add_parser("rotate")
 
     plugin = subcommands.add_parser("plugin", help="plugin operations")
     plugin.add_subparsers(dest="plugin_command", required=True).add_parser("list")
@@ -51,9 +66,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if args.command == "init":
             return _init(args.non_interactive)
+        if args.command == "config" and args.config_command == "upgrade":
+            return _upgrade(args.refresh)
+        if args.command == "vault":
+            return _vault(args)
         settings = _load(args.config, args.overrides)
         if args.command == "run":
-            return _run(settings)
+            return _run(settings, _runtime_secrets(settings))
         if args.command in {"check", "config"}:
             if args.command == "check":
                 _check(settings)
@@ -87,7 +106,11 @@ def _init(non_interactive: bool) -> int:
         plan = build_initialization_plan(
             prompt=_prompt,
             output=lambda message: print(message, file=sys.stderr),
+            secret_prompt=_prompt_secret,
         )
+        if plan.secrets:
+            vault = SecretVault(workspace.management_directory)
+            vault.initialize(_vault_password(workspace, create=True), plan.secrets)
         path = workspace.initialize(
             data_dir=plan.data_dir,
             cache_dir=plan.cache_dir,
@@ -103,12 +126,82 @@ def _init(non_interactive: bool) -> int:
     return 0
 
 
+def _upgrade(refresh: bool) -> int:
+    result = ConfigWorkspace().upgrade(refresh=refresh)
+    if result is None:
+        print("configuration is current")
+    return 0
+
+
+def _vault(args: argparse.Namespace) -> int:
+    workspace = ConfigWorkspace()
+    workspace.prepare()
+    vault = SecretVault(workspace.management_directory)
+    if args.vault_command == "set":
+        password = _vault_password(workspace, create=not vault.path.exists())
+        vault.set(password, args.name, _prompt_secret(f"Secret value for {args.name}"))
+        print(f"stored secret {args.name}")
+        return 0
+    if args.vault_command == "delete":
+        deleted = vault.delete(_vault_password(workspace), args.name)
+        if not deleted:
+            raise ValueError(f"secret {args.name!r} does not exist")
+        print(f"deleted secret {args.name}")
+        return 0
+    if args.vault_command == "list":
+        for name in vault.list_names(_vault_password(workspace)):
+            print(name)
+        return 0
+    if args.vault_command == "rotate":
+        password = _vault_password(workspace)
+        vault.rotate(password, _vault_password(workspace, create=True))
+        print("vault password rotated")
+        return 0
+    raise RuntimeError(f"unknown vault command: {args.vault_command}")
+
+
 def _prompt(label: str, default: str) -> str:
     try:
         value = input(f"{label} [{default}]: ").strip()
     except EOFError:
         return default
     return value or default
+
+
+def _prompt_secret(label: str) -> str:
+    value = getpass.getpass(f"{label}: ")
+    if not value:
+        raise ValueError(f"{label} must not be empty")
+    return value
+
+
+def _vault_password(workspace: ConfigWorkspace, *, create: bool = False) -> str:
+    if workspace.is_docker():
+        value = os.environ.get("LITEYUKI_VAULT_PASSWORD", "")
+        if not value:
+            raise ValueError("LITEYUKI_VAULT_PASSWORD is required for Docker secret vault access")
+        return value
+    value = _prompt_secret("Vault password" if not create else "New vault password")
+    if create and value != _prompt_secret("Confirm vault password"):
+        raise ValueError("vault passwords do not match")
+    return value
+
+
+def _runtime_secrets(settings: AppSettings) -> dict[str, str]:
+    names = {
+        secret_name
+        for runtime in settings.runtimes.values()
+        if runtime.enabled
+        for secret_name in runtime.secret_env.values()
+    }
+    if not names:
+        return {}
+    workspace = ConfigWorkspace()
+    values = SecretVault(workspace.management_directory).read(_vault_password(workspace))
+    missing = sorted(names - values.keys())
+    if missing:
+        raise ValueError(f"secret vault is missing required secrets: {', '.join(missing)}")
+    return {name: values[name] for name in names}
 
 
 def _check(settings: AppSettings) -> None:
@@ -125,18 +218,18 @@ def _list_plugins(settings: AppSettings) -> None:
         print(f"{manifest.id}\t{manifest.version}\t{manifest.name}")
 
 
-def _run(settings: AppSettings) -> int:
+def _run(settings: AppSettings, runtime_secrets: Mapping[str, str]) -> int:
     try:
-        asyncio.run(_run_until_signal(settings))
+        asyncio.run(_run_until_signal(settings, runtime_secrets))
     except KeyboardInterrupt:
         return 130
     return 0
 
 
-async def _run_until_signal(settings: AppSettings) -> None:
+async def _run_until_signal(settings: AppSettings, runtime_secrets: Mapping[str, str] | None = None) -> None:
     """Run the app until SIGINT/SIGTERM and always perform graceful cleanup."""
 
-    app = LiteyukiApp(settings)
+    app = LiteyukiApp(settings) if runtime_secrets is None else LiteyukiApp(settings, runtime_secrets=runtime_secrets)
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()
     async_handlers: list[signal.Signals] = []

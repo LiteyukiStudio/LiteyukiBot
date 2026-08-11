@@ -39,6 +39,31 @@ def test_outdated_workspace_config_is_backed_up_and_blocks_start(tmp_path: Path)
     assert "config_version = 1" in template.read_text(encoding="utf-8")
 
 
+def test_workspace_upgrade_is_idempotent_until_explicit_refresh(tmp_path: Path) -> None:
+    config = tmp_path / "liteyuki.toml"
+    config.write_text("config_version = 0\n[core]\nqueue_capacity = 1\n", encoding="utf-8")
+    workspace = ConfigWorkspace(tmp_path)
+
+    with pytest.raises(ConfigUpgradeRequired):
+        workspace.prepare()
+    with pytest.raises(ConfigUpgradeRequired, match="existing template"):
+        workspace.prepare()
+    assert len(list((tmp_path / ".liteyuki" / "config-backups").glob("*/liteyuki.toml"))) == 1
+
+    with pytest.raises(ConfigUpgradeRequired):
+        workspace.upgrade(refresh=True)
+    assert len(list((tmp_path / ".liteyuki" / "config-backups").glob("*/liteyuki.toml"))) == 2
+
+
+def test_future_workspace_config_is_not_backed_up(tmp_path: Path) -> None:
+    config = tmp_path / "liteyuki.toml"
+    config.write_text("config_version = 2\n", encoding="utf-8")
+
+    with pytest.raises(ConfigurationError, match="newer than this kernel"):
+        ConfigWorkspace(tmp_path).prepare()
+    assert not (tmp_path / ".liteyuki").exists()
+
+
 def test_regular_workspace_without_config_requires_initialization(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

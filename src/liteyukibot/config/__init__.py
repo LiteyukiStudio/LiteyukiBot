@@ -11,6 +11,7 @@ from .models import (
     RuntimeSettings,
 )
 from .template import CONFIG_VERSION, render_config_template
+from .vault import SecretVault, VaultError
 from .workspace import ConfigUpgradeRequired, ConfigWorkspace
 
 __all__ = (
@@ -27,6 +28,8 @@ __all__ = (
     "PluginSettings",
     "RuntimeEventRoute",
     "RuntimeSettings",
+    "SecretVault",
+    "VaultError",
     "load_settings",
     "render_config_template",
 )

@@ -135,6 +135,27 @@ def test_runtime_payload_logs_default_to_metadata_and_can_be_enabled() -> None:
     assert logger.records[-1]["payload"] == {"message": "secret"}
 
 
+def test_runtime_secret_environment_is_child_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LITEYUKI_VAULT_PASSWORD", "master-password")
+    supervisor = RuntimeSupervisor(logger=FakeLogger(), secret_values={"agent.api_key": "child-secret"})
+    supervisor.add(
+        RuntimeSpec(
+            id="agent",
+            kind="custom",
+            env={"PUBLIC_VALUE": "configured"},
+            secret_env={"LITEYUKI_AGENT_API_KEY": "agent.api_key"},
+        )
+    )
+
+    environment = supervisor._child_environment(supervisor.records["agent"])
+
+    assert environment["PUBLIC_VALUE"] == "configured"
+    assert environment["LITEYUKI_AGENT_API_KEY"] == "child-secret"
+    assert "LITEYUKI_VAULT_PASSWORD" not in environment
+    with pytest.raises(RuntimeError, match="unavailable secret"):
+        RuntimeSupervisor(logger=FakeLogger())._child_environment(supervisor.records["agent"])
+
+
 @pytest.mark.asyncio
 async def test_runtime_spawn_failure_is_reported_without_waiting_for_ready_timeout() -> None:
     supervisor = RuntimeSupervisor(logger=FakeLogger())

@@ -1115,6 +1115,7 @@ name = "liteyukibot-v7"
 version = "7.0.0a4"
 source = { editable = "." }
 dependencies = [
+    { name = "cryptography" },
     { name = "pydantic" },
     { name = "tomli-w" },
     { name = "yukilog" },
@@ -1139,6 +1140,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cryptography", specifier = ">=46,<51" },
     { name = "fastapi", marker = "extra == 'http'", specifier = ">=0.141,<1" },
     { name = "pydantic", specifier = ">=2.13,<3" },
     { name = "pyyaml", marker = "extra == 'yaml'", specifier = ">=6,<7" },
