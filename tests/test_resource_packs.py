@@ -75,7 +75,7 @@ def test_function_dispatches_to_matching_external_executor(tmp_path: Path) -> No
     class Executor:
         extensions: tuple[str, ...] = (".lyf",)
 
-        async def execute(self, document: FunctionDocument, call: FunctionCall) -> object:
+        async def execute(self, document: FunctionDocument, call: FunctionCall, _invoke: object) -> object:
             return {"id": call.id, "source": document.read_text()}
 
     executor: FunctionExecutor = Executor()

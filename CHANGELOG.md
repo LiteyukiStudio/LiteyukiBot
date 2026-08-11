@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 7.0.0a6 - 2026-08-11
+
+- added nested function invocation and explicit capability plumbing to the
+  resource-function dispatcher;
+- added `liteyukibot-v7-functions`, the separately published executor for the
+  LiteyukiBot v6 `.lyf`, `.lyfunction`, and `.mcfunction` language;
+- preserved v6 control flow while replacing the legacy Python `eval` and direct
+  shell execution with safe literal parsing and caller-supplied capabilities.
+
 ## 7.0.0a5 - 2026-08-11
 
 - added an installable v7 CLI workflow with `uv tool install liteyukibot-v7`;
