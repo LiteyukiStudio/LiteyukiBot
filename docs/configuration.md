@@ -56,6 +56,24 @@ operation. A second process for the same workspace exits rather than replacing
 the active control descriptor. `liteyuki --version` is equivalent to
 `liteyuki version`.
 
+## Instance Profiles
+
+`liteyuki profile stage` creates an isolated uv environment below the workspace,
+installs explicit requirements, and validates its configuration before it may be
+activated. `activate` changes the profile pointer atomically; `run` and `check`
+then use the selected profile Python. The previous verified profile remains
+available for one-command rollback.
+
+~~~bash
+liteyuki profile stage --require "liteyukibot-v7==7.0.0a8"
+liteyuki profile list
+liteyuki profile activate PROFILE_ID
+liteyuki profile rollback
+~~~
+
+`liteyuki.lock` records the active/previous profile and its exact installed
+distribution versions. Profiles never copy or migrate package-owned data.
+
 ## Precedence And Inspection
 
 The effective order is:
