@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 7.0.0a8 - 2026-08-11
+
+- added verified, workspace-owned uv profiles with atomic activation, rollback,
+  and a machine-readable lock record;
+- made `run` and `check` use the selected profile interpreter.
+
 ## 7.0.0a7 - 2026-08-11
 
 - cached v6 function source for each read-only dispatcher lifetime, reducing

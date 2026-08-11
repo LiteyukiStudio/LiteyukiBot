@@ -7,10 +7,14 @@ import asyncio
 import getpass
 import json
 import os
+import shutil
 import signal
+import subprocess
 import sys
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from filelock import FileLock, Timeout
@@ -32,6 +36,7 @@ from .config.vault import SecretVault
 from .control import ControlError, request_control
 from .exceptions import LiteyukiError
 from .init_wizard import WizardCancelled, build_custom_initialization_plan, run_init_wizard
+from .profiles import ProfileManifest, ProfileStore
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -75,11 +80,22 @@ def build_parser() -> argparse.ArgumentParser:
     runtime_commands.add_parser("list")
     restart = runtime_commands.add_parser("restart")
     restart.add_argument("runtime_id")
+    profile = subcommands.add_parser("profile", help="isolated runtime profile operations")
+    profile_commands = profile.add_subparsers(dest="profile_command", required=True)
+    stage = profile_commands.add_parser("stage")
+    stage.add_argument("--require", action="append", required=True, dest="requirements", metavar="REQUIREMENT")
+    profile_commands.add_parser("list")
+    show_profile = profile_commands.add_parser("show")
+    show_profile.add_argument("profile_id", nargs="?")
+    activate = profile_commands.add_parser("activate")
+    activate.add_argument("profile_id")
+    profile_commands.add_parser("rollback")
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    command_line = list(sys.argv[1:] if argv is None else argv)
+    args = build_parser().parse_args(command_line)
     if args.command == "version":
         print(__version__)
         return 0
@@ -94,7 +110,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _config_explain(args)
         if args.command == "vault":
             return _vault(args)
+        if args.command == "profile":
+            return _profile(args)
         workspace = ConfigWorkspace(args.workspace)
+        if args.command in {"run", "check"}:
+            delegated = _delegate_to_active_profile(workspace, command_line)
+            if delegated is not None:
+                return delegated
         settings = _load(workspace, args.config, args.overrides)
         if args.command == "run":
             return _run(settings, workspace)
@@ -112,6 +134,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(error, file=sys.stderr)
         return 2
     return 2
+
+
+def _delegate_to_active_profile(workspace: ConfigWorkspace, command_line: Sequence[str]) -> int | None:
+    if os.environ.get("LITEYUKI_PROFILE_STAGE") == "1":
+        return None
+    store = ProfileStore(workspace.directory)
+    profile_id = store.active()
+    if profile_id is None:
+        return None
+    python = ProfileStore.python_path(store.profile_path(profile_id)).resolve()
+    if python == Path(sys.executable).resolve():
+        return None
+    return subprocess.run(
+        [str(python), "-m", "liteyukibot.cli", *command_line],
+        cwd=workspace.directory,
+        check=False,
+    ).returncode
 
 
 def _load(workspace: ConfigWorkspace, config_paths: Sequence[str], overrides: Sequence[str]) -> AppSettings:
@@ -169,6 +208,73 @@ def _upgrade(directory: str, refresh: bool) -> int:
     if result is None:
         print("configuration is current")
     return 0
+
+
+def _profile(args: argparse.Namespace) -> int:
+    workspace = ConfigWorkspace(args.workspace)
+    workspace.prepare()
+    with _exclusive_workspace(workspace):
+        return _profile_unlocked(args, workspace)
+
+
+def _profile_unlocked(args: argparse.Namespace, workspace: ConfigWorkspace) -> int:
+    store = ProfileStore(workspace.directory)
+    if args.profile_command == "stage":
+        profile_id, path = store.create(tuple(args.requirements))
+        python = ProfileStore.python_path(path)
+        environment = {**os.environ, "LITEYUKI_PROFILE_STAGE": "1"}
+        try:
+            subprocess.run(["uv", "venv", "--python", "3.14", str(path / "venv")], check=True)
+            subprocess.run(["uv", "pip", "install", "--python", str(python), *args.requirements], check=True)
+            subprocess.run(
+                [str(python), "-m", "liteyukibot.cli", "--workspace", str(workspace.directory), "check"],
+                check=True,
+                env=environment,
+            )
+            report = subprocess.check_output(
+                [
+                    str(python),
+                    "-c",
+                    "import importlib.metadata as m, json, sys; "
+                    "print(json.dumps({'python': sys.executable, 'distributions': "
+                    "{d.metadata['Name'].lower(): d.version for d in m.distributions() "
+                    "if d.metadata.get('Name')}}, sort_keys=True))",
+                ],
+                text=True,
+            )
+        except BaseException:
+            shutil.rmtree(path, ignore_errors=True)
+            raise
+        observed = json.loads(report)
+        manifest = ProfileManifest(
+            profile_id,
+            datetime.now(UTC).isoformat(),
+            tuple(args.requirements),
+            str(observed["python"]),
+            {str(name): str(version) for name, version in dict(observed["distributions"]).items()},
+        )
+        store.write_manifest(manifest)
+        print(profile_id)
+        return 0
+    if args.profile_command == "list":
+        active = store.active()
+        for item in store.list():
+            print(f"{'*' if item.id == active else ' '}\t{item.id}\t{item.created_at}")
+        return 0
+    if args.profile_command == "show":
+        selected_profile_id = args.profile_id or store.active()
+        if not isinstance(selected_profile_id, str):
+            raise ValueError("no active profile")
+        print(json.dumps(store.read_manifest(selected_profile_id).document(), indent=2, sort_keys=True))
+        return 0
+    if args.profile_command == "activate":
+        store.activate(args.profile_id)
+        print(f"activated {args.profile_id}")
+        return 0
+    if args.profile_command == "rollback":
+        print(f"activated {store.rollback()}")
+        return 0
+    raise RuntimeError(f"unknown profile command: {args.profile_command}")
 
 
 def _config_show(args: argparse.Namespace) -> int:
