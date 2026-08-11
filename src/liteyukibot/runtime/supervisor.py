@@ -189,6 +189,33 @@ class RuntimeSupervisor:
         record = self.records[runtime_id]
         record.spec = replace(record.spec, options={**record.spec.options, **options})
 
+    def health(self) -> dict[str, dict[str, object]]:
+        """Return redacted runtime liveness and IPC pressure for local control planes."""
+
+        now = time.monotonic()
+        snapshots: dict[str, dict[str, object]] = {}
+        for runtime_id, record in self.records.items():
+            failures = sum(now - failure <= record.spec.restart_window for failure in record.failures)
+            snapshots[runtime_id] = {
+                "kind": record.spec.kind,
+                "state": record.state.value,
+                "connected": record.connected.is_set(),
+                "protocol": record.protocol_version,
+                "capabilities": tuple(sorted(record.capabilities)),
+                "launch_count": record.launch_count,
+                "heartbeat_age_seconds": (
+                    max(0.0, now - record.last_heartbeat) if record.connected.is_set() else None
+                ),
+                "failures_in_window": failures,
+                "pending_actions": len(record.pending_actions),
+                "pending_events": len(record.pending_events),
+                "inbound_actions": len(record.inbound_actions),
+                "inbound_events": len(record.inbound_events),
+                "inbound_agent_tools": len(record.inbound_agent_tools),
+                "active_deliveries": len(record.active_delivery_contexts),
+            }
+        return snapshots
+
     async def start(self) -> None:
         self._server = await asyncio.start_server(self._accept, self._host, 0)
         socket = self._server.sockets[0]

@@ -141,6 +141,38 @@ def test_runtime_payload_logs_default_to_metadata_and_can_be_enabled() -> None:
     assert logger.records[-1]["payload"] == {"message": "secret"}
 
 
+@pytest.mark.asyncio
+async def test_runtime_health_reports_liveness_and_ipc_pressure() -> None:
+    supervisor = RuntimeSupervisor(logger=FakeLogger())
+    record = RuntimeRecord(
+        spec=RuntimeSpec(id="agent", kind="custom"),
+        token="token",
+        state=RuntimeState.READY,
+        protocol_version=4,
+        capabilities=frozenset({"runtime.events.receive", "runtime.events.complete"}),
+        launch_count=2,
+    )
+    record.connected.set()
+    loop = asyncio.get_running_loop()
+    record.pending_actions["action-1"] = loop.create_future()
+    record.pending_events["event-1"] = loop.create_future()
+    record.active_delivery_contexts["delivery-1"] = (float("inf"), {}, None)
+    supervisor.records[record.spec.id] = record
+
+    health = supervisor.health()["agent"]
+
+    assert health["kind"] == "custom"
+    assert health["state"] == "ready"
+    assert health["connected"] is True
+    assert health["protocol"] == 4
+    assert health["capabilities"] == ("runtime.events.complete", "runtime.events.receive")
+    assert health["launch_count"] == 2
+    assert health["heartbeat_age_seconds"] is not None
+    assert health["pending_actions"] == 1
+    assert health["pending_events"] == 1
+    assert health["active_deliveries"] == 1
+
+
 def test_runtime_secret_environment_is_child_only(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LITEYUKI_VAULT_PASSWORD", "master-password")
     supervisor = RuntimeSupervisor(logger=FakeLogger(), secret_values={"agent.api_key": "child-secret"})

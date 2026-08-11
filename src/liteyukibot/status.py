@@ -23,6 +23,19 @@ def _freeze_states(name: str, states: Mapping[str, str]) -> Mapping[str, str]:
     return MappingProxyType(dict(sorted(normalized.items())))
 
 
+def _freeze_runtime_health(
+    values: Mapping[str, Mapping[str, object]],
+) -> Mapping[str, Mapping[str, object]]:
+    normalized: dict[str, Mapping[str, object]] = {}
+    for runtime_id, value in values.items():
+        if not isinstance(runtime_id, str) or not runtime_id:
+            raise ValueError("runtime health identifiers must be non-empty strings")
+        if not isinstance(value, Mapping):
+            raise ValueError("runtime health values must be mappings")
+        normalized[runtime_id] = MappingProxyType(dict(value))
+    return MappingProxyType(dict(sorted(normalized.items())))
+
+
 @dataclass(frozen=True, slots=True)
 class KernelStatusSnapshot:
     version: str
@@ -30,6 +43,7 @@ class KernelStatusSnapshot:
     uptime_seconds: float
     plugins: Mapping[str, str] = field(default_factory=dict)
     runtimes: Mapping[str, str] = field(default_factory=dict)
+    runtime_health: Mapping[str, Mapping[str, object]] = field(default_factory=dict)
     events_outstanding: int = 0
 
     def __post_init__(self) -> None:
@@ -43,6 +57,7 @@ class KernelStatusSnapshot:
             raise ValueError("outstanding event count must not be negative")
         object.__setattr__(self, "plugins", _freeze_states("plugin", self.plugins))
         object.__setattr__(self, "runtimes", _freeze_states("runtime", self.runtimes))
+        object.__setattr__(self, "runtime_health", _freeze_runtime_health(self.runtime_health))
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -51,6 +66,9 @@ class KernelStatusSnapshot:
             "uptime_seconds": self.uptime_seconds,
             "plugins": dict(self.plugins),
             "runtimes": dict(self.runtimes),
+            "runtime_health": {
+                runtime_id: dict(health) for runtime_id, health in self.runtime_health.items()
+            },
             "events_outstanding": self.events_outstanding,
         }
 

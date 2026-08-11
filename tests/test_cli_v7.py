@@ -132,3 +132,24 @@ def test_init_minimal_wizard_writes_locale_and_resource_index(
     assert cli_module.main(["init"]) == 0
     assert 'locale = "zh-CN"' in (workspace / "liteyuki.toml").read_text(encoding="utf-8")
     assert (workspace / "resources" / "index.json").read_text(encoding="utf-8") == "[]\n"
+
+
+def test_inspect_topology_emits_the_resolved_graph(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from liteyukibot.config import ConfigWorkspace
+
+    ConfigWorkspace(tmp_path).initialize()
+
+    class TopologyApp:
+        def __init__(self, _settings: AppSettings) -> None:
+            pass
+
+        def topology(self, *, discover_plugins: bool) -> dict[str, object]:
+            assert discover_plugins is True
+            return {"schema_version": 1, "runtimes": []}
+
+    monkeypatch.setattr(cli_module, "LiteyukiApp", TopologyApp)
+
+    assert cli_module.main(["--workspace", str(tmp_path), "inspect", "topology"]) == 0
+    assert capsys.readouterr().out.strip() == '{"schema_version": 1, "runtimes": []}'
