@@ -121,6 +121,14 @@ RELEASE_PROJECTS: dict[str, ReleaseProject] = {
         tag_selector="runtime-astrbot-v",
         verifier="scripts/verify_astrbot_runtime_install.py",
     ),
+    "runtime-mofox": ReleaseProject(
+        name="runtime-mofox",
+        project_dir="packages/runtime-mofox",
+        distribution="liteyukibot-v7-runtime-mofox",
+        tag_prefix="runtime-mofox-v",
+        tag_selector="runtime-mofox-v",
+        verifier="scripts/verify_mofox_runtime_install.py",
+    ),
 }
 
 
