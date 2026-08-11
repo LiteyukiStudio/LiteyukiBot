@@ -35,6 +35,7 @@ def test_kernel_import_namespace_uses_distribution_version() -> None:
         ("runtime-v6", "runtime-v6-v0.1.0a1"),
         ("agent-resolver", "agent-resolver-v0.1.0a1"),
         ("agent", "agent-v0.1.0a1"),
+        ("runtime-astrbot", "runtime-astrbot-v0.1.0a1"),
     ],
 )
 def test_current_release_identities_accept_exact_tags(name: str, tag: str) -> None:
