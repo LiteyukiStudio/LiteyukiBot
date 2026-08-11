@@ -28,6 +28,7 @@ from .runtime import (
 )
 from .services import ServiceRegistry
 from .status import KERNEL_STATUS_SERVICE, KernelStatusSnapshot
+from .tasks import ManagedTasks
 
 
 class AppState(StrEnum):
@@ -146,6 +147,7 @@ class LiteyukiApp:
         self._runtime_state_directories: dict[str, Any] = {}
         self.resources: ResourceCatalog | None = None
         self.functions: FunctionDispatcher | None = None
+        self._function_tasks = ManagedTasks("functions", on_failure=self._function_task_failed)
         runtime_plugins = RuntimeCatalog().discover()
         for runtime_id, runtime in settings.runtimes.items():
             if not runtime.enabled:
@@ -216,7 +218,7 @@ class LiteyukiApp:
                 for declaration in definition.manifest.resource_packs
             )
             self.resources = ResourceCatalog.load(self.resource_workspace, plugin_packs=declarations)
-            self.functions = FunctionDispatcher(self.resources)
+            self.functions = FunctionDispatcher(self.resources, task_owner=self._function_tasks)
             self.services.provide(RESOURCE_CATALOG_SERVICE, self.resources, provider="liteyukibot.kernel")
             self.services.provide(FUNCTION_DISPATCH_SERVICE, self.functions, provider="liteyukibot.kernel")
             plugin_configs = self._plugin_configs(self.settings.plugins.config)
@@ -339,6 +341,11 @@ class LiteyukiApp:
             except BaseException as error:
                 errors.append(error)
             self._plugins_setup = False
+        if self.functions is not None:
+            try:
+                await self.functions.aclose()
+            except BaseException as error:
+                errors.append(error)
         if self._runtimes_started or self.runtimes.records:
             try:
                 await self.runtimes.stop()
@@ -353,6 +360,9 @@ class LiteyukiApp:
             self._logging_started = False
         if errors:
             raise BaseExceptionGroup("application cleanup failed", errors)
+
+    def _function_task_failed(self, name: str, error: BaseException) -> None:
+        self.logger.bind(component="functions").error("function task {} failed: {}", name, error)
 
     async def _ingest_runtime_event(self, runtime_id: str, payload: dict[str, Any]) -> str:
         if not self._accepting_events:

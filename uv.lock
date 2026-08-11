@@ -1113,7 +1113,7 @@ wheels = [
 
 [[package]]
 name = "liteyukibot-v7"
-version = "7.0.0a6"
+version = "7.0.0a7"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
@@ -1221,7 +1221,7 @@ requires-dist = [
 
 [[package]]
 name = "liteyukibot-v7-functions"
-version = "0.1.0a1"
+version = "0.1.0a2"
 source = { editable = "packages/functions" }
 dependencies = [
     { name = "liteyukibot-v7" },

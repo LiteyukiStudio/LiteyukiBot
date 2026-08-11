@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 from liteyukibot_functions import V6FunctionCapabilityError, V6FunctionExecutor, V6FunctionSyntaxError
 
-from liteyukibot.functions import FunctionCall, FunctionDispatcher, FunctionRecursionError
+from liteyukibot.functions import FunctionCall, FunctionDispatcher, FunctionError, FunctionRecursionError
 from liteyukibot.resource_packs import ResourceCatalog
 
 
@@ -75,8 +75,8 @@ async def test_v6_executor_supports_nested_nohup_and_await(tmp_path: Path) -> No
     dispatcher = _dispatcher(
         tmp_path,
         {
-            "main.lyfunction": "nohup function child value=1\nawait\n",
-            "child.mcfunction": "api record value=value\n",
+            "main.lyfunction": "function child value=1\n",
+            "child.mcfunction": "nohup api record value=value\nawait\n",
         },
     )
     capabilities = Capabilities()
@@ -120,3 +120,38 @@ async def test_v6_executor_end_cancels_pending_background_work(tmp_path: Path) -
     dispatcher = _dispatcher(tmp_path, {"end.lyf": "nohup sleep 60\nend\n"})
 
     await asyncio.wait_for(dispatcher.dispatch(FunctionCall("end", {})), timeout=1)
+
+
+@pytest.mark.asyncio
+async def test_v6_executor_reloads_function_source_with_a_new_dispatcher(tmp_path: Path) -> None:
+    dispatcher = _dispatcher(tmp_path, {"cached.lyf": "api record value=1\n"})
+    capabilities = Capabilities()
+
+    await dispatcher.dispatch(FunctionCall("cached", {}, capabilities=capabilities))
+    (tmp_path / "resources" / "legacy" / "functions" / "cached.lyf").write_text(
+        "api record value=2\n",
+        encoding="utf-8",
+    )
+    await dispatcher.dispatch(FunctionCall("cached", {}, capabilities=capabilities))
+    reloaded = _dispatcher(tmp_path, {"cached.lyf": "api record value=2\n"})
+    await reloaded.dispatch(FunctionCall("cached", {}, capabilities=capabilities))
+
+    assert capabilities.apis == [
+        ("record", {"value": 1}),
+        ("record", {"value": 1}),
+        ("record", {"value": 2}),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_v6_executor_shutdown_cancels_unawaited_background_work(tmp_path: Path) -> None:
+    dispatcher = _dispatcher(tmp_path, {"background.lyf": "nohup sleep 60\n"})
+
+    await dispatcher.dispatch(FunctionCall("background", {}))
+    await asyncio.sleep(0)
+
+    assert dispatcher.background_task_count == 1
+    await dispatcher.aclose()
+    assert dispatcher.background_task_count == 0
+    with pytest.raises(FunctionError, match="closed"):
+        await dispatcher.dispatch(FunctionCall("background", {}))

@@ -67,6 +67,10 @@ explicitly supply the adapter API or command runner it intends to authorize;
 resource packs never gain API access, Python evaluation, or shell execution
 merely by being discovered.
 
+Function source is cached for the lifetime of its dispatcher, matching the
+read-only resource-pack contract. Restart the application or construct a new
+dispatcher after changing a workspace function file.
+
 ## Testing
 
 `PluginTestHarness` uses the production lifecycle and EventBus without importing
