@@ -11,7 +11,7 @@ from liteyukibot_runtime_mofox.host import MoFoxRuntimeHost, _enforce_headless_c
 from liteyukibot_runtime_mofox.translate import to_mofox_envelope, to_mofox_event_input, to_send_action
 
 from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope, Message, Segment, SendMessage
-from liteyukibot.runtime.protocol import ActionResponse, EventAccepted, EventMessage
+from liteyukibot.runtime.protocol import ActionResponse, EventAccepted, EventCompleted, EventMessage
 
 
 def _event() -> EventEnvelope:
@@ -106,6 +106,9 @@ async def test_mofox_host_returns_chatter_output_to_the_source_runtime() -> None
     await asyncio.gather(*host._tasks)
     await host.close()
 
-    assert client.sent == [EventAccepted(correlation_id="delivery-1", status="accepted")]
+    assert client.sent == [
+        EventAccepted(correlation_id="delivery-1", status="accepted"),
+        EventCompleted(correlation_id="delivery-1", status="completed"),
+    ]
     assert client.actions[0]["runtime_id"] == "nonebot"
     assert client.actions[0]["event_id"] == "event-1"

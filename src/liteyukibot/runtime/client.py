@@ -164,8 +164,8 @@ class RuntimeClient:
     ) -> ActionResponse:
         if timeout_seconds <= 0:
             raise ValueError("runtime action timeout must be positive")
-        if self.negotiated_protocol != 3:
-            raise RuntimeError("child-originated actions require runtime protocol v3")
+        if self.negotiated_protocol not in (3, 4):
+            raise RuntimeError("child-originated actions require runtime protocol v3 or v4")
         if self._heartbeat_task is None:
             raise RuntimeError("runtime client is not ready")
         if "runtime.actions.send" not in self._capabilities:
@@ -198,8 +198,8 @@ class RuntimeClient:
             raise ValueError("agent tool timeout must be positive")
         if not delivery_correlation_id or not tool_id:
             raise ValueError("agent tool delivery correlation id and tool id must not be empty")
-        if self.negotiated_protocol != 3:
-            raise RuntimeError("agent tools require runtime protocol v3")
+        if self.negotiated_protocol not in (3, 4):
+            raise RuntimeError("agent tools require runtime protocol v3 or v4")
         if self._heartbeat_task is None:
             raise RuntimeError("runtime client is not ready")
         if "agent.tools.execute" not in self._capabilities:

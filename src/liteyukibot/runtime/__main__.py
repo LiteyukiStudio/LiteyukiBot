@@ -10,6 +10,7 @@ from .protocol import (
     ActionRequest,
     ActionResponse,
     EventAccepted,
+    EventCompleted,
     EventMessage,
     Shutdown,
 )
@@ -21,7 +22,7 @@ async def run_noop(kind: str) -> None:
         await client.connect()
         if kind != "noop":
             raise RuntimeError(f"runtime kind {kind!r} is not installed")
-        await client.ready(("noop", "runtime.events.receive"))
+        await client.ready(("noop", "runtime.events.receive", "runtime.events.complete"))
         while True:
             message = await client.receive()
             if isinstance(message, Shutdown):
@@ -39,6 +40,12 @@ async def run_noop(kind: str) -> None:
                     EventAccepted(
                         correlation_id=message.correlation_id,
                         status="accepted",
+                    )
+                )
+                await client.send(
+                    EventCompleted(
+                        correlation_id=message.correlation_id,
+                        status="completed",
                     )
                 )
     finally:

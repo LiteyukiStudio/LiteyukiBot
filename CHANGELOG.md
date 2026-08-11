@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 7.0.0a9 - 2026-08-11
+
+- introduced runtime IPC protocol v4 with immutable delivery tracing and an
+  optional, capability-gated terminal event outcome;
+- updated the agent, AstrBot, MoFox, and v6 child hosts to report completed or
+  failed asynchronous event deliveries.
+
 ## 7.0.0a8 - 2026-08-11
 
 - added verified, workspace-owned uv profiles with atomic activation, rollback,

@@ -10,7 +10,9 @@ import pytest
 from liteyukibot.exceptions import RuntimeProtocolError
 from liteyukibot.runtime.protocol import (
     MAX_FRAME_SIZE,
-    ConfigMessage,
+    EventCompleted,
+    EventMessage,
+    EventTrace,
     Hello,
     Ready,
     json_mapping,
@@ -39,7 +41,15 @@ def _reader(payload: bytes) -> asyncio.StreamReader:
 
 @pytest.mark.asyncio
 async def test_protocol_round_trip_preserves_message_shape() -> None:
-    message = ConfigMessage(options={"nested": {"enabled": True}})
+    message = EventMessage(
+        correlation_id="delivery-1",
+        payload={"nested": {"enabled": True}},
+        trace=EventTrace(
+            trace_id="trace-1",
+            source_runtime_id="nonebot",
+            source_event_id="event-1",
+        ),
+    )
     writer = MemoryWriter()
 
     await write_message(cast(asyncio.StreamWriter, writer), message)
@@ -92,7 +102,7 @@ async def test_protocol_accepts_discriminated_ready_message() -> None:
     assert await read_message(_reader(frame)) == Ready(capabilities=("events",))
 
 
-@pytest.mark.parametrize("protocol", [1, 2, 3])
+@pytest.mark.parametrize("protocol", [1, 2, 3, 4])
 @pytest.mark.asyncio
 async def test_protocol_accepts_negotiated_hello_versions(protocol: int) -> None:
     payload = json.dumps(
@@ -116,7 +126,7 @@ async def test_protocol_rejects_unsupported_hello_version() -> None:
     payload = json.dumps(
         {
             "type": "hello",
-            "protocol": 4,
+            "protocol": 5,
             "runtime_id": "fixture",
             "kind": "custom",
             "token": "secret",
@@ -126,3 +136,13 @@ async def test_protocol_rejects_unsupported_hello_version() -> None:
 
     with pytest.raises(RuntimeProtocolError):
         await read_message(_reader(frame))
+
+
+@pytest.mark.asyncio
+async def test_protocol_accepts_v4_event_completion() -> None:
+    message = EventCompleted(correlation_id="delivery-1", status="completed")
+    writer = MemoryWriter()
+
+    await write_message(cast(asyncio.StreamWriter, writer), message)
+
+    assert await read_message(_reader(b"".join(writer.chunks))) == message

@@ -12,12 +12,12 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from ..exceptions import RuntimeProtocolError
 
-type ProtocolVersion = Literal[1, 2, 3]
+type ProtocolVersion = Literal[1, 2, 3, 4]
 type JsonScalar = str | int | float | bool | None
 type JsonValue = JsonScalar | list[JsonValue] | dict[str, JsonValue]
 
-PROTOCOL_VERSION: ProtocolVersion = 3
-SUPPORTED_PROTOCOL_VERSIONS: tuple[ProtocolVersion, ...] = (1, 2, 3)
+PROTOCOL_VERSION: ProtocolVersion = 4
+SUPPORTED_PROTOCOL_VERSIONS: tuple[ProtocolVersion, ...] = (1, 2, 3, 4)
 MAX_FRAME_SIZE = 8 * 1024 * 1024
 
 
@@ -59,16 +59,34 @@ class Shutdown(WireModel):
     reason: str = "requested"
 
 
+class EventTrace(WireModel):
+    """Immutable kernel-owned context carried across an event delivery."""
+
+    trace_id: str = Field(min_length=1)
+    source_runtime_id: str = Field(min_length=1)
+    source_event_id: str = Field(min_length=1)
+
+
 class EventMessage(WireModel):
     type: Literal["event"] = "event"
     correlation_id: str
     payload: dict[str, JsonValue]
+    trace: EventTrace | None = None
 
 
 class EventAccepted(WireModel):
     type: Literal["event_accepted"] = "event_accepted"
     correlation_id: str
     status: Literal["accepted", "overloaded", "invalid"]
+    detail: str | None = None
+
+
+class EventCompleted(WireModel):
+    """Terminal v4 outcome for an already accepted core-to-child Event."""
+
+    type: Literal["event_completed"] = "event_completed"
+    correlation_id: str = Field(min_length=1)
+    status: Literal["completed", "failed"]
     detail: str | None = None
 
 
@@ -120,6 +138,7 @@ type WireMessage = Annotated[
     | Shutdown
     | EventMessage
     | EventAccepted
+    | EventCompleted
     | ActionRequest
     | ActionResponse
     | AgentToolRequest
