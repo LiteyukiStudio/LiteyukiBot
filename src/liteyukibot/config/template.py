@@ -17,6 +17,7 @@ def render_config_template(
     logging_level: str = "INFO",
     payload_mode: str = "metadata",
     payload_exclude_runtimes: Iterable[str] = (),
+    locale: str = "auto",
     plugins: Iterable[str] = (),
     plugin_config: dict[str, dict[str, Any]] | None = None,
     runtimes: dict[str, dict[str, Any]] | None = None,
@@ -39,6 +40,7 @@ def render_config_template(
             "payload_mode": payload_mode,
             "payload_exclude_runtimes": list(payload_exclude_runtimes),
         },
+        "i18n": {"locale": locale},
         "plugins": {
             "enabled": list(plugins),
             "local_modules": [],

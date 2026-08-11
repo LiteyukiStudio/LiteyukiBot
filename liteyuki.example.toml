@@ -17,6 +17,10 @@ json_lines = false
 payload_mode = "metadata"
 payload_exclude_runtimes = []
 
+[i18n]
+# auto uses the system locale and falls back to English when CJK terminal font support is unavailable.
+locale = "auto"
+
 [plugins]
 enabled = []
 local_modules = []

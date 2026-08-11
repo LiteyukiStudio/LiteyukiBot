@@ -13,9 +13,11 @@ from .agents import AGENT_TOOL_BROKER_SERVICE, AgentToolBroker, AgentToolCatalog
 from .config import AppSettings, RuntimeEventRoute
 from .control import ControlServer
 from .events import ActionEnvelope, ActionResult, EventBus, EventEnvelope
+from .functions import FUNCTION_DISPATCH_SERVICE, FunctionDispatcher
 from .http import HttpServer
 from .logging import Logger, configure_logging, get_logger, shutdown_logging
 from .plugins import PluginManager
+from .resource_packs import RESOURCE_CATALOG_SERVICE, ResourceCatalog
 from .runtime import (
     ActionSinkResult,
     AgentToolSinkResult,
@@ -90,8 +92,10 @@ class LiteyukiApp:
         *,
         logger: Logger | None = None,
         runtime_secrets: Mapping[str, str] | None = None,
+        resource_workspace: str | None = None,
     ) -> None:
         self.settings = settings
+        self.resource_workspace = resource_workspace or "."
         self.logger = logger or get_logger(component="core")
         self.state = AppState.CREATED
         self.services = ServiceRegistry()
@@ -140,6 +144,8 @@ class LiteyukiApp:
         self._started_at: float | None = None
         self._stopped_at: float | None = None
         self._runtime_state_directories: dict[str, Any] = {}
+        self.resources: ResourceCatalog | None = None
+        self.functions: FunctionDispatcher | None = None
         runtime_plugins = RuntimeCatalog().discover()
         for runtime_id, runtime in settings.runtimes.items():
             if not runtime.enabled:
@@ -204,6 +210,15 @@ class LiteyukiApp:
                 self.settings.plugins.enabled,
                 self.settings.plugins.local_modules,
             )
+            declarations = tuple(
+                declaration
+                for definition in definitions.values()
+                for declaration in definition.manifest.resource_packs
+            )
+            self.resources = ResourceCatalog.load(self.resource_workspace, plugin_packs=declarations)
+            self.functions = FunctionDispatcher(self.resources)
+            self.services.provide(RESOURCE_CATALOG_SERVICE, self.resources, provider="liteyukibot.kernel")
+            self.services.provide(FUNCTION_DISPATCH_SERVICE, self.functions, provider="liteyukibot.kernel")
             plugin_configs = self._plugin_configs(self.settings.plugins.config)
             self._plugins_setup = True
             await self.plugins.setup(definitions, plugin_configs)
