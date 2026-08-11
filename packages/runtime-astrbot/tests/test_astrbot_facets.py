@@ -6,6 +6,7 @@ import zipfile
 from pathlib import Path
 
 import pytest
+from liteyukibot_runtime_astrbot import runtime_plugin
 from liteyukibot_runtime_astrbot.facets import AstrBotFacetInstaller
 from liteyukibot_runtime_astrbot.host import _prepare_managed_plugins
 
@@ -66,3 +67,10 @@ def test_astrbot_projection_requires_string_mode(tmp_path: Path, monkeypatch: py
 
     with pytest.raises(ValueError, match="projection_mode"):
         _prepare_managed_plugins(tmp_path / "state" / "astrbot", {"projection_mode": 1})
+
+
+def test_astrbot_runtime_declares_copy_projection_for_custom_initialization() -> None:
+    spec = runtime_plugin().init_spec
+    assert spec is not None
+    assert spec.default_options["projection_mode"] == "copy"
+    assert spec.fields[0].choices == ("copy", "symlink")

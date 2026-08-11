@@ -6,6 +6,7 @@ import zipfile
 from pathlib import Path
 
 import pytest
+from liteyukibot_runtime_mofox import runtime_plugin
 from liteyukibot_runtime_mofox.facets import MoFoxFacetInstaller
 from liteyukibot_runtime_mofox.host import _prepare_managed_plugins
 
@@ -62,3 +63,10 @@ def test_mofox_projection_requires_string_mode(tmp_path: Path, monkeypatch: pyte
 
     with pytest.raises(ValueError, match="projection_mode"):
         _prepare_managed_plugins(tmp_path / "state" / "mofox", {"projection_mode": 1})
+
+
+def test_mofox_runtime_declares_copy_projection_for_custom_initialization() -> None:
+    spec = runtime_plugin().init_spec
+    assert spec is not None
+    assert spec.default_options["projection_mode"] == "copy"
+    assert spec.fields[0].choices == ("copy", "symlink")
