@@ -244,7 +244,9 @@ def _profile_unlocked(args: argparse.Namespace, workspace: ConfigWorkspace) -> i
                     "import importlib.metadata as m, json, sys; "
                     "print(json.dumps({'python': sys.executable, 'distributions': "
                     "{d.metadata['Name'].lower(): d.version for d in m.distributions() "
-                    "if d.metadata.get('Name')}}, sort_keys=True))",
+                    "if d.metadata.get('Name')}, 'direct_urls': "
+                    "{d.metadata['Name'].lower(): json.loads(raw) for d in m.distributions() "
+                    "if d.metadata.get('Name') and (raw := d.read_text('direct_url.json'))}}, sort_keys=True))",
                 ],
                 text=True,
             )
@@ -258,6 +260,7 @@ def _profile_unlocked(args: argparse.Namespace, workspace: ConfigWorkspace) -> i
             tuple(args.requirements),
             str(observed["python"]),
             {str(name): str(version) for name, version in dict(observed["distributions"]).items()},
+            ProfileManifest.sanitize_direct_urls(dict(observed.get("direct_urls", {}))),
         )
         store.write_manifest(manifest)
         print(profile_id)
