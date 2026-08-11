@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from liteyukibot import PluginContext, PluginDefinition, PluginManifest
+from liteyukibot import PluginContext, PluginDefinition, PluginInitSpec, PluginManifest
 
 from .service import PERMISSION_SERVICE, create_permission_service
 
@@ -21,6 +21,7 @@ def create_plugin(version: str) -> PluginDefinition:
             provides=(PERMISSION_SERVICE,),
         ),
         setup=setup,
+        init_spec=PluginInitSpec(description="Permission grants and roles can be configured after initialization."),
     )
 
 

@@ -6,6 +6,8 @@ import sys
 from dataclasses import dataclass
 from importlib import metadata
 
+from ..init_specs import RuntimeInitSpec
+
 
 @dataclass(frozen=True, slots=True)
 class RuntimePlugin:
@@ -15,6 +17,7 @@ class RuntimePlugin:
     command: tuple[str, ...]
     default_event_route_messages_only: bool = False
     agent_harness: str | None = None
+    init_spec: RuntimeInitSpec | None = None
 
     def __post_init__(self) -> None:
         if not self.kind or self.kind != self.kind.strip():
@@ -43,22 +46,32 @@ class RuntimeCatalog:
         return plugin.command
 
     def discover(self) -> dict[str, RuntimePlugin]:
-        plugins: dict[str, RuntimePlugin] = {}
-        for entry in metadata.entry_points(group=self.ENTRY_POINT_GROUP):
-            loaded = entry.load()
-            if not callable(loaded):
-                raise RuntimeError(f"runtime entry point {entry.name!r} is not callable")
-            plugin = loaded()
-            if not isinstance(plugin, RuntimePlugin):
-                raise RuntimeError(f"runtime entry point {entry.name!r} did not return RuntimePlugin")
-            if plugin.kind != entry.name:
-                raise RuntimeError(
-                    f"runtime entry point {entry.name!r} returned mismatched kind {plugin.kind!r}"
-                )
-            if plugin.kind in plugins:
-                raise RuntimeError(f"duplicate runtime plugin kind {plugin.kind!r}")
-            plugins[plugin.kind] = plugin
+        plugins, diagnostics = self.discover_installed()
+        if diagnostics:
+            raise RuntimeError("; ".join(diagnostics))
         return plugins
+
+    def discover_installed(self) -> tuple[dict[str, RuntimePlugin], tuple[str, ...]]:
+        """Return valid runtime packages plus diagnostics for broken entry points."""
+
+        plugins: dict[str, RuntimePlugin] = {}
+        diagnostics: list[str] = []
+        for entry in metadata.entry_points(group=self.ENTRY_POINT_GROUP):
+            try:
+                loaded = entry.load()
+                if not callable(loaded):
+                    raise TypeError("entry point is not callable")
+                plugin = loaded()
+                if not isinstance(plugin, RuntimePlugin):
+                    raise TypeError("entry point did not return RuntimePlugin")
+                if plugin.kind != entry.name:
+                    raise ValueError(f"returned mismatched kind {plugin.kind!r}")
+                if plugin.kind in plugins:
+                    raise ValueError("duplicates an installed runtime kind")
+                plugins[plugin.kind] = plugin
+            except Exception as error:
+                diagnostics.append(f"runtime {entry.name!r} is unavailable: {type(error).__name__}: {error}")
+        return plugins, tuple(diagnostics)
 
 
 __all__ = ["RuntimeCatalog", "RuntimePlugin"]

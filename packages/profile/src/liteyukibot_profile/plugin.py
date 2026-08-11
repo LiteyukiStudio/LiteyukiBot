@@ -6,7 +6,7 @@ from typing import cast
 
 from liteyukibot_resources import RESOURCE_SERVICE, ResourceField, ResourceService, ResourceSpec
 
-from liteyukibot import PluginContext, PluginDefinition, PluginManifest
+from liteyukibot import PluginContext, PluginDefinition, PluginInitSpec, PluginManifest
 from liteyukibot.services import ServiceRequirement
 
 from .service import PROFILE_SERVICE, SQLiteProfileService, language_value, nickname_value
@@ -57,6 +57,7 @@ def create_plugin(version: str) -> PluginDefinition:
             storage="private",
         ),
         setup=setup,
+        init_spec=PluginInitSpec(description="Private per-user profile storage and resource fields."),
     )
 
 

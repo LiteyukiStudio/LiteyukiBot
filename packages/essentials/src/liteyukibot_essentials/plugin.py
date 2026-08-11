@@ -17,7 +17,7 @@ from liteyukibot_commands import (
 )
 from liteyukibot_permissions import Principal
 
-from liteyukibot import PluginContext, PluginDefinition, PluginManifest
+from liteyukibot import InitFieldKind, InitFieldSpec, PluginContext, PluginDefinition, PluginInitSpec, PluginManifest
 from liteyukibot.events import HandlerResult
 from liteyukibot.services import ServiceKey, ServiceRequirement
 from liteyukibot.status import KERNEL_STATUS_SERVICE, KernelStatusProvider
@@ -136,6 +136,18 @@ def create_plugin(version: str) -> PluginDefinition:
             ),
         ),
         setup=setup,
+        init_spec=PluginInitSpec(
+            description="Help and protected kernel status commands.",
+            fields=(
+                InitFieldSpec(
+                    key="language",
+                    label="Default language",
+                    kind=InitFieldKind.STRING,
+                    default="zh-CN",
+                    choices=("zh-CN", "en"),
+                ),
+            ),
+        ),
     )
 
 

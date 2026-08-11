@@ -6,7 +6,7 @@ from typing import cast
 
 from liteyukibot_permissions import PERMISSION_SERVICE, PermissionService
 
-from liteyukibot import PluginContext, PluginDefinition, PluginManifest
+from liteyukibot import InitFieldKind, InitFieldSpec, PluginContext, PluginDefinition, PluginInitSpec, PluginManifest
 from liteyukibot.services import ServiceRequirement
 
 from .service import COMMAND_SERVICE, create_command_service
@@ -35,6 +35,17 @@ def create_plugin(version: str) -> PluginDefinition:
             requires=(ServiceRequirement(PERMISSION_SERVICE),),
         ),
         setup=setup,
+        init_spec=PluginInitSpec(
+            description="Protocol-neutral command routing.",
+            fields=(
+                InitFieldSpec(
+                    key="prefixes",
+                    label="Command prefixes",
+                    kind=InitFieldKind.STRING_LIST,
+                    default=("/",),
+                ),
+            ),
+        ),
     )
 
 
