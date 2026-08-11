@@ -5,6 +5,7 @@ import json
 import os
 import tomllib
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,81 @@ from .models import AppSettings
 
 type ConfigMap = dict[str, Any]
 type CliOverrides = Mapping[str, Any] | Iterable[str]
+
+
+@dataclass(frozen=True, slots=True)
+class ConfigSource:
+    """One configuration layer that supplied a value."""
+
+    kind: str
+    source: str
+
+
+@dataclass(frozen=True, slots=True)
+class ConfigProvenance:
+    """Immutable source chains indexed by JSON Pointer paths."""
+
+    chains: Mapping[tuple[str, ...], tuple[ConfigSource, ...]]
+
+    def explain(self, pointer: str) -> tuple[ConfigSource, ...]:
+        path = _parse_pointer(pointer)
+        exact = self.chains.get(path)
+        if exact is not None:
+            return exact
+        descendants = [
+            source
+            for candidate, chain in self.chains.items()
+            if candidate[: len(path)] == path
+            for source in chain
+        ]
+        if not descendants:
+            raise ValueError(f"configuration pointer does not exist: {pointer}")
+        return tuple(dict.fromkeys(descendants))
+
+
+@dataclass(frozen=True, slots=True)
+class ConfigInspection:
+    """Validated settings plus their complete source provenance."""
+
+    settings: AppSettings
+    provenance: ConfigProvenance
+
+    def explain(self, pointer: str) -> ConfigExplanation:
+        return ConfigExplanation(
+            pointer=pointer,
+            value=_value_at_pointer(self.settings.model_dump(mode="json"), _parse_pointer(pointer)),
+            sources=self.provenance.explain(pointer),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ConfigExplanation:
+    """One final value and the ordered layers that supplied it."""
+
+    pointer: str
+    value: Any
+    sources: tuple[ConfigSource, ...]
+
+
+class _ProvenanceTracker:
+    def __init__(self) -> None:
+        self.chains: dict[tuple[str, ...], list[ConfigSource]] = {}
+
+    def apply(self, value: Mapping[str, Any], source: ConfigSource) -> None:
+        self._apply(value, source, ())
+
+    def freeze(self) -> ConfigProvenance:
+        return ConfigProvenance({path: tuple(chain) for path, chain in self.chains.items()})
+
+    def _apply(self, value: Any, source: ConfigSource, path: tuple[str, ...]) -> None:
+        if isinstance(value, Mapping):
+            if not value:
+                self.chains.setdefault(path, []).append(source)
+                return
+            for key, child in value.items():
+                self._apply(child, source, (*path, str(key)))
+            return
+        self.chains.setdefault(path, []).append(source)
 
 
 def _deep_merge(base: Mapping[str, Any], overlay: Mapping[str, Any]) -> ConfigMap:
@@ -143,8 +219,9 @@ def _resolve_declared_paths(data: ConfigMap, base_directory: Path) -> ConfigMap:
 
 
 class _FileLoader:
-    def __init__(self, issues: list[ConfigIssue]) -> None:
+    def __init__(self, issues: list[ConfigIssue], tracker: _ProvenanceTracker | None = None) -> None:
         self.issues = issues
+        self.tracker = tracker
         self._active: list[Path] = []
         self._loaded: dict[str, Path] = {}
 
@@ -185,6 +262,8 @@ class _FileLoader:
             include_value = parsed.pop("include", [])
             included = self._load_includes(include_value, path)
             own_values = _resolve_declared_paths(parsed, path.parent)
+            if self.tracker is not None:
+                self.tracker.apply(own_values, ConfigSource("file", str(path)))
             return _deep_merge(included, own_values)
         finally:
             self._active.pop()
@@ -281,8 +360,47 @@ def load_settings(
     mappings may contain either nested values or dotted keys.
     """
 
+    return _load_settings(
+        primary_path,
+        config_paths=config_paths,
+        environ=environ,
+        cli_overrides=cli_overrides,
+        tracker=None,
+    )[0]
+
+
+def inspect_settings(
+    primary_path: str | os.PathLike[str] | None = None,
+    *,
+    config_paths: Iterable[str | os.PathLike[str]] = (),
+    environ: Mapping[str, str] | None = None,
+    cli_overrides: CliOverrides = (),
+) -> ConfigInspection:
+    """Load settings and preserve the full source chain for every value."""
+
+    tracker = _ProvenanceTracker()
+    tracker.apply(AppSettings().model_dump(mode="json"), ConfigSource("default", "kernel defaults"))
+    settings, provenance = _load_settings(
+        primary_path,
+        config_paths=config_paths,
+        environ=environ,
+        cli_overrides=cli_overrides,
+        tracker=tracker,
+    )
+    assert provenance is not None
+    return ConfigInspection(settings, provenance)
+
+
+def _load_settings(
+    primary_path: str | os.PathLike[str] | None,
+    *,
+    config_paths: Iterable[str | os.PathLike[str]],
+    environ: Mapping[str, str] | None,
+    cli_overrides: CliOverrides,
+    tracker: _ProvenanceTracker | None,
+) -> tuple[AppSettings, ConfigProvenance | None]:
     issues: list[ConfigIssue] = []
-    loader = _FileLoader(issues)
+    loader = _FileLoader(issues, tracker)
     merged: ConfigMap = {}
 
     if primary_path is not None:
@@ -291,8 +409,12 @@ def load_settings(
         merged = _deep_merge(merged, loader.load_root(config_path))
 
     environment_values = _environment_layer(os.environ if environ is None else environ, issues)
+    if tracker is not None:
+        tracker.apply(environment_values, ConfigSource("environment", "LITEYUKI__"))
     merged = _deep_merge(merged, _resolve_declared_paths(environment_values, Path.cwd()))
     command_line_values = _cli_layer(cli_overrides, issues)
+    if tracker is not None:
+        tracker.apply(command_line_values, ConfigSource("command_line", "--set"))
     merged = _deep_merge(merged, _resolve_declared_paths(command_line_values, Path.cwd()))
 
     try:
@@ -312,4 +434,47 @@ def load_settings(
         raise ConfigurationError(issues)
     if settings is None:  # Kept explicit for type checkers; validation errors are handled above.
         raise RuntimeError("configuration validation failed without an issue")
-    return settings
+    return settings, None if tracker is None else tracker.freeze()
+
+
+def _parse_pointer(pointer: str) -> tuple[str, ...]:
+    if pointer == "":
+        return ()
+    if not pointer.startswith("/"):
+        raise ValueError("configuration pointer must be an RFC 6901 JSON Pointer")
+    parts: list[str] = []
+    for part in pointer[1:].split("/"):
+        decoded: list[str] = []
+        index = 0
+        while index < len(part):
+            character = part[index]
+            if character != "~":
+                decoded.append(character)
+                index += 1
+                continue
+            if index + 1 >= len(part) or part[index + 1] not in {"0", "1"}:
+                raise ValueError("configuration pointer contains an invalid escape")
+            decoded.append("~" if part[index + 1] == "0" else "/")
+            index += 2
+        parts.append("".join(decoded))
+    return tuple(parts)
+
+
+def _value_at_pointer(value: Any, path: tuple[str, ...]) -> Any:
+    current = value
+    for part in path:
+        if isinstance(current, Mapping):
+            try:
+                current = current[part]
+            except KeyError as error:
+                raise ValueError(f"configuration pointer does not exist: /{'/'.join(path)}") from error
+            continue
+        if isinstance(current, (list, tuple)) and part.isdigit():
+            index = int(part)
+            try:
+                current = current[index]
+            except IndexError as error:
+                raise ValueError(f"configuration pointer does not exist: /{'/'.join(path)}") from error
+            continue
+        raise ValueError(f"configuration pointer does not exist: /{'/'.join(path)}")
+    return current

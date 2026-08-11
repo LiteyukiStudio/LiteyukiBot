@@ -86,6 +86,9 @@ the subcommand, for example:
 uv run liteyuki --config local.toml --set logging.level=DEBUG check
 ```
 
+Initialization, encrypted runtime secrets, upgrade recovery, and configuration
+provenance are documented in [docs/configuration.md](docs/configuration.md).
+
 ## Docker
 
 The v7 image can be built locally with the optional YAML, HTTP, NoneBot,
