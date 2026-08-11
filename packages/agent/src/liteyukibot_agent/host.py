@@ -151,7 +151,7 @@ async def run() -> None:
         logger.info("starting native agent runtime")
         options = await client.connect()
         state_directory = Path(os.environ["LITEYUKI_RUNTIME_STATE_DIR"])
-        api_key = _environment_secret(options, "api_key_env", "OPENAI_API_KEY")
+        api_key = _environment_secret(options, "api_key_env", "LITEYUKI_AGENT_API_KEY")
         engine = OpenAIChatEngine(
             api_key=api_key,
             base_url=_optional_string(options, "base_url"),

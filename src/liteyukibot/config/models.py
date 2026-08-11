@@ -114,6 +114,7 @@ class RuntimeSettings(FrozenSettingsModel):
     command: tuple[str, ...] = ()
     working_directory: Path | None = None
     env: Mapping[str, str] = Field(default_factory=dict)
+    secret_env: Mapping[str, str] = Field(default_factory=dict)
     options: Mapping[str, JsonValue] = Field(default_factory=dict)
     handshake_timeout_seconds: float = Field(default=10.0, gt=0)
     ready_timeout_seconds: float = Field(default=30.0, gt=0)
@@ -142,6 +143,19 @@ class RuntimeSettings(FrozenSettingsModel):
     def freeze_env(cls, value: Mapping[str, str]) -> Mapping[str, str]:
         return MappingProxyType(dict(value))
 
+    @field_validator("secret_env", mode="after")
+    @classmethod
+    def freeze_secret_env(cls, value: Mapping[str, str]) -> Mapping[str, str]:
+        if any(
+            not environment_name
+            or environment_name != environment_name.strip()
+            or not secret_name
+            or secret_name != secret_name.strip()
+            for environment_name, secret_name in value.items()
+        ):
+            raise ValueError("runtime secret environment mappings must use non-empty trimmed names")
+        return MappingProxyType(dict(value))
+
     @field_validator("options", mode="after")
     @classmethod
     def freeze_options(cls, value: Mapping[str, JsonValue]) -> Mapping[str, JsonValue]:
@@ -149,6 +163,10 @@ class RuntimeSettings(FrozenSettingsModel):
 
     @field_serializer("env")
     def serialize_env(self, value: Mapping[str, str]) -> dict[str, str]:
+        return dict(value)
+
+    @field_serializer("secret_env")
+    def serialize_secret_env(self, value: Mapping[str, str]) -> dict[str, str]:
         return dict(value)
 
     @field_serializer("options")
@@ -243,11 +261,7 @@ class AppSettings(FrozenSettingsModel):
 
     @model_validator(mode="after")
     def validate_runtime_event_routes(self) -> AppSettings:
-        enabled = {
-            runtime_id
-            for runtime_id, runtime in self.runtimes.items()
-            if runtime.enabled
-        }
+        enabled = {runtime_id for runtime_id, runtime in self.runtimes.items() if runtime.enabled}
         routes: set[tuple[tuple[str, ...], str, bool]] = set()
         for route in self.runtime_event_routes:
             if route.target not in self.runtimes:

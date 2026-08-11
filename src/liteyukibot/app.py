@@ -84,7 +84,13 @@ class _AppStatusProvider:
 class LiteyukiApp:
     """Own all v7 services and enforce deterministic startup and shutdown."""
 
-    def __init__(self, settings: AppSettings, *, logger: Logger | None = None) -> None:
+    def __init__(
+        self,
+        settings: AppSettings,
+        *,
+        logger: Logger | None = None,
+        runtime_secrets: Mapping[str, str] | None = None,
+    ) -> None:
         self.settings = settings
         self.logger = logger or get_logger(component="core")
         self.state = AppState.CREATED
@@ -93,6 +99,7 @@ class LiteyukiApp:
             logger=self.logger,
             event_sink=self._ingest_runtime_event,
             action_sink=self._execute_runtime_action,
+            secret_values=runtime_secrets,
         )
         self.runtimes.set_logging_settings(settings.logging)
         self.actions = ActionService(self.runtimes)
@@ -150,6 +157,7 @@ class LiteyukiApp:
                         **runtime.env,
                         "LITEYUKI_RUNTIME_STATE_DIR": str(state_directory),
                     },
+                    secret_env=runtime.secret_env,
                     handshake_timeout=runtime.handshake_timeout_seconds,
                     restart_limit=runtime.max_failures,
                     restart_window=runtime.failure_window_seconds,
@@ -158,9 +166,7 @@ class LiteyukiApp:
                     stale_after=runtime.stale_after_seconds,
                     max_inbound_events=runtime.max_inbound_events,
                     agent_harness=(
-                        runtime_plugins[runtime.kind].agent_harness
-                        if runtime.kind in runtime_plugins
-                        else None
+                        runtime_plugins[runtime.kind].agent_harness if runtime.kind in runtime_plugins else None
                     ),
                 )
             )
@@ -275,12 +281,8 @@ class LiteyukiApp:
             version=__version__,
             state=self.state.value,
             uptime_seconds=self._uptime_seconds(),
-            plugins={
-                plugin_id: plugin.state.value for plugin_id, plugin in self.plugins.loaded.items()
-            },
-            runtimes={
-                runtime_id: record.state.value for runtime_id, record in self.runtimes.records.items()
-            },
+            plugins={plugin_id: plugin.state.value for plugin_id, plugin in self.plugins.loaded.items()},
+            runtimes={runtime_id: record.state.value for runtime_id, record in self.runtimes.records.items()},
             events_outstanding=self.events.outstanding,
         )
 
@@ -355,9 +357,7 @@ class LiteyukiApp:
         result = await self.events.publish(event)
         return "accepted" if result.status == "processed" else result.status
 
-    async def _execute_runtime_action(
-        self, source_runtime_id: str, payload: dict[str, Any]
-    ) -> ActionSinkResult:
+    async def _execute_runtime_action(self, source_runtime_id: str, payload: dict[str, Any]) -> ActionSinkResult:
         try:
             action = ActionEnvelope.model_validate(payload)
         except ValueError as error:
@@ -381,9 +381,7 @@ class LiteyukiApp:
         routes = list(settings.runtime_event_routes)
         configured_targets = {route.target for route in routes}
         runtime_plugins = RuntimeCatalog().discover()
-        enabled_ids = tuple(
-            runtime_id for runtime_id, runtime in settings.runtimes.items() if runtime.enabled
-        )
+        enabled_ids = tuple(runtime_id for runtime_id, runtime in settings.runtimes.items() if runtime.enabled)
         for runtime_id, runtime in settings.runtimes.items():
             plugin = runtime_plugins.get(runtime.kind)
             if (
@@ -500,9 +498,7 @@ class LiteyukiApp:
         )
         if result.status != "accepted":
             detail = f": {result.detail}" if result.detail else ""
-            raise RuntimeError(
-                f"runtime {runtime_id} rejected event {event.id} as {result.status}{detail}"
-            )
+            raise RuntimeError(f"runtime {runtime_id} rejected event {event.id} as {result.status}{detail}")
 
     @staticmethod
     def _plugin_configs(config: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:

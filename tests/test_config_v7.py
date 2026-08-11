@@ -109,6 +109,7 @@ nested = { primary = true }
     }
     assert settings.runtimes["nb"].working_directory == additional_directory / "runtime"
     assert settings.runtimes["nb"].max_inbound_events == 7
+    assert settings.runtimes["nb"].secret_env == {}
     assert settings.runtimes["nb"].options["features"] == ("messages", "notices")
     assert settings.runtime_event_routes[0].sources == ("nb",)
     assert settings.runtime_event_routes[0].target == "compat"
@@ -122,6 +123,19 @@ nested = { primary = true }
         settings.plugins.config["demo"]["new"] = True
     with pytest.raises(TypeError):
         settings.runtimes["nb"].options["new"] = True  # type: ignore[index]
+
+
+def test_runtime_secret_environment_is_immutable_and_serialized() -> None:
+    settings = RuntimeSettings(
+        kind="agent",
+        secret_env={"LITEYUKI_AGENT_API_KEY": "runtime.agent.api_key_secret"},
+    )
+
+    assert settings.model_dump(mode="json")["secret_env"] == {
+        "LITEYUKI_AGENT_API_KEY": "runtime.agent.api_key_secret"
+    }
+    with pytest.raises(TypeError):
+        settings.secret_env["OTHER"] = "secret"  # type: ignore[index]
 
 
 def test_runtime_options_reject_non_json_values(tmp_path: Path) -> None:

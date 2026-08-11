@@ -12,7 +12,7 @@ from typing import Any
 from ..exceptions import LiteyukiError
 from .errors import ConfigIssue, ConfigurationError
 from .loader import load_settings
-from .models import LoggingSettings
+from .models import AppSettings, LoggingSettings
 from .template import CONFIG_VERSION, render_config_template
 
 
@@ -50,18 +50,37 @@ class ConfigWorkspace:
         document = self._read_root_document()
         version = document.get("config_version")
         if not isinstance(version, int) or isinstance(version, bool):
-            self._validate_current_file()
-            self._write_upgrade_material(version=None)
-            raise AssertionError("unreachable")
+            self._upgrade(version=None, refresh=False)
         assert isinstance(version, int)
         if version > CONFIG_VERSION:
             raise ConfigurationError(
                 [ConfigIssue(self.path, f"config_version {version} is newer than this kernel ({CONFIG_VERSION})")]
             )
         if version < CONFIG_VERSION:
-            self._validate_current_file()
-            self._write_upgrade_material(version=version)
+            self._upgrade(version=version, refresh=False)
         return self.path
+
+    def upgrade(self, *, refresh: bool = False) -> Path | None:
+        """Generate upgrade material for an older root configuration."""
+
+        if not self.path.exists():
+            raise ConfigurationError(
+                [ConfigIssue(self.path, "project configuration is missing; run liteyuki init first")]
+            )
+        if not self.path.is_file():
+            raise ConfigurationError([ConfigIssue(self.path, "project configuration path is not a file")])
+        document = self._read_root_document()
+        version = document.get("config_version")
+        if not isinstance(version, int) or isinstance(version, bool):
+            self._upgrade(version=None, refresh=refresh)
+        assert isinstance(version, int)
+        if version > CONFIG_VERSION:
+            raise ConfigurationError(
+                [ConfigIssue(self.path, f"config_version {version} is newer than this kernel ({CONFIG_VERSION})")]
+            )
+        if version < CONFIG_VERSION:
+            self._upgrade(version=version, refresh=refresh)
+        return None
 
     def initialize(
         self,
@@ -86,20 +105,19 @@ class ConfigWorkspace:
             }
         )
         self.directory.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(
-            render_config_template(
-                data_dir=data_dir,
-                cache_dir=cache_dir,
-                logging_level=logging.level,
-                payload_mode=logging.payload_mode,
-                payload_exclude_runtimes=logging.payload_exclude_runtimes,
-                plugins=plugins,
-                plugin_config=plugin_config,
-                runtimes=runtimes,
-                runtime_event_routes=runtime_event_routes,
-            ),
-            encoding="utf-8",
+        rendered = render_config_template(
+            data_dir=data_dir,
+            cache_dir=cache_dir,
+            logging_level=logging.level,
+            payload_mode=logging.payload_mode,
+            payload_exclude_runtimes=logging.payload_exclude_runtimes,
+            plugins=plugins,
+            plugin_config=plugin_config,
+            runtimes=runtimes,
+            runtime_event_routes=runtime_event_routes,
         )
+        AppSettings.model_validate(tomllib.loads(rendered))
+        self.path.write_text(rendered, encoding="utf-8")
         return self.path
 
     def _read_root_document(self) -> dict[str, Any]:
@@ -116,13 +134,23 @@ class ConfigWorkspace:
         return value
 
     def _validate_current_file(self) -> None:
-        load_settings(self.path, environ={})
+        load_settings(self.path, environ={}, cli_overrides={"config_version": CONFIG_VERSION})
 
-    def _write_upgrade_material(self, *, version: int | None) -> None:
-        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    def _upgrade(self, *, version: int | None, refresh: bool) -> None:
+        self._validate_current_file()
+        self._write_upgrade_material(version=version, refresh=refresh)
+
+    def _write_upgrade_material(self, *, version: int | None, refresh: bool) -> None:
+        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
         backup = self.management_directory / "config-backups" / timestamp / self.filename
         upgrade_directory = self.management_directory / "config-upgrades"
         upgrade = upgrade_directory / f"liteyuki.v{CONFIG_VERSION}.toml"
+        if upgrade.exists() and not refresh:
+            found = "missing" if version is None else str(version)
+            raise ConfigUpgradeRequired(
+                f"configuration version {found} requires manual upgrade to {CONFIG_VERSION}; "
+                f"existing template: {upgrade}"
+            )
         backup.parent.mkdir(parents=True, exist_ok=True)
         upgrade_directory.mkdir(parents=True, exist_ok=True)
         shutil.copy2(self.path, backup)
