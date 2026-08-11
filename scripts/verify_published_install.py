@@ -35,7 +35,6 @@ def main() -> int:
     observed = {
         args.distribution: distribution_version,
         "liteyukibot": _module_version("liteyukibot"),
-        "liteyuki": _module_version("liteyuki"),
     }
     mismatches = {
         name: version for name, version in observed.items() if version != expected_version

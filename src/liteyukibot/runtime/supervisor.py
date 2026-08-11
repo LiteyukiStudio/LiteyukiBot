@@ -3,22 +3,26 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import secrets
-import sys
 import time
 from collections import deque
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
 from yukilog import decode_child_runtime_line
 
+from ..config import LoggingSettings
+from .catalog import RuntimeCatalog
 from .protocol import (
     ActionRequest,
     ActionResponse,
+    AgentToolRequest,
+    AgentToolResponse,
     ConfigMessage,
     ErrorMessage,
     EventAccepted,
@@ -49,6 +53,19 @@ class ActionSinkResult:
 ActionSink = Callable[[str, dict[str, JsonValue]], Awaitable[ActionSinkResult]]
 
 
+@dataclass(frozen=True, slots=True)
+class AgentToolSinkResult:
+    ok: bool
+    data: JsonValue = None
+    error: str | None = None
+
+
+AgentToolSink = Callable[
+    [str, str, dict[str, JsonValue], str, dict[str, JsonValue]],
+    Awaitable[AgentToolSinkResult],
+]
+
+
 class RuntimeState(StrEnum):
     STOPPED = "stopped"
     STARTING = "starting"
@@ -73,6 +90,7 @@ class RuntimeSpec:
     stale_after: float = 30.0
     shutdown_timeout: float = 10.0
     max_inbound_events: int = 100
+    agent_harness: str | None = None
 
     def __post_init__(self) -> None:
         if not self.id or not self.kind:
@@ -89,6 +107,10 @@ class RuntimeSpec:
             not self.command or any(not part for part in self.command)
         ):
             raise ValueError("runtime command arguments must not be empty")
+        if self.agent_harness is not None and (
+            not self.agent_harness or self.agent_harness != self.agent_harness.strip()
+        ):
+            raise ValueError("runtime agent_harness must be a non-empty trimmed string")
 
 
 @dataclass(slots=True)
@@ -108,8 +130,11 @@ class RuntimeRecord:
     output_tasks: tuple[asyncio.Task[None], ...] = ()
     pending_actions: dict[str, asyncio.Future[ActionResponse]] = field(default_factory=dict)
     pending_events: dict[str, asyncio.Future[EventAccepted]] = field(default_factory=dict)
+    pending_event_payloads: dict[str, dict[str, JsonValue]] = field(default_factory=dict)
     inbound_actions: dict[str, asyncio.Task[None]] = field(default_factory=dict)
     inbound_events: dict[str, asyncio.Task[None]] = field(default_factory=dict)
+    inbound_agent_tools: dict[str, asyncio.Task[None]] = field(default_factory=dict)
+    active_delivery_contexts: dict[str, tuple[float, dict[str, JsonValue]]] = field(default_factory=dict)
     protocol_version: ProtocolVersion | None = None
     capabilities: frozenset[str] = frozenset()
     send_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
@@ -123,21 +148,40 @@ class RuntimeSupervisor:
         logger: Any,
         event_sink: EventSink | None = None,
         action_sink: ActionSink | None = None,
+        agent_tool_sink: AgentToolSink | None = None,
     ) -> None:
         self.logger = logger
         self.event_sink = event_sink
         self.action_sink = action_sink
+        self.agent_tool_sink = agent_tool_sink
         self.records: dict[str, RuntimeRecord] = {}
         self._server: asyncio.Server | None = None
         self._host = "127.0.0.1"
         self._port = 0
         self._closing = False
         self._heartbeat_task: asyncio.Task[None] | None = None
+        self._logging_settings = LoggingSettings()
 
     def add(self, spec: RuntimeSpec) -> None:
         if spec.id in self.records:
             raise ValueError(f"duplicate runtime id: {spec.id}")
         self.records[spec.id] = RuntimeRecord(spec=spec, token=secrets.token_urlsafe(32))
+
+    def set_agent_tool_sink(self, sink: AgentToolSink | None) -> None:
+        if self._server is not None:
+            raise RuntimeError("agent tool sink cannot change after runtime startup")
+        self.agent_tool_sink = sink
+
+    def set_logging_settings(self, settings: LoggingSettings) -> None:
+        if self._server is not None:
+            raise RuntimeError("runtime logging settings cannot change after runtime startup")
+        self._logging_settings = settings
+
+    def merge_options(self, runtime_id: str, options: Mapping[str, Any]) -> None:
+        if self._server is not None:
+            raise RuntimeError("runtime options cannot change after runtime startup")
+        record = self.records[runtime_id]
+        record.spec = replace(record.spec, options={**record.spec.options, **options})
 
     async def start(self) -> None:
         self._server = await asyncio.start_server(self._accept, self._host, 0)
@@ -182,6 +226,9 @@ class RuntimeSupervisor:
             record.ready.clear()
             record.connected.clear()
             command = list(record.spec.command or self._default_command(record.spec))
+            self.logger.bind(runtime=record.spec.id, component="runtime").info(
+                "starting {} runtime (attempt {})", record.spec.kind, record.launch_count + 1
+            )
             env = os.environ.copy()
             env.update(record.spec.env)
             env.update(
@@ -192,6 +239,8 @@ class RuntimeSupervisor:
                     "LITEYUKI_RUNTIME_ID": record.spec.id,
                     "LITEYUKI_RUNTIME_KIND": record.spec.kind,
                     "LITEYUKI_RUNTIME_RESTART_COUNT": str(record.launch_count),
+                    "LITEYUKI_RUNTIME_LOG_LEVEL": self._logging_settings.level,
+                    "LITEYUKI_RUNTIME_PAYLOAD_MODE": self._payload_mode(record),
                 }
             )
             record.launch_count += 1
@@ -222,6 +271,9 @@ class RuntimeSupervisor:
             await asyncio.gather(*record.output_tasks, return_exceptions=True)
             await self._disconnect(record)
             record.process = None
+            self.logger.bind(runtime=record.spec.id, component="runtime", exit_code=exit_code).info(
+                "runtime process exited"
+            )
             if not record.desired or self._closing:
                 record.state = RuntimeState.STOPPED
                 return
@@ -249,7 +301,7 @@ class RuntimeSupervisor:
 
     @staticmethod
     def _default_command(spec: RuntimeSpec) -> tuple[str, ...]:
-        return (sys.executable, "-m", "liteyukibot.runtime", "--kind", spec.kind)
+        return RuntimeCatalog().command_for(spec.kind)
 
     async def _accept(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         record: RuntimeRecord | None = None
@@ -303,6 +355,12 @@ class RuntimeSupervisor:
             record.capabilities = frozenset(message.capabilities)
             record.state = RuntimeState.READY
             record.ready.set()
+            self.logger.bind(
+                runtime=record.spec.id,
+                component="runtime",
+                protocol=record.protocol_version,
+                capabilities=tuple(sorted(record.capabilities)),
+            ).info("runtime is ready")
         elif isinstance(message, Heartbeat):
             record.last_heartbeat = time.monotonic()
         elif isinstance(message, EventMessage):
@@ -310,6 +368,19 @@ class RuntimeSupervisor:
         elif isinstance(message, EventAccepted):
             event_future = record.pending_events.pop(message.correlation_id, None)
             if event_future is not None and not event_future.done():
+                payload = record.pending_event_payloads.pop(message.correlation_id, None)
+                if message.status == "accepted":
+                    if payload is None:
+                        self.logger.warning(
+                            "runtime {} accepted event {} without a pending delivery context",
+                            record.spec.id,
+                            message.correlation_id,
+                        )
+                    else:
+                        record.active_delivery_contexts[message.correlation_id] = (
+                            time.monotonic() + 30.0,
+                            payload,
+                        )
                 event_future.set_result(message)
         elif isinstance(message, ActionRequest):
             await self._accept_child_action(record, message)
@@ -317,6 +388,8 @@ class RuntimeSupervisor:
             action_future = record.pending_actions.pop(message.correlation_id, None)
             if action_future is not None and not action_future.done():
                 action_future.set_result(message)
+        elif isinstance(message, AgentToolRequest):
+            await self._accept_agent_tool_request(record, message)
         elif isinstance(message, ErrorMessage):
             self.logger.error("runtime {} error {}: {}", record.spec.id, message.code, message.message)
         else:
@@ -456,6 +529,98 @@ class RuntimeSupervisor:
             ),
         )
 
+    async def _accept_agent_tool_request(
+        self, record: RuntimeRecord, request: AgentToolRequest
+    ) -> None:
+        self._clear_expired_delivery_contexts(record)
+        if record.protocol_version != 3:
+            await self._reject_agent_tool_request(record, request, "agent tools require runtime protocol v3")
+            return
+        if record.spec.agent_harness is None:
+            await self._reject_agent_tool_request(record, request, "runtime is not an agent harness")
+            return
+        if "agent.tools.execute" not in record.capabilities:
+            await self._reject_agent_tool_request(
+                record, request, "child runtime did not declare agent.tools.execute"
+            )
+            return
+        delivery_context = record.active_delivery_contexts.get(request.delivery_correlation_id)
+        if delivery_context is None:
+            await self._reject_agent_tool_request(
+                record, request, "agent tool request is not bound to an active event delivery"
+            )
+            return
+        if self.agent_tool_sink is None:
+            await self._reject_agent_tool_request(record, request, "agent tool broker is unavailable")
+            return
+        if request.correlation_id in record.inbound_agent_tools:
+            await self._reject_agent_tool_request(
+                record, request, f"duplicate agent tool correlation id: {request.correlation_id}"
+            )
+            return
+        task = asyncio.create_task(
+            self._execute_agent_tool_request(record, request),
+            name=f"runtime-agent-tool:{record.spec.id}:{request.correlation_id}",
+        )
+        record.inbound_agent_tools[request.correlation_id] = task
+
+    async def _execute_agent_tool_request(
+        self, record: RuntimeRecord, request: AgentToolRequest
+    ) -> None:
+        try:
+            assert self.agent_tool_sink is not None
+            _deadline, payload = record.active_delivery_contexts[request.delivery_correlation_id]
+            result = await self.agent_tool_sink(
+                record.spec.id,
+                request.delivery_correlation_id,
+                payload,
+                request.tool_id,
+                request.arguments,
+            )
+            response = AgentToolResponse(
+                correlation_id=request.correlation_id,
+                ok=result.ok,
+                data=result.data,
+                error=result.error,
+            )
+        except Exception as error:
+            self.logger.error(
+                "runtime {} agent tool {} failed: {}", record.spec.id, request.tool_id, error
+            )
+            response = AgentToolResponse(
+                correlation_id=request.correlation_id,
+                ok=False,
+                error="agent tool broker failed",
+            )
+        try:
+            await self._send(record, response)
+        except (ConnectionError, RuntimeError):
+            pass
+        finally:
+            record.inbound_agent_tools.pop(request.correlation_id, None)
+
+    async def _reject_agent_tool_request(
+        self,
+        record: RuntimeRecord,
+        request: AgentToolRequest,
+        error: str,
+    ) -> None:
+        await self._send(
+            record,
+            AgentToolResponse(
+                correlation_id=request.correlation_id,
+                ok=False,
+                error=error,
+            ),
+        )
+
+    @staticmethod
+    def _clear_expired_delivery_contexts(record: RuntimeRecord) -> None:
+        now = time.monotonic()
+        for correlation_id, (deadline, _payload) in tuple(record.active_delivery_contexts.items()):
+            if deadline <= now:
+                record.active_delivery_contexts.pop(correlation_id, None)
+
     async def execute_action(
         self,
         runtime_id: str,
@@ -473,12 +638,20 @@ class RuntimeSupervisor:
         future: asyncio.Future[ActionResponse] = asyncio.get_running_loop().create_future()
         record.pending_actions[correlation_id] = future
         try:
+            self._log_payload(record, "action.request", correlation_id, payload)
             await self._send(
                 record,
                 ActionRequest(correlation_id=correlation_id, payload=json_mapping(payload)),
             )
             async with asyncio.timeout(timeout_seconds):
-                return await future
+                response = await future
+            self._log_payload(
+                record,
+                "action.response",
+                correlation_id,
+                {"ok": response.ok, "data": response.data, "error": response.error},
+            )
+            return response
         finally:
             record.pending_actions.pop(correlation_id, None)
 
@@ -502,15 +675,25 @@ class RuntimeSupervisor:
             raise ValueError(f"duplicate event correlation id: {correlation_id}")
         future: asyncio.Future[EventAccepted] = asyncio.get_running_loop().create_future()
         record.pending_events[correlation_id] = future
+        record.pending_event_payloads[correlation_id] = json_mapping(payload)
         try:
+            self._log_payload(record, "event.dispatch", correlation_id, payload)
             await self._send(
                 record,
-                EventMessage(correlation_id=correlation_id, payload=json_mapping(payload)),
+                EventMessage(correlation_id=correlation_id, payload=record.pending_event_payloads[correlation_id]),
             )
             async with asyncio.timeout(timeout_seconds):
-                return await future
+                accepted = await future
+            self._log_payload(
+                record,
+                "event.accepted",
+                correlation_id,
+                {"status": accepted.status, "detail": accepted.detail},
+            )
+            return accepted
         finally:
             record.pending_events.pop(correlation_id, None)
+            record.pending_event_payloads.pop(correlation_id, None)
 
     async def restart(self, runtime_id: str) -> None:
         record = self.records[runtime_id]
@@ -591,6 +774,7 @@ class RuntimeSupervisor:
         record.ready.clear()
         record.protocol_version = None
         record.capabilities = frozenset()
+        record.active_delivery_contexts.clear()
         for action_future in record.pending_actions.values():
             if not action_future.done():
                 action_future.set_exception(
@@ -603,6 +787,7 @@ class RuntimeSupervisor:
                     ConnectionError(f"runtime {record.spec.id} disconnected")
                 )
         record.pending_events.clear()
+        record.pending_event_payloads.clear()
         inbound_actions = tuple(record.inbound_actions.values())
         record.inbound_actions.clear()
         for task in inbound_actions:
@@ -615,6 +800,12 @@ class RuntimeSupervisor:
             task.cancel()
         if inbound_events:
             await asyncio.gather(*inbound_events, return_exceptions=True)
+        inbound_agent_tools = tuple(record.inbound_agent_tools.values())
+        record.inbound_agent_tools.clear()
+        for task in inbound_agent_tools:
+            task.cancel()
+        if inbound_agent_tools:
+            await asyncio.gather(*inbound_agent_tools, return_exceptions=True)
         if writer is not None:
             writer.close()
             await writer.wait_closed()
@@ -622,7 +813,12 @@ class RuntimeSupervisor:
     async def _capture_output(
         self, record: RuntimeRecord, stream: asyncio.StreamReader, channel: str
     ) -> None:
-        logger = self.logger.bind(runtime=record.spec.id, component="runtime", stream=channel)
+        logger = self.logger.bind(
+            runtime=record.spec.id,
+            component="runtime",
+            stream=channel,
+            upstream=record.spec.kind,
+        )
         while line := await stream.readline():
             text = line.decode("utf-8", errors="replace").rstrip("\r\n")
             structured = decode_child_runtime_line(text)
@@ -638,7 +834,16 @@ class RuntimeSupervisor:
     def _emit_structured_output(logger: Any, payload: Mapping[str, object]) -> None:
         context = {
             key: payload[key]
-            for key in ("component", "plugin", "event_id", "bot_id")
+            for key in (
+                "component",
+                "plugin",
+                "event_id",
+                "bot_id",
+                "correlation_id",
+                "action_id",
+                "upstream",
+                "upstream_category",
+            )
             if payload.get(key) is not None
         }
         extra = payload.get("extra")
@@ -648,6 +853,31 @@ class RuntimeSupervisor:
         level = str(payload.get("level", "INFO")).lower()
         method = getattr(child_logger, level, child_logger.info)
         method("{}", str(payload.get("message", "")))
+
+    def _payload_mode(self, record: RuntimeRecord) -> str:
+        if record.spec.id in self._logging_settings.payload_exclude_runtimes:
+            return "metadata"
+        return self._logging_settings.payload_mode
+
+    def _log_payload(
+        self,
+        record: RuntimeRecord,
+        operation: str,
+        correlation_id: str,
+        payload: Mapping[str, Any],
+    ) -> None:
+        serialized = json_mapping(payload)
+        context: dict[str, Any] = {
+            "runtime": record.spec.id,
+            "component": "ipc",
+            "correlation_id": correlation_id,
+            "operation": operation,
+            "payload_keys": tuple(sorted(serialized)),
+            "payload_bytes": len(json.dumps(serialized, ensure_ascii=True, separators=(",", ":"))),
+        }
+        if self._payload_mode(record) == "full":
+            context["payload"] = serialized
+        self.logger.bind(**context).debug("runtime IPC {}", operation)
 
     async def _watch_heartbeats(self) -> None:
         while True:

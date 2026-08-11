@@ -1,3 +1,6 @@
+# LiteyukiBot configuration schema. Do not edit config_version manually.
+config_version = 1
+
 [core]
 data_dir = "data"
 cache_dir = "cache"
@@ -10,6 +13,9 @@ max_concurrent_events = 100
 level = "INFO"
 console = true
 json_lines = false
+# Full payload logs can contain message content and identifiers. Keep metadata unless debugging.
+payload_mode = "metadata"
+payload_exclude_runtimes = []
 
 [plugins]
 enabled = []
@@ -50,6 +56,7 @@ host = "127.0.0.1"
 port = 20216
 
 [runtimes.nonebot]
+# Install with: uv add "liteyukibot-v7-runtime-nonebot[onebot]"
 kind = "nonebot"
 enabled = false
 heartbeat_interval_seconds = 10.0
@@ -65,6 +72,7 @@ adapters = ["nonebot.adapters.onebot.v11:Adapter"]
 driver = "~fastapi"
 
 [runtimes.legacy]
+# Install with: uv add "liteyukibot-v7-runtime-v6"
 kind = "v6"
 enabled = false
 

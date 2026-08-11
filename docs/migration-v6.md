@@ -1,7 +1,8 @@
 # LiteyukiBot v6 Plugin Compatibility
 
-v6 plugins run only inside a `kind = "v6"` child runtime. The `liteyuki`
-namespace is a compatibility package; new plugins should import `liteyukibot`.
+v6 plugins run only inside a `kind = "v6"` child runtime. Install
+`liteyukibot-v7-runtime-v6` to provide the `liteyuki` compatibility namespace;
+new plugins should import `liteyukibot`.
 
 ## Supported
 

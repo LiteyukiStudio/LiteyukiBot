@@ -12,24 +12,24 @@ from collections.abc import Callable, Coroutine, Mapping, Sequence
 from concurrent.futures import Future
 from typing import Any
 
-from yukilog import configure_child_runtime, get_logger
+from liteyukibot.events import ActionEnvelope, CallApi, EventEnvelope, SendMessage
+from liteyukibot.logging import configure_runtime_child_logging, get_logger
+from liteyukibot.runtime import RuntimeClient
+from liteyukibot.runtime.protocol import (
+    ActionRequest,
+    ActionResponse,
+    EventMessage,
+    Shutdown,
+    WireMessage,
+)
 
-from ..events import ActionEnvelope, CallApi, EventEnvelope, SendMessage
-from .client import RuntimeClient
-from .nonebot_contracts import (
+from .contracts import (
     AdapterContractError,
     adapter_id,
     json_value,
     normalize_event,
     send_proactive,
     to_native_message,
-)
-from .protocol import (
-    ActionRequest,
-    ActionResponse,
-    EventMessage,
-    Shutdown,
-    WireMessage,
 )
 
 logger = get_logger(component="nonebot", runtime=os.environ.get("LITEYUKI_RUNTIME_ID"))
@@ -251,17 +251,20 @@ def run() -> None:
         nonebot = importlib.import_module("nonebot")
     except ModuleNotFoundError as error:
         raise RuntimeError(
-            "NoneBot runtime is not installed; run `uv add 'liteyukibot-v7[nonebot]'`"
+            "NoneBot runtime is not installed; install `liteyukibot-v7-runtime-nonebot`"
         ) from error
-    configure_child_runtime()
+    configure_runtime_child_logging()
+    logger.info("starting NoneBot runtime host")
     bridge = SupervisorBridge()
     options = bridge.start()
     host = NoneBotHost(nonebot, bridge)
     host.install(options)
+    logger.info("NoneBot runtime host is ready")
     try:
         nonebot.run()
     finally:
         bridge.close()
+        logger.info("NoneBot runtime host stopped")
 
 
 def _mapping_option(options: Mapping[str, Any], key: str) -> dict[str, Any]:

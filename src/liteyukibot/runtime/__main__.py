@@ -49,16 +49,6 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--kind", required=True)
     args = parser.parse_args()
-    if args.kind == "v6":
-        from .v6 import run as run_v6
-
-        asyncio.run(run_v6())
-        return
-    if args.kind == "nonebot":
-        from .nonebot import run as run_nonebot
-
-        run_nonebot()
-        return
     asyncio.run(run_noop(args.kind))
 
 

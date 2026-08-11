@@ -7,22 +7,22 @@ import os
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from yukilog import configure_child_runtime, get_logger
-
 from liteyuki.bot import _emit_lifecycle, _install_runtime, _reset_runtime
 from liteyuki.plugin import load_plugin, load_plugins
 from liteyuki.session.on import _dispatch_matchers
 
-from ..events import EventEnvelope
-from .client import RuntimeClient
-from .protocol import (
+from liteyukibot.events import EventEnvelope
+from liteyukibot.logging import configure_runtime_child_logging, get_logger
+from liteyukibot.runtime import RuntimeClient
+from liteyukibot.runtime.protocol import (
     ActionRequest,
     ActionResponse,
     EventAccepted,
     EventMessage,
     Shutdown,
 )
-from .v6_events import reply_to_action, to_legacy_message_event
+
+from .events import reply_to_action, to_legacy_message_event
 
 
 class _V6RuntimeHost:
@@ -161,7 +161,7 @@ class _V6RuntimeHost:
 
 
 async def run() -> None:
-    configure_child_runtime()
+    configure_runtime_child_logging()
     logger = get_logger(component="legacy", runtime=os.environ.get("LITEYUKI_RUNTIME_ID", "v6"))
     runtime_id = os.environ["LITEYUKI_RUNTIME_ID"]
     client = RuntimeClient.from_environment("v6")
@@ -169,6 +169,7 @@ async def run() -> None:
     restarting = False
     host: _V6RuntimeHost | None = None
     try:
+        logger.info("starting v6 compatibility runtime")
         options = await client.connect()
         legacy_config = _mapping_option(options, "config")
         restart_requested = asyncio.Event()
@@ -202,6 +203,7 @@ async def run() -> None:
                 "runtime.actions.send",
             )
         )
+        logger.info("v6 compatibility runtime is ready")
         outcome = await host.serve(restart_requested)
         await host.close()
         if outcome == "restart":
@@ -216,9 +218,11 @@ async def run() -> None:
         if runtime_installed:
             _reset_runtime()
         await client.close()
+        logger.info("v6 compatibility runtime stopped")
     if restarting:
         logger.info("v6 compatibility runtime requested restart")
         raise RuntimeError("v6 compatibility runtime requested restart")
+
 
 def _mapping_option(options: Mapping[str, Any], key: str) -> Mapping[str, Any]:
     value = options.get(key, {})

@@ -59,7 +59,7 @@ class PermissionStub:
 class StatusStub:
     def snapshot(self) -> KernelStatusSnapshot:
         return KernelStatusSnapshot(
-            version="7.0.0a3",
+            version="7.0.0a4",
             state="ready",
             uptime_seconds=12.5,
             plugins={"zeta": "ready", "alpha": "stopped"},
@@ -195,7 +195,7 @@ def test_english_status_is_stable_and_sorted() -> None:
 
     assert rendered == "\n".join(
         (
-            "LiteyukiBot 7.0.0a3",
+            "LiteyukiBot 7.0.0a4",
             "State: ready",
             "Uptime: 12.500 seconds",
             "Outstanding events: 3",
@@ -277,7 +277,7 @@ async def test_three_plugin_topology_filters_help_and_correlates_status(tmp_path
         status_result = await app.events.publish(status_event)
         assert status_result.stopped is True
         status_action = cast(SendMessage, recorded[-1].action)
-        assert status_action.message.plain_text.startswith("LiteyukiBot 7.0.0a3\n状态: ready")
+        assert status_action.message.plain_text.startswith("LiteyukiBot 7.0.0a4\n状态: ready")
         assert "\n插件:\n- liteyukibot.commands: ready\n- liteyukibot.essentials: ready\n" in (
             status_action.message.plain_text
         )

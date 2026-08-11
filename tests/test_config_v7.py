@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
-from liteyukibot.config import ConfigurationError, RuntimeSettings, load_settings
+from liteyukibot.config import AgentSettings, AppSettings, ConfigurationError, RuntimeSettings, load_settings
 
 
 def test_defaults_and_result_are_deeply_immutable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -77,8 +77,15 @@ nested = { primary = true }
       "working_directory": "runtime",
       "max_inbound_events": 7,
       "options": {"adapter": "onebot", "features": ["messages", "notices"]}
+    },
+    "compat": {
+      "kind": "custom",
+      "command": ["compat-runtime"]
     }
-  }
+  },
+  "runtime_event_routes": [
+    {"sources": ["nb"], "target": "compat", "messages_only": true}
+  ]
 }""",
         encoding="utf-8",
     )
@@ -103,8 +110,14 @@ nested = { primary = true }
     assert settings.runtimes["nb"].working_directory == additional_directory / "runtime"
     assert settings.runtimes["nb"].max_inbound_events == 7
     assert settings.runtimes["nb"].options["features"] == ("messages", "notices")
+    assert settings.runtime_event_routes[0].sources == ("nb",)
+    assert settings.runtime_event_routes[0].target == "compat"
+    assert settings.runtime_event_routes[0].messages_only is True
     serialized = settings.model_dump(mode="json")
     assert serialized["runtimes"]["nb"]["options"]["features"] == ["messages", "notices"]
+    assert serialized["runtime_event_routes"] == [
+        {"sources": ["nb"], "target": "compat", "messages_only": True}
+    ]
     with pytest.raises(TypeError):
         settings.plugins.config["demo"]["new"] = True
     with pytest.raises(TypeError):
@@ -123,6 +136,50 @@ def test_runtime_options_reject_non_json_values(tmp_path: Path) -> None:
 def test_runtime_rejects_non_positive_inbound_event_capacity() -> None:
     with pytest.raises(ValidationError, match="max_inbound_events"):
         RuntimeSettings(kind="nonebot", max_inbound_events=0)
+
+
+def test_runtime_accepts_external_kind_with_an_explicit_command() -> None:
+    settings = RuntimeSettings(kind="astrbot", command=("astrbot-runtime",))
+
+    assert settings.kind == "astrbot"
+
+
+def test_agent_harness_must_be_a_trimmed_nonempty_identifier() -> None:
+    assert AgentSettings(agent_harness="native").agent_harness == "native"
+    with pytest.raises(ValidationError, match="agent_harness"):
+        AgentSettings(agent_harness=" native ")
+
+
+@pytest.mark.parametrize(
+    ("routes", "message"),
+    (
+        (
+            ({"sources": ["source"], "target": "missing"},),
+            "target 'missing' is not configured",
+        ),
+        (
+            ({"sources": ["source"], "target": "target"},),
+            "source 'source' is disabled",
+        ),
+        (
+            (
+                {"sources": ["source"], "target": "target"},
+                {"sources": ["source"], "target": "target"},
+            ),
+            "must not contain duplicates",
+        ),
+    ),
+)
+def test_runtime_event_routes_require_distinct_enabled_configured_runtimes(
+    routes: tuple[dict[str, object], ...], message: str
+) -> None:
+    runtimes = {
+        "source": RuntimeSettings(kind="nonebot", enabled=message != "source 'source' is disabled"),
+        "target": RuntimeSettings(kind="custom", command=("runtime",)),
+    }
+
+    with pytest.raises(ValidationError, match=message):
+        AppSettings(runtimes=runtimes, runtime_event_routes=routes)  # type: ignore[arg-type]
 
 
 def test_nested_includes_merge_in_declared_order(tmp_path: Path) -> None:
