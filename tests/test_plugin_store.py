@@ -98,6 +98,19 @@ def test_artifact_store_rejects_zip_path_traversal(tmp_path: Path) -> None:
         store.extract_zip(digest, tmp_path / "generation" / "payload")
 
 
+def test_artifact_store_requires_a_verified_local_artifact(tmp_path: Path) -> None:
+    archive = tmp_path / "plugin.zip"
+    archive.write_bytes(b"verified payload")
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    store = ArtifactStore(tmp_path)
+    stored = store.import_file(archive, digest)
+
+    assert store.require(digest) == stored
+    stored.write_bytes(b"corrupt")
+    with pytest.raises(PluginStoreError, match="corrupt"):
+        store.require(digest)
+
+
 def test_artifact_store_rejects_https_downgrade_redirect(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     class _Response(io.BytesIO):
         def __enter__(self) -> _Response:

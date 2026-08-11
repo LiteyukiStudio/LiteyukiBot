@@ -360,6 +360,17 @@ class ArtifactStore:
         finally:
             temporary.unlink(missing_ok=True)
 
+    def require(self, digest: str) -> Path:
+        """Return one verified cached artifact without contacting an artifact source."""
+
+        normalized = _sha256(digest, "artifact")
+        destination = self.path_for(normalized)
+        if not destination.is_file() or destination.is_symlink():
+            raise PluginStoreError(f"cached plugin artifact {normalized!r} is unavailable")
+        if self._digest(destination) != normalized:
+            raise PluginStoreError(f"cached plugin artifact {normalized!r} is corrupt")
+        return destination
+
     def extract_zip(self, digest: str, destination: str | Path) -> Path:
         artifact = self.path_for(digest)
         if not artifact.is_file():
@@ -419,6 +430,7 @@ class RuntimeGeneration:
     index_digest: str | None = None
     roots: tuple[str, ...] = ()
     resolved_bundles: tuple[PluginBundle, ...] = ()
+    disabled_roots: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "id", _identifier(self.id, "generation id"))
@@ -448,6 +460,14 @@ class RuntimeGeneration:
             if len(set(roots)) != len(roots):
                 raise PluginStoreError("runtime generation cannot repeat plugin roots")
             object.__setattr__(self, "roots", roots)
+            disabled_roots = tuple(
+                _identifier(item, "disabled plugin root", bundle=True) for item in self.disabled_roots
+            )
+            if len(set(disabled_roots)) != len(disabled_roots):
+                raise PluginStoreError("runtime generation cannot repeat disabled plugin roots")
+            if not set(disabled_roots).issubset(roots):
+                raise PluginStoreError("runtime generation disabled plugin roots must be installed roots")
+            object.__setattr__(self, "disabled_roots", disabled_roots)
             if len({bundle.id for bundle in self.resolved_bundles}) != len(self.resolved_bundles):
                 raise PluginStoreError("runtime generation cannot repeat resolved bundles")
             if tuple(bundle.id for bundle in self.resolved_bundles) != self.bundles:
@@ -470,6 +490,7 @@ class RuntimeGeneration:
                         "source_id": self.source_id,
                         "index_digest": self.index_digest,
                         "roots": list(self.roots),
+                        "disabled_roots": list(self.disabled_roots),
                         "bundles": [bundle.document() for bundle in self.resolved_bundles],
                     }
                 }
@@ -564,11 +585,16 @@ class RuntimeGenerationStore:
             index_digest: str | None = None
             roots: tuple[str, ...] = ()
             resolved_bundles: tuple[PluginBundle, ...] = ()
+            disabled_roots: tuple[str, ...] = ()
             if schema == 2 and "resolution" in value:
                 resolution = _json_object(value["resolution"], "generation resolution")
                 source_id = str(resolution["source_id"])
                 index_digest = str(resolution["index_digest"])
                 roots = tuple(str(item) for item in resolution["roots"])
+                raw_disabled_roots = resolution.get("disabled_roots", [])
+                if not isinstance(raw_disabled_roots, list):
+                    raise ValueError("generation disabled roots must be an array")
+                disabled_roots = tuple(str(item) for item in raw_disabled_roots)
                 raw_bundles = resolution["bundles"]
                 if not isinstance(raw_bundles, list):
                     raise ValueError("generation resolution bundles must be an array")
@@ -588,6 +614,7 @@ class RuntimeGenerationStore:
                 index_digest=index_digest,
                 roots=roots,
                 resolved_bundles=resolved_bundles,
+                disabled_roots=disabled_roots,
             )
         except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError) as error:
             raise PluginStoreError(f"runtime generation {generation_id!r} is not verified") from error
