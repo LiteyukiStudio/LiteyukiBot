@@ -16,6 +16,10 @@ class ManagedTasks:
         self._tasks: set[asyncio.Task[Any]] = set()
         self._closing = False
 
+    @property
+    def count(self) -> int:
+        return len(self._tasks)
+
     def start(self, awaitable: Coroutine[Any, Any, Any], *, name: str) -> asyncio.Task[Any]:
         if self._closing:
             raise RuntimeError(f"task owner {self.owner} is stopping")

@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from importlib import metadata
 from pathlib import PurePosixPath
 from typing import Any, Protocol
 
 from .resource_packs import ResourceCatalog, ResourceFile
 from .services import ServiceKey
+from .tasks import ManagedTasks
 
 FUNCTION_DISPATCH_SERVICE = ServiceKey("liteyukibot.functions", 1)
 
@@ -47,6 +48,7 @@ class FunctionCall:
     arguments: Mapping[str, Any]
     positional: tuple[str, ...] = ()
     capabilities: object | None = None
+    task_owner: ManagedTasks | None = field(default=None, repr=False, compare=False)
 
 
 type FunctionInvoker = Callable[[FunctionCall], Awaitable[object]]
@@ -90,9 +92,21 @@ class FunctionCatalog:
 class FunctionDispatcher:
     ENTRY_POINT_GROUP = "liteyukibot.function_executors"
 
-    def __init__(self, resources: ResourceCatalog, executors: Mapping[str, FunctionExecutor] | None = None) -> None:
+    def __init__(
+        self,
+        resources: ResourceCatalog,
+        executors: Mapping[str, FunctionExecutor] | None = None,
+        *,
+        task_owner: ManagedTasks | None = None,
+    ) -> None:
         self.catalog = FunctionCatalog(resources)
         self._executors = dict(executors) if executors is not None else self.discover_executors()
+        self._task_owner = task_owner or ManagedTasks("functions")
+        self._closed = False
+
+    @property
+    def background_task_count(self) -> int:
+        return self._task_owner.count
 
     @classmethod
     def discover_executors(cls) -> dict[str, FunctionExecutor]:
@@ -114,9 +128,18 @@ class FunctionDispatcher:
         return executors
 
     async def dispatch(self, call: FunctionCall) -> object:
+        if self._closed:
+            raise FunctionError("function dispatcher is closed")
         return await self._dispatch(call, ())
 
+    async def aclose(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        await self._task_owner.stop()
+
     async def _dispatch(self, call: FunctionCall, stack: tuple[str, ...]) -> object:
+        call = replace(call, task_owner=self._task_owner)
         document = self.catalog.require(call.id)
         if document.id in stack:
             cycle = " -> ".join((*stack, document.id))

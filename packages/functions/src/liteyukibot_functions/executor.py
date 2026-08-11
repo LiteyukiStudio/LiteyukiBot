@@ -25,6 +25,10 @@ class V6FunctionCapabilityError(V6FunctionError):
     pass
 
 
+class V6FunctionRuntimeError(V6FunctionError):
+    pass
+
+
 type CapabilityMethod = Callable[..., object]
 
 _PLACEHOLDER = re.compile(r"\$\{([^{}]*)\}")
@@ -39,28 +43,29 @@ class _Statement:
     tail: str
 
 
+@dataclass(frozen=True, slots=True)
+class _Program:
+    lines: tuple[str, ...]
+
+
 @dataclass(slots=True)
 class _Execution:
     call: FunctionCall
     invoke: FunctionInvoker
     variables: dict[str, Any] = field(init=False)
-    tasks: set[asyncio.Task[None]] = field(default_factory=set)
+    tasks: set[asyncio.Task[Any]] = field(default_factory=set)
 
     def __post_init__(self) -> None:
         self.variables = dict(self.call.arguments)
 
-    async def run(self, document: FunctionDocument) -> None:
+    async def run(self, program: _Program) -> None:
         try:
-            for source in document.read_text().splitlines():
-                if not source or source.startswith("#"):
-                    continue
+            for source in program.lines:
                 if await self._execute(source):
                     return
         except BaseException:
             await self.cancel_tasks()
             raise
-        finally:
-            self._retain_background_tasks()
 
     async def _execute(self, source: str) -> bool:
         statement = self._parse(self._render(source))
@@ -93,9 +98,10 @@ class _Execution:
         elif statement.head == "nohup":
             if not statement.tail:
                 raise V6FunctionSyntaxError("nohup requires an instruction")
-            task = asyncio.create_task(self._execute_background(statement.tail), name="liteyuki-v6-function-nohup")
+            if self.call.task_owner is None:
+                raise V6FunctionRuntimeError("v6 function nohup requires a dispatcher task owner")
+            task = self.call.task_owner.start(self._execute_background(statement.tail), name="v6-nohup")
             self.tasks.add(task)
-            task.add_done_callback(self.tasks.discard)
         elif statement.head == "await":
             await self.await_tasks()
         elif statement.head == "end":
@@ -160,8 +166,11 @@ class _Execution:
 
     async def await_tasks(self) -> None:
         tasks = tuple(self.tasks)
-        if tasks:
-            await asyncio.gather(*tasks)
+        try:
+            if tasks:
+                await asyncio.gather(*tasks)
+        finally:
+            self.tasks.difference_update(tasks)
 
     async def cancel_tasks(self) -> None:
         tasks = tuple(self.tasks)
@@ -169,16 +178,7 @@ class _Execution:
             task.cancel()
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
-
-    def _retain_background_tasks(self) -> None:
-        for task in tuple(self.tasks):
-            if task.done():
-                continue
-            _BACKGROUND_TASKS.add(task)
-            task.add_done_callback(_BACKGROUND_TASKS.discard)
-
-
-_BACKGROUND_TASKS: set[asyncio.Task[None]] = set()
+        self.tasks.difference_update(tasks)
 
 
 class V6FunctionExecutor:
@@ -186,18 +186,33 @@ class V6FunctionExecutor:
 
     extensions: tuple[str, ...] = (".lyf", ".lyfunction", ".mcfunction")
 
+    def __init__(self) -> None:
+        self._programs: dict[int, _Program] = {}
+
     async def execute(
         self,
         document: FunctionDocument,
         call: FunctionCall,
         invoke: FunctionInvoker,
     ) -> None:
-        await _Execution(call, invoke).run(document)
+        await _Execution(call, invoke).run(self._program(document))
+
+    def _program(self, document: FunctionDocument) -> _Program:
+        key = id(document.resource)
+        program = self._programs.get(key)
+        if program is None:
+            source = document.read_text()
+            program = _Program(
+                lines=tuple(line for line in source.splitlines() if line and not line.startswith("#")),
+            )
+            self._programs[key] = program
+        return program
 
 
 __all__ = [
     "V6FunctionCapabilityError",
     "V6FunctionError",
     "V6FunctionExecutor",
+    "V6FunctionRuntimeError",
     "V6FunctionSyntaxError",
 ]
