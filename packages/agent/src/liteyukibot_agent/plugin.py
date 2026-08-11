@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from liteyukibot import PluginContext, PluginDefinition, PluginManifest
+from liteyukibot import PluginContext, PluginDefinition, PluginInitSpec, PluginManifest
 from liteyukibot.agents import AGENT_TOOL_BROKER_SERVICE
 from liteyukibot.services import ServiceKey, ServiceRequirement
 
@@ -31,4 +31,5 @@ def create_plugin(version: str) -> PluginDefinition:
             requires=(ServiceRequirement(PERMISSION_SERVICE, optional=True),),
         ),
         setup=setup,
+        init_spec=PluginInitSpec(description="Kernel-side agent tool broker."),
     )

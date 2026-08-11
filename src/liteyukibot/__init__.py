@@ -2,6 +2,7 @@
 
 from ._version import __version__
 from .app import LiteyukiApp
+from .init_specs import InitFieldKind, InitFieldSpec, PluginInitSpec, RuntimeInitSpec
 from .plugins import (
     PluginContext,
     PluginDefinition,
@@ -18,14 +19,18 @@ __all__ = [
     "KERNEL_STATUS_SERVICE",
     "KernelStatusProvider",
     "KernelStatusSnapshot",
+    "InitFieldKind",
+    "InitFieldSpec",
     "PluginContext",
     "PluginDefinition",
     "PluginHandle",
     "PluginManifest",
+    "PluginInitSpec",
     "PluginPaths",
     "PluginServices",
     "ServiceKey",
     "ServiceRegistry",
     "ServiceRequirement",
+    "RuntimeInitSpec",
     "__version__",
 ]

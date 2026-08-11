@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 from .events import ActionEnvelope, ActionResult, EventBus
 from .exceptions import PluginError, ServiceError
+from .init_specs import PluginInitSpec
 from .services import ServiceKey, ServiceRegistry, ServiceRequirement
 from .tasks import ManagedTasks
 
@@ -127,6 +128,7 @@ PluginSetup = Callable[["PluginContext"], Awaitable[PluginHandle | None]]
 class PluginDefinition:
     manifest: PluginManifest
     setup: PluginSetup
+    init_spec: PluginInitSpec | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -221,9 +223,7 @@ class PluginManager:
         self.cache_dir = cache_dir
         self.loaded: dict[str, LoadedPlugin] = {}
 
-    def discover(
-        self, enabled: Sequence[str], local_modules: Sequence[str] = ()
-    ) -> dict[str, PluginDefinition]:
+    def discover(self, enabled: Sequence[str], local_modules: Sequence[str] = ()) -> dict[str, PluginDefinition]:
         wanted = set(enabled)
         definitions: dict[str, PluginDefinition] = {}
         entry_points = {item.name: item for item in metadata.entry_points(group=self.ENTRY_POINT_GROUP)}
@@ -246,14 +246,27 @@ class PluginManager:
                 raise PluginError(f"local plugin module {module_name} could not be imported") from error
             definition = self._coerce_definition(candidate)
             if definition.manifest.id not in wanted:
-                raise PluginError(
-                    f"local plugin {definition.manifest.id} is not present in the enabled plugin list"
-                )
+                raise PluginError(f"local plugin {definition.manifest.id} is not present in the enabled plugin list")
             self._insert_definition(definitions, definition, definition.manifest.id)
         missing = wanted - definitions.keys()
         if missing:
             raise PluginError(f"enabled plugins were not found: {', '.join(sorted(missing))}")
         return definitions
+
+    @classmethod
+    def discover_installed(cls) -> tuple[dict[str, PluginDefinition], tuple[str, ...]]:
+        """Discover entry-point plugins for setup clients without failing on unrelated packages."""
+
+        definitions: dict[str, PluginDefinition] = {}
+        diagnostics: list[str] = []
+        for entry_point in sorted(metadata.entry_points(group=cls.ENTRY_POINT_GROUP), key=lambda item: item.name):
+            try:
+                candidate = entry_point.load()
+                definition = cls._coerce_definition(candidate)
+                cls._insert_definition(definitions, definition, entry_point.name)
+            except Exception as error:
+                diagnostics.append(f"plugin {entry_point.name!r} is unavailable: {type(error).__name__}: {error}")
+        return definitions, tuple(diagnostics)
 
     @staticmethod
     def _coerce_definition(candidate: Any) -> PluginDefinition:
@@ -275,10 +288,21 @@ class PluginManager:
         definitions[plugin_id] = definition
 
     def resolve_order(self, definitions: Mapping[str, PluginDefinition]) -> tuple[str, ...]:
+        provided_services = {registration.key: registration.provider for registration in self.services.snapshot()}
+        return self.resolve_definitions(definitions, provided_services)
+
+    @staticmethod
+    def resolve_definitions(
+        definitions: Mapping[str, PluginDefinition],
+        provided_services: Mapping[ServiceKey, str] | None = None,
+    ) -> tuple[str, ...]:
+        """Resolve a plugin topology from package metadata without loading plugins."""
+
+        existing_providers = provided_services or {}
         providers: dict[ServiceKey, str] = {}
         for plugin_id, definition in definitions.items():
             for key in definition.manifest.provides:
-                existing = providers.get(key) or self.services.provider_for(key)
+                existing = providers.get(key) or existing_providers.get(key)
                 if existing is not None:
                     raise PluginError(f"service {key} has multiple providers: {existing}, {plugin_id}")
                 providers[key] = plugin_id
@@ -286,7 +310,7 @@ class PluginManager:
         dependencies: dict[str, set[str]] = {plugin_id: set() for plugin_id in definitions}
         for plugin_id, definition in definitions.items():
             for requirement in definition.manifest.requires:
-                provider = providers.get(requirement.key) or self.services.provider_for(requirement.key)
+                provider = providers.get(requirement.key) or existing_providers.get(requirement.key)
                 if provider is None:
                     if requirement.optional:
                         continue

@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 import liteyukibot.cli as cli_module
-from liteyukibot.config import ConfigUpgradeRequired, ConfigWorkspace, load_settings
+from liteyukibot.config import ConfigUpgradeRequired, ConfigurationError, ConfigWorkspace, load_settings
 
 
 def test_workspace_init_creates_current_valid_template(tmp_path: Path) -> None:
@@ -39,10 +39,13 @@ def test_outdated_workspace_config_is_backed_up_and_blocks_start(tmp_path: Path)
     assert "config_version = 1" in template.read_text(encoding="utf-8")
 
 
-def test_regular_workspace_without_config_does_not_write(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_regular_workspace_without_config_requires_initialization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(ConfigWorkspace, "is_docker", staticmethod(lambda: False))
 
-    assert ConfigWorkspace(tmp_path).prepare() is None
+    with pytest.raises(ConfigurationError, match="liteyuki init"):
+        ConfigWorkspace(tmp_path).prepare()
     assert not (tmp_path / "liteyuki.toml").exists()
 
 
@@ -53,6 +56,9 @@ def test_docker_workspace_without_config_initializes_once(tmp_path: Path, monkey
 
     assert path == tmp_path / "liteyuki.toml"
     assert path.is_file()
+    settings = load_settings(path, environ={})
+    assert settings.plugins.enabled == ()
+    assert settings.runtimes == {}
 
 
 def test_cli_init_noninteractive_writes_project_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
