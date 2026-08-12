@@ -1464,7 +1464,7 @@ requires-dist = [{ name = "liteyukibot-v7-runtime-adapter", editable = "packages
 
 [[package]]
 name = "liteyukibot-v7-agent"
-version = "0.1.0a7"
+version = "0.1.0a8"
 source = { editable = "packages/agent" }
 dependencies = [
     { name = "liteyukibot-v7" },
