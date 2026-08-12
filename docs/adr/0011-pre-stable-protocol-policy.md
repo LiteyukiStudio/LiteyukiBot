@@ -5,7 +5,7 @@
 
 ## Context
 
-v7 is in rapid alpha development. Treating every wire or schema correction as
+v7 is in rapid pre-stable development. Treating every wire or schema correction as
 a permanent compatibility event would create artificial protocol versions such
 as v20 or v99 before the design has reached a stable release. It would also
 force the project to maintain experiments that have not been released as stable
@@ -37,7 +37,7 @@ Protocol numbering is intentionally bounded:
   used.
 
 Retaining compatibility with v1, v2, or an earlier v3 shape is optional during
-alpha. It is kept only when its implementation and testing cost remain low and
+the pre-stable period. It is kept only when its implementation and testing cost remain low and
 it does not distort the intended architecture. Removing such compatibility is
 an ordinary reviewed change, not a major-version event.
 
@@ -53,5 +53,5 @@ generation requires a documented large redesign decision before stable v7.
 
 Accepted ADRs continue to record design intent and testable behavior, but their
 compatibility language does not override this pre-stable policy. Review still
-requires evidence and explicit documentation; instability is not permission for
-undocumented wire drift.
+requires evidence and explicit documentation; pre-stable status is not
+permission for undocumented wire drift.

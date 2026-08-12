@@ -30,3 +30,9 @@ Install `liteyukibot-v7-adapter-onebot` for the first real protocol entry
 point, `onebot-v11`. It owns its HTTP Post callback listener and HTTP API
 client, and needs no NoneBot or Node runtime. OneBot v12 and Satori remain
 separately delivered packages.
+
+## Development
+
+Keep platform SDK objects inside adapter packages and child processes. Run
+`uv run pytest packages/runtime-adapter/tests` and
+`uv run python -m scripts.run_adapter_runtime_install` after changes.

@@ -18,3 +18,10 @@ For a tool environment, install both requirements in one command:
 ```shell
 uv tool install --with "neo-mofox @ git+https://github.com/MoFox-Studio/Neo-MoFox.git@e2ee2ff73b494428bbdfd983c7569c6f074a9c76" liteyukibot-v7-runtime-mofox
 ```
+
+## Development
+
+Keep Neo-MoFox APIs and projected plugin loading inside this child host. The
+fixed upstream requirement is an explicit verifier prerequisite, not published
+wheel metadata. Run `uv run pytest packages/runtime-mofox/tests` and
+`uv run python -m scripts.run_mofox_runtime_install` after changes.

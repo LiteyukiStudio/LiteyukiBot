@@ -12,3 +12,10 @@ access to adapter APIs or the local operating-system shell.
 
 The old v6 `eval` parsing is intentionally replaced by literal parsing. Values
 that are not literals remain strings, matching normal legacy variable lookup.
+
+## Development
+
+Preserve the explicit caller-supplied capability boundary; function files must
+not gain implicit shell or adapter access. Run
+`uv run pytest packages/functions/tests` and
+`uv run python -m scripts.run_functions_install` after changes.

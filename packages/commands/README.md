@@ -4,8 +4,8 @@
 service and a protocol-neutral EventBus command router.
 
 The parser recognizes configurable non-empty prefixes, command names, aliases,
-and explicit argument/option schemas. Hierarchical subcommand routing remains a
-separate alpha step.
+and explicit argument/option schemas. Hierarchical subcommand routing is
+supported through canonical command paths.
 
 ```toml
 [plugins]
@@ -44,3 +44,10 @@ def echo(invocation):
 Quoting, escaping, `--name value`, `--name=value`, short aliases, flags,
 repeatable options, `--`, and conversion failures have platform-independent
 semantics. Parsing errors expose stable codes through `CommandParseError`.
+
+## Development
+
+Keep command parsing and routing protocol-neutral. Update parser tests for all
+new syntax or error behavior, then run
+`uv run pytest packages/commands/tests` and
+`uv run python -m scripts.run_commands_install`.

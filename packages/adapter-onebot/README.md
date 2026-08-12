@@ -37,3 +37,10 @@ replies, image/record/video media, and adapter-specific segments into frozen
 LiteyukiBot messages, and executes `SendMessage` plus constrained `CallApi`
 actions through the configured OneBot HTTP API root. OneBot v12 is intentionally
 not part of this release.
+
+## Development
+
+Keep OneBot HTTP parsing, identity checks, and API conversion in this package;
+the adapter host owns child lifecycle and the kernel owns portable models.
+Run `uv run pytest packages/adapter-onebot/tests` and
+`uv run python -m scripts.run_onebot_adapter_install` after changes.
