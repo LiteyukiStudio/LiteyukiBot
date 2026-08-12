@@ -659,6 +659,69 @@ class RuntimeGenerationStore:
         self._write_json(self.lock, deployment.document())
         return deployment
 
+    def list_generations(self, runtime_id: str | None = None) -> tuple[RuntimeGeneration, ...]:
+        if self.root.exists() and (self.root.is_symlink() or not self.root.is_dir()):
+            raise PluginStoreError("plugin runtime directory is unsafe")
+        runtime_ids: tuple[str, ...]
+        if runtime_id is not None:
+            runtime_ids = (_identifier(runtime_id, "runtime id"),)
+        elif not self.root.exists():
+            return ()
+        else:
+            runtime_ids = tuple(self._directory_ids(self.root, "runtime id"))
+        generations: list[RuntimeGeneration] = []
+        for current_runtime_id in runtime_ids:
+            directory = self.root / current_runtime_id / "generations"
+            if not directory.exists():
+                continue
+            for generation_id in self._directory_ids(directory, "generation id"):
+                generations.append(self.read(current_runtime_id, generation_id))
+        return tuple(generations)
+
+    def collect(self, runtime_id: str | None = None) -> tuple[RuntimeGeneration, ...]:
+        deployment = self.active()
+        retained = {
+            (current_runtime_id, generation_id)
+            for mapping in (deployment.runtime_generations, deployment.previous)
+            for current_runtime_id, generation_id in mapping.items()
+        }
+        collected: list[RuntimeGeneration] = []
+        for generation in self.list_generations(runtime_id):
+            if (generation.runtime_id, generation.id) in retained:
+                continue
+            path = self.path_for(generation.runtime_id, generation.id)
+            if path.is_symlink() or not path.is_dir():
+                raise PluginStoreError(f"runtime generation {generation.id!r} has an unsafe directory")
+            shutil.rmtree(path)
+            collected.append(generation)
+        self._prune_empty_generation_directories(runtime_id)
+        return tuple(collected)
+
+    def _directory_ids(self, directory: Path, subject: str) -> tuple[str, ...]:
+        if directory.is_symlink() or not directory.is_dir():
+            raise PluginStoreError(f"plugin {subject} directory is unsafe")
+        identifiers: list[str] = []
+        for entry in sorted(directory.iterdir(), key=lambda item: item.name):
+            if entry.is_symlink() or not entry.is_dir():
+                raise PluginStoreError(f"plugin {subject} directory contains an unsafe entry")
+            identifiers.append(_identifier(entry.name, subject))
+        return tuple(identifiers)
+
+    def _prune_empty_generation_directories(self, runtime_id: str | None) -> None:
+        if not self.root.exists():
+            return
+        runtime_ids = (runtime_id,) if runtime_id is not None else tuple(self._directory_ids(self.root, "runtime id"))
+        for current_runtime_id in runtime_ids:
+            generations = self.root / _identifier(current_runtime_id, "runtime id") / "generations"
+            try:
+                generations.rmdir()
+            except OSError:
+                continue
+            try:
+                generations.parent.rmdir()
+            except OSError:
+                continue
+
     @staticmethod
     def new_generation_id() -> str:
         return "g" + datetime.now(UTC).strftime("%Y%m%d-%H%M%S-") + hashlib.sha256(os.urandom(16)).hexdigest()[:8]

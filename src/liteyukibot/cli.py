@@ -77,7 +77,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     plugin = subcommands.add_parser("plugin", help="plugin operations")
     plugin_commands = plugin.add_subparsers(dest="plugin_command", required=True)
-    plugin_commands.add_parser("list")
+    plugin_list = plugin_commands.add_parser("list")
+    plugin_list.add_argument("--runtime", dest="runtime_id")
     plugin_install = plugin_commands.add_parser("install", help="install a runtime plugin bundle")
     plugin_install.add_argument("bundle_id")
     plugin_install.add_argument("--runtime", required=True, dest="runtime_id")
@@ -88,6 +89,8 @@ def build_parser() -> argparse.ArgumentParser:
     plugin_uninstall = plugin_commands.add_parser("uninstall", help="remove one runtime plugin bundle root")
     plugin_uninstall.add_argument("bundle_id")
     plugin_uninstall.add_argument("--runtime", required=True, dest="runtime_id")
+    plugin_gc = plugin_commands.add_parser("gc", help="remove unreferenced runtime plugin generations")
+    plugin_gc.add_argument("--runtime", dest="runtime_id")
     plugin_rollback = plugin_commands.add_parser("rollback", help="restore a runtime's previous plugin generation")
     plugin_rollback.add_argument("--runtime", required=True, dest="runtime_id")
     plugin_source = plugin_commands.add_parser("source", help="plugin index source operations")
@@ -164,7 +167,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 return _plugin_update(args, settings, workspace)
             if args.plugin_command == "uninstall":
                 return _plugin_uninstall(args, settings, workspace)
-            _list_plugins(settings)
+            if args.plugin_command == "gc":
+                return _plugin_gc(args, workspace)
+            if args.runtime_id is not None:
+                _list_runtime_plugin_generations(workspace, args.runtime_id)
+            else:
+                _list_plugins(settings)
             return 0
         if args.command == "inspect":
             print(json.dumps(LiteyukiApp(settings).topology(discover_plugins=True), ensure_ascii=False, default=str))
@@ -324,6 +332,15 @@ def _plugin_uninstall(args: argparse.Namespace, settings: AppSettings, workspace
         print(f"uninstalled {args.bundle_id}; deactivated {args.runtime_id}")
     else:
         print(f"uninstalled {args.bundle_id}; activated {result.generation.id}")
+    return 0
+
+
+def _plugin_gc(args: argparse.Namespace, workspace: ConfigWorkspace) -> int:
+    with _exclusive_workspace(workspace):
+        collected = RuntimeGenerationStore(workspace.directory).collect(args.runtime_id)
+    for generation in collected:
+        print(f"collected\t{generation.runtime_id}\t{generation.id}")
+    print(f"collected {len(collected)} runtime plugin generation(s)")
     return 0
 
 
@@ -520,6 +537,17 @@ def _list_plugins(settings: AppSettings) -> None:
     for plugin_id in app.plugins.resolve_order(definitions):
         manifest = definitions[plugin_id].manifest
         print(f"{manifest.id}\t{manifest.version}\t{manifest.name}")
+
+
+def _list_runtime_plugin_generations(workspace: ConfigWorkspace, runtime_id: str) -> None:
+    store = RuntimeGenerationStore(workspace.directory)
+    deployment = store.active()
+    active = deployment.runtime_generations.get(runtime_id)
+    previous = deployment.previous.get(runtime_id)
+    for generation in store.list_generations(runtime_id):
+        state = "active" if generation.id == active else "previous" if generation.id == previous else "retained"
+        roots = generation.roots or generation.bundles
+        print(f"{state}\t{generation.id}\t{generation.source_id or '-'}\t{','.join(roots)}")
 
 
 def _run(settings: AppSettings, workspace: ConfigWorkspace) -> int:

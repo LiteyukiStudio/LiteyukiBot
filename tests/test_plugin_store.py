@@ -145,3 +145,22 @@ def test_runtime_generation_activation_and_rollback_share_one_lock(tmp_path: Pat
     assert rolled_back.runtime_generations == {"legacy": "first"}
     assert rolled_back.previous == {"legacy": "second"}
     assert json.loads((tmp_path / "liteyuki.lock").read_text(encoding="utf-8"))["schema"] == 2
+
+
+def test_runtime_generation_gc_retains_active_and_previous_generations(tmp_path: Path) -> None:
+    store = RuntimeGenerationStore(tmp_path)
+    first = _generation("first")
+    second = _generation("second")
+    third = _generation("third")
+    for generation in (first, second, third):
+        store.write(generation)
+        (store.path_for(generation.runtime_id, generation.id) / "venv").mkdir()
+    store.activate("legacy", first.id)
+    store.activate("legacy", second.id)
+
+    collected = store.collect("legacy")
+
+    assert [generation.id for generation in collected] == ["third"]
+    assert [generation.id for generation in store.list_generations("legacy")] == ["first", "second"]
+    assert store.active().runtime_generations == {"legacy": "second"}
+    assert store.active().previous == {"legacy": "first"}
