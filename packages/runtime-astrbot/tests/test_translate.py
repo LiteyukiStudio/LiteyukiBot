@@ -55,6 +55,52 @@ def test_astrbot_translation_rejects_non_message_events() -> None:
         to_astr_event_input(event)
 
 
+def _write_bridge_plugin(root: Path) -> None:
+    plugin = root / "astrbot" / "data" / "plugins" / "liteyuki_bridge_probe"
+    plugin.mkdir(parents=True)
+    (plugin / "metadata.yaml").write_text(
+        "name: liteyuki_bridge_probe\n"
+        "description: Liteyuki bridge verification plugin\n"
+        "version: 1.0.0\n"
+        "author: LiteyukiBot\n",
+        encoding="utf-8",
+    )
+    (plugin / "main.py").write_text(
+        "from astrbot.api import star\n"
+        "from astrbot.api.event import AstrMessageEvent, MessageEventResult, filter\n\n"
+        "@star.register('liteyuki_bridge_probe', 'LiteyukiBot', 'Bridge verification', '1.0.0')\n"
+        "class Main(star.Star):\n"
+        "    @filter.command('bridge_probe')\n"
+        "    async def bridge_probe(self, event: AstrMessageEvent) -> None:\n"
+        "        event.set_result(MessageEventResult().message('astrbot bridge reply'))\n",
+        encoding="utf-8",
+    )
+
+
+@pytest.mark.asyncio
+async def test_astrbot_upstream_pipeline_routes_a_managed_plugin_reply(tmp_path: Path) -> None:
+    """Exercise the installed AstrBot scheduler, not a substitute engine."""
+
+    _write_bridge_plugin(tmp_path)
+    logger = RecordingCleanupLogger()
+    engine = AstrBotHeadlessEngine(tmp_path, {}, logger)
+    sent: list[str] = []
+
+    async def emit(text: str) -> None:
+        sent.append(text)
+
+    event = _event().model_copy(
+        update={"message": Message(segments=(Segment(type="text", data={"text": "/bridge_probe"}),))}
+    )
+    try:
+        await engine.start()
+        await engine.process(event, emit)
+    finally:
+        await engine.close()
+
+    assert sent == ["astrbot bridge reply"]
+
+
 class FakeClient:
     def __init__(self) -> None:
         self.sent: list[object] = []

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sys
 from collections.abc import Awaitable, Callable, Mapping
 from contextlib import suppress
 from importlib import import_module
@@ -77,6 +78,7 @@ class AstrBotHeadlessEngine:
         self._schedulers: Mapping[str, Any] = {}
         self._logger = logger
         self._log_bridge: AstrBotLogBridge | None = None
+        self._import_root: str | None = None
 
     async def start(self) -> None:
         root = self.state_directory / "astrbot"
@@ -84,6 +86,7 @@ class AstrBotHeadlessEngine:
         os.environ["ASTRBOT_ROOT"] = str(root)
         os.environ["ASTRBOT_RELOAD"] = "0"
         _prepare_managed_plugins(root, self.options)
+        self._install_import_root(root)
         astrbot_core = import_module("astrbot.core")
         log_broker_type = astrbot_core.LogBroker
         lifecycle_type = import_module("astrbot.core.core_lifecycle").AstrBotCoreLifecycle
@@ -96,6 +99,7 @@ class AstrBotHeadlessEngine:
             await lifecycle.initialize()
         except BaseException:
             await bridge.close()
+            self._remove_import_root()
             raise
         _restore_child_logging()
         bridge.start(astrbot_core.LogManager, astrbot_core.logger)
@@ -124,7 +128,23 @@ class AstrBotHeadlessEngine:
                 if bridge is not None:
                     await bridge.close()
             finally:
-                await _dispose_astrbot_global_database(self._logger)
+                try:
+                    await _dispose_astrbot_global_database(self._logger)
+                finally:
+                    self._remove_import_root()
+
+    def _install_import_root(self, root: Path) -> None:
+        """Expose AstrBot's ``data.plugins`` projection only in this child."""
+
+        value = str(root)
+        sys.path.insert(0, value)
+        self._import_root = value
+
+    def _remove_import_root(self) -> None:
+        value, self._import_root = self._import_root, None
+        if value is not None:
+            with suppress(ValueError):
+                sys.path.remove(value)
 
     def _scheduler(self) -> Any:
         requested = self.options.get("scheduler_id")
