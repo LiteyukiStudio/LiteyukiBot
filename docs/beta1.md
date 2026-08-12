@@ -19,21 +19,21 @@ liteyuki check
 ```
 
 Install optional runtime distributions in the same isolated tool environment
-at install time. For the supported native OneBot v11 path, use the versions
-listed in the release notes:
+at install time. The Beta1 native OneBot v11 pair is
+`liteyukibot-v7-runtime-adapter==0.1.0a2` and
+`liteyukibot-v7-adapter-onebot==0.1.0a1`:
 
 ```bash
 uv tool install --python 3.14 --force \
-  --with "liteyukibot-v7-runtime-adapter==RELEASE_VERSION" \
-  --with "liteyukibot-v7-adapter-onebot==RELEASE_VERSION" \
+  --with "liteyukibot-v7-runtime-adapter==0.1.0a2" \
+  --with "liteyukibot-v7-adapter-onebot==0.1.0a1" \
   "liteyukibot-v7==7.0.0b1"
 ```
 
-`RELEASE_VERSION` is intentionally a placeholder: each separately distributed
-runtime and adapter has its own version. Do not substitute an arbitrary latest
-version. The release notes name the tested root/runtime/adapter set. Project
-maintainers may instead add the same requirements to their project with `uv
-add`, then invoke `uv run liteyuki ...`.
+Each separately distributed runtime has its own version. Do not substitute an
+arbitrary latest version; use the tested set named here or in the release
+notes. Project maintainers may instead add the same requirements to their
+project with `uv add`, then invoke `uv run liteyuki ...`.
 
 The repository CI already builds the root wheel, installs it via an isolated
 `uv tool` directory, and runs `version`, non-interactive `init`, and `check` on
