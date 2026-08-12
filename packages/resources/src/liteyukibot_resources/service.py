@@ -21,6 +21,7 @@ from liteyukibot_commands import (
 from liteyukibot_permissions import PermissionService, Principal
 
 from liteyukibot.events import EventEnvelope, HandlerResult
+from liteyukibot.i18n import Translator
 from liteyukibot.services import ServiceKey
 
 from .models import ResourceField, ResourceOperation, ResourceProvider, ResourceRegistration, ResourceSpec
@@ -90,9 +91,10 @@ class _RegisteredResource:
 
 
 class _ResourceService:
-    def __init__(self, permissions: PermissionService, commands: CommandService) -> None:
+    def __init__(self, permissions: PermissionService, commands: CommandService, translator: Translator) -> None:
         self._permissions = permissions
         self._commands = commands
+        self._translator = translator
         self._resources: dict[int, _RegisteredResource] = {}
         self._paths: dict[tuple[str, ...], int] = {}
         self._next_id = 0
@@ -260,9 +262,10 @@ class _ResourceService:
 
     def _command_bindings(self, spec: ResourceSpec) -> tuple[CommandBinding, ...]:
         fields = "; ".join(f"{field.name}: {field.description}" for field in spec.fields if field.description)
-        set_summary = f"Set a {spec.name} field"
+        text = self._translator
+        set_summary = text.text("resources.command.set_summary", "Set a {name} field", name=spec.name)
         if fields:
-            set_summary += f". Fields: {fields}"
+            set_summary += text.text("resources.command.fields", ". Fields: {fields}", fields=fields)
 
         async def inspect_command(invocation: CommandInvocation) -> HandlerResult:
             try:
@@ -272,11 +275,13 @@ class _ResourceService:
                     raise RuntimeError("resource actor option must be a string")
                 values = await self.inspect(invocation.event, spec.resource_path, actor_id=actor_id)
             except CommandParseError:
-                return invocation.reply("Invalid resource command arguments")
+                return invocation.reply(
+                    text.text("resources.error.invalid_arguments", "Invalid resource command arguments")
+                )
             except ResourceError as error:
-                return invocation.reply(_error_text(error))
+                return invocation.reply(_error_text(error, text))
             if not values:
-                return invocation.reply("No readable resource fields")
+                return invocation.reply(text.text("resources.error.no_readable_fields", "No readable resource fields"))
             return invocation.reply("\n".join(f"{name}: {value}" for name, value in values.items()))
 
         async def set_command(invocation: CommandInvocation) -> HandlerResult:
@@ -297,10 +302,19 @@ class _ResourceService:
                     actor_id=actor_id,
                 )
             except CommandParseError:
-                return invocation.reply("Invalid resource command arguments")
+                return invocation.reply(
+                    text.text("resources.error.invalid_arguments", "Invalid resource command arguments")
+                )
             except ResourceError as error:
-                return invocation.reply(_error_text(error))
-            return invocation.reply(f"Updated {' '.join(spec.resource_path)}.{field}")
+                return invocation.reply(_error_text(error, text))
+            return invocation.reply(
+                text.text(
+                    "resources.command.updated",
+                    "Updated {path}.{field}",
+                    path=" ".join(spec.resource_path),
+                    field=field,
+                )
+            )
 
         async def delete_command(invocation: CommandInvocation) -> HandlerResult:
             try:
@@ -313,10 +327,19 @@ class _ResourceService:
                     raise RuntimeError("resource actor option must be a string")
                 await self.delete(invocation.event, spec.resource_path, field, actor_id=actor_id)
             except CommandParseError:
-                return invocation.reply("Invalid resource command arguments")
+                return invocation.reply(
+                    text.text("resources.error.invalid_arguments", "Invalid resource command arguments")
+                )
             except ResourceError as error:
-                return invocation.reply(_error_text(error))
-            return invocation.reply(f"Reset {' '.join(spec.resource_path)}.{field}")
+                return invocation.reply(_error_text(error, text))
+            return invocation.reply(
+                text.text(
+                    "resources.command.reset",
+                    "Reset {path}.{field}",
+                    path=" ".join(spec.resource_path),
+                    field=field,
+                )
+            )
 
         actor_option = OptionSpec("actor", aliases=("a",), required=False, default=None)
         return (
@@ -345,7 +368,11 @@ class _ResourceService:
                 CommandSpec(
                     "delete",
                     path=spec.resource_path,
-                    summary=f"Reset a {spec.name} field to its default",
+                    summary=text.text(
+                        "resources.command.reset_summary",
+                        "Reset a {name} field to its default",
+                        name=spec.name,
+                    ),
                     schema=CommandSchema(
                         arguments=(ArgumentSpec("field"),),
                         options=(actor_option,),
@@ -362,12 +389,16 @@ async def _await_provider(value: object) -> object:
     return await value
 
 
-def _error_text(error: ResourceError) -> str:
-    return f"Resource request failed: {error}"
+def _error_text(error: ResourceError, translator: Translator) -> str:
+    return translator.text("resources.error.request_failed", "Resource request failed: {error}", error=error)
 
 
-def create_resource_service(permissions: PermissionService, commands: CommandService) -> ResourceService:
-    return _ResourceService(permissions, commands)
+def create_resource_service(
+    permissions: PermissionService,
+    commands: CommandService,
+    translator: Translator,
+) -> ResourceService:
+    return _ResourceService(permissions, commands, translator)
 
 
 __all__ = ["RESOURCE_SERVICE", "ResourceError", "ResourceService", "create_resource_service"]

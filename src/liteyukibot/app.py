@@ -16,6 +16,7 @@ from .control import ControlServer
 from .events import ActionEnvelope, ActionResult, EventBus, EventEnvelope
 from .functions import FUNCTION_DISPATCH_SERVICE, FunctionDispatcher
 from .http import HttpServer
+from .i18n import I18N_SERVICE, Translator
 from .logging import Logger, configure_logging, get_logger, shutdown_logging
 from .plugin_store import RuntimeGenerationStore
 from .plugins import PluginManager
@@ -148,6 +149,7 @@ class LiteyukiApp:
         self._stopped_at: float | None = None
         self._runtime_state_directories: dict[str, Any] = {}
         self.resources: ResourceCatalog | None = None
+        self.translator: Translator | None = None
         self.functions: FunctionDispatcher | None = None
         self._function_tasks = ManagedTasks("functions", on_failure=self._function_task_failed)
         runtime_plugins = RuntimeCatalog().discover()
@@ -245,8 +247,10 @@ class LiteyukiApp:
                 for declaration in definition.manifest.resource_packs
             )
             self.resources = ResourceCatalog.load(self.resource_workspace, plugin_packs=declarations)
+            self.translator, _warning = Translator.from_resources(self.resources, self.settings.i18n.locale)
             self.functions = FunctionDispatcher(self.resources, task_owner=self._function_tasks)
             self.services.provide(RESOURCE_CATALOG_SERVICE, self.resources, provider="liteyukibot.kernel")
+            self.services.provide(I18N_SERVICE, self.translator, provider="liteyukibot.kernel")
             self.services.provide(FUNCTION_DISPATCH_SERVICE, self.functions, provider="liteyukibot.kernel")
             plugin_configs = self._plugin_configs(self.settings.plugins.config)
             self._plugins_setup = True

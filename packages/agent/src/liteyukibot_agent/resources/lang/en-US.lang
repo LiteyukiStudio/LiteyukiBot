@@ -1,0 +1,3 @@
+agent.init.model=Model
+agent.init.base_url=Base URL
+agent.init.api_key=API key

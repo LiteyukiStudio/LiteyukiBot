@@ -19,6 +19,8 @@ from liteyukibot_permissions import Principal
 
 from liteyukibot import InitFieldKind, InitFieldSpec, PluginContext, PluginDefinition, PluginInitSpec, PluginManifest
 from liteyukibot.events import HandlerResult
+from liteyukibot.i18n import I18N_SERVICE, Translator
+from liteyukibot.resource_packs import ResourcePackDeclaration
 from liteyukibot.services import ServiceKey, ServiceRequirement
 from liteyukibot.status import KERNEL_STATUS_SERVICE, KernelStatusProvider
 
@@ -52,7 +54,8 @@ async def setup(context: PluginContext) -> None:
     command_service = cast(CommandService, context.services.require(COMMAND_SERVICE))
     status_provider = cast(KernelStatusProvider, context.services.require(KERNEL_STATUS_SERVICE))
     profile_service = cast(_ProfileService | None, context.services.get_optional(_PROFILE_SERVICE))
-    text = messages(language)
+    translator = cast(Translator, context.services.require(I18N_SERVICE))
+    text = messages(language, translator)
 
     async def event_language(invocation: CommandInvocation) -> Language:
         if profile_service is None or invocation.event.actor is None:
@@ -74,7 +77,7 @@ async def setup(context: PluginContext) -> None:
         try:
             parsed = invocation.parse()
         except CommandParseError as error:
-            return invocation.reply(render_parse_error(error, language=current_language))
+            return invocation.reply(render_parse_error(error, language=current_language, translator=translator))
         target = cast(tuple[str, ...], parsed.arguments["path"])
         visible = command_service.visible(invocation.event)
         if target:
@@ -89,12 +92,15 @@ async def setup(context: PluginContext) -> None:
                 visible,
                 prefix=invocation.prefix,
                 language=current_language,
+                translator=translator,
                 target=target or None,
             )
         )
 
     async def status_command(invocation: CommandInvocation) -> HandlerResult:
-        return invocation.reply(render_status(status_provider.snapshot(), language=await event_language(invocation)))
+        return invocation.reply(
+            render_status(status_provider.snapshot(), language=await event_language(invocation), translator=translator)
+        )
 
     bindings: tuple[CommandBinding, ...] = (
         (
@@ -129,10 +135,12 @@ def create_plugin(version: str) -> PluginDefinition:
             id="liteyukibot.essentials",
             name="LiteyukiBot Essentials",
             version=version,
+            resource_packs=(ResourcePackDeclaration("liteyukibot_essentials"),),
             requires=(
                 ServiceRequirement(COMMAND_SERVICE),
                 ServiceRequirement(KERNEL_STATUS_SERVICE),
                 ServiceRequirement(_PROFILE_SERVICE, optional=True),
+                ServiceRequirement(I18N_SERVICE),
             ),
         ),
         setup=setup,
@@ -142,6 +150,7 @@ def create_plugin(version: str) -> PluginDefinition:
                 InitFieldSpec(
                     key="language",
                     label="Default language",
+                    label_key="essentials.init.language",
                     kind=InitFieldKind.STRING,
                     default="zh-CN",
                     choices=("zh-CN", "en"),

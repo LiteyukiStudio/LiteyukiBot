@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from liteyukibot import PluginContext, PluginDefinition, PluginInitSpec, PluginManifest
+from liteyukibot import PluginContext, PluginDefinition, PluginInitSpec, PluginManifest, ResourcePackDeclaration
 from liteyukibot.agents import AGENT_TOOL_BROKER_SERVICE
 from liteyukibot.services import ServiceKey, ServiceRequirement
 
@@ -27,6 +27,7 @@ def create_plugin(version: str) -> PluginDefinition:
             id="liteyukibot.agent",
             name="LiteyukiBot Native Agent",
             version=version,
+            resource_packs=(ResourcePackDeclaration("liteyukibot_agent"),),
             provides=(AGENT_TOOL_BROKER_SERVICE,),
             requires=(ServiceRequirement(PERMISSION_SERVICE, optional=True),),
         ),

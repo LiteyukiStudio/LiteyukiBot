@@ -31,13 +31,19 @@ from liteyukibot.events import (
     SendMessage,
 )
 from liteyukibot.exceptions import PluginError
+from liteyukibot.i18n import I18N_SERVICE, Translator
 from liteyukibot.logging import get_logger
+from liteyukibot.resource_packs import ResourceCatalog
 from liteyukibot.services import ServiceKey
 from liteyukibot.status import KernelStatusSnapshot
 from liteyukibot.testing import PluginTestHarness
 
 STATUS_READ = "liteyukibot.status.read"
 PROFILE_SERVICE = ServiceKey("liteyukibot.profile", 1)
+
+
+def translator() -> Translator:
+    return Translator.from_resources(ResourceCatalog.load(".", plugin_packs=plugin.manifest.resource_packs), "zh-CN")[0]
 
 
 class PermissionStub:
@@ -103,7 +109,11 @@ async def test_essentials_registers_and_unregisters_owned_commands(tmp_path: Pat
     harness = PluginTestHarness(
         plugin,
         root=tmp_path,
-        dependencies={COMMAND_SERVICE: commands, KERNEL_STATUS_SERVICE: StatusStub()},
+        dependencies={
+            COMMAND_SERVICE: commands,
+            KERNEL_STATUS_SERVICE: StatusStub(),
+            I18N_SERVICE: translator(),
+        },
     )
 
     async with harness:
@@ -121,7 +131,11 @@ async def test_essentials_rejects_invalid_language(tmp_path: Path, language: obj
         plugin,
         root=tmp_path,
         config={"language": language},
-        dependencies={COMMAND_SERVICE: command_service(), KERNEL_STATUS_SERVICE: StatusStub()},
+        dependencies={
+            COMMAND_SERVICE: command_service(),
+            KERNEL_STATUS_SERVICE: StatusStub(),
+            I18N_SERVICE: translator(),
+        },
     )
 
     with pytest.raises(PluginError, match="setup failed") as raised:
@@ -137,7 +151,11 @@ async def test_essentials_rejects_unknown_configuration(tmp_path: Path) -> None:
         plugin,
         root=tmp_path,
         config={"unknown": True},
-        dependencies={COMMAND_SERVICE: command_service(), KERNEL_STATUS_SERVICE: StatusStub()},
+        dependencies={
+            COMMAND_SERVICE: command_service(),
+            KERNEL_STATUS_SERVICE: StatusStub(),
+            I18N_SERVICE: translator(),
+        },
     )
 
     with pytest.raises(PluginError, match="setup failed") as raised:
@@ -157,6 +175,7 @@ async def test_essentials_uses_optional_profile_language_and_falls_back(tmp_path
             COMMAND_SERVICE: commands,
             KERNEL_STATUS_SERVICE: StatusStub(),
             PROFILE_SERVICE: ProfileStub("en"),
+            I18N_SERVICE: translator(),
         },
     )
     async with harness:
@@ -176,6 +195,7 @@ async def test_essentials_uses_optional_profile_language_and_falls_back(tmp_path
             COMMAND_SERVICE: command_service(),
             KERNEL_STATUS_SERVICE: StatusStub(),
             PROFILE_SERVICE: ProfileStub(fail=True),
+            I18N_SERVICE: translator(),
         },
     )
     async with failing:
@@ -192,7 +212,7 @@ async def test_essentials_uses_optional_profile_language_and_falls_back(tmp_path
 
 
 def test_english_status_is_stable_and_sorted() -> None:
-    rendered = render_status(StatusStub().snapshot(), language="en")
+    rendered = render_status(StatusStub().snapshot(), language="en", translator=translator())
 
     assert rendered == "\n".join(
         (
@@ -376,11 +396,12 @@ async def test_help_resolves_visible_hierarchical_aliases_and_renders_schema(tmp
 
 def test_essentials_manifest_declares_optional_profile_service() -> None:
     assert plugin.manifest.id == "liteyukibot.essentials"
-    assert plugin.manifest.version == "0.2.0a2"
+    assert plugin.manifest.version == "0.2.0a3"
     assert plugin.manifest.provides == ()
     assert tuple(item.key for item in plugin.manifest.requires) == (
         COMMAND_SERVICE,
         KERNEL_STATUS_SERVICE,
         PROFILE_SERVICE,
+        I18N_SERVICE,
     )
     assert PERMISSION_SERVICE not in tuple(item.key for item in plugin.manifest.requires)

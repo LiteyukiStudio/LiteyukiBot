@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- added the kernel-owned `liteyukibot.i18n@1` service backed by layered resource
+  packs, including per-user locale rendering for essential commands;
+- moved first-party profile/resource command text and custom-init package labels
+  into package-owned language resources, with workspace resources retaining the
+  final overlay position.
+
 ## 7.0.0a9 - 2026-08-11
 
 - introduced runtime IPC protocol v4 with immutable delivery tracing and an

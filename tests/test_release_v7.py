@@ -25,19 +25,19 @@ def test_kernel_import_namespace_uses_distribution_version() -> None:
 @pytest.mark.parametrize(
     ("name", "tag"),
     [
-        ("root", "v7.0.0a9"),
+        ("root", "v7.0.0a10"),
         ("permissions", "permissions-v0.2.0a1"),
-        ("commands", "commands-v0.2.0a1"),
-        ("resources", "resources-v0.1.0a1"),
+        ("commands", "commands-v0.2.0a2"),
+        ("resources", "resources-v0.1.0a2"),
         ("functions", "functions-v0.1.0a2"),
-        ("profile", "profile-v0.1.0a1"),
-        ("essentials", "essentials-v0.2.0a2"),
+        ("profile", "profile-v0.1.0a2"),
+        ("essentials", "essentials-v0.2.0a3"),
         ("runtime-nonebot", "runtime-nonebot-v0.1.0a1"),
         ("runtime-v6", "runtime-v6-v0.1.0a2"),
         ("agent-resolver", "agent-resolver-v0.1.0a1"),
-        ("agent", "agent-v0.1.0a2"),
-        ("runtime-astrbot", "runtime-astrbot-v0.1.0a2"),
-        ("runtime-mofox", "runtime-mofox-v0.1.0a2"),
+        ("agent", "agent-v0.1.0a3"),
+        ("runtime-astrbot", "runtime-astrbot-v0.1.0a3"),
+        ("runtime-mofox", "runtime-mofox-v0.1.0a3"),
     ],
 )
 def test_current_release_identities_accept_exact_tags(name: str, tag: str) -> None:

@@ -8,7 +8,7 @@ from .service import PROFILE_SERVICE, ProfileService, ProfileSnapshot
 try:
     __version__ = version("liteyukibot-v7-profile")
 except PackageNotFoundError:
-    __version__ = "0.1.0a1"
+    __version__ = "0.1.0a2"
 
 plugin = create_plugin(__version__)
 

@@ -8,6 +8,7 @@ from liteyukibot.config import ConfigWorkspace, load_settings
 from liteyukibot.config.initializer import build_initialization_plan
 from liteyukibot.init_specs import InitFieldKind, InitFieldSpec, PluginInitSpec, RuntimeInitSpec
 from liteyukibot.plugins import PluginContext, PluginDefinition, PluginManager, PluginManifest
+from liteyukibot.resource_packs import ResourcePackDeclaration
 from liteyukibot.runtime import RuntimeCatalog, RuntimePlugin
 from liteyukibot.services import ServiceKey, ServiceRequirement
 
@@ -24,6 +25,7 @@ def _plugin(
     provides: tuple[ServiceKey, ...] = (),
     requires: tuple[ServiceRequirement, ...] = (),
     fields: tuple[InitFieldSpec, ...] = (),
+    resource_packs: tuple[ResourcePackDeclaration, ...] = (),
 ) -> PluginDefinition:
     return PluginDefinition(
         manifest=PluginManifest(
@@ -32,6 +34,7 @@ def _plugin(
             version="1.0.0",
             provides=provides,
             requires=requires,
+            resource_packs=resource_packs,
         ),
         setup=_setup,
         init_spec=PluginInitSpec(fields=fields),
@@ -138,6 +141,44 @@ def test_initializer_rejects_unavailable_required_provider(monkeypatch: pytest.M
 
     with pytest.raises(ValueError, match="unavailable service"):
         build_initialization_plan(prompt=prompt, output=lambda _message: None)
+
+
+def test_initializer_uses_locale_for_kernel_and_package_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    definitions = {
+        "consumer": _plugin(
+            "consumer",
+            fields=(
+                InitFieldSpec(
+                    key="language",
+                    label="Language",
+                    label_key="essentials.init.language",
+                    kind=InitFieldKind.STRING,
+                    default="zh-CN",
+                ),
+            ),
+            resource_packs=(ResourcePackDeclaration("liteyukibot_essentials"),),
+        ),
+    }
+    monkeypatch.setattr(PluginManager, "discover_installed", classmethod(lambda _cls: (definitions, ())))
+    monkeypatch.setattr(RuntimeCatalog, "discover_installed", lambda _self: ({}, ()))
+    prompts: list[str] = []
+
+    def prompt(label: str, default: str) -> str:
+        prompts.append(label)
+        return "y" if label.startswith("启用插件") else default
+
+    plan = build_initialization_plan(prompt=prompt, output=lambda _message: None, locale="zh-CN")
+
+    assert plan.plugins == ("consumer",)
+    assert plan.plugin_config["consumer"] == {"language": "zh-CN"}
+    assert prompts[:5] == [
+        "数据目录",
+        "缓存目录",
+        "日志级别",
+        "日志载荷模式（metadata/full）",
+        "排除日志载荷的运行时 ID（以逗号分隔）",
+    ]
+    assert "Plugin consumer: 默认语言" in prompts
 
 
 def test_initializer_collects_runtime_secrets_without_storing_plaintext(

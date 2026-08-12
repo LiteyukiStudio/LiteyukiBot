@@ -6,7 +6,15 @@ from typing import cast
 
 from liteyukibot_permissions import PERMISSION_SERVICE, PermissionService
 
-from liteyukibot import InitFieldKind, InitFieldSpec, PluginContext, PluginDefinition, PluginInitSpec, PluginManifest
+from liteyukibot import (
+    InitFieldKind,
+    InitFieldSpec,
+    PluginContext,
+    PluginDefinition,
+    PluginInitSpec,
+    PluginManifest,
+    ResourcePackDeclaration,
+)
 from liteyukibot.services import ServiceRequirement
 
 from .service import COMMAND_SERVICE, create_command_service
@@ -31,6 +39,7 @@ def create_plugin(version: str) -> PluginDefinition:
             id="liteyukibot.commands",
             name="LiteyukiBot Commands",
             version=version,
+            resource_packs=(ResourcePackDeclaration("liteyukibot_commands"),),
             provides=(COMMAND_SERVICE,),
             requires=(ServiceRequirement(PERMISSION_SERVICE),),
         ),
@@ -41,6 +50,7 @@ def create_plugin(version: str) -> PluginDefinition:
                 InitFieldSpec(
                     key="prefixes",
                     label="Command prefixes",
+                    label_key="commands.init.prefixes",
                     kind=InitFieldKind.STRING_LIST,
                     default=("/",),
                 ),

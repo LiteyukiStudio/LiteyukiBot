@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7-runtime-mofox"
-version = "0.1.0a2"
+version = "0.1.0a3"
 description = "Headless Neo-MoFox agent runtime for LiteyukiBot v7."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -9,7 +9,7 @@ authors = [
     { name = "LiteyukiStudio" },
 ]
 dependencies = [
-    "liteyukibot-v7>=7.0.0a9,<8",
+    "liteyukibot-v7>=7.0.0a10,<8",
     "neo-mofox @ git+https://github.com/MoFox-Studio/Neo-MoFox.git@e2ee2ff73b494428bbdfd983c7569c6f074a9c76",
 ]
 
