@@ -273,6 +273,46 @@ async def test_v11_accepts_but_ignores_non_message_events() -> None:
         await connection.close()
 
 
+@pytest.mark.asyncio
+async def test_v11_listener_restarts_without_retaining_reply_routes() -> None:
+    api = ApiStub()
+    await api.start()
+    port = _unused_port()
+    connection = OneBotV11Connection(_context(port, api.url))
+    events: list[EventEnvelope] = []
+
+    async def emit(event: EventEnvelope) -> None:
+        events.append(event)
+
+    def reply_action(reply_token: str) -> ActionEnvelope:
+        return ActionEnvelope(
+            runtime_id="platform",
+            bot_id="42",
+            action=SendMessage(
+                reply_token=reply_token,
+                message=Message(segments=(Segment(type="text", data={"text": "hello"}),)),
+            ),
+        )
+    try:
+        await connection.start(emit)
+        assert await _post_event(port, _event()) == 204
+        first_token = events[0].reply_token
+        assert first_token is not None
+        await connection.close()
+
+        await connection.start(emit)
+        with pytest.raises(OneBotV11Error, match="unknown or expired"):
+            await connection.execute(reply_action(first_token))
+        assert await _post_event(port, _event("after restart")) == 204
+        assert events[-1].message == Message(segments=(Segment(type="text", data={"text": "after restart"}),))
+        assert events[-1].reply_token is not None
+        assert await connection.execute(reply_action(events[-1].reply_token)) == {"message_id": 123}
+        assert (await asyncio.wait_for(api.requests.get(), timeout=1)).path == "/send_group_msg"
+    finally:
+        await connection.close()
+        await api.close()
+
+
 def test_v11_non_loopback_listener_requires_token() -> None:
     context = AdapterContext(
         "platform",
