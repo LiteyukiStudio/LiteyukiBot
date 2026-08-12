@@ -67,25 +67,31 @@ class MoFoxHeadlessEngine:
         self.state_directory = state_directory
         self.options = options
         self._bot: Any | None = None
+        self._previous_cwd: Path | None = None
         self._sink: ContextVar[TextSink | None] = ContextVar("liteyuki_mofox_sink", default=None)
 
     async def start(self) -> None:
         root = self.state_directory / "mofox"
         root.mkdir(parents=True, exist_ok=True)
-        os.chdir(root)
-        _enforce_headless_config(root / "config" / "core.toml")
-        _prepare_managed_plugins(root, self.options)
-        _install_upstream_namespace()
-        bot_type = import_module("src.app.runtime.bot").Bot
-        bot = bot_type(config_path="config/core.toml", plugins_dir="plugins", log_dir="logs")
-        await bot.initialize()
-        if bot.scheduler is None:
-            raise RuntimeError("Neo-MoFox headless lifecycle did not create a scheduler")
-        await bot.scheduler.start()
-        bot._running = True
-        sender_module = import_module("src.core.transport.message_send")
-        sender_module.set_message_sender(_HeadlessMessageSender(self._sink))
-        self._bot = bot
+        self._previous_cwd = Path.cwd()
+        try:
+            os.chdir(root)
+            _enforce_headless_config(root / "config" / "core.toml")
+            _prepare_managed_plugins(root, self.options)
+            _install_upstream_namespace()
+            bot_type = import_module("src.app.runtime.bot").Bot
+            bot = bot_type(config_path="config/core.toml", plugins_dir="plugins", log_dir="logs")
+            await bot.initialize()
+            if bot.scheduler is None:
+                raise RuntimeError("Neo-MoFox headless lifecycle did not create a scheduler")
+            await bot.scheduler.start()
+            bot._running = True
+            sender_module = import_module("src.core.transport.message_send")
+            sender_module.set_message_sender(_HeadlessMessageSender(self._sink))
+            self._bot = bot
+        except BaseException:
+            self._restore_working_directory()
+            raise
 
     async def process(self, event: EventEnvelope, sink: TextSink) -> None:
         bot = self._bot
@@ -103,8 +109,16 @@ class MoFoxHeadlessEngine:
 
     async def close(self) -> None:
         bot, self._bot = self._bot, None
-        if bot is not None:
-            await bot.shutdown()
+        try:
+            if bot is not None:
+                await bot.shutdown()
+        finally:
+            self._restore_working_directory()
+
+    def _restore_working_directory(self) -> None:
+        previous, self._previous_cwd = self._previous_cwd, None
+        if previous is not None:
+            os.chdir(previous)
 
 
 class MoFoxRuntimeHost:
