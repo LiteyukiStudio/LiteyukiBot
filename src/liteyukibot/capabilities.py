@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 ADAPTER_CALL_API = "liteyukibot.adapter.call_api"
+AGENT_HISTORY_CLEAR = "liteyukibot.agent.history.clear"
 PERMISSION_SERVICE_NAME = "liteyukibot.permissions"
 PERMISSION_SERVICE_MAJOR = 1
 
@@ -24,6 +25,11 @@ KERNEL_CAPABILITIES = (
         owner="kernel",
         summary="Allows a source-bound adapter API action.",
     ),
+    CapabilityDefinition(
+        id=AGENT_HISTORY_CLEAR,
+        owner="kernel",
+        summary="Allows clearing the caller's native agent conversation history.",
+    ),
 )
 
 _BY_ID = {capability.id: capability for capability in KERNEL_CAPABILITIES}
@@ -37,6 +43,7 @@ def capability_definition(capability: str) -> CapabilityDefinition | None:
 
 __all__ = [
     "ADAPTER_CALL_API",
+    "AGENT_HISTORY_CLEAR",
     "CapabilityDefinition",
     "KERNEL_CAPABILITIES",
     "PERMISSION_SERVICE_MAJOR",

@@ -44,7 +44,7 @@ distribution inside the workflow.
 
 | Package | Source | Tag |
 | --- | --- | --- |
-| `liteyukibot-v7==7.0.0a16` | `pyproject.toml` | `v7.0.0a16` |
+| `liteyukibot-v7==7.0.0a17` | `pyproject.toml` | `v7.0.0a17` |
 | `liteyukibot-v7-permissions==0.2.0a2` | `packages/permissions` | `permissions-v0.2.0a2` |
 | `liteyukibot-v7-commands==0.2.0a2` | `packages/commands` | `commands-v0.2.0a2` |
 | `liteyukibot-v7-resources==0.1.0a2` | `packages/resources` | `resources-v0.1.0a2` |
@@ -56,7 +56,7 @@ distribution inside the workflow.
 | `liteyukibot-v7-adapter-onebot==0.1.0a1` | `packages/adapter-onebot` | `adapter-onebot-v0.1.0a1` |
 | `liteyukibot-v7-runtime-v6==0.1.0a2` | `packages/runtime-v6` | `runtime-v6-v0.1.0a2` |
 | `liteyukibot-v7-agent-resolver==0.1.0a1` | `packages/agent-resolver` | `agent-resolver-v0.1.0a1` |
-| `liteyukibot-v7-agent==0.1.0a8` | `packages/agent` | `agent-v0.1.0a8` |
+| `liteyukibot-v7-agent==0.1.0a9` | `packages/agent` | `agent-v0.1.0a9` |
 | `liteyukibot-v7-runtime-astrbot==0.1.0a6` | `packages/runtime-astrbot` | `runtime-astrbot-v0.1.0a6` |
 | `liteyukibot-v7-runtime-mofox==0.1.0a5` | `packages/runtime-mofox` | `runtime-mofox-v0.1.0a5` |
 
@@ -67,7 +67,7 @@ tag that does not exactly match the selected source version and distribution.
 
 Push and wait for each release before creating the next tag:
 
-1. `v7.0.0a16`;
+1. `v7.0.0a17`;
 2. `permissions-v0.2.0a2`;
 3. `commands-v0.2.0a2`;
 4. `resources-v0.1.0a2`;
@@ -79,7 +79,7 @@ Push and wait for each release before creating the next tag:
 10. `adapter-onebot-v0.1.0a1`.
 11. `runtime-v6-v0.1.0a2`.
 12. `agent-resolver-v0.1.0a1`.
-13. `agent-v0.1.0a8`.
+13. `agent-v0.1.0a9` (requires `commands-v0.2.0a2`).
 14. `runtime-astrbot-v0.1.0a6`.
 15. `runtime-mofox-v0.1.0a5`.
 

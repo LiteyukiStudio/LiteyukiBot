@@ -64,7 +64,7 @@ def test_runtime_client_rejects_unsupported_protocol_before_connecting() -> None
             runtime_id="fixture",
             kind="test",
             token="secret",
-            protocol_version=5,  # type: ignore[arg-type]
+            protocol_version=6,  # type: ignore[arg-type]
         )
 
 
@@ -100,7 +100,7 @@ async def test_runtime_client_handshake_ready_heartbeat_and_close() -> None:
         await server.wait_closed()
 
     assert isinstance(observed[0], Hello)
-    assert observed[0].protocol == 4
+    assert observed[0].protocol == 5
     assert observed[1] == Ready(capabilities=("events",))
     assert isinstance(observed[2], Heartbeat)
     assert client.connected is False
@@ -219,7 +219,7 @@ async def test_runtime_client_rejects_protocol_version_mismatch() -> None:
     async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         hello = await read_message(reader)
         assert isinstance(hello, Hello)
-        assert hello.protocol == 4
+        assert hello.protocol == 5
         await write_message(writer, Welcome(protocol=1))
         assert await reader.read() == b""
         writer.close()

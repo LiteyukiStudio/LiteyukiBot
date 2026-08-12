@@ -29,9 +29,9 @@ Protocol numbering is intentionally bounded:
 - small or medium corrections, additions, removals, and breaking changes modify
   v3 directly instead of incrementing the number;
 - v4 was consumed by the large cross-cutting event delivery tracing redesign;
-- v5 is reserved for a large cross-cutting redesign where retaining the
-  v3 identity would make wire direction, ownership, or negotiation materially
-  misleading;
+- v5 was consumed by the kernel-originated control direction defined by ADR
+  0023, where retaining the v3 identity would make wire direction and ownership
+  materially misleading;
 - no pre-stable protocol version may exceed v5;
 - version gaps, date-based protocol numbers, and cosmetic increments are not
   used.
@@ -48,8 +48,8 @@ with an explicit long-term compatibility policy.
 ## Consequences
 
 The version number communicates architectural generations rather than commit
-count. Fast iteration can correct contracts directly, while v5 remains
-available if another genuinely large protocol redesign occurs.
+count. Fast iteration can correct v5 directly; another numbered pre-stable
+generation requires a documented large redesign decision before stable v7.
 
 Accepted ADRs continue to record design intent and testable behavior, but their
 compatibility language does not override this pre-stable policy. Review still

@@ -8,10 +8,17 @@ from enum import StrEnum
 from pathlib import Path
 from time import monotonic
 from typing import Any
+from uuid import uuid4
 
 from ._version import __version__
-from .agents import AGENT_TOOL_BROKER_SERVICE, AgentToolBroker, AgentToolResult, EventAgentToolCatalog
-from .capabilities import ADAPTER_CALL_API, PERMISSION_SERVICE_MAJOR, PERMISSION_SERVICE_NAME
+from .agents import (
+    AGENT_HISTORY_SERVICE,
+    AGENT_TOOL_BROKER_SERVICE,
+    AgentToolBroker,
+    AgentToolResult,
+    EventAgentToolCatalog,
+)
+from .capabilities import ADAPTER_CALL_API, AGENT_HISTORY_CLEAR, PERMISSION_SERVICE_MAJOR, PERMISSION_SERVICE_NAME
 from .config import AppSettings, RuntimeEventRoute
 from .control import ControlServer
 from .events import ActionEnvelope, ActionResult, CallApi, EventBus, EventEnvelope
@@ -98,6 +105,14 @@ class _AppStatusProvider:
 
     def snapshot(self) -> KernelStatusSnapshot:
         return self._app.status_snapshot()
+
+
+class _AgentHistoryProvider:
+    def __init__(self, app: LiteyukiApp) -> None:
+        self._app = app
+
+    async def clear(self, event: EventEnvelope) -> int:
+        return await self._app._clear_agent_history(event)
 
 
 class LiteyukiApp:
@@ -229,6 +244,11 @@ class LiteyukiApp:
         self.services.provide(
             KERNEL_STATUS_SERVICE,
             _AppStatusProvider(self),
+            provider="liteyukibot.kernel",
+        )
+        self.services.provide(
+            AGENT_HISTORY_SERVICE,
+            _AgentHistoryProvider(self),
             provider="liteyukibot.kernel",
         )
 
@@ -565,6 +585,50 @@ class LiteyukiApp:
 
     async def _execute_event_action(self, event: EventEnvelope, action: ActionEnvelope) -> ActionResult:
         return await self.actions.execute(action, event=event)
+
+    async def _clear_agent_history(self, event: EventEnvelope) -> int:
+        permissions = self.services.get(_PERMISSION_SERVICE)
+        decide = getattr(permissions, "decide", None)
+        allows = getattr(permissions, "allows", None)
+        allowed = (
+            decide(event, AGENT_HISTORY_CLEAR, component="agent.history.clear")
+            if callable(decide)
+            else callable(allows) and allows(event, AGENT_HISTORY_CLEAR)
+        )
+        if not callable(decide):
+            self.logger.bind(
+                runtime=event.runtime_id,
+                component="permissions",
+                capability=AGENT_HISTORY_CLEAR,
+                event_id=event.id,
+                allowed=allowed,
+            ).info("agent history permission {}", "granted" if allowed else "denied")
+        if not allowed:
+            raise PermissionError("agent history clear permission is denied")
+
+        targets = tuple(
+            runtime_id
+            for runtime_id, record in self.runtimes.records.items()
+            if record.spec.agent_harness == "native"
+        )
+        if len(targets) != 1:
+            raise RuntimeError("native agent history control requires exactly one native agent runtime")
+        response = await self.runtimes.execute_control(
+            targets[0],
+            str(uuid4()),
+            "agent.history.clear",
+            {
+                "runtime_id": event.runtime_id,
+                "bot_id": event.bot_id,
+                "conversation_id": event.conversation.ordering_key,
+            },
+        )
+        if not response.ok or not isinstance(response.data, dict):
+            raise RuntimeError("native agent history clear failed")
+        cleared = response.data.get("cleared")
+        if not isinstance(cleared, int) or isinstance(cleared, bool) or cleared < 0:
+            raise RuntimeError("native agent returned an invalid history clear response")
+        return cleared
 
     def _event_routes(self, settings: AppSettings) -> tuple[RuntimeEventRoute, ...]:
         routes = list(settings.runtime_event_routes)

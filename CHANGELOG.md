@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- introduced runtime IPC protocol v5 with a kernel-originated, capability-gated
+  control request for source-scoped native Agent history deletion;
+- added the `liteyukibot.agent.history.clear` capability and `/agent forget`
+  command, with redacted permission auditing and no model invocation;
+- made `liteyukibot-v7-agent` depend on the separately published command
+  package so its installed plugin contract is complete.
 - added `liteyukibot-v7-runtime-adapter`, a separately published Python
   platform-adapter host with managed-generation and entry-point boundaries;
 - added `liteyukibot-v7-adapter-onebot`, a pure-Python OneBot v11 HTTP Post

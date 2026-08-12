@@ -1397,7 +1397,7 @@ wheels = [
 
 [[package]]
 name = "liteyukibot-v7"
-version = "7.0.0a16"
+version = "7.0.0a17"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
@@ -1464,11 +1464,12 @@ requires-dist = [{ name = "liteyukibot-v7-runtime-adapter", editable = "packages
 
 [[package]]
 name = "liteyukibot-v7-agent"
-version = "0.1.0a8"
+version = "0.1.0a9"
 source = { editable = "packages/agent" }
 dependencies = [
     { name = "liteyukibot-v7" },
     { name = "liteyukibot-v7-agent-resolver" },
+    { name = "liteyukibot-v7-commands" },
     { name = "openai" },
 ]
 
@@ -1476,6 +1477,7 @@ dependencies = [
 requires-dist = [
     { name = "liteyukibot-v7", editable = "." },
     { name = "liteyukibot-v7-agent-resolver", editable = "packages/agent-resolver" },
+    { name = "liteyukibot-v7-commands", editable = "packages/commands" },
     { name = "openai", specifier = ">=2,<3" },
 ]
 
