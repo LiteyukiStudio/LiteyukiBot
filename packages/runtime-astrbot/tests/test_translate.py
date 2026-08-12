@@ -2,9 +2,16 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 
 import pytest
-from liteyukibot_runtime_astrbot.host import AstrBotLogBridge, AstrBotRuntimeHost
+from liteyukibot_runtime_astrbot.host import (
+    AstrBotHeadlessEngine,
+    AstrBotLogBridge,
+    AstrBotRuntimeHost,
+    _dispose_astrbot_global_database,
+    _restore_child_logging,
+)
 from liteyukibot_runtime_astrbot.translate import to_astr_event_input, to_send_action
 
 from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope, Message, Segment, SendMessage
@@ -112,6 +119,22 @@ class FakeLogManager:
         self.calls.append((logger, broker))
 
 
+class FakeEngineLifecycle:
+    def __init__(self) -> None:
+        self.stopped = False
+
+    async def stop(self) -> None:
+        self.stopped = True
+
+
+class RecordingCleanupLogger:
+    def __init__(self) -> None:
+        self.warnings: list[tuple[str, object]] = []
+
+    def warning(self, message: str, error: object) -> None:
+        self.warnings.append((message, error))
+
+
 @pytest.mark.asyncio
 async def test_astrbot_host_returns_pipeline_output_to_the_source_runtime() -> None:
     client = FakeClient()
@@ -145,3 +168,52 @@ async def test_astrbot_log_bridge_forwards_public_broker_records() -> None:
     assert manager.calls == [("astrbot", broker)]
     assert logger.records == [({"upstream": "astrbot", "upstream_category": "plugin"}, "WARNING", "upstream warning")]
     assert broker.unregistered is True
+
+
+def test_astrbot_restores_child_logging_after_upstream_initialization(monkeypatch: pytest.MonkeyPatch) -> None:
+    observed: list[str] = []
+    monkeypatch.setattr("liteyukibot_runtime_astrbot.host.shutdown_logging", lambda: observed.append("shutdown"))
+    monkeypatch.setattr(
+        "liteyukibot_runtime_astrbot.host.configure_runtime_child_logging",
+        lambda: observed.append("configure"),
+    )
+
+    _restore_child_logging()
+
+    assert observed == ["shutdown", "configure"]
+
+
+@pytest.mark.asyncio
+async def test_astrbot_engine_close_releases_global_database_after_lifecycle_stop(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    observed: list[str] = []
+    lifecycle = FakeEngineLifecycle()
+    engine = AstrBotHeadlessEngine(tmp_path, {}, RecordingCleanupLogger())
+    engine._lifecycle = lifecycle
+    async def dispose(_logger: object) -> None:
+        observed.append("dispose")
+
+    monkeypatch.setattr("liteyukibot_runtime_astrbot.host._dispose_astrbot_global_database", dispose)
+
+    await engine.close()
+
+    assert lifecycle.stopped is True
+    assert observed == ["dispose"]
+
+
+@pytest.mark.asyncio
+async def test_astrbot_global_database_cleanup_absorbs_upstream_failures(monkeypatch: pytest.MonkeyPatch) -> None:
+    logger = RecordingCleanupLogger()
+
+    def unavailable(_name: str) -> object:
+        raise RuntimeError("not installed")
+
+    monkeypatch.setattr("liteyukibot_runtime_astrbot.host.import_module", unavailable)
+    await _dispose_astrbot_global_database(logger)
+
+    assert len(logger.warnings) == 1
+    message, error = logger.warnings[0]
+    assert message == "AstrBot global database cleanup failed: {}"
+    assert isinstance(error, RuntimeError)
+    assert str(error) == "not installed"
