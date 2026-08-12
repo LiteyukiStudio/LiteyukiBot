@@ -54,6 +54,9 @@ class ResourcePackMetadata:
     version: str
     description: str
     origin: str
+    name_key: str | None = None
+    description_key: str | None = None
+    icon: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +96,20 @@ class ResourceCatalog:
     @property
     def packs(self) -> tuple[ResourcePackMetadata, ...]:
         return tuple(pack.metadata for pack in self._packs)
+
+    def pack(self, pack_id: str) -> ResourcePackMetadata:
+        for pack in self._packs:
+            if pack.metadata.id == pack_id:
+                return pack.metadata
+        raise ResourcePackError(f"resource pack does not exist: {pack_id}")
+
+    def icon(self, pack_id: str) -> ResourceFile | None:
+        """Return a validated package icon for a future local presentation client."""
+
+        for pack in self._packs:
+            if pack.metadata.id == pack_id:
+                return pack.files.get(pack.metadata.icon) if pack.metadata.icon else None
+        raise ResourcePackError(f"resource pack does not exist: {pack_id}")
 
     def get(self, path: str) -> ResourceFile | None:
         return self._files.get(_relative_path(path))
@@ -138,13 +155,29 @@ def _metadata(value: object, origin: str, fallback_id: str) -> ResourcePackMetad
     if not isinstance(value, dict):
         raise ResourcePackError(f"resource pack metadata must be an object: {origin}")
     pack_id = _token(value.get("id", fallback_id), "id")
+    name_key = _optional_token(value.get("name_key"), "name_key")
+    description_key = _optional_token(value.get("description_key"), "description_key")
+    icon = _optional_token(value.get("icon"), "icon")
+    if icon is not None:
+        icon = _relative_path(icon)
+        if not icon.endswith(".png"):
+            raise ResourcePackError("resource pack icon must be a PNG file")
     return ResourcePackMetadata(
         id=pack_id,
         name=_token(value.get("name", pack_id), "name"),
         version=_token(value.get("version", "0.0.0"), "version"),
         description=str(value.get("description", "")),
         origin=origin,
+        name_key=name_key,
+        description_key=description_key,
+        icon=icon,
     )
+
+
+def _optional_token(value: object, subject: str) -> str | None:
+    if value is None:
+        return None
+    return _token(value, subject)
 
 
 def _read_metadata(raw: str, origin: str, fallback_id: str) -> ResourcePackMetadata:
@@ -169,6 +202,7 @@ def _load_directory(root: Path, origin: str) -> ResourcePack:
             raise ResourcePackError(f"resource pack contains an unsafe file: {candidate}")
         relative = _relative_path(candidate.relative_to(root).as_posix())
         files[relative] = ResourceFile(metadata.id, relative, candidate.read_bytes)
+    _validate_icon(metadata, files)
     return ResourcePack(metadata, files)
 
 
@@ -188,6 +222,7 @@ def _load_traversable(root: resources.abc.Traversable, origin: str) -> ResourceP
                 files[relative] = ResourceFile(metadata.id, relative, child.read_bytes)
 
     visit(root)
+    _validate_icon(metadata, files)
     return ResourcePack(metadata, files)
 
 
@@ -214,7 +249,28 @@ def _load_zip(path: Path) -> ResourcePack:
         )
         for name in entries
     }
+    _validate_icon(metadata, files)
     return ResourcePack(metadata, files)
+
+
+def _validate_icon(metadata: ResourcePackMetadata, files: Mapping[str, ResourceFile]) -> None:
+    if metadata.icon is None:
+        return
+    try:
+        raw = files[metadata.icon].read_bytes()
+    except KeyError as error:
+        raise ResourcePackError(f"resource pack icon does not exist: {metadata.icon}") from error
+    if len(raw) > 512 * 1024:
+        raise ResourcePackError("resource pack icon exceeds 512 KiB")
+    if len(raw) < 29 or raw[:8] != b"\x89PNG\r\n\x1a\n" or raw[12:16] != b"IHDR":
+        raise ResourcePackError("resource pack icon is not a valid PNG")
+    width = int.from_bytes(raw[16:20], "big")
+    height = int.from_bytes(raw[20:24], "big")
+    color_type = raw[25]
+    if width != height or width == 0:
+        raise ResourcePackError("resource pack icon must be a non-empty square image")
+    if color_type not in {4, 6}:
+        raise ResourcePackError("resource pack icon must include an alpha channel")
 
 
 def _read_zip_entry(path: Path, name: str) -> bytes:

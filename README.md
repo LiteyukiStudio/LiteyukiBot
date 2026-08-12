@@ -7,7 +7,7 @@ LiteyukiBot v6 plugins run in supervised child runtimes.
 The `v7` branch is a clean rewrite. The `main` branch remains the maintenance
 line for v6 and is not merged wholesale into v7.
 
-The current pre-release is `liteyukibot-v7==7.0.0a10`. Kernel stabilization,
+The current pre-release is `liteyukibot-v7==7.0.0a11`. Kernel stabilization,
 the first bounded compatibility phase, and the first-party plugin foundation
 are complete. Runtime protocol v4 remains an alpha contract and may change
 under ADR 0011 before the first stable release.
@@ -77,6 +77,13 @@ Framework hosts are independent packages. Install NoneBot2 with an adapter:
 ```bash
 uv add "liteyukibot-v7-runtime-nonebot[onebot]"
 # or: uv add "liteyukibot-v7-runtime-nonebot[satori]"
+```
+
+Install the Python platform-adapter host independently. It contains no platform
+SDK; protocol and platform adapters are separately published packages:
+
+```bash
+uv add liteyukibot-v7-runtime-adapter
 ```
 
 Install bounded v6 compatibility when legacy plugins are required:
@@ -159,6 +166,7 @@ uv run python -m scripts.run_functions_install
 uv run python -m scripts.run_profile_install
 uv run python -m scripts.run_essentials_install
 uv run python -m scripts.run_nonebot_runtime_install
+uv run python -m scripts.run_adapter_runtime_install
 ```
 
 The architecture overview is documented in `docs/architecture/v7.md`; accepted
