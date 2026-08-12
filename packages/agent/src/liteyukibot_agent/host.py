@@ -163,6 +163,7 @@ class NativeAgentHost:
                     response = await self.client.execute_action(
                         action.action_id,
                         action.model_dump(mode="json"),
+                        delivery_correlation_id=delivery_correlation_id,
                     )
                     if not response.ok:
                         raise RuntimeError(response.error or "source runtime rejected agent output")

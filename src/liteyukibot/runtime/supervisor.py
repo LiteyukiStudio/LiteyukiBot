@@ -52,7 +52,16 @@ class ActionSinkResult:
     error: str | None = None
 
 
-ActionSink = Callable[[str, dict[str, JsonValue]], Awaitable[ActionSinkResult]]
+@dataclass(frozen=True, slots=True)
+class ActionProvenance:
+    """Kernel-validated source event context for a v4 child Action."""
+
+    delivery_correlation_id: str
+    trace: EventTrace
+    event_payload: dict[str, JsonValue]
+
+
+ActionSink = Callable[[str, dict[str, JsonValue], ActionProvenance | None], Awaitable[ActionSinkResult]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -541,6 +550,37 @@ class RuntimeSupervisor:
                 "child runtime did not declare runtime.actions.send",
             )
             return
+        provenance: ActionProvenance | None = None
+        if request.delivery_correlation_id is not None:
+            self._clear_expired_delivery_contexts(record)
+            if record.protocol_version != 4:
+                await self._reject_child_action(
+                    record,
+                    request,
+                    "action delivery correlation id requires runtime protocol v4",
+                )
+                return
+            context = record.active_delivery_contexts.get(request.delivery_correlation_id)
+            if context is None:
+                await self._reject_child_action(
+                    record,
+                    request,
+                    "action request is not bound to an active event delivery",
+                )
+                return
+            _deadline, event_payload, trace = context
+            if trace is None:
+                await self._reject_child_action(
+                    record,
+                    request,
+                    "action delivery does not carry v4 trace context",
+                )
+                return
+            provenance = ActionProvenance(
+                delivery_correlation_id=request.delivery_correlation_id,
+                trace=trace,
+                event_payload=dict(event_payload),
+            )
         if self.action_sink is None:
             await self._reject_child_action(record, request, "core action sink is unavailable")
             return
@@ -553,15 +593,27 @@ class RuntimeSupervisor:
             return
 
         task = asyncio.create_task(
-            self._execute_child_action(record, request),
+            self._execute_child_action(record, request, provenance),
             name=f"runtime-action:{record.spec.id}:{request.correlation_id}",
         )
         record.inbound_actions[request.correlation_id] = task
 
-    async def _execute_child_action(self, record: RuntimeRecord, request: ActionRequest) -> None:
+    async def _execute_child_action(
+        self,
+        record: RuntimeRecord,
+        request: ActionRequest,
+        provenance: ActionProvenance | None,
+    ) -> None:
         try:
             assert self.action_sink is not None
-            result = await self.action_sink(record.spec.id, request.payload)
+            self._log_payload(
+                record,
+                "action.child_request",
+                request.correlation_id,
+                request.payload,
+                trace=provenance.trace if provenance is not None else None,
+            )
+            result = await self.action_sink(record.spec.id, request.payload, provenance)
             response = ActionResponse(
                 correlation_id=request.correlation_id,
                 ok=result.ok,
@@ -569,7 +621,9 @@ class RuntimeSupervisor:
                 error=result.error,
             )
         except Exception as error:
-            self.logger.error(
+            self.logger.bind(
+                trace_id=provenance.trace.trace_id if provenance is not None else None
+            ).error(
                 "runtime {} child action {} failed: {}",
                 record.spec.id,
                 request.correlation_id,

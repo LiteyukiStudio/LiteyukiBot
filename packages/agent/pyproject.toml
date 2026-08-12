@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7-agent"
-version = "0.1.0a3"
+version = "0.1.0a4"
 description = "Native OpenAI-compatible agent harness for LiteyukiBot v7."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -9,7 +9,7 @@ authors = [
     { name = "LiteyukiStudio" },
 ]
 dependencies = [
-    "liteyukibot-v7>=7.0.0a10,<8",
+    "liteyukibot-v7>=7.0.0a12,<8",
     "liteyukibot-v7-agent-resolver>=0.1.0a1,<0.2",
     "openai>=2,<3",
 ]

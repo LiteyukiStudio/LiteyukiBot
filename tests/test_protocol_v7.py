@@ -10,6 +10,7 @@ import pytest
 from liteyukibot.exceptions import RuntimeProtocolError
 from liteyukibot.runtime.protocol import (
     MAX_FRAME_SIZE,
+    ActionRequest,
     EventCompleted,
     EventMessage,
     EventTrace,
@@ -141,6 +142,20 @@ async def test_protocol_rejects_unsupported_hello_version() -> None:
 @pytest.mark.asyncio
 async def test_protocol_accepts_v4_event_completion() -> None:
     message = EventCompleted(correlation_id="delivery-1", status="completed")
+    writer = MemoryWriter()
+
+    await write_message(cast(asyncio.StreamWriter, writer), message)
+
+    assert await read_message(_reader(b"".join(writer.chunks))) == message
+
+
+@pytest.mark.asyncio
+async def test_protocol_preserves_v4_action_delivery_provenance() -> None:
+    message = ActionRequest(
+        correlation_id="action-1",
+        delivery_correlation_id="delivery-1",
+        payload={"type": "send_message"},
+    )
     writer = MemoryWriter()
 
     await write_message(cast(asyncio.StreamWriter, writer), message)

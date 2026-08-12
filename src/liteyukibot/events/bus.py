@@ -14,6 +14,7 @@ from .models import ActionEnvelope, ActionResult, DispatchResult, EventEnvelope,
 
 type EventHandler = Callable[[EventEnvelope], Awaitable[HandlerResult | None] | HandlerResult | None]
 type ActionExecutor = Callable[[ActionEnvelope], Awaitable[ActionResult] | ActionResult]
+type ActionGuard = Callable[[EventEnvelope, ActionEnvelope], Awaitable[ActionResult | None] | ActionResult | None]
 
 @dataclass(frozen=True, slots=True)
 class Subscription:
@@ -46,6 +47,7 @@ class EventBus:
         handler_timeout: float = 30.0,
         max_concurrent_events: int = 100,
         action_executor: ActionExecutor | None = None,
+        action_guard: ActionGuard | None = None,
         logger: Logger | None = None,
     ) -> None:
         if queue_capacity < 1:
@@ -61,6 +63,7 @@ class EventBus:
         self._enqueue_timeout = enqueue_timeout
         self._handler_timeout = handler_timeout
         self._action_executor = action_executor
+        self._action_guard = action_guard
         self._logger = logger or get_logger(component="events")
         self._capacity = asyncio.BoundedSemaphore(queue_capacity)
         self._concurrency = asyncio.Semaphore(max_concurrent_events)
@@ -245,7 +248,7 @@ class EventBus:
                 continue
 
             for action in result.actions:
-                action_results.append(await self._execute_action(action))
+                action_results.append(await self._execute_action(event, action))
             if result.stop_propagation:
                 stopped = True
                 break
@@ -259,7 +262,28 @@ class EventBus:
             failures=tuple(failures),
         )
 
-    async def _execute_action(self, action: ActionEnvelope) -> ActionResult:
+    async def _execute_action(self, event: EventEnvelope, action: ActionEnvelope) -> ActionResult:
+        if self._action_guard is not None:
+            try:
+                guarded: Any = self._action_guard(event, action)
+                if inspect.isawaitable(guarded):
+                    guarded = await guarded
+                if guarded is not None:
+                    if not isinstance(guarded, ActionResult):
+                        raise TypeError(f"expected ActionResult or None, got {type(guarded).__name__}")
+                    if guarded.action_id != action.action_id:
+                        raise ValueError("action guard result correlation id does not match the action")
+                    return guarded
+            except Exception as exc:
+                self._logger.bind(event_id=event.id, runtime=event.runtime_id, bot_id=event.bot_id).exception(
+                    "action guard failed for action {}", action.action_id
+                )
+                return ActionResult(
+                    action_id=action.action_id,
+                    success=False,
+                    error_code="ACTION_GUARD_ERROR",
+                    error_message=f"{type(exc).__name__}: {exc}",
+                )
         if self._action_executor is None:
             return ActionResult(
                 action_id=action.action_id,

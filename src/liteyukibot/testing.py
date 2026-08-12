@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import inspect
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -27,7 +27,7 @@ from .runtime import (
     RuntimeSupervisor,
 )
 from .runtime.protocol import JsonValue, json_mapping
-from .runtime.supervisor import ActionSink, ActionSinkResult, EventSink
+from .runtime.supervisor import ActionProvenance, ActionSinkResult, EventSink
 from .services import ServiceKey, ServiceRegistry
 
 
@@ -161,7 +161,7 @@ class RuntimeTestHarness:
         spec: RuntimeSpec,
         *,
         event_sink: EventSink | None = None,
-        action_sink: ActionSink | None = None,
+        action_sink: Callable[[str, dict[str, JsonValue]], Awaitable[ActionSinkResult]] | None = None,
     ) -> None:
         if spec.command is None or not spec.command:
             raise ValueError("runtime test harness requires an explicit child command")
@@ -264,7 +264,10 @@ class RuntimeTestHarness:
         return await self._event_sink(runtime_id, payload)
 
     async def _record_action(
-        self, runtime_id: str, payload: dict[str, JsonValue]
+        self,
+        runtime_id: str,
+        payload: dict[str, JsonValue],
+        _provenance: ActionProvenance | None,
     ) -> ActionSinkResult:
         self._child_actions.append((runtime_id, json_mapping(payload)))
         if self._action_sink is None:
