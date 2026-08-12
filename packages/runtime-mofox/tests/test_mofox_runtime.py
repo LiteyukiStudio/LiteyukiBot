@@ -91,6 +91,74 @@ def test_mofox_engine_restores_working_directory() -> None:
     assert engine._previous_cwd is None
 
 
+def _write_bridge_plugin(root: Path) -> None:
+    plugin = root / "mofox" / "plugins" / "liteyuki_bridge_probe"
+    plugin.mkdir(parents=True)
+    (plugin / "manifest.json").write_text(
+        """{
+  "name": "liteyuki_bridge_probe",
+  "version": "1.0.0",
+  "description": "Liteyuki bridge verification plugin",
+  "author": "LiteyukiBot",
+  "dependencies": {"plugins": [], "components": []},
+  "entry_point": "plugin.py",
+  "python_dependencies": []
+}
+""",
+        encoding="utf-8",
+    )
+    (plugin / "plugin.py").write_text(
+        "from src.core.components import BaseEventHandler, BasePlugin, EventType\n"
+        "from src.core.components.loader import register_plugin\n"
+        "from src.core.models.message import Message\n"
+        "from src.core.transport.message_send import get_message_sender\n"
+        "from src.kernel.event import EventDecision\n\n"
+        "class ReplyHandler(BaseEventHandler):\n"
+        "    name = 'reply'\n"
+        "    init_subscribe = [EventType.ON_MESSAGE_RECEIVED]\n\n"
+        "    async def execute(self, _event_name, params):\n"
+        "        message = params['message']\n"
+        "        if message.processed_plain_text == '/bridge_probe':\n"
+        "            await get_message_sender().send_message(Message(\n"
+        "                message_id='bridge-reply', content='mofox bridge reply',\n"
+        "                processed_plain_text='mofox bridge reply', platform=message.platform,\n"
+        "                chat_type=message.chat_type, stream_id=message.stream_id,\n"
+        "            ), adapter_signature='liteyuki:adapter:injected')\n"
+        "        return EventDecision.SUCCESS, params\n\n"
+        "@register_plugin\n"
+        "class BridgePlugin(BasePlugin):\n"
+        "    plugin_name = 'liteyuki_bridge_probe'\n"
+        "    plugin_description = 'Bridge verification'\n"
+        "    plugin_version = '1.0.0'\n\n"
+        "    def get_components(self):\n"
+        "        return [ReplyHandler]\n",
+        encoding="utf-8",
+    )
+
+
+@pytest.mark.asyncio
+async def test_mofox_upstream_receiver_routes_a_managed_plugin_reply(tmp_path: Path) -> None:
+    """Exercise the pinned Neo-MoFox receiver and plugin loader."""
+
+    _write_bridge_plugin(tmp_path)
+    engine = MoFoxHeadlessEngine(tmp_path, {})
+    sent: list[str] = []
+
+    async def emit(text: str) -> None:
+        sent.append(text)
+
+    event = _event().model_copy(
+        update={"message": Message(segments=(Segment(type="text", data={"text": "/bridge_probe"}),))}
+    )
+    try:
+        await engine.start()
+        await engine.process(event, emit)
+    finally:
+        await engine.close()
+
+    assert sent == ["mofox bridge reply"]
+
+
 class FakeClient:
     def __init__(self) -> None:
         self.sent: list[object] = []
