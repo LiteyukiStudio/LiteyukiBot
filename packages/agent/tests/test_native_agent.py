@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -11,12 +13,14 @@ from liteyukibot_agent.host import NativeAgentHost, _environment_secret
 from liteyukibot_agent.store import ConversationStore
 
 from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope, Message, Segment
+from liteyukibot.runtime import ActionSinkResult, AgentToolSinkResult, RuntimeSpec
 from liteyukibot.runtime.protocol import (
     ActionResponse,
     AgentToolResponse,
     EventAccepted,
     EventCompleted,
     EventMessage,
+    JsonValue,
 )
 
 
@@ -100,6 +104,33 @@ def _event() -> EventEnvelope:
         actor=ActorRef(id="user-1"),
         message=Message(segments=(Segment(type="text", data={"text": "hello"}),)),
     )
+
+
+async def _read_http_request(reader: asyncio.StreamReader) -> tuple[str, dict[str, object]]:
+    header = await reader.readuntil(b"\r\n\r\n")
+    lines = header.decode("ascii").split("\r\n")
+    content_length = next(
+        int(line.split(":", 1)[1].strip())
+        for line in lines
+        if line.lower().startswith("content-length:")
+    )
+    return lines[0], json.loads((await reader.readexactly(content_length)).decode("utf-8"))
+
+
+async def _write_completion(
+    writer: asyncio.StreamWriter,
+    message: dict[str, object],
+) -> None:
+    payload = json.dumps({"choices": [{"message": message}]}).encode("utf-8")
+    writer.write(
+        b"HTTP/1.1 200 OK\r\n"
+        b"Content-Type: application/json\r\n"
+        + f"Content-Length: {len(payload)}\r\nConnection: close\r\n\r\n".encode("ascii")
+        + payload
+    )
+    await writer.drain()
+    writer.close()
+    await writer.wait_closed()
 
 
 @pytest.mark.asyncio
@@ -205,6 +236,118 @@ async def test_native_agent_binds_tool_calls_to_the_delivered_event(tmp_path: Pa
             },
         ),
     ]
+
+
+@pytest.mark.asyncio
+async def test_native_agent_child_round_trips_mock_provider_tool_and_source_action(tmp_path: Path) -> None:
+    requests: list[dict[str, object]] = []
+    responses: Sequence[dict[str, object]] = (
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call-1",
+                    "type": "function",
+                    "function": {"name": "docs.search", "arguments": '{"query":"liteyuki"}'},
+                }
+            ],
+        },
+        {"role": "assistant", "content": "found it", "tool_calls": []},
+    )
+    response_iterator = iter(responses)
+
+    async def provider(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        request_line, request = await _read_http_request(reader)
+        assert request_line == "POST /v1/chat/completions HTTP/1.1"
+        requests.append(request)
+        await _write_completion(writer, next(response_iterator))
+
+    server = await asyncio.start_server(provider, "127.0.0.1", 0)
+    port = int(server.sockets[0].getsockname()[1])
+    action_received = asyncio.Event()
+    observed_tools: list[tuple[str, str, str, Mapping[str, JsonValue]]] = []
+    observed_actions: list[Mapping[str, JsonValue]] = []
+
+    async def tool_sink(
+        runtime_id: str,
+        delivery_id: str,
+        payload: dict[str, JsonValue],
+        tool_id: str,
+        arguments: dict[str, JsonValue],
+    ) -> AgentToolSinkResult:
+        observed_tools.append((runtime_id, delivery_id, str(payload["id"]), arguments))
+        assert tool_id == "docs.search"
+        return AgentToolSinkResult(ok=True, data={"result": "found"})
+
+    async def action_sink(_runtime_id: str, payload: dict[str, JsonValue]) -> ActionSinkResult:
+        observed_actions.append(payload)
+        action_received.set()
+        return ActionSinkResult(ok=True)
+
+    spec = RuntimeSpec(
+        id="agent",
+        kind="agent",
+        command=(sys.executable, "-m", "liteyukibot_agent"),
+        env={
+            "LITEYUKI_AGENT_API_KEY": "test-key",
+            "HTTP_PROXY": "",
+            "HTTPS_PROXY": "",
+            "ALL_PROXY": "",
+            "NO_PROXY": "127.0.0.1,localhost",
+            "http_proxy": "",
+            "https_proxy": "",
+            "all_proxy": "",
+            "no_proxy": "127.0.0.1,localhost",
+        },
+        options={
+            "model": "mock-model",
+            "base_url": f"http://127.0.0.1:{port}/v1",
+            "history_limit": 10,
+            "message_chunk_size": 100,
+            "max_concurrent_events": 1,
+            "model_timeout_seconds": 10,
+            "event_timeout_seconds": 15,
+        },
+        heartbeat_interval=0.05,
+        stale_after=1,
+        ready_timeout=5,
+        shutdown_timeout=2,
+        agent_harness="native",
+    )
+    from liteyukibot.testing import RuntimeTestHarness
+
+    harness = RuntimeTestHarness(
+        spec,
+        action_sink=action_sink,
+        agent_tool_sink=tool_sink,
+    )
+    try:
+        async with harness:
+            accepted = await harness.dispatch_event(
+                _event().model_dump(mode="json"),
+                correlation_id="delivery-1",
+                agent_tool_catalog={
+                    "tools": [
+                        {
+                            "id": "docs.search",
+                            "description": "Search docs.",
+                            "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}},
+                        }
+                    ]
+                },
+            )
+            assert accepted == EventAccepted(correlation_id="delivery-1", status="accepted")
+            await asyncio.wait_for(action_received.wait(), timeout=12)
+    finally:
+        server.close()
+        await server.wait_closed()
+
+    assert observed_tools == [("agent", "delivery-1", "event-1", {"query": "liteyuki"})]
+    assert observed_actions[0]["runtime_id"] == "nonebot"
+    assert len(requests) == 2
+    assert requests[0]["model"] == "mock-model"
+    assert requests[0]["tools"] != []
 
 
 @pytest.mark.asyncio
