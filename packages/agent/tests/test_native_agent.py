@@ -294,11 +294,11 @@ async def test_native_agent_child_round_trips_mock_provider_tool_and_source_acti
             "HTTP_PROXY": "",
             "HTTPS_PROXY": "",
             "ALL_PROXY": "",
-            "NO_PROXY": "127.0.0.1,localhost",
+            "NO_PROXY": "*",
             "http_proxy": "",
             "https_proxy": "",
             "all_proxy": "",
-            "no_proxy": "127.0.0.1,localhost",
+            "no_proxy": "*",
         },
         options={
             "model": "mock-model",
@@ -470,12 +470,34 @@ async def test_native_agent_uses_the_configured_tool_round_limit(tmp_path: Path)
 def test_conversation_history_is_partitioned_by_runtime_bot_and_conversation(tmp_path: Path) -> None:
     store = ConversationStore(tmp_path / "history.sqlite3")
     try:
-        store.append("onebot", "bot-1", "group:one", "user", "first")
-        store.append("onebot", "bot-2", "group:one", "user", "other-bot")
+        store.append("onebot", "bot-1", "group:one", "user", "first", retain=10)
+        store.append("onebot", "bot-2", "group:one", "user", "other-bot", retain=10)
 
         assert store.messages("onebot", "bot-1", "group:one", limit=10) == [
             {"role": "user", "content": "first"}
         ]
+    finally:
+        store.close()
+
+
+def test_conversation_history_is_bounded_and_can_clear_one_source_conversation(tmp_path: Path) -> None:
+    store = ConversationStore(tmp_path / "history.sqlite3")
+    try:
+        for value in ("first", "second", "third"):
+            store.append("onebot", "bot-1", "group:one", "user", value, retain=2)
+        store.append("onebot", "bot-1", "group:two", "user", "unrelated", retain=2)
+
+        assert store.messages("onebot", "bot-1", "group:one", limit=10) == [
+            {"role": "user", "content": "second"},
+            {"role": "user", "content": "third"},
+        ]
+        assert store.clear("onebot", "bot-1", "group:one") == 2
+        assert store.messages("onebot", "bot-1", "group:one", limit=10) == []
+        assert store.messages("onebot", "bot-1", "group:two", limit=10) == [
+            {"role": "user", "content": "unrelated"}
+        ]
+        with pytest.raises(ValueError, match="retention"):
+            store.append("onebot", "bot-1", "group:one", "user", "invalid", retain=0)
     finally:
         store.close()
 

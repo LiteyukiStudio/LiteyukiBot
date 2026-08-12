@@ -1,4 +1,4 @@
-"""Small SQLite conversation history store owned by the native agent runtime."""
+"""Bounded SQLite conversation history owned by the native agent runtime."""
 
 from __future__ import annotations
 
@@ -57,7 +57,11 @@ class ConversationStore:
         conversation_id: str,
         role: str,
         content: Mapping[str, object] | str,
+        *,
+        retain: int,
     ) -> None:
+        if retain < 1:
+            raise ValueError("conversation history retention must be at least 1")
         self._connection.execute(
             """
             INSERT INTO messages (runtime_id, bot_id, conversation_id, role, content)
@@ -65,7 +69,41 @@ class ConversationStore:
             """,
             (runtime_id, bot_id, conversation_id, role, json.dumps(content, ensure_ascii=True)),
         )
+        self._connection.execute(
+            """
+            DELETE FROM messages
+            WHERE runtime_id = ? AND bot_id = ? AND conversation_id = ?
+              AND sequence NOT IN (
+                SELECT sequence FROM messages
+                WHERE runtime_id = ? AND bot_id = ? AND conversation_id = ?
+                ORDER BY sequence DESC
+                LIMIT ?
+            )
+            """,
+            (
+                runtime_id,
+                bot_id,
+                conversation_id,
+                runtime_id,
+                bot_id,
+                conversation_id,
+                retain,
+            ),
+        )
         self._connection.commit()
+
+    def clear(self, runtime_id: str, bot_id: str, conversation_id: str) -> int:
+        """Delete one source-scoped conversation and return its removed message count."""
+
+        cursor = self._connection.execute(
+            """
+            DELETE FROM messages
+            WHERE runtime_id = ? AND bot_id = ? AND conversation_id = ?
+            """,
+            (runtime_id, bot_id, conversation_id),
+        )
+        self._connection.commit()
+        return cursor.rowcount
 
     def close(self) -> None:
         self._connection.close()
