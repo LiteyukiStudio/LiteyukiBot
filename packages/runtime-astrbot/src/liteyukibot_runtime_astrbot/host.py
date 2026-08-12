@@ -7,11 +7,12 @@ import os
 from collections.abc import Awaitable, Callable, Mapping
 from contextlib import suppress
 from importlib import import_module
+from inspect import isawaitable
 from pathlib import Path
 from typing import Any
 
 from liteyukibot.events import EventEnvelope
-from liteyukibot.logging import configure_runtime_child_logging, get_logger
+from liteyukibot.logging import configure_runtime_child_logging, get_logger, shutdown_logging
 from liteyukibot.runtime import RuntimeClient
 from liteyukibot.runtime.projection import project_managed_plugins
 from liteyukibot.runtime.protocol import (
@@ -90,13 +91,14 @@ class AstrBotHeadlessEngine:
 
         broker = log_broker_type()
         bridge = AstrBotLogBridge(broker, self._logger)
-        bridge.start(astrbot_core.LogManager, astrbot_core.logger)
         lifecycle = lifecycle_type(broker, database_type(str(root / "astrbot.db")))
         try:
             await lifecycle.initialize()
         except BaseException:
             await bridge.close()
             raise
+        _restore_child_logging()
+        bridge.start(astrbot_core.LogManager, astrbot_core.logger)
         self._lifecycle = lifecycle
         self._schedulers = lifecycle.pipeline_scheduler_mapping
         self._log_bridge = bridge
@@ -118,8 +120,11 @@ class AstrBotHeadlessEngine:
             if lifecycle is not None:
                 await lifecycle.stop()
         finally:
-            if bridge is not None:
-                await bridge.close()
+            try:
+                if bridge is not None:
+                    await bridge.close()
+            finally:
+                await _dispose_astrbot_global_database(self._logger)
 
     def _scheduler(self) -> Any:
         requested = self.options.get("scheduler_id")
@@ -146,6 +151,26 @@ def _prepare_managed_plugins(root: Path, options: Mapping[str, object]) -> None:
         root / "managed-plugin-backups",
         mode=mode,
     )
+
+
+def _restore_child_logging() -> None:
+    """AstrBot replaces global Loguru sinks during initialization."""
+
+    shutdown_logging()
+    configure_runtime_child_logging()
+
+
+async def _dispose_astrbot_global_database(logger: Any) -> None:
+    """Release AstrBot's import-time database engine, separate from our lifecycle DB."""
+
+    try:
+        database = import_module("astrbot.core").db_helper
+        dispose = database.engine.dispose
+        result = dispose()
+        if isawaitable(result):
+            await result
+    except Exception as error:
+        logger.warning("AstrBot global database cleanup failed: {}", error)
 
 
 class AstrBotRuntimeHost:
