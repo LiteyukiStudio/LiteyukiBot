@@ -45,7 +45,7 @@ against the released wheels.
 | Tier | Components | Beta1 commitment |
 | --- | --- | --- |
 | Supported | Native adapter host, OneBot v11 adapter, native plugins, v6 compatibility, native agent | Documented configuration plus automated end-to-end regression coverage. OneBot v11 is the only supported native platform protocol. |
-| Supported bridge | NoneBot, AstrBot, MoFox | Kernel-supervised child bridge with locked upstream dependency, lifecycle, event/action, and managed-projection evidence. LiteyukiBot does not reimplement each framework's ecosystem. |
+| Supported bridge | NoneBot, AstrBot, MoFox | Kernel-supervised child bridge with locked upstream dependency, lifecycle, event/action, and managed-projection evidence. AstrBot and MoFox regression tests load a minimal projected upstream plugin and assert its reply returns through the Liteyuki action sink. LiteyukiBot does not reimplement each framework's ecosystem. |
 | Experimental | OneBot v12, Satori, future native adapters | Separately versioned and independently tested. Their availability or absence does not alter the supported OneBot v11 path. |
 
 The current native OneBot v11 adapter owns an HTTP Post callback listener and

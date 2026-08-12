@@ -1583,7 +1583,7 @@ requires-dist = [{ name = "liteyukibot-v7", editable = "." }]
 
 [[package]]
 name = "liteyukibot-v7-runtime-astrbot"
-version = "0.1.0a6"
+version = "0.1.0a7"
 source = { editable = "packages/runtime-astrbot" }
 dependencies = [
     { name = "astrbot" },
@@ -1598,7 +1598,7 @@ requires-dist = [
 
 [[package]]
 name = "liteyukibot-v7-runtime-mofox"
-version = "0.1.0a5"
+version = "0.1.0a6"
 source = { editable = "packages/runtime-mofox" }
 dependencies = [
     { name = "liteyukibot-v7" },

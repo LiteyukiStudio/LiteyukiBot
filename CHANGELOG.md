@@ -8,6 +8,9 @@
   command, with redacted permission auditing and no model invocation;
 - made `liteyukibot-v7-agent` depend on the separately published command
   package so its installed plugin contract is complete.
+- fixed the AstrBot child import root so managed projected plugins are loaded,
+  and added locked-upstream plugin-reply regressions for the AstrBot and MoFox
+  bridge runtimes.
 - added `liteyukibot-v7-runtime-adapter`, a separately published Python
   platform-adapter host with managed-generation and entry-point boundaries;
 - added `liteyukibot-v7-adapter-onebot`, a pure-Python OneBot v11 HTTP Post
