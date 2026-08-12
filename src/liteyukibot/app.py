@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Mapping
 from enum import StrEnum
+from pathlib import Path
 from time import monotonic
 from typing import Any
 
@@ -16,6 +17,7 @@ from .events import ActionEnvelope, ActionResult, EventBus, EventEnvelope
 from .functions import FUNCTION_DISPATCH_SERVICE, FunctionDispatcher
 from .http import HttpServer
 from .logging import Logger, configure_logging, get_logger, shutdown_logging
+from .plugin_store import RuntimeGenerationStore
 from .plugins import PluginManager
 from .resource_packs import RESOURCE_CATALOG_SERVICE, ResourceCatalog
 from .runtime import (
@@ -149,21 +151,46 @@ class LiteyukiApp:
         self.functions: FunctionDispatcher | None = None
         self._function_tasks = ManagedTasks("functions", on_failure=self._function_task_failed)
         runtime_plugins = RuntimeCatalog().discover()
+        generation_store = RuntimeGenerationStore(self.resource_workspace)
+        deployment = generation_store.active()
         for runtime_id, runtime in settings.runtimes.items():
             if not runtime.enabled:
                 continue
             state_directory = (core.data_dir / "runtimes" / runtime_id).resolve()
             self._runtime_state_directories[runtime_id] = state_directory
+            generation_path: Path | None = None
+            command = runtime.command or None
+            generation_id = deployment.runtime_generations.get(runtime_id)
+            if generation_id is not None:
+                generation = generation_store.read(runtime_id, generation_id)
+                if generation.runtime_kind != runtime.kind:
+                    raise RuntimeError(
+                        f"runtime {runtime_id!r} generation kind {generation.runtime_kind!r} "
+                        f"does not match {runtime.kind!r}"
+                    )
+                runtime_plugin = runtime_plugins.get(runtime.kind)
+                if runtime_plugin is None:
+                    raise RuntimeError(f"runtime {runtime.kind!r} has a managed generation but is not installed")
+                if runtime.command:
+                    raise RuntimeError(
+                        f"runtime {runtime_id!r} cannot combine a managed generation with command override"
+                    )
+                generation_path = generation_store.path_for(runtime_id, generation_id)
+                python = generation_store.python_path(generation_path)
+                if not python.is_file():
+                    raise RuntimeError(f"runtime {runtime_id!r} generation has no Python executable")
+                command = (str(python), *runtime_plugin.command[1:])
             self.runtimes.add(
                 RuntimeSpec(
                     id=runtime_id,
                     kind=runtime.kind,
                     options=runtime.options,
-                    command=runtime.command or None,
+                    command=command,
                     working_directory=runtime.working_directory,
                     env={
                         **runtime.env,
                         "LITEYUKI_RUNTIME_STATE_DIR": str(state_directory),
+                        **({"LITEYUKI_RUNTIME_GENERATION_DIR": str(generation_path)} if generation_path else {}),
                     },
                     secret_env=runtime.secret_env,
                     handshake_timeout=runtime.handshake_timeout_seconds,

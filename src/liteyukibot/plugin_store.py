@@ -454,6 +454,11 @@ class RuntimeGenerationStore:
             / _identifier(generation_id, "generation id")
         )
 
+    @staticmethod
+    def python_path(generation_path: str | Path) -> Path:
+        root = Path(generation_path)
+        return root / "venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+
     def write(self, generation: RuntimeGeneration) -> Path:
         path = self.path_for(generation.runtime_id, generation.id)
         manifest = path / "manifest.json"

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any, cast
 
 import pytest
@@ -9,7 +11,7 @@ from _support import FakeLogger
 from liteyuki.session import MessageEvent, on_message
 from liteyuki.session.on import _reset_matchers
 from liteyukibot_runtime_v6.events import reply_to_action, to_legacy_message_event
-from liteyukibot_runtime_v6.host import _V6RuntimeHost
+from liteyukibot_runtime_v6.host import _managed_plugin_options, _V6RuntimeHost
 
 from liteyukibot.events import (
     ActorRef,
@@ -129,6 +131,36 @@ def test_reply_intents_translate_to_ordered_protocol_neutral_actions() -> None:
         reply_to_action({"data": {}}, envelope)
     with pytest.raises(ValueError, match="object data field"):
         reply_to_action({"type": "text", "data": "invalid"}, envelope)
+
+
+def test_v6_managed_generation_accepts_only_payload_relative_directories(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    payload = tmp_path / "generation" / "payload" / "plugins"
+    payload.mkdir(parents=True)
+    (tmp_path / "generation" / "load-plan.json").write_text(
+        json.dumps({"modules": ["example.echo"], "directories": ["plugins"]}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("LITEYUKI_RUNTIME_GENERATION_DIR", str(tmp_path / "generation"))
+
+    modules, directories = _managed_plugin_options() or ((), ())
+
+    assert modules == ("example.echo",)
+    assert directories == (str(payload.resolve()),)
+
+
+def test_v6_managed_generation_rejects_path_escape(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    generation = tmp_path / "generation"
+    generation.mkdir()
+    (generation / "load-plan.json").write_text(
+        json.dumps({"modules": [], "directories": ["../outside"]}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("LITEYUKI_RUNTIME_GENERATION_DIR", str(generation))
+
+    with pytest.raises(RuntimeError, match="payload-relative"):
+        _managed_plugin_options()
 
 
 class _FakeClient:
