@@ -16,3 +16,10 @@ the limit only affects subsequent writes. `max_concurrent_events` defaults to 16
 `model_timeout_seconds` to 60, and `event_timeout_seconds` to 120. A model or
 event timeout produces a failed terminal delivery without recording model input,
 tool arguments, or response content in logs.
+
+When the Commands and Permissions plugins are enabled, operators may grant
+`liteyukibot.agent.history.clear` to expose `/agent forget`. The command is
+handled by the kernel, sends one protocol-v5 control request to the native
+Agent child, and clears only the requesting source runtime, bot, and
+conversation. It never sends a model request and the permission audit contains
+no conversation content.

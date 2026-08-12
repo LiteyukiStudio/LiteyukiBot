@@ -27,6 +27,8 @@ def main() -> int:
     command = [uv, "run", "--no-project", "--python", "3.14"]
     for wheel in (
         _one_wheel("liteyukibot_v7"),
+        _one_wheel("liteyukibot_v7_permissions"),
+        _one_wheel("liteyukibot_v7_commands"),
         _one_wheel("liteyukibot_v7_agent_resolver"),
         _one_wheel("liteyukibot_v7_agent"),
     ):

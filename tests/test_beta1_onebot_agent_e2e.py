@@ -9,10 +9,11 @@ import socket
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from liteyukibot_agent.broker import ToolBroker
+from liteyukibot_permissions import PERMISSION_SERVICE, PermissionAuditService
 
 from liteyukibot.agents import AgentTool, AgentToolResult
 from liteyukibot.app import LiteyukiApp
@@ -88,7 +89,7 @@ async def _read_headers(reader: asyncio.StreamReader) -> tuple[str, dict[str, st
     return lines[0], headers
 
 
-async def _post_onebot_group_message(port: int) -> int:
+async def _post_onebot_group_message(port: int, text: str = "search Liteyuki") -> int:
     payload = {
         "time": 1_720_000_000,
         "self_id": 42,
@@ -97,7 +98,7 @@ async def _post_onebot_group_message(port: int) -> int:
         "user_id": 1001,
         "message_type": "group",
         "message_id": 7,
-        "message": [{"type": "text", "data": {"text": "search Liteyuki"}}],
+        "message": [{"type": "text", "data": {"text": text}}],
         "sender": {"user_id": 1001, "nickname": "tester"},
         "group_id": 2002,
     }
@@ -265,3 +266,88 @@ async def test_beta1_onebot_to_native_agent_tool_and_reply(tmp_path: Path, monke
         "group_id": 2002,
         "message": [{"type": "text", "data": {"text": "Liteyuki documentation found."}}],
     }
+
+
+@pytest.mark.asyncio
+async def test_beta1_onebot_command_clears_native_agent_history_without_model_call(tmp_path: Path) -> None:
+    onebot_api = _HttpStub(({"status": "ok", "retcode": 0, "data": {"message_id": 12345}},))
+    await onebot_api.start()
+    event_port = _unused_port()
+    state_path = tmp_path / "data" / "runtimes" / "agent" / "history.sqlite3"
+    from liteyukibot_agent.store import ConversationStore
+
+    history = ConversationStore(state_path)
+    history.append("platform", "42", "group:2002", "user", "remember this", retain=4)
+    history.append("platform", "42", "group:2002", "assistant", "remembered", retain=4)
+    history.close()
+    app = LiteyukiApp(
+        AppSettings(
+            core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"),
+            agent=AgentSettings(enabled=True, agent_harness="native"),
+            plugins=PluginSettings(
+                enabled=("liteyukibot.permissions", "liteyukibot.commands", "liteyukibot.agent"),
+                config={
+                    "liteyukibot.permissions": {
+                        "grants": [
+                            {
+                                "runtime_id": "platform",
+                                "bot_id": "42",
+                                "actor_id": "1001",
+                                "capabilities": ["liteyukibot.agent.history.clear"],
+                            }
+                        ]
+                    }
+                },
+            ),
+            runtimes={
+                "platform": RuntimeSettings(
+                    kind="adapter",
+                    ready_timeout_seconds=10,
+                    options={
+                        "adapters": {
+                            "qq-main": {
+                                "kind": "onebot-v11",
+                                "bot_id": "42",
+                                "config": {
+                                    "event_host": "127.0.0.1",
+                                    "event_port": event_port,
+                                    "event_path": "/onebot/v11/http",
+                                    "api_root": onebot_api.url,
+                                    "access_token": "test-token",
+                                },
+                            }
+                        }
+                    },
+                ),
+                "agent": RuntimeSettings(
+                    kind="agent",
+                    ready_timeout_seconds=10,
+                    env={"LITEYUKI_AGENT_API_KEY": "test-key"},
+                    options={"model": "unused-model", "history_limit": 4},
+                ),
+            },
+        )
+    )
+    permissions: PermissionAuditService | None = None
+    try:
+        await app.start()
+        permissions = cast(PermissionAuditService, app.services.require(PERMISSION_SERVICE))
+        assert await _post_onebot_group_message(event_port, "/agent forget") == 204
+        action = await asyncio.wait_for(onebot_api.requests.get(), timeout=15)
+    finally:
+        await app.stop()
+        await onebot_api.close()
+
+    history = ConversationStore(state_path)
+    try:
+        assert history.messages("platform", "42", "group:2002", limit=4) == []
+    finally:
+        history.close()
+    assert action.path == "/send_group_msg"
+    assert action.payload == {
+        "group_id": 2002,
+        "message": [{"type": "text", "data": {"text": "Cleared 2 saved agent message(s)."}}],
+    }
+    assert permissions is not None
+    assert permissions.audit(limit=1)[0].capability == "liteyukibot.agent.history.clear"
+    assert permissions.audit(limit=1)[0].allowed is True

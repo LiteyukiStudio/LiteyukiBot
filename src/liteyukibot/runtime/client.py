@@ -17,6 +17,7 @@ from .protocol import (
     AgentToolRequest,
     AgentToolResponse,
     ConfigMessage,
+    ControlResponse,
     Heartbeat,
     Hello,
     JsonValue,
@@ -63,6 +64,7 @@ class RuntimeClient:
         self._capabilities: frozenset[str] = frozenset()
         self._pending_actions: dict[str, asyncio.Future[ActionResponse]] = {}
         self._pending_agent_tools: dict[str, asyncio.Future[AgentToolResponse]] = {}
+        self._pending_controls: dict[str, asyncio.Future[ControlResponse]] = {}
         self._closed = False
 
     @classmethod
@@ -143,6 +145,7 @@ class RuntimeClient:
                 except (EOFError, ConnectionError, RuntimeProtocolError) as error:
                     self._fail_pending_actions(error)
                     self._fail_pending_agent_tools(error)
+                    self._fail_pending_controls(error)
                     raise
                 if isinstance(message, ActionResponse):
                     future = self._pending_actions.pop(message.correlation_id, None)
@@ -153,6 +156,11 @@ class RuntimeClient:
                     agent_tool_future = self._pending_agent_tools.pop(message.correlation_id, None)
                     if agent_tool_future is not None and not agent_tool_future.done():
                         agent_tool_future.set_result(message)
+                        continue
+                if isinstance(message, ControlResponse):
+                    control_future = self._pending_controls.pop(message.correlation_id, None)
+                    if control_future is not None and not control_future.done():
+                        control_future.set_result(message)
                         continue
                 return message
 
@@ -166,12 +174,12 @@ class RuntimeClient:
     ) -> ActionResponse:
         if timeout_seconds <= 0:
             raise ValueError("runtime action timeout must be positive")
-        if self.negotiated_protocol not in (3, 4):
-            raise RuntimeError("child-originated actions require runtime protocol v3 or v4")
+        if self.negotiated_protocol not in (3, 4, 5):
+            raise RuntimeError("child-originated actions require runtime protocol v3, v4, or v5")
         if delivery_correlation_id is not None and (
-            not delivery_correlation_id or self.negotiated_protocol != 4
+            not delivery_correlation_id or self.negotiated_protocol not in (4, 5)
         ):
-            raise RuntimeError("action delivery correlation id requires runtime protocol v4")
+            raise RuntimeError("action delivery correlation id requires runtime protocol v4 or v5")
         if self._heartbeat_task is None:
             raise RuntimeError("runtime client is not ready")
         if "runtime.actions.send" not in self._capabilities:
@@ -205,8 +213,8 @@ class RuntimeClient:
             raise ValueError("agent tool timeout must be positive")
         if not delivery_correlation_id or not tool_id:
             raise ValueError("agent tool delivery correlation id and tool id must not be empty")
-        if self.negotiated_protocol not in (3, 4):
-            raise RuntimeError("agent tools require runtime protocol v3 or v4")
+        if self.negotiated_protocol not in (3, 4, 5):
+            raise RuntimeError("agent tools require runtime protocol v3, v4, or v5")
         if self._heartbeat_task is None:
             raise RuntimeError("runtime client is not ready")
         if "agent.tools.execute" not in self._capabilities:
@@ -244,6 +252,7 @@ class RuntimeClient:
         self._closed = True
         self._fail_pending_actions(ConnectionError("runtime client closed"))
         self._fail_pending_agent_tools(ConnectionError("runtime client closed"))
+        self._fail_pending_controls(ConnectionError("runtime client closed"))
         heartbeat, self._heartbeat_task = self._heartbeat_task, None
         self._capabilities = frozenset()
         if heartbeat is not None:
@@ -268,6 +277,12 @@ class RuntimeClient:
             if not future.done():
                 future.set_exception(error)
         self._pending_agent_tools.clear()
+
+    def _fail_pending_controls(self, error: BaseException) -> None:
+        for future in self._pending_controls.values():
+            if not future.done():
+                future.set_exception(error)
+        self._pending_controls.clear()
 
     async def _heartbeat(self, interval: float) -> None:
         while True:

@@ -14,6 +14,8 @@ from liteyukibot.runtime import RuntimeClient
 from liteyukibot.runtime.protocol import (
     ActionRequest,
     ActionResponse,
+    ControlRequest,
+    ControlResponse,
     EventAccepted,
     EventCompleted,
     EventMessage,
@@ -64,6 +66,8 @@ class NativeAgentHost:
                         error="native agent does not own a platform action adapter",
                     )
                 )
+            elif isinstance(message, ControlRequest):
+                await self.client.send(self._execute_control(message))
             elif isinstance(message, EventMessage):
                 await self._accept_event(message)
 
@@ -115,6 +119,46 @@ class NativeAgentHost:
         )
         self._tasks.add(task)
         task.add_done_callback(self._event_finished)
+
+    def _execute_control(self, message: ControlRequest) -> ControlResponse:
+        payload = message.payload
+        expected = {"runtime_id", "bot_id", "conversation_id"}
+        if message.command != "agent.history.clear" or set(payload) != expected:
+            return ControlResponse(
+                correlation_id=message.correlation_id,
+                ok=False,
+                error="invalid agent history clear request",
+            )
+        runtime_id = payload["runtime_id"]
+        bot_id = payload["bot_id"]
+        conversation_id = payload["conversation_id"]
+        if (
+            not isinstance(runtime_id, str)
+            or not runtime_id.strip()
+            or not isinstance(bot_id, str)
+            or not bot_id.strip()
+            or not isinstance(conversation_id, str)
+            or not conversation_id.strip()
+        ):
+            return ControlResponse(
+                correlation_id=message.correlation_id,
+                ok=False,
+                error="invalid agent history clear request",
+            )
+        try:
+            cleared = self.store.clear(runtime_id, bot_id, conversation_id)
+        except Exception:
+            self.logger.warning("native agent history clear failed")
+            return ControlResponse(
+                correlation_id=message.correlation_id,
+                ok=False,
+                error="agent history clear failed",
+            )
+        return ControlResponse(
+            correlation_id=message.correlation_id,
+            ok=True,
+            data={"cleared": cleared},
+        )
 
     def _event_finished(self, task: asyncio.Task[None]) -> None:
         self._tasks.discard(task)
@@ -248,7 +292,13 @@ async def run() -> None:
             max_tool_rounds=_positive_int(options, "max_tool_rounds", 4),
         )
         await client.ready(
-            ("runtime.events.receive", "runtime.events.complete", "runtime.actions.send", "agent.tools.execute")
+            (
+                "runtime.events.receive",
+                "runtime.events.complete",
+                "runtime.actions.send",
+                "agent.tools.execute",
+                "runtime.controls.execute",
+            )
         )
         logger.info("native agent runtime is ready")
         await host.serve()

@@ -26,3 +26,4 @@ stable-release guarantee.
 20. [Native resource management contract](0020-resource-management-contract.md)
 21. [Kernel-mediated runtime integration](0021-kernel-mediated-runtime-integration.md)
 22. [Runtime IPC v4 delivery tracing](0022-runtime-ipc-protocol-v4.md)
+23. [Runtime IPC v5 kernel controls](0023-runtime-ipc-protocol-v5.md)

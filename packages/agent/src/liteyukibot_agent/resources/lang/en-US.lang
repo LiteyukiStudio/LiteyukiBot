@@ -1,3 +1,7 @@
 agent.init.model=Model
 agent.init.base_url=Base URL
 agent.init.api_key=API key
+agent.command.forget.summary=Clear your native agent conversation history
+agent.command.forget.complete=Cleared {count} saved agent message(s).
+agent.command.forget.denied=You are not allowed to clear this agent history.
+agent.command.forget.unavailable=The native agent history service is unavailable.

@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7-agent"
-version = "0.1.0a8"
+version = "0.1.0a9"
 description = "Native OpenAI-compatible agent harness for LiteyukiBot v7."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -9,7 +9,8 @@ authors = [
     { name = "LiteyukiStudio" },
 ]
 dependencies = [
-    "liteyukibot-v7>=7.0.0a13,<8",
+    "liteyukibot-v7>=7.0.0a17,<8",
+    "liteyukibot-v7-commands>=0.2.0a2,<0.3",
     "liteyukibot-v7-agent-resolver>=0.1.0a1,<0.2",
     "openai>=2,<3",
 ]
@@ -26,6 +27,7 @@ build-backend = "uv_build"
 
 [tool.uv.sources]
 liteyukibot-v7 = { workspace = true }
+liteyukibot-v7-commands = { workspace = true }
 liteyukibot-v7-agent-resolver = { workspace = true }
 
 [tool.uv.build-backend]
