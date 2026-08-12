@@ -12,7 +12,7 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from yukilog import decode_child_runtime_line
 
@@ -24,6 +24,8 @@ from .protocol import (
     AgentToolRequest,
     AgentToolResponse,
     ConfigMessage,
+    ControlRequest,
+    ControlResponse,
     ErrorMessage,
     EventAccepted,
     EventCompleted,
@@ -142,6 +144,7 @@ class RuntimeRecord:
     pending_events: dict[str, asyncio.Future[EventAccepted]] = field(default_factory=dict)
     pending_event_payloads: dict[str, dict[str, JsonValue]] = field(default_factory=dict)
     pending_event_traces: dict[str, EventTrace] = field(default_factory=dict)
+    pending_controls: dict[str, asyncio.Future[ControlResponse]] = field(default_factory=dict)
     inbound_actions: dict[str, asyncio.Task[None]] = field(default_factory=dict)
     inbound_events: dict[str, asyncio.Task[None]] = field(default_factory=dict)
     inbound_agent_tools: dict[str, asyncio.Task[None]] = field(default_factory=dict)
@@ -218,6 +221,7 @@ class RuntimeSupervisor:
                 "failures_in_window": failures,
                 "pending_actions": len(record.pending_actions),
                 "pending_events": len(record.pending_events),
+                "pending_controls": len(record.pending_controls),
                 "inbound_actions": len(record.inbound_actions),
                 "inbound_events": len(record.inbound_events),
                 "inbound_agent_tools": len(record.inbound_agent_tools),
@@ -447,13 +451,17 @@ class RuntimeSupervisor:
                 action_future.set_result(message)
         elif isinstance(message, AgentToolRequest):
             await self._accept_agent_tool_request(record, message)
+        elif isinstance(message, ControlResponse):
+            control_future = record.pending_controls.pop(message.correlation_id, None)
+            if control_future is not None and not control_future.done():
+                control_future.set_result(message)
         elif isinstance(message, ErrorMessage):
             self.logger.error("runtime {} error {}: {}", record.spec.id, message.code, message.message)
         else:
             self.logger.debug("ignored runtime {} message {}", record.spec.id, message.type)
 
     async def _accept_event_completed(self, record: RuntimeRecord, message: EventCompleted) -> None:
-        if record.protocol_version != 4 or "runtime.events.complete" not in record.capabilities:
+        if record.protocol_version not in (4, 5) or "runtime.events.complete" not in record.capabilities:
             self.logger.warning(
                 "runtime {} sent an unsupported event outcome over protocol v{}",
                 record.spec.id,
@@ -536,11 +544,11 @@ class RuntimeSupervisor:
             record.inbound_events.pop(message.correlation_id, None)
 
     async def _accept_child_action(self, record: RuntimeRecord, request: ActionRequest) -> None:
-        if record.protocol_version not in (3, 4):
+        if record.protocol_version not in (3, 4, 5):
             await self._reject_child_action(
                 record,
                 request,
-                "child-originated actions require runtime protocol v3 or v4",
+                "child-originated actions require runtime protocol v3, v4, or v5",
             )
             return
         if "runtime.actions.send" not in record.capabilities:
@@ -551,24 +559,24 @@ class RuntimeSupervisor:
             )
             return
         if (
-            record.protocol_version == 4
+            record.protocol_version in (4, 5)
             and record.spec.agent_harness is not None
             and request.delivery_correlation_id is None
         ):
             await self._reject_child_action(
                 record,
                 request,
-                "agent runtime actions require a v4 delivery correlation id",
+                "agent runtime actions require a v4 or v5 delivery correlation id",
             )
             return
         provenance: ActionProvenance | None = None
         if request.delivery_correlation_id is not None:
             self._clear_expired_delivery_contexts(record)
-            if record.protocol_version != 4:
+            if record.protocol_version not in (4, 5):
                 await self._reject_child_action(
                     record,
                     request,
-                    "action delivery correlation id requires runtime protocol v4",
+                    "action delivery correlation id requires runtime protocol v4 or v5",
                 )
                 return
             context = record.active_delivery_contexts.get(request.delivery_correlation_id)
@@ -584,7 +592,7 @@ class RuntimeSupervisor:
                 await self._reject_child_action(
                     record,
                     request,
-                    "action delivery does not carry v4 trace context",
+                    "action delivery does not carry v4 or v5 trace context",
                 )
                 return
             provenance = ActionProvenance(
@@ -669,9 +677,9 @@ class RuntimeSupervisor:
 
     async def _accept_agent_tool_request(self, record: RuntimeRecord, request: AgentToolRequest) -> None:
         self._clear_expired_delivery_contexts(record)
-        if record.protocol_version not in (3, 4):
+        if record.protocol_version not in (3, 4, 5):
             await self._reject_agent_tool_request(
-                record, request, "agent tools require runtime protocol v3 or v4"
+                record, request, "agent tools require runtime protocol v3, v4, or v5"
             )
             return
         if record.spec.agent_harness is None:
@@ -801,10 +809,10 @@ class RuntimeSupervisor:
         record = self.records[runtime_id]
         if record.state is not RuntimeState.READY:
             raise RuntimeError(f"runtime {runtime_id} is not ready")
-        if record.protocol_version not in (2, 3, 4):
-            raise RuntimeError(f"runtime {runtime_id} did not negotiate protocol v2, v3, or v4")
-        if agent_tool_catalog is not None and record.protocol_version != 4:
-            raise RuntimeError(f"runtime {runtime_id} must negotiate protocol v4 for an agent tool catalog")
+        if record.protocol_version not in (2, 3, 4, 5):
+            raise RuntimeError(f"runtime {runtime_id} did not negotiate protocol v2, v3, v4, or v5")
+        if agent_tool_catalog is not None and record.protocol_version not in (4, 5):
+            raise RuntimeError(f"runtime {runtime_id} must negotiate protocol v4 or v5 for an agent tool catalog")
         if "runtime.events.receive" not in record.capabilities:
             raise RuntimeError(f"runtime {runtime_id} does not accept core events")
         if correlation_id in record.pending_events:
@@ -813,7 +821,7 @@ class RuntimeSupervisor:
         record.pending_events[correlation_id] = future
         record.pending_event_payloads[correlation_id] = json_mapping(payload)
         trace = self._event_trace(record, correlation_id, record.pending_event_payloads[correlation_id])
-        if record.protocol_version == 4:
+        if record.protocol_version in (4, 5):
             record.pending_event_traces[correlation_id] = trace
         try:
             self._log_payload(record, "event.dispatch", correlation_id, payload, trace=trace)
@@ -822,7 +830,7 @@ class RuntimeSupervisor:
                 EventMessage(
                     correlation_id=correlation_id,
                     payload=record.pending_event_payloads[correlation_id],
-                    trace=trace if record.protocol_version == 4 else None,
+                    trace=trace if record.protocol_version in (4, 5) else None,
                     agent_tool_catalog=json_mapping(agent_tool_catalog) if agent_tool_catalog is not None else None,
                 ),
             )
@@ -840,6 +848,37 @@ class RuntimeSupervisor:
             record.pending_events.pop(correlation_id, None)
             record.pending_event_payloads.pop(correlation_id, None)
             record.pending_event_traces.pop(correlation_id, None)
+
+    async def execute_control(
+        self,
+        runtime_id: str,
+        correlation_id: str,
+        command: Literal["agent.history.clear"],
+        payload: Mapping[str, Any],
+        timeout_seconds: float = 30.0,
+    ) -> ControlResponse:
+        if timeout_seconds <= 0:
+            raise ValueError("runtime control timeout must be positive")
+        record = self.records[runtime_id]
+        if record.state is not RuntimeState.READY:
+            raise RuntimeError(f"runtime {runtime_id} is not ready")
+        if record.protocol_version != 5 or "runtime.controls.execute" not in record.capabilities:
+            raise RuntimeError(f"runtime {runtime_id} does not accept protocol v5 controls")
+        if correlation_id in record.pending_controls:
+            raise ValueError(f"duplicate control correlation id: {correlation_id}")
+        request = ControlRequest(
+            correlation_id=correlation_id,
+            command=command,
+            payload=json_mapping(payload),
+        )
+        future: asyncio.Future[ControlResponse] = asyncio.get_running_loop().create_future()
+        record.pending_controls[correlation_id] = future
+        try:
+            await self._send(record, request)
+            async with asyncio.timeout(timeout_seconds):
+                return await future
+        finally:
+            record.pending_controls.pop(correlation_id, None)
 
     async def restart(self, runtime_id: str) -> None:
         record = self.records[runtime_id]
@@ -931,6 +970,10 @@ class RuntimeSupervisor:
         record.pending_events.clear()
         record.pending_event_payloads.clear()
         record.pending_event_traces.clear()
+        for control_future in record.pending_controls.values():
+            if not control_future.done():
+                control_future.set_exception(ConnectionError(f"runtime {record.spec.id} disconnected"))
+        record.pending_controls.clear()
         inbound_actions = tuple(record.inbound_actions.values())
         record.inbound_actions.clear()
         for task in inbound_actions:

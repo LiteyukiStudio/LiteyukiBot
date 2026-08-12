@@ -268,7 +268,7 @@ async def test_custom_runtime_example_round_trips_events_and_actions() -> None:
 
     async with harness:
         assert harness.state.value == RuntimeState.READY.value
-        assert harness.protocol_version == 4
+        assert harness.protocol_version == 5
         assert harness.capabilities == frozenset(
             {"runtime.events.receive", "runtime.events.complete", "runtime.actions.send"}
         )

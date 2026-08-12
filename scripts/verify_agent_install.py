@@ -23,6 +23,8 @@ from liteyukibot.runtime import RuntimeCatalog
 from liteyukibot.runtime.protocol import (
     ActionResponse,
     AgentToolResponse,
+    ControlRequest,
+    ControlResponse,
     EventAccepted,
     EventCompleted,
     EventMessage,
@@ -198,6 +200,32 @@ def _verify_history_retention() -> None:
             store.close()
 
 
+def _verify_history_control() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        store = ConversationStore(Path(directory) / "history.sqlite3")
+        try:
+            store.append("nonebot", "bot-1", "group:one", "user", "first", retain=10)
+            host = NativeAgentHost(
+                _Client(),  # type: ignore[arg-type]
+                _Engine(),
+                store,
+                history_limit=10,
+                message_chunk_size=100,
+                max_concurrent_events=1,
+            )
+            response = host._execute_control(
+                ControlRequest(
+                    correlation_id="clear-1",
+                    command="agent.history.clear",
+                    payload={"runtime_id": "nonebot", "bot_id": "bot-1", "conversation_id": "group:one"},
+                )
+            )
+            if response != ControlResponse(correlation_id="clear-1", ok=True, data={"cleared": 1}):
+                raise RuntimeError("agent v5 history control did not clear the exact source conversation")
+        finally:
+            store.close()
+
+
 def verify(expected_version: str | None = None) -> None:
     imported = (Path(liteyukibot.__file__).resolve(), Path(liteyukibot_agent.__file__).resolve())
     if any(path.is_relative_to(SOURCE_ROOT) for path in imported):
@@ -207,12 +235,19 @@ def verify(expected_version: str | None = None) -> None:
         raise RuntimeError("native agent runtime entry point was not discovered")
     observed = {
         name: importlib.metadata.version(name)
-        for name in ("liteyukibot-v7", "liteyukibot-v7-agent", "liteyukibot-v7-agent-resolver")
+        for name in (
+            "liteyukibot-v7",
+            "liteyukibot-v7-agent",
+            "liteyukibot-v7-agent-resolver",
+            "liteyukibot-v7-commands",
+            "liteyukibot-v7-permissions",
+        )
     }
     if expected_version is not None and observed["liteyukibot-v7-agent"] != expected_version:
         raise RuntimeError(f"expected liteyukibot-v7-agent {expected_version}; observed {observed}")
     asyncio.run(_verify_agent_contract())
     _verify_history_retention()
+    _verify_history_control()
     print(json.dumps(observed, sort_keys=True))
 
 

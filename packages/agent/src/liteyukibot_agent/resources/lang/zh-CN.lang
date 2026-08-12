@@ -1,3 +1,7 @@
 agent.init.model=模型
 agent.init.base_url=基础 URL
 agent.init.api_key=API 密钥
+agent.command.forget.summary=清除当前会话的原生 Agent 历史记录
+agent.command.forget.complete=已清除 {count} 条已保存的 Agent 消息。
+agent.command.forget.denied=你没有清除此 Agent 历史记录的权限。
+agent.command.forget.unavailable=原生 Agent 历史服务不可用。

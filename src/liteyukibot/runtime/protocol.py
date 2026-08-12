@@ -12,12 +12,12 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from ..exceptions import RuntimeProtocolError
 
-type ProtocolVersion = Literal[1, 2, 3, 4]
+type ProtocolVersion = Literal[1, 2, 3, 4, 5]
 type JsonScalar = str | int | float | bool | None
 type JsonValue = JsonScalar | list[JsonValue] | dict[str, JsonValue]
 
-PROTOCOL_VERSION: ProtocolVersion = 4
-SUPPORTED_PROTOCOL_VERSIONS: tuple[ProtocolVersion, ...] = (1, 2, 3, 4)
+PROTOCOL_VERSION: ProtocolVersion = 5
+SUPPORTED_PROTOCOL_VERSIONS: tuple[ProtocolVersion, ...] = (1, 2, 3, 4, 5)
 MAX_FRAME_SIZE = 8 * 1024 * 1024
 
 
@@ -124,6 +124,23 @@ class AgentToolResponse(WireModel):
     error: str | None = None
 
 
+class ControlRequest(WireModel):
+    """A kernel-originated, capability-gated control operation for one child."""
+
+    type: Literal["control"] = "control"
+    correlation_id: str = Field(min_length=1)
+    command: Literal["agent.history.clear"]
+    payload: dict[str, JsonValue] = Field(default_factory=dict)
+
+
+class ControlResponse(WireModel):
+    type: Literal["control_result"] = "control_result"
+    correlation_id: str = Field(min_length=1)
+    ok: bool
+    data: JsonValue = None
+    error: str | None = None
+
+
 class ErrorMessage(WireModel):
     type: Literal["error"] = "error"
     code: str
@@ -145,6 +162,8 @@ type WireMessage = Annotated[
     | ActionResponse
     | AgentToolRequest
     | AgentToolResponse
+    | ControlRequest
+    | ControlResponse
     | ErrorMessage,
     Field(discriminator="type"),
 ]

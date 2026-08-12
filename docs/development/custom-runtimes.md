@@ -15,7 +15,7 @@ command = ["liteyuki-example-runtime"]
 mode = "example"
 ```
 
-The complete protocol-v4 child is in
+The complete protocol-v5 child is in
 [`examples/custom-runtime`](../../examples/custom-runtime). It uses
 `RuntimeClient.from_environment("custom")`, calls `connect()`, then declares
 capabilities with `ready()`.
@@ -73,17 +73,19 @@ runtime has `max_inbound_events` (default `100`); additional Events receive
 `overloaded` without creating another handler task. Set it in the runtime's
 TOML table when the adapter has a known, bounded concurrency requirement.
 
-Protocol v2/v3/v4 Event receipt requires `runtime.events.receive`.
-Child-originated Actions require protocol v3 or v4 and `runtime.actions.send`.
+Protocol v2 through v5 Event receipt requires `runtime.events.receive`.
+Child-originated Actions require protocol v3, v4, or v5 and `runtime.actions.send`.
 Protocol v4 carries `EventTrace(trace_id, source_runtime_id, source_event_id)`
 on core-to-child Events. A v4 child may opt into terminal delivery outcomes with
 `runtime.events.complete`; its `EventCompleted` is operational telemetry, not a
 second response to `dispatch_event()`. Capability names and protocol versions
 are negotiated exactly rather than inferred.
 
-The protocol is pre-stable. Protocol v4 is the current development target and
-may change without backwards-compatibility shims during alpha. Only v5 remains
-for another large protocol redesign, and no pre-stable version will exceed v5.
+Protocol v5 additionally permits the kernel to send an explicitly defined
+control request to a child declaring `runtime.controls.execute`. It is not a
+generic RPC surface. The protocol is pre-stable: v5 is the current development
+target and may change without backwards-compatibility shims during alpha. No
+pre-stable version will exceed v5.
 Pin the LiteyukiBot alpha version used to build and test an external runtime.
 
 ## Testing

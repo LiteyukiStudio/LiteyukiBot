@@ -111,9 +111,11 @@ the Beta1 release contract.
 - OneBot v12 and Satori are not substitutes for the supported OneBot v11 path.
 - Agent routes cannot install packages, edit configuration, execute arbitrary
   shell commands, or use unrestricted filesystem tools.
-- Agent history has a bounded retention policy. A user-facing, capability-gated
-  clear-history control is not part of Beta1 until its authorization and audit
-  contract is released.
+- Agent history has a bounded retention policy. When the native Agent,
+  Commands, and Permissions plugins are enabled, grant
+  `liteyukibot.agent.history.clear` to expose `/agent forget`; it clears only
+  the caller's exact source-runtime, bot, and conversation history and records
+  a redacted permission decision.
 
 ## Release Evidence
 

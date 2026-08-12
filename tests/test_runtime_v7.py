@@ -17,6 +17,8 @@ from liteyukibot.runtime.protocol import (
     AgentToolRequest,
     AgentToolResponse,
     ConfigMessage,
+    ControlRequest,
+    ControlResponse,
     EventAccepted,
     EventCompleted,
     EventMessage,
@@ -287,7 +289,7 @@ async def test_runtime_negotiates_v1_v2_and_v3_connections_concurrently() -> Non
         assert legacy.protocol_version == 1
         assert modern.protocol_version == 2
         assert current.protocol_version == 3
-        with pytest.raises(RuntimeError, match="did not negotiate protocol v2, v3, or v4"):
+        with pytest.raises(RuntimeError, match="did not negotiate protocol v2, v3, v4, or v5"):
             await supervisor.dispatch_event("legacy", "event-v1", {})
 
         delivery = asyncio.create_task(
@@ -683,7 +685,7 @@ async def test_v4_child_action_requires_active_delivery_and_forwards_provenance(
         ActionResponse(
             correlation_id="action-unbound",
             ok=False,
-            error="agent runtime actions require a v4 delivery correlation id",
+            error="agent runtime actions require a v4 or v5 delivery correlation id",
         )
     ]
 
@@ -712,6 +714,55 @@ async def test_v4_child_action_requires_active_delivery_and_forwards_provenance(
         ok=False,
         error="action request is not bound to an active event delivery",
     )
+
+
+@pytest.mark.asyncio
+async def test_v5_kernel_control_requires_capability_and_correlates_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    supervisor = RuntimeSupervisor(logger=FakeLogger())
+    record = RuntimeRecord(
+        spec=RuntimeSpec(id="agent", kind="custom", agent_harness="native"),
+        token="token",
+        state=RuntimeState.READY,
+        writer=NullWriter(),  # type: ignore[arg-type]
+        protocol_version=5,
+        capabilities=frozenset({"runtime.controls.execute"}),
+    )
+    supervisor.records[record.spec.id] = record
+    requests: list[ControlRequest] = []
+
+    async def capture(_record: RuntimeRecord, message: Any) -> None:
+        assert isinstance(message, ControlRequest)
+        requests.append(message)
+
+    monkeypatch.setattr(supervisor, "_send", capture)
+    pending = asyncio.create_task(
+        supervisor.execute_control(
+            "agent",
+            "clear-1",
+            "agent.history.clear",
+            {"runtime_id": "onebot", "bot_id": "42", "conversation_id": "group:2002"},
+        )
+    )
+    await asyncio.sleep(0)
+    assert requests == [
+        ControlRequest(
+            correlation_id="clear-1",
+            command="agent.history.clear",
+            payload={"runtime_id": "onebot", "bot_id": "42", "conversation_id": "group:2002"},
+        )
+    ]
+    await supervisor._handle_message(
+        record,
+        ControlResponse(correlation_id="clear-1", ok=True, data={"cleared": 2}),
+    )
+    assert await pending == ControlResponse(correlation_id="clear-1", ok=True, data={"cleared": 2})
+    assert supervisor.health()["agent"]["pending_controls"] == 0
+
+    record.protocol_version = 4
+    with pytest.raises(RuntimeError, match="protocol v5 controls"):
+        await supervisor.execute_control("agent", "clear-2", "agent.history.clear", {})
 
 
 @pytest.mark.asyncio
@@ -1029,7 +1080,7 @@ async def test_v3_event_delivery_does_not_serialize_v4_trace(monkeypatch: pytest
     await supervisor.dispatch_event("legacy", "delivery-1", {"id": "event-1", "runtime_id": "nonebot"})
 
     assert outbound[0].trace is None
-    with pytest.raises(RuntimeError, match="must negotiate protocol v4"):
+    with pytest.raises(RuntimeError, match="must negotiate protocol v4 or v5"):
         await supervisor.dispatch_event(
             "legacy",
             "delivery-2",

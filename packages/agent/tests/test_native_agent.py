@@ -17,6 +17,8 @@ from liteyukibot.runtime import ActionSinkResult, AgentToolSinkResult, RuntimeSp
 from liteyukibot.runtime.protocol import (
     ActionResponse,
     AgentToolResponse,
+    ControlRequest,
+    ControlResponse,
     EventAccepted,
     EventCompleted,
     EventMessage,
@@ -498,6 +500,48 @@ def test_conversation_history_is_bounded_and_can_clear_one_source_conversation(t
         ]
         with pytest.raises(ValueError, match="retention"):
             store.append("onebot", "bot-1", "group:one", "user", "invalid", retain=0)
+    finally:
+        store.close()
+
+
+def test_native_agent_control_clears_only_the_requested_history(tmp_path: Path) -> None:
+    store = ConversationStore(tmp_path / "history.sqlite3")
+    host = NativeAgentHost(
+        FakeClient(),  # type: ignore[arg-type]
+        FakeEngine(()),
+        store,
+        history_limit=10,
+        message_chunk_size=100,
+        max_concurrent_events=1,
+    )
+    try:
+        store.append("onebot", "42", "group:2002", "user", "first", retain=10)
+        store.append("onebot", "42", "group:2002", "assistant", "second", retain=10)
+        store.append("onebot", "43", "group:2002", "user", "other bot", retain=10)
+
+        response = host._execute_control(
+            ControlRequest(
+                correlation_id="clear-1",
+                command="agent.history.clear",
+                payload={"runtime_id": "onebot", "bot_id": "42", "conversation_id": "group:2002"},
+            )
+        )
+        assert response == ControlResponse(correlation_id="clear-1", ok=True, data={"cleared": 2})
+        assert store.messages("onebot", "42", "group:2002", limit=10) == []
+        assert store.messages("onebot", "43", "group:2002", limit=10) == [
+            {"role": "user", "content": "other bot"}
+        ]
+
+        invalid = host._execute_control(
+            ControlRequest(
+                correlation_id="clear-2",
+                command="agent.history.clear",
+                payload={"runtime_id": "onebot", "bot_id": "42", "conversation_id": ""},
+            )
+        )
+        assert invalid == ControlResponse(
+            correlation_id="clear-2", ok=False, error="invalid agent history clear request"
+        )
     finally:
         store.close()
 
