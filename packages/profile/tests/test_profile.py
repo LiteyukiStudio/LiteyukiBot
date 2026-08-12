@@ -140,7 +140,7 @@ async def test_profile_resource_commands_mutate_data_and_describe_limits(tmp_pat
     )
     actions: list[ActionEnvelope] = []
 
-    async def record(action: ActionEnvelope) -> ActionResult:
+    async def record(_event: EventEnvelope, action: ActionEnvelope) -> ActionResult:
         actions.append(action)
         return ActionResult(action_id=action.action_id, success=True)
 
@@ -182,7 +182,7 @@ async def test_profile_language_drives_essentials_and_falls_back_after_reset(tmp
     )
     actions: list[ActionEnvelope] = []
 
-    async def record(action: ActionEnvelope) -> ActionResult:
+    async def record(_event: EventEnvelope, action: ActionEnvelope) -> ActionResult:
         actions.append(action)
         return ActionResult(action_id=action.action_id, success=True)
 

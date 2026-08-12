@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from enum import StrEnum
 from pathlib import Path
 from time import monotonic
 from typing import Any
 
 from ._version import __version__
-from .agents import AGENT_TOOL_BROKER_SERVICE, AgentToolBroker, AgentToolCatalog, AgentToolResult
+from .agents import AGENT_TOOL_BROKER_SERVICE, AgentToolBroker, AgentToolResult, EventAgentToolCatalog
 from .capabilities import ADAPTER_CALL_API, PERMISSION_SERVICE_MAJOR, PERMISSION_SERVICE_NAME
 from .config import AppSettings, RuntimeEventRoute
 from .control import ControlServer
@@ -48,10 +48,18 @@ class AppState(StrEnum):
 class ActionService:
     """Route protocol-neutral actions to the runtime that owns the bot."""
 
-    def __init__(self, supervisor: RuntimeSupervisor) -> None:
+    def __init__(
+        self,
+        supervisor: RuntimeSupervisor,
+        action_guard: Callable[[EventEnvelope | None, ActionEnvelope], ActionResult | None],
+    ) -> None:
         self._supervisor = supervisor
+        self._action_guard = action_guard
 
-    async def execute(self, action: ActionEnvelope) -> ActionResult:
+    async def execute(self, action: ActionEnvelope, *, event: EventEnvelope | None = None) -> ActionResult:
+        guarded = self._action_guard(event, action)
+        if guarded is not None:
+            return guarded
         try:
             response = await self._supervisor.execute_action(
                 action.runtime_id,
@@ -115,15 +123,14 @@ class LiteyukiApp:
             secret_values=runtime_secrets,
         )
         self.runtimes.set_logging_settings(settings.logging)
-        self.actions = ActionService(self.runtimes)
+        self.actions = ActionService(self.runtimes, self._authorize_action)
         core = settings.core
         self.events = EventBus(
             queue_capacity=core.queue_capacity,
             enqueue_timeout=core.enqueue_timeout_seconds,
             handler_timeout=core.handler_timeout_seconds,
             max_concurrent_events=core.max_concurrent_events,
-            action_executor=self.actions.execute,
-            action_guard=self._authorize_action,
+            action_executor=self._execute_event_action,
             logger=self.logger,
         )
         self.plugins = PluginManager(
@@ -266,11 +273,6 @@ class LiteyukiApp:
                 if not isinstance(broker, AgentToolBroker):
                     raise RuntimeError("agent tool broker service has an invalid implementation")
                 self.runtimes.set_agent_tool_sink(self._execute_agent_tool)
-                if isinstance(broker, AgentToolCatalog):
-                    catalog = broker.catalog()
-                    for runtime_id, record in self.runtimes.records.items():
-                        if record.spec.agent_harness is not None:
-                            self.runtimes.merge_options(runtime_id, {"agent_tool_catalog": catalog})
 
             await self.runtimes.start()
             self._runtimes_started = True
@@ -512,14 +514,7 @@ class LiteyukiApp:
                 ok=False,
                 error="child-originated action cannot target its source runtime",
             )
-        guarded = self._authorize_action(source_event if provenance is not None else None, action)
-        if guarded is not None:
-            return ActionSinkResult(
-                ok=guarded.success,
-                data=guarded.model_dump(mode="json"),
-                error=guarded.error_message,
-            )
-        result = await self.actions.execute(action)
+        result = await self.actions.execute(action, event=source_event if provenance is not None else None)
         return ActionSinkResult(
             ok=result.success,
             data=result.model_dump(mode="json"),
@@ -561,6 +556,9 @@ class LiteyukiApp:
             error_code="ACTION_PERMISSION_DENIED",
             error_message="adapter API action permission is denied",
         )
+
+    async def _execute_event_action(self, event: EventEnvelope, action: ActionEnvelope) -> ActionResult:
+        return await self.actions.execute(action, event=event)
 
     def _event_routes(self, settings: AppSettings) -> tuple[RuntimeEventRoute, ...]:
         routes = list(settings.runtime_event_routes)
@@ -676,11 +674,27 @@ class LiteyukiApp:
             raise ExceptionGroup("runtime event delivery failed", errors)
 
     async def _deliver_runtime_event(self, runtime_id: str, event: EventEnvelope) -> None:
-        result = await self.runtimes.dispatch_event(
-            runtime_id,
-            event.id,
-            event.model_dump(mode="json"),
-        )
+        catalog: Mapping[str, Any] | None = None
+        record = self.runtimes.records[runtime_id]
+        if record.spec.agent_harness is not None:
+            broker = self.services.get(AGENT_TOOL_BROKER_SERVICE)
+            if broker is not None:
+                if not isinstance(broker, EventAgentToolCatalog):
+                    raise RuntimeError("agent tool broker cannot produce event-scoped catalogs")
+                catalog = broker.catalog_for(event)
+        if catalog is None:
+            result = await self.runtimes.dispatch_event(
+                runtime_id,
+                event.id,
+                event.model_dump(mode="json"),
+            )
+        else:
+            result = await self.runtimes.dispatch_event(
+                runtime_id,
+                event.id,
+                event.model_dump(mode="json"),
+                agent_tool_catalog=catalog,
+            )
         if result.status != "accepted":
             detail = f": {result.detail}" if result.detail else ""
             raise RuntimeError(f"runtime {runtime_id} rejected event {event.id} as {result.status}{detail}")

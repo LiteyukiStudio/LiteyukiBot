@@ -282,7 +282,7 @@ async def test_app_routes_child_action_to_distinct_adapter_runtime(
     )
     observed: list[ActionEnvelope] = []
 
-    async def execute(envelope: ActionEnvelope) -> ActionResult:
+    async def execute(envelope: ActionEnvelope, *, event: EventEnvelope | None = None) -> ActionResult:
         observed.append(envelope)
         return ActionResult(
             action_id=envelope.action_id,
@@ -405,11 +405,18 @@ async def test_app_call_api_requires_exact_event_capability_before_runtime_execu
     )
     executed: list[ActionEnvelope] = []
 
-    async def execute(envelope: ActionEnvelope) -> ActionResult:
+    async def execute_action(
+        _runtime_id: str,
+        _correlation_id: str,
+        payload: dict[str, Any],
+        timeout_seconds: float = 30.0,
+    ) -> object:
+        assert timeout_seconds == 30.0
+        envelope = ActionEnvelope.model_validate(payload)
         executed.append(envelope)
-        return ActionResult(action_id=envelope.action_id, success=True)
+        return type("Response", (), {"ok": True, "data": None, "error": None})()
 
-    monkeypatch.setattr(app.actions, "execute", execute)
+    monkeypatch.setattr(app.runtimes, "execute_action", execute_action)
     denied = await app._execute_runtime_action("agent", action.model_dump(mode="json"), provenance)
 
     assert denied.ok is False
@@ -423,6 +430,31 @@ async def test_app_call_api_requires_exact_event_capability_before_runtime_execu
     assert allowed.ok is True
     assert permissions.observed == [(source, "liteyukibot.adapter.call_api")]
     assert executed == [action]
+
+
+@pytest.mark.asyncio
+async def test_app_action_service_refuses_call_api_without_a_source_event(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = AppSettings(core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"))
+    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
+    action = ActionEnvelope(
+        action_id="call-1",
+        runtime_id="adapter",
+        bot_id="bot-1",
+        action=CallApi(api="get_status"),
+    )
+
+    async def execute_unexpectedly(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("unauthorized CallApi reached the runtime supervisor")
+
+    monkeypatch.setattr(app.runtimes, "execute_action", execute_unexpectedly)
+
+    result = await app.actions.execute(action)
+
+    assert result.success is False
+    assert result.error_code == "ACTION_PERMISSION_DENIED"
+    assert result.error_message == "adapter API action requires a source event"
 
 
 def _message_event() -> EventEnvelope:

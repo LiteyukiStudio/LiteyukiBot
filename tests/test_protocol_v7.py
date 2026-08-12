@@ -50,6 +50,15 @@ async def test_protocol_round_trip_preserves_message_shape() -> None:
             source_runtime_id="nonebot",
             source_event_id="event-1",
         ),
+        agent_tool_catalog={
+            "tools": [
+                {
+                    "id": "docs.search",
+                    "description": "Search the docs.",
+                    "input_schema": {"type": "object"},
+                }
+            ]
+        },
     )
     writer = MemoryWriter()
 

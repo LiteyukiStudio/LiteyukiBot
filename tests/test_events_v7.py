@@ -99,7 +99,7 @@ def test_handler_order_stop_propagation_and_action_execution() -> None:
             action=CallApi(api="test"),
         )
 
-        async def execute(envelope: ActionEnvelope) -> ActionResult:
+        async def execute(_event: EventEnvelope, envelope: ActionEnvelope) -> ActionResult:
             executed.append(envelope.action_id)
             return ActionResult(action_id=envelope.action_id, success=True, data={"ok": True})
 
