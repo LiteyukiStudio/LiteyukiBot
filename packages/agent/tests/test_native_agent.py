@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from liteyukibot_agent.engine import AgentEngine, ModelReply, ToolCall
+from liteyukibot_agent import runtime_plugin
 from liteyukibot_agent.host import NativeAgentHost, _environment_secret
 from liteyukibot_agent.store import ConversationStore
 
@@ -75,6 +76,17 @@ class FailingEngine(AgentEngine):
         tools: Sequence[Mapping[str, object]] = (),
     ) -> ModelReply:
         raise RuntimeError("model unavailable")
+
+
+class BlockingEngine(AgentEngine):
+    async def complete(
+        self,
+        _messages: Sequence[Mapping[str, object]],
+        *,
+        tools: Sequence[Mapping[str, object]] = (),
+    ) -> ModelReply:
+        await asyncio.Event().wait()
+        raise AssertionError("unreachable")
 
 
 def _event() -> EventEnvelope:
@@ -225,6 +237,93 @@ async def test_native_agent_reports_terminal_failure_without_leaking_the_task(tm
     ]
 
 
+@pytest.mark.asyncio
+async def test_native_agent_bounds_a_stalled_model_request_and_releases_capacity(tmp_path: Path) -> None:
+    client = FakeClient()
+    host = NativeAgentHost(
+        client,  # type: ignore[arg-type]
+        BlockingEngine(),
+        ConversationStore(tmp_path / "history.sqlite3"),
+        history_limit=10,
+        message_chunk_size=100,
+        max_concurrent_events=1,
+        model_timeout_seconds=0.01,
+        event_timeout_seconds=1,
+    )
+
+    await host._accept_event(EventMessage(correlation_id="delivery-1", payload=_event().model_dump(mode="json")))
+    results = await asyncio.gather(*tuple(host._tasks), return_exceptions=True)
+    await host.close()
+
+    assert len(results) == 1
+    assert isinstance(results[0], RuntimeError)
+    assert str(results[0]) == "agent model request timed out"
+    assert host._tasks == set()
+    assert client.sent == [
+        EventAccepted(correlation_id="delivery-1", status="accepted"),
+        EventCompleted(
+            correlation_id="delivery-1",
+            status="failed",
+            detail="RuntimeError: agent model request timed out",
+        ),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_native_agent_bounds_the_entire_event_lifecycle(tmp_path: Path) -> None:
+    client = FakeClient()
+    host = NativeAgentHost(
+        client,  # type: ignore[arg-type]
+        BlockingEngine(),
+        ConversationStore(tmp_path / "history.sqlite3"),
+        history_limit=10,
+        message_chunk_size=100,
+        max_concurrent_events=1,
+        model_timeout_seconds=1,
+        event_timeout_seconds=0.01,
+    )
+
+    await host._accept_event(EventMessage(correlation_id="delivery-1", payload=_event().model_dump(mode="json")))
+    results = await asyncio.gather(*tuple(host._tasks), return_exceptions=True)
+    await host.close()
+
+    assert len(results) == 1
+    assert isinstance(results[0], TimeoutError)
+    assert host._tasks == set()
+    assert client.sent == [
+        EventAccepted(correlation_id="delivery-1", status="accepted"),
+        EventCompleted(correlation_id="delivery-1", status="failed", detail="agent event timed out"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_native_agent_uses_the_configured_tool_round_limit(tmp_path: Path) -> None:
+    client = FakeClient()
+    host = NativeAgentHost(
+        client,  # type: ignore[arg-type]
+        FakeEngine(
+            (
+                ModelReply(tool_calls=(ToolCall("call-1", "docs.search", {}),)),
+                ModelReply(tool_calls=(ToolCall("call-2", "docs.search", {}),)),
+            )
+        ),
+        ConversationStore(tmp_path / "history.sqlite3"),
+        history_limit=10,
+        message_chunk_size=100,
+        max_concurrent_events=1,
+        max_tool_rounds=1,
+    )
+
+    await host._accept_event(EventMessage(correlation_id="delivery-1", payload=_event().model_dump(mode="json")))
+    results = await asyncio.gather(*tuple(host._tasks), return_exceptions=True)
+    await host.close()
+
+    assert len(results) == 1
+    assert isinstance(results[0], RuntimeError)
+    assert str(results[0]) == "agent exceeded maximum tool-call rounds"
+    assert client.tool_calls == [("delivery-1", "docs.search", {})]
+
+
 def test_conversation_history_is_partitioned_by_runtime_bot_and_conversation(tmp_path: Path) -> None:
     store = ConversationStore(tmp_path / "history.sqlite3")
     try:
@@ -246,3 +345,15 @@ def test_native_agent_reads_api_key_only_from_its_configured_environment(
     assert _environment_secret({"api_key_env": "AGENT_TEST_KEY"}, "api_key_env", "OPENAI_API_KEY") == "secret"
     with pytest.raises(ValueError, match="not set"):
         _environment_secret({}, "api_key_env", "MISSING_AGENT_TEST_KEY")
+
+
+def test_native_agent_runtime_metadata_exposes_bounded_options() -> None:
+    plugin = runtime_plugin()
+    assert plugin.init_spec is not None
+
+    fields = {field.key: field for field in plugin.init_spec.fields}
+    assert fields["model_timeout_seconds"].default == 60
+    assert fields["event_timeout_seconds"].default == 120
+    assert fields["max_tool_rounds"].default == 4
+    assert fields["history_limit"].default == 40
+    assert fields["max_concurrent_events"].default == 16
