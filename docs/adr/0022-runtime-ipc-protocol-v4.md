@@ -47,3 +47,11 @@ framework object or opening a direct child-to-child channel.
 Completion is intentionally not delivery retry, distributed transactions, or a
 cross-runtime RPC result. Retry policy and durable observability remain kernel
 concerns and need their own configuration and recovery design.
+
+For a v4 child Action causally produced by a delivered Event, the child may
+include that Event's delivery correlation ID in `ActionRequest`. The supervisor
+only accepts it while the delivery is active and passes the kernel-validated
+`EventTrace` plus original Event payload to the action sink. The sink can then
+enforce that action event/runtime/bot routing matches the source Event before
+performing adapter-specific authorization. V3 Actions retain the existing
+unattributed shape and cannot claim this provenance.

@@ -20,7 +20,7 @@ from liteyukibot.events import (
     SendMessage,
 )
 from liteyukibot.exceptions import LegacyUnsupportedError
-from liteyukibot.runtime import ActionSinkResult, RuntimeSpec, RuntimeSupervisor
+from liteyukibot.runtime import ActionProvenance, ActionSinkResult, RuntimeSpec, RuntimeSupervisor
 
 
 def test_v6_compatibility_namespace_uses_kernel_version() -> None:
@@ -116,6 +116,7 @@ async def echo(event: MessageEvent):
     async def execute_action(
         source_runtime_id: str,
         payload: dict[str, Any],
+        _provenance: ActionProvenance | None,
     ) -> ActionSinkResult:
         assert source_runtime_id == "legacy"
         action = ActionEnvelope.model_validate(payload)

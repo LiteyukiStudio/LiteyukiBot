@@ -94,6 +94,7 @@ class ActionRequest(WireModel):
     type: Literal["action"] = "action"
     correlation_id: str
     payload: dict[str, JsonValue]
+    delivery_correlation_id: str | None = None
 
 
 class ActionResponse(WireModel):

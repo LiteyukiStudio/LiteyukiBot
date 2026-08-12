@@ -1,4 +1,4 @@
-from .bus import ActionExecutor, EventBus, EventHandler, Subscription
+from .bus import ActionExecutor, ActionGuard, EventBus, EventHandler, Subscription
 from .models import (
     Action,
     ActionEnvelope,
@@ -20,6 +20,7 @@ __all__ = [
     "Action",
     "ActionEnvelope",
     "ActionExecutor",
+    "ActionGuard",
     "ActionResult",
     "ActorRef",
     "CallApi",
