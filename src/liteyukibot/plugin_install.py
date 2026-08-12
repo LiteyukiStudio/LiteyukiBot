@@ -62,16 +62,21 @@ class PluginInstallationService:
     ) -> PluginInstallResult:
         current = self._active_generation(runtime_id, runtime_kind)
         roots: tuple[str, ...]
+        disabled_roots: tuple[str, ...]
         if current is None:
             source, index = self._resolve_source(bundle_id, source_id)
             roots = (bundle_id,)
+            disabled_roots = ()
         else:
             self._require_resolution(current)
             if bundle_id in current.roots:
+                if bundle_id in current.disabled_roots:
+                    raise PluginStoreError(f"plugin bundle {bundle_id!r} is disabled; use plugin enable")
                 raise PluginStoreError(f"plugin bundle {bundle_id!r} is already an enabled root")
             source, index = self._refresh_source(current, source_id)
             roots = (*current.roots, bundle_id)
-        return self._build(runtime_id, runtime_kind, source.id, index, roots)
+            disabled_roots = current.disabled_roots
+        return self._build(runtime_id, runtime_kind, source.id, index, roots, disabled_roots)
 
     def update(
         self,
@@ -83,7 +88,62 @@ class PluginInstallationService:
         current = self._require_active_generation(runtime_id, runtime_kind)
         self._require_resolution(current)
         source, index = self._refresh_source(current, source_id)
-        return self._build(runtime_id, runtime_kind, source.id, index, current.roots)
+        return self._build(runtime_id, runtime_kind, source.id, index, current.roots, current.disabled_roots)
+
+    def disable(
+        self,
+        bundle_id: str,
+        *,
+        runtime_id: str,
+        runtime_kind: str,
+    ) -> PluginInstallResult:
+        current = self._require_active_generation(runtime_id, runtime_kind)
+        self._require_resolution(current)
+        if bundle_id not in current.roots:
+            raise PluginStoreError(f"plugin bundle {bundle_id!r} is not an enabled root")
+        if bundle_id in current.disabled_roots:
+            raise PluginStoreError(f"plugin bundle {bundle_id!r} is already disabled")
+        index = PluginIndex(current.resolved_bundles)
+        enabled_roots = tuple(
+            root for root in current.roots if root != bundle_id and root not in current.disabled_roots
+        )
+        dependents = _roots_requiring(index, enabled_roots, bundle_id)
+        if dependents:
+            raise PluginStoreError(
+                f"plugin bundle {bundle_id!r} is required by enabled roots: {', '.join(dependents)}"
+            )
+        return self._build(
+            runtime_id,
+            runtime_kind,
+            current.source_id or "",
+            index,
+            current.roots,
+            (*current.disabled_roots, bundle_id),
+            current.index_digest,
+            fetch_missing=False,
+        )
+
+    def enable(
+        self,
+        bundle_id: str,
+        *,
+        runtime_id: str,
+        runtime_kind: str,
+    ) -> PluginInstallResult:
+        current = self._require_active_generation(runtime_id, runtime_kind)
+        self._require_resolution(current)
+        if bundle_id not in current.disabled_roots:
+            raise PluginStoreError(f"plugin bundle {bundle_id!r} is not disabled")
+        return self._build(
+            runtime_id,
+            runtime_kind,
+            current.source_id or "",
+            PluginIndex(current.resolved_bundles),
+            current.roots,
+            tuple(root for root in current.disabled_roots if root != bundle_id),
+            current.index_digest,
+            fetch_missing=False,
+        )
 
     def uninstall(
         self,
@@ -97,11 +157,24 @@ class PluginInstallationService:
         if bundle_id not in current.roots:
             raise PluginStoreError(f"plugin bundle {bundle_id!r} is not an enabled root")
         roots = tuple(item for item in current.roots if item != bundle_id)
+        index = PluginIndex(current.resolved_bundles)
+        dependents = _roots_requiring(index, roots, bundle_id)
+        if dependents:
+            raise PluginStoreError(f"plugin bundle {bundle_id!r} is required by roots: {', '.join(dependents)}")
         if not roots:
             self.generations.deactivate(runtime_id)
             return PluginUninstallResult(current.source_id or "", None)
-        index = PluginIndex(current.resolved_bundles)
-        result = self._build(runtime_id, runtime_kind, current.source_id or "", index, roots, current.index_digest)
+        disabled_roots = tuple(root for root in current.disabled_roots if root != bundle_id)
+        result = self._build(
+            runtime_id,
+            runtime_kind,
+            current.source_id or "",
+            index,
+            roots,
+            disabled_roots,
+            current.index_digest,
+            fetch_missing=False,
+        )
         return PluginUninstallResult(result.source_id, result.generation)
 
     def _build(
@@ -111,11 +184,17 @@ class PluginInstallationService:
         source_id: str,
         index: PluginIndex,
         roots: tuple[str, ...],
+        disabled_roots: tuple[str, ...],
         index_digest: str | None = None,
+        *,
+        fetch_missing: bool = True,
     ) -> PluginInstallResult:
         bundles = _resolve_bundles(index, roots)
         target = PlatformTarget.current()
         facets = {bundle.id: bundle.facet_for(runtime_kind, target) for bundle in bundles}
+        enabled_roots = tuple(root for root in roots if root not in disabled_roots)
+        enabled_bundle_ids = {bundle.id for bundle in _resolve_bundles(index, enabled_roots)}
+        enabled_facets = {bundle_id: facet for bundle_id, facet in facets.items() if bundle_id in enabled_bundle_ids}
         runtime = self._require_runtime(runtime_kind)
         generation_id = self.generations.new_generation_id()
         generation_path = self.generations.path_for(runtime_id, generation_id)
@@ -123,12 +202,15 @@ class PluginInstallationService:
             generation_path.mkdir(parents=True)
             for facet in facets.values():
                 for artifact in (*facet.artifacts, *facet.wheels):
-                    self.artifacts.fetch(artifact)
-            self._create_environment(generation_path, runtime, facets)
+                    if fetch_missing:
+                        self.artifacts.fetch(artifact)
+                    else:
+                        self.artifacts.require(artifact.sha256)
+            self._create_environment(generation_path, runtime, facets, offline=not fetch_missing)
             installer = runtime.facet_installer
             if installer is None:
                 raise AssertionError("managed runtime installer is required")
-            load_plan = installer.materialize(self.artifacts, generation_path, facets)
+            load_plan = installer.materialize(self.artifacts, generation_path, enabled_facets)
             generation = RuntimeGeneration(
                 id=generation_id,
                 runtime_id=runtime_id,
@@ -146,6 +228,7 @@ class PluginInstallationService:
                 index_digest=index_digest or index.digest,
                 roots=roots,
                 resolved_bundles=bundles,
+                disabled_roots=disabled_roots,
             )
             self.generations.write(generation)
             self.generations.activate(runtime_id, generation_id)
@@ -218,6 +301,8 @@ class PluginInstallationService:
         generation_path: Path,
         runtime: RuntimePlugin,
         facets: Mapping[str, PluginFacet],
+        *,
+        offline: bool,
     ) -> None:
         if runtime.distribution is None:
             raise AssertionError("managed runtime distribution is required")
@@ -227,7 +312,11 @@ class PluginInstallationService:
             raise PluginStoreError(f"runtime distribution {runtime.distribution!r} is not installed") from error
         python = self.generations.python_path(generation_path)
         self._run(["uv", "venv", "--python", sys.executable, str(generation_path / "venv")])
-        self._run(["uv", "pip", "install", "--python", str(python), f"{runtime.distribution}=={version}"])
+        command = ["uv", "pip", "install"]
+        if offline:
+            command.append("--offline")
+        command.extend(["--python", str(python), f"{runtime.distribution}=={version}"])
+        self._run(command)
         wheels = tuple(wheel for facet in facets.values() for wheel in facet.wheels)
         if wheels:
             wheel_directory = generation_path / "wheels"
@@ -261,6 +350,14 @@ def _resolve_bundles(index: PluginIndex, roots: tuple[str, ...]) -> tuple[Plugin
     for root in roots:
         visit(root)
     return tuple(resolved)
+
+
+def _roots_requiring(index: PluginIndex, roots: tuple[str, ...], bundle_id: str) -> tuple[str, ...]:
+    return tuple(
+        root
+        for root in roots
+        if bundle_id in {bundle.id for bundle in _resolve_bundles(index, (root,))}
+    )
 
 
 def _run_command(command: list[str]) -> None:

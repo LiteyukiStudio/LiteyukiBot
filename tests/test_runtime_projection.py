@@ -49,3 +49,19 @@ def test_projection_rejects_unsafe_load_plan_and_unknown_mode(tmp_path: Path) ->
         project_managed_plugins(generation, tmp_path / "target", tmp_path / "backups", mode="copy")
     with pytest.raises(RuntimeError, match="projection_mode"):
         project_managed_plugins(generation, tmp_path / "target", tmp_path / "backups", mode="invalid")
+
+
+def test_empty_managed_generation_atomically_clears_an_earlier_projection(tmp_path: Path) -> None:
+    first = _generation(tmp_path, "first")
+    empty = tmp_path / "empty"
+    (empty / "payload").mkdir(parents=True)
+    (empty / "load-plan.json").write_text('{"plugin_directories": []}', encoding="utf-8")
+    target = tmp_path / "state" / "plugins"
+    backups = tmp_path / "state" / "managed-plugin-backups"
+
+    project_managed_plugins(first, target, backups, mode="copy")
+    assert project_managed_plugins(empty, target, backups, mode="copy") == ()
+
+    assert not (target / "example").exists()
+    assert (target / ".liteyuki-managed.json").is_file()
+    assert not backups.exists()

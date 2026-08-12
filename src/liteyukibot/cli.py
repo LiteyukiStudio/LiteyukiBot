@@ -86,6 +86,12 @@ def build_parser() -> argparse.ArgumentParser:
     plugin_update = plugin_commands.add_parser("update", help="rebuild a runtime plugin generation from its source")
     plugin_update.add_argument("--runtime", required=True, dest="runtime_id")
     plugin_update.add_argument("--source", dest="source_id")
+    plugin_disable = plugin_commands.add_parser("disable", help="disable one retained runtime plugin bundle root")
+    plugin_disable.add_argument("bundle_id")
+    plugin_disable.add_argument("--runtime", required=True, dest="runtime_id")
+    plugin_enable = plugin_commands.add_parser("enable", help="re-enable one retained runtime plugin bundle root")
+    plugin_enable.add_argument("bundle_id")
+    plugin_enable.add_argument("--runtime", required=True, dest="runtime_id")
     plugin_uninstall = plugin_commands.add_parser("uninstall", help="remove one runtime plugin bundle root")
     plugin_uninstall.add_argument("bundle_id")
     plugin_uninstall.add_argument("--runtime", required=True, dest="runtime_id")
@@ -167,6 +173,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 return _plugin_update(args, settings, workspace)
             if args.plugin_command == "uninstall":
                 return _plugin_uninstall(args, settings, workspace)
+            if args.plugin_command == "disable":
+                return _plugin_disable(args, settings, workspace)
+            if args.plugin_command == "enable":
+                return _plugin_enable(args, settings, workspace)
             if args.plugin_command == "gc":
                 return _plugin_gc(args, workspace)
             if args.runtime_id is not None:
@@ -332,6 +342,30 @@ def _plugin_uninstall(args: argparse.Namespace, settings: AppSettings, workspace
         print(f"uninstalled {args.bundle_id}; deactivated {args.runtime_id}")
     else:
         print(f"uninstalled {args.bundle_id}; activated {result.generation.id}")
+    return 0
+
+
+def _plugin_disable(args: argparse.Namespace, settings: AppSettings, workspace: ConfigWorkspace) -> int:
+    runtime = _configured_runtime(args.runtime_id, settings)
+    with _exclusive_workspace(workspace):
+        result = PluginInstallationService(workspace.directory).disable(
+            args.bundle_id,
+            runtime_id=args.runtime_id,
+            runtime_kind=runtime.kind,
+        )
+    print(f"disabled {args.bundle_id}; activated {result.generation.id}")
+    return 0
+
+
+def _plugin_enable(args: argparse.Namespace, settings: AppSettings, workspace: ConfigWorkspace) -> int:
+    runtime = _configured_runtime(args.runtime_id, settings)
+    with _exclusive_workspace(workspace):
+        result = PluginInstallationService(workspace.directory).enable(
+            args.bundle_id,
+            runtime_id=args.runtime_id,
+            runtime_kind=runtime.kind,
+        )
+    print(f"enabled {args.bundle_id}; activated {result.generation.id}")
     return 0
 
 
@@ -546,8 +580,10 @@ def _list_runtime_plugin_generations(workspace: ConfigWorkspace, runtime_id: str
     previous = deployment.previous.get(runtime_id)
     for generation in store.list_generations(runtime_id):
         state = "active" if generation.id == active else "previous" if generation.id == previous else "retained"
-        roots = generation.roots or generation.bundles
-        print(f"{state}\t{generation.id}\t{generation.source_id or '-'}\t{','.join(roots)}")
+        enabled_roots = tuple(root for root in generation.roots if root not in generation.disabled_roots)
+        roots = enabled_roots or generation.bundles
+        disabled = ",".join(generation.disabled_roots) or "-"
+        print(f"{state}\t{generation.id}\t{generation.source_id or '-'}\t{','.join(roots)}\t{disabled}")
 
 
 def _run(settings: AppSettings, workspace: ConfigWorkspace) -> int:
