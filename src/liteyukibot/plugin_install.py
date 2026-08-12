@@ -231,6 +231,8 @@ class PluginInstallationService:
                 disabled_roots=disabled_roots,
             )
             self.generations.write(generation)
+            self.generations.read(runtime_id, generation_id)
+            self._probe_generation(generation_path, runtime)
             self.generations.activate(runtime_id, generation_id)
         except BaseException:
             shutil.rmtree(generation_path, ignore_errors=True)
@@ -328,6 +330,23 @@ class PluginInstallationService:
                 wheel_paths.append(str(staged))
             self._run(["uv", "pip", "install", "--no-index", "--no-deps", "--python", str(python), *wheel_paths])
 
+    def _probe_generation(self, generation_path: Path, runtime: RuntimePlugin) -> None:
+        """Verify the isolated runtime host imports before changing deployment state."""
+
+        module = _runtime_module(runtime)
+        python = self.generations.python_path(generation_path)
+        self._run(
+            [
+                str(python),
+                "-c",
+                "import importlib, importlib.metadata, sys; "
+                "importlib.metadata.distribution(sys.argv[1]); "
+                "importlib.import_module(sys.argv[2])",
+                runtime.distribution or "",
+                module,
+            ]
+        )
+
 
 def _resolve_bundles(index: PluginIndex, roots: tuple[str, ...]) -> tuple[PluginBundle, ...]:
     resolved: list[PluginBundle] = []
@@ -350,6 +369,19 @@ def _resolve_bundles(index: PluginIndex, roots: tuple[str, ...]) -> tuple[Plugin
     for root in roots:
         visit(root)
     return tuple(resolved)
+
+
+def _runtime_module(runtime: RuntimePlugin) -> str:
+    try:
+        marker = runtime.command.index("-m")
+        module = runtime.command[marker + 1]
+    except (ValueError, IndexError) as error:
+        raise PluginStoreError(
+            f"managed runtime kind {runtime.kind!r} command must contain a Python -m module"
+        ) from error
+    if not module or module.startswith("-"):
+        raise PluginStoreError(f"managed runtime kind {runtime.kind!r} command has an invalid Python module")
+    return module
 
 
 def _roots_requiring(index: PluginIndex, roots: tuple[str, ...], bundle_id: str) -> tuple[str, ...]:
