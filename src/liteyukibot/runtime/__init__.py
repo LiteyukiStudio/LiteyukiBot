@@ -31,6 +31,7 @@ from .protocol import (
     write_message,
 )
 from .supervisor import (
+    ActionProvenance,
     ActionSink,
     ActionSinkResult,
     AgentToolSink,
@@ -51,6 +52,7 @@ __all__ = [
     "AgentToolResponse",
     "AgentToolSink",
     "AgentToolSinkResult",
+    "ActionProvenance",
     "ActionSink",
     "ActionSinkResult",
     "ConfigMessage",

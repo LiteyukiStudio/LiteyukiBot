@@ -28,6 +28,8 @@ from liteyukibot.control import ControlError, ControlServer, request_control
 from liteyukibot.events import (
     ActionEnvelope,
     ActionResult,
+    ActorRef,
+    CallApi,
     ConversationRef,
     EventEnvelope,
     Message,
@@ -37,7 +39,8 @@ from liteyukibot.events import (
 from liteyukibot.exceptions import PluginError
 from liteyukibot.functions import FunctionCall
 from liteyukibot.plugins import PluginDefinition, PluginHandle, PluginManifest
-from liteyukibot.runtime.protocol import EventAccepted
+from liteyukibot.runtime.protocol import EventAccepted, EventTrace
+from liteyukibot.runtime.supervisor import ActionProvenance
 from liteyukibot.services import ServiceKey, ServiceRequirement
 from liteyukibot.status import KERNEL_STATUS_SERVICE
 
@@ -60,6 +63,16 @@ class FakeLogger:
 
     def exception(self, message: str, *args: Any, **kwargs: Any) -> None:
         pass
+
+
+class PermissionFixture:
+    def __init__(self, allowed: bool) -> None:
+        self.allowed = allowed
+        self.observed: list[tuple[EventEnvelope, str]] = []
+
+    def allows(self, event: EventEnvelope, capability: str) -> bool:
+        self.observed.append((event, capability))
+        return self.allowed
 
 
 @pytest.mark.asyncio
@@ -279,7 +292,7 @@ async def test_app_routes_child_action_to_distinct_adapter_runtime(
 
     monkeypatch.setattr(app.actions, "execute", execute)
     result = await app._execute_runtime_action(
-        "compat", action.model_dump(mode="json")
+        "compat", action.model_dump(mode="json"), None
     )
 
     assert result.ok is True
@@ -301,7 +314,7 @@ async def test_app_rejects_invalid_and_self_targeted_child_actions(tmp_path: Pat
     )
     app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
 
-    invalid = await app._execute_runtime_action("compat", {"invalid": True})
+    invalid = await app._execute_runtime_action("compat", {"invalid": True}, None)
     self_target = await app._execute_runtime_action(
         "compat",
         ActionEnvelope(
@@ -313,12 +326,103 @@ async def test_app_rejects_invalid_and_self_targeted_child_actions(tmp_path: Pat
                 reply_token="reply-token",
             ),
         ).model_dump(mode="json"),
+        None,
     )
 
     assert invalid.ok is False
     assert invalid.error == "invalid ActionEnvelope"
     assert self_target.ok is False
     assert self_target.error == "child-originated action cannot target its source runtime"
+
+
+@pytest.mark.asyncio
+async def test_app_rejects_child_action_that_does_not_match_v4_source_event(tmp_path: Path) -> None:
+    settings = AppSettings(core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"))
+    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
+    source = EventEnvelope(
+        id="event-1",
+        runtime_id="adapter",
+        adapter="onebot-v11",
+        bot_id="bot-1",
+        type="message.group.normal",
+        conversation=ConversationRef(id="group-1", type="group"),
+    )
+    action = ActionEnvelope(
+        event_id="event-1",
+        runtime_id="adapter",
+        bot_id="other-bot",
+        action=SendMessage(
+            message=Message(segments=(Segment(type="text", data={"text": "hello"}),)),
+            reply_token="reply-token",
+        ),
+    )
+    provenance = ActionProvenance(
+        delivery_correlation_id="delivery-1",
+        trace=EventTrace(
+            trace_id="event-1",
+            source_runtime_id="adapter",
+            source_event_id="event-1",
+        ),
+        event_payload=source.model_dump(mode="json"),
+    )
+
+    result = await app._execute_runtime_action("agent", action.model_dump(mode="json"), provenance)
+
+    assert result.ok is False
+    assert result.error == "child action does not match its source event provenance"
+
+
+@pytest.mark.asyncio
+async def test_app_call_api_requires_exact_event_capability_before_runtime_execution(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = AppSettings(core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"))
+    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
+    source = EventEnvelope(
+        id="event-1",
+        runtime_id="adapter",
+        adapter="onebot-v11",
+        bot_id="bot-1",
+        type="message.group.normal",
+        conversation=ConversationRef(id="group-1", type="group"),
+        actor=ActorRef(id="user-1"),
+    )
+    action = ActionEnvelope(
+        action_id="call-1",
+        event_id=source.id,
+        runtime_id=source.runtime_id,
+        bot_id=source.bot_id,
+        action=CallApi(api="get_status"),
+    )
+    provenance = ActionProvenance(
+        delivery_correlation_id="delivery-1",
+        trace=EventTrace(
+            trace_id=source.id,
+            source_runtime_id=source.runtime_id,
+            source_event_id=source.id,
+        ),
+        event_payload=source.model_dump(mode="json"),
+    )
+    executed: list[ActionEnvelope] = []
+
+    async def execute(envelope: ActionEnvelope) -> ActionResult:
+        executed.append(envelope)
+        return ActionResult(action_id=envelope.action_id, success=True)
+
+    monkeypatch.setattr(app.actions, "execute", execute)
+    denied = await app._execute_runtime_action("agent", action.model_dump(mode="json"), provenance)
+
+    assert denied.ok is False
+    assert denied.error == "adapter API action permission is denied"
+    assert executed == []
+
+    permissions = PermissionFixture(allowed=True)
+    app.services.provide(ServiceKey("liteyukibot.permissions", 1), permissions, provider="test")
+    allowed = await app._execute_runtime_action("agent", action.model_dump(mode="json"), provenance)
+
+    assert allowed.ok is True
+    assert permissions.observed == [(source, "liteyukibot.adapter.call_api")]
+    assert executed == [action]
 
 
 def _message_event() -> EventEnvelope:

@@ -150,6 +150,12 @@ are denied. Plugins check capabilities rather than deployment role names. The
 service is application policy for trusted plugins; it is not a sandbox
 boundary.
 
+Kernel-owned privileged capability names are defined in `liteyukibot.capabilities`.
+In beta1, a child-originated `CallApi` action requires
+`liteyukibot.adapter.call_api`, a v4 source-event provenance record, and an
+enabled permission service. `SendMessage` remains protocol-neutral and uses its
+existing event/runtime/bot routing checks.
+
 ## Commands
 
 The first-party `liteyukibot-v7-commands` package provides

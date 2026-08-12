@@ -28,7 +28,12 @@ from liteyukibot.runtime.protocol import (
     read_message,
     write_message,
 )
-from liteyukibot.runtime.supervisor import ActionSinkResult, AgentToolSinkResult, RuntimeRecord
+from liteyukibot.runtime.supervisor import (
+    ActionProvenance,
+    ActionSinkResult,
+    AgentToolSinkResult,
+    RuntimeRecord,
+)
 
 
 class FakeLogger:
@@ -328,7 +333,7 @@ async def test_v3_child_action_reaches_core_sink_with_correlation() -> None:
     observed: list[tuple[str, dict[str, Any]]] = []
 
     async def execute_child_action(
-        runtime_id: str, payload: dict[str, Any]
+        runtime_id: str, payload: dict[str, Any], _provenance: ActionProvenance | None
     ) -> ActionSinkResult:
         observed.append((runtime_id, payload))
         return ActionSinkResult(ok=True, data={"message_id": "sent-1"})
@@ -554,7 +559,11 @@ async def test_child_action_requires_v3_capability_and_sink(
     with_sink: bool,
     error: str,
 ) -> None:
-    async def sink(_runtime_id: str, _payload: dict[str, Any]) -> ActionSinkResult:
+    async def sink(
+        _runtime_id: str,
+        _payload: dict[str, Any],
+        _provenance: ActionProvenance | None,
+    ) -> ActionSinkResult:
         return ActionSinkResult(ok=True)
 
     supervisor = RuntimeSupervisor(
@@ -592,7 +601,11 @@ async def test_child_action_requires_v3_capability_and_sink(
 async def test_child_action_sink_failure_is_isolated(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def fail(_runtime_id: str, _payload: dict[str, Any]) -> ActionSinkResult:
+    async def fail(
+        _runtime_id: str,
+        _payload: dict[str, Any],
+        _provenance: ActionProvenance | None,
+    ) -> ActionSinkResult:
         raise RuntimeError("adapter failed")
 
     supervisor = RuntimeSupervisor(logger=FakeLogger(), action_sink=fail)
@@ -630,13 +643,77 @@ async def test_child_action_sink_failure_is_isolated(
 
 
 @pytest.mark.asyncio
+async def test_v4_child_action_requires_active_delivery_and_forwards_provenance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: list[ActionProvenance | None] = []
+
+    async def sink(
+        _runtime_id: str,
+        _payload: dict[str, Any],
+        provenance: ActionProvenance | None,
+    ) -> ActionSinkResult:
+        observed.append(provenance)
+        return ActionSinkResult(ok=True)
+
+    supervisor = RuntimeSupervisor(logger=FakeLogger(), action_sink=sink)
+    record = RuntimeRecord(
+        spec=RuntimeSpec(id="agent", kind="custom", agent_harness="native"),
+        token="token",
+        state=RuntimeState.READY,
+        writer=NullWriter(),  # type: ignore[arg-type]
+        protocol_version=4,
+        capabilities=frozenset({"runtime.actions.send"}),
+    )
+    trace = EventTrace(trace_id="event-1", source_runtime_id="adapter", source_event_id="event-1")
+    event_payload: dict[str, Any] = {"id": "event-1", "runtime_id": "adapter", "bot_id": "bot-1"}
+    record.active_delivery_contexts["delivery-1"] = (float("inf"), event_payload, trace)
+    responses: list[ActionResponse] = []
+
+    async def capture(_record: RuntimeRecord, message: Any) -> None:
+        assert isinstance(message, ActionResponse)
+        responses.append(message)
+
+    monkeypatch.setattr(supervisor, "_send", capture)
+    await supervisor._handle_message(
+        record,
+        ActionRequest(correlation_id="action-1", delivery_correlation_id="delivery-1", payload={}),
+    )
+    await asyncio.gather(*record.inbound_actions.values())
+
+    assert observed == [
+        ActionProvenance(
+            delivery_correlation_id="delivery-1",
+            trace=trace,
+            event_payload=event_payload,
+        )
+    ]
+    assert responses == [ActionResponse(correlation_id="action-1", ok=True)]
+
+    await supervisor._handle_message(
+        record,
+        ActionRequest(correlation_id="action-2", delivery_correlation_id="missing", payload={}),
+    )
+
+    assert responses[-1] == ActionResponse(
+        correlation_id="action-2",
+        ok=False,
+        error="action request is not bound to an active event delivery",
+    )
+
+
+@pytest.mark.asyncio
 async def test_duplicate_child_action_is_rejected_and_disconnect_cancels_sink(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     started = asyncio.Event()
     cancelled = asyncio.Event()
 
-    async def hold(_runtime_id: str, _payload: dict[str, Any]) -> ActionSinkResult:
+    async def hold(
+        _runtime_id: str,
+        _payload: dict[str, Any],
+        _provenance: ActionProvenance | None,
+    ) -> ActionSinkResult:
         started.set()
         try:
             await asyncio.Future()

@@ -11,9 +11,10 @@ from typing import Any
 
 from ._version import __version__
 from .agents import AGENT_TOOL_BROKER_SERVICE, AgentToolBroker, AgentToolCatalog, AgentToolResult
+from .capabilities import ADAPTER_CALL_API, PERMISSION_SERVICE_MAJOR, PERMISSION_SERVICE_NAME
 from .config import AppSettings, RuntimeEventRoute
 from .control import ControlServer
-from .events import ActionEnvelope, ActionResult, EventBus, EventEnvelope
+from .events import ActionEnvelope, ActionResult, CallApi, EventBus, EventEnvelope
 from .functions import FUNCTION_DISPATCH_SERVICE, FunctionDispatcher
 from .http import HttpServer
 from .i18n import I18N_SERVICE, Translator
@@ -22,6 +23,7 @@ from .plugin_store import RuntimeGenerationStore
 from .plugins import PluginManager
 from .resource_packs import RESOURCE_CATALOG_SERVICE, ResourceCatalog
 from .runtime import (
+    ActionProvenance,
     ActionSinkResult,
     AgentToolSinkResult,
     RuntimeCatalog,
@@ -29,7 +31,7 @@ from .runtime import (
     RuntimeSupervisor,
     json_value,
 )
-from .services import ServiceRegistry
+from .services import ServiceKey, ServiceRegistry
 from .status import KERNEL_STATUS_SERVICE, KernelStatusSnapshot
 from .tasks import ManagedTasks
 
@@ -79,6 +81,9 @@ class ActionService:
         )
 
 
+_PERMISSION_SERVICE = ServiceKey(PERMISSION_SERVICE_NAME, PERMISSION_SERVICE_MAJOR)
+
+
 class _AppStatusProvider:
     def __init__(self, app: LiteyukiApp) -> None:
         self._app = app
@@ -118,6 +123,7 @@ class LiteyukiApp:
             handler_timeout=core.handler_timeout_seconds,
             max_concurrent_events=core.max_concurrent_events,
             action_executor=self.actions.execute,
+            action_guard=self._authorize_action,
             logger=self.logger,
         )
         self.plugins = PluginManager(
@@ -474,7 +480,12 @@ class LiteyukiApp:
         result = await self.events.publish(event)
         return "accepted" if result.status == "processed" else result.status
 
-    async def _execute_runtime_action(self, source_runtime_id: str, payload: dict[str, Any]) -> ActionSinkResult:
+    async def _execute_runtime_action(
+        self,
+        source_runtime_id: str,
+        payload: dict[str, Any],
+        provenance: ActionProvenance | None,
+    ) -> ActionSinkResult:
         try:
             action = ActionEnvelope.model_validate(payload)
         except ValueError as error:
@@ -482,16 +493,73 @@ class LiteyukiApp:
                 "runtime action failed validation: {}", error
             )
             return ActionSinkResult(ok=False, error="invalid ActionEnvelope")
+        if provenance is not None:
+            try:
+                source_event = EventEnvelope.model_validate(provenance.event_payload)
+            except ValueError:
+                return ActionSinkResult(ok=False, error="action provenance has an invalid EventEnvelope")
+            if (
+                action.event_id != source_event.id
+                or action.runtime_id != source_event.runtime_id
+                or action.bot_id != source_event.bot_id
+            ):
+                return ActionSinkResult(
+                    ok=False,
+                    error="child action does not match its source event provenance",
+                )
         if action.runtime_id == source_runtime_id:
             return ActionSinkResult(
                 ok=False,
                 error="child-originated action cannot target its source runtime",
+            )
+        guarded = self._authorize_action(source_event if provenance is not None else None, action)
+        if guarded is not None:
+            return ActionSinkResult(
+                ok=guarded.success,
+                data=guarded.model_dump(mode="json"),
+                error=guarded.error_message,
             )
         result = await self.actions.execute(action)
         return ActionSinkResult(
             ok=result.success,
             data=result.model_dump(mode="json"),
             error=result.error_message,
+        )
+
+    def _authorize_action(self, event: EventEnvelope | None, action: ActionEnvelope) -> ActionResult | None:
+        if not isinstance(action.action, CallApi):
+            return None
+        if event is None:
+            return ActionResult(
+                action_id=action.action_id,
+                success=False,
+                error_code="ACTION_PERMISSION_DENIED",
+                error_message="adapter API action requires a source event",
+            )
+        if action.event_id != event.id or action.runtime_id != event.runtime_id or action.bot_id != event.bot_id:
+            return ActionResult(
+                action_id=action.action_id,
+                success=False,
+                error_code="ACTION_PERMISSION_DENIED",
+                error_message="adapter API action does not match its source event",
+            )
+        permissions = self.services.get(_PERMISSION_SERVICE)
+        allows = getattr(permissions, "allows", None)
+        allowed = callable(allows) and allows(event, ADAPTER_CALL_API)
+        self.logger.bind(
+            runtime=event.runtime_id,
+            component="permissions",
+            capability=ADAPTER_CALL_API,
+            event_id=event.id,
+            allowed=allowed,
+        ).info("adapter API action permission {}", "granted" if allowed else "denied")
+        if allowed:
+            return None
+        return ActionResult(
+            action_id=action.action_id,
+            success=False,
+            error_code="ACTION_PERMISSION_DENIED",
+            error_message="adapter API action permission is denied",
         )
 
     def _event_routes(self, settings: AppSettings) -> tuple[RuntimeEventRoute, ...]:

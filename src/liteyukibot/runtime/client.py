@@ -160,12 +160,18 @@ class RuntimeClient:
         self,
         correlation_id: str,
         payload: Mapping[str, Any],
+        *,
+        delivery_correlation_id: str | None = None,
         timeout_seconds: float = 30.0,
     ) -> ActionResponse:
         if timeout_seconds <= 0:
             raise ValueError("runtime action timeout must be positive")
         if self.negotiated_protocol not in (3, 4):
             raise RuntimeError("child-originated actions require runtime protocol v3 or v4")
+        if delivery_correlation_id is not None and (
+            not delivery_correlation_id or self.negotiated_protocol != 4
+        ):
+            raise RuntimeError("action delivery correlation id requires runtime protocol v4")
         if self._heartbeat_task is None:
             raise RuntimeError("runtime client is not ready")
         if "runtime.actions.send" not in self._capabilities:
@@ -176,6 +182,7 @@ class RuntimeClient:
         request = ActionRequest(
             correlation_id=correlation_id,
             payload=json_mapping(payload),
+            delivery_correlation_id=delivery_correlation_id,
         )
         future: asyncio.Future[ActionResponse] = asyncio.get_running_loop().create_future()
         self._pending_actions[correlation_id] = future
