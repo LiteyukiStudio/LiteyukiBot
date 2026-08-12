@@ -3,7 +3,7 @@
 ## Published Install Contract
 
 CI installs the newest published `liteyukibot-v7` in the
-`>=7.0.0a2,<7.0.0a4` release window from PyPI in an isolated uv environment on
+`>=7.0.0a2,<8` release window from PyPI in an isolated uv environment on
 Ubuntu, Windows, and macOS. It verifies that distribution metadata and the
 `liteyukibot` kernel namespace report the same version. The separately released
 v6 runtime has its own isolated-install verifier for the `liteyuki`
@@ -15,7 +15,7 @@ Run the same contract locally with:
 
 ```bash
 uv run --no-project --python 3.14 python scripts/run_isolated_install.py \
-  --with "liteyukibot-v7>=7.0.0a2,<7.0.0a4" \
+  --with "liteyukibot-v7>=7.0.0a2,<8" \
   --verifier scripts/verify_published_install.py
 ```
 

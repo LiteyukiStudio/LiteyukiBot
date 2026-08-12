@@ -50,6 +50,7 @@ jobs:
           uv run pytest
           uv build
           uv build --all-packages --out-dir dist/workspace --clear
+          uv run python -m scripts.run_tool_install_smoke
           uv build --project examples/native-plugin --out-dir dist/examples
           uv build --project examples/custom-runtime --out-dir dist/examples
           uv run python -m scripts.run_developer_kit_install
