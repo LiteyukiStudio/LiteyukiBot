@@ -41,7 +41,7 @@ distribution inside the workflow.
 | Package | Source | Tag |
 | --- | --- | --- |
 | `liteyukibot-v7==7.0.0a15` | `pyproject.toml` | `v7.0.0a15` |
-| `liteyukibot-v7-permissions==0.2.0a1` | `packages/permissions` | `permissions-v0.2.0a1` |
+| `liteyukibot-v7-permissions==0.2.0a2` | `packages/permissions` | `permissions-v0.2.0a2` |
 | `liteyukibot-v7-commands==0.2.0a2` | `packages/commands` | `commands-v0.2.0a2` |
 | `liteyukibot-v7-resources==0.1.0a2` | `packages/resources` | `resources-v0.1.0a2` |
 | `liteyukibot-v7-functions==0.1.0a2` | `packages/functions` | `functions-v0.1.0a2` |
@@ -51,7 +51,7 @@ distribution inside the workflow.
 | `liteyukibot-v7-runtime-adapter==0.1.0a2` | `packages/runtime-adapter` | `runtime-adapter-v0.1.0a2` |
 | `liteyukibot-v7-adapter-onebot==0.1.0a1` | `packages/adapter-onebot` | `adapter-onebot-v0.1.0a1` |
 | `liteyukibot-v7-runtime-v6==0.1.0a1` | `packages/runtime-v6` | `runtime-v6-v0.1.0a1` |
-| `liteyukibot-v7-agent==0.1.0a5` | `packages/agent` | `agent-v0.1.0a5` |
+| `liteyukibot-v7-agent==0.1.0a6` | `packages/agent` | `agent-v0.1.0a6` |
 | `liteyukibot-v7-runtime-astrbot==0.1.0a6` | `packages/runtime-astrbot` | `runtime-astrbot-v0.1.0a6` |
 | `liteyukibot-v7-runtime-mofox==0.1.0a5` | `packages/runtime-mofox` | `runtime-mofox-v0.1.0a5` |
 
@@ -63,7 +63,7 @@ tag that does not exactly match the selected source version and distribution.
 Push and wait for each release before creating the next tag:
 
 1. `v7.0.0a15`;
-2. `permissions-v0.2.0a1`;
+2. `permissions-v0.2.0a2`;
 3. `commands-v0.2.0a2`;
 4. `resources-v0.1.0a2`;
 5. `functions-v0.1.0a2`;
@@ -73,7 +73,7 @@ Push and wait for each release before creating the next tag:
 9. `runtime-adapter-v0.1.0a2`.
 10. `adapter-onebot-v0.1.0a1`.
 11. `runtime-v6-v0.1.0a1`.
-12. `agent-v0.1.0a5`.
+12. `agent-v0.1.0a6`.
 
 Each plugin workflow builds only its selected project, installs that wheel in a
 temporary uv environment against already published dependencies, exercises its

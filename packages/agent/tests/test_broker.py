@@ -12,8 +12,13 @@ from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope
 class FakePermissions:
     def __init__(self, allowed: set[str]) -> None:
         self.allowed = allowed
+        self.decisions: list[tuple[str, str]] = []
 
     def allows(self, _event: EventEnvelope, capability: str) -> bool:
+        return capability in self.allowed
+
+    def decide(self, _event: EventEnvelope, capability: str, *, component: str) -> bool:
+        self.decisions.append((capability, component))
         return capability in self.allowed
 
 
@@ -71,8 +76,10 @@ async def test_broker_catalog_for_exposes_only_tools_authorized_for_the_event() 
         required_capabilities=frozenset({"admin.reset"}),
     )
     event = _event()
-    denied = ToolBroker({public.id: public, protected.id: protected}, FakePermissions(set()))
-    allowed = ToolBroker({public.id: public, protected.id: protected}, FakePermissions({"admin.reset"}))
+    denied_permissions = FakePermissions(set())
+    allowed_permissions = FakePermissions({"admin.reset"})
+    denied = ToolBroker({public.id: public, protected.id: protected}, denied_permissions)
+    allowed = ToolBroker({public.id: public, protected.id: protected}, allowed_permissions)
 
     denied_tools = denied.catalog_for(event)["tools"]
     allowed_tools = allowed.catalog_for(event)["tools"]
@@ -85,3 +92,5 @@ async def test_broker_catalog_for_exposes_only_tools_authorized_for_the_event() 
     ]
     assert (await denied.execute(event, "admin.reset", {})).error == "agent tool permission is denied"
     assert (await allowed.execute(event, "admin.reset", {})).ok is True
+    assert denied_permissions.decisions == [("admin.reset", "agent.tool")]
+    assert allowed_permissions.decisions == [("admin.reset", "agent.tool")]

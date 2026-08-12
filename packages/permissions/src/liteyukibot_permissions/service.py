@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import deque
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -61,6 +62,18 @@ class PermissionSnapshot:
         return capability in self.capabilities
 
 
+@dataclass(frozen=True, slots=True)
+class PermissionDecision:
+    """A redacted, immutable record of one privileged policy decision."""
+
+    capability: str
+    principal: Principal | None
+    component: str
+    event_id: str
+    allowed: bool
+    reason: str
+
+
 class PermissionService(Protocol):
     def principal(self, event: EventEnvelope) -> Principal | None: ...
 
@@ -69,10 +82,31 @@ class PermissionService(Protocol):
     def allows(self, event: EventEnvelope, capability: str) -> bool: ...
 
 
+class PermissionAuditService(PermissionService, Protocol):
+    def decide(self, event: EventEnvelope, capability: str, *, component: str) -> bool: ...
+
+    def audit(self, *, limit: int | None = None) -> tuple[PermissionDecision, ...]: ...
+
+
+class PermissionLogger(Protocol):
+    def bind(self, **fields: object) -> PermissionLogger: ...
+
+    def info(self, message: str, *args: object, **kwargs: object) -> None: ...
+
+
 class _ConfiguredPermissionService:
-    def __init__(self, snapshots: Mapping[Principal, PermissionSnapshot]) -> None:
+    AUDIT_CAPACITY = 256
+
+    def __init__(
+        self,
+        snapshots: Mapping[Principal, PermissionSnapshot],
+        *,
+        logger: PermissionLogger | None = None,
+    ) -> None:
         self._snapshots = dict(snapshots)
         self._anonymous = PermissionSnapshot(None, frozenset(), frozenset({PUBLIC}))
+        self._logger = logger
+        self._audit: deque[PermissionDecision] = deque(maxlen=self.AUDIT_CAPACITY)
 
     def principal(self, event: EventEnvelope) -> Principal | None:
         if event.actor is None:
@@ -98,6 +132,55 @@ class _ConfiguredPermissionService:
         if not capability or capability != capability.strip() or any(character.isspace() for character in capability):
             return False
         return self.resolve(event).allows(capability)
+
+    def decide(self, event: EventEnvelope, capability: str, *, component: str) -> bool:
+        """Evaluate and retain a redacted audit record for a privileged boundary."""
+
+        component = _validate_token("decision component", component)
+        principal = self.principal(event)
+        if not isinstance(capability, str) or not capability or capability != capability.strip() or any(
+            character.isspace() for character in capability
+        ):
+            allowed = False
+            reason = "invalid_capability"
+        else:
+            allowed = self.resolve(event).allows(capability)
+            reason = "granted" if allowed else "not_granted"
+        decision = PermissionDecision(
+            capability=capability if isinstance(capability, str) else repr(capability),
+            principal=principal,
+            component=component,
+            event_id=event.id,
+            allowed=allowed,
+            reason=reason,
+        )
+        self._audit.append(decision)
+        if self._logger is not None:
+            fields: dict[str, object] = {
+                "permission_component": component,
+                "capability": decision.capability,
+                "event_id": event.id,
+                "allowed": allowed,
+                "reason": reason,
+            }
+            if principal is not None:
+                fields.update(
+                    runtime=principal.runtime_id,
+                    bot_id=principal.bot_id,
+                    actor_id=principal.actor_id,
+                )
+            self._logger.bind(**fields).info("permission decision {}", "granted" if allowed else "denied")
+        return allowed
+
+    def audit(self, *, limit: int | None = None) -> tuple[PermissionDecision, ...]:
+        """Return newest redacted decisions, without exposing message or tool payloads."""
+
+        if limit is not None and (not isinstance(limit, int) or isinstance(limit, bool) or limit < 0):
+            raise ValueError("audit limit must be a non-negative integer")
+        decisions = tuple(self._audit)
+        if limit is None:
+            return decisions
+        return () if limit == 0 else decisions[-limit:]
 
 
 def _parse_token_sequence(value: object, *, location: str, kind: str) -> tuple[str, ...]:
@@ -203,7 +286,9 @@ def _parse_grants(
     return snapshots
 
 
-def create_permission_service(config: Mapping[str, Any]) -> PermissionService:
+def create_permission_service(
+    config: Mapping[str, Any], *, logger: PermissionLogger | None = None
+) -> PermissionAuditService:
     if not all(isinstance(key, str) for key in config):
         raise TypeError("permission config keys must be strings")
     unknown = set(config) - {"roles", "grants"}
@@ -211,12 +296,15 @@ def create_permission_service(config: Mapping[str, Any]) -> PermissionService:
         raise ValueError(f"unknown permission config keys: {', '.join(sorted(unknown))}")
     roles = _parse_roles(config.get("roles", {}))
     snapshots = _parse_grants(config.get("grants", ()), roles)
-    return _ConfiguredPermissionService(snapshots)
+    return _ConfiguredPermissionService(snapshots, logger=logger)
 
 
 __all__ = [
     "PERMISSION_SERVICE",
     "PUBLIC",
+    "PermissionDecision",
+    "PermissionAuditService",
+    "PermissionLogger",
     "PermissionService",
     "PermissionSnapshot",
     "Principal",

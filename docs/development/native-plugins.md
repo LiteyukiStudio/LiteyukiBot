@@ -157,6 +157,14 @@ source Event for native handler results and v4 child provenance; a direct
 action call without one is denied. `SendMessage` remains protocol-neutral and
 uses its existing event/runtime/bot routing checks.
 
+The kernel registry currently declares the ownership and stable purpose of
+`liteyukibot.adapter.call_api`; third-party packages retain their own capability
+names. Privileged boundaries use `decide(event, capability, component=...)`
+when available. The first-party policy service retains a bounded redacted audit
+record with capability, principal tuple, component, event ID, outcome, and
+reason only. It intentionally never records message content, API parameters,
+tool arguments, or secrets.
+
 ## Commands
 
 The first-party `liteyukibot-v7-commands` package provides

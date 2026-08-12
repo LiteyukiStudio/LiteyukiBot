@@ -27,3 +27,9 @@ Consumers declare `ServiceRequirement(PERMISSION_SERVICE)` and resolve a
 performs an exact, fail-closed check. `resolve(event)` returns a frozen snapshot
 for diagnostics. Every event has `public`; plugins check capabilities rather
 than deployment role names.
+
+Privileged boundaries call `decide(event, capability, component=...)` instead.
+It has the same exact policy outcome and keeps a bounded in-memory audit
+snapshot available through `audit()`. Each record contains only the capability,
+principal tuple, component, event ID, allow/deny outcome, and stable reason;
+message content, API parameters, and tool arguments are never captured.
