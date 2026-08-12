@@ -3,6 +3,7 @@
 from ..init_specs import InitFieldKind, InitFieldSpec, RuntimeInitSpec
 from .catalog import RuntimeCatalog, RuntimePlugin
 from .client import RuntimeClient
+from .facets import RuntimeFacetInstaller
 from .protocol import (
     MAX_FRAME_SIZE,
     PROTOCOL_VERSION,
@@ -68,6 +69,7 @@ __all__ = [
     "Ready",
     "RuntimeClient",
     "RuntimeCatalog",
+    "RuntimeFacetInstaller",
     "RuntimePlugin",
     "RuntimeInitSpec",
     "RuntimeSpec",
