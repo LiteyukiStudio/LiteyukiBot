@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from importlib import metadata
 
 from ..init_specs import RuntimeInitSpec
+from .facets import RuntimeFacetInstaller
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,6 +19,7 @@ class RuntimePlugin:
     default_event_route_messages_only: bool = False
     agent_harness: str | None = None
     init_spec: RuntimeInitSpec | None = None
+    facet_installer: RuntimeFacetInstaller | None = None
 
     def __post_init__(self) -> None:
         if not self.kind or self.kind != self.kind.strip():
