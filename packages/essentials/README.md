@@ -21,3 +21,10 @@ language = "zh-CN"
 ```
 
 Supported languages are `zh-CN` (the default) and `en`.
+
+## Development
+
+Essentials is a command-service consumer and does not add kernel behavior.
+Keep visible text in its resource catalogs. Run
+`uv run pytest packages/essentials/tests` and
+`uv run python -m scripts.run_essentials_install` after changes.

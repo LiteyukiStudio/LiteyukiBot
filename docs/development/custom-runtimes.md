@@ -84,9 +84,9 @@ are negotiated exactly rather than inferred.
 Protocol v5 additionally permits the kernel to send an explicitly defined
 control request to a child declaring `runtime.controls.execute`. It is not a
 generic RPC surface. The protocol is pre-stable: v5 is the current development
-target and may change without backwards-compatibility shims during alpha. No
-pre-stable version will exceed v5.
-Pin the LiteyukiBot alpha version used to build and test an external runtime.
+target and may change without backwards-compatibility shims before the stable
+v7 release. No pre-stable version will exceed v5. Pin the LiteyukiBot version
+used to build and test an external runtime.
 
 ## Testing
 
