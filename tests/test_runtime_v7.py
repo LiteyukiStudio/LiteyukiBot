@@ -677,6 +677,18 @@ async def test_v4_child_action_requires_active_delivery_and_forwards_provenance(
     monkeypatch.setattr(supervisor, "_send", capture)
     await supervisor._handle_message(
         record,
+        ActionRequest(correlation_id="action-unbound", payload={}),
+    )
+    assert responses == [
+        ActionResponse(
+            correlation_id="action-unbound",
+            ok=False,
+            error="agent runtime actions require a v4 delivery correlation id",
+        )
+    ]
+
+    await supervisor._handle_message(
+        record,
         ActionRequest(correlation_id="action-1", delivery_correlation_id="delivery-1", payload={}),
     )
     await asyncio.gather(*record.inbound_actions.values())
@@ -688,7 +700,7 @@ async def test_v4_child_action_requires_active_delivery_and_forwards_provenance(
             event_payload=event_payload,
         )
     ]
-    assert responses == [ActionResponse(correlation_id="action-1", ok=True)]
+    assert responses[-1] == ActionResponse(correlation_id="action-1", ok=True)
 
     await supervisor._handle_message(
         record,
