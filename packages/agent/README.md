@@ -23,3 +23,10 @@ handled by the kernel, sends one protocol-v5 control request to the native
 Agent child, and clears only the requesting source runtime, bot, and
 conversation. It never sends a model request and the permission audit contains
 no conversation content.
+
+## Development
+
+Keep model-provider state and agent execution in this runtime package. Tool
+authorization and invocation remain kernel-brokered. Run
+`uv run pytest packages/agent/tests` and
+`uv run python -m scripts.run_agent_install` after changes.

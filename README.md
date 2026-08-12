@@ -1,183 +1,161 @@
-# LiteyukiBot v7
+<div align="center">
 
-LiteyukiBot v7 is a protocol-neutral chatbot kernel for CPython 3.14. Native
-plugins run in the core process; separately distributed framework hosts and
-LiteyukiBot v6 plugins run in supervised child runtimes.
+[![][banner]][liteyuki-link]
+<h2><a href="https://bot.liteyuki.org"><span style="color: #a2d8f4">LiteyukiBot</span> <span style="color: #d0e9ff">v7</span></a></h2>
+<h4><span style="color: #a2d8f4">Protocol-neutral, multi-runtime chatbot kernel</span></h4>
 
-The `v7` branch is a clean rewrite. The `main` branch remains the maintenance
-line for v6 and is not merged wholesale into v7.
+[![][Liteyuki7]][liteyuki-link]
+[![][Python3.14]][python-link]
+[![][Usage]][usage-link]
+[![][Repo]][repo-link]
+[![][Github]][github-link]
 
-The current Beta1 identity is `liteyukibot-v7==7.0.0b1`. Kernel stabilization,
-the bounded compatibility phase, and the first-party plugin foundation are
-complete. Runtime protocol v5 is a Beta1 contract and remains subject to
-normal pre-7.0 compatibility evolution.
+</div>
 
-## Current Foundation
+## About
 
-- immutable TOML/JSON configuration with ordered includes, environment
-  overrides, and CLI overrides;
-- Yukilog 1.x facade backed by Loguru, including structured child logs;
-- native plugin entry points, async lifecycle hooks, private storage, managed
-  tasks, and versioned services;
-- bounded protocol-neutral event/action dispatch with per-conversation order;
-- authenticated framed JSON IPC and supervised subprocess runtimes;
-- runtime-host discovery plus a deliberately bounded v6 compatibility shim;
-- local authenticated CLI control and an optional loopback-only HTTP status API.
-- layered resource packs for language catalogs, functions, and future static
-  assets, with workspace packs overriding built-in and enabled-plugin content;
-- read-only kernel status plus separately distributable capability, command,
-  resource-management, profile, help, and protected-status plugins.
+LiteyukiBot v7 is a CPython 3.14 chatbot kernel. It owns configuration,
+native-plugin lifecycle, routing, permissions, logging, and local runtime IPC.
+Framework integrations run as separately installed supervised child runtimes;
+they exchange frozen Event and Action models with the kernel rather than SDK
+objects.
 
-## Requirements
+The default branch is the maintained LiteyukiBot v6 line. This `v7` branch is
+an independent rewrite. Its current published release is
+`liteyukibot-v7==7.0.0b1`.
 
-- CPython 3.14+
-- [uv](https://docs.astral.sh/uv/)
-- network access for uv to resolve PyPI dependencies
+## Features
 
-Yukilog 1.x is installed from PyPI; no sibling checkout is required.
-The v7 kernel distribution on PyPI is named `liteyukibot-v7` and provides the
-`liteyukibot` namespace. The separately installed v6 runtime provides the
-`liteyuki` compatibility namespace.
+- interactive or non-interactive project initialization through `liteyuki`;
+- immutable TOML/JSON configuration with includes, environment variables, CLI
+  overrides, provenance inspection, encrypted runtime secrets, and recovery
+  material for configuration upgrades;
+- native plugins with explicit entry points, lifecycle hooks, services,
+  managed tasks, private storage, resource packs, and localized text;
+- authenticated loopback IPC, child-runtime supervision, per-conversation
+  event ordering, bounded concurrency, and routed protocol-neutral actions;
+- retained and verifiable runtime plugin generations with source indexes,
+  rollback, disable/enable, and garbage collection commands;
+- first-party command, permission, resource, profile, essential-command, and
+  agent packages;
+- bounded LiteyukiBot v6 compatibility and separate NoneBot2, native OneBot
+  v11, AstrBot, and Neo-MoFox runtime packages.
 
-## Tool Installation
+## Install And Run
 
-Install the v7 CLI into uv's isolated tool environment:
+Requirements:
+
+- CPython 3.14 or later;
+- [uv][uv-link].
+
+Install the command-line tool and create a workspace:
 
 ```bash
 uv tool install --python 3.14 liteyukibot-v7
-liteyuki init
-liteyuki run
+mkdir my-bot
+liteyuki --workspace my-bot init
+liteyuki --workspace my-bot check
+liteyuki --workspace my-bot run
 ```
 
-The commands operate on the current directory by default. Use
-`liteyuki --workspace PATH ...` to select another project. `liteyukibot` and
-`ly` are equivalent executable aliases. Upgrade only the v7 tool with:
+`liteyukibot`, `liteyuki`, and `ly` are equivalent command names. Use
+`init --non-interactive --locale en-US` for automation. The generated
+`liteyuki.toml` is the workspace configuration; see
+[configuration operations](docs/configuration.md) for secrets, profiles,
+configuration precedence, and recovery procedures.
+
+To work from a checkout instead of a tool installation:
 
 ```bash
-uv tool upgrade --python 3.14 liteyukibot-v7
-```
-
-This does not replace a separately installed v6 `liteyukibot` distribution.
-
-```bash
-uv sync --locked
+uv sync --locked --all-packages
+uv run liteyuki init
 uv run liteyuki check
 uv run liteyuki run
 ```
 
-Optional kernel integrations are installed explicitly:
+## Packages
 
-```bash
-uv sync --extra yaml
-uv sync --extra http
-```
+The kernel package is `liteyukibot-v7`. Optional features are separate PyPI
+packages and must be installed into the same environment before they are
+enabled in `liteyuki.toml`.
 
-Framework hosts are independent packages. Install NoneBot2 with an adapter:
+| Package | Current responsibility |
+| --- | --- |
+| `liteyukibot-v7-permissions` | Exact-principal capability policy service. |
+| `liteyukibot-v7-commands` | Protocol-neutral command router and schemas. |
+| `liteyukibot-v7-resources` | Declarative resource and authorization boundary. |
+| `liteyukibot-v7-profile` | Persistent per-bot nickname and language profiles. |
+| `liteyukibot-v7-essentials` | Help and protected status commands. |
+| `liteyukibot-v7-functions` | v6 `.lyf`, `.lyfunction`, and `.mcfunction` executor. |
+| `liteyukibot-v7-runtime-nonebot` | Supervised NoneBot2 runtime host. |
+| `liteyukibot-v7-runtime-adapter` | Supervised Python platform-adapter host. |
+| `liteyukibot-v7-adapter-onebot` | Native OneBot v11 HTTP Post and HTTP API adapter. |
+| `liteyukibot-v7-runtime-v6` | Bounded LiteyukiBot v6 compatibility runtime. |
+| `liteyukibot-v7-agent-resolver` | Declarative agent module and tool resolver. |
+| `liteyukibot-v7-agent` | OpenAI-compatible native agent runtime. |
+| `liteyukibot-v7-runtime-astrbot` | Headless AstrBot agent runtime. |
+| `liteyukibot-v7-runtime-mofox` | Headless Neo-MoFox agent runtime. |
 
-```bash
-uv add "liteyukibot-v7-runtime-nonebot[onebot]"
-# or: uv add "liteyukibot-v7-runtime-nonebot[satori]"
-```
-
-Install the Python platform-adapter host independently. It contains no platform
-SDK; protocol and platform adapters are separately published packages:
-
-```bash
-uv add liteyukibot-v7-runtime-adapter
-uv add liteyukibot-v7-adapter-onebot
-```
-
-Install bounded v6 compatibility when legacy plugins are required:
-
-```bash
-uv add "liteyukibot-v7-runtime-v6"
-```
-
-Install the v6 resource-function executor only when workspace resource packs
-contain `.lyf`, `.lyfunction`, or `.mcfunction` files:
-
-```bash
-uv add "liteyukibot-v7-functions"
-```
-
-It preserves the v6 function language but does not grant resource files shell
-or adapter API access by itself; callers must explicitly provide those
-capabilities.
-
-Install the Essentials command layer with:
-
-```bash
-uv add "liteyukibot-v7-essentials==0.2.0a3"
-```
-
-This resolves `liteyukibot-v7-commands` and
-`liteyukibot-v7-permissions`; enable all three plugin IDs in configuration.
-
-The optional profile layer adds persistent per-bot user nickname and language
-preferences. Install `liteyukibot-v7-profile` to resolve resources, then enable
-`liteyukibot.resources` and `liteyukibot.profile` before Essentials. Profile is
-a business plugin: its SQLite database is private to the plugin, and resources
-only supplies the declaration, command, and authorization boundary.
-
-Create a project-local configuration with `uv run liteyuki init`; use
-`liteyuki.example.toml` as a configuration reference. CLI overrides must precede
-the subcommand, for example:
-
-```bash
-uv run liteyuki --config local.toml --set logging.level=DEBUG check
-```
-
-Initialization, encrypted runtime secrets, upgrade recovery, and configuration
-provenance are documented in [docs/configuration.md](docs/configuration.md).
-`liteyuki init` opens a full-screen setup wizard; use `--non-interactive` for
-automation and `--locale auto|zh-CN|en-US` to control its language.
+Read the package README in [`packages/`](packages/README.md) before enabling a
+package. The kernel does not install framework integrations implicitly.
 
 ## Docker
 
-The v7 image can be built locally with the optional YAML, HTTP, NoneBot,
-OneBot, Satori, and v6 compatibility runtime packages. It runs as a non-root user. GHCR
-publication is currently paused; the Docker workflow validates builds without
-pushing.
+Build the current image locally:
 
 ```bash
 docker build -t liteyukibot:v7-local .
 docker run --rm liteyukibot:v7-local version
 ```
 
-When `/app/liteyuki.toml` is absent, the container creates the versioned default
-template once. Mount a configuration at that path to control a deployment, and
-persist `/app/data`, `/app/cache`, and `/app/plugins`.
+The image runs as a non-root user. Mount `/app/data`, `/app/cache`, and
+`/app/plugins` for persistent state, then provide `/app/liteyuki.toml` for a
+configured deployment.
 
-## Development
+## Services And Support
 
-```bash
-uv sync --locked --all-packages
-uv run ruff check src tests scripts examples packages
-uv run mypy
-uv run pytest
-uv build
-uv build --all-packages --out-dir dist/workspace --clear
-uv build --project examples/native-plugin --out-dir dist/examples
-uv build --project examples/custom-runtime --out-dir dist/examples
-uv run python -m scripts.run_developer_kit_install
-uv run python -m scripts.run_permissions_install
-uv run python -m scripts.run_commands_install
-uv run python -m scripts.run_resources_install
-uv run python -m scripts.run_functions_install
-uv run python -m scripts.run_profile_install
-uv run python -m scripts.run_essentials_install
-uv run python -m scripts.run_nonebot_runtime_install
-uv run python -m scripts.run_adapter_runtime_install
-```
+Current installation, configuration, compatibility, and release boundaries are
+documented in this repository. Report reproducible defects or documentation
+errors through the [GitHub repository][github-link], including the installed
+package versions, operating system, Python version, and the minimal command or
+configuration that reproduces the result. Do not include vault passwords,
+tokens, or message payloads in public reports.
 
-The architecture overview is documented in `docs/architecture/v7.md`; accepted
-architecture contracts are indexed in `docs/adr/README.md`; the v6 compatibility
-boundary is documented in `docs/migration-v6.md`.
+## Documentation
 
-Release maintainers should follow `docs/development/releasing.md`.
+- [Configuration operations](docs/configuration.md)
+- [v7 architecture](docs/architecture/v7.md)
+- [Beta1 contract and support boundary](docs/beta1.md)
+- [v6 compatibility](docs/migration-v6.md)
+- [Native plugin development](docs/development/native-plugins.md)
+- [Custom runtime development](docs/development/custom-runtimes.md)
+- [Contributor guide](CONTRIBUTING.md)
+- [Release procedure](docs/development/releasing.md)
 
-Plugin and runtime authors should start with the installable examples and their
-focused guides:
+## References
 
-- `examples/native-plugin` and `docs/development/native-plugins.md`;
-- `examples/custom-runtime` and `docs/development/custom-runtimes.md`.
+- [NoneBot](https://nonebot.dev/) informs the separately packaged NoneBot
+  runtime boundary.
+- [AstrBot](https://github.com/AstrBotDevs/AstrBot) and
+  [Neo-MoFox](https://github.com/MoFox-Studio/Neo-MoFox) inform their respective
+  headless agent-runtime integrations.
+
+## Other
+
+This repository is a uv workspace containing the kernel, first-party packages,
+examples, tests, developer tools, documentation, and release workflows.
+Directory-level development guidance is provided by each directory's README.
+
+[Liteyuki7]: https://img.shields.io/badge/LiteyukiBot-7.0.0b1-blue?style=for-the-badge
+[Python3.14]: https://img.shields.io/badge/Python-3.14+-blue?style=for-the-badge
+[Usage]: https://img.shields.io/badge/Usage-CLI-blue?style=for-the-badge
+[Repo]: https://img.shields.io/badge/Distribution-PyPI-blue?style=for-the-badge
+[Github]: https://img.shields.io/badge/GitHub-Repository-blue?style=for-the-badge
+[banner]: https://socialify.git.ci/LiteyukiStudio/LiteyukiBot/image?description=1&font=Source+Code+Pro&forks=1&issues=1&name=1&owner=1&pattern=Floating+Cogs&pulls=1&stargazers=1&theme=Auto
+
+[python-link]: https://www.python.org/
+[uv-link]: https://docs.astral.sh/uv/
+[usage-link]: docs/configuration.md
+[liteyuki-link]: https://github.com/LiteyukiStudio/LiteyukiBot
+[repo-link]: https://pypi.org/project/liteyukibot-v7/
+[github-link]: https://github.com/LiteyukiStudio/LiteyukiBot

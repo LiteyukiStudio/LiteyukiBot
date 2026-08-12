@@ -1,0 +1,36 @@
+# First-Party Packages
+
+Each immediate child directory is an independently buildable uv workspace
+package. Package code owns its framework integration or business capability;
+the root `src/liteyukibot/` package remains the kernel and must not import these
+packages directly.
+
+## Package Classes
+
+- `permissions`, `commands`, `resources`, `profile`, and `essentials` are
+  native plugin/service packages.
+- `functions` is the separate executor for documented v6 resource functions.
+- `runtime-*` packages are supervised child-runtime hosts.
+- `adapter-onebot` is a platform adapter loaded by `runtime-adapter`.
+- `agent` and `agent-resolver` provide the native agent runtime and its
+  declarative resolver.
+
+## Development Rules
+
+Keep a package's public entry points, metadata, tests, README, and resource
+files together. Use a package-local `pyproject.toml` for dependencies and entry
+points. A package must depend on the published kernel contract it consumes;
+avoid imports into another first-party package unless that dependency is
+declared in its metadata.
+
+Run focused tests first, then validate the workspace:
+
+```bash
+uv run pytest packages/<package>/tests
+uv build --project packages/<package>
+uv run python -m scripts.run_<package>_install
+```
+
+The exact install-verifier names are listed under `scripts/`. Release tags and
+published versions are controlled by `scripts/check_release.py` and
+`docs/development/releasing.md`.

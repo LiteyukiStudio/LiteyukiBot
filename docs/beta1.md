@@ -1,16 +1,17 @@
 # LiteyukiBot v7 Beta1 Contract
 
-Beta1 will publish `liteyukibot-v7==7.0.0b1`. It is a single-host,
+Beta1 is published as `liteyukibot-v7==7.0.0b1`. It is a single-host,
 protocol-neutral integration release: the kernel owns configuration, routing,
 permissions, deployment state, and IPC; platform/framework integrations run in
 supervised child processes and never exchange SDK objects with one another.
 
-This document is the release-facing contract. The implementation checklist,
-open decisions, PR rules, and release gates live in `tmp/beta1-roadmap.md`.
+This document is the release-facing contract. The completed implementation
+checklist and release working notes were intentionally kept outside the tracked
+documentation tree and are not part of the maintained contract.
 
 ## Installation
 
-After the Beta1 wheels are published, install a minimal local workspace with:
+Install a minimal local workspace with:
 
 ```bash
 uv tool install --python 3.14 "liteyukibot-v7==7.0.0b1"

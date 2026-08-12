@@ -142,7 +142,7 @@ The first-party `liteyukibot-v7-permissions` package provides
 `PermissionService` from `liteyukibot_permissions`, declare the service in
 their manifest, and call `allows(event, permission)`.
 
-The alpha implementation maps exact runtime, bot, and actor principals to
+The pre-stable implementation maps exact runtime, bot, and actor principals to
 static named roles and exact capability tokens configured under
 `plugins.config."liteyukibot.permissions"`. Every event has `public`;
 `resolve(event)` exposes a frozen diagnostic snapshot and unknown capabilities
