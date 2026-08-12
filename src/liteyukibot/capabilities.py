@@ -1,7 +1,45 @@
 """Kernel-owned capability identifiers for privileged cross-package surfaces."""
 
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 ADAPTER_CALL_API = "liteyukibot.adapter.call_api"
 PERMISSION_SERVICE_NAME = "liteyukibot.permissions"
 PERMISSION_SERVICE_MAJOR = 1
 
-__all__ = ["ADAPTER_CALL_API", "PERMISSION_SERVICE_MAJOR", "PERMISSION_SERVICE_NAME"]
+
+@dataclass(frozen=True, slots=True)
+class CapabilityDefinition:
+    """Stable metadata for a kernel-owned privileged capability."""
+
+    id: str
+    owner: str
+    summary: str
+
+
+KERNEL_CAPABILITIES = (
+    CapabilityDefinition(
+        id=ADAPTER_CALL_API,
+        owner="kernel",
+        summary="Allows a source-bound adapter API action.",
+    ),
+)
+
+_BY_ID = {capability.id: capability for capability in KERNEL_CAPABILITIES}
+
+
+def capability_definition(capability: str) -> CapabilityDefinition | None:
+    """Return metadata for a kernel-owned capability without rejecting extension tokens."""
+
+    return _BY_ID.get(capability)
+
+
+__all__ = [
+    "ADAPTER_CALL_API",
+    "CapabilityDefinition",
+    "KERNEL_CAPABILITIES",
+    "PERMISSION_SERVICE_MAJOR",
+    "PERMISSION_SERVICE_NAME",
+    "capability_definition",
+]

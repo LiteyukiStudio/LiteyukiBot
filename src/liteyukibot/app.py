@@ -539,15 +539,21 @@ class LiteyukiApp:
                 error_message="adapter API action does not match its source event",
             )
         permissions = self.services.get(_PERMISSION_SERVICE)
+        decide = getattr(permissions, "decide", None)
         allows = getattr(permissions, "allows", None)
-        allowed = callable(allows) and allows(event, ADAPTER_CALL_API)
-        self.logger.bind(
-            runtime=event.runtime_id,
-            component="permissions",
-            capability=ADAPTER_CALL_API,
-            event_id=event.id,
-            allowed=allowed,
-        ).info("adapter API action permission {}", "granted" if allowed else "denied")
+        allowed = (
+            decide(event, ADAPTER_CALL_API, component="adapter.call_api")
+            if callable(decide)
+            else callable(allows) and allows(event, ADAPTER_CALL_API)
+        )
+        if not callable(decide):
+            self.logger.bind(
+                runtime=event.runtime_id,
+                component="permissions",
+                capability=ADAPTER_CALL_API,
+                event_id=event.id,
+                allowed=allowed,
+            ).info("adapter API action permission {}", "granted" if allowed else "denied")
         if allowed:
             return None
         return ActionResult(
