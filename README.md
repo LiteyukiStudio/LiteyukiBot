@@ -7,7 +7,7 @@ LiteyukiBot v6 plugins run in supervised child runtimes.
 The `v7` branch is a clean rewrite. The `main` branch remains the maintenance
 line for v6 and is not merged wholesale into v7.
 
-The current pre-release is `liteyukibot-v7==7.0.0a13`. Kernel stabilization,
+The current pre-release is `liteyukibot-v7==7.0.0a14`. Kernel stabilization,
 the first bounded compatibility phase, and the first-party plugin foundation
 are complete. Runtime protocol v4 remains an alpha contract and may change
 under ADR 0011 before the first stable release.
