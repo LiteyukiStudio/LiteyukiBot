@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import json
 import os
 import signal
 import threading
 from collections import OrderedDict
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from concurrent.futures import Future
+from pathlib import Path, PurePath
 from typing import Any
 
 from liteyukibot.events import ActionEnvelope, CallApi, EventEnvelope, SendMessage
@@ -164,14 +166,20 @@ class NoneBotHost:
 
     def install(self, options: Mapping[str, Any]) -> None:
         config = _mapping_option(options, "config")
+        managed = _managed_plugin_options()
+        configured_plugins = _string_list_option(options, "plugins")
+        configured_directories = _string_list_option(options, "plugin_dirs")
+        if managed is not None and (configured_plugins or configured_directories):
+            raise RuntimeError("managed NoneBot generation cannot combine plugins or plugin_dirs runtime options")
+        plugins, directories = managed if managed is not None else (configured_plugins, configured_directories)
         self.nonebot.init(**config)
         driver = self.nonebot.get_driver()
         for spec in _string_list_option(options, "adapters"):
             driver.register_adapter(_load_symbol(spec))
-        for plugin_name in _string_list_option(options, "plugins"):
+        for plugin_name in plugins:
             if self.nonebot.load_plugin(plugin_name) is None:
                 raise RuntimeError(f"failed to load NoneBot plugin: {plugin_name}")
-        for directory in _string_list_option(options, "plugin_dirs"):
+        for directory in directories:
             loaded = self.nonebot.load_plugins(directory)
             if not loaded:
                 raise RuntimeError(f"NoneBot plugin directory loaded no plugins: {directory}")
@@ -281,6 +289,37 @@ def _string_list_option(options: Mapping[str, Any], key: str) -> tuple[str, ...]
     if any(not isinstance(item, str) or not item for item in value):
         raise ValueError(f"NoneBot runtime option {key!r} must contain non-empty strings")
     return tuple(str(item) for item in value)
+
+
+def _managed_plugin_options() -> tuple[tuple[str, ...], tuple[str, ...]] | None:
+    raw_generation = os.environ.get("LITEYUKI_RUNTIME_GENERATION_DIR")
+    if raw_generation is None:
+        return None
+    generation = Path(raw_generation).resolve(strict=True)
+    plan_path = generation / "load-plan.json"
+    try:
+        document = json.loads(plan_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        raise RuntimeError("managed NoneBot generation has an invalid load plan") from error
+    if not isinstance(document, Mapping):
+        raise RuntimeError("managed NoneBot generation load plan must be an object")
+    plugins = _string_list_option(document, "plugins")
+    raw_directories = _string_list_option(document, "directories")
+    payload = (generation / "payload").resolve()
+    directories: list[str] = []
+    for raw_directory in raw_directories:
+        relative = PurePath(raw_directory)
+        if relative.is_absolute() or any(part in {"", ".", ".."} for part in relative.parts):
+            raise RuntimeError("managed NoneBot generation directory must be a safe payload-relative path")
+        directory = (payload / relative).resolve()
+        try:
+            directory.relative_to(payload)
+        except ValueError as error:
+            raise RuntimeError("managed NoneBot generation directory escapes its payload") from error
+        if not directory.is_dir():
+            raise RuntimeError(f"managed NoneBot generation plugin directory is absent: {raw_directory}")
+        directories.append(str(directory))
+    return plugins, tuple(directories)
 
 
 def _load_symbol(spec: str) -> Any:
