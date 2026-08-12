@@ -176,6 +176,28 @@ async def _verify_agent_contract() -> None:
         raise RuntimeError("agent reply was not routed through the source runtime")
 
 
+def _verify_history_retention() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        store = ConversationStore(Path(directory) / "history.sqlite3")
+        try:
+            for value in ("first", "second", "third"):
+                store.append("nonebot", "bot-1", "group:one", "user", value, retain=2)
+            store.append("nonebot", "bot-1", "group:two", "user", "unrelated", retain=2)
+            if store.messages("nonebot", "bot-1", "group:one", limit=10) != [
+                {"role": "user", "content": "second"},
+                {"role": "user", "content": "third"},
+            ]:
+                raise RuntimeError("agent history retention did not bound one conversation")
+            if store.clear("nonebot", "bot-1", "group:one") != 2:
+                raise RuntimeError("agent history clear did not report removed messages")
+            if store.messages("nonebot", "bot-1", "group:two", limit=10) != [
+                {"role": "user", "content": "unrelated"}
+            ]:
+                raise RuntimeError("agent history clear crossed source conversation boundaries")
+        finally:
+            store.close()
+
+
 def verify(expected_version: str | None = None) -> None:
     imported = (Path(liteyukibot.__file__).resolve(), Path(liteyukibot_agent.__file__).resolve())
     if any(path.is_relative_to(SOURCE_ROOT) for path in imported):
@@ -190,6 +212,7 @@ def verify(expected_version: str | None = None) -> None:
     if expected_version is not None and observed["liteyukibot-v7-agent"] != expected_version:
         raise RuntimeError(f"expected liteyukibot-v7-agent {expected_version}; observed {observed}")
     asyncio.run(_verify_agent_contract())
+    _verify_history_retention()
     print(json.dumps(observed, sort_keys=True))
 
 

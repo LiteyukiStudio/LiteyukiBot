@@ -157,7 +157,12 @@ class NativeAgentHost:
         tools: Sequence[Mapping[str, object]],
     ) -> None:
         key = (event.runtime_id, event.bot_id, event.conversation.ordering_key)
-        self.store.append(*key, "user", event.message.plain_text if event.message is not None else "")
+        self.store.append(
+            *key,
+            "user",
+            event.message.plain_text if event.message is not None else "",
+            retain=self.history_limit,
+        )
         messages: list[Mapping[str, object]] = [item for item in self.store.messages(*key, limit=self.history_limit)]
         reply = await self._complete(messages, tools)
         for _index in range(self.max_tool_rounds):
@@ -182,7 +187,7 @@ class NativeAgentHost:
         if reply.tool_calls:
             raise RuntimeError("agent exceeded maximum tool-call rounds")
         if reply.text:
-            self.store.append(*key, "assistant", reply.text)
+            self.store.append(*key, "assistant", reply.text, retain=self.history_limit)
             for chunk in _chunks(reply.text, self.message_chunk_size):
                 action = ActionEnvelope(
                     event_id=event.id,
