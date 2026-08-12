@@ -25,7 +25,7 @@ def test_kernel_import_namespace_uses_distribution_version() -> None:
 @pytest.mark.parametrize(
     ("name", "tag"),
     [
-        ("root", "v7.0.0a14"),
+        ("root", "v7.0.0a15"),
         ("permissions", "permissions-v0.2.0a1"),
         ("commands", "commands-v0.2.0a2"),
         ("resources", "resources-v0.1.0a2"),
