@@ -21,6 +21,7 @@ members = [
     "liteyukibot-v7-permissions",
     "liteyukibot-v7-profile",
     "liteyukibot-v7-resources",
+    "liteyukibot-v7-runtime-adapter",
     "liteyukibot-v7-runtime-astrbot",
     "liteyukibot-v7-runtime-mofox",
     "liteyukibot-v7-runtime-nonebot",
@@ -1395,7 +1396,7 @@ wheels = [
 
 [[package]]
 name = "liteyukibot-v7"
-version = "7.0.0a10"
+version = "7.0.0a11"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
@@ -1554,6 +1555,17 @@ requires-dist = [
     { name = "liteyukibot-v7-commands", editable = "packages/commands" },
     { name = "liteyukibot-v7-permissions", editable = "packages/permissions" },
 ]
+
+[[package]]
+name = "liteyukibot-v7-runtime-adapter"
+version = "0.1.0a1"
+source = { editable = "packages/runtime-adapter" }
+dependencies = [
+    { name = "liteyukibot-v7" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "liteyukibot-v7", editable = "." }]
 
 [[package]]
 name = "liteyukibot-v7-runtime-astrbot"

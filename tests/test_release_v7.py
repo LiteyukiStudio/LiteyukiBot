@@ -25,7 +25,7 @@ def test_kernel_import_namespace_uses_distribution_version() -> None:
 @pytest.mark.parametrize(
     ("name", "tag"),
     [
-        ("root", "v7.0.0a10"),
+        ("root", "v7.0.0a11"),
         ("permissions", "permissions-v0.2.0a1"),
         ("commands", "commands-v0.2.0a2"),
         ("resources", "resources-v0.1.0a2"),
@@ -33,6 +33,7 @@ def test_kernel_import_namespace_uses_distribution_version() -> None:
         ("profile", "profile-v0.1.0a2"),
         ("essentials", "essentials-v0.2.0a3"),
         ("runtime-nonebot", "runtime-nonebot-v0.1.0a1"),
+        ("runtime-adapter", "runtime-adapter-v0.1.0a1"),
         ("runtime-v6", "runtime-v6-v0.1.0a2"),
         ("agent-resolver", "agent-resolver-v0.1.0a1"),
         ("agent", "agent-v0.1.0a3"),

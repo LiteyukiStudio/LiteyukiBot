@@ -83,6 +83,56 @@ def test_resource_zip_rejects_path_traversal(tmp_path: Path) -> None:
         ResourceCatalog.load(tmp_path)
 
 
+def test_resource_pack_exposes_validated_presentation_metadata(tmp_path: Path) -> None:
+    resources = tmp_path / "resources"
+    pack = _pack(resources, "presentation")
+    icon = (
+        b"\x89PNG\r\n\x1a\n"
+        + (13).to_bytes(4, "big")
+        + b"IHDR"
+        + (1).to_bytes(4, "big")
+        + (1).to_bytes(4, "big")
+        + b"\x08\x06\x00\x00\x00"
+        + b"\x00\x00\x00\x00"
+    )
+    (pack / "icon.png").write_bytes(icon)
+    (pack / "metadata.yml").write_text(
+        "id: presentation\nname: Presentation\nversion: 1.0.0\n"
+        "name_key: presentation.name\ndescription_key: presentation.description\nicon: icon.png\n",
+        encoding="utf-8",
+    )
+    (resources / "index.json").write_text('["presentation"]', encoding="utf-8")
+
+    catalog = ResourceCatalog.load(tmp_path)
+
+    assert catalog.pack("presentation").name_key == "presentation.name"
+    assert catalog.pack("presentation").description_key == "presentation.description"
+    assert catalog.icon("presentation") is not None
+
+
+def test_resource_pack_rejects_non_alpha_icon(tmp_path: Path) -> None:
+    resources = tmp_path / "resources"
+    pack = _pack(resources, "presentation")
+    icon = (
+        b"\x89PNG\r\n\x1a\n"
+        + (13).to_bytes(4, "big")
+        + b"IHDR"
+        + (1).to_bytes(4, "big")
+        + (1).to_bytes(4, "big")
+        + b"\x08\x02\x00\x00\x00"
+        + b"\x00\x00\x00\x00"
+    )
+    (pack / "icon.png").write_bytes(icon)
+    (pack / "metadata.yml").write_text(
+        "id: presentation\nname: Presentation\nversion: 1.0.0\nicon: icon.png\n",
+        encoding="utf-8",
+    )
+    (resources / "index.json").write_text('["presentation"]', encoding="utf-8")
+
+    with pytest.raises(ResourcePackError, match="alpha"):
+        ResourceCatalog.load(tmp_path)
+
+
 def test_function_dispatch_reports_missing_executor(tmp_path: Path) -> None:
     resources = tmp_path / "resources"
     _pack(resources, "functions", function="return nothing")
