@@ -51,9 +51,19 @@ manifest = PluginManifest(
 ```
 
 The declared package root defaults to `resources/` and must contain
-`metadata.yml`. Enabled plugin packs overlay kernel resources but are overridden
-by workspace packs. Declare `RESOURCE_CATALOG_SERVICE` when a plugin needs to
-read the resolved catalog.
+`metadata.yml`. Declare a pack only when the plugin has visible text, static
+assets, or future control-plane presentation. Use package `lang/en-US.lang`
+and `lang/zh-CN.lang` catalogs for visible text; declare `I18N_SERVICE` and
+resolve text through the injected `Translator`, never a package-local Python
+dictionary. Prefix keys with the plugin ID, for example `example.echo.name`.
+
+`metadata.yml` may contain `name_key`, `description_key`, and `icon`. The icon
+is package-relative, local-only `icon.png`: a transparent square PNG no larger
+than 512 KiB. Resource metadata and `ResourceCatalog.icon()` form a read-only
+future WebUI interface; v7 does not yet expose an HTTP asset route or WebUI.
+Enabled plugin packs overlay kernel resources but are overridden by workspace
+packs. Declare `RESOURCE_CATALOG_SERVICE` when a plugin needs to read the
+resolved catalog.
 
 `FUNCTION_DISPATCH_SERVICE` resolves read-only files under `functions/` and
 dispatches them to a separately installed executor registered through

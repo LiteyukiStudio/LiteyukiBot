@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- added `liteyukibot-v7-runtime-adapter`, a separately published Python
+  platform-adapter host with managed-generation and entry-point boundaries;
+- extended resource-pack metadata with localized presentation keys and optional
+  validated local PNG icons for a future WebUI, without adding a WebUI route;
 - added the kernel-owned `liteyukibot.i18n@1` service backed by layered resource
   packs, including per-user locale rendering for essential commands;
 - moved first-party profile/resource command text and custom-init package labels

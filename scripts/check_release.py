@@ -97,6 +97,14 @@ RELEASE_PROJECTS: dict[str, ReleaseProject] = {
         tag_selector="runtime-nonebot-v",
         verifier="scripts/verify_nonebot_runtime_install.py",
     ),
+    "runtime-adapter": ReleaseProject(
+        name="runtime-adapter",
+        project_dir="packages/runtime-adapter",
+        distribution="liteyukibot-v7-runtime-adapter",
+        tag_prefix="runtime-adapter-v",
+        tag_selector="runtime-adapter-v",
+        verifier="scripts/verify_adapter_runtime_install.py",
+    ),
     "runtime-v6": ReleaseProject(
         name="runtime-v6",
         project_dir="packages/runtime-v6",
