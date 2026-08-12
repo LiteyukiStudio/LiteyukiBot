@@ -65,7 +65,7 @@ then use the selected profile Python. The previous verified profile remains
 available for one-command rollback.
 
 ~~~bash
-liteyuki profile stage --require "liteyukibot-v7==7.0.0a8"
+liteyuki profile stage --require "liteyukibot-v7==PUBLISHED_VERSION"
 liteyuki profile list
 liteyuki profile activate PROFILE_ID
 liteyuki profile rollback
@@ -73,6 +73,8 @@ liteyuki profile rollback
 
 `liteyuki.lock` records the active/previous profile and its exact installed
 distribution versions. Profiles never copy or migrate package-owned data.
+Replace `PUBLISHED_VERSION` with a version that has already been uploaded; use
+the release notes rather than a source-tree version that may not exist on PyPI.
 
 ## Precedence And Inspection
 
@@ -127,8 +129,9 @@ api_key_env configuration remains an explicit compatibility override.
 
 ## Upgrade Material
 
-config_version = 1 is the current v7 alpha schema. A root configuration with a
-missing or older version is preserved and blocks startup after generating:
+config_version = 1 is the current v7 pre-release schema and the planned Beta1
+schema. A root configuration with a missing or older version is preserved and
+blocks startup after generating:
 
 - a backup under .liteyuki/config-backups/;
 - a current template under .liteyuki/config-upgrades/;
