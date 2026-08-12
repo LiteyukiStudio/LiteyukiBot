@@ -36,6 +36,7 @@ from .config.vault import SecretVault
 from .control import ControlError, request_control
 from .exceptions import LiteyukiError
 from .init_wizard import WizardCancelled, build_custom_initialization_plan, run_init_wizard
+from .plugin_sources import PluginSource, PluginSourceStore
 from .profiles import ProfileManifest, ProfileStore
 
 
@@ -73,7 +74,17 @@ def build_parser() -> argparse.ArgumentParser:
     vault_commands.add_parser("rotate")
 
     plugin = subcommands.add_parser("plugin", help="plugin operations")
-    plugin.add_subparsers(dest="plugin_command", required=True).add_parser("list")
+    plugin_commands = plugin.add_subparsers(dest="plugin_command", required=True)
+    plugin_commands.add_parser("list")
+    plugin_source = plugin_commands.add_parser("source", help="plugin index source operations")
+    plugin_source_commands = plugin_source.add_subparsers(dest="plugin_source_command", required=True)
+    plugin_source_commands.add_parser("list")
+    source_add = plugin_source_commands.add_parser("add")
+    source_add.add_argument("id")
+    source_add.add_argument("url")
+    source_add.add_argument("--priority", type=int, default=100)
+    source_remove = plugin_source_commands.add_parser("remove")
+    source_remove.add_argument("id")
 
     inspect = subcommands.add_parser("inspect", help="read-only resolved module information")
     inspect.add_subparsers(dest="inspect_command", required=True).add_parser("topology")
@@ -115,6 +126,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _vault(args)
         if args.command == "profile":
             return _profile(args)
+        if args.command == "plugin" and args.plugin_command == "source":
+            return _plugin_source(args)
         workspace = ConfigWorkspace(args.workspace)
         if args.command in {"run", "check"}:
             delegated = _delegate_to_active_profile(workspace, command_line)
@@ -221,6 +234,26 @@ def _profile(args: argparse.Namespace) -> int:
     workspace.prepare()
     with _exclusive_workspace(workspace):
         return _profile_unlocked(args, workspace)
+
+
+def _plugin_source(args: argparse.Namespace) -> int:
+    workspace = ConfigWorkspace(args.workspace)
+    with _exclusive_workspace(workspace):
+        store = PluginSourceStore(workspace.directory)
+        if args.plugin_source_command == "list":
+            for source in store.list():
+                digest = store.cached_digest(source.id) or "-"
+                print(f"{source.id}\t{source.priority}\t{source.url}\t{digest}")
+            return 0
+        if args.plugin_source_command == "add":
+            store.add(PluginSource(args.id, args.url, args.priority))
+            print(f"added {args.id}")
+            return 0
+        if args.plugin_source_command == "remove":
+            store.remove(args.id)
+            print(f"removed {args.id}")
+            return 0
+    raise RuntimeError(f"unknown plugin source command: {args.plugin_source_command}")
 
 
 def _profile_unlocked(args: argparse.Namespace, workspace: ConfigWorkspace) -> int:
