@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import zipfile
 from pathlib import Path
@@ -8,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from liteyukibot.plugin_store import (
+    ArtifactSpec,
     ArtifactStore,
     PlatformConstraint,
     PlatformTarget,
@@ -85,6 +87,24 @@ def test_artifact_store_rejects_zip_path_traversal(tmp_path: Path) -> None:
 
     with pytest.raises(PluginStoreError, match="unsafe path"):
         store.extract_zip(digest, tmp_path / "generation" / "payload")
+
+
+def test_artifact_store_rejects_https_downgrade_redirect(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    class _Response(io.BytesIO):
+        def __enter__(self) -> _Response:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            self.close()
+
+        def geturl(self) -> str:
+            return "http://example.invalid/plugin.zip"
+
+    digest = "a" * 64
+    monkeypatch.setattr("liteyukibot.plugin_store.urlopen", lambda *_args, **_kwargs: _Response(b"payload"))
+
+    with pytest.raises(PluginStoreError, match="redirect"):
+        ArtifactStore(tmp_path).fetch(ArtifactSpec("https://example.invalid/plugin.zip", digest))
 
 
 def _generation(generation_id: str) -> RuntimeGeneration:

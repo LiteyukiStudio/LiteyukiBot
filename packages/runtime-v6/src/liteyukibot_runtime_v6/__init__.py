@@ -14,6 +14,7 @@ def runtime_plugin() -> RuntimePlugin:
         kind="v6",
         command=(sys.executable, "-m", "liteyukibot_runtime_v6"),
         default_event_route_messages_only=True,
+        distribution="liteyukibot-v7-runtime-v6",
         facet_installer=V6FacetInstaller(),
         init_spec=RuntimeInitSpec(
             default_id="legacy",

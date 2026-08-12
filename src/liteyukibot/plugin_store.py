@@ -14,13 +14,16 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
+from urllib.error import URLError
 from urllib.parse import urlsplit
+from urllib.request import Request, urlopen
 
 from .exceptions import LiteyukiError
 
 _IDENTIFIER = re.compile(r"[a-z][a-z0-9-]{0,63}")
 _BUNDLE_IDENTIFIER = re.compile(r"[a-z][a-z0-9.-]{0,127}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_MAX_ARTIFACT_BYTES = 256 * 1024 * 1024
 
 
 class PluginStoreError(LiteyukiError):
@@ -315,6 +318,40 @@ class ArtifactStore:
             temporary.unlink(missing_ok=True)
         return destination
 
+    def fetch(self, artifact: ArtifactSpec) -> Path:
+        """Download one declared artifact once, retaining only its verified bytes."""
+
+        destination = self.path_for(artifact.sha256)
+        if destination.is_file():
+            if self._digest(destination) != artifact.sha256:
+                raise PluginStoreError(f"cached plugin artifact {artifact.sha256!r} is corrupt")
+            return destination
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        temporary = destination.with_name("download.tmp")
+        try:
+            request = Request(artifact.url, headers={"User-Agent": "liteyukibot-v7-plugin-store"})
+            with urlopen(request, timeout=30) as response:  # noqa: S310 - artifact URL is validated HTTPS index data.
+                redirected = urlsplit(response.geturl())
+                if (
+                    redirected.scheme != "https"
+                    or not redirected.netloc
+                    or redirected.username
+                    or redirected.password
+                ):
+                    raise PluginStoreError("plugin artifact redirect must remain credential-free HTTPS")
+                with temporary.open("xb") as handle:
+                    received = 0
+                    while chunk := response.read(1024 * 1024):
+                        received += len(chunk)
+                        if received > _MAX_ARTIFACT_BYTES:
+                            raise PluginStoreError("plugin artifact exceeded the 256 MiB limit")
+                        handle.write(chunk)
+            return self.import_file(temporary, artifact.sha256)
+        except (OSError, URLError) as error:
+            raise PluginStoreError(f"cannot fetch plugin artifact {artifact.sha256!r}: {error}") from error
+        finally:
+            temporary.unlink(missing_ok=True)
+
     def extract_zip(self, digest: str, destination: str | Path) -> Path:
         artifact = self.path_for(digest)
         if not artifact.is_file():
@@ -466,7 +503,7 @@ class RuntimeGenerationStore:
             if self.read(generation.runtime_id, generation.id).digest != generation.digest:
                 raise PluginStoreError("generation ID already belongs to a different manifest")
             return path
-        path.mkdir(parents=True)
+        path.mkdir(parents=True, exist_ok=True)
         self._write_json(manifest, generation.document())
         self._write_json(path / "load-plan.json", generation.load_plan)
         return path
@@ -546,7 +583,7 @@ class RuntimeGenerationStore:
 
     @staticmethod
     def new_generation_id() -> str:
-        return datetime.now(UTC).strftime("%Y%m%d-%H%M%S-") + hashlib.sha256(os.urandom(16)).hexdigest()[:8]
+        return "g" + datetime.now(UTC).strftime("%Y%m%d-%H%M%S-") + hashlib.sha256(os.urandom(16)).hexdigest()[:8]
 
     @staticmethod
     def _write_json(path: Path, value: dict[str, Any]) -> None:

@@ -20,6 +20,7 @@ class RuntimePlugin:
     agent_harness: str | None = None
     init_spec: RuntimeInitSpec | None = None
     facet_installer: RuntimeFacetInstaller | None = None
+    distribution: str | None = None
 
     def __post_init__(self) -> None:
         if not self.kind or self.kind != self.kind.strip():
@@ -30,6 +31,10 @@ class RuntimePlugin:
             not self.agent_harness or self.agent_harness != self.agent_harness.strip()
         ):
             raise ValueError("runtime plugin agent_harness must be a non-empty trimmed string")
+        if self.distribution is not None and (
+            not self.distribution or self.distribution != self.distribution.strip()
+        ):
+            raise ValueError("runtime plugin distribution must be a non-empty trimmed string")
 
 
 class RuntimeCatalog:
