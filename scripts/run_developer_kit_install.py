@@ -12,6 +12,10 @@ from scripts.run_isolated_install import _clean_environment
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _build_dir() -> Path:
+    return Path(os.environ.get("LITEYUKI_BUILD_DIR", ROOT / "dist")).resolve()
+
+
 def _one_wheel(directory: Path, distribution: str) -> Path:
     matches = tuple(directory.glob(f"{distribution}-*-py3-none-any.whl"))
     if len(matches) != 1:
@@ -25,10 +29,11 @@ def main() -> int:
     uv = shutil.which("uv")
     if uv is None:
         raise RuntimeError("uv executable was not found")
+    build_dir = _build_dir()
     wheels = (
-        _one_wheel(ROOT / "dist", "liteyukibot_v7"),
-        _one_wheel(ROOT / "dist" / "examples", "liteyukibot_example_plugin"),
-        _one_wheel(ROOT / "dist" / "examples", "liteyukibot_example_runtime"),
+        _one_wheel(build_dir, "liteyukibot_v7"),
+        _one_wheel(build_dir / "examples", "liteyukibot_example_plugin"),
+        _one_wheel(build_dir / "examples", "liteyukibot_example_runtime"),
     )
     command = [uv, "run", "--no-project", "--python", "3.14"]
     for wheel in wheels:

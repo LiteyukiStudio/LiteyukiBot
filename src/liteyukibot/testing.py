@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import inspect
+import tempfile
 from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -27,7 +29,7 @@ from .runtime import (
     RuntimeSupervisor,
 )
 from .runtime.protocol import JsonValue, json_mapping
-from .runtime.supervisor import ActionProvenance, ActionSinkResult, EventSink
+from .runtime.supervisor import ActionProvenance, ActionSinkResult, AgentToolSink, AgentToolSinkResult, EventSink
 from .services import ServiceKey, ServiceRegistry
 
 
@@ -164,20 +166,27 @@ class RuntimeTestHarness:
         *,
         event_sink: EventSink | None = None,
         action_sink: Callable[[str, dict[str, JsonValue]], Awaitable[ActionSinkResult]] | None = None,
+        agent_tool_sink: AgentToolSink | None = None,
     ) -> None:
         if spec.command is None or not spec.command:
             raise ValueError("runtime test harness requires an explicit child command")
-        self.spec = spec
+        self._state_directory = tempfile.TemporaryDirectory(prefix="liteyuki-runtime-test-")
+        self.spec = replace(
+            spec,
+            env={**spec.env, "LITEYUKI_RUNTIME_STATE_DIR": self._state_directory.name},
+        )
         self._event_sink = event_sink
         self._action_sink = action_sink
+        self._agent_tool_sink = agent_tool_sink
         self._child_events: list[tuple[str, dict[str, JsonValue]]] = []
         self._child_actions: list[tuple[str, dict[str, JsonValue]]] = []
         self._supervisor = RuntimeSupervisor(
             logger=get_logger(component="runtime-test"),
             event_sink=self._record_event,
             action_sink=self._record_action,
+            agent_tool_sink=self._record_agent_tool,
         )
-        self._supervisor.add(spec)
+        self._supervisor.add(self.spec)
         self._started = False
         self._closed = False
 
@@ -216,6 +225,7 @@ class RuntimeTestHarness:
             await self._supervisor.start()
         except BaseException:
             self._closed = True
+            self._state_directory.cleanup()
             raise
         self._started = True
 
@@ -226,6 +236,7 @@ class RuntimeTestHarness:
         if self._started:
             self._started = False
             await self._supervisor.stop()
+        self._state_directory.cleanup()
 
     async def dispatch_event(
         self,
@@ -233,6 +244,7 @@ class RuntimeTestHarness:
         *,
         correlation_id: str | None = None,
         timeout_seconds: float = 5.0,
+        agent_tool_catalog: Mapping[str, Any] | None = None,
     ) -> EventAccepted:
         if not self._started:
             raise RuntimeError("runtime test harness is not started")
@@ -241,6 +253,7 @@ class RuntimeTestHarness:
             correlation_id or str(uuid4()),
             payload,
             timeout_seconds,
+            agent_tool_catalog=agent_tool_catalog,
         )
 
     async def execute_action(
@@ -275,6 +288,18 @@ class RuntimeTestHarness:
         if self._action_sink is None:
             return ActionSinkResult(ok=True, data={"recorded": True})
         return await self._action_sink(runtime_id, payload)
+
+    async def _record_agent_tool(
+        self,
+        runtime_id: str,
+        delivery_correlation_id: str,
+        payload: dict[str, JsonValue],
+        tool_id: str,
+        arguments: dict[str, JsonValue],
+    ) -> AgentToolSinkResult:
+        if self._agent_tool_sink is None:
+            return AgentToolSinkResult(ok=False, error="agent tool sink is not configured")
+        return await self._agent_tool_sink(runtime_id, delivery_correlation_id, payload, tool_id, arguments)
 
     async def __aenter__(self) -> RuntimeTestHarness:
         await self.start()

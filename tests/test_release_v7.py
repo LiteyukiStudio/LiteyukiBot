@@ -11,6 +11,7 @@ from scripts.check_release import (
     read_release_identity,
     validate_release,
 )
+from scripts.run_developer_kit_install import _build_dir
 from scripts.run_isolated_install import _clean_environment, _requirement
 
 import liteyukibot
@@ -25,7 +26,7 @@ def test_kernel_import_namespace_uses_distribution_version() -> None:
 @pytest.mark.parametrize(
     ("name", "tag"),
     [
-        ("root", "v7.0.0a15"),
+        ("root", "v7.0.0a16"),
         ("permissions", "permissions-v0.2.0a2"),
         ("commands", "commands-v0.2.0a2"),
         ("resources", "resources-v0.1.0a2"),
@@ -99,3 +100,12 @@ def test_isolated_install_rejects_empty_and_directory_requirements(tmp_path: Pat
         _requirement("")
     with pytest.raises(ValueError, match="must be a file"):
         _requirement(str(tmp_path))
+
+
+def test_developer_kit_install_uses_an_explicit_build_directory(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("LITEYUKI_BUILD_DIR", str(tmp_path))
+
+    assert _build_dir() == tmp_path.resolve()
