@@ -105,7 +105,7 @@ async def verify(expected_version: str | None = None) -> None:
         )
         actions: list[ActionEnvelope] = []
 
-        async def record(action: ActionEnvelope) -> ActionResult:
+        async def record(_event: EventEnvelope, action: ActionEnvelope) -> ActionResult:
             actions.append(action)
             return ActionResult(action_id=action.action_id, success=True)
 

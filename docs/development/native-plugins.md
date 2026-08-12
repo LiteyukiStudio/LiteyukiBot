@@ -151,10 +151,11 @@ service is application policy for trusted plugins; it is not a sandbox
 boundary.
 
 Kernel-owned privileged capability names are defined in `liteyukibot.capabilities`.
-In beta1, a child-originated `CallApi` action requires
-`liteyukibot.adapter.call_api`, a v4 source-event provenance record, and an
-enabled permission service. `SendMessage` remains protocol-neutral and uses its
-existing event/runtime/bot routing checks.
+In beta1, every `CallApi` action requires `liteyukibot.adapter.call_api`, an
+exact source Event, and an enabled permission service. The kernel supplies the
+source Event for native handler results and v4 child provenance; a direct
+action call without one is denied. `SendMessage` remains protocol-neutral and
+uses its existing event/runtime/bot routing checks.
 
 ## Commands
 

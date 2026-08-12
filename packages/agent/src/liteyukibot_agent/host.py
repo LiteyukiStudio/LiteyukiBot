@@ -99,7 +99,12 @@ class NativeAgentHost:
             return
         await self.client.send(EventAccepted(correlation_id=message.correlation_id, status="accepted"))
         task = asyncio.create_task(
-            self._process_event(message.correlation_id, event, message.trace),
+            self._process_event(
+                message.correlation_id,
+                event,
+                message.trace,
+                _tool_schemas(message.agent_tool_catalog),
+            ),
             name=f"agent-event:{message.correlation_id}",
         )
         self._tasks.add(task)
@@ -118,6 +123,7 @@ class NativeAgentHost:
         delivery_correlation_id: str,
         event: EventEnvelope,
         trace: EventTrace | None,
+        tools: Sequence[Mapping[str, object]],
     ) -> None:
         try:
             key = (event.runtime_id, event.bot_id, event.conversation.ordering_key)
@@ -125,7 +131,7 @@ class NativeAgentHost:
             messages: list[Mapping[str, object]] = [
                 item for item in self.store.messages(*key, limit=self.history_limit)
             ]
-            reply = await self.engine.complete(messages)
+            reply = await self.engine.complete(messages, tools=tools)
             for _index in range(4):
                 if not reply.tool_calls:
                     break
@@ -144,7 +150,7 @@ class NativeAgentHost:
                             "content": result.data if result.ok else {"error": result.error or "tool failed"},
                         }
                     )
-                reply = await self.engine.complete(messages)
+                reply = await self.engine.complete(messages, tools=tools)
             if reply.tool_calls:
                 raise RuntimeError("agent exceeded maximum tool-call rounds")
             if reply.text:
@@ -197,7 +203,6 @@ async def run() -> None:
             api_key=api_key,
             base_url=_optional_string(options, "base_url"),
             model=_required_string(options, "model"),
-            tools=_tool_schemas(options),
         )
         host = NativeAgentHost(
             client,
@@ -271,10 +276,9 @@ def _environment_secret(options: Mapping[str, object], key: str, default: str) -
     return value
 
 
-def _tool_schemas(options: Mapping[str, object]) -> tuple[Mapping[str, object], ...]:
-    catalog = options.get("agent_tool_catalog", {})
-    if not isinstance(catalog, Mapping):
-        raise ValueError("native agent option 'agent_tool_catalog' must be an object")
+def _tool_schemas(catalog: Mapping[str, object] | None) -> tuple[Mapping[str, object], ...]:
+    if catalog is None:
+        return ()
     tools = catalog.get("tools", ())
     if not isinstance(tools, Sequence) or isinstance(tools, (str, bytes)):
         raise ValueError("native agent tool catalog must contain a tools array")

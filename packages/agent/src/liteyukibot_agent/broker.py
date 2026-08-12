@@ -49,11 +49,8 @@ class ToolBroker:
         tool = self._tools.get(tool_id)
         if tool is None:
             return AgentToolResult(ok=False, error="agent tool is not registered")
-        if tool.required_capabilities:
-            if self._permissions is None or not all(
-                self._permissions.allows(event, capability) for capability in tool.required_capabilities
-            ):
-                return AgentToolResult(ok=False, error="agent tool permission is denied")
+        if not self._allowed(event, tool):
+            return AgentToolResult(ok=False, error="agent tool permission is denied")
         try:
             result = await tool.handler(event, arguments)
         except Exception:
@@ -77,6 +74,28 @@ class ToolBroker:
                 if not tool.required_capabilities
             ]
         }
+
+    def catalog_for(self, event: EventEnvelope) -> Mapping[str, object]:
+        """Return exactly the schemas that this event principal may invoke."""
+
+        return {
+            "tools": [
+                {
+                    "id": tool.id,
+                    "title": tool.title,
+                    "description": tool.description,
+                    "input_schema": dict(tool.input_schema),
+                }
+                for tool in sorted(self._tools.values(), key=lambda candidate: candidate.id)
+                if self._allowed(event, tool)
+            ]
+        }
+
+    def _allowed(self, event: EventEnvelope, tool: AgentTool) -> bool:
+        return not tool.required_capabilities or (
+            self._permissions is not None
+            and all(self._permissions.allows(event, capability) for capability in tool.required_capabilities)
+        )
 
 
 def permission_checker(service: object | None) -> PermissionChecker | None:

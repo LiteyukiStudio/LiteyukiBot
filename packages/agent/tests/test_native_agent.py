@@ -54,14 +54,26 @@ class FakeEngine(AgentEngine):
     def __init__(self, replies: Sequence[ModelReply]) -> None:
         self._replies = iter(replies)
         self.calls: list[Sequence[Mapping[str, object]]] = []
+        self.tools: list[Sequence[Mapping[str, object]]] = []
 
-    async def complete(self, messages: Sequence[Mapping[str, object]]) -> ModelReply:
+    async def complete(
+        self,
+        messages: Sequence[Mapping[str, object]],
+        *,
+        tools: Sequence[Mapping[str, object]] = (),
+    ) -> ModelReply:
         self.calls.append(messages)
+        self.tools.append(tools)
         return next(self._replies)
 
 
 class FailingEngine(AgentEngine):
-    async def complete(self, _messages: Sequence[Mapping[str, object]]) -> ModelReply:
+    async def complete(
+        self,
+        _messages: Sequence[Mapping[str, object]],
+        *,
+        tools: Sequence[Mapping[str, object]] = (),
+    ) -> ModelReply:
         raise RuntimeError("model unavailable")
 
 
@@ -91,7 +103,21 @@ async def test_native_agent_returns_ordered_chunks_to_source_runtime(tmp_path: P
     )
     event = _event()
 
-    await host._accept_event(EventMessage(correlation_id="delivery-1", payload=event.model_dump(mode="json")))
+    await host._accept_event(
+        EventMessage(
+            correlation_id="delivery-1",
+            payload=event.model_dump(mode="json"),
+            agent_tool_catalog={
+                "tools": [
+                    {
+                        "id": "docs.search",
+                        "description": "Search docs.",
+                        "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}},
+                    }
+                ]
+            },
+        )
+    )
     await asyncio.gather(*host._tasks)
     await host.close()
 
@@ -125,12 +151,48 @@ async def test_native_agent_binds_tool_calls_to_the_delivered_event(tmp_path: Pa
     )
     event = _event()
 
-    await host._accept_event(EventMessage(correlation_id="delivery-1", payload=event.model_dump(mode="json")))
+    await host._accept_event(
+        EventMessage(
+            correlation_id="delivery-1",
+            payload=event.model_dump(mode="json"),
+            agent_tool_catalog={
+                "tools": [
+                    {
+                        "id": "docs.search",
+                        "description": "Search docs.",
+                        "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}},
+                    }
+                ]
+            },
+        )
+    )
     await asyncio.gather(*host._tasks)
     await host.close()
 
     assert client.tool_calls == [("delivery-1", "docs.search", {"query": "liteyuki"})]
     assert len(engine.calls) == 2
+    assert engine.tools == [
+        (
+            {
+                "type": "function",
+                "function": {
+                    "name": "docs.search",
+                    "description": "Search docs.",
+                    "parameters": {"type": "object", "properties": {"query": {"type": "string"}}},
+                },
+            },
+        ),
+        (
+            {
+                "type": "function",
+                "function": {
+                    "name": "docs.search",
+                    "description": "Search docs.",
+                    "parameters": {"type": "object", "properties": {"query": {"type": "string"}}},
+                },
+            },
+        ),
+    ]
 
 
 @pytest.mark.asyncio

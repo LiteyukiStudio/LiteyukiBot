@@ -947,6 +947,15 @@ async def test_v4_event_delivery_carries_trace_and_records_terminal_outcome(
         "agent",
         "delivery-1",
         {"id": "event-1", "runtime_id": "nonebot", "message": "hello"},
+        agent_tool_catalog={
+            "tools": [
+                {
+                    "id": "docs.search",
+                    "description": "Search the docs.",
+                    "input_schema": {"type": "object"},
+                }
+            ]
+        },
     )
 
     assert result.status == "accepted"
@@ -959,6 +968,15 @@ async def test_v4_event_delivery_carries_trace_and_records_terminal_outcome(
                 source_runtime_id="nonebot",
                 source_event_id="event-1",
             ),
+            agent_tool_catalog={
+                "tools": [
+                    {
+                        "id": "docs.search",
+                        "description": "Search the docs.",
+                        "input_schema": {"type": "object"},
+                    }
+                ]
+            },
         )
     ]
     assert "delivery-1" in record.active_delivery_contexts
@@ -999,6 +1017,13 @@ async def test_v3_event_delivery_does_not_serialize_v4_trace(monkeypatch: pytest
     await supervisor.dispatch_event("legacy", "delivery-1", {"id": "event-1", "runtime_id": "nonebot"})
 
     assert outbound[0].trace is None
+    with pytest.raises(RuntimeError, match="must negotiate protocol v4"):
+        await supervisor.dispatch_event(
+            "legacy",
+            "delivery-2",
+            {"id": "event-2", "runtime_id": "nonebot"},
+            agent_tool_catalog={"tools": []},
+        )
 
 
 @pytest.mark.asyncio
