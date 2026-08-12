@@ -33,7 +33,7 @@ def _index() -> dict[str, object]:
                     {
                         "runtime_kind": "v6",
                         "artifacts": [{"url": "https://example.invalid/echo.zip", "sha256": digest}],
-                        "requirements": ["requests>=2"],
+                        "wheels": [],
                         "platform": {"systems": ["windows"], "machines": ["amd64"], "pythons": ["3.14"]},
                         "load": {"modules": ["example_echo"]},
                         "capabilities": ["runtime.events.receive"],
@@ -54,6 +54,15 @@ def test_index_has_deterministic_digest_and_targeted_facets() -> None:
     assert index.digest == PluginIndex.parse(json.loads(json.dumps(_index()))).digest
     with pytest.raises(PluginStoreError, match="compatible"):
         bundle.facet_for("v6", PlatformTarget("Linux", "x86_64", "3.14"))
+
+
+def test_index_rejects_unpinned_requirements_in_favor_of_wheels() -> None:
+    document = json.loads(json.dumps(_index()))
+    facet = document["bundles"][0]["facets"][0]
+    facet["requirements"] = ["requests>=2"]
+
+    with pytest.raises(PluginStoreError, match="hash-verified wheels"):
+        PluginIndex.parse(document)
 
 
 def test_platform_constraint_matches_only_the_declared_target() -> None:
