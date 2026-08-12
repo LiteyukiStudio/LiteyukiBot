@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import cast
 
 import liteyukibot_permissions
-from liteyukibot_permissions import PERMISSION_SERVICE, PermissionService
+from liteyukibot_permissions import PERMISSION_SERVICE, PermissionAuditService
 
 import liteyukibot
 from liteyukibot import PluginDefinition
@@ -70,9 +70,14 @@ async def verify(expected_version: str | None = None) -> None:
     )
     with tempfile.TemporaryDirectory() as directory:
         async with PluginTestHarness(definition, root=Path(directory), config=config) as harness:
-            service = cast(PermissionService, harness.require_service(PERMISSION_SERVICE))
+            service = cast(PermissionAuditService, harness.require_service(PERMISSION_SERVICE))
             if not service.allows(event, capability):
                 raise RuntimeError("installed permission service rejected its configured capability")
+            if not service.decide(event, capability, component="install-verify"):
+                raise RuntimeError("installed permission service denied its configured audit decision")
+            audit = service.audit(limit=1)
+            if len(audit) != 1 or audit[0].component != "install-verify" or not audit[0].allowed:
+                raise RuntimeError("installed permission service did not retain its redacted audit decision")
 
     observed = {
         "liteyukibot-v7": importlib.metadata.version("liteyukibot-v7"),

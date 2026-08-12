@@ -54,7 +54,7 @@ def runtime_plugin() -> RuntimePlugin:
 try:
     __version__ = version("liteyukibot-v7-agent")
 except PackageNotFoundError:
-    __version__ = "0.1.0a5"
+    __version__ = "0.1.0a6"
 
 plugin: PluginDefinition = create_plugin(__version__)
 

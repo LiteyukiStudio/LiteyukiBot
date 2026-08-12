@@ -49,7 +49,7 @@ class ToolBroker:
         tool = self._tools.get(tool_id)
         if tool is None:
             return AgentToolResult(ok=False, error="agent tool is not registered")
-        if not self._allowed(event, tool):
+        if not self._allowed(event, tool, audit=True):
             return AgentToolResult(ok=False, error="agent tool permission is denied")
         try:
             result = await tool.handler(event, arguments)
@@ -91,11 +91,20 @@ class ToolBroker:
             ]
         }
 
-    def _allowed(self, event: EventEnvelope, tool: AgentTool) -> bool:
-        return not tool.required_capabilities or (
-            self._permissions is not None
-            and all(self._permissions.allows(event, capability) for capability in tool.required_capabilities)
-        )
+    def _allowed(self, event: EventEnvelope, tool: AgentTool, *, audit: bool = False) -> bool:
+        if not tool.required_capabilities:
+            return True
+        if self._permissions is None:
+            return False
+        for capability in tool.required_capabilities:
+            decide = getattr(self._permissions, "decide", None)
+            if audit and callable(decide):
+                allowed = decide(event, capability, component="agent.tool")
+            else:
+                allowed = self._permissions.allows(event, capability)
+            if not allowed:
+                return False
+        return True
 
 
 def permission_checker(service: object | None) -> PermissionChecker | None:

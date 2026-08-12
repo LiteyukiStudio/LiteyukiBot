@@ -75,6 +75,16 @@ class PermissionFixture:
         return self.allowed
 
 
+class PermissionAuditFixture(PermissionFixture):
+    def __init__(self, allowed: bool) -> None:
+        super().__init__(allowed)
+        self.decisions: list[tuple[EventEnvelope, str, str]] = []
+
+    def decide(self, event: EventEnvelope, capability: str, *, component: str) -> bool:
+        self.decisions.append((event, capability, component))
+        return self.allowed
+
+
 @pytest.mark.asyncio
 async def test_app_shutdown_cancels_function_background_tasks(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
@@ -430,6 +440,43 @@ async def test_app_call_api_requires_exact_event_capability_before_runtime_execu
     assert allowed.ok is True
     assert permissions.observed == [(source, "liteyukibot.adapter.call_api")]
     assert executed == [action]
+
+
+@pytest.mark.asyncio
+async def test_app_call_api_uses_permission_audit_extension_when_available(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = AppSettings(core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"))
+    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
+    source = EventEnvelope(
+        id="event-1",
+        runtime_id="adapter",
+        adapter="onebot-v11",
+        bot_id="bot-1",
+        type="message.group.normal",
+        conversation=ConversationRef(id="group-1", type="group"),
+        actor=ActorRef(id="user-1"),
+    )
+    action = ActionEnvelope(
+        action_id="call-1",
+        event_id=source.id,
+        runtime_id=source.runtime_id,
+        bot_id=source.bot_id,
+        action=CallApi(api="get_status"),
+    )
+    permissions = PermissionAuditFixture(allowed=False)
+    app.services.provide(ServiceKey("liteyukibot.permissions", 1), permissions, provider="test")
+
+    async def execute_unexpectedly(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("denied CallApi reached the runtime supervisor")
+
+    monkeypatch.setattr(app.runtimes, "execute_action", execute_unexpectedly)
+    result = await app.actions.execute(action, event=source)
+
+    assert result.success is False
+    assert result.error_code == "ACTION_PERMISSION_DENIED"
+    assert permissions.observed == []
+    assert permissions.decisions == [(source, "liteyukibot.adapter.call_api", "adapter.call_api")]
 
 
 @pytest.mark.asyncio

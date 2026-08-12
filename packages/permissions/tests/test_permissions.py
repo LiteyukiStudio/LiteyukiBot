@@ -7,6 +7,8 @@ import pytest
 from liteyukibot_permissions import (
     PERMISSION_SERVICE,
     PUBLIC,
+    PermissionAuditService,
+    PermissionDecision,
     PermissionService,
     PermissionSnapshot,
     Principal,
@@ -93,6 +95,41 @@ async def test_permission_service_isolates_principals_and_anonymous_events(tmp_p
         assert anonymous.capabilities == frozenset({PUBLIC})
         assert service.allows(event(actor_id=None), PUBLIC) is True
         assert service.allows(event(actor_id=None), STATUS_READ) is False
+
+
+@pytest.mark.asyncio
+async def test_permission_service_records_redacted_bounded_decisions(tmp_path: Path) -> None:
+    async with PluginTestHarness(plugin, root=tmp_path, config=permission_config()) as harness:
+        service = cast(PermissionAuditService, harness.require_service(PERMISSION_SERVICE))
+        allowed_event = event()
+        denied_event = event(actor_id="other")
+
+        assert service.decide(allowed_event, STATUS_READ, component="commands.status") is True
+        assert service.decide(denied_event, STATUS_READ, component="commands.status") is False
+        decisions = service.audit()
+
+    assert decisions == (
+        PermissionDecision(
+            capability=STATUS_READ,
+            principal=Principal("nonebot", "bot-1", "user-1"),
+            component="commands.status",
+            event_id=allowed_event.id,
+            allowed=True,
+            reason="granted",
+        ),
+        PermissionDecision(
+            capability=STATUS_READ,
+            principal=Principal("nonebot", "bot-1", "other"),
+            component="commands.status",
+            event_id=denied_event.id,
+            allowed=False,
+            reason="not_granted",
+        ),
+    )
+    assert service.audit(limit=1) == decisions[-1:]
+    assert service.audit(limit=0) == ()
+    with pytest.raises(ValueError, match="non-negative"):
+        service.audit(limit=-1)
 
 
 @pytest.mark.asyncio
@@ -237,5 +274,5 @@ def test_permission_snapshot_requires_public_capability() -> None:
 
 def test_permission_plugin_manifest_publishes_versioned_service() -> None:
     assert plugin.manifest.id == "liteyukibot.permissions"
-    assert plugin.manifest.version == "0.2.0a1"
+    assert plugin.manifest.version == "0.2.0a2"
     assert plugin.manifest.provides == (PERMISSION_SERVICE,)
