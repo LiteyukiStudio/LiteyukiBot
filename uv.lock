@@ -1397,7 +1397,7 @@ wheels = [
 
 [[package]]
 name = "liteyukibot-v7"
-version = "7.0.0a17"
+version = "7.0.0b1"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },

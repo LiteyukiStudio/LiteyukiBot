@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 7.0.0b1 - 2026-08-12
 
 - introduced runtime IPC protocol v5 with a kernel-originated, capability-gated
   control request for source-scoped native Agent history deletion;
