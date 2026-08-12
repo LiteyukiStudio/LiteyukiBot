@@ -62,7 +62,7 @@ class PluginInstallationService:
         try:
             generation_path.mkdir(parents=True)
             for facet in facets.values():
-                for artifact in facet.artifacts:
+                for artifact in (*facet.artifacts, *facet.wheels):
                     self.artifacts.fetch(artifact)
             self._create_environment(generation_path, runtime, facets)
             installer = runtime.facet_installer
@@ -77,7 +77,9 @@ class PluginInstallationService:
                 target=target,
                 bundles=tuple(bundle.id for bundle in bundles),
                 artifacts=tuple(
-                    artifact.sha256 for facet in facets.values() for artifact in facet.artifacts
+                    artifact.sha256
+                    for facet in facets.values()
+                    for artifact in (*facet.artifacts, *facet.wheels)
                 ),
                 load_plan=load_plan,
             )
@@ -128,10 +130,18 @@ class PluginInstallationService:
         except metadata.PackageNotFoundError as error:
             raise PluginStoreError(f"runtime distribution {runtime.distribution!r} is not installed") from error
         python = self.generations.python_path(generation_path)
-        requirements = [f"{runtime.distribution}=={version}"]
-        requirements.extend(requirement for facet in facets.values() for requirement in facet.requirements)
         self._run(["uv", "venv", "--python", sys.executable, str(generation_path / "venv")])
-        self._run(["uv", "pip", "install", "--python", str(python), *dict.fromkeys(requirements)])
+        self._run(["uv", "pip", "install", "--python", str(python), f"{runtime.distribution}=={version}"])
+        wheels = tuple(wheel for facet in facets.values() for wheel in facet.wheels)
+        if wheels:
+            wheel_directory = generation_path / "wheels"
+            wheel_directory.mkdir()
+            wheel_paths: list[str] = []
+            for wheel in wheels:
+                staged = wheel_directory / f"{wheel.sha256}.whl"
+                shutil.copyfile(self.artifacts.path_for(wheel.sha256), staged)
+                wheel_paths.append(str(staged))
+            self._run(["uv", "pip", "install", "--no-index", "--no-deps", "--python", str(python), *wheel_paths])
 
 
 def _resolve_bundles(index: PluginIndex, bundle_id: str) -> tuple[PluginBundle, ...]:

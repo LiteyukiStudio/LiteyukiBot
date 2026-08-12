@@ -38,6 +38,7 @@ from .exceptions import LiteyukiError
 from .init_wizard import WizardCancelled, build_custom_initialization_plan, run_init_wizard
 from .plugin_install import PluginInstallationService
 from .plugin_sources import PluginSource, PluginSourceStore
+from .plugin_store import RuntimeGenerationStore
 from .profiles import ProfileManifest, ProfileStore
 
 
@@ -81,6 +82,8 @@ def build_parser() -> argparse.ArgumentParser:
     plugin_install.add_argument("bundle_id")
     plugin_install.add_argument("--runtime", required=True, dest="runtime_id")
     plugin_install.add_argument("--source", dest="source_id")
+    plugin_rollback = plugin_commands.add_parser("rollback", help="restore a runtime's previous plugin generation")
+    plugin_rollback.add_argument("--runtime", required=True, dest="runtime_id")
     plugin_source = plugin_commands.add_parser("source", help="plugin index source operations")
     plugin_source_commands = plugin_source.add_subparsers(dest="plugin_source_command", required=True)
     plugin_source_commands.add_parser("list")
@@ -149,6 +152,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "plugin":
             if args.plugin_command == "install":
                 return _plugin_install(args, settings, workspace)
+            if args.plugin_command == "rollback":
+                return _plugin_rollback(args, settings, workspace)
             _list_plugins(settings)
             return 0
         if args.command == "inspect":
@@ -278,6 +283,15 @@ def _plugin_install(args: argparse.Namespace, settings: AppSettings, workspace: 
             source_id=args.source_id,
         )
     print(f"installed {args.bundle_id} from {result.source_id} as {result.generation.id}")
+    return 0
+
+
+def _plugin_rollback(args: argparse.Namespace, settings: AppSettings, workspace: ConfigWorkspace) -> int:
+    if args.runtime_id not in settings.runtimes:
+        raise ValueError(f"runtime {args.runtime_id!r} is not configured")
+    with _exclusive_workspace(workspace):
+        deployment = RuntimeGenerationStore(workspace.directory).rollback(args.runtime_id)
+    print(f"activated {deployment.runtime_generations[args.runtime_id]}")
     return 0
 
 
