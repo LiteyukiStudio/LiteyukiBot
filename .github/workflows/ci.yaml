@@ -40,6 +40,7 @@ jobs:
           uv run python scripts/check_release.py --package essentials
           uv run python scripts/check_release.py --package runtime-nonebot
           uv run python scripts/check_release.py --package runtime-adapter
+          uv run python scripts/check_release.py --package adapter-onebot
           uv run python scripts/check_release.py --package runtime-v6
           uv run python scripts/check_release.py --package agent
           uv run python scripts/check_release.py --package runtime-astrbot
@@ -58,6 +59,7 @@ jobs:
           uv run python -m scripts.run_essentials_install
           uv run python -m scripts.run_nonebot_runtime_install
           uv run python -m scripts.run_adapter_runtime_install
+          uv run python -m scripts.run_onebot_adapter_install
           uv run python -m scripts.run_v6_runtime_install
           uv run python -m scripts.run_agent_install
           uv run python -m scripts.run_astrbot_runtime_install

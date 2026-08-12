@@ -105,6 +105,14 @@ RELEASE_PROJECTS: dict[str, ReleaseProject] = {
         tag_selector="runtime-adapter-v",
         verifier="scripts/verify_adapter_runtime_install.py",
     ),
+    "adapter-onebot": ReleaseProject(
+        name="adapter-onebot",
+        project_dir="packages/adapter-onebot",
+        distribution="liteyukibot-v7-adapter-onebot",
+        tag_prefix="adapter-onebot-v",
+        tag_selector="adapter-onebot-v",
+        verifier="scripts/verify_onebot_adapter_install.py",
+    ),
     "runtime-v6": ReleaseProject(
         name="runtime-v6",
         project_dir="packages/runtime-v6",

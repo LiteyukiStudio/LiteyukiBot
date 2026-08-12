@@ -4,6 +4,10 @@
 
 - added `liteyukibot-v7-runtime-adapter`, a separately published Python
   platform-adapter host with managed-generation and entry-point boundaries;
+- added `liteyukibot-v7-adapter-onebot`, a pure-Python OneBot v11 HTTP Post
+  and HTTP API adapter with callback identity and token validation;
+- marked `liteyukibot-v7-runtime-adapter` as typed for strict downstream
+  adapter contracts.
 - extended resource-pack metadata with localized presentation keys and optional
   validated local PNG icons for a future WebUI, without adding a WebUI route;
 - added the kernel-owned `liteyukibot.i18n@1` service backed by layered resource
