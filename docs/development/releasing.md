@@ -52,6 +52,8 @@ distribution inside the workflow.
 | `liteyukibot-v7-adapter-onebot==0.1.0a1` | `packages/adapter-onebot` | `adapter-onebot-v0.1.0a1` |
 | `liteyukibot-v7-runtime-v6==0.1.0a1` | `packages/runtime-v6` | `runtime-v6-v0.1.0a1` |
 | `liteyukibot-v7-agent==0.1.0a5` | `packages/agent` | `agent-v0.1.0a5` |
+| `liteyukibot-v7-runtime-astrbot==0.1.0a4` | `packages/runtime-astrbot` | `runtime-astrbot-v0.1.0a4` |
+| `liteyukibot-v7-runtime-mofox==0.1.0a4` | `packages/runtime-mofox` | `runtime-mofox-v0.1.0a4` |
 
 `scripts/check_release.py` owns this mapping. Both publish workflows reject a
 tag that does not exactly match the selected source version and distribution.
