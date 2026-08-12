@@ -550,6 +550,17 @@ class RuntimeSupervisor:
                 "child runtime did not declare runtime.actions.send",
             )
             return
+        if (
+            record.protocol_version == 4
+            and record.spec.agent_harness is not None
+            and request.delivery_correlation_id is None
+        ):
+            await self._reject_child_action(
+                record,
+                request,
+                "agent runtime actions require a v4 delivery correlation id",
+            )
+            return
         provenance: ActionProvenance | None = None
         if request.delivery_correlation_id is not None:
             self._clear_expired_delivery_contexts(record)

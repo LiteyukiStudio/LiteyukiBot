@@ -83,7 +83,14 @@ class FakeClient:
     async def send(self, message: object) -> None:
         self.sent.append(message)
 
-    async def execute_action(self, _correlation_id: str, payload: dict[str, object]) -> ActionResponse:
+    async def execute_action(
+        self,
+        _correlation_id: str,
+        payload: dict[str, object],
+        *,
+        delivery_correlation_id: str | None = None,
+    ) -> ActionResponse:
+        assert delivery_correlation_id == "delivery-1"
         self.actions.append(payload)
         return ActionResponse(correlation_id="action", ok=True)
 

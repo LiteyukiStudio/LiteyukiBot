@@ -186,7 +186,11 @@ class MoFoxRuntimeHost:
     ) -> None:
         async def emit(text: str) -> None:
             action = to_send_action(event, text)
-            result = await self.client.execute_action(action.action_id, action.model_dump(mode="json"))
+            result = await self.client.execute_action(
+                action.action_id,
+                action.model_dump(mode="json"),
+                delivery_correlation_id=correlation_id,
+            )
             if not result.ok:
                 raise RuntimeError(result.error or "source runtime rejected MoFox output")
 
