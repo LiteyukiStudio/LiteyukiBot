@@ -415,6 +415,10 @@ class RuntimeGeneration:
     bundles: tuple[str, ...]
     artifacts: tuple[str, ...]
     load_plan: dict[str, Any]
+    source_id: str | None = None
+    index_digest: str | None = None
+    roots: tuple[str, ...] = ()
+    resolved_bundles: tuple[PluginBundle, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "id", _identifier(self.id, "generation id"))
@@ -429,10 +433,29 @@ class RuntimeGeneration:
         )
         object.__setattr__(self, "artifacts", tuple(_sha256(item, "generation artifact") for item in self.artifacts))
         object.__setattr__(self, "load_plan", _json_object(self.load_plan, "runtime generation load plan"))
+        resolution_values = (self.source_id, self.index_digest, self.roots, self.resolved_bundles)
+        if any(value is not None and value != () for value in resolution_values) and not all(
+            value is not None and value != () for value in resolution_values
+        ):
+            raise PluginStoreError("runtime generation resolution metadata must be complete")
+        if self.source_id is not None:
+            if not self.source_id or self.source_id != self.source_id.strip() or any(
+                character.isspace() for character in self.source_id
+            ):
+                raise PluginStoreError("plugin source id must be a non-empty whitespace-free string")
+            object.__setattr__(self, "index_digest", _sha256(self.index_digest, "plugin index"))
+            roots = tuple(_identifier(item, "plugin root", bundle=True) for item in self.roots)
+            if len(set(roots)) != len(roots):
+                raise PluginStoreError("runtime generation cannot repeat plugin roots")
+            object.__setattr__(self, "roots", roots)
+            if len({bundle.id for bundle in self.resolved_bundles}) != len(self.resolved_bundles):
+                raise PluginStoreError("runtime generation cannot repeat resolved bundles")
+            if tuple(bundle.id for bundle in self.resolved_bundles) != self.bundles:
+                raise PluginStoreError("runtime generation resolved bundles do not match bundle IDs")
 
     def document(self) -> dict[str, Any]:
         return {
-            "schema": 1,
+            "schema": 2,
             "id": self.id,
             "runtime_id": self.runtime_id,
             "runtime_kind": self.runtime_kind,
@@ -441,6 +464,18 @@ class RuntimeGeneration:
             "bundles": list(self.bundles),
             "artifacts": list(self.artifacts),
             "load_plan": self.load_plan,
+            **(
+                {
+                    "resolution": {
+                        "source_id": self.source_id,
+                        "index_digest": self.index_digest,
+                        "roots": list(self.roots),
+                        "bundles": [bundle.document() for bundle in self.resolved_bundles],
+                    }
+                }
+                if self.source_id is not None
+                else {}
+            ),
         }
 
     @property
@@ -520,18 +555,39 @@ class RuntimeGenerationStore:
         path = self.path_for(runtime_id, generation_id) / "manifest.json"
         try:
             value = json.loads(path.read_text(encoding="utf-8"))
-            if value.get("schema") != 1:
+            schema = value.get("schema")
+            if schema not in {1, 2}:
                 raise ValueError("unexpected generation schema")
             target = _json_object(value["target"], "generation target")
+            bundles = tuple(str(item) for item in value["bundles"])
+            source_id: str | None = None
+            index_digest: str | None = None
+            roots: tuple[str, ...] = ()
+            resolved_bundles: tuple[PluginBundle, ...] = ()
+            if schema == 2 and "resolution" in value:
+                resolution = _json_object(value["resolution"], "generation resolution")
+                source_id = str(resolution["source_id"])
+                index_digest = str(resolution["index_digest"])
+                roots = tuple(str(item) for item in resolution["roots"])
+                raw_bundles = resolution["bundles"]
+                if not isinstance(raw_bundles, list):
+                    raise ValueError("generation resolution bundles must be an array")
+                resolved = PluginIndex.parse({"schema": 1, "bundles": raw_bundles})
+                by_id = {bundle.id: bundle for bundle in resolved.bundles()}
+                resolved_bundles = tuple(by_id[item] for item in bundles)
             generation = RuntimeGeneration(
                 id=str(value["id"]),
                 runtime_id=str(value["runtime_id"]),
                 runtime_kind=str(value["runtime_kind"]),
                 created_at=str(value["created_at"]),
                 target=PlatformTarget(str(target["system"]), str(target["machine"]), str(target["python"])),
-                bundles=tuple(str(item) for item in value["bundles"]),
+                bundles=bundles,
                 artifacts=tuple(str(item) for item in value["artifacts"]),
                 load_plan=_json_object(value["load_plan"], "generation load plan"),
+                source_id=source_id,
+                index_digest=index_digest,
+                roots=roots,
+                resolved_bundles=resolved_bundles,
             )
         except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError) as error:
             raise PluginStoreError(f"runtime generation {generation_id!r} is not verified") from error
@@ -586,6 +642,20 @@ class RuntimeGenerationStore:
         if old is not None:
             history[normalized] = old
         deployment = Deployment(current.kernel_profile, runtimes, history)
+        self._write_json(self.lock, deployment.document())
+        return deployment
+
+    def deactivate(self, runtime_id: str) -> Deployment:
+        current = self.active()
+        normalized = _identifier(runtime_id, "runtime id")
+        runtimes = dict(current.runtime_generations)
+        try:
+            old = runtimes.pop(normalized)
+        except KeyError as error:
+            raise PluginStoreError(f"runtime {runtime_id!r} has no active plugin generation") from error
+        previous = dict(current.previous)
+        previous[normalized] = old
+        deployment = Deployment(current.kernel_profile, runtimes, previous)
         self._write_json(self.lock, deployment.document())
         return deployment
 
