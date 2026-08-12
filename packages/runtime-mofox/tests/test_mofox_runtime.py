@@ -19,6 +19,14 @@ from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope, Message
 from liteyukibot.runtime.protocol import ActionResponse, EventAccepted, EventCompleted, EventMessage
 
 
+def _has_upstream_runtime() -> bool:
+    try:
+        importlib.metadata.distribution("neo-mofox")
+    except PackageNotFoundError:
+        return False
+    return True
+
+
 def _event() -> EventEnvelope:
     return EventEnvelope(
         id="event-1",
@@ -137,6 +145,7 @@ def _write_bridge_plugin(root: Path) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(not _has_upstream_runtime(), reason="requires the pinned Neo-MoFox upstream runtime")
 async def test_mofox_upstream_receiver_routes_a_managed_plugin_reply(tmp_path: Path) -> None:
     """Exercise the pinned Neo-MoFox receiver and plugin loader."""
 

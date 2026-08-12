@@ -58,7 +58,7 @@ distribution inside the workflow.
 | `liteyukibot-v7-agent-resolver==0.1.0a1` | `packages/agent-resolver` | `agent-resolver-v0.1.0a1` |
 | `liteyukibot-v7-agent==0.1.0a9` | `packages/agent` | `agent-v0.1.0a9` |
 | `liteyukibot-v7-runtime-astrbot==0.1.0a7` | `packages/runtime-astrbot` | `runtime-astrbot-v0.1.0a7` |
-| `liteyukibot-v7-runtime-mofox==0.1.0a6` | `packages/runtime-mofox` | `runtime-mofox-v0.1.0a6` |
+| `liteyukibot-v7-runtime-mofox==0.1.0a7` | `packages/runtime-mofox` | `runtime-mofox-v0.1.0a7` |
 
 `scripts/check_release.py` owns this mapping. Both publish workflows reject a
 tag that does not exactly match the selected source version and distribution.
@@ -81,12 +81,16 @@ Push and wait for each release before creating the next tag:
 12. `agent-resolver-v0.1.0a1`.
 13. `agent-v0.1.0a9` (requires `commands-v0.2.0a2`).
 14. `runtime-astrbot-v0.1.0a7`.
-15. `runtime-mofox-v0.1.0a6`.
+15. `runtime-mofox-v0.1.0a7`.
 
 Each plugin workflow builds only its selected project, installs that wheel in a
 temporary uv environment against already published dependencies, exercises its
 real entry point, then uploads that package. This makes an out-of-order release
 fail before publication.
+
+Neo-MoFox is an explicit, fixed-commit installation prerequisite rather than a
+wheel dependency because PyPI rejects direct VCS dependencies. The MoFox
+release verifier installs that same requirement before exercising the runtime.
 
 After the final upload, verify the public dependency chain without a checkout:
 
