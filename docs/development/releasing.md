@@ -51,7 +51,7 @@ distribution inside the workflow.
 | `liteyukibot-v7-runtime-adapter==0.1.0a2` | `packages/runtime-adapter` | `runtime-adapter-v0.1.0a2` |
 | `liteyukibot-v7-adapter-onebot==0.1.0a1` | `packages/adapter-onebot` | `adapter-onebot-v0.1.0a1` |
 | `liteyukibot-v7-runtime-v6==0.1.0a1` | `packages/runtime-v6` | `runtime-v6-v0.1.0a1` |
-| `liteyukibot-v7-agent==0.1.0a6` | `packages/agent` | `agent-v0.1.0a6` |
+| `liteyukibot-v7-agent==0.1.0a7` | `packages/agent` | `agent-v0.1.0a7` |
 | `liteyukibot-v7-runtime-astrbot==0.1.0a6` | `packages/runtime-astrbot` | `runtime-astrbot-v0.1.0a6` |
 | `liteyukibot-v7-runtime-mofox==0.1.0a5` | `packages/runtime-mofox` | `runtime-mofox-v0.1.0a5` |
 
@@ -73,7 +73,7 @@ Push and wait for each release before creating the next tag:
 9. `runtime-adapter-v0.1.0a2`.
 10. `adapter-onebot-v0.1.0a1`.
 11. `runtime-v6-v0.1.0a1`.
-12. `agent-v0.1.0a6`.
+12. `agent-v0.1.0a7`.
 
 Each plugin workflow builds only its selected project, installs that wheel in a
 temporary uv environment against already published dependencies, exercises its

@@ -35,6 +35,9 @@ class NativeAgentHost:
         history_limit: int,
         message_chunk_size: int,
         max_concurrent_events: int,
+        model_timeout_seconds: float = 60.0,
+        event_timeout_seconds: float = 120.0,
+        max_tool_rounds: int = 4,
     ) -> None:
         self.client = client
         self.engine = engine
@@ -42,6 +45,9 @@ class NativeAgentHost:
         self.history_limit = history_limit
         self.message_chunk_size = message_chunk_size
         self.max_concurrent_events = max_concurrent_events
+        self.model_timeout_seconds = model_timeout_seconds
+        self.event_timeout_seconds = event_timeout_seconds
+        self.max_tool_rounds = max_tool_rounds
         self.logger = get_logger(component="agent", runtime=os.environ.get("LITEYUKI_RUNTIME_ID", "agent"))
         self._tasks: set[asyncio.Task[None]] = set()
 
@@ -126,67 +132,88 @@ class NativeAgentHost:
         tools: Sequence[Mapping[str, object]],
     ) -> None:
         try:
-            key = (event.runtime_id, event.bot_id, event.conversation.ordering_key)
-            self.store.append(*key, "user", event.message.plain_text if event.message is not None else "")
-            messages: list[Mapping[str, object]] = [
-                item for item in self.store.messages(*key, limit=self.history_limit)
-            ]
-            reply = await self.engine.complete(messages, tools=tools)
-            for _index in range(4):
-                if not reply.tool_calls:
-                    break
-                messages.append(_assistant_tool_message(reply))
-                for call in reply.tool_calls:
-                    result = await self.client.execute_agent_tool(
-                        f"tool-{uuid4()}",
-                        delivery_correlation_id,
-                        call.tool_id,
-                        call.arguments,
-                    )
-                    messages.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": call.id,
-                            "content": result.data if result.ok else {"error": result.error or "tool failed"},
-                        }
-                    )
-                reply = await self.engine.complete(messages, tools=tools)
-            if reply.tool_calls:
-                raise RuntimeError("agent exceeded maximum tool-call rounds")
-            if reply.text:
-                self.store.append(*key, "assistant", reply.text)
-                for chunk in _chunks(reply.text, self.message_chunk_size):
-                    action = ActionEnvelope(
-                        event_id=event.id,
-                        runtime_id=event.runtime_id,
-                        bot_id=event.bot_id,
-                        action=SendMessage(
-                            message=Message(segments=(Segment(type="text", data={"text": chunk}),)),
-                            conversation=event.conversation,
-                            reply_token=event.reply_token,
-                        ),
-                    )
-                    response = await self.client.execute_action(
-                        action.action_id,
-                        action.model_dump(mode="json"),
-                        delivery_correlation_id=delivery_correlation_id,
-                    )
-                    if not response.ok:
-                        raise RuntimeError(response.error or "source runtime rejected agent output")
+            async with asyncio.timeout(self.event_timeout_seconds):
+                await self._process_event_body(delivery_correlation_id, event, tools)
         except Exception as error:
+            detail = "agent event timed out" if isinstance(error, TimeoutError) else f"{type(error).__name__}: {error}"
             self.logger.bind(
                 correlation_id=delivery_correlation_id,
                 trace_id=trace.trace_id if trace is not None else None,
-            ).error("native agent event failed: {}", error)
+            ).error("native agent event failed: {}", detail)
             await self.client.send(
                 EventCompleted(
                     correlation_id=delivery_correlation_id,
                     status="failed",
-                    detail=f"{type(error).__name__}: {error}",
+                    detail=detail,
                 )
             )
             raise
         await self.client.send(EventCompleted(correlation_id=delivery_correlation_id, status="completed"))
+
+    async def _process_event_body(
+        self,
+        delivery_correlation_id: str,
+        event: EventEnvelope,
+        tools: Sequence[Mapping[str, object]],
+    ) -> None:
+        key = (event.runtime_id, event.bot_id, event.conversation.ordering_key)
+        self.store.append(*key, "user", event.message.plain_text if event.message is not None else "")
+        messages: list[Mapping[str, object]] = [item for item in self.store.messages(*key, limit=self.history_limit)]
+        reply = await self._complete(messages, tools)
+        for _index in range(self.max_tool_rounds):
+            if not reply.tool_calls:
+                break
+            messages.append(_assistant_tool_message(reply))
+            for call in reply.tool_calls:
+                result = await self.client.execute_agent_tool(
+                    f"tool-{uuid4()}",
+                    delivery_correlation_id,
+                    call.tool_id,
+                    call.arguments,
+                )
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call.id,
+                        "content": result.data if result.ok else {"error": result.error or "tool failed"},
+                    }
+                )
+            reply = await self._complete(messages, tools)
+        if reply.tool_calls:
+            raise RuntimeError("agent exceeded maximum tool-call rounds")
+        if reply.text:
+            self.store.append(*key, "assistant", reply.text)
+            for chunk in _chunks(reply.text, self.message_chunk_size):
+                action = ActionEnvelope(
+                    event_id=event.id,
+                    runtime_id=event.runtime_id,
+                    bot_id=event.bot_id,
+                    action=SendMessage(
+                        message=Message(segments=(Segment(type="text", data={"text": chunk}),)),
+                        conversation=event.conversation,
+                        reply_token=event.reply_token,
+                    ),
+                )
+                response = await self.client.execute_action(
+                    action.action_id,
+                    action.model_dump(mode="json"),
+                    delivery_correlation_id=delivery_correlation_id,
+                )
+                if not response.ok:
+                    raise RuntimeError(response.error or "source runtime rejected agent output")
+
+    async def _complete(
+        self,
+        messages: Sequence[Mapping[str, object]],
+        tools: Sequence[Mapping[str, object]],
+    ) -> ModelReply:
+        try:
+            return await asyncio.wait_for(
+                self.engine.complete(messages, tools=tools),
+                timeout=self.model_timeout_seconds,
+            )
+        except TimeoutError as error:
+            raise RuntimeError("agent model request timed out") from error
 
 
 async def run() -> None:
@@ -211,6 +238,9 @@ async def run() -> None:
             history_limit=_positive_int(options, "history_limit", 40),
             message_chunk_size=_positive_int(options, "message_chunk_size", 1500),
             max_concurrent_events=_positive_int(options, "max_concurrent_events", 16),
+            model_timeout_seconds=_positive_float(options, "model_timeout_seconds", 60.0),
+            event_timeout_seconds=_positive_float(options, "event_timeout_seconds", 120.0),
+            max_tool_rounds=_positive_int(options, "max_tool_rounds", 4),
         )
         await client.ready(
             ("runtime.events.receive", "runtime.events.complete", "runtime.actions.send", "agent.tools.execute")
@@ -266,6 +296,13 @@ def _positive_int(options: Mapping[str, object], key: str, default: int) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value < 1:
         raise ValueError(f"native agent option {key!r} must be a positive integer")
     return value
+
+
+def _positive_float(options: Mapping[str, object], key: str, default: float) -> float:
+    value = options.get(key, default)
+    if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
+        raise ValueError(f"native agent option {key!r} must be a positive number")
+    return float(value)
 
 
 def _environment_secret(options: Mapping[str, object], key: str, default: str) -> str:
