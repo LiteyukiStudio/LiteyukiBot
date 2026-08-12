@@ -132,8 +132,10 @@ def test_installer_resolves_dependencies_and_activates_only_after_materializatio
     assert result.generation.roots == ("example.root",)
     assert result.generation.source_id == "liteyukibot-v7-plugins"
     assert result.generation.resolved_bundles[-1].id == "example.root"
-    assert len(commands) == 2
+    assert len(commands) == 3
     assert commands[1][-1] == "runtime-v6==1.2.3"
+    assert commands[2][1] == "-c"
+    assert commands[2][-2:] == ["runtime-v6", "host"]
 
 
 def test_installer_stages_hash_verified_wheels_without_index_resolution(
@@ -222,6 +224,75 @@ def test_failed_environment_creation_does_not_activate_or_retain_generation(
     store = RuntimeGenerationStore(tmp_path)
     assert store.active().runtime_generations == {}
     assert not (tmp_path / ".liteyuki" / "plugins" / "runtimes" / "legacy" / "generations").exists()
+
+
+def test_failed_generation_probe_keeps_the_previous_runtime_generation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    archive, digest = _archive(tmp_path)
+    index = _index(digest)
+    monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: index)
+    monkeypatch.setattr(
+        RuntimeCatalog,
+        "discover",
+        lambda _self: {
+            "v6": RuntimePlugin(
+                "v6", ("python", "-m", "host"), facet_installer=_Installer(), distribution="runtime-v6"
+            )
+        },
+    )
+    monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
+
+    def run(command: list[str]) -> None:
+        if command[1] == "venv":
+            python = Path(command[-1]) / "Scripts" / "python.exe"
+            python.parent.mkdir(parents=True)
+            python.write_text("", encoding="utf-8")
+
+    service = PluginInstallationService(tmp_path, run=run)
+    monkeypatch.setattr(service.artifacts, "fetch", lambda _artifact: service.artifacts.import_file(archive, digest))
+    first = service.install("example.root", runtime_id="legacy", runtime_kind="v6")
+
+    def fail_probe(_path: Path, _runtime: RuntimePlugin) -> None:
+        raise PluginStoreError("runtime generation health probe failed")
+
+    monkeypatch.setattr(service, "_probe_generation", fail_probe)
+    with pytest.raises(PluginStoreError, match="health probe failed"):
+        service.install("example.second", runtime_id="legacy", runtime_kind="v6")
+
+    store = RuntimeGenerationStore(tmp_path)
+    assert store.active().runtime_generations == {"legacy": first.generation.id}
+    assert store.active().previous == {}
+    assert [generation.id for generation in store.list_generations("legacy")] == [first.generation.id]
+
+
+def test_installer_rejects_managed_runtime_without_a_python_module_command(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    archive, digest = _archive(tmp_path)
+    monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: _index(digest))
+    monkeypatch.setattr(
+        RuntimeCatalog,
+        "discover",
+        lambda _self: {
+            "v6": RuntimePlugin("v6", ("runtime-host",), facet_installer=_Installer(), distribution="runtime-v6")
+        },
+    )
+    monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
+
+    def run(command: list[str]) -> None:
+        if command[1] == "venv":
+            python = Path(command[-1]) / "Scripts" / "python.exe"
+            python.parent.mkdir(parents=True)
+            python.write_text("", encoding="utf-8")
+
+    service = PluginInstallationService(tmp_path, run=run)
+    monkeypatch.setattr(service.artifacts, "fetch", lambda _artifact: service.artifacts.import_file(archive, digest))
+
+    with pytest.raises(PluginStoreError, match="must contain a Python -m module"):
+        service.install("example.root", runtime_id="legacy", runtime_kind="v6")
+
+    assert RuntimeGenerationStore(tmp_path).active().runtime_generations == {}
 
 
 def test_installer_adds_a_root_without_dropping_the_active_generation_set(
