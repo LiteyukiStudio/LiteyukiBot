@@ -7,7 +7,12 @@ from importlib.metadata import PackageNotFoundError
 from pathlib import Path
 
 import pytest
-from liteyukibot_runtime_mofox.host import MoFoxRuntimeHost, _enforce_headless_config, _install_upstream_namespace
+from liteyukibot_runtime_mofox.host import (
+    MoFoxHeadlessEngine,
+    MoFoxRuntimeHost,
+    _enforce_headless_config,
+    _install_upstream_namespace,
+)
 from liteyukibot_runtime_mofox.translate import to_mofox_envelope, to_mofox_event_input, to_send_action
 
 from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope, Message, Segment, SendMessage
@@ -73,6 +78,17 @@ def test_mofox_reports_the_pinned_upstream_requirement_when_missing(monkeypatch:
 
     with pytest.raises(RuntimeError, match="e2ee2ff73b494428bbdfd983c7569c6f074a9c76"):
         _install_upstream_namespace()
+
+
+def test_mofox_engine_restores_working_directory() -> None:
+    engine = MoFoxHeadlessEngine(Path("state"), {})
+    original = Path.cwd()
+    engine._previous_cwd = original
+
+    engine._restore_working_directory()
+
+    assert Path.cwd() == original
+    assert engine._previous_cwd is None
 
 
 class FakeClient:

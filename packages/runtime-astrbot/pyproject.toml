@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7-runtime-astrbot"
-version = "0.1.0a5"
+version = "0.1.0a6"
 description = "Headless AstrBot agent runtime for LiteyukiBot v7."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -10,7 +10,7 @@ authors = [
 ]
 dependencies = [
     "liteyukibot-v7>=7.0.0a15,<8",
-    "AstrBot>=4.27.2,<5",
+    "AstrBot==4.27.2",
 ]
 
 [project.entry-points."liteyukibot.runtimes"]
