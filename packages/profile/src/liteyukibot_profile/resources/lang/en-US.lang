@@ -1,0 +1,3 @@
+profile.summary=Manage your user profile
+profile.field.nickname=Display name; 1 to 32 characters
+profile.field.language=Display language: zh-CN or en

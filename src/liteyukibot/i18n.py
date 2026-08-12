@@ -10,9 +10,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .resource_packs import ResourceCatalog
+from .services import ServiceKey
 
 DEFAULT_LOCALE = "en-US"
 SUPPORTED_LOCALES = ("en-US", "zh-CN")
+I18N_SERVICE = ServiceKey("liteyukibot.i18n", 1)
 
 
 def normalize_locale(value: str) -> str:
@@ -76,15 +78,22 @@ class Translator:
     def from_resources(cls, resources: ResourceCatalog, locale: str = "auto") -> tuple[Translator, str | None]:
         selected, warning = select_locale(locale)
         catalogs: dict[str, dict[str, str]] = {}
-        for path in resources.paths("lang"):
-            if not path.endswith(".lang"):
+        for resource in resources.files("lang"):
+            if not resource.path.endswith(".lang"):
                 continue
-            language = normalize_locale(path.rsplit("/", maxsplit=1)[-1][:-5])
-            catalogs.setdefault(language, {}).update(_parse_lang(resources.require(path).read_text(), path))
+            language = normalize_locale(resource.path.rsplit("/", maxsplit=1)[-1][:-5])
+            source = f"{resource.pack_id}:{resource.path}"
+            catalogs.setdefault(language, {}).update(_parse_lang(resource.read_text(), source))
         return cls(selected, catalogs), warning
 
     def text(self, key: str, /, default: str | None = None, **values: object) -> str:
-        value = self.catalogs.get(self.locale, {}).get(key)
+        return self.text_for(self.locale, key, default, **values)
+
+    def text_for(self, locale: str, key: str, /, default: str | None = None, **values: object) -> str:
+        selected = normalize_locale(locale)
+        if selected not in SUPPORTED_LOCALES:
+            selected = self.locale
+        value = self.catalogs.get(selected, {}).get(key)
         if value is None:
             value = self.catalogs.get(DEFAULT_LOCALE, {}).get(key, default if default is not None else key)
         try:
@@ -98,4 +107,12 @@ class _PlaceholderValues(dict[str, object]):
         return "{" + key + "}"
 
 
-__all__ = ["DEFAULT_LOCALE", "SUPPORTED_LOCALES", "Translator", "normalize_locale", "select_locale", "system_locale"]
+__all__ = [
+    "DEFAULT_LOCALE",
+    "I18N_SERVICE",
+    "SUPPORTED_LOCALES",
+    "Translator",
+    "normalize_locale",
+    "select_locale",
+    "system_locale",
+]

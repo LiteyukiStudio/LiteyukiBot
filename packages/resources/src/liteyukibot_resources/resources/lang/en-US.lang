@@ -1,0 +1,8 @@
+resources.command.set_summary=Set a {name} field
+resources.command.fields=. Fields: {fields}
+resources.error.invalid_arguments=Invalid resource command arguments
+resources.error.no_readable_fields=No readable resource fields
+resources.error.request_failed=Resource request failed: {error}
+resources.command.updated=Updated {path}.{field}
+resources.command.reset=Reset {path}.{field}
+resources.command.reset_summary=Reset a {name} field to its default

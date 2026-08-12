@@ -1395,7 +1395,7 @@ wheels = [
 
 [[package]]
 name = "liteyukibot-v7"
-version = "7.0.0a9"
+version = "7.0.0a10"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
@@ -1451,7 +1451,7 @@ dev = [
 
 [[package]]
 name = "liteyukibot-v7-agent"
-version = "0.1.0a2"
+version = "0.1.0a3"
 source = { editable = "packages/agent" }
 dependencies = [
     { name = "liteyukibot-v7" },
@@ -1473,7 +1473,7 @@ source = { editable = "packages/agent-resolver" }
 
 [[package]]
 name = "liteyukibot-v7-commands"
-version = "0.2.0a1"
+version = "0.2.0a2"
 source = { editable = "packages/commands" }
 dependencies = [
     { name = "liteyukibot-v7" },
@@ -1488,7 +1488,7 @@ requires-dist = [
 
 [[package]]
 name = "liteyukibot-v7-essentials"
-version = "0.2.0a2"
+version = "0.2.0a3"
 source = { editable = "packages/essentials" }
 dependencies = [
     { name = "liteyukibot-v7" },
@@ -1525,7 +1525,7 @@ requires-dist = [{ name = "liteyukibot-v7", editable = "." }]
 
 [[package]]
 name = "liteyukibot-v7-profile"
-version = "0.1.0a1"
+version = "0.1.0a2"
 source = { editable = "packages/profile" }
 dependencies = [
     { name = "liteyukibot-v7" },
@@ -1540,7 +1540,7 @@ requires-dist = [
 
 [[package]]
 name = "liteyukibot-v7-resources"
-version = "0.1.0a1"
+version = "0.1.0a2"
 source = { editable = "packages/resources" }
 dependencies = [
     { name = "liteyukibot-v7" },
@@ -1557,7 +1557,7 @@ requires-dist = [
 
 [[package]]
 name = "liteyukibot-v7-runtime-astrbot"
-version = "0.1.0a2"
+version = "0.1.0a3"
 source = { editable = "packages/runtime-astrbot" }
 dependencies = [
     { name = "astrbot" },
@@ -1572,7 +1572,7 @@ requires-dist = [
 
 [[package]]
 name = "liteyukibot-v7-runtime-mofox"
-version = "0.1.0a2"
+version = "0.1.0a3"
 source = { editable = "packages/runtime-mofox" }
 dependencies = [
     { name = "liteyukibot-v7" },

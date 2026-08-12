@@ -18,7 +18,9 @@ from liteyukibot_resources import (
 from liteyukibot_resources.service import create_resource_service
 
 from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope
+from liteyukibot.i18n import I18N_SERVICE, Translator
 from liteyukibot.logging import get_logger
+from liteyukibot.resource_packs import ResourceCatalog
 from liteyukibot.testing import PluginTestHarness
 
 
@@ -90,12 +92,20 @@ def command_service() -> CommandService:
     return create_command_service({}, PermissionStub(), get_logger(component="resources-tests"))
 
 
+def translator() -> Translator:
+    return Translator.from_resources(ResourceCatalog.load(".", plugin_packs=plugin.manifest.resource_packs), "zh-CN")[0]
+
+
 @pytest.mark.asyncio
 async def test_resource_plugin_provides_service_and_removes_it_on_stop(tmp_path: Path) -> None:
     harness = PluginTestHarness(
         plugin,
         root=tmp_path,
-        dependencies={PERMISSION_SERVICE: PermissionStub(), COMMAND_SERVICE: command_service()},
+        dependencies={
+            PERMISSION_SERVICE: PermissionStub(),
+            COMMAND_SERVICE: command_service(),
+            I18N_SERVICE: translator(),
+        },
     )
     async with harness:
         assert harness.require_service(RESOURCE_SERVICE) is not None
@@ -103,7 +113,7 @@ async def test_resource_plugin_provides_service_and_removes_it_on_stop(tmp_path:
 
 @pytest.mark.asyncio
 async def test_resource_service_reads_writes_and_deletes_current_principal() -> None:
-    service = create_resource_service(PermissionStub(), command_service())
+    service = create_resource_service(PermissionStub(), command_service(), translator())
     provider = Provider()
     service.register(specification(), provider, owner="test")
 
@@ -117,7 +127,7 @@ async def test_resource_service_reads_writes_and_deletes_current_principal() -> 
 
 @pytest.mark.asyncio
 async def test_resource_service_requires_capability_for_other_actor() -> None:
-    service = create_resource_service(PermissionStub(), command_service())
+    service = create_resource_service(PermissionStub(), command_service(), translator())
     provider = Provider()
     service.register(specification(), provider, owner="test")
 
@@ -128,7 +138,7 @@ async def test_resource_service_requires_capability_for_other_actor() -> None:
 
 @pytest.mark.asyncio
 async def test_resource_service_fails_closed_for_other_actor() -> None:
-    service = create_resource_service(DenyingPermissionStub(), command_service())
+    service = create_resource_service(DenyingPermissionStub(), command_service(), translator())
     service.register(specification(), Provider(), owner="test")
 
     with pytest.raises(ResourceError, match="not authorized"):
@@ -136,7 +146,7 @@ async def test_resource_service_fails_closed_for_other_actor() -> None:
 
 
 def test_resource_registration_is_atomic_and_path_stable() -> None:
-    service = create_resource_service(PermissionStub(), command_service())
+    service = create_resource_service(PermissionStub(), command_service(), translator())
     provider = Provider()
     profile = specification()
     duplicate = ResourceSpec("PROFILE", fields=(ResourceField("language", str),))
@@ -153,7 +163,7 @@ def test_resource_registration_is_atomic_and_path_stable() -> None:
 
 @pytest.mark.asyncio
 async def test_resource_service_rejects_anonymous_and_invalid_operations() -> None:
-    service = create_resource_service(PermissionStub(), command_service())
+    service = create_resource_service(PermissionStub(), command_service(), translator())
     service.register(specification(), Provider(), owner="test")
 
     with pytest.raises(ResourceError, match="resource not found"):

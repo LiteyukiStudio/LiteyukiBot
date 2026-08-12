@@ -1,0 +1,3 @@
+agent.init.model=模型
+agent.init.base_url=基础 URL
+agent.init.api_key=API 密钥

@@ -22,7 +22,9 @@ from liteyukibot_resources.service import create_resource_service
 import liteyukibot
 from liteyukibot import PluginDefinition
 from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope
+from liteyukibot.i18n import I18N_SERVICE, Translator
 from liteyukibot.logging import get_logger
+from liteyukibot.resource_packs import ResourceCatalog
 from liteyukibot.testing import PluginTestHarness
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
@@ -73,12 +75,21 @@ async def verify(expected_version: str | None = None) -> None:
     definition = _installed_plugin()
     permissions = cast(PermissionService, _PermissionStub())
     commands = cast(CommandService, create_command_service({}, permissions, get_logger(component="verify")))
-    resources = create_resource_service(permissions, commands)
+    translator = Translator.from_resources(
+        ResourceCatalog.load(".", plugin_packs=definition.manifest.resource_packs),
+        "en-US",
+    )[0]
+    resources = create_resource_service(permissions, commands, translator)
     with tempfile.TemporaryDirectory() as directory:
         async with PluginTestHarness(
             definition,
             root=Path(directory),
-            dependencies={PERMISSION_SERVICE: permissions, COMMAND_SERVICE: commands, RESOURCE_SERVICE: resources},
+            dependencies={
+                PERMISSION_SERVICE: permissions,
+                COMMAND_SERVICE: commands,
+                RESOURCE_SERVICE: resources,
+                I18N_SERVICE: translator,
+            },
         ) as harness:
             profile = cast(ProfileService, harness.require_service(PROFILE_SERVICE))
             user = Principal("runtime", "bot", "user")

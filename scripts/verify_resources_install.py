@@ -20,7 +20,9 @@ from liteyukibot_resources.service import ResourceService
 import liteyukibot
 from liteyukibot import PluginDefinition
 from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope
+from liteyukibot.i18n import I18N_SERVICE, Translator
 from liteyukibot.logging import get_logger
+from liteyukibot.resource_packs import ResourceCatalog
 from liteyukibot.testing import PluginTestHarness
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
@@ -63,6 +65,10 @@ class _Provider(ResourceProvider):
 async def verify(expected_version: str | None = None) -> None:
     _verify_import_sources()
     definition = _installed_plugin()
+    translator = Translator.from_resources(
+        ResourceCatalog.load(".", plugin_packs=definition.manifest.resource_packs),
+        "en-US",
+    )[0]
     event = EventEnvelope(
         runtime_id="runtime",
         adapter="test",
@@ -85,6 +91,7 @@ async def verify(expected_version: str | None = None) -> None:
                         get_logger(component="verify"),
                     ),
                 ),
+                I18N_SERVICE: translator,
             },
         ) as harness:
             service = cast(ResourceService, harness.require_service(RESOURCE_SERVICE))
