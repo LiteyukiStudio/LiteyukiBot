@@ -258,7 +258,7 @@ async def test_three_plugin_topology_filters_help_and_correlates_status(tmp_path
     )
     recorded: list[ActionEnvelope] = []
 
-    async def record_action(action: ActionEnvelope) -> ActionResult:
+    async def record_action(_event: EventEnvelope, action: ActionEnvelope) -> ActionResult:
         recorded.append(action)
         return ActionResult(action_id=action.action_id, success=True)
 
@@ -325,7 +325,7 @@ async def test_help_resolves_visible_hierarchical_aliases_and_renders_schema(tmp
     )
     recorded: list[ActionEnvelope] = []
 
-    async def record_action(action: ActionEnvelope) -> ActionResult:
+    async def record_action(_event: EventEnvelope, action: ActionEnvelope) -> ActionResult:
         recorded.append(action)
         return ActionResult(action_id=action.action_id, success=True)
 

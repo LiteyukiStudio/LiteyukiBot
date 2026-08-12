@@ -55,3 +55,10 @@ only accepts it while the delivery is active and passes the kernel-validated
 enforce that action event/runtime/bot routing matches the source Event before
 performing adapter-specific authorization. V3 Actions retain the existing
 unattributed shape and cannot claim this provenance.
+
+For an agent-harness Event, the kernel may additionally attach an
+`agent_tool_catalog`. It is a JSON-only, per-delivery projection of the tool
+schemas authorized for the source Event principal. The child receives no
+executable handlers or permission state. The kernel rechecks the same
+capabilities when a child submits an `agent_tool` request, so a fabricated tool
+ID cannot gain authority.

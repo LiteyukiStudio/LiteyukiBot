@@ -65,11 +65,19 @@ class AgentToolCatalog(Protocol):
     def catalog(self) -> Mapping[str, object]: ...
 
 
+@runtime_checkable
+class EventAgentToolCatalog(Protocol):
+    """Expose only the tool schemas authorized for a concrete source event."""
+
+    def catalog_for(self, event: EventEnvelope) -> Mapping[str, object]: ...
+
+
 __all__ = [
     "AGENT_TOOL_BROKER_SERVICE",
     "AgentTool",
     "AgentToolBroker",
     "AgentToolCatalog",
+    "EventAgentToolCatalog",
     "AgentToolHandler",
     "AgentToolResult",
 ]

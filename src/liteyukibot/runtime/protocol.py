@@ -72,6 +72,7 @@ class EventMessage(WireModel):
     correlation_id: str
     payload: dict[str, JsonValue]
     trace: EventTrace | None = None
+    agent_tool_catalog: dict[str, JsonValue] | None = None
 
 
 class EventAccepted(WireModel):

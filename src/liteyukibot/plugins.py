@@ -15,7 +15,7 @@ from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from .events import ActionEnvelope, ActionResult, EventBus
+from .events import ActionEnvelope, ActionResult, EventBus, EventEnvelope
 from .exceptions import PluginError, ServiceError
 from .init_specs import PluginInitSpec
 from .resource_packs import ResourcePackDeclaration
@@ -46,7 +46,7 @@ class LoggerLike(Protocol):
 
 
 class ActionServiceLike(Protocol):
-    async def execute(self, action: ActionEnvelope) -> ActionResult: ...
+    async def execute(self, action: ActionEnvelope, *, event: EventEnvelope | None = None) -> ActionResult: ...
 
 
 def _log_task_failure(logger: LoggerLike, name: str, error: BaseException) -> None:

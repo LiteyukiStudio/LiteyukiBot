@@ -22,7 +22,12 @@ class ModelReply:
 
 
 class AgentEngine(Protocol):
-    async def complete(self, messages: Sequence[Mapping[str, object]]) -> ModelReply: ...
+    async def complete(
+        self,
+        messages: Sequence[Mapping[str, object]],
+        *,
+        tools: Sequence[Mapping[str, object]] = (),
+    ) -> ModelReply: ...
 
 
 class OpenAIChatEngine:
@@ -34,24 +39,27 @@ class OpenAIChatEngine:
         api_key: str,
         base_url: str | None,
         model: str,
-        tools: Sequence[Mapping[str, object]] = (),
     ) -> None:
         if not api_key or not model:
             raise ValueError("agent API key and model must not be empty")
         self.api_key = api_key
         self.base_url = base_url
         self.model = model
-        self.tools = tuple(tools)
 
-    async def complete(self, messages: Sequence[Mapping[str, object]]) -> ModelReply:
+    async def complete(
+        self,
+        messages: Sequence[Mapping[str, object]],
+        *,
+        tools: Sequence[Mapping[str, object]] = (),
+    ) -> ModelReply:
         try:
             from openai import AsyncOpenAI
         except ModuleNotFoundError as error:
             raise RuntimeError("native agent requires the openai package") from error
         client = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
         request: dict[str, object] = {"model": self.model, "messages": list(messages)}
-        if self.tools:
-            request["tools"] = list(self.tools)
+        if tools:
+            request["tools"] = list(tools)
         completions: Any = client.chat.completions
         response = await completions.create(**request)
         message = response.choices[0].message

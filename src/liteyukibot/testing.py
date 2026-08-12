@@ -36,11 +36,13 @@ class _RecordingActionService:
         self._executor = executor
         self.recorded: list[ActionEnvelope] = []
 
-    async def execute(self, action: ActionEnvelope) -> ActionResult:
+    async def execute(self, action: ActionEnvelope, *, event: EventEnvelope | None = None) -> ActionResult:
         self.recorded.append(action)
         if self._executor is None:
             return ActionResult(action_id=action.action_id, success=True)
-        result = self._executor(action)
+        if event is None:
+            return ActionResult(action_id=action.action_id, success=True)
+        result = self._executor(event, action)
         if inspect.isawaitable(result):
             result = await result
         if not isinstance(result, ActionResult):
@@ -69,7 +71,7 @@ class PluginTestHarness:
             self._services.provide(key, value, provider="liteyukibot.testing")
         self._actions = _RecordingActionService(action_executor)
         self._events = EventBus(
-            action_executor=self._actions.execute,
+            action_executor=lambda event, action: self._actions.execute(action, event=event),
             logger=get_logger(component="plugin-test"),
         )
         self._manager = PluginManager(

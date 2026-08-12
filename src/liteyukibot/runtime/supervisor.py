@@ -782,6 +782,8 @@ class RuntimeSupervisor:
         correlation_id: str,
         payload: Mapping[str, Any],
         timeout_seconds: float = 30.0,
+        *,
+        agent_tool_catalog: Mapping[str, Any] | None = None,
     ) -> EventAccepted:
         if timeout_seconds <= 0:
             raise ValueError("runtime event timeout must be positive")
@@ -790,6 +792,8 @@ class RuntimeSupervisor:
             raise RuntimeError(f"runtime {runtime_id} is not ready")
         if record.protocol_version not in (2, 3, 4):
             raise RuntimeError(f"runtime {runtime_id} did not negotiate protocol v2, v3, or v4")
+        if agent_tool_catalog is not None and record.protocol_version != 4:
+            raise RuntimeError(f"runtime {runtime_id} must negotiate protocol v4 for an agent tool catalog")
         if "runtime.events.receive" not in record.capabilities:
             raise RuntimeError(f"runtime {runtime_id} does not accept core events")
         if correlation_id in record.pending_events:
@@ -808,6 +812,7 @@ class RuntimeSupervisor:
                     correlation_id=correlation_id,
                     payload=record.pending_event_payloads[correlation_id],
                     trace=trace if record.protocol_version == 4 else None,
+                    agent_tool_catalog=json_mapping(agent_tool_catalog) if agent_tool_catalog is not None else None,
                 ),
             )
             async with asyncio.timeout(timeout_seconds):

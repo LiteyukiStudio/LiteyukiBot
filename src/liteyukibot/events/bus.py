@@ -13,7 +13,7 @@ from yukilog import Logger, get_logger
 from .models import ActionEnvelope, ActionResult, DispatchResult, EventEnvelope, HandlerFailure, HandlerResult
 
 type EventHandler = Callable[[EventEnvelope], Awaitable[HandlerResult | None] | HandlerResult | None]
-type ActionExecutor = Callable[[ActionEnvelope], Awaitable[ActionResult] | ActionResult]
+type ActionExecutor = Callable[[EventEnvelope, ActionEnvelope], Awaitable[ActionResult] | ActionResult]
 type ActionGuard = Callable[[EventEnvelope, ActionEnvelope], Awaitable[ActionResult | None] | ActionResult | None]
 
 @dataclass(frozen=True, slots=True)
@@ -292,7 +292,7 @@ class EventBus:
                 error_message="the event bus has no action executor",
             )
         try:
-            result: Any = self._action_executor(action)
+            result: Any = self._action_executor(event, action)
             if inspect.isawaitable(result):
                 result = await result
             if not isinstance(result, ActionResult):
