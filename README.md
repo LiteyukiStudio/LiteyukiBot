@@ -84,6 +84,7 @@ SDK; protocol and platform adapters are separately published packages:
 
 ```bash
 uv add liteyukibot-v7-runtime-adapter
+uv add liteyukibot-v7-adapter-onebot
 ```
 
 Install bounded v6 compatibility when legacy plugins are required:

@@ -13,6 +13,7 @@ resolution-markers = [
 [manifest]
 members = [
     "liteyukibot-v7",
+    "liteyukibot-v7-adapter-onebot",
     "liteyukibot-v7-agent",
     "liteyukibot-v7-agent-resolver",
     "liteyukibot-v7-commands",
@@ -1451,6 +1452,17 @@ dev = [
 ]
 
 [[package]]
+name = "liteyukibot-v7-adapter-onebot"
+version = "0.1.0a1"
+source = { editable = "packages/adapter-onebot" }
+dependencies = [
+    { name = "liteyukibot-v7-runtime-adapter" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "liteyukibot-v7-runtime-adapter", editable = "packages/runtime-adapter" }]
+
+[[package]]
 name = "liteyukibot-v7-agent"
 version = "0.1.0a3"
 source = { editable = "packages/agent" }
@@ -1558,7 +1570,7 @@ requires-dist = [
 
 [[package]]
 name = "liteyukibot-v7-runtime-adapter"
-version = "0.1.0a1"
+version = "0.1.0a2"
 source = { editable = "packages/runtime-adapter" }
 dependencies = [
     { name = "liteyukibot-v7" },

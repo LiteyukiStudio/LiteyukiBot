@@ -26,5 +26,7 @@ bot_id = "123456"
 config = { app_id = "..." }
 ```
 
-The first release defines only the host contract. OneBot v11, OneBot v12, and
-Satori adapters are separately delivered packages.
+Install `liteyukibot-v7-adapter-onebot` for the first real protocol entry
+point, `onebot-v11`. It owns its HTTP Post callback listener and HTTP API
+client, and needs no NoneBot or Node runtime. OneBot v12 and Satori remain
+separately delivered packages.
