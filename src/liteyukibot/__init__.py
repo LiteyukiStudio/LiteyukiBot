@@ -3,6 +3,7 @@
 from ._version import __version__
 from .app import LiteyukiApp
 from .functions import FUNCTION_DISPATCH_SERVICE, FunctionCall, FunctionDispatcher
+from .i18n import I18N_SERVICE, Translator
 from .init_specs import InitFieldKind, InitFieldSpec, PluginInitSpec, RuntimeInitSpec
 from .plugins import (
     PluginContext,
@@ -37,8 +38,10 @@ __all__ = [
     "FUNCTION_DISPATCH_SERVICE",
     "FunctionCall",
     "FunctionDispatcher",
+    "I18N_SERVICE",
     "RESOURCE_CATALOG_SERVICE",
     "ResourceCatalog",
     "ResourcePackDeclaration",
+    "Translator",
     "__version__",
 ]

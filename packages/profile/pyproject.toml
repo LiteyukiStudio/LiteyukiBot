@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7-profile"
-version = "0.1.0a1"
+version = "0.1.0a2"
 description = "Persistent per-bot user profiles for LiteyukiBot v7."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -10,8 +10,8 @@ authors = [
     { name = "LiteyukiStudio" },
 ]
 dependencies = [
-    "liteyukibot-v7>=7.0.0a3,<8",
-    "liteyukibot-v7-resources>=0.1.0a1,<0.2",
+    "liteyukibot-v7>=7.0.0a10,<8",
+    "liteyukibot-v7-resources>=0.1.0a2,<0.2",
 ]
 
 [project.entry-points."liteyukibot.plugins"]

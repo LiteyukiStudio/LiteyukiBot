@@ -8,6 +8,7 @@ from typing import Literal
 
 from liteyukibot_commands import ArgumentSpec, CommandParseError, CommandRegistration, OptionSpec
 
+from liteyukibot.i18n import Translator
 from liteyukibot.status import KernelStatusSnapshot
 
 type Language = Literal["zh-CN", "en"]
@@ -35,52 +36,14 @@ class _Messages:
     optional: str
 
 
-_MESSAGES: dict[Language, _Messages] = {
-    "zh-CN": _Messages(
-        help_summary="显示可用命令",
-        status_summary="显示内核状态",
-        help_header="可用命令：",
-        state="状态",
-        uptime="运行时间",
-        outstanding="待处理事件",
-        plugins="插件",
-        runtimes="运行时",
-        seconds="秒",
-        empty="无",
-        command_not_found="未找到可用命令",
-        invalid_command="命令参数无效",
-        aliases="别名",
-        usage="用法",
-        arguments="参数",
-        options="选项",
-        required="必填",
-        optional="可选",
-    ),
-    "en": _Messages(
-        help_summary="Show available commands",
-        status_summary="Show kernel status",
-        help_header="Available commands:",
-        state="State",
-        uptime="Uptime",
-        outstanding="Outstanding events",
-        plugins="Plugins",
-        runtimes="Runtimes",
-        seconds="seconds",
-        empty="none",
-        command_not_found="Command not found",
-        invalid_command="Invalid command arguments",
-        aliases="Aliases",
-        usage="Usage",
-        arguments="Arguments",
-        options="Options",
-        required="required",
-        optional="optional",
-    ),
-}
-
-
-def messages(language: Language) -> _Messages:
-    return _MESSAGES[language]
+def messages(language: Language, translator: Translator) -> _Messages:
+    locale = "en-US" if language == "en" else language
+    return _Messages(
+        **{
+            field: translator.text_for(locale, f"essentials.{field}", field.replace("_", " "))
+            for field in _Messages.__dataclass_fields__
+        }
+    )
 
 
 def render_help(
@@ -88,9 +51,10 @@ def render_help(
     *,
     prefix: str,
     language: Language,
+    translator: Translator,
     target: tuple[str, ...] | None = None,
 ) -> str:
-    text = messages(language)
+    text = messages(language, translator)
     lines = [text.help_header]
     selected = registrations if target is None else tuple(
         registration for registration in registrations if registration.spec.command_path == target
@@ -130,8 +94,8 @@ def render_help(
     return "\n".join(lines)
 
 
-def render_parse_error(error: CommandParseError, *, language: Language) -> str:
-    return messages(language).invalid_command
+def render_parse_error(error: CommandParseError, *, language: Language, translator: Translator) -> str:
+    return messages(language, translator).invalid_command
 
 
 def _usage(label: str, arguments: tuple[ArgumentSpec, ...], options: tuple[OptionSpec, ...]) -> str:
@@ -162,8 +126,8 @@ def _render_option(option: OptionSpec, text: _Messages) -> str:
     return f"- {', '.join(labels)} ({requirement}{suffix})"
 
 
-def render_status(snapshot: KernelStatusSnapshot, *, language: Language) -> str:
-    text = messages(language)
+def render_status(snapshot: KernelStatusSnapshot, *, language: Language, translator: Translator) -> str:
+    text = messages(language, translator)
     lines = [
         f"LiteyukiBot {snapshot.version}",
         f"{text.state}: {snapshot.state}",

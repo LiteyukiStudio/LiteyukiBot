@@ -38,13 +38,13 @@ distribution inside the workflow.
 
 | Package | Source | Tag |
 | --- | --- | --- |
-| `liteyukibot-v7==7.0.0a7` | `pyproject.toml` | `v7.0.0a7` |
+| `liteyukibot-v7==7.0.0a10` | `pyproject.toml` | `v7.0.0a10` |
 | `liteyukibot-v7-permissions==0.2.0a1` | `packages/permissions` | `permissions-v0.2.0a1` |
-| `liteyukibot-v7-commands==0.2.0a1` | `packages/commands` | `commands-v0.2.0a1` |
-| `liteyukibot-v7-resources==0.1.0a1` | `packages/resources` | `resources-v0.1.0a1` |
+| `liteyukibot-v7-commands==0.2.0a2` | `packages/commands` | `commands-v0.2.0a2` |
+| `liteyukibot-v7-resources==0.1.0a2` | `packages/resources` | `resources-v0.1.0a2` |
 | `liteyukibot-v7-functions==0.1.0a2` | `packages/functions` | `functions-v0.1.0a2` |
-| `liteyukibot-v7-profile==0.1.0a1` | `packages/profile` | `profile-v0.1.0a1` |
-| `liteyukibot-v7-essentials==0.2.0a2` | `packages/essentials` | `essentials-v0.2.0a2` |
+| `liteyukibot-v7-profile==0.1.0a2` | `packages/profile` | `profile-v0.1.0a2` |
+| `liteyukibot-v7-essentials==0.2.0a3` | `packages/essentials` | `essentials-v0.2.0a3` |
 | `liteyukibot-v7-runtime-nonebot==0.1.0a1` | `packages/runtime-nonebot` | `runtime-nonebot-v0.1.0a1` |
 | `liteyukibot-v7-runtime-v6==0.1.0a1` | `packages/runtime-v6` | `runtime-v6-v0.1.0a1` |
 
@@ -55,13 +55,13 @@ tag that does not exactly match the selected source version and distribution.
 
 Push and wait for each release before creating the next tag:
 
-1. `v7.0.0a7`;
+1. `v7.0.0a10`;
 2. `permissions-v0.2.0a1`;
-3. `commands-v0.2.0a1`;
-4. `resources-v0.1.0a1`;
+3. `commands-v0.2.0a2`;
+4. `resources-v0.1.0a2`;
 5. `functions-v0.1.0a2`;
-6. `profile-v0.1.0a1`;
-7. `essentials-v0.2.0a2`;
+6. `profile-v0.1.0a2`;
+7. `essentials-v0.2.0a3`;
 8. `runtime-nonebot-v0.1.0a1`.
 9. `runtime-v6-v0.1.0a1`.
 
@@ -74,7 +74,7 @@ After the final upload, verify the public dependency chain without a checkout:
 
 ```bash
 uv run --no-project --python 3.14 \
-  --with "liteyukibot-v7-essentials==0.2.0a2" \
+  --with "liteyukibot-v7-essentials==0.2.0a3" \
   python -c "import importlib.metadata as m; print(m.version('liteyukibot-v7'))"
 ```
 

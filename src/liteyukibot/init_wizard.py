@@ -176,6 +176,7 @@ def build_custom_initialization_plan(_locale: str) -> tuple[InitializationPlan, 
                 prompt=lambda label, default: ask(label, default),
                 secret_prompt=lambda label: ask(label, "", secret=True),
                 output=diagnostics.append,
+                locale=_locale,
             )
         except _BackRequested:
             continue

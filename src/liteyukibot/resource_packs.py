@@ -107,6 +107,17 @@ class ResourceCatalog:
         normalized = "" if not prefix else _relative_path(prefix).rstrip("/") + "/"
         return tuple(path for path in sorted(self._files) if path.startswith(normalized))
 
+    def files(self, prefix: str = "") -> tuple[ResourceFile, ...]:
+        """Return layered files without collapsing same-path catalog entries."""
+
+        normalized = "" if not prefix else _relative_path(prefix).rstrip("/") + "/"
+        return tuple(
+            resource
+            for pack in self._packs
+            for path, resource in sorted(pack.files.items())
+            if path.startswith(normalized)
+        )
+
     @classmethod
     def load(
         cls,

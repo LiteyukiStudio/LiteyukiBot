@@ -27,6 +27,8 @@ class InitFieldSpec:
     default: Any = None
     required: bool = False
     description: str = ""
+    label_key: str | None = None
+    description_key: str | None = None
     choices: tuple[str, ...] = ()
     secret_environment: str | None = None
 
@@ -35,6 +37,9 @@ class InitFieldSpec:
             raise ValueError("initialization field key must be a non-empty simple identifier")
         if not self.label.strip():
             raise ValueError("initialization field label must not be blank")
+        for key in (self.label_key, self.description_key):
+            if key is not None and (not key.strip() or key != key.strip()):
+                raise ValueError("initialization translation keys must be non-empty trimmed strings")
         if self.kind is InitFieldKind.SECRET:
             if not self.secret_environment or self.secret_environment != self.secret_environment.strip():
                 raise ValueError("secret initialization fields require a target environment variable")
@@ -47,6 +52,7 @@ class InitFieldSpec:
 @dataclass(frozen=True, slots=True)
 class PluginInitSpec:
     description: str = ""
+    description_key: str | None = None
     fields: tuple[InitFieldSpec, ...] = ()
 
     def __post_init__(self) -> None:
@@ -57,6 +63,7 @@ class PluginInitSpec:
 class RuntimeInitSpec:
     default_id: str
     description: str = ""
+    description_key: str | None = None
     default_options: Mapping[str, Any] = field(default_factory=dict)
     fields: tuple[InitFieldSpec, ...] = ()
 

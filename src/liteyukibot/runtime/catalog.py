@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from importlib import metadata
 
 from ..init_specs import RuntimeInitSpec
+from ..resource_packs import ResourcePackDeclaration
 from .facets import RuntimeFacetInstaller
 
 
@@ -21,6 +22,7 @@ class RuntimePlugin:
     init_spec: RuntimeInitSpec | None = None
     facet_installer: RuntimeFacetInstaller | None = None
     distribution: str | None = None
+    resource_packs: tuple[ResourcePackDeclaration, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.kind or self.kind != self.kind.strip():

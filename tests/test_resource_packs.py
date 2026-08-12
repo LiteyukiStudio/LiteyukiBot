@@ -44,6 +44,32 @@ def test_workspace_pack_overlays_builtin_language(tmp_path: Path) -> None:
     assert translator.text("wizard.title") == "Custom setup"
 
 
+def test_enabled_package_catalogs_are_readable_and_workspace_remains_last(tmp_path: Path) -> None:
+    from liteyukibot_essentials import plugin
+
+    resources = tmp_path / "resources"
+    _pack(resources, "custom", language="essentials.help_header=Custom commands\n")
+    (resources / "index.json").write_text(json.dumps(["custom"]), encoding="utf-8")
+    catalog = ResourceCatalog.load(tmp_path, plugin_packs=plugin.manifest.resource_packs)
+    translator, _ = Translator.from_resources(catalog, "en-US")
+
+    assert translator.text("essentials.status_summary") == "Show kernel status"
+    assert translator.text("essentials.help_header") == "Custom commands"
+
+
+def test_language_catalogs_overlay_keys_across_package_packs(tmp_path: Path) -> None:
+    resources = tmp_path / "resources"
+    _pack(resources, "one", language="shared.one=first\nshared.value=first\n")
+    _pack(resources, "two", language="shared.two=second\nshared.value=second\n")
+    (resources / "index.json").write_text(json.dumps(["one", "two"]), encoding="utf-8")
+
+    translator, _ = Translator.from_resources(ResourceCatalog.load(tmp_path), "en-US")
+
+    assert translator.text("shared.one") == "first"
+    assert translator.text("shared.two") == "second"
+    assert translator.text("shared.value") == "second"
+
+
 def test_resource_zip_rejects_path_traversal(tmp_path: Path) -> None:
     resources = tmp_path / "resources"
     resources.mkdir()
