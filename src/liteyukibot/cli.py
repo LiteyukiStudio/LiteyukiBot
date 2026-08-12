@@ -36,6 +36,7 @@ from .config.vault import SecretVault
 from .control import ControlError, request_control
 from .exceptions import LiteyukiError
 from .init_wizard import WizardCancelled, build_custom_initialization_plan, run_init_wizard
+from .plugin_install import PluginInstallationService
 from .plugin_sources import PluginSource, PluginSourceStore
 from .profiles import ProfileManifest, ProfileStore
 
@@ -76,6 +77,10 @@ def build_parser() -> argparse.ArgumentParser:
     plugin = subcommands.add_parser("plugin", help="plugin operations")
     plugin_commands = plugin.add_subparsers(dest="plugin_command", required=True)
     plugin_commands.add_parser("list")
+    plugin_install = plugin_commands.add_parser("install", help="install a runtime plugin bundle")
+    plugin_install.add_argument("bundle_id")
+    plugin_install.add_argument("--runtime", required=True, dest="runtime_id")
+    plugin_install.add_argument("--source", dest="source_id")
     plugin_source = plugin_commands.add_parser("source", help="plugin index source operations")
     plugin_source_commands = plugin_source.add_subparsers(dest="plugin_source_command", required=True)
     plugin_source_commands.add_parser("list")
@@ -142,6 +147,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             print("configuration valid")
             return 0
         if args.command == "plugin":
+            if args.plugin_command == "install":
+                return _plugin_install(args, settings, workspace)
             _list_plugins(settings)
             return 0
         if args.command == "inspect":
@@ -254,6 +261,24 @@ def _plugin_source(args: argparse.Namespace) -> int:
             print(f"removed {args.id}")
             return 0
     raise RuntimeError(f"unknown plugin source command: {args.plugin_source_command}")
+
+
+def _plugin_install(args: argparse.Namespace, settings: AppSettings, workspace: ConfigWorkspace) -> int:
+    try:
+        runtime = settings.runtimes[args.runtime_id]
+    except KeyError as error:
+        raise ValueError(f"runtime {args.runtime_id!r} is not configured") from error
+    if not runtime.enabled:
+        raise ValueError(f"runtime {args.runtime_id!r} is disabled")
+    with _exclusive_workspace(workspace):
+        result = PluginInstallationService(workspace.directory).install(
+            args.bundle_id,
+            runtime_id=args.runtime_id,
+            runtime_kind=runtime.kind,
+            source_id=args.source_id,
+        )
+    print(f"installed {args.bundle_id} from {result.source_id} as {result.generation.id}")
+    return 0
 
 
 def _profile_unlocked(args: argparse.Namespace, workspace: ConfigWorkspace) -> int:
