@@ -1581,7 +1581,7 @@ requires-dist = [{ name = "liteyukibot-v7", editable = "." }]
 
 [[package]]
 name = "liteyukibot-v7-runtime-astrbot"
-version = "0.1.0a4"
+version = "0.1.0a5"
 source = { editable = "packages/runtime-astrbot" }
 dependencies = [
     { name = "astrbot" },
