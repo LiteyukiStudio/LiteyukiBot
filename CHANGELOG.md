@@ -13,6 +13,8 @@
   bridge runtimes.
 - made the locked Neo-MoFox upstream an explicit installation prerequisite,
   because PyPI rejects direct VCS dependencies in published wheel metadata.
+- made the MoFox release verifier install that fixed upstream requirement before
+  exercising the published runtime wheel.
 - added `liteyukibot-v7-runtime-adapter`, a separately published Python
   platform-adapter host with managed-generation and entry-point boundaries;
 - added `liteyukibot-v7-adapter-onebot`, a pure-Python OneBot v11 HTTP Post
