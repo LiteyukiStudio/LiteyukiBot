@@ -26,6 +26,8 @@ class InitializationPlan:
     data_dir: str
     cache_dir: str
     logging_level: str
+    logging_console: bool
+    logging_json_lines: bool
     payload_mode: str
     payload_exclude_runtimes: tuple[str, ...]
     plugins: tuple[str, ...]
@@ -42,6 +44,7 @@ def build_initialization_plan(
     output: Output,
     secret_prompt: SecretPrompt | None = None,
     locale: str = "auto",
+    logging_settings: tuple[str, bool, bool, str, tuple[str, ...]] | None = None,
 ) -> InitializationPlan:
     """Collect a safe configuration using only package-owned initialization metadata."""
 
@@ -62,14 +65,26 @@ def build_initialization_plan(
     translator, warning = Translator.from_resources(ResourceCatalog.load(".", plugin_packs=declarations), locale)
     data_dir = prompt(translator.text("init.data_dir", "Data directory"), "data")
     cache_dir = prompt(translator.text("init.cache_dir", "Cache directory"), "cache")
-    logging_level = prompt(translator.text("init.logging_level", "Logging level"), "INFO").upper()
-    payload_mode = prompt(
-        translator.text("init.payload_mode", "Payload logging mode (metadata/full)"),
-        "metadata",
-    ).lower()
-    payload_exclude_runtimes = _split_values(
-        prompt(translator.text("init.payload_exclude_runtimes", "Payload exclusion runtime IDs (comma-separated)"), "")
-    )
+    if logging_settings is None:
+        logging_level = prompt(translator.text("init.logging_level", "Logging level"), "INFO").upper()
+        logging_console = _confirm(
+            prompt, translator.text("init.logging_console", "Enable console logs"), default=True
+        )
+        logging_json_lines = _confirm(
+            prompt, translator.text("init.logging_json", "Enable JSON Lines logs"), default=False
+        )
+        payload_mode = prompt(
+            translator.text("init.payload_mode", "Payload logging mode (metadata/full)"),
+            "metadata",
+        ).lower()
+        payload_exclude_runtimes = _split_values(
+            prompt(
+                translator.text("init.payload_exclude_runtimes", "Payload exclusion runtime IDs (comma-separated)"),
+                "",
+            )
+        )
+    else:
+        logging_level, logging_console, logging_json_lines, payload_mode, payload_exclude_runtimes = logging_settings
     diagnostics = plugin_diagnostics + runtime_diagnostics
     if warning is not None:
         output(f"warning: {warning}")
@@ -91,6 +106,8 @@ def build_initialization_plan(
         data_dir=data_dir,
         cache_dir=cache_dir,
         logging_level=logging_level,
+        logging_console=logging_console,
+        logging_json_lines=logging_json_lines,
         payload_mode=payload_mode,
         payload_exclude_runtimes=payload_exclude_runtimes,
         plugins=selected_plugins,

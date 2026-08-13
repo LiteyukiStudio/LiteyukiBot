@@ -93,7 +93,7 @@ health probe leaves the prior active/rollback pointers intact.
 
 ## Upgrade And Recovery
 
-`config_version = 1` remains the Beta1 configuration schema. Configurations
+`config_version = 2` is the current pre-release configuration schema. Configurations
 with an older or missing version block startup after LiteyukiBot writes a backup
 and a current upgrade template below `.liteyuki/`; newer configurations are
 rejected without modification. Review the template, merge it manually, then

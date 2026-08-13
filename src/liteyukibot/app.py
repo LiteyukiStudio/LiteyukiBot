@@ -25,7 +25,8 @@ from .events import ActionEnvelope, ActionResult, CallApi, EventBus, EventEnvelo
 from .functions import FUNCTION_DISPATCH_SERVICE, FunctionDispatcher
 from .http import HttpServer
 from .i18n import I18N_SERVICE, Translator
-from .logging import Logger, configure_logging, get_logger, shutdown_logging
+from .logging import Logger, configure_logging, get_logger, log_payload, shutdown_logging
+from .management import MANAGEMENT_SERVICE, KernelManagement, ManagementCaller, ManagementError
 from .plugin_store import RuntimeGenerationStore
 from .plugins import PluginManager
 from .resource_packs import RESOURCE_CATALOG_SERVICE, ResourceCatalog
@@ -33,6 +34,7 @@ from .runtime import (
     ActionProvenance,
     ActionSinkResult,
     AgentToolSinkResult,
+    JsonValue,
     RuntimeCatalog,
     RuntimeSpec,
     RuntimeSupervisor,
@@ -138,6 +140,7 @@ class LiteyukiApp:
             secret_values=runtime_secrets,
         )
         self.runtimes.set_logging_settings(settings.logging)
+        self.runtimes.set_management_sink(self._execute_runtime_management)
         self.actions = ActionService(self.runtimes, self._authorize_action)
         core = settings.core
         self.events = EventBus(
@@ -156,6 +159,7 @@ class LiteyukiApp:
             data_dir=core.data_dir,
             cache_dir=core.cache_dir,
         )
+        self.management = KernelManagement(self, self.resource_workspace, self._request_stop)
         self.control = ControlServer(
             core.data_dir / "control.json",
             status_provider=self.status,
@@ -167,6 +171,7 @@ class LiteyukiApp:
             else None
         )
         self._accepting_events = False
+        self._stop_callback: Callable[[], None] | None = None
         self._logging_owned = logger is None
         self._logging_started = False
         self._plugins_setup = False
@@ -251,6 +256,17 @@ class LiteyukiApp:
             _AgentHistoryProvider(self),
             provider="liteyukibot.kernel",
         )
+        self.services.provide(MANAGEMENT_SERVICE, self.management, provider="liteyukibot.kernel")
+
+    def set_stop_callback(self, callback: Callable[[], None]) -> None:
+        """Bind the host-owned shutdown signal used by the management console."""
+
+        self._stop_callback = callback
+
+    def _request_stop(self) -> None:
+        if self._stop_callback is None:
+            raise RuntimeError("application host does not support management shutdown")
+        self._stop_callback()
 
     async def start(self) -> None:
         if self.state is not AppState.CREATED:
@@ -288,6 +304,10 @@ class LiteyukiApp:
             plugin_configs = self._plugin_configs(self.settings.plugins.config)
             self._plugins_setup = True
             await self.plugins.setup(definitions, plugin_configs)
+            permissions = self.services.get(ServiceKey(PERMISSION_SERVICE_NAME, PERMISSION_SERVICE_MAJOR))
+            allows_management = getattr(permissions, "allows_management", None)
+            if callable(allows_management):
+                self.management.registry.set_authorizer(allows_management)
             broker = self.services.get(AGENT_TOOL_BROKER_SERVICE)
             if broker is not None:
                 if not isinstance(broker, AgentToolBroker):
@@ -485,6 +505,13 @@ class LiteyukiApp:
         self.logger.bind(component="functions").error("function task {} failed: {}", name, error)
 
     async def _ingest_runtime_event(self, runtime_id: str, payload: dict[str, Any]) -> str:
+        log_payload(
+            self.logger,
+            self.settings.logging,
+            operation="runtime.event",
+            payload=payload,
+            runtime_id=runtime_id,
+        )
         if not self._accepting_events:
             return "invalid"
         try:
@@ -508,6 +535,13 @@ class LiteyukiApp:
         payload: dict[str, Any],
         provenance: ActionProvenance | None,
     ) -> ActionSinkResult:
+        log_payload(
+            self.logger,
+            self.settings.logging,
+            operation="runtime.action",
+            payload=payload,
+            runtime_id=source_runtime_id,
+        )
         try:
             action = ActionEnvelope.model_validate(payload)
         except ValueError as error:
@@ -540,6 +574,31 @@ class LiteyukiApp:
             data=result.model_dump(mode="json"),
             error=result.error_message,
         )
+
+    async def _execute_runtime_management(
+        self, runtime_id: str, command: str
+    ) -> tuple[bool, str, JsonValue, str | None]:
+        caller = ManagementCaller(runtime_id, "runtime", frozenset())
+        try:
+            _definition, result = await self.management.registry.execute(caller, command)
+        except ManagementError as error:
+            log_payload(
+                self.logger,
+                self.settings.logging,
+                operation="runtime.management",
+                payload={"command": command, "error": str(error)},
+                runtime_id=runtime_id,
+            )
+            return False, "", None, str(error)
+        data = json_value(result.data) if result.data is not None else None
+        log_payload(
+            self.logger,
+            self.settings.logging,
+            operation="runtime.management",
+            payload={"command": command, "result": data if data is not None else result.text},
+            runtime_id=runtime_id,
+        )
+        return True, result.text, data, None
 
     def _authorize_action(self, event: EventEnvelope | None, action: ActionEnvelope) -> ActionResult | None:
         if not isinstance(action.action, CallApi):

@@ -17,15 +17,19 @@ from liteyukibot.plugin_store import PlatformTarget, RuntimeGeneration, RuntimeG
 
 class StubApp:
     calls: ClassVar[list[str]] = []
+    logs: ClassVar[list[tuple[str, float]]] = []
 
     def __init__(self, _settings: AppSettings) -> None:
-        pass
+        self.logger = SimpleNamespace(info=lambda message, value: self.logs.append((message, value)))
 
     async def start(self) -> None:
         self.calls.append("start")
 
     async def stop(self) -> None:
         self.calls.append("stop")
+
+    def set_stop_callback(self, _callback: Callable[[], None]) -> None:
+        pass
 
 
 class FakeSignalLoop:
@@ -52,6 +56,7 @@ class FakeSignalLoop:
 async def test_run_until_signal_uses_event_loop_signal_handlers(monkeypatch: pytest.MonkeyPatch) -> None:
     loop = FakeSignalLoop(supports_async_handlers=True)
     StubApp.calls = []
+    StubApp.logs = []
     monkeypatch.setattr(cli_module, "LiteyukiApp", StubApp)
     monkeypatch.setattr("liteyukibot.cli.asyncio.get_running_loop", lambda: loop)
 
@@ -60,6 +65,7 @@ async def test_run_until_signal_uses_event_loop_signal_handlers(monkeypatch: pyt
     assert StubApp.calls == ["start", "stop"]
     assert loop.added == [signal.SIGINT, signal.SIGTERM]
     assert loop.removed == [signal.SIGINT, signal.SIGTERM]
+    assert StubApp.logs[0][0] == "LiteyukiBot startup completed in {:.2f} ms"
 
 
 @pytest.mark.asyncio
@@ -68,6 +74,7 @@ async def test_run_until_signal_uses_windows_signal_fallback(monkeypatch: pytest
     previous = object()
     assignments: list[tuple[signal.Signals, Any]] = []
     StubApp.calls = []
+    StubApp.logs = []
 
     def get_signal(_signum: signal.Signals) -> object:
         return previous

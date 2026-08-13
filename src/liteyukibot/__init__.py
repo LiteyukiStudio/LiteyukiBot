@@ -5,6 +5,7 @@ from .app import LiteyukiApp
 from .functions import FUNCTION_DISPATCH_SERVICE, FunctionCall, FunctionDispatcher
 from .i18n import I18N_SERVICE, Translator
 from .init_specs import InitFieldKind, InitFieldSpec, PluginInitSpec, RuntimeInitSpec
+from .management import MANAGEMENT_SERVICE, ManagementCommand, ManagementRegistry
 from .plugins import (
     PluginContext,
     PluginDefinition,
@@ -39,6 +40,9 @@ __all__ = [
     "FunctionCall",
     "FunctionDispatcher",
     "I18N_SERVICE",
+    "MANAGEMENT_SERVICE",
+    "ManagementCommand",
+    "ManagementRegistry",
     "RESOURCE_CATALOG_SERVICE",
     "ResourceCatalog",
     "ResourcePackDeclaration",

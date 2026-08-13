@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from liteyukibot.events import EventEnvelope
+from liteyukibot.management import ManagementCaller
 from liteyukibot.services import ServiceKey
 
 PUBLIC = "public"
@@ -82,6 +83,10 @@ class PermissionService(Protocol):
     def allows(self, event: EventEnvelope, capability: str) -> bool: ...
 
 
+class ManagementPermissionService(Protocol):
+    def allows_management(self, caller: ManagementCaller, capability: str) -> bool: ...
+
+
 class PermissionAuditService(PermissionService, Protocol):
     def decide(self, event: EventEnvelope, capability: str, *, component: str) -> bool: ...
 
@@ -100,10 +105,12 @@ class _ConfiguredPermissionService:
     def __init__(
         self,
         snapshots: Mapping[Principal, PermissionSnapshot],
+        management_grants: Mapping[str, PermissionSnapshot],
         *,
         logger: PermissionLogger | None = None,
     ) -> None:
         self._snapshots = dict(snapshots)
+        self._management_grants = dict(management_grants)
         self._anonymous = PermissionSnapshot(None, frozenset(), frozenset({PUBLIC}))
         self._logger = logger
         self._audit: deque[PermissionDecision] = deque(maxlen=self.AUDIT_CAPACITY)
@@ -132,6 +139,11 @@ class _ConfiguredPermissionService:
         if not capability or capability != capability.strip() or any(character.isspace() for character in capability):
             return False
         return self.resolve(event).allows(capability)
+
+    def allows_management(self, caller: ManagementCaller, capability: str) -> bool:
+        if not isinstance(capability, str) or not capability or capability != capability.strip():
+            return False
+        return self._management_grants.get(caller.id, self._anonymous).allows(capability)
 
     def decide(self, event: EventEnvelope, capability: str, *, component: str) -> bool:
         """Evaluate and retain a redacted audit record for a privileged boundary."""
@@ -286,17 +298,47 @@ def _parse_grants(
     return snapshots
 
 
+def _parse_management_grants(value: object, roles: Mapping[str, frozenset[str]]) -> dict[str, PermissionSnapshot]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise TypeError("permission management_grants must be a sequence of objects")
+    grants: dict[str, PermissionSnapshot] = {}
+    for index, raw in enumerate(value):
+        location = f"management_grants[{index}]"
+        if not isinstance(raw, Mapping) or set(raw) - {"id", "roles", "capabilities"} or "id" not in raw:
+            raise ValueError(f"permission {location} must contain id, roles, and/or capabilities")
+        caller_id = _validate_token(f"{location}.id", raw["id"])
+        if caller_id in grants:
+            raise ValueError(f"permission {location} duplicates an earlier management caller")
+        assigned_roles = _parse_token_sequence(raw.get("roles", ()), location=f"{location}.roles", kind="role")
+        direct = _parse_token_sequence(
+            raw.get("capabilities", ()), location=f"{location}.capabilities", kind="capability"
+        )
+        if not assigned_roles and not direct:
+            raise ValueError(f"permission {location} must assign at least one role or capability")
+        if PUBLIC in direct:
+            raise ValueError(f"permission {location} must not grant reserved capability {PUBLIC}")
+        unknown = set(assigned_roles) - roles.keys()
+        if unknown:
+            raise ValueError(f"permission {location} references unknown roles: {', '.join(sorted(unknown))}")
+        capabilities = {PUBLIC, *direct}
+        for role in assigned_roles:
+            capabilities.update(roles[role])
+        grants[caller_id] = PermissionSnapshot(None, frozenset(assigned_roles), frozenset(capabilities))
+    return grants
+
+
 def create_permission_service(
     config: Mapping[str, Any], *, logger: PermissionLogger | None = None
 ) -> PermissionAuditService:
     if not all(isinstance(key, str) for key in config):
         raise TypeError("permission config keys must be strings")
-    unknown = set(config) - {"roles", "grants"}
+    unknown = set(config) - {"roles", "grants", "management_grants"}
     if unknown:
         raise ValueError(f"unknown permission config keys: {', '.join(sorted(unknown))}")
     roles = _parse_roles(config.get("roles", {}))
     snapshots = _parse_grants(config.get("grants", ()), roles)
-    return _ConfiguredPermissionService(snapshots, logger=logger)
+    management_grants = _parse_management_grants(config.get("management_grants", ()), roles)
+    return _ConfiguredPermissionService(snapshots, management_grants, logger=logger)
 
 
 __all__ = [
@@ -305,6 +347,7 @@ __all__ = [
     "PermissionDecision",
     "PermissionAuditService",
     "PermissionLogger",
+    "ManagementPermissionService",
     "PermissionService",
     "PermissionSnapshot",
     "Principal",

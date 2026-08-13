@@ -11,6 +11,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import time
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -40,6 +41,7 @@ from .plugin_install import PluginInstallationService
 from .plugin_sources import PluginSource, PluginSourceStore
 from .plugin_store import RuntimeGenerationStore
 from .profiles import ProfileManifest, ProfileStore
+from .terminal import run_local_console, supports_local_console
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -250,6 +252,8 @@ def _init(directory: str, non_interactive: bool, locale: str) -> int:
                 data_dir=plan.data_dir,
                 cache_dir=plan.cache_dir,
                 logging_level=plan.logging_level,
+                logging_console=plan.logging_console,
+                logging_json_lines=plan.logging_json_lines,
                 payload_mode=plan.payload_mode,
                 payload_exclude_runtimes=plan.payload_exclude_runtimes,
                 locale=selection.locale,
@@ -649,13 +653,31 @@ async def _run_until_signal(
         else:
             async_handlers.append(signum)
 
+    app.set_stop_callback(request_stop)
     started = False
+    console_task: asyncio.Task[None] | None = None
+    started_at = time.perf_counter()
     try:
         await app.start()
         started = True
+        startup_ms = (time.perf_counter() - started_at) * 1000
+        app.logger.info("LiteyukiBot startup completed in {:.2f} ms", startup_ms)
+        if supports_local_console(docker=ConfigWorkspace.is_docker()):
+            console_task = asyncio.create_task(
+                run_local_console(
+                    app.management.registry,
+                    stop_event,
+                    logger=app.logger,
+                    logging=settings.logging,
+                ),
+                name="local-management-console",
+            )
         await stop_event.wait()
     finally:
         try:
+            if console_task is not None:
+                console_task.cancel()
+                await asyncio.gather(console_task, return_exceptions=True)
             if started:
                 await app.stop()
         finally:
