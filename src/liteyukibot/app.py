@@ -25,6 +25,7 @@ from .events import ActionEnvelope, ActionResult, CallApi, EventBus, EventEnvelo
 from .functions import FUNCTION_DISPATCH_SERVICE, FunctionDispatcher
 from .http import HttpServer
 from .i18n import I18N_SERVICE, Translator
+from .instance_daemon import INSTANCE_DAEMON_SERVICE, InstanceDaemonService
 from .logging import Logger, configure_logging, get_logger, log_payload, shutdown_logging
 from .management import MANAGEMENT_SERVICE, KernelManagement, ManagementCaller, ManagementError
 from .plugin_store import RuntimeGenerationStore
@@ -257,6 +258,12 @@ class LiteyukiApp:
             provider="liteyukibot.kernel",
         )
         self.services.provide(MANAGEMENT_SERVICE, self.management, provider="liteyukibot.kernel")
+        if (instance_daemon := InstanceDaemonService.from_environment()) is not None:
+            self.services.provide(
+                INSTANCE_DAEMON_SERVICE,
+                instance_daemon,
+                provider="liteyukibot.kernel",
+            )
 
     def set_stop_callback(self, callback: Callable[[], None]) -> None:
         """Bind the host-owned shutdown signal used by the management console."""
