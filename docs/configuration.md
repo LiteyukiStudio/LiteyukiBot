@@ -82,9 +82,11 @@ liteyuki --workspace /srv/liteyuki init --non-interactive
 liteyuki --workspace /srv/liteyuki run
 ~~~
 
-`init` and `run` hold `.liteyuki/instance.lock` for the duration of the
-operation. A second process for the same workspace exits rather than replacing
-the active control descriptor. `liteyuki --version` is equivalent to
+Workspace-changing commands, including `init`, hold
+`.liteyuki/instance.lock` for the duration of the operation. A running kernel
+also holds `core.data_dir/instance.lock` for its full lifecycle. One resolved
+data directory can therefore belong to only one live kernel; concurrent bots
+must use distinct `core.data_dir` values. `liteyuki --version` is equivalent to
 `liteyuki version`.
 
 ## Instance Profiles
