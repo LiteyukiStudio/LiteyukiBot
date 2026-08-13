@@ -69,7 +69,7 @@ jobs:
           uv run python -m scripts.run_mofox_runtime_install
       - name: Capture baseline
         working-directory: LiteyukiBot
-        run: uv run python scripts/benchmark_v7.py --output benchmark.json
+        run: uv run python scripts/benchmark_v7.py --samples 3 --output benchmark.json
       - uses: actions/upload-artifact@v7
         with:
           name: v7-baseline-${{ matrix.os }}
