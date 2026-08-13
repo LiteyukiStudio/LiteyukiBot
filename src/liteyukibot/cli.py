@@ -132,6 +132,15 @@ def build_parser() -> argparse.ArgumentParser:
     instance_commands.add_parser("restart")
     logs = instance_commands.add_parser("logs")
     logs.add_argument("--lines", type=int, default=100)
+    dev = subcommands.add_parser("dev", help="local development-only daemon controls")
+    dev_commands = dev.add_subparsers(dest="dev_command", required=True)
+    dev_commands.add_parser("status")
+    dev_commands.add_parser("topology")
+    inject = dev_commands.add_parser("inject", help="publish one EventEnvelope JSON document")
+    inject.add_argument("--file", type=Path)
+    management = dev_commands.add_parser("command", help="run one local management command")
+    management.add_argument("line")
+    management.add_argument("--yes", action="store_true", help="confirm a dangerous management command")
     profile = subcommands.add_parser("profile", help="isolated runtime profile operations")
     profile_commands = profile.add_subparsers(dest="profile_command", required=True)
     stage = profile_commands.add_parser("stage")
@@ -174,6 +183,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             if delegated is not None:
                 return delegated
         settings = _load(workspace, args.config, args.overrides, args.instance)
+        if args.command == "dev":
+            return _development_command(args, settings, workspace)
         if args.command == "run":
             if args.daemon_worker:
                 return _run_worker(settings, workspace)
@@ -631,7 +642,20 @@ def _run(settings: AppSettings, workspace: ConfigWorkspace, args: argparse.Names
     environment = {"LITEYUKI_RUNTIME_SECRETS": json.dumps(secrets)}
     try:
         with _exclusive_daemon(paths):
-            return asyncio.run(InstanceDaemon(paths, settings.daemon, command, environment).run())
+            return asyncio.run(
+                InstanceDaemon(
+                    paths,
+                    settings.daemon,
+                    command,
+                    environment,
+                    worker_descriptor=settings.core.data_dir / "control.json",
+                    development=settings.development,
+                    watch_root=workspace.directory,
+                    validate_configuration=lambda: _validate_instance_configuration(
+                        workspace, args.config, args.overrides, args.instance
+                    ),
+                ).run()
+            )
     except KeyboardInterrupt:
         return 130
 
@@ -696,6 +720,15 @@ def _worker_runtime_secrets() -> dict[str, str]:
     return {key: value for key, value in decoded.items() if isinstance(key, str) and isinstance(value, str)}
 
 
+def _validate_instance_configuration(
+    workspace: ConfigWorkspace,
+    config_paths: Sequence[str],
+    overrides: Sequence[str],
+    instance_name: str,
+) -> None:
+    _load(workspace, config_paths, overrides, instance_name)
+
+
 def _detach_daemon(
     settings: AppSettings,
     workspace: ConfigWorkspace,
@@ -748,6 +781,38 @@ def _instance_command(args: argparse.Namespace) -> int:
     if command is None:
         raise RuntimeError(f"unknown instance command: {args.instance_command}")
     result = asyncio.run(request_control(selected.daemon_descriptor, command))
+    print(json.dumps(result, ensure_ascii=False, default=str))
+    return 0
+
+
+def _development_command(args: argparse.Namespace, settings: AppSettings, workspace: ConfigWorkspace) -> int:
+    if not settings.development.dev_mode:
+        raise PermissionError("development controls require development.dev_mode = true")
+    paths = InstancePaths.from_workspace(workspace, args.instance)
+    if args.dev_command == "status":
+        result = asyncio.run(request_control(paths.daemon_descriptor, "dev.status"))
+    elif args.dev_command == "topology":
+        result = asyncio.run(request_control(paths.daemon_descriptor, "dev.topology"))
+    elif args.dev_command == "inject":
+        raw = args.file.read_text(encoding="utf-8") if args.file is not None else sys.stdin.read()
+        try:
+            event = json.loads(raw)
+        except json.JSONDecodeError as error:
+            raise ValueError("development event input must be JSON") from error
+        if not isinstance(event, dict):
+            raise ValueError("development event input must be an object")
+        result = asyncio.run(request_control(paths.daemon_descriptor, "dev.event.inject", event=event))
+    elif args.dev_command == "command":
+        result = asyncio.run(
+            request_control(
+                paths.daemon_descriptor,
+                "dev.management.execute",
+                line=args.line,
+                confirmed=args.yes,
+            )
+        )
+    else:
+        raise RuntimeError(f"unknown development command: {args.dev_command}")
     print(json.dumps(result, ensure_ascii=False, default=str))
     return 0
 
