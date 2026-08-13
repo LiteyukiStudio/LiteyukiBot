@@ -7,6 +7,7 @@ import pytest
 from liteyukibot_permissions import (
     PERMISSION_SERVICE,
     PUBLIC,
+    ManagementPermissionService,
     PermissionAuditService,
     PermissionDecision,
     PermissionService,
@@ -14,9 +15,11 @@ from liteyukibot_permissions import (
     Principal,
     plugin,
 )
+from liteyukibot_permissions.service import create_permission_service
 
 from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope
 from liteyukibot.exceptions import PluginError, ServiceError
+from liteyukibot.management import MANAGEMENT_ADMIN, ManagementCaller
 from liteyukibot.testing import PluginTestHarness
 
 STATUS_READ = "liteyukibot.status.read"
@@ -49,6 +52,7 @@ def permission_config() -> dict[str, object]:
                 "capabilities": ["example.echo.use"],
             }
         ],
+        "management_grants": [{"id": "plugin.example", "capabilities": [MANAGEMENT_ADMIN]}],
     }
 
 
@@ -77,6 +81,7 @@ async def test_permission_service_resolves_roles_and_exact_capabilities(tmp_path
 async def test_permission_service_isolates_principals_and_anonymous_events(tmp_path: Path) -> None:
     async with PluginTestHarness(plugin, root=tmp_path, config=permission_config()) as harness:
         service = cast(PermissionService, harness.require_service(PERMISSION_SERVICE))
+        management_service = cast(ManagementPermissionService, service)
 
         for denied in (
             event(runtime_id="other"),
@@ -95,6 +100,12 @@ async def test_permission_service_isolates_principals_and_anonymous_events(tmp_p
         assert anonymous.capabilities == frozenset({PUBLIC})
         assert service.allows(event(actor_id=None), PUBLIC) is True
         assert service.allows(event(actor_id=None), STATUS_READ) is False
+        assert management_service.allows_management(
+            ManagementCaller("plugin.example", "plugin", frozenset()), MANAGEMENT_ADMIN
+        )
+        assert not management_service.allows_management(
+            ManagementCaller("plugin.other", "plugin", frozenset()), MANAGEMENT_ADMIN
+        )
 
 
 @pytest.mark.asyncio
@@ -270,6 +281,29 @@ async def test_permission_plugin_rejects_invalid_configuration(
 def test_permission_snapshot_requires_public_capability() -> None:
     with pytest.raises(ValueError, match="must include public"):
         PermissionSnapshot(None, frozenset(), frozenset())
+
+
+@pytest.mark.parametrize(
+    ("config", "message"),
+    [
+        (
+            {
+                "management_grants": [
+                    {"id": "runtime-a", "capabilities": [STATUS_READ]},
+                    {"id": "runtime-a", "capabilities": [PLUGIN_MANAGE]},
+                ]
+            },
+            "duplicates an earlier management caller",
+        ),
+        (
+            {"management_grants": [{"id": "runtime-a", "capabilities": [PUBLIC]}]},
+            "must not grant reserved capability public",
+        ),
+    ],
+)
+def test_management_grants_reject_duplicate_and_public_capability(config: dict[str, object], message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        create_permission_service(config)
 
 
 def test_permission_plugin_manifest_publishes_versioned_service() -> None:

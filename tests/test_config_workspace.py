@@ -16,7 +16,7 @@ def test_workspace_init_creates_current_valid_template(tmp_path: Path) -> None:
     path = workspace.initialize(payload_exclude_runtimes=("mofox",))
 
     assert path == tmp_path / "liteyuki.toml"
-    assert load_settings(path, environ={}).config_version == 1
+    assert load_settings(path, environ={}).config_version == 2
     assert load_settings(path, environ={}).logging.payload_exclude_runtimes == ("mofox",)
 
 
@@ -36,8 +36,8 @@ def test_outdated_workspace_config_is_backed_up_and_blocks_start(tmp_path: Path)
 
     backups = list((tmp_path / ".liteyuki" / "config-backups").glob("*/liteyuki.toml"))
     assert len(backups) == 1
-    template = tmp_path / ".liteyuki" / "config-upgrades" / "liteyuki.v1.toml"
-    assert "config_version = 1" in template.read_text(encoding="utf-8")
+    template = tmp_path / ".liteyuki" / "config-upgrades" / "liteyuki.v2.toml"
+    assert "config_version = 2" in template.read_text(encoding="utf-8")
 
 
 def test_workspace_upgrade_is_idempotent_until_explicit_refresh(tmp_path: Path) -> None:
@@ -58,7 +58,7 @@ def test_workspace_upgrade_is_idempotent_until_explicit_refresh(tmp_path: Path) 
 
 def test_future_workspace_config_is_not_backed_up(tmp_path: Path) -> None:
     config = tmp_path / "liteyuki.toml"
-    config.write_text("config_version = 2\n", encoding="utf-8")
+    config.write_text("config_version = 3\n", encoding="utf-8")
 
     with pytest.raises(ConfigurationError, match="newer than this kernel"):
         ConfigWorkspace(tmp_path).prepare()

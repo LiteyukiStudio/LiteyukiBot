@@ -175,8 +175,8 @@ def test_initializer_uses_locale_for_kernel_and_package_metadata(monkeypatch: py
         "数据目录",
         "缓存目录",
         "日志级别",
-        "日志载荷模式（metadata/full）",
-        "排除日志载荷的运行时 ID（以逗号分隔）",
+        "启用控制台日志 [Y/n]",
+        "启用 JSON Lines 日志 [y/N]",
     ]
     assert "Plugin consumer: 默认语言" in prompts
 

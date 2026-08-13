@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
+from typing import Any
 
 from yukilog import (
     ConsoleSink,
@@ -18,6 +20,7 @@ from yukilog import (
 )
 
 from .config import LoggingSettings
+from .config.redaction import redact_config
 
 
 def configure_logging(settings: LoggingSettings) -> Logger:
@@ -44,6 +47,26 @@ def shutdown_logging() -> None:
     shutdown()
 
 
+def log_payload(
+    logger: Logger,
+    settings: LoggingSettings,
+    *,
+    operation: str,
+    payload: Mapping[str, Any],
+    runtime_id: str | None = None,
+) -> None:
+    """Emit a redacted structured payload only when full payload logging is selected."""
+
+    if settings.payload_mode != "full" or (runtime_id is not None and runtime_id in settings.payload_exclude_runtimes):
+        return
+    logger.bind(
+        component="payload",
+        operation=operation,
+        runtime=runtime_id,
+        payload=redact_config(payload),
+    ).debug("payload recorded")
+
+
 def configure_runtime_child_logging() -> Logger:
     """Configure a child host from supervisor-provided logging environment."""
 
@@ -60,5 +83,6 @@ __all__ = [
     "configure_logging",
     "configure_runtime_child_logging",
     "get_logger",
+    "log_payload",
     "shutdown_logging",
 ]

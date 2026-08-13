@@ -21,6 +21,8 @@ from .protocol import (
     Heartbeat,
     Hello,
     JsonValue,
+    ManagementRequest,
+    ManagementResponse,
     ProtocolVersion,
     Ready,
     Welcome,
@@ -65,6 +67,7 @@ class RuntimeClient:
         self._pending_actions: dict[str, asyncio.Future[ActionResponse]] = {}
         self._pending_agent_tools: dict[str, asyncio.Future[AgentToolResponse]] = {}
         self._pending_controls: dict[str, asyncio.Future[ControlResponse]] = {}
+        self._pending_management: dict[str, asyncio.Future[ManagementResponse]] = {}
         self._closed = False
 
     @classmethod
@@ -146,6 +149,7 @@ class RuntimeClient:
                     self._fail_pending_actions(error)
                     self._fail_pending_agent_tools(error)
                     self._fail_pending_controls(error)
+                    self._fail_pending_management(error)
                     raise
                 if isinstance(message, ActionResponse):
                     future = self._pending_actions.pop(message.correlation_id, None)
@@ -161,6 +165,11 @@ class RuntimeClient:
                     control_future = self._pending_controls.pop(message.correlation_id, None)
                     if control_future is not None and not control_future.done():
                         control_future.set_result(message)
+                        continue
+                if isinstance(message, ManagementResponse):
+                    management_future = self._pending_management.pop(message.correlation_id, None)
+                    if management_future is not None and not management_future.done():
+                        management_future.set_result(message)
                         continue
                 return message
 
@@ -246,6 +255,24 @@ class RuntimeClient:
                 raise ConnectionError("runtime client is not connected")
             await write_message(writer, message)
 
+    async def execute_management(
+        self, correlation_id: str, command: str, timeout_seconds: float = 30.0
+    ) -> ManagementResponse:
+        if not command.strip() or timeout_seconds <= 0:
+            raise ValueError("management command and timeout must be positive")
+        if self.negotiated_protocol != 5 or "runtime.management.execute" not in self._capabilities:
+            raise RuntimeError("runtime client did not declare runtime.management.execute over protocol v5")
+        if correlation_id in self._pending_management:
+            raise ValueError(f"duplicate management correlation id: {correlation_id}")
+        future: asyncio.Future[ManagementResponse] = asyncio.get_running_loop().create_future()
+        self._pending_management[correlation_id] = future
+        try:
+            await self.send(ManagementRequest(correlation_id=correlation_id, command=command))
+            async with asyncio.timeout(timeout_seconds):
+                return await future
+        finally:
+            self._pending_management.pop(correlation_id, None)
+
     async def close(self) -> None:
         if self._closed:
             return
@@ -253,6 +280,7 @@ class RuntimeClient:
         self._fail_pending_actions(ConnectionError("runtime client closed"))
         self._fail_pending_agent_tools(ConnectionError("runtime client closed"))
         self._fail_pending_controls(ConnectionError("runtime client closed"))
+        self._fail_pending_management(ConnectionError("runtime client closed"))
         heartbeat, self._heartbeat_task = self._heartbeat_task, None
         self._capabilities = frozenset()
         if heartbeat is not None:
@@ -283,6 +311,12 @@ class RuntimeClient:
             if not future.done():
                 future.set_exception(error)
         self._pending_controls.clear()
+
+    def _fail_pending_management(self, error: BaseException) -> None:
+        for future in self._pending_management.values():
+            if not future.done():
+                future.set_exception(error)
+        self._pending_management.clear()
 
     async def _heartbeat(self, interval: float) -> None:
         while True:

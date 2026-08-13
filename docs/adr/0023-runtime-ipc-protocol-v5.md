@@ -25,6 +25,14 @@ supervisor correlates exactly one result, applies a bounded timeout, fails the
 request on disconnect, and exposes only the pending-control count in runtime
 health.
 
+v5 also permits a child that declares `runtime.management.execute` to send a
+correlated `management` request for one existing kernel management command.
+The kernel binds the caller identity to the authenticated runtime ID and checks
+the requested command capability through the permission service. The runtime
+never supplies a capability, handler, shell expression, or arbitrary RPC name;
+unregistered commands and unauthorized calls fail closed. `management_result`
+returns redacted structured data only.
+
 This generation intentionally defines one command only:
 `agent.history.clear`. Its payload contains the exact source `runtime_id`,
 `bot_id`, and conversation ordering key. The kernel selects exactly one native
@@ -42,9 +50,9 @@ second check.
 
 V1 through v4 children remain supported where their existing capabilities
 allow. They cannot receive v5 controls. Protocol v5 is not a generic RPC
-mechanism: new control commands require an explicit reviewed wire contract,
-kernel authorization path, child validation, documentation, and regression
-coverage.
+mechanism: new control commands and management surfaces require an explicit
+reviewed wire contract, kernel authorization path, child validation,
+documentation, and regression coverage.
 
 ## Consequences
 

@@ -7,7 +7,7 @@ from typing import Any
 
 from tomli_w import dumps
 
-CONFIG_VERSION = 1
+CONFIG_VERSION = 2
 
 
 def render_config_template(
@@ -15,6 +15,8 @@ def render_config_template(
     data_dir: str = "data",
     cache_dir: str = "cache",
     logging_level: str = "INFO",
+    logging_console: bool = True,
+    logging_json_lines: bool = False,
     payload_mode: str = "metadata",
     payload_exclude_runtimes: Iterable[str] = (),
     locale: str = "auto",
@@ -35,8 +37,8 @@ def render_config_template(
         },
         "logging": {
             "level": logging_level,
-            "console": True,
-            "json_lines": False,
+            "console": logging_console,
+            "json_lines": logging_json_lines,
             "payload_mode": payload_mode,
             "payload_exclude_runtimes": list(payload_exclude_runtimes),
         },

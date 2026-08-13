@@ -141,6 +141,23 @@ class ControlResponse(WireModel):
     error: str | None = None
 
 
+class ManagementRequest(WireModel):
+    """A child request to execute one existing kernel management command."""
+
+    type: Literal["management"] = "management"
+    correlation_id: str = Field(min_length=1)
+    command: str = Field(min_length=1)
+
+
+class ManagementResponse(WireModel):
+    type: Literal["management_result"] = "management_result"
+    correlation_id: str = Field(min_length=1)
+    ok: bool
+    text: str = ""
+    data: JsonValue = None
+    error: str | None = None
+
+
 class ErrorMessage(WireModel):
     type: Literal["error"] = "error"
     code: str
@@ -164,6 +181,8 @@ type WireMessage = Annotated[
     | AgentToolResponse
     | ControlRequest
     | ControlResponse
+    | ManagementRequest
+    | ManagementResponse
     | ErrorMessage,
     Field(discriminator="type"),
 ]

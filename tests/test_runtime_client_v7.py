@@ -16,6 +16,8 @@ from liteyukibot.runtime.protocol import (
     EventMessage,
     Heartbeat,
     Hello,
+    ManagementRequest,
+    ManagementResponse,
     ProtocolVersion,
     Ready,
     Shutdown,
@@ -482,6 +484,61 @@ async def test_runtime_client_action_requires_ready_capability_and_positive_time
             await client.execute_action("missing-capability", {})
         with pytest.raises(ValueError, match="timeout must be positive"):
             await client.execute_action("invalid-timeout", {}, timeout_seconds=0)
+    finally:
+        await client.close()
+        await server_done
+        server.close()
+        await server.wait_closed()
+
+
+@pytest.mark.asyncio
+async def test_runtime_client_executes_capability_gated_management_command() -> None:
+    async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        assert isinstance(await read_message(reader), Hello)
+        await write_message(writer, Welcome())
+        await write_message(writer, ConfigMessage())
+        assert await read_message(reader) == Ready(capabilities=("runtime.management.execute",))
+        request = await read_message(reader)
+        assert request == ManagementRequest(correlation_id="management-1", command="status")
+        await write_message(writer, ManagementResponse(correlation_id="management-1", ok=True, text="ready"))
+        writer.close()
+        await writer.wait_closed()
+
+    server, port, server_done = await _server(handle)
+    client = _client(port)
+    try:
+        await client.connect()
+        await client.ready(("runtime.management.execute",))
+        management = asyncio.create_task(client.execute_management("management-1", "status"))
+        with pytest.raises(EOFError):
+            await client.receive()
+        response = await management
+        assert response == ManagementResponse(correlation_id="management-1", ok=True, text="ready")
+    finally:
+        await client.close()
+        await server_done
+        server.close()
+        await server.wait_closed()
+
+
+@pytest.mark.asyncio
+async def test_runtime_client_rejects_management_without_declared_capability() -> None:
+    async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        assert isinstance(await read_message(reader), Hello)
+        await write_message(writer, Welcome())
+        await write_message(writer, ConfigMessage())
+        assert await read_message(reader) == Ready()
+        assert await reader.read() == b""
+        writer.close()
+        await writer.wait_closed()
+
+    server, port, server_done = await _server(handle)
+    client = _client(port)
+    try:
+        await client.connect()
+        await client.ready()
+        with pytest.raises(RuntimeError, match="runtime.management.execute"):
+            await client.execute_management("management-1", "status")
     finally:
         await client.close()
         await server_done

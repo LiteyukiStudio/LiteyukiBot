@@ -6,6 +6,7 @@ from .plugin import create_plugin
 from .service import (
     PERMISSION_SERVICE,
     PUBLIC,
+    ManagementPermissionService,
     PermissionAuditService,
     PermissionDecision,
     PermissionService,
@@ -23,6 +24,7 @@ plugin = create_plugin(__version__)
 __all__ = [
     "PERMISSION_SERVICE",
     "PUBLIC",
+    "ManagementPermissionService",
     "PermissionAuditService",
     "PermissionDecision",
     "PermissionService",
