@@ -1,6 +1,6 @@
 # LiteyukiBot v7 Beta1 Contract
 
-Beta1 is published as `liteyukibot-v7==7.0.0b1`. It is a single-host,
+Beta1 is published as `liteyukibot-v7==7.0.0b2`. It is a single-host,
 protocol-neutral integration release: the kernel owns configuration, routing,
 permissions, deployment state, and IPC; platform/framework integrations run in
 supervised child processes and never exchange SDK objects with one another.
@@ -14,7 +14,7 @@ documentation tree and are not part of the maintained contract.
 Install a minimal local workspace with:
 
 ```bash
-uv tool install --python 3.14 "liteyukibot-v7==7.0.0b1"
+uv tool install --python 3.14 "liteyukibot-v7==7.0.0b2"
 liteyuki init
 liteyuki check
 ```
@@ -28,13 +28,22 @@ at install time. The Beta1 native OneBot v11 pair is
 uv tool install --python 3.14 --force \
   --with "liteyukibot-v7-runtime-adapter==0.1.0a2" \
   --with "liteyukibot-v7-adapter-onebot==0.1.0a1" \
-  "liteyukibot-v7==7.0.0b1"
+  "liteyukibot-v7==7.0.0b2"
 ```
 
 Each separately distributed runtime has its own version. Do not substitute an
 arbitrary latest version; use the tested set named here or in the release
 notes. Project maintainers may instead add the same requirements to their
 project with `uv add`, then invoke `uv run liteyuki ...`.
+
+The experimental external Satori v1 gateway client uses the same adapter host:
+
+```bash
+uv tool install --python 3.14 --force \
+  --with "liteyukibot-v7-runtime-adapter==0.1.0a2" \
+  --with "liteyukibot-v7-adapter-satori==0.1.0a2" \
+  "liteyukibot-v7==7.0.0b2"
+```
 
 The repository CI already builds the root wheel, installs it via an isolated
 `uv tool` directory, and runs `version`, non-interactive `init`, and `check` on
