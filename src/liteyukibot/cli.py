@@ -37,6 +37,7 @@ from .config.vault import SecretVault
 from .control import ControlError, request_control
 from .exceptions import LiteyukiError
 from .init_wizard import WizardCancelled, build_custom_initialization_plan, run_init_wizard
+from .instances import DEFAULT_INSTANCE, InstancePaths
 from .plugin_install import PluginInstallationService
 from .plugin_sources import PluginSource, PluginSourceStore
 from .plugin_store import RuntimeGenerationStore
@@ -48,6 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="liteyuki")
     parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument("--workspace", default=".", metavar="PATH", help="project workspace directory")
+    parser.add_argument("--instance", default=DEFAULT_INSTANCE, metavar="NAME", help="named isolated instance")
     parser.add_argument("--config", action="append", default=[], metavar="PATH")
     parser.add_argument("--set", action="append", default=[], dest="overrides", metavar="KEY=VALUE")
     subcommands = parser.add_subparsers(dest="command", required=True)
@@ -158,7 +160,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             delegated = _delegate_to_active_profile(workspace, command_line)
             if delegated is not None:
                 return delegated
-        settings = _load(workspace, args.config, args.overrides)
+        settings = _load(workspace, args.config, args.overrides, args.instance)
         if args.command == "run":
             return _run(settings, workspace)
         if args.command in {"check", "config"}:
@@ -214,13 +216,21 @@ def _delegate_to_active_profile(workspace: ConfigWorkspace, command_line: Sequen
     ).returncode
 
 
-def _load(workspace: ConfigWorkspace, config_paths: Sequence[str], overrides: Sequence[str]) -> AppSettings:
+def _load(
+    workspace: ConfigWorkspace,
+    config_paths: Sequence[str],
+    overrides: Sequence[str],
+    instance_name: str = DEFAULT_INSTANCE,
+) -> AppSettings:
     primary = workspace.prepare()
-    return load_settings(
+    paths = InstancePaths.from_workspace(workspace, instance_name)
+    settings = load_settings(
         primary,
         config_paths=config_paths,
+        instance_config_paths=paths.overlay_paths(),
         cli_overrides=overrides,
     )
+    return paths.apply_storage(settings)
 
 
 def _init(directory: str, non_interactive: bool, locale: str) -> int:
@@ -485,12 +495,15 @@ def _config_explain(args: argparse.Namespace) -> int:
 
 
 def _inspect(args: argparse.Namespace) -> ConfigInspection:
-    primary = ConfigWorkspace(args.workspace).prepare()
-    return inspect_settings(
-        primary,
+    workspace = ConfigWorkspace(args.workspace)
+    paths = InstancePaths.from_workspace(workspace, args.instance)
+    inspection = inspect_settings(
+        workspace.prepare(),
         config_paths=args.config,
+        instance_config_paths=paths.overlay_paths(),
         cli_overrides=args.overrides,
     )
+    return ConfigInspection(paths.apply_storage(inspection.settings), inspection.provenance)
 
 
 def _vault(args: argparse.Namespace) -> int:

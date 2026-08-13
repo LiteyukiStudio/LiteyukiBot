@@ -59,7 +59,7 @@ def test_config_show_and_explain_redact_sensitive_values(
 ) -> None:
     config = tmp_path / "liteyuki.toml"
     config.write_text(
-        'config_version = 2\n[plugins.config.demo]\napi_key = "live-value"\n',
+        'config_version = 3\n[plugins.config.demo]\napi_key = "live-value"\n',
         encoding="utf-8",
     )
     monkeypatch.chdir(tmp_path)
