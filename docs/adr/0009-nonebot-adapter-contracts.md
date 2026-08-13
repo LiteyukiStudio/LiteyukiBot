@@ -102,6 +102,11 @@ a dedicated CI job that installs the runtime package with its OneBot and Satori
 extras; the normal three-platform quality matrix continues to prove the minimal
 kernel installation.
 
+Native adapter deployments and NoneBot deployments are both supported, but one
+account has exactly one ingress owner. The AstrBot and MoFox headless bridges
+consume portable events and emit portable actions; they do not activate an
+upstream platform adapter for the same account.
+
 This record does not promise a portable notice/request taxonomy, arbitrary
 cross-adapter media conversion, automatic file upload, user-ID-based Satori
 direct-message creation, or support for every future adapter version.

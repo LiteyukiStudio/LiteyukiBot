@@ -19,7 +19,12 @@ class MoFoxEventInput:
     conversation_type: str
     actor_id: str
     actor_name: str | None
-    text: str
+    message: Message
+    raw: dict[str, object]
+
+    @property
+    def text(self) -> str:
+        return self.message.plain_text
 
 
 def to_mofox_event_input(event: EventEnvelope) -> MoFoxEventInput:
@@ -35,7 +40,8 @@ def to_mofox_event_input(event: EventEnvelope) -> MoFoxEventInput:
         conversation_type=event.conversation.type,
         actor_id="" if actor is None else actor.id,
         actor_name=None if actor is None else actor.display_name,
-        text=event.message.plain_text,
+        message=event.message,
+        raw=event.model_dump(mode="json")["raw"],
     )
 
 
@@ -67,20 +73,38 @@ def to_mofox_envelope(value: MoFoxEventInput) -> dict[str, Any]:
     return {
         "direction": "incoming",
         "message_info": message_info,
-        "message_segment": [{"type": "text", "data": value.text}],
-        "raw_message": {"liteyuki_runtime": value.runtime_id, "adapter": value.adapter},
+        "message_segment": [_to_mofox_segment(segment) for segment in value.message.segments],
+        "raw_message": {
+            "liteyuki_runtime": value.runtime_id,
+            "adapter": value.adapter,
+            "source": value.raw,
+        },
     }
 
 
-def to_send_action(event: EventEnvelope, text: str) -> ActionEnvelope:
-    if not text:
-        raise ValueError("MoFox output text must not be empty")
+def _to_mofox_segment(segment: Segment) -> dict[str, Any]:
+    """Preserve portable segments while matching MoFox's scalar text wire shape."""
+
+    data = segment.model_dump(mode="json")["data"]
+    assert isinstance(data, dict)
+    if segment.type == "text":
+        return {"type": "text", "data": data["text"]}
+    return {"type": segment.type, "data": data}
+
+
+def to_send_action(event: EventEnvelope, message: Message | str) -> ActionEnvelope:
+    if isinstance(message, str):
+        if not message:
+            raise ValueError("MoFox output text must not be empty")
+        message = Message(segments=(Segment(type="text", data={"text": message}),))
+    if not message.segments:
+        raise ValueError("MoFox output message must not be empty")
     return ActionEnvelope(
         event_id=event.id,
         runtime_id=event.runtime_id,
         bot_id=event.bot_id,
         action=SendMessage(
-            message=Message(segments=(Segment(type="text", data={"text": text}),)),
+            message=message,
             conversation=event.conversation,
             reply_token=event.reply_token,
         ),

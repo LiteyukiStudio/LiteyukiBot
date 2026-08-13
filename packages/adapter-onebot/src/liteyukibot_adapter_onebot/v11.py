@@ -22,12 +22,15 @@ from liteyukibot.events import (
     ActorRef,
     CallApi,
     ConversationRef,
+    EditMessage,
     EventEnvelope,
     Message,
     Segment,
     SendMessage,
 )
 from liteyukibot.runtime.protocol import JsonValue, json_value
+
+from .websocket import OneBotWebSocketError, OneBotWebSocketTransport
 
 _MAX_HEADER_BYTES = 16 * 1024
 _MAX_BODY_BYTES = 1024 * 1024
@@ -52,17 +55,32 @@ class OneBotV11Connection(AdapterConnection):
         self._event_path = _config_path(context.config, "event_path", "/onebot/v11/http")
         self._api_root = _config_api_root(context.config)
         self._access_token = _config_optional_string(context.config, "access_token")
+        self._transport_mode = _config_transport(context.config)
         if not _is_loopback_host(self._event_host) and not self._access_token:
             raise OneBotV11Error("non-loopback OneBot HTTP listeners require access_token")
         self._server: asyncio.Server | None = None
         self._emit: EventEmitter | None = None
         self._reply_routes: OrderedDict[str, ConversationRef] = OrderedDict()
         self._request_slots = asyncio.BoundedSemaphore(_MAX_CONCURRENT_REQUESTS)
+        self._websocket: OneBotWebSocketTransport | None = None
 
     async def start(self, emit: EventEmitter) -> None:
-        if self._server is not None:
+        if self._server is not None or self._websocket is not None:
             raise RuntimeError("OneBot v11 connection is already started")
         self._emit = emit
+        if self._transport_mode != "http_post":
+            websocket = OneBotWebSocketTransport(
+                mode=self._transport_mode,
+                url=_config_optional_url(self.context.config, "ws_url"),
+                host=_config_optional_host(self.context.config, "ws_host"),
+                port=_config_optional_port(self.context.config, "ws_port"),
+                path=_config_path(self.context.config, "ws_path", "/onebot/v11/ws"),
+                access_token=self._access_token,
+                handle_event=self._handle_websocket_event,
+            )
+            await websocket.start()
+            self._websocket = websocket
+            return
         self._server = await asyncio.start_server(self._handle_request, self._event_host, self._event_port)
 
     async def execute(self, action: ActionEnvelope) -> JsonValue:
@@ -70,15 +88,29 @@ class OneBotV11Connection(AdapterConnection):
             return await self._send_message(action.action)
         if isinstance(action.action, CallApi):
             return await self._call_api(action.action.api, action.action.params)
+        if isinstance(action.action, EditMessage):
+            raise OneBotV11Error("OneBot v11 does not support edit_message")
         raise OneBotV11Error(f"unsupported OneBot v11 action {action.action.type!r}")
 
     async def close(self) -> None:
+        websocket, self._websocket = self._websocket, None
+        if websocket is not None:
+            await websocket.close()
         if self._server is not None:
             self._server.close()
             await self._server.wait_closed()
             self._server = None
         self._emit = None
         self._reply_routes.clear()
+
+    async def _handle_websocket_event(self, payload: Mapping[str, Any]) -> None:
+        _validate_self_id(payload, {}, self.context.bot_id)
+        event = _normalize_event(self.context, payload)
+        if event is not None:
+            self._remember_reply_route(event)
+            if self._emit is None:
+                raise RuntimeError("OneBot v11 connection has no event emitter")
+            await self._emit(event)
 
     async def _handle_request(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         try:
@@ -145,7 +177,13 @@ class OneBotV11Connection(AdapterConnection):
     async def _call_api(self, api: str, params: Mapping[str, Any]) -> JsonValue:
         if not _API_NAME.fullmatch(api):
             raise OneBotV11Error("OneBot API names must contain only ASCII letters, digits, and underscores")
-        response = await _post_json(self._api_root, api, params, self._access_token)
+        if self._websocket is None:
+            response = await _post_json(self._api_root, api, params, self._access_token)
+        else:
+            try:
+                response = await self._websocket.execute(api, params)
+            except OneBotWebSocketError as error:
+                raise OneBotV11Error(str(error)) from error
         if response.get("status") != "ok" or response.get("retcode") != 0:
             raise OneBotV11Error(f"OneBot API {api!r} failed: {response.get('wording') or response.get('retcode')!r}")
         return json_value(response.get("data"))
@@ -493,6 +531,41 @@ def _config_path(config: Mapping[str, JsonValue], key: str, default: str) -> str
     if not value.startswith("/") or "?" in value or "#" in value:
         raise OneBotV11Error(f"adapter config {key!r} must be an absolute path without query or fragment")
     return value
+
+
+def _config_transport(config: Mapping[str, JsonValue]) -> str:
+    value = config.get("transport", "http_post")
+    if value not in {"http_post", "forward_websocket", "reverse_websocket"}:
+        raise OneBotV11Error("adapter config 'transport' must be http_post, forward_websocket, or reverse_websocket")
+    assert isinstance(value, str)
+    return value
+
+
+def _config_optional_url(config: Mapping[str, JsonValue], key: str) -> str | None:
+    value = config.get(key)
+    if value is None:
+        return None
+    if (
+        not isinstance(value, str)
+        or not value.startswith(("ws://", "wss://"))
+        or any(character.isspace() for character in value)
+    ):
+        raise OneBotV11Error(f"adapter config {key!r} must be a WebSocket URL")
+    return value
+
+
+def _config_optional_host(config: Mapping[str, JsonValue], key: str) -> str | None:
+    value = config.get(key)
+    if value is None:
+        return None
+    return _config_string(config, key, "")
+
+
+def _config_optional_port(config: Mapping[str, JsonValue], key: str) -> int | None:
+    value = config.get(key)
+    if value is None:
+        return None
+    return _config_port(config, key, 0)
 
 
 def _config_api_root(config: Mapping[str, JsonValue]) -> str:

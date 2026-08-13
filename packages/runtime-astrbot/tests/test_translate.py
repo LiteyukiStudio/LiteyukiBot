@@ -11,6 +11,7 @@ from liteyukibot_runtime_astrbot.host import (
     AstrBotRuntimeHost,
     _dispose_astrbot_global_database,
     _restore_child_logging,
+    _to_portable_astr_message,
 )
 from liteyukibot_runtime_astrbot.translate import to_astr_event_input, to_send_action
 
@@ -48,11 +49,47 @@ def test_astrbot_translation_preserves_source_identity_and_message_route() -> No
     assert action.action.reply_token == "reply-1"
 
 
+def test_astrbot_translation_retains_structured_message_and_raw_data() -> None:
+    event = _event().model_copy(
+        update={
+            "message": Message(
+                segments=(
+                    Segment(type="text", data={"text": "hello "}),
+                    Segment(type="mention", data={"user_id": "other"}),
+                    Segment(type="media", data={"media_type": "image", "url": "https://example.test/a.png"}),
+                )
+            ),
+            "raw": {"source": "adapter"},
+        }
+    )
+
+    translated = to_astr_event_input(event)
+
+    assert translated.message == event.message
+    assert translated.raw == {"source": "adapter"}
+    assert translated.text == "hello "
+
+
 def test_astrbot_translation_rejects_non_message_events() -> None:
     event = _event().model_copy(update={"message": None})
 
     with pytest.raises(ValueError, match="message events"):
         to_astr_event_input(event)
+
+
+def test_astrbot_output_mapping_preserves_portable_structure() -> None:
+    plain = type("Plain", (), {"text": "hello"})()
+    mention = type("At", (), {"qq": "user-1"})()
+    image = type("Image", (), {"url": "https://example.test/image.png", "file": ""})()
+    chain = type("Chain", (), {"chain": [plain, mention, image]})()
+
+    assert _to_portable_astr_message(chain) == Message(
+        segments=(
+            Segment(type="text", data={"text": "hello"}),
+            Segment(type="mention", data={"user_id": "user-1"}),
+            Segment(type="media", data={"media_type": "image", "url": "https://example.test/image.png"}),
+        )
+    )
 
 
 def _write_bridge_plugin(root: Path) -> None:
@@ -84,10 +121,10 @@ async def test_astrbot_upstream_pipeline_routes_a_managed_plugin_reply(tmp_path:
     _write_bridge_plugin(tmp_path)
     logger = RecordingCleanupLogger()
     engine = AstrBotHeadlessEngine(tmp_path, {}, logger)
-    sent: list[str] = []
+    sent: list[Message] = []
 
-    async def emit(text: str) -> None:
-        sent.append(text)
+    async def emit(message: Message) -> None:
+        sent.append(message)
 
     event = _event().model_copy(
         update={"message": Message(segments=(Segment(type="text", data={"text": "/bridge_probe"}),))}
@@ -98,7 +135,7 @@ async def test_astrbot_upstream_pipeline_routes_a_managed_plugin_reply(tmp_path:
     finally:
         await engine.close()
 
-    assert sent == ["astrbot bridge reply"]
+    assert sent == [Message(segments=(Segment(type="text", data={"text": "astrbot bridge reply"}),))]
 
 
 class FakeClient:
@@ -122,9 +159,9 @@ class FakeClient:
 
 
 class FakeEngine:
-    async def process(self, event: EventEnvelope, sink: Callable[[str], Awaitable[None]]) -> None:
+    async def process(self, event: EventEnvelope, sink: Callable[[Message], Awaitable[None]]) -> None:
         assert event.id == "event-1"
-        await sink("AstrBot response")
+        await sink(Message(segments=(Segment(type="text", data={"text": "AstrBot response"}),)))
 
     async def close(self) -> None:
         return None

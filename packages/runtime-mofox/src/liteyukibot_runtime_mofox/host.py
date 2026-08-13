@@ -15,7 +15,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-from liteyukibot.events import EventEnvelope
+from liteyukibot.events import EventEnvelope, Message, Segment
 from liteyukibot.logging import configure_runtime_child_logging, get_logger
 from liteyukibot.runtime import RuntimeClient
 from liteyukibot.runtime.projection import project_managed_plugins
@@ -31,7 +31,7 @@ from liteyukibot.runtime.protocol import (
 
 from .translate import to_mofox_envelope, to_mofox_event_input, to_send_action
 
-type TextSink = Callable[[str], Awaitable[None]]
+type MessageSink = Callable[[Message], Awaitable[None]]
 
 NEO_MOFOX_REQUIREMENT = (
     "neo-mofox @ git+https://github.com/MoFox-Studio/Neo-MoFox.git@"
@@ -42,7 +42,7 @@ NEO_MOFOX_REQUIREMENT = (
 class _HeadlessMessageSender:
     """MoFox sender replacement that forwards output to the active Liteyuki event."""
 
-    def __init__(self, sink: ContextVar[TextSink | None]) -> None:
+    def __init__(self, sink: ContextVar[MessageSink | None]) -> None:
         self._sink = sink
 
     async def send_message(self, message: Any, adapter_signature: str | None = None) -> bool:
@@ -50,14 +50,40 @@ class _HeadlessMessageSender:
         sink = self._sink.get()
         if sink is None:
             raise RuntimeError("MoFox attempted to send outside an active Liteyuki event")
+        structured = _portable_message_from_mofox(message)
+        if structured is not None:
+            await sink(structured)
+            return True
         text = getattr(message, "processed_plain_text", None)
         if not isinstance(text, str) or not text:
             content = getattr(message, "content", "")
             text = content if isinstance(content, str) else str(content)
         if not text:
             return True
-        await sink(text)
+        await sink(Message(segments=(Segment(type="text", data={"text": text}),)))
         return True
+
+
+def _portable_message_from_mofox(message: Any) -> Message | None:
+    """Use an upstream structured reply when it matches the portable schema."""
+
+    candidate = getattr(message, "message_segment", None)
+    if candidate is None:
+        candidate = getattr(message, "content", None)
+    if not isinstance(candidate, list) or not candidate:
+        return None
+    segments: list[Segment] = []
+    for value in candidate:
+        if not isinstance(value, Mapping) or not isinstance(value.get("type"), str):
+            raise ValueError("MoFox structured output segments must be objects with type")
+        data = value.get("data")
+        if value["type"] == "text" and isinstance(data, str):
+            segments.append(Segment(type="text", data={"text": data}))
+            continue
+        if not isinstance(data, Mapping):
+            raise ValueError("MoFox structured output segment data must be an object")
+        segments.append(Segment.model_validate({"type": value["type"], "data": dict(data)}))
+    return Message(segments=tuple(segments))
 
 
 class MoFoxHeadlessEngine:
@@ -68,7 +94,7 @@ class MoFoxHeadlessEngine:
         self.options = options
         self._bot: Any | None = None
         self._previous_cwd: Path | None = None
-        self._sink: ContextVar[TextSink | None] = ContextVar("liteyuki_mofox_sink", default=None)
+        self._sink: ContextVar[MessageSink | None] = ContextVar("liteyuki_mofox_sink", default=None)
 
     async def start(self) -> None:
         root = self.state_directory / "mofox"
@@ -93,12 +119,12 @@ class MoFoxHeadlessEngine:
             self._restore_working_directory()
             raise
 
-    async def process(self, event: EventEnvelope, sink: TextSink) -> None:
+    async def process(self, event: EventEnvelope, sink: MessageSink) -> None:
         bot = self._bot
         if bot is None or bot.message_receiver is None:
             raise RuntimeError("MoFox headless lifecycle is not started")
         translated = to_mofox_event_input(event)
-        token: Token[TextSink | None] = self._sink.set(sink)
+        token: Token[MessageSink | None] = self._sink.set(sink)
         try:
             await bot.message_receiver.receive_envelope(
                 to_mofox_envelope(translated),
@@ -198,8 +224,8 @@ class MoFoxRuntimeHost:
         event: EventEnvelope,
         trace: EventTrace | None,
     ) -> None:
-        async def emit(text: str) -> None:
-            action = to_send_action(event, text)
+        async def emit(message: Message) -> None:
+            action = to_send_action(event, message)
             result = await self.client.execute_action(
                 action.action_id,
                 action.model_dump(mode="json"),

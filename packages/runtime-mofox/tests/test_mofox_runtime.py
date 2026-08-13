@@ -57,6 +57,28 @@ def test_mofox_translation_preserves_source_identity_and_wire_route() -> None:
     assert action.action.reply_token == "reply-1"
 
 
+def test_mofox_translation_preserves_non_text_segments_and_raw_source() -> None:
+    event = _event().model_copy(
+        update={
+            "message": Message(
+                segments=(
+                    Segment(type="mention", data={"user_id": "other"}),
+                    Segment(type="media", data={"media_type": "image", "url": "https://example.test/a.png"}),
+                )
+            ),
+            "raw": {"source": "adapter"},
+        }
+    )
+
+    envelope = to_mofox_envelope(to_mofox_event_input(event))
+
+    assert envelope["message_segment"] == [
+        {"type": "mention", "data": {"user_id": "other"}},
+        {"type": "media", "data": {"media_type": "image", "url": "https://example.test/a.png"}},
+    ]
+    assert envelope["raw_message"]["source"] == {"source": "adapter"}
+
+
 def test_mofox_translation_rejects_non_message_events() -> None:
     with pytest.raises(ValueError, match="message events"):
         to_mofox_event_input(_event().model_copy(update={"message": None}))
@@ -151,10 +173,10 @@ async def test_mofox_upstream_receiver_routes_a_managed_plugin_reply(tmp_path: P
 
     _write_bridge_plugin(tmp_path)
     engine = MoFoxHeadlessEngine(tmp_path, {})
-    sent: list[str] = []
+    sent: list[Message] = []
 
-    async def emit(text: str) -> None:
-        sent.append(text)
+    async def emit(message: Message) -> None:
+        sent.append(message)
 
     event = _event().model_copy(
         update={"message": Message(segments=(Segment(type="text", data={"text": "/bridge_probe"}),))}
@@ -165,7 +187,7 @@ async def test_mofox_upstream_receiver_routes_a_managed_plugin_reply(tmp_path: P
     finally:
         await engine.close()
 
-    assert sent == ["mofox bridge reply"]
+    assert sent == [Message(segments=(Segment(type="text", data={"text": "mofox bridge reply"}),))]
 
 
 class FakeClient:
@@ -189,9 +211,9 @@ class FakeClient:
 
 
 class FakeEngine:
-    async def process(self, event: EventEnvelope, sink: Callable[[str], Awaitable[None]]) -> None:
+    async def process(self, event: EventEnvelope, sink: Callable[[Message], Awaitable[None]]) -> None:
         assert event.id == "event-1"
-        await sink("MoFox response")
+        await sink(Message(segments=(Segment(type="text", data={"text": "MoFox response"}),)))
 
     async def close(self) -> None:
         return None

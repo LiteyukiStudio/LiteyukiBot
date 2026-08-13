@@ -30,11 +30,12 @@ of normalized `Segment` values. The initial segment kinds are `text`, `media`,
 `mention`, `reply`, and `adapter`; text segments require `data.text` to be a
 string. `raw` and segment data retain adapter-specific JSON-safe values.
 
-The only v1 actions are discriminated by `action.type`:
+The current pre-stable v1 actions are discriminated by `action.type`:
 
 | Action | Required payload |
 | --- | --- |
 | `send_message` | `message` plus `conversation` or `reply_token`. |
+| `edit_message` | `message_id` plus replacement `message`; the adapter may require `conversation`. |
 | `call_api` | Non-empty `api` and JSON-safe `params`. |
 
 `ActionEnvelope` carries `schema_version`, `action_id`, optional `event_id`,
@@ -58,6 +59,6 @@ Plugins may depend on the fields and outcomes above for v1. They must not depend
 on adapter-private object identity or mutate received mappings.
 
 Because v1 models reject unknown fields, additions to an existing envelope,
-action, result, or segment shape require a new schema version or an explicitly
-versioned parallel type. Removing fields or changing field semantics requires a
-new major API generation.
+action, result, or segment shape must update models, tests, and this record.
+ADR 0011 permits these breaking pre-stable changes directly; stable v7 will
+require a new schema version or explicitly versioned parallel type.

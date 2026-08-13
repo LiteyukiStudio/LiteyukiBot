@@ -17,7 +17,12 @@ class AstrEventInput:
     conversation_type: str
     actor_id: str
     actor_name: str | None
-    text: str
+    message: Message
+    raw: dict[str, object]
+
+    @property
+    def text(self) -> str:
+        return self.message.plain_text
 
 
 def to_astr_event_input(event: EventEnvelope) -> AstrEventInput:
@@ -33,19 +38,24 @@ def to_astr_event_input(event: EventEnvelope) -> AstrEventInput:
         conversation_type=event.conversation.type,
         actor_id="" if actor is None else actor.id,
         actor_name=None if actor is None else actor.display_name,
-        text=event.message.plain_text,
+        message=event.message,
+        raw=event.model_dump(mode="json")["raw"],
     )
 
 
-def to_send_action(event: EventEnvelope, text: str) -> ActionEnvelope:
-    if not text:
-        raise ValueError("AstrBot output text must not be empty")
+def to_send_action(event: EventEnvelope, message: Message | str) -> ActionEnvelope:
+    if isinstance(message, str):
+        if not message:
+            raise ValueError("AstrBot output text must not be empty")
+        message = Message(segments=(Segment(type="text", data={"text": message}),))
+    if not message.segments:
+        raise ValueError("AstrBot output message must not be empty")
     return ActionEnvelope(
         event_id=event.id,
         runtime_id=event.runtime_id,
         bot_id=event.bot_id,
         action=SendMessage(
-            message=Message(segments=(Segment(type="text", data={"text": text}),)),
+            message=message,
             conversation=event.conversation,
             reply_token=event.reply_token,
         ),
