@@ -1,0 +1,4 @@
+interface:
+  display_name: "Benchmark Tests"
+  short_description: "Run LiteyukiBot benchmark workloads and tests."
+  default_prompt: "Use $benchmark-tests to update LiteyukiBot benchmark coverage."

@@ -1,0 +1,175 @@
+"""Resource-backed dispatch to separately distributed Liteyuki function executors."""
+
+from __future__ import annotations
+
+import inspect
+from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass, field, replace
+from importlib import metadata
+from pathlib import PurePosixPath
+from typing import Any, Protocol
+
+from .resource_packs import ResourceCatalog, ResourceFile
+from .services import ServiceKey
+from .tasks import ManagedTasks
+
+FUNCTION_DISPATCH_SERVICE = ServiceKey("liteyukibot.functions", 1)
+
+
+class FunctionError(RuntimeError):
+    """Base error for resource function lookup and dispatch."""
+
+
+class FunctionNotFoundError(FunctionError):
+    pass
+
+
+class FunctionExecutorUnavailableError(FunctionError):
+    pass
+
+
+class FunctionRecursionError(FunctionError):
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class FunctionDocument:
+    id: str
+    extension: str
+    resource: ResourceFile
+
+    def read_text(self) -> str:
+        return self.resource.read_text()
+
+
+@dataclass(frozen=True, slots=True)
+class FunctionCall:
+    id: str
+    arguments: Mapping[str, Any]
+    positional: tuple[str, ...] = ()
+    capabilities: object | None = None
+    task_owner: ManagedTasks | None = field(default=None, repr=False, compare=False)
+
+
+type FunctionInvoker = Callable[[FunctionCall], Awaitable[object]]
+
+
+class FunctionExecutor(Protocol):
+    extensions: tuple[str, ...]
+
+    def execute(
+        self,
+        document: FunctionDocument,
+        call: FunctionCall,
+        invoke: FunctionInvoker,
+    ) -> Awaitable[object]: ...
+
+
+class FunctionCatalog:
+    def __init__(self, resources: ResourceCatalog) -> None:
+        documents: dict[str, FunctionDocument] = {}
+        for path in resources.paths("functions"):
+            relative = path.removeprefix("functions/")
+            suffix = PurePosixPath(relative).suffix.lower()
+            if not suffix:
+                continue
+            identifier = relative[: -len(suffix)]
+            if identifier in documents:
+                raise FunctionError(f"multiple resources define function {identifier!r}")
+            documents[identifier] = FunctionDocument(identifier, suffix, resources.require(path))
+        self._documents = documents
+
+    def require(self, identifier: str) -> FunctionDocument:
+        try:
+            return self._documents[identifier]
+        except KeyError as error:
+            raise FunctionNotFoundError(f"function does not exist: {identifier}") from error
+
+    def snapshot(self) -> tuple[FunctionDocument, ...]:
+        return tuple(self._documents[key] for key in sorted(self._documents))
+
+
+class FunctionDispatcher:
+    ENTRY_POINT_GROUP = "liteyukibot.function_executors"
+
+    def __init__(
+        self,
+        resources: ResourceCatalog,
+        executors: Mapping[str, FunctionExecutor] | None = None,
+        *,
+        task_owner: ManagedTasks | None = None,
+    ) -> None:
+        self.catalog = FunctionCatalog(resources)
+        self._executors = dict(executors) if executors is not None else self.discover_executors()
+        self._task_owner = task_owner or ManagedTasks("functions")
+        self._closed = False
+
+    @property
+    def background_task_count(self) -> int:
+        return self._task_owner.count
+
+    @classmethod
+    def discover_executors(cls) -> dict[str, FunctionExecutor]:
+        executors: dict[str, FunctionExecutor] = {}
+        for entry in metadata.entry_points(group=cls.ENTRY_POINT_GROUP):
+            candidate = entry.load()
+            executor = (
+                candidate()
+                if inspect.isclass(candidate) or (callable(candidate) and not hasattr(candidate, "execute"))
+                else candidate
+            )
+            if not hasattr(executor, "extensions") or not callable(getattr(executor, "execute", None)):
+                raise FunctionError(f"function executor {entry.name!r} has an invalid contract")
+            for extension in executor.extensions:
+                normalized = extension.lower() if extension.startswith(".") else "." + extension.lower()
+                if normalized in executors:
+                    raise FunctionError(f"multiple function executors handle {normalized}")
+                executors[normalized] = executor
+        return executors
+
+    async def dispatch(self, call: FunctionCall) -> object:
+        if self._closed:
+            raise FunctionError("function dispatcher is closed")
+        return await self._dispatch(call, ())
+
+    async def aclose(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        await self._task_owner.stop()
+
+    async def _dispatch(self, call: FunctionCall, stack: tuple[str, ...]) -> object:
+        call = replace(call, task_owner=self._task_owner)
+        document = self.catalog.require(call.id)
+        if document.id in stack:
+            cycle = " -> ".join((*stack, document.id))
+            raise FunctionRecursionError(f"function recursion is not allowed: {cycle}")
+        if len(stack) >= 32:
+            raise FunctionRecursionError("function nesting exceeds the maximum depth of 32")
+        executor = self._executors.get(document.extension)
+        if executor is None:
+            raise FunctionExecutorUnavailableError(
+                f"no executor is installed for {document.extension} functions; install a matching function package"
+            )
+
+        async def invoke(nested_call: FunctionCall) -> object:
+            return await self._dispatch(nested_call, (*stack, document.id))
+
+        result = executor.execute(document, call, invoke)
+        if not inspect.isawaitable(result):
+            raise FunctionError("function executor execute() must return an awaitable")
+        return await result
+
+
+__all__ = [
+    "FUNCTION_DISPATCH_SERVICE",
+    "FunctionCall",
+    "FunctionCatalog",
+    "FunctionDispatcher",
+    "FunctionDocument",
+    "FunctionError",
+    "FunctionExecutor",
+    "FunctionExecutorUnavailableError",
+    "FunctionNotFoundError",
+    "FunctionRecursionError",
+]

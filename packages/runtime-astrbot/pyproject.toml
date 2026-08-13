@@ -1,0 +1,28 @@
+[project]
+name = "liteyukibot-v7-runtime-astrbot"
+version = "0.1.0a7"
+description = "Headless AstrBot agent runtime for LiteyukiBot v7."
+readme = "README.md"
+requires-python = ">=3.14"
+license = "AGPL-3.0-or-later"
+authors = [
+    { name = "LiteyukiStudio" },
+]
+dependencies = [
+    "liteyukibot-v7>=7.0.0a15,<8",
+    "AstrBot==4.27.2",
+]
+
+[project.entry-points."liteyukibot.runtimes"]
+astrbot = "liteyukibot_runtime_astrbot:runtime_plugin"
+
+[build-system]
+requires = ["uv_build>=0.11.32,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+liteyukibot-v7 = { workspace = true }
+
+[tool.uv.build-backend]
+module-root = "src"
+module-name = "liteyukibot_runtime_astrbot"

@@ -1,70 +1,161 @@
 <div align="center">
 
-[//]: # (<img  src="https://cdn.liteyuki.org/logos/bot.svg" style="align-content: center; width: 50%; margin-top:10%;" alt="a">)
 [![][banner]][liteyuki-link]
-<h2><a href="https://bot.liteyuki.org"> <span style="color: #a2d8f4">轻雪</span> <span style="color: #d0e9ff">6</span></a></h2>
-<h4> <span style="color: #a2d8f4">✨ 轻量，高效，易于扩展✨</span></h4>
+<h2><a href="https://bot.liteyuki.org"><span style="color: #a2d8f4">LiteyukiBot</span> <span style="color: #d0e9ff">v7</span></a></h2>
+<h4><span style="color: #a2d8f4">Protocol-neutral, multi-runtime chatbot kernel</span></h4>
 
-[![][Liteyuki6.0]][liteyuki-link]
-[![][Python3.10+]][python-link]
+[![][Liteyuki7]][liteyuki-link]
+[![][Python3.14]][python-link]
 [![][Usage]][usage-link]
 [![][Repo]][repo-link]
 [![][Github]][github-link]
-[![][LiteyukiLab]][liteyukilab-link]
-![docs uptime](https://uptime.liteyuki.org/api/badge/8/uptime?labelPrefix=Docs+&style=for-the-badge)
 
 </div>
 
-## 关于
+## About
 
-访问[轻雪6.0](https://bot.liteyuki.org)主页获取更多信息
+LiteyukiBot v7 is a CPython 3.14 chatbot kernel. It owns configuration,
+native-plugin lifecycle, routing, permissions, logging, and local runtime IPC.
+Framework integrations run as separately installed supervised child runtimes;
+they exchange frozen Event and Action models with the kernel rather than SDK
+objects.
 
-## 特点及优势
+The default branch is the maintained LiteyukiBot v6 line. This `v7` branch is
+an independent rewrite. Its current published release is
+`liteyukibot-v7==7.0.0b1`.
 
-- 原生支持与任意`Python`Bot框架互联，有良好的生态支持
-- 开箱即用，无需复杂配置
-- 集成包管理器，支持一键安装插件
-- 自定义主题支持，满足审美需求
-- 国际化支持，支持多种语言
-- 高性能，500插件2s内启动
+## Features
 
-## 服务及支持(敬请期待)
-- 提供Liteyuki Cloud官方的容器化托管服务，无需担心服务器问题
+- interactive or non-interactive project initialization through `liteyuki`;
+- immutable TOML/JSON configuration with includes, environment variables, CLI
+  overrides, provenance inspection, encrypted runtime secrets, and recovery
+  material for configuration upgrades;
+- native plugins with explicit entry points, lifecycle hooks, services,
+  managed tasks, private storage, resource packs, and localized text;
+- authenticated loopback IPC, child-runtime supervision, per-conversation
+  event ordering, bounded concurrency, and routed protocol-neutral actions;
+- retained and verifiable runtime plugin generations with source indexes,
+  rollback, disable/enable, and garbage collection commands;
+- first-party command, permission, resource, profile, essential-command, and
+  agent packages;
+- bounded LiteyukiBot v6 compatibility and separate NoneBot2, native OneBot
+  v11, AstrBot, and Neo-MoFox runtime packages.
 
-**👇所有内容请访问👇**: [bot.liteyuki.org](https://bot.liteyuki.org)
+## Install And Run
 
-## 参考及鸣谢
-- [nonebot-plugin-uninfo](https://github.com/RF-Tar-Railt/nonebot-plugin-uninfo)为会话部分用户信息提供了参考
-- [nonebot-plugin-alconna](https://github.com/nonebot/plugin-alconna/)为消息部分提供了参考
+Requirements:
 
-## 其他
-- 本仓库是一个monorepo，包含了框架，文档，测试，内置资源包，内置插件，预设配置等
+- CPython 3.14 or later;
+- [uv][uv-link].
 
+Install the command-line tool and create a workspace:
 
-[Liteyuki6.0]: https://img.shields.io/badge/Liteyuki-6.0-blue?style=for-the-badge
+```bash
+uv tool install --python 3.14 liteyukibot-v7
+mkdir my-bot
+liteyuki --workspace my-bot init
+liteyuki --workspace my-bot check
+liteyuki --workspace my-bot run
+```
 
-[Python3.10+]: https://img.shields.io/badge/Python-3.10+-blue?style=for-the-badge
+`liteyukibot`, `liteyuki`, and `ly` are equivalent command names. Use
+`init --non-interactive --locale en-US` for automation. The generated
+`liteyuki.toml` is the workspace configuration; see
+[configuration operations](docs/configuration.md) for secrets, profiles,
+configuration precedence, and recovery procedures.
 
-[Usage]: https://img.shields.io/badge/主页-文档-blue?style=for-the-badge
+To work from a checkout instead of a tool installation:
 
-[Repo]: https://img.shields.io/badge/官方托管-仓库-blue?style=for-the-badge
+```bash
+uv sync --locked --all-packages
+uv run liteyuki init
+uv run liteyuki check
+uv run liteyuki run
+```
 
-[Github]: https://img.shields.io/badge/Github-仓库-blue?style=for-the-badge
+## Packages
 
-[LiteyukiLab]: https://img.shields.io/badge/轻雪社区-官方-blue?style=for-the-badge
+The kernel package is `liteyukibot-v7`. Optional features are separate PyPI
+packages and must be installed into the same environment before they are
+enabled in `liteyuki.toml`.
 
+| Package | Current responsibility |
+| --- | --- |
+| `liteyukibot-v7-permissions` | Exact-principal capability policy service. |
+| `liteyukibot-v7-commands` | Protocol-neutral command router and schemas. |
+| `liteyukibot-v7-resources` | Declarative resource and authorization boundary. |
+| `liteyukibot-v7-profile` | Persistent per-bot nickname and language profiles. |
+| `liteyukibot-v7-essentials` | Help and protected status commands. |
+| `liteyukibot-v7-functions` | v6 `.lyf`, `.lyfunction`, and `.mcfunction` executor. |
+| `liteyukibot-v7-runtime-nonebot` | Supervised NoneBot2 runtime host. |
+| `liteyukibot-v7-runtime-adapter` | Supervised Python platform-adapter host. |
+| `liteyukibot-v7-adapter-onebot` | Native OneBot v11 HTTP Post and HTTP API adapter. |
+| `liteyukibot-v7-runtime-v6` | Bounded LiteyukiBot v6 compatibility runtime. |
+| `liteyukibot-v7-agent-resolver` | Declarative agent module and tool resolver. |
+| `liteyukibot-v7-agent` | OpenAI-compatible native agent runtime. |
+| `liteyukibot-v7-runtime-astrbot` | Headless AstrBot agent runtime. |
+| `liteyukibot-v7-runtime-mofox` | Headless Neo-MoFox agent runtime. |
 
+Read the package README in [`packages/`](packages/README.md) before enabling a
+package. The kernel does not install framework integrations implicitly.
 
-[python-link]:https://www.python.org/
+## Docker
 
-[usage-link]:https://bot.liteyuki.org/
+Build the current image locally:
 
-[liteyuki-link]:https://bot.liteyuki.org/
+```bash
+docker build -t liteyukibot:v7-local .
+docker run --rm liteyukibot:v7-local version
+```
 
-[repo-link]:https://git.liteyuki.org/bot/app
+The image runs as a non-root user. Mount `/app/data`, `/app/cache`, and
+`/app/plugins` for persistent state, then provide `/app/liteyuki.toml` for a
+configured deployment.
 
-[github-link]:https://github.com/LiteyukiStudio/LiteyukiBot
+## Services And Support
 
-[liteyukilab-link]:https://lab.liteyuki.org/@LiteyukiBot
+Current installation, configuration, compatibility, and release boundaries are
+documented in this repository. Report reproducible defects or documentation
+errors through the [GitHub repository][github-link], including the installed
+package versions, operating system, Python version, and the minimal command or
+configuration that reproduces the result. Do not include vault passwords,
+tokens, or message payloads in public reports.
 
-[banner]: https://socialify.git.ci/LiteyukiStudio/LiteyukiBot/image?description=1&font=Source+Code+Pro&forks=1&issues=1&logo=https%3A%2F%2Fcdn.liteyuki.org%2Flogos%2Fbot.svg&name=1&owner=1&pattern=Floating+Cogs&pulls=1&stargazers=1&theme=Auto
+## Documentation
+
+- [Configuration operations](docs/configuration.md)
+- [v7 architecture](docs/architecture/v7.md)
+- [Beta1 contract and support boundary](docs/beta1.md)
+- [v6 compatibility](docs/migration-v6.md)
+- [Native plugin development](docs/development/native-plugins.md)
+- [Custom runtime development](docs/development/custom-runtimes.md)
+- [Contributor guide](CONTRIBUTING.md)
+- [Release procedure](docs/development/releasing.md)
+
+## References
+
+- [NoneBot](https://nonebot.dev/) informs the separately packaged NoneBot
+  runtime boundary.
+- [AstrBot](https://github.com/AstrBotDevs/AstrBot) and
+  [Neo-MoFox](https://github.com/MoFox-Studio/Neo-MoFox) inform their respective
+  headless agent-runtime integrations.
+
+## Other
+
+This repository is a uv workspace containing the kernel, first-party packages,
+examples, tests, developer tools, documentation, and release workflows.
+Directory-level development guidance is provided by each directory's README.
+
+[Liteyuki7]: https://img.shields.io/badge/LiteyukiBot-7.0.0b1-blue?style=for-the-badge
+[Python3.14]: https://img.shields.io/badge/Python-3.14+-blue?style=for-the-badge
+[Usage]: https://img.shields.io/badge/Usage-CLI-blue?style=for-the-badge
+[Repo]: https://img.shields.io/badge/Distribution-PyPI-blue?style=for-the-badge
+[Github]: https://img.shields.io/badge/GitHub-Repository-blue?style=for-the-badge
+[banner]: https://socialify.git.ci/LiteyukiStudio/LiteyukiBot/image?description=1&font=Source+Code+Pro&forks=1&issues=1&name=1&owner=1&pattern=Floating+Cogs&pulls=1&stargazers=1&theme=Auto
+
+[python-link]: https://www.python.org/
+[uv-link]: https://docs.astral.sh/uv/
+[usage-link]: docs/configuration.md
+[liteyuki-link]: https://github.com/LiteyukiStudio/LiteyukiBot
+[repo-link]: https://pypi.org/project/liteyukibot-v7/
+[github-link]: https://github.com/LiteyukiStudio/LiteyukiBot

@@ -1,0 +1,469 @@
+"""Headless AstrBot host that maps Pipeline output back to Liteyuki actions."""
+
+from __future__ import annotations
+
+import asyncio
+import os
+import sys
+from collections.abc import Awaitable, Callable, Mapping
+from contextlib import suppress
+from importlib import import_module
+from inspect import isawaitable
+from pathlib import Path
+from typing import Any
+
+from liteyukibot.events import EventEnvelope, Message, Segment
+from liteyukibot.logging import configure_runtime_child_logging, get_logger, shutdown_logging
+from liteyukibot.runtime import RuntimeClient
+from liteyukibot.runtime.projection import project_managed_plugins
+from liteyukibot.runtime.protocol import (
+    ActionRequest,
+    ActionResponse,
+    EventAccepted,
+    EventCompleted,
+    EventMessage,
+    EventTrace,
+    Shutdown,
+)
+
+from .translate import AstrEventInput, to_astr_event_input, to_send_action
+
+type MessageSink = Callable[[Message], Awaitable[None]]
+
+
+class AstrBotLogBridge:
+    """Forward AstrBot's public LogBroker records into child Yukilog output."""
+
+    def __init__(self, broker: Any, logger: Any) -> None:
+        self._broker = broker
+        self._logger = logger
+        self._queue: Any | None = None
+        self._task: asyncio.Task[None] | None = None
+
+    def start(self, log_manager: Any, source_logger: Any) -> None:
+        log_manager.set_queue_handler(source_logger, self._broker)
+        self._queue = self._broker.register()
+        self._task = asyncio.create_task(self._forward(), name="astrbot-log-bridge")
+
+    async def close(self) -> None:
+        task, self._task = self._task, None
+        if task is not None:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+        if self._queue is not None:
+            with suppress(ValueError):
+                self._broker.unregister(self._queue)
+            self._queue = None
+
+    async def _forward(self) -> None:
+        assert self._queue is not None
+        while True:
+            entry = await self._queue.get()
+            if not isinstance(entry, Mapping):
+                continue
+            level = str(entry.get("level", "INFO")).lower()
+            message = str(entry.get("data", ""))
+            category = str(entry.get("category", "system"))
+            logger = self._logger.bind(upstream="astrbot", upstream_category=category)
+            getattr(logger, level, logger.info)("{}", message)
+
+
+class AstrBotHeadlessEngine:
+    """Own an isolated AstrBot lifecycle without any AstrBot platform adapter."""
+
+    def __init__(self, state_directory: Path, options: Mapping[str, object], logger: Any) -> None:
+        self.state_directory = state_directory
+        self.options = options
+        self._lifecycle: Any | None = None
+        self._schedulers: Mapping[str, Any] = {}
+        self._logger = logger
+        self._log_bridge: AstrBotLogBridge | None = None
+        self._import_root: str | None = None
+
+    async def start(self) -> None:
+        root = self.state_directory / "astrbot"
+        root.mkdir(parents=True, exist_ok=True)
+        os.environ["ASTRBOT_ROOT"] = str(root)
+        os.environ["ASTRBOT_RELOAD"] = "0"
+        _prepare_managed_plugins(root, self.options)
+        self._install_import_root(root)
+        astrbot_core = import_module("astrbot.core")
+        log_broker_type = astrbot_core.LogBroker
+        lifecycle_type = import_module("astrbot.core.core_lifecycle").AstrBotCoreLifecycle
+        database_type = import_module("astrbot.core.db.sqlite").SQLiteDatabase
+
+        broker = log_broker_type()
+        bridge = AstrBotLogBridge(broker, self._logger)
+        lifecycle = lifecycle_type(broker, database_type(str(root / "astrbot.db")))
+        try:
+            await lifecycle.initialize()
+        except BaseException:
+            await bridge.close()
+            self._remove_import_root()
+            raise
+        _restore_child_logging()
+        bridge.start(astrbot_core.LogManager, astrbot_core.logger)
+        self._lifecycle = lifecycle
+        self._schedulers = lifecycle.pipeline_scheduler_mapping
+        self._log_bridge = bridge
+        if not self._schedulers:
+            raise RuntimeError("AstrBot headless lifecycle did not create a PipelineScheduler")
+
+    async def process(self, event: EventEnvelope, sink: MessageSink) -> None:
+        if self._lifecycle is None:
+            raise RuntimeError("AstrBot headless lifecycle is not started")
+        translated = to_astr_event_input(event)
+        scheduler = self._scheduler()
+        await scheduler.execute(_create_astr_event(translated, sink))
+
+    async def close(self) -> None:
+        lifecycle, self._lifecycle = self._lifecycle, None
+        bridge, self._log_bridge = self._log_bridge, None
+        self._schedulers = {}
+        try:
+            if lifecycle is not None:
+                await lifecycle.stop()
+        finally:
+            try:
+                if bridge is not None:
+                    await bridge.close()
+            finally:
+                try:
+                    await _dispose_astrbot_global_database(self._logger)
+                finally:
+                    self._remove_import_root()
+
+    def _install_import_root(self, root: Path) -> None:
+        """Expose AstrBot's ``data.plugins`` projection only in this child."""
+
+        value = str(root)
+        sys.path.insert(0, value)
+        self._import_root = value
+
+    def _remove_import_root(self) -> None:
+        value, self._import_root = self._import_root, None
+        if value is not None:
+            with suppress(ValueError):
+                sys.path.remove(value)
+
+    def _scheduler(self) -> Any:
+        requested = self.options.get("scheduler_id")
+        if requested is None and len(self._schedulers) == 1:
+            return next(iter(self._schedulers.values()))
+        if not isinstance(requested, str) or not requested:
+            raise RuntimeError("AstrBot headless runtime requires options.scheduler_id when multiple schedulers exist")
+        try:
+            return self._schedulers[requested]
+        except KeyError as error:
+            raise RuntimeError(f"AstrBot scheduler {requested!r} is not available") from error
+
+
+def _prepare_managed_plugins(root: Path, options: Mapping[str, object]) -> None:
+    generation = os.environ.get("LITEYUKI_RUNTIME_GENERATION_DIR")
+    if generation is None:
+        return
+    mode = options.get("projection_mode", "copy")
+    if not isinstance(mode, str):
+        raise ValueError("AstrBot runtime option 'projection_mode' must be a string")
+    project_managed_plugins(
+        generation,
+        root / "data" / "plugins",
+        root / "managed-plugin-backups",
+        mode=mode,
+    )
+
+
+def _restore_child_logging() -> None:
+    """AstrBot replaces global Loguru sinks during initialization."""
+
+    shutdown_logging()
+    configure_runtime_child_logging()
+
+
+async def _dispose_astrbot_global_database(logger: Any) -> None:
+    """Release AstrBot's import-time database engine, separate from our lifecycle DB."""
+
+    try:
+        database = import_module("astrbot.core").db_helper
+        dispose = database.engine.dispose
+        result = dispose()
+        if isawaitable(result):
+            await result
+    except Exception as error:
+        logger.warning("AstrBot global database cleanup failed: {}", error)
+
+
+class AstrBotRuntimeHost:
+    def __init__(
+        self,
+        client: RuntimeClient,
+        engine: AstrBotHeadlessEngine,
+        *,
+        max_concurrent_events: int,
+    ) -> None:
+        self.client = client
+        self.engine = engine
+        self.max_concurrent_events = max_concurrent_events
+        self.logger = get_logger(component="astrbot", runtime=os.environ.get("LITEYUKI_RUNTIME_ID", "astrbot"))
+        self._tasks: set[asyncio.Task[None]] = set()
+
+    async def serve(self) -> None:
+        while True:
+            message = await self.client.receive()
+            if isinstance(message, Shutdown):
+                return
+            if isinstance(message, ActionRequest):
+                await self.client.send(
+                    ActionResponse(
+                        correlation_id=message.correlation_id,
+                        ok=False,
+                        error="AstrBot agent runtime does not own a platform action adapter",
+                    )
+                )
+            elif isinstance(message, EventMessage):
+                await self._accept_event(message)
+
+    async def close(self) -> None:
+        tasks = tuple(self._tasks)
+        self._tasks.clear()
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        await self.engine.close()
+
+    async def _accept_event(self, message: EventMessage) -> None:
+        try:
+            event = EventEnvelope.model_validate(message.payload)
+            to_astr_event_input(event)
+        except ValueError:
+            await self.client.send(
+                EventAccepted(
+                    correlation_id=message.correlation_id,
+                    status="invalid",
+                    detail="AstrBot agent runtime requires a valid message EventEnvelope",
+                )
+            )
+            return
+        if len(self._tasks) >= self.max_concurrent_events:
+            await self.client.send(
+                EventAccepted(
+                    correlation_id=message.correlation_id,
+                    status="overloaded",
+                    detail="AstrBot agent runtime event capacity is exhausted",
+                )
+            )
+            return
+        await self.client.send(EventAccepted(correlation_id=message.correlation_id, status="accepted"))
+        task = asyncio.create_task(
+            self._process_event(message.correlation_id, event, message.trace),
+            name=f"astrbot-event:{message.correlation_id}",
+        )
+        self._tasks.add(task)
+        task.add_done_callback(self._event_finished)
+
+    def _event_finished(self, task: asyncio.Task[None]) -> None:
+        self._tasks.discard(task)
+        if task.cancelled():
+            return
+        error = task.exception()
+        if error is not None:
+            self.logger.error("AstrBot event task failed: {}", error)
+
+    async def _process_event(
+        self,
+        correlation_id: str,
+        event: EventEnvelope,
+        trace: EventTrace | None,
+    ) -> None:
+        async def emit(message: Message) -> None:
+            action = to_send_action(event, message)
+            result = await self.client.execute_action(
+                action.action_id,
+                action.model_dump(mode="json"),
+                delivery_correlation_id=correlation_id,
+            )
+            if not result.ok:
+                raise RuntimeError(result.error or "source runtime rejected AstrBot output")
+
+        try:
+            await self.engine.process(event, emit)
+        except Exception as error:
+            self.logger.bind(
+                correlation_id=correlation_id,
+                trace_id=trace.trace_id if trace is not None else None,
+            ).error("AstrBot event failed: {}", error)
+            await self.client.send(
+                EventCompleted(
+                    correlation_id=correlation_id,
+                    status="failed",
+                    detail=f"{type(error).__name__}: {error}",
+                )
+            )
+            raise
+        await self.client.send(EventCompleted(correlation_id=correlation_id, status="completed"))
+
+
+async def run() -> None:
+    configure_runtime_child_logging()
+    logger = get_logger(component="astrbot", runtime=os.environ.get("LITEYUKI_RUNTIME_ID", "astrbot"))
+    client = RuntimeClient.from_environment("astrbot")
+    host: AstrBotRuntimeHost | None = None
+    try:
+        logger.info("starting AstrBot headless runtime")
+        options = await client.connect()
+        state_directory = Path(os.environ["LITEYUKI_RUNTIME_STATE_DIR"])
+        engine = AstrBotHeadlessEngine(state_directory, options, logger)
+        await engine.start()
+        host = AstrBotRuntimeHost(
+            client,
+            engine,
+            max_concurrent_events=_positive_int(options, "max_concurrent_events", 8),
+        )
+        await client.ready(
+            ("runtime.events.receive", "runtime.events.complete", "runtime.actions.send", "astrbot.pipeline")
+        )
+        logger.info("AstrBot headless runtime is ready")
+        await host.serve()
+    except Exception as error:
+        logger.error("AstrBot headless runtime failed: {}", error)
+        raise
+    finally:
+        if host is not None:
+            await host.close()
+        elif "engine" in locals():
+            await engine.close()
+        await client.close()
+        logger.info("AstrBot headless runtime stopped")
+
+
+def _create_astr_event(value: AstrEventInput, sink: MessageSink) -> Any:
+    components = import_module("astrbot.core.message.components")
+    event_type = import_module("astrbot.core.platform.astr_message_event").AstrMessageEvent
+    message_module = import_module("astrbot.core.platform.astrbot_message")
+    message_type = message_module.AstrBotMessage
+    group_type = message_module.Group
+    member_type = message_module.MessageMember
+    platform_message_type = import_module("astrbot.core.platform.message_type").MessageType
+    metadata_type = import_module("astrbot.core.platform.platform_metadata").PlatformMetadata
+
+    message = message_type()
+    message.type = (
+        platform_message_type.GROUP_MESSAGE
+        if value.conversation_type == "group"
+        else platform_message_type.FRIEND_MESSAGE
+    )
+    message.self_id = value.bot_id
+    message.session_id = value.conversation_id
+    message.message_id = value.event_id
+    message.sender = member_type(value.actor_id or "unknown", value.actor_name)
+    message.message = _to_astr_components(value.message, components)
+    message.message_str = value.text
+    message.raw_message = {"liteyuki_runtime": value.runtime_id, "adapter": value.adapter, "source": value.raw}
+    if value.conversation_type == "group":
+        message.group = group_type(value.conversation_id)
+    metadata = metadata_type(
+        name=f"liteyuki-{value.adapter}",
+        description="LiteyukiBot headless AstrBot runtime",
+        id=f"liteyuki:{value.runtime_id}:{value.bot_id}",
+        support_streaming_message=False,
+        support_proactive_message=False,
+    )
+
+    class HeadlessAstrEvent(event_type):  # type: ignore[misc,valid-type]
+        async def send(self, chain: Any) -> None:
+            self._has_send_oper = True
+            await sink(_to_portable_astr_message(chain))
+
+        async def send_streaming(self, generator: Any, use_fallback: bool = False) -> None:
+            del use_fallback
+            async for chain in generator:
+                await self.send(chain)
+
+    return HeadlessAstrEvent(value.text, message, metadata, value.conversation_id)
+
+
+def _to_astr_components(message: Message, components: Any) -> list[Any]:
+    rendered: list[Any] = []
+    for segment in message.segments:
+        data = segment.model_dump(mode="json")["data"]
+        assert isinstance(data, dict)
+        if segment.type == "text":
+            rendered.append(components.Plain(data["text"]))
+        elif segment.type == "mention":
+            if data.get("scope") == "all":
+                rendered.append(components.AtAll())
+            elif isinstance(data.get("user_id"), str):
+                rendered.append(components.At(qq=data["user_id"]))
+            else:
+                raise ValueError("AstrBot mentions require user_id or scope=all")
+        elif segment.type == "reply":
+            message_id = data.get("message_id")
+            if not isinstance(message_id, str) or not message_id:
+                raise ValueError("AstrBot reply segments require message_id")
+            rendered.append(components.Reply(id=message_id))
+        elif segment.type == "media":
+            source = data.get("url") or data.get("file")
+            if not isinstance(source, str) or not source:
+                raise ValueError("AstrBot media segments require url or file")
+            media_type = data.get("media_type")
+            if media_type == "image":
+                rendered.append(components.Image(file=source, url=source))
+            elif media_type in {"audio", "voice"}:
+                rendered.append(components.Record(file=source, url=source))
+            elif media_type == "video":
+                rendered.append(components.Video(file=source, url=source))
+            elif media_type == "file":
+                name = data.get("name")
+                filename = name if isinstance(name, str) and name else "attachment"
+                rendered.append(components.File(name=filename, file=source, url=source))
+            else:
+                raise ValueError(f"AstrBot does not support media_type {media_type!r}")
+        else:
+            raise ValueError(f"AstrBot cannot represent portable segment {segment.type!r}")
+    return rendered
+
+
+def _to_portable_astr_message(chain: Any) -> Message:
+    segments: list[Segment] = []
+    for item in chain.chain:
+        kind = type(item).__name__
+        if kind == "Plain":
+            text = getattr(item, "text", None)
+            if isinstance(text, str) and text:
+                segments.append(Segment(type="text", data={"text": text}))
+                continue
+        elif kind in {"At", "AtAll"}:
+            target = getattr(item, "qq", None)
+            if target == "all":
+                segments.append(Segment(type="mention", data={"scope": "all"}))
+                continue
+            if target is not None:
+                segments.append(Segment(type="mention", data={"user_id": str(target)}))
+                continue
+        elif kind == "Reply":
+            identifier = getattr(item, "id", None)
+            if identifier is not None:
+                segments.append(Segment(type="reply", data={"message_id": str(identifier)}))
+                continue
+        elif kind in {"Image", "Record", "Video", "File"}:
+            source = getattr(item, "url", None) or getattr(item, "file", None)
+            media_type = {"Image": "image", "Record": "voice", "Video": "video", "File": "file"}[kind]
+            if isinstance(source, str) and source:
+                data: dict[str, str] = {"media_type": media_type, "url": source}
+                name = getattr(item, "name", None)
+                if isinstance(name, str) and name:
+                    data["name"] = name
+                segments.append(Segment(type="media", data=data))
+                continue
+        raise ValueError(f"AstrBot output component {kind!r} is not supported")
+    if not segments:
+        raise ValueError("AstrBot output chain contains no portable segments")
+    return Message(segments=tuple(segments))
+
+
+def _positive_int(options: Mapping[str, object], key: str, default: int) -> int:
+    value = options.get(key, default)
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        raise ValueError(f"AstrBot runtime option {key!r} must be a positive integer")
+    return value

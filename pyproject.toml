@@ -1,55 +1,71 @@
-# PEP 621 project metadata
-# See https://www.python.org/dev/peps/pep-0621/
-# This file is liteyuki framework use only, don`t use it with applications or nb-cli.
-# 此文件仅供 liteyuki 框架使用，请勿用于应用程序及nb-cli，请使用pip进行安装。
 [project]
-name = "liteyukibot"
-dynamic = ["version"]
-description = "A lightweight bot process management framework and application."
+name = "liteyukibot-v7"
+version = "7.0.0b1"
+description = "A protocol-neutral, multi-runtime chatbot kernel."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.14"
+license = "LicenseRef-LSO"
+license-files = ["LICENSE"]
 authors = [
-    { name = "snowykami", email = "snowykami@outlook.com" },
+    { name = "LiteyukiStudio" },
 ]
-license = { text = "MIT&LSO" }
-
 dependencies = [
-    "loguru~=0.7.2",
-    "pydantic>=2.9.2",
-    "PyYAML>=6.0.2",
-    "toml>=0.10.2",
-    "watchdog>=4.0.1",
-    "pdm-backend>=2.3.3",
-    "croterline>=1.0.9",
-    "magicoca>=1.0.7",
+    "cryptography>=46,<51",
+    "filelock>=3.19,<4",
+    "pydantic>=2.13,<3",
+    "PyYAML>=6,<7",
+    "prompt_toolkit>=3.0,<4",
+    "tomli-w>=1.2,<2",
+    "yukilog>=1,<2",
 ]
 
-[project.urls]
-Homepage = "https://bot.liteyuki.org"
-Repository = "https://github.com/LiteyukiStudio/LiteyukiBot"
-"Issue Tracker" = "https://github.com/LiteyukiStudio/LiteyukiBot/issues/new?assignees=&labels=&projects=&template=%E9%97%AE%E9%A2%98%E5%8F%8D%E9%A6%88.md&title="
+[project.optional-dependencies]
+yaml = [
+    "PyYAML>=6,<7",
+]
+http = [
+    "fastapi>=0.141,<1",
+    "uvicorn>=0.52,<1",
+]
 
-
-[build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
-
-[tool.pdm.build]
-includes = ["liteyuki/", "LICENSE", "README.md"]
-excludes = ["tests/", "docs/", "src/"]
-
-[tool.pdm.version]
-source = "scm"
-tag_filter = "v*"
-tag_regex = '^v(?:\D*)?(?P<version>([1-9][0-9]*!)?(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*((a|b|c|rc)(0|[1-9][0-9]*))?(\.post(0|[1-9][0-9]*))?(\.dev(0|[1-9][0-9]*))?$)$'
-fallback_version = "0.1.0"
-
+[project.scripts]
+liteyukibot = "liteyukibot.cli:main"
+liteyuki = "liteyukibot.cli:main"
+ly = "liteyukibot.cli:main"
 
 [dependency-groups]
 dev = [
-    "pytest>=8.3.3",
-    "black>=24.10.0",
-    "uv>=0.4.20",
-    "mypy>=1.11.2",
-    "pre-commit>=4.0.1",
+    "mypy>=1.18,<2",
+    "types-PyYAML>=6.0.12,<7",
+    "pytest>=9,<10",
+    "pytest-asyncio>=1.2,<2",
+    "ruff>=0.14,<1",
 ]
+
+[build-system]
+requires = ["uv_build>=0.11.32,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.build-backend]
+module-root = "src"
+module-name = "liteyukibot"
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "packages"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+src = ["src", "tests", "scripts", "examples", "packages"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+files = ["src", "tests", "scripts", "examples", "packages"]

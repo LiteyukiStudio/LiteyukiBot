@@ -1,0 +1,86 @@
+name: Publish LiteyukiBot Plugins
+
+on:
+  push:
+    tags:
+      - "permissions-v*"
+      - "commands-v*"
+      - "resources-v*"
+      - "functions-v*"
+      - "profile-v*"
+      - "essentials-v*"
+      - "runtime-nonebot-v*"
+      - "runtime-adapter-v*"
+      - "adapter-onebot-v*"
+      - "adapter-satori-v*"
+      - "runtime-v6-v*"
+      - "runtime-astrbot-v*"
+      - "runtime-mofox-v*"
+      - "agent-resolver-v*"
+      - "agent-v*"
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Plugin package to publish
+        required: true
+        type: choice
+        options:
+          - permissions
+          - commands
+          - resources
+          - functions
+          - profile
+          - essentials
+          - runtime-nonebot
+          - runtime-adapter
+          - adapter-onebot
+          - adapter-satori
+          - runtime-v6
+          - runtime-astrbot
+          - runtime-mofox
+          - agent-resolver
+          - agent
+      version:
+        description: Exact plugin version to publish
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('{0}-v{1}', inputs.package, inputs.version) || github.ref_name }}
+    environment:
+      name: ${{ github.event_name == 'workflow_dispatch' && inputs.package == 'functions' && 'pypi-lyfunctions' || github.event_name == 'workflow_dispatch' && inputs.package == 'runtime-v6' && 'pypi-v6-compat' || github.event_name == 'workflow_dispatch' && inputs.package == 'runtime-adapter' && 'pypi-runtime-adapter' || github.event_name == 'workflow_dispatch' && inputs.package == 'runtime-astrbot' && 'pypi-astrbot-runtime' || github.event_name == 'workflow_dispatch' && inputs.package == 'runtime-mofox' && 'pypi-mofox-runtime' || github.event_name == 'workflow_dispatch' && inputs.package == 'agent-resolver' && 'pypi-agent-resolver' || github.event_name == 'workflow_dispatch' && format('pypi-{0}', inputs.package) || startsWith(github.ref_name, 'permissions-v') && 'pypi-permissions' || startsWith(github.ref_name, 'commands-v') && 'pypi-commands' || startsWith(github.ref_name, 'resources-v') && 'pypi-resources' || startsWith(github.ref_name, 'functions-v') && 'pypi-lyfunctions' || startsWith(github.ref_name, 'profile-v') && 'pypi-profile' || startsWith(github.ref_name, 'runtime-nonebot-v') && 'pypi-runtime-nonebot' || startsWith(github.ref_name, 'runtime-adapter-v') && 'pypi-runtime-adapter' || startsWith(github.ref_name, 'adapter-onebot-v') && 'pypi-adapter-onebot' || startsWith(github.ref_name, 'adapter-satori-v') && 'pypi-adapter-satori' || startsWith(github.ref_name, 'runtime-v6-v') && 'pypi-v6-compat' || startsWith(github.ref_name, 'runtime-astrbot-v') && 'pypi-astrbot-runtime' || startsWith(github.ref_name, 'runtime-mofox-v') && 'pypi-mofox-runtime' || startsWith(github.ref_name, 'agent-resolver-v') && 'pypi-agent-resolver' || startsWith(github.ref_name, 'agent-v') && 'pypi-agent' || 'pypi-essentials' }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.3.2
+        with:
+          version: "0.11.16"
+      - name: Install Python
+        run: uv python install 3.14
+      - name: Resolve and validate release
+        id: release
+        run: >-
+          uv run --no-project --python 3.14 python scripts/check_release.py
+          --tag "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT"
+      - name: Build plugin distribution
+        run: >-
+          uv build --project "${{ steps.release.outputs.project }}"
+          --out-dir dist/release --clear
+      - name: Verify plugin wheel with published dependencies
+        run: |
+          wheel="$(find dist/release -maxdepth 1 -name '*.whl' -print -quit)"
+          requirements=(--with "$wheel")
+          if [[ "${{ steps.release.outputs.package }}" == "runtime-mofox" ]]; then
+            requirements+=(--with "neo-mofox @ git+https://github.com/MoFox-Studio/Neo-MoFox.git@e2ee2ff73b494428bbdfd983c7569c6f074a9c76")
+          fi
+          uv run --no-project --python 3.14 python scripts/run_isolated_install.py \
+            "${requirements[@]}" --verifier "${{ steps.release.outputs.verifier }}" -- \
+            --expected-version "${{ steps.release.outputs.version }}"
+      - name: Publish plugin distribution
+        run: uv publish dist/release/*

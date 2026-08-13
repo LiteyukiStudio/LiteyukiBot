@@ -1,0 +1,20 @@
+[project]
+name = "liteyukibot-example-runtime"
+version = "0.1.0"
+description = "Minimal supervised LiteyukiBot v7 custom runtime."
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "liteyukibot-v7>=7.0.0a1,<8",
+]
+
+[project.scripts]
+liteyuki-example-runtime = "liteyukibot_example_runtime:main"
+
+[build-system]
+requires = ["uv_build>=0.11.32,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = "src"
+module-name = "liteyukibot_example_runtime"

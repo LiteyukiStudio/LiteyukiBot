@@ -1,0 +1,88 @@
+# LiteyukiBot configuration schema. Do not edit config_version manually.
+config_version = 2
+
+[core]
+data_dir = "data"
+cache_dir = "cache"
+queue_capacity = 1024
+enqueue_timeout_seconds = 1.0
+handler_timeout_seconds = 30.0
+max_concurrent_events = 100
+
+[logging]
+level = "INFO"
+console = true
+json_lines = false
+# Full payload logs can contain message content and identifiers. Keep metadata unless debugging.
+payload_mode = "metadata"
+payload_exclude_runtimes = []
+
+[i18n]
+# auto uses the system locale and falls back to English when CJK terminal font support is unavailable.
+locale = "auto"
+
+[plugins]
+enabled = []
+local_modules = []
+
+# After installing liteyukibot-v7-essentials, enable:
+# enabled = [
+#   "liteyukibot.permissions",
+#   "liteyukibot.commands",
+#   "liteyukibot.essentials",
+# ]
+#
+# After installing liteyukibot-v7-profile as well, enable resources and profile
+# before Essentials to persist per-bot nickname and language preferences:
+# enabled = [
+#   "liteyukibot.permissions",
+#   "liteyukibot.commands",
+#   "liteyukibot.resources",
+#   "liteyukibot.profile",
+#   "liteyukibot.essentials",
+# ]
+
+[plugins.config."liteyukibot.permissions"]
+grants = []
+
+[plugins.config."liteyukibot.permissions".roles]
+operator = ["liteyukibot.status.read"]
+
+[plugins.config."liteyukibot.commands"]
+prefixes = ["/"]
+
+[plugins.config."liteyukibot.essentials"]
+language = "zh-CN"
+
+[http]
+enabled = false
+host = "127.0.0.1"
+port = 20216
+
+[runtimes.nonebot]
+# Install with: uv add "liteyukibot-v7-runtime-nonebot[onebot]"
+kind = "nonebot"
+enabled = false
+heartbeat_interval_seconds = 10.0
+stale_after_seconds = 30.0
+max_inbound_events = 100
+
+[runtimes.nonebot.options]
+plugins = []
+plugin_dirs = []
+adapters = ["nonebot.adapters.onebot.v11:Adapter"]
+
+[runtimes.nonebot.options.config]
+driver = "~fastapi"
+
+[runtimes.legacy]
+# Install with: uv add "liteyukibot-v7-runtime-v6"
+kind = "v6"
+enabled = false
+
+[runtimes.legacy.options]
+plugins = []
+plugin_dirs = ["plugins"]
+
+[runtimes.legacy.options.config]
+nickname = ["Liteyuki"]
