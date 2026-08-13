@@ -30,3 +30,9 @@ Daemon control is local and authenticated, not an HTTP administration API.
 Whole-worker restart becomes a defined lifecycle boundary without changing
 runtime IPC. File watching and development-only controls remain a separate
 opt-in layer.
+
+Development mode may route authenticated local CLI requests through the daemon
+to the worker for status, topology, Event injection, and registered management
+commands. It has no HTTP equivalent. A watcher validates changed configuration
+before requesting a restart and ignores invalid candidates, leaving a healthy
+worker in place.

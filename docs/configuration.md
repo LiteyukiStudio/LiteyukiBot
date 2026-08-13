@@ -47,6 +47,27 @@ loopback descriptor. Use `ly --instance NAME instance status|stop|restart|logs`
 for lifecycle operations. With `daemon.auto_restart = true`, abnormal worker
 exits retry with finite exponential backoff; clean exits never restart.
 
+## Development Controls
+
+Set `[development] dev_mode = true` to enable the local daemon development
+commands. They authenticate to the instance descriptor and forward only to its
+current worker; they are never exposed through HTTP. `watch_auto_restart =
+true` watches project Python, resource, and configuration files with the
+configured debounce period. A changed configuration is validated before a
+restart, so an invalid edit leaves the healthy worker running.
+
+~~~bash
+liteyuki --instance dev dev status
+liteyuki --instance dev dev topology
+liteyuki --instance dev dev inject --file event.json
+liteyuki --instance dev dev command "runtime restart example"
+liteyuki --instance dev dev command --yes "stop"
+~~~
+
+`dev inject` accepts one JSON `EventEnvelope` from `--file` or standard input.
+`dev command` runs an existing management command as the local administrator;
+commands marked dangerous require `--yes`.
+
 The optional Permissions package can grant management capabilities to named
 plugin or runtime callers through `management_grants`; ungranted callers fail
 closed. Runtime IPC can invoke only an existing, capability-authorized kernel

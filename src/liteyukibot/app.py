@@ -27,7 +27,7 @@ from .http import HttpServer
 from .i18n import I18N_SERVICE, Translator
 from .instance_daemon import INSTANCE_DAEMON_SERVICE, InstanceDaemonService
 from .logging import Logger, configure_logging, get_logger, log_payload, shutdown_logging
-from .management import MANAGEMENT_SERVICE, KernelManagement, ManagementCaller, ManagementError
+from .management import MANAGEMENT_SERVICE, KernelManagement, ManagementCaller, ManagementDanger, ManagementError
 from .plugin_store import RuntimeGenerationStore
 from .plugins import PluginManager
 from .resource_packs import RESOURCE_CATALOG_SERVICE, ResourceCatalog
@@ -165,6 +165,11 @@ class LiteyukiApp:
             core.data_dir / "control.json",
             status_provider=self.status,
             runtime_restarter=self.runtimes.restart,
+            handlers={
+                "event.inject": self._inject_event,
+                "management.execute": self._execute_local_management,
+                "topology": self._control_topology,
+            },
         )
         self.http = (
             HttpServer(settings.http.host, settings.http.port, status_provider=self.status)
@@ -274,6 +279,34 @@ class LiteyukiApp:
         if self._stop_callback is None:
             raise RuntimeError("application host does not support management shutdown")
         self._stop_callback()
+
+    async def _inject_event(self, request: Mapping[str, Any]) -> dict[str, Any]:
+        if not self.settings.development.dev_mode:
+            raise PermissionError("development controls are disabled")
+        raw_event = request.get("event")
+        if not isinstance(raw_event, Mapping):
+            raise ValueError("event.inject requires an event object")
+        event = EventEnvelope.model_validate(raw_event)
+        result = await self.events.publish(event)
+        return result.model_dump(mode="json")
+
+    async def _execute_local_management(self, request: Mapping[str, Any]) -> dict[str, Any]:
+        if not self.settings.development.dev_mode:
+            raise PermissionError("development controls are disabled")
+        line = request.get("line")
+        if not isinstance(line, str) or not line.strip():
+            raise ValueError("management.execute requires a non-empty command line")
+        caller = ManagementCaller.local_terminal()
+        command, _arguments = self.management.registry.resolve(caller, line)
+        if command.danger is ManagementDanger.CONFIRM and request.get("confirmed") is not True:
+            raise PermissionError(f"management command requires confirmation: {' '.join(command.name)}")
+        _command, result = await self.management.registry.execute(caller, line)
+        return {"text": result.text, "data": result.data}
+
+    async def _control_topology(self, _request: Mapping[str, Any]) -> dict[str, object]:
+        if not self.settings.development.dev_mode:
+            raise PermissionError("development controls are disabled")
+        return self.topology()
 
     async def start(self) -> None:
         if self.state is not AppState.CREATED:
