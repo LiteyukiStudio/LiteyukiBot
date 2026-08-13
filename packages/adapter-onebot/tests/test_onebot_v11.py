@@ -9,7 +9,10 @@ from typing import Any
 
 import pytest
 from liteyukibot_adapter_onebot.v11 import OneBotV11Connection, OneBotV11Error
+from liteyukibot_adapter_onebot.v12 import OneBotV12Connection
 from liteyukibot_runtime_adapter.contracts import AdapterContext
+from websockets.asyncio.client import connect
+from websockets.asyncio.server import ServerConnection, serve
 
 from liteyukibot.events import ActionEnvelope, ConversationRef, EventEnvelope, Message, Segment, SendMessage
 from liteyukibot.runtime.protocol import JsonValue
@@ -293,6 +296,7 @@ async def test_v11_listener_restarts_without_retaining_reply_routes() -> None:
                 message=Message(segments=(Segment(type="text", data={"text": "hello"}),)),
             ),
         )
+
     try:
         await connection.start(emit)
         assert await _post_event(port, _event()) == 204
@@ -323,3 +327,192 @@ def test_v11_non_loopback_listener_requires_token() -> None:
     )
     with pytest.raises(OneBotV11Error, match="require access_token"):
         OneBotV11Connection(context)
+
+
+@pytest.mark.asyncio
+async def test_v12_http_event_and_group_action_round_trip() -> None:
+    api = ApiStub(response={"status": "ok", "retcode": 0, "data": {"message_id": "v12-1"}})
+    await api.start()
+    port = _unused_port()
+    context = AdapterContext(
+        "platform",
+        "qq-v12",
+        "onebot-v12",
+        "42",
+        {
+            "event_host": "127.0.0.1",
+            "event_port": port,
+            "event_path": "/onebot/v12/http",
+            "api_root": api.url,
+            "access_token": "event-token",
+        },
+    )
+    connection = OneBotV12Connection(context)
+    events: list[EventEnvelope] = []
+
+    async def emit(event: EventEnvelope) -> None:
+        events.append(event)
+
+    payload = {
+        "id": "event-v12",
+        "time": 1_720_000_000,
+        "self_id": "42",
+        "type": "message",
+        "detail_type": "group",
+        "group_id": "2002",
+        "user_id": "1001",
+        "message": [{"type": "text", "data": {"text": "hello"}}],
+    }
+    try:
+        await connection.start(emit)
+        assert await _post_event(port, payload, path="/onebot/v12/http") == 204
+        assert events[0].adapter == "onebot-v12"
+        assert events[0].conversation == ConversationRef(id="2002", type="group")
+        assert await connection.execute(
+            ActionEnvelope(
+                runtime_id="platform",
+                bot_id="42",
+                action=SendMessage(
+                    conversation=ConversationRef(id="2002", type="group"),
+                    message=Message(segments=(Segment(type="text", data={"text": "reply"}),)),
+                ),
+            )
+        ) == {"message_id": "v12-1"}
+        request = await asyncio.wait_for(api.requests.get(), timeout=1)
+        assert request.path == "/send_message"
+        assert request.payload["detail_type"] == "group"
+        assert request.payload["group_id"] == "2002"
+    finally:
+        await connection.close()
+        await api.close()
+
+
+@pytest.mark.asyncio
+async def test_v11_forward_websocket_event_and_action_round_trip() -> None:
+    incoming: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+
+    async def gateway(connection: ServerConnection) -> None:
+        await connection.send(json.dumps(_event("from websocket")))
+        request = json.loads(await connection.recv())
+        await incoming.put(request)
+        await connection.send(
+            json.dumps({"status": "ok", "retcode": 0, "data": {"message_id": 99}, "echo": request["echo"]})
+        )
+
+    server = await serve(gateway, "127.0.0.1", 0)
+    url = f"ws://127.0.0.1:{next(iter(server.sockets)).getsockname()[1]}/onebot"
+    context = _context(_unused_port(), "http://127.0.0.1:5701")
+    context = AdapterContext(
+        context.runtime_id,
+        context.instance_id,
+        context.kind,
+        context.bot_id,
+        {**context.config, "transport": "forward_websocket", "ws_url": url},
+    )
+    connection = OneBotV11Connection(context)
+    events: list[EventEnvelope] = []
+
+    async def emit(event: EventEnvelope) -> None:
+        events.append(event)
+
+    try:
+        await connection.start(emit)
+        for _ in range(20):
+            if events:
+                break
+            await asyncio.sleep(0.01)
+        assert events[0].message == Message(segments=(Segment(type="text", data={"text": "from websocket"}),))
+        assert await connection.execute(
+            ActionEnvelope(
+                runtime_id="platform",
+                bot_id="42",
+                action=SendMessage(
+                    conversation=ConversationRef(id="2002", type="group"),
+                    message=Message(segments=(Segment(type="text", data={"text": "reply"}),)),
+                ),
+            )
+        ) == {"message_id": 99}
+        assert (await asyncio.wait_for(incoming.get(), timeout=1))["action"] == "send_group_msg"
+    finally:
+        await connection.close()
+        server.close()
+        await server.wait_closed()
+
+
+@pytest.mark.asyncio
+async def test_v12_reverse_websocket_event_and_action_round_trip() -> None:
+    port = _unused_port()
+    connection = OneBotV12Connection(
+        AdapterContext(
+            "platform",
+            "qq-v12",
+            "onebot-v12",
+            "42",
+            {
+                "transport": "reverse_websocket",
+                "ws_host": "127.0.0.1",
+                "ws_port": port,
+                "ws_path": "/onebot/v12/ws",
+                "access_token": "event-token",
+                "api_root": "http://127.0.0.1:5702",
+            },
+        )
+    )
+    events: list[EventEnvelope] = []
+
+    async def emit(event: EventEnvelope) -> None:
+        events.append(event)
+
+    try:
+        await connection.start(emit)
+        async with connect(
+            f"ws://127.0.0.1:{port}/onebot/v12/ws",
+            additional_headers={"Authorization": "Bearer event-token"},
+        ) as gateway:
+            await gateway.send(
+                json.dumps(
+                    {
+                        "self_id": "42",
+                        "type": "message",
+                        "detail_type": "group",
+                        "group_id": "2002",
+                        "user_id": "1001",
+                        "message": [{"type": "text", "data": {"text": "reverse websocket"}}],
+                    }
+                )
+            )
+            for _ in range(20):
+                if events:
+                    break
+                await asyncio.sleep(0.01)
+            assert events[0].message is not None
+            assert events[0].message.plain_text == "reverse websocket"
+            action = asyncio.create_task(
+                connection.execute(
+                    ActionEnvelope(
+                        runtime_id="platform",
+                        bot_id="42",
+                        action=SendMessage(
+                            conversation=ConversationRef(id="2002", type="group"),
+                            message=Message(
+                                segments=(
+                                    Segment(type="mention", data={"user_id": "1001"}),
+                                    Segment(type="text", data={"text": "reply"}),
+                                )
+                            ),
+                        ),
+                    )
+                )
+            )
+            request = json.loads(await gateway.recv())
+            assert request["action"] == "send_message"
+            assert request["params"]["message"] == [
+                {"type": "mention", "data": {"user_id": "1001"}},
+                {"type": "text", "data": {"text": "reply"}},
+            ]
+            await gateway.send(
+                json.dumps({"status": "ok", "retcode": 0, "data": {"message_id": "reverse-1"}, "echo": request["echo"]})
+            )
+            assert await action == {"message_id": "reverse-1"}
+    finally:
+        await connection.close()

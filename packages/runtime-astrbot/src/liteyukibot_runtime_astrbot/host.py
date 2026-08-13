@@ -12,7 +12,7 @@ from inspect import isawaitable
 from pathlib import Path
 from typing import Any
 
-from liteyukibot.events import EventEnvelope
+from liteyukibot.events import EventEnvelope, Message, Segment
 from liteyukibot.logging import configure_runtime_child_logging, get_logger, shutdown_logging
 from liteyukibot.runtime import RuntimeClient
 from liteyukibot.runtime.projection import project_managed_plugins
@@ -28,7 +28,7 @@ from liteyukibot.runtime.protocol import (
 
 from .translate import AstrEventInput, to_astr_event_input, to_send_action
 
-type TextSink = Callable[[str], Awaitable[None]]
+type MessageSink = Callable[[Message], Awaitable[None]]
 
 
 class AstrBotLogBridge:
@@ -109,7 +109,7 @@ class AstrBotHeadlessEngine:
         if not self._schedulers:
             raise RuntimeError("AstrBot headless lifecycle did not create a PipelineScheduler")
 
-    async def process(self, event: EventEnvelope, sink: TextSink) -> None:
+    async def process(self, event: EventEnvelope, sink: MessageSink) -> None:
         if self._lifecycle is None:
             raise RuntimeError("AstrBot headless lifecycle is not started")
         translated = to_astr_event_input(event)
@@ -276,8 +276,8 @@ class AstrBotRuntimeHost:
         event: EventEnvelope,
         trace: EventTrace | None,
     ) -> None:
-        async def emit(text: str) -> None:
-            action = to_send_action(event, text)
+        async def emit(message: Message) -> None:
+            action = to_send_action(event, message)
             result = await self.client.execute_action(
                 action.action_id,
                 action.model_dump(mode="json"),
@@ -337,8 +337,8 @@ async def run() -> None:
         logger.info("AstrBot headless runtime stopped")
 
 
-def _create_astr_event(value: AstrEventInput, sink: TextSink) -> Any:
-    plain_type = import_module("astrbot.core.message.components").Plain
+def _create_astr_event(value: AstrEventInput, sink: MessageSink) -> Any:
+    components = import_module("astrbot.core.message.components")
     event_type = import_module("astrbot.core.platform.astr_message_event").AstrMessageEvent
     message_module = import_module("astrbot.core.platform.astrbot_message")
     message_type = message_module.AstrBotMessage
@@ -357,9 +357,9 @@ def _create_astr_event(value: AstrEventInput, sink: TextSink) -> Any:
     message.session_id = value.conversation_id
     message.message_id = value.event_id
     message.sender = member_type(value.actor_id or "unknown", value.actor_name)
-    message.message = [plain_type(value.text)]
+    message.message = _to_astr_components(value.message, components)
     message.message_str = value.text
-    message.raw_message = {"liteyuki_runtime": value.runtime_id, "adapter": value.adapter}
+    message.raw_message = {"liteyuki_runtime": value.runtime_id, "adapter": value.adapter, "source": value.raw}
     if value.conversation_type == "group":
         message.group = group_type(value.conversation_id)
     metadata = metadata_type(
@@ -373,9 +373,7 @@ def _create_astr_event(value: AstrEventInput, sink: TextSink) -> Any:
     class HeadlessAstrEvent(event_type):  # type: ignore[misc,valid-type]
         async def send(self, chain: Any) -> None:
             self._has_send_oper = True
-            text = "".join(str(getattr(item, "text", "")) for item in chain.chain)
-            if text:
-                await sink(text)
+            await sink(_to_portable_astr_message(chain))
 
         async def send_streaming(self, generator: Any, use_fallback: bool = False) -> None:
             del use_fallback
@@ -383,6 +381,85 @@ def _create_astr_event(value: AstrEventInput, sink: TextSink) -> Any:
                 await self.send(chain)
 
     return HeadlessAstrEvent(value.text, message, metadata, value.conversation_id)
+
+
+def _to_astr_components(message: Message, components: Any) -> list[Any]:
+    rendered: list[Any] = []
+    for segment in message.segments:
+        data = segment.model_dump(mode="json")["data"]
+        assert isinstance(data, dict)
+        if segment.type == "text":
+            rendered.append(components.Plain(data["text"]))
+        elif segment.type == "mention":
+            if data.get("scope") == "all":
+                rendered.append(components.AtAll())
+            elif isinstance(data.get("user_id"), str):
+                rendered.append(components.At(qq=data["user_id"]))
+            else:
+                raise ValueError("AstrBot mentions require user_id or scope=all")
+        elif segment.type == "reply":
+            message_id = data.get("message_id")
+            if not isinstance(message_id, str) or not message_id:
+                raise ValueError("AstrBot reply segments require message_id")
+            rendered.append(components.Reply(id=message_id))
+        elif segment.type == "media":
+            source = data.get("url") or data.get("file")
+            if not isinstance(source, str) or not source:
+                raise ValueError("AstrBot media segments require url or file")
+            media_type = data.get("media_type")
+            if media_type == "image":
+                rendered.append(components.Image(file=source, url=source))
+            elif media_type in {"audio", "voice"}:
+                rendered.append(components.Record(file=source, url=source))
+            elif media_type == "video":
+                rendered.append(components.Video(file=source, url=source))
+            elif media_type == "file":
+                name = data.get("name")
+                filename = name if isinstance(name, str) and name else "attachment"
+                rendered.append(components.File(name=filename, file=source, url=source))
+            else:
+                raise ValueError(f"AstrBot does not support media_type {media_type!r}")
+        else:
+            raise ValueError(f"AstrBot cannot represent portable segment {segment.type!r}")
+    return rendered
+
+
+def _to_portable_astr_message(chain: Any) -> Message:
+    segments: list[Segment] = []
+    for item in chain.chain:
+        kind = type(item).__name__
+        if kind == "Plain":
+            text = getattr(item, "text", None)
+            if isinstance(text, str) and text:
+                segments.append(Segment(type="text", data={"text": text}))
+                continue
+        elif kind in {"At", "AtAll"}:
+            target = getattr(item, "qq", None)
+            if target == "all":
+                segments.append(Segment(type="mention", data={"scope": "all"}))
+                continue
+            if target is not None:
+                segments.append(Segment(type="mention", data={"user_id": str(target)}))
+                continue
+        elif kind == "Reply":
+            identifier = getattr(item, "id", None)
+            if identifier is not None:
+                segments.append(Segment(type="reply", data={"message_id": str(identifier)}))
+                continue
+        elif kind in {"Image", "Record", "Video", "File"}:
+            source = getattr(item, "url", None) or getattr(item, "file", None)
+            media_type = {"Image": "image", "Record": "voice", "Video": "video", "File": "file"}[kind]
+            if isinstance(source, str) and source:
+                data: dict[str, str] = {"media_type": media_type, "url": source}
+                name = getattr(item, "name", None)
+                if isinstance(name, str) and name:
+                    data["name"] = name
+                segments.append(Segment(type="media", data=data))
+                continue
+        raise ValueError(f"AstrBot output component {kind!r} is not supported")
+    if not segments:
+        raise ValueError("AstrBot output chain contains no portable segments")
+    return Message(segments=tuple(segments))
 
 
 def _positive_int(options: Mapping[str, object], key: str, default: int) -> int:

@@ -1,9 +1,9 @@
 # LiteyukiBot OneBot Adapter
 
 `liteyukibot-v7-adapter-onebot` is a pure-Python protocol package for the
-`liteyukibot-v7-runtime-adapter` child host. Its first release implements the
-OneBot v11 HTTP Post event transport and HTTP API actions; it has no NoneBot,
-Node, or platform-SDK dependency.
+`liteyukibot-v7-runtime-adapter` child host. It implements OneBot v11 and v12
+over HTTP Post, forward WebSocket, and reverse WebSocket transports without
+NoneBot, Node, or a platform SDK.
 
 ```bash
 uv add liteyukibot-v7-runtime-adapter liteyukibot-v7-adapter-onebot
@@ -32,11 +32,11 @@ adapter verifies `Authorization: Bearer <access_token>` when configured and
 requires a token for non-loopback listeners. It verifies matching `self_id` /
 `X-Self-ID` values before forwarding an event.
 
-The adapter accepts private and group message events, maps text, mentions,
-replies, image/record/video media, and adapter-specific segments into frozen
-LiteyukiBot messages, and executes `SendMessage` plus constrained `CallApi`
-actions through the configured OneBot HTTP API root. OneBot v12 is intentionally
-not part of this release.
+The adapter maps supported OneBot messages into frozen LiteyukiBot messages and
+executes `SendMessage` plus constrained `CallApi` actions. Set `kind` to
+`onebot-v12` for v12; its default callback path is `/onebot/v12/http`. For a
+WebSocket transport, set `transport = "forward_websocket"` with `ws_url`, or
+`transport = "reverse_websocket"` with `ws_host`, `ws_port`, and `ws_path`.
 
 ## Development
 

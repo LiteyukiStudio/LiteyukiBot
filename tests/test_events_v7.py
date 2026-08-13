@@ -13,6 +13,7 @@ from liteyukibot.events import (
     ActorRef,
     CallApi,
     ConversationRef,
+    EditMessage,
     EventBus,
     EventEnvelope,
     HandlerResult,
@@ -82,8 +83,21 @@ def test_models_are_frozen_json_safe_and_discriminated() -> None:
             "action": {"type": "call_api", "api": "get_status", "params": {"verbose": True}},
         }
     )
+    edit = ActionEnvelope.model_validate(
+        {
+            "action_id": "action-edit",
+            "runtime_id": "runtime",
+            "bot_id": "bot",
+            "action": {
+                "type": "edit_message",
+                "message_id": "message-1",
+                "message": {"segments": [{"type": "text", "data": {"text": "updated"}}]},
+            },
+        }
+    )
     assert isinstance(send.action, SendMessage)
     assert isinstance(call.action, CallApi)
+    assert isinstance(edit.action, EditMessage)
     assert call.model_dump(mode="json")["action"]["type"] == "call_api"
 
 
