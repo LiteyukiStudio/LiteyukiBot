@@ -1,5 +1,5 @@
 # LiteyukiBot configuration schema. Do not edit config_version manually.
-config_version = 1
+config_version = 2
 
 [core]
 data_dir = "data"

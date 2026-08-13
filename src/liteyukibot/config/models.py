@@ -253,7 +253,7 @@ class HttpSettings(FrozenSettingsModel):
 
 
 class AppSettings(FrozenSettingsModel):
-    config_version: int = Field(default=1, ge=1)
+    config_version: int = Field(default=2, ge=1)
     core: CoreSettings = Field(default_factory=CoreSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     i18n: I18nSettings = Field(default_factory=I18nSettings)

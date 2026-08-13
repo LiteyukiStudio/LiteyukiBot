@@ -9,14 +9,18 @@ liteyuki.toml. Create it with:
 uv run liteyuki init
 ~~~
 
-The interactive initializer is a full-screen terminal wizard. It starts with
-language, workspace, and a minimal-versus-custom choice; Back and Cancel never
-write configuration. Minimal setup creates safe defaults without optional
-plugins or runtimes. Custom setup discovers installed native plugins and runtime
+The interactive initializer is a responsive full-screen terminal wizard. It
+starts with language, workspace, and a minimal-versus-custom choice; Back and
+Cancel never write configuration. Selection pages support arrows, Space,
+Enter, mouse input, and unique green mnemonic keys. Minimal setup creates safe
+defaults without optional plugins or runtimes. Custom setup first collects
+structured logging choices (level, console/JSON sinks, payload mode, and
+runtime exclusions), then discovers installed native plugins and runtime
 packages, resolves required native service providers, writes only package-owned
 safe options, and can add message routes to an agent runtime. A broken,
 unrelated entry point is reported as a diagnostic instead of preventing other
-choices.
+choices. The wizard does not paint a terminal background; transparency remains
+the terminal emulator's setting.
 
 liteyuki init --non-interactive and a missing Docker configuration both create
 a minimal configuration with no enabled plugins, runtimes, or secrets.
@@ -26,6 +30,21 @@ a minimal configuration with no enabled plugins, runtimes, or secrets.
 font support cannot be detected. An explicit Chinese choice remains in effect
 and emits a warning instead. Interactive setup requires a TTY; automation must
 use `--non-interactive`.
+
+## Local Run Console
+
+Outside Docker, `ly run` opens a local administrator console when stdin and
+stdout are TTYs. It coexists with normal logs and supports `help`, `status`,
+`runtime list`, `runtime restart <id>`, and runtime-plugin lifecycle commands.
+`plugin uninstall`, `plugin gc`, and `stop` require a `y/N` confirmation.
+Docker and non-interactive hosts retain signal-only service mode. Successful
+startup logs elapsed `run`-to-READY time in milliseconds with two decimals.
+
+The optional Permissions package can grant management capabilities to named
+plugin or runtime callers through `management_grants`; ungranted callers fail
+closed. Runtime IPC can invoke only an existing, capability-authorized kernel
+management command. It cannot execute a shell command or install a remote
+handler.
 
 ## Resource Packs
 
@@ -129,7 +148,7 @@ api_key_env configuration remains an explicit compatibility override.
 
 ## Upgrade Material
 
-config_version = 1 is the current v7 pre-release schema and the planned Beta1
+config_version = 2 is the current v7 pre-release schema. Configurations
 schema. A root configuration with a missing or older version is preserved and
 blocks startup after generating:
 

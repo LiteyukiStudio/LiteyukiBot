@@ -88,6 +88,8 @@ class ConfigWorkspace:
         data_dir: str = "data",
         cache_dir: str = "cache",
         logging_level: str = "INFO",
+        logging_console: bool = True,
+        logging_json_lines: bool = False,
         payload_mode: str = "metadata",
         payload_exclude_runtimes: tuple[str, ...] = (),
         locale: str = "auto",
@@ -101,6 +103,8 @@ class ConfigWorkspace:
         logging = LoggingSettings.model_validate(
             {
                 "level": logging_level,
+                "console": logging_console,
+                "json_lines": logging_json_lines,
                 "payload_mode": payload_mode,
                 "payload_exclude_runtimes": payload_exclude_runtimes,
             }
@@ -110,6 +114,8 @@ class ConfigWorkspace:
             data_dir=data_dir,
             cache_dir=cache_dir,
             logging_level=logging.level,
+            logging_console=logging.console,
+            logging_json_lines=logging.json_lines,
             payload_mode=logging.payload_mode,
             payload_exclude_runtimes=logging.payload_exclude_runtimes,
             locale=locale,

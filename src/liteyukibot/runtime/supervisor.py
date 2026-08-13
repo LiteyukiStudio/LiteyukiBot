@@ -34,6 +34,8 @@ from .protocol import (
     Heartbeat,
     Hello,
     JsonValue,
+    ManagementRequest,
+    ManagementResponse,
     ProtocolVersion,
     Ready,
     Shutdown,
@@ -77,6 +79,7 @@ AgentToolSink = Callable[
     [str, str, dict[str, JsonValue], str, dict[str, JsonValue]],
     Awaitable[AgentToolSinkResult],
 ]
+ManagementSink = Callable[[str, str], Awaitable[tuple[bool, str, JsonValue, str | None]]]
 
 
 class RuntimeState(StrEnum):
@@ -148,6 +151,7 @@ class RuntimeRecord:
     inbound_actions: dict[str, asyncio.Task[None]] = field(default_factory=dict)
     inbound_events: dict[str, asyncio.Task[None]] = field(default_factory=dict)
     inbound_agent_tools: dict[str, asyncio.Task[None]] = field(default_factory=dict)
+    inbound_management: dict[str, asyncio.Task[None]] = field(default_factory=dict)
     active_delivery_contexts: dict[str, tuple[float, dict[str, JsonValue], EventTrace | None]] = field(
         default_factory=dict
     )
@@ -165,12 +169,14 @@ class RuntimeSupervisor:
         event_sink: EventSink | None = None,
         action_sink: ActionSink | None = None,
         agent_tool_sink: AgentToolSink | None = None,
+        management_sink: ManagementSink | None = None,
         secret_values: Mapping[str, str] | None = None,
     ) -> None:
         self.logger = logger
         self.event_sink = event_sink
         self.action_sink = action_sink
         self.agent_tool_sink = agent_tool_sink
+        self.management_sink = management_sink
         self.secret_values = dict(secret_values or {})
         self.records: dict[str, RuntimeRecord] = {}
         self._server: asyncio.Server | None = None
@@ -189,6 +195,11 @@ class RuntimeSupervisor:
         if self._server is not None:
             raise RuntimeError("agent tool sink cannot change after runtime startup")
         self.agent_tool_sink = sink
+
+    def set_management_sink(self, sink: ManagementSink | None) -> None:
+        if self._server is not None:
+            raise RuntimeError("management sink cannot change after runtime startup")
+        self.management_sink = sink
 
     def set_logging_settings(self, settings: LoggingSettings) -> None:
         if self._server is not None:
@@ -225,6 +236,7 @@ class RuntimeSupervisor:
                 "inbound_actions": len(record.inbound_actions),
                 "inbound_events": len(record.inbound_events),
                 "inbound_agent_tools": len(record.inbound_agent_tools),
+                "inbound_management": len(record.inbound_management),
                 "active_deliveries": len(record.active_delivery_contexts),
             }
         return snapshots
@@ -455,6 +467,8 @@ class RuntimeSupervisor:
             control_future = record.pending_controls.pop(message.correlation_id, None)
             if control_future is not None and not control_future.done():
                 control_future.set_result(message)
+        elif isinstance(message, ManagementRequest):
+            await self._accept_management_request(record, message)
         elif isinstance(message, ErrorMessage):
             self.logger.error("runtime {} error {}: {}", record.spec.id, message.code, message.message)
         else:
@@ -754,6 +768,47 @@ class RuntimeSupervisor:
             ),
         )
 
+    async def _accept_management_request(self, record: RuntimeRecord, request: ManagementRequest) -> None:
+        if record.protocol_version != 5 or "runtime.management.execute" not in record.capabilities:
+            await self._reject_management_request(record, request, "runtime management is unavailable")
+            return
+        if self.management_sink is None:
+            await self._reject_management_request(record, request, "kernel management is unavailable")
+            return
+        if request.correlation_id in record.inbound_management:
+            await self._reject_management_request(record, request, "duplicate management correlation id")
+            return
+        task = asyncio.create_task(
+            self._execute_management_request(record, request),
+            name=f"runtime-management:{record.spec.id}:{request.correlation_id}",
+        )
+        record.inbound_management[request.correlation_id] = task
+
+    async def _execute_management_request(self, record: RuntimeRecord, request: ManagementRequest) -> None:
+        try:
+            assert self.management_sink is not None
+            ok, text, data, error = await self.management_sink(record.spec.id, request.command)
+            response = ManagementResponse(
+                correlation_id=request.correlation_id, ok=ok, text=text, data=data, error=error
+            )
+        except Exception:
+            response = ManagementResponse(
+                correlation_id=request.correlation_id,
+                ok=False,
+                error="kernel management failed",
+            )
+        try:
+            await self._send(record, response)
+        except (ConnectionError, RuntimeError):
+            pass
+        finally:
+            record.inbound_management.pop(request.correlation_id, None)
+
+    async def _reject_management_request(
+        self, record: RuntimeRecord, request: ManagementRequest, error: str
+    ) -> None:
+        await self._send(record, ManagementResponse(correlation_id=request.correlation_id, ok=False, error=error))
+
     @staticmethod
     def _clear_expired_delivery_contexts(record: RuntimeRecord) -> None:
         now = time.monotonic()
@@ -992,6 +1047,12 @@ class RuntimeSupervisor:
             task.cancel()
         if inbound_agent_tools:
             await asyncio.gather(*inbound_agent_tools, return_exceptions=True)
+        inbound_management = tuple(record.inbound_management.values())
+        record.inbound_management.clear()
+        for task in inbound_management:
+            task.cancel()
+        if inbound_management:
+            await asyncio.gather(*inbound_management, return_exceptions=True)
         if writer is not None:
             writer.close()
             await writer.wait_closed()
