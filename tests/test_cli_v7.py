@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import signal
+import subprocess
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
@@ -104,16 +106,19 @@ async def test_run_until_signal_uses_windows_signal_fallback(monkeypatch: pytest
     assert assignments[-2:] == [(signal.SIGINT, previous), (signal.SIGTERM, previous)]
 
 
-def test_run_rejects_an_active_workspace_lock(
+def test_run_rejects_an_active_data_directory_lock(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     from liteyukibot.config import ConfigWorkspace
 
-    ConfigWorkspace(tmp_path).initialize()
+    workspace = ConfigWorkspace(tmp_path)
+    workspace.initialize()
+    expected_data_directory = tmp_path / "data"
+    lock_paths: list[Path] = []
 
     class LockedFileLock:
-        def __init__(self, *_args: object, **_kwargs: object) -> None:
-            pass
+        def __init__(self, path: Path, **_kwargs: object) -> None:
+            lock_paths.append(path)
 
         def __enter__(self) -> None:
             raise Timeout("instance.lock")
@@ -125,7 +130,88 @@ def test_run_rejects_an_active_workspace_lock(
     monkeypatch.setattr(cli_module, "_runtime_secrets", lambda *_args: (_ for _ in ()).throw(AssertionError()))
 
     assert cli_module.main(["--workspace", str(tmp_path), "run"]) == 2
-    assert "another LiteyukiBot command is active" in capsys.readouterr().err
+    assert lock_paths == [expected_data_directory / "instance.lock"]
+    message = f"another LiteyukiBot instance is active for data directory {expected_data_directory}"
+    assert message in capsys.readouterr().err
+
+
+def test_run_rejects_a_shared_data_directory_owned_by_another_process(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from liteyukibot.config import ConfigWorkspace
+
+    first_workspace = ConfigWorkspace(tmp_path / "first")
+    second_workspace = ConfigWorkspace(tmp_path / "second")
+    first_workspace.initialize()
+    second_workspace.initialize()
+    data_directory = tmp_path / "shared-data"
+    data_directory.mkdir()
+    helper = """
+from filelock import FileLock
+from pathlib import Path
+import sys
+import time
+
+with FileLock(Path(sys.argv[1]) / 'instance.lock', timeout=0):
+    print('locked', flush=True)
+    time.sleep(60)
+"""
+    process = subprocess.Popen(
+        [sys.executable, "-c", helper, str(data_directory)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        assert process.stdout is not None
+        assert process.stdout.readline().strip() == "locked"
+        assert (
+            cli_module.main(
+                [
+                    "--workspace",
+                    str(second_workspace.directory),
+                    "--set",
+                    f"core.data_dir={data_directory}",
+                    "run",
+                ]
+            )
+            == 2
+        )
+        message = f"another LiteyukiBot instance is active for data directory {data_directory}"
+        assert message in capsys.readouterr().err
+    finally:
+        process.terminate()
+        process.wait(timeout=10)
+
+
+def test_data_directory_locks_are_independent(tmp_path: Path) -> None:
+    first_data_directory = tmp_path / "first-data"
+    second_data_directory = tmp_path / "second-data"
+    first_data_directory.mkdir()
+    helper = """
+from filelock import FileLock
+from pathlib import Path
+import sys
+import time
+
+with FileLock(Path(sys.argv[1]) / 'instance.lock', timeout=0):
+    print('locked', flush=True)
+    time.sleep(60)
+"""
+    process = subprocess.Popen(
+        [sys.executable, "-c", helper, str(first_data_directory)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        assert process.stdout is not None
+        assert process.stdout.readline().strip() == "locked"
+        with cli_module._exclusive_data_directory(second_data_directory):
+            assert (second_data_directory / "instance.lock").is_file()
+    finally:
+        process.terminate()
+        process.wait(timeout=10)
 
 
 def test_init_minimal_wizard_writes_locale_and_resource_index(

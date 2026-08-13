@@ -592,7 +592,7 @@ def _list_runtime_plugin_generations(workspace: ConfigWorkspace, runtime_id: str
 
 def _run(settings: AppSettings, workspace: ConfigWorkspace) -> int:
     try:
-        with _exclusive_workspace(workspace):
+        with _exclusive_data_directory(settings.core.data_dir):
             asyncio.run(_run_until_signal(settings, _runtime_secrets(settings, workspace), workspace.directory))
     except KeyboardInterrupt:
         return 130
@@ -601,7 +601,7 @@ def _run(settings: AppSettings, workspace: ConfigWorkspace) -> int:
 
 @contextmanager
 def _exclusive_workspace(workspace: ConfigWorkspace) -> Iterator[None]:
-    """Prevent init or run from replacing one workspace's live control state."""
+    """Serialize operations that mutate one workspace's management state."""
 
     workspace.management_directory.mkdir(parents=True, exist_ok=True)
     lock = FileLock(workspace.management_directory / "instance.lock", timeout=0)
@@ -610,6 +610,21 @@ def _exclusive_workspace(workspace: ConfigWorkspace) -> Iterator[None]:
             yield
     except Timeout as error:
         raise RuntimeError(f"another LiteyukiBot command is active for {workspace.directory}") from error
+
+
+@contextmanager
+def _exclusive_data_directory(data_directory: Path) -> Iterator[None]:
+    """Ensure one kernel owns all state beneath a resolved data directory."""
+
+    data_directory.mkdir(parents=True, exist_ok=True)
+    lock = FileLock(data_directory / "instance.lock", timeout=0)
+    try:
+        with lock:
+            yield
+    except Timeout as error:
+        raise RuntimeError(
+            f"another LiteyukiBot instance is active for data directory {data_directory}"
+        ) from error
 
 
 async def _run_until_signal(
