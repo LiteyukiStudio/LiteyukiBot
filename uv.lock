@@ -1116,7 +1116,7 @@ wheels = [
 
 [[package]]
 name = "liteyukibot-v7"
-version = "7.0.0b1"
+version = "7.0.0b2"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
@@ -1187,15 +1187,17 @@ requires-dist = [
 
 [[package]]
 name = "liteyukibot-v7-adapter-satori"
-version = "0.1.0a1"
+version = "0.1.0a2"
 source = { editable = "packages/adapter-satori" }
 dependencies = [
+    { name = "liteyukibot-v7" },
     { name = "liteyukibot-v7-runtime-adapter" },
     { name = "websockets" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "liteyukibot-v7", editable = "." },
     { name = "liteyukibot-v7-runtime-adapter", editable = "packages/runtime-adapter" },
     { name = "websockets", specifier = ">=15,<16" },
 ]

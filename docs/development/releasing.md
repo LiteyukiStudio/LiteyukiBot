@@ -45,7 +45,7 @@ distribution inside the workflow.
 
 | Package | Source | Tag |
 | --- | --- | --- |
-| `liteyukibot-v7==7.0.0b1` | `pyproject.toml` | `v7.0.0b1` |
+| `liteyukibot-v7==7.0.0b2` | `pyproject.toml` | `v7.0.0b2` |
 | `liteyukibot-v7-permissions==0.2.0a2` | `packages/permissions` | `permissions-v0.2.0a2` |
 | `liteyukibot-v7-commands==0.2.0a2` | `packages/commands` | `commands-v0.2.0a2` |
 | `liteyukibot-v7-resources==0.1.0a2` | `packages/resources` | `resources-v0.1.0a2` |
@@ -55,7 +55,7 @@ distribution inside the workflow.
 | `liteyukibot-v7-runtime-nonebot==0.1.0a1` | `packages/runtime-nonebot` | `runtime-nonebot-v0.1.0a1` |
 | `liteyukibot-v7-runtime-adapter==0.1.0a2` | `packages/runtime-adapter` | `runtime-adapter-v0.1.0a2` |
 | `liteyukibot-v7-adapter-onebot==0.1.0a1` | `packages/adapter-onebot` | `adapter-onebot-v0.1.0a1` |
-| `liteyukibot-v7-adapter-satori==0.1.0a1` | `packages/adapter-satori` | `adapter-satori-v0.1.0a1` |
+| `liteyukibot-v7-adapter-satori==0.1.0a2` | `packages/adapter-satori` | `adapter-satori-v0.1.0a2` |
 | `liteyukibot-v7-runtime-v6==0.1.0a2` | `packages/runtime-v6` | `runtime-v6-v0.1.0a2` |
 | `liteyukibot-v7-agent-resolver==0.1.0a1` | `packages/agent-resolver` | `agent-resolver-v0.1.0a1` |
 | `liteyukibot-v7-agent==0.1.0a9` | `packages/agent` | `agent-v0.1.0a9` |
@@ -69,7 +69,7 @@ tag that does not exactly match the selected source version and distribution.
 
 Push and wait for each release before creating the next tag:
 
-1. `v7.0.0b1`;
+1. `v7.0.0b2`;
 2. `permissions-v0.2.0a2`;
 3. `commands-v0.2.0a2`;
 4. `resources-v0.1.0a2`;
@@ -79,7 +79,7 @@ Push and wait for each release before creating the next tag:
 8. `runtime-nonebot-v0.1.0a1`.
 9. `runtime-adapter-v0.1.0a2`.
 10. `adapter-onebot-v0.1.0a1`.
-11. `adapter-satori-v0.1.0a1`.
+11. `adapter-satori-v0.1.0a2`.
 12. `runtime-v6-v0.1.0a2`.
 13. `agent-resolver-v0.1.0a1`.
 14. `agent-v0.1.0a9` (requires `commands-v0.2.0a2`).

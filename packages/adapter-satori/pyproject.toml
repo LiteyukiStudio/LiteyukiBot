@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7-adapter-satori"
-version = "0.1.0a1"
+version = "0.1.0a2"
 description = "Native Satori v1 adapter for LiteyukiBot v7."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -8,6 +8,7 @@ license = "LicenseRef-LSO"
 license-files = ["LICENSE"]
 authors = [{ name = "LiteyukiStudio" }]
 dependencies = [
+    "liteyukibot-v7>=7.0.0b2,<8",
     "liteyukibot-v7-runtime-adapter>=0.1.0a2,<1",
     "websockets>=15,<16",
 ]
@@ -20,6 +21,7 @@ requires = ["uv_build>=0.11.32,<0.12"]
 build-backend = "uv_build"
 
 [tool.uv.sources]
+liteyukibot-v7 = { workspace = true }
 liteyukibot-v7-runtime-adapter = { workspace = true }
 
 [tool.uv.build-backend]

@@ -1,5 +1,17 @@
 # Changelog
 
+## 7.0.0b2 - 2026-08-13
+
+- added `EditMessage` to the portable action model and the separately
+  published native OneBot v11/v12 and Satori adapter packages;
+- added named instance configuration, daemon-managed workers, local development
+  controls, and data-directory instance locking;
+- added the interactive management console and responsive initialization flow;
+- upgraded performance artifacts to schema 2 with three independent samples
+  and deterministic benchmark coverage;
+- require `liteyukibot-v7>=7.0.0b2` for the Satori adapter so published wheels
+  always import the portable `EditMessage` action.
+
 ## 7.0.0b1 - 2026-08-12
 
 - introduced runtime IPC protocol v5 with a kernel-originated, capability-gated

@@ -20,9 +20,9 @@ Framework integrations run as separately installed supervised child runtimes;
 they exchange frozen Event and Action models with the kernel rather than SDK
 objects.
 
-The default branch is the maintained LiteyukiBot v6 line. This `v7` branch is
-an independent rewrite. Its current published release is
-`liteyukibot-v7==7.0.0b1`.
+The default branch is the maintained LiteyukiBot v7 line. The prior v6 line is
+preserved on the `v6` branch. Its current published release is
+`liteyukibot-v7==7.0.0b2`.
 
 ## Features
 
@@ -146,7 +146,7 @@ This repository is a uv workspace containing the kernel, first-party packages,
 examples, tests, developer tools, documentation, and release workflows.
 Directory-level development guidance is provided by each directory's README.
 
-[Liteyuki7]: https://img.shields.io/badge/LiteyukiBot-7.0.0b1-blue?style=for-the-badge
+[Liteyuki7]: https://img.shields.io/badge/LiteyukiBot-7.0.0b2-blue?style=for-the-badge
 [Python3.14]: https://img.shields.io/badge/Python-3.14+-blue?style=for-the-badge
 [Usage]: https://img.shields.io/badge/Usage-CLI-blue?style=for-the-badge
 [Repo]: https://img.shields.io/badge/Distribution-PyPI-blue?style=for-the-badge
