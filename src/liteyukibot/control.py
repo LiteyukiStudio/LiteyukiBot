@@ -15,6 +15,7 @@ MAX_CONTROL_MESSAGE = 64 * 1024
 
 type StatusProvider = Callable[[], Mapping[str, Any]]
 type RuntimeRestarter = Callable[[str], Awaitable[None]]
+type ControlHandler = Callable[[Mapping[str, Any]], Awaitable[Any]]
 
 
 class ControlError(RuntimeError):
@@ -27,11 +28,13 @@ class ControlServer:
         descriptor_path: Path,
         *,
         status_provider: StatusProvider,
-        runtime_restarter: RuntimeRestarter,
+        runtime_restarter: RuntimeRestarter | None = None,
+        handlers: Mapping[str, ControlHandler] | None = None,
     ) -> None:
         self.descriptor_path = descriptor_path
         self.status_provider = status_provider
         self.runtime_restarter = runtime_restarter
+        self.handlers = dict(handlers or {})
         self.token = secrets.token_urlsafe(32)
         self.server: asyncio.Server | None = None
 
@@ -85,12 +88,14 @@ class ControlServer:
             command = request.get("command")
             if command == "status":
                 response = {"ok": True, "result": self.status_provider()}
-            elif command == "runtime.restart":
+            elif command == "runtime.restart" and self.runtime_restarter is not None:
                 runtime_id = request.get("runtime_id")
                 if not isinstance(runtime_id, str) or not runtime_id:
                     raise ControlError("runtime.restart requires runtime_id")
                 await self.runtime_restarter(runtime_id)
                 response = {"ok": True, "result": {"runtime_id": runtime_id}}
+            elif isinstance(command, str) and (handler := self.handlers.get(command)) is not None:
+                response = {"ok": True, "result": await handler(request)}
             else:
                 raise ControlError(f"unknown control command: {command}")
         except Exception as error:

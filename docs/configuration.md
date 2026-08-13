@@ -33,12 +33,19 @@ use `--non-interactive`.
 
 ## Local Run Console
 
-Outside Docker, `ly run` opens a local administrator console when stdin and
+Outside Docker, `ly run` runs a local daemon and opens a local administrator console in its worker when stdin and
 stdout are TTYs. It coexists with normal logs and supports `help`, `status`,
 `runtime list`, `runtime restart <id>`, and runtime-plugin lifecycle commands.
 `plugin uninstall`, `plugin gc`, and `stop` require a `y/N` confirmation.
 Docker and non-interactive hosts retain signal-only service mode. Successful
 startup logs elapsed `run`-to-READY time in milliseconds with two decimals.
+
+`ly run --detach` starts the same daemon in the background and writes its
+standard output to `.liteyuki/instances/<name>/logs/daemon.log`. The worker owns
+`data/instance.lock`; the daemon owns a separate instance lock and authenticated
+loopback descriptor. Use `ly --instance NAME instance status|stop|restart|logs`
+for lifecycle operations. With `daemon.auto_restart = true`, abnormal worker
+exits retry with finite exponential backoff; clean exits never restart.
 
 The optional Permissions package can grant management capabilities to named
 plugin or runtime callers through `management_grants`; ungranted callers fail

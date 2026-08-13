@@ -106,7 +106,7 @@ async def test_run_until_signal_uses_windows_signal_fallback(monkeypatch: pytest
     assert assignments[-2:] == [(signal.SIGINT, previous), (signal.SIGTERM, previous)]
 
 
-def test_run_rejects_an_active_data_directory_lock(
+def test_worker_rejects_an_active_data_directory_lock(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     from liteyukibot.config import ConfigWorkspace
@@ -127,15 +127,13 @@ def test_run_rejects_an_active_data_directory_lock(
             return None
 
     monkeypatch.setattr(cli_module, "FileLock", LockedFileLock)
-    monkeypatch.setattr(cli_module, "_runtime_secrets", lambda *_args: (_ for _ in ()).throw(AssertionError()))
-
-    assert cli_module.main(["--workspace", str(tmp_path), "run"]) == 2
+    assert cli_module.main(["--workspace", str(tmp_path), "run", "--daemon-worker"]) == 2
     assert lock_paths == [expected_data_directory / "instance.lock"]
     message = f"another LiteyukiBot instance is active for data directory {expected_data_directory}"
     assert message in capsys.readouterr().err
 
 
-def test_run_rejects_a_shared_data_directory_owned_by_another_process(
+def test_worker_rejects_a_shared_data_directory_owned_by_another_process(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     from liteyukibot.config import ConfigWorkspace
@@ -170,9 +168,10 @@ with FileLock(Path(sys.argv[1]) / 'instance.lock', timeout=0):
                 [
                     "--workspace",
                     str(second_workspace.directory),
-                    "--set",
-                    f"core.data_dir={data_directory}",
-                    "run",
+                        "--set",
+                        f"core.data_dir={data_directory}",
+                        "run",
+                        "--daemon-worker",
                 ]
             )
             == 2

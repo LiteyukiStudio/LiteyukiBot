@@ -35,6 +35,7 @@ from .config import (
 )
 from .config.vault import SecretVault
 from .control import ControlError, request_control
+from .daemon import InstanceDaemon
 from .exceptions import LiteyukiError
 from .init_wizard import WizardCancelled, build_custom_initialization_plan, run_init_wizard
 from .instances import DEFAULT_INSTANCE, InstancePaths
@@ -53,7 +54,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", action="append", default=[], metavar="PATH")
     parser.add_argument("--set", action="append", default=[], dest="overrides", metavar="KEY=VALUE")
     subcommands = parser.add_subparsers(dest="command", required=True)
-    subcommands.add_parser("run", help="start the application")
+    run = subcommands.add_parser("run", help="start the application through its local daemon")
+    run.add_argument("--detach", action="store_true", help="start the daemon in the background")
+    run.add_argument("--daemon-worker", action="store_true", help=argparse.SUPPRESS)
     subcommands.add_parser("check", help="validate configuration and plugin topology")
     subcommands.add_parser("version", help="show the installed version")
     init = subcommands.add_parser("init", help="create a project configuration")
@@ -121,6 +124,14 @@ def build_parser() -> argparse.ArgumentParser:
     runtime_commands.add_parser("list")
     restart = runtime_commands.add_parser("restart")
     restart.add_argument("runtime_id")
+    instance = subcommands.add_parser("instance", help="named instance lifecycle operations")
+    instance_commands = instance.add_subparsers(dest="instance_command", required=True)
+    instance_commands.add_parser("list")
+    instance_commands.add_parser("status")
+    instance_commands.add_parser("stop")
+    instance_commands.add_parser("restart")
+    logs = instance_commands.add_parser("logs")
+    logs.add_argument("--lines", type=int, default=100)
     profile = subcommands.add_parser("profile", help="isolated runtime profile operations")
     profile_commands = profile.add_subparsers(dest="profile_command", required=True)
     stage = profile_commands.add_parser("stage")
@@ -155,6 +166,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _profile(args)
         if args.command == "plugin" and args.plugin_command == "source":
             return _plugin_source(args)
+        if args.command == "instance":
+            return _instance_command(args)
         workspace = ConfigWorkspace(args.workspace)
         if args.command in {"run", "check"}:
             delegated = _delegate_to_active_profile(workspace, command_line)
@@ -162,7 +175,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 return delegated
         settings = _load(workspace, args.config, args.overrides, args.instance)
         if args.command == "run":
-            return _run(settings, workspace)
+            if args.daemon_worker:
+                return _run_worker(settings, workspace)
+            return _run(settings, workspace, args)
         if args.command in {"check", "config"}:
             if args.command == "check":
                 _check(settings)
@@ -603,12 +618,137 @@ def _list_runtime_plugin_generations(workspace: ConfigWorkspace, runtime_id: str
         print(f"{state}\t{generation.id}\t{generation.source_id or '-'}\t{','.join(roots)}\t{disabled}")
 
 
-def _run(settings: AppSettings, workspace: ConfigWorkspace) -> int:
+def _run(settings: AppSettings, workspace: ConfigWorkspace, args: argparse.Namespace) -> int:
+    paths = InstancePaths.from_workspace(workspace, args.instance)
+    if args.detach:
+        return _detach_daemon(settings, workspace, args, paths)
+    secrets = (
+        _worker_runtime_secrets()
+        if "LITEYUKI_RUNTIME_SECRETS" in os.environ
+        else _runtime_secrets(settings, workspace)
+    )
+    command = _daemon_worker_command(workspace, args)
+    environment = {"LITEYUKI_RUNTIME_SECRETS": json.dumps(secrets)}
     try:
-        with _exclusive_data_directory(settings.core.data_dir):
-            asyncio.run(_run_until_signal(settings, _runtime_secrets(settings, workspace), workspace.directory))
+        with _exclusive_daemon(paths):
+            return asyncio.run(InstanceDaemon(paths, settings.daemon, command, environment).run())
     except KeyboardInterrupt:
         return 130
+
+
+def _run_worker(settings: AppSettings, workspace: ConfigWorkspace) -> int:
+    runtime_secrets = _worker_runtime_secrets()
+    try:
+        with _exclusive_data_directory(settings.core.data_dir):
+            asyncio.run(_run_until_signal(settings, runtime_secrets, workspace.directory))
+    except KeyboardInterrupt:
+        return 130
+    return 0
+
+
+def _daemon_worker_command(workspace: ConfigWorkspace, args: argparse.Namespace) -> list[str]:
+    command = [
+        sys.executable,
+        "-m",
+        "liteyukibot.cli",
+        "--workspace",
+        str(workspace.directory),
+        "--instance",
+        args.instance,
+    ]
+    for config_path in args.config:
+        command.extend(("--config", config_path))
+    for override in args.overrides:
+        command.extend(("--set", override))
+    command.extend(("run", "--daemon-worker"))
+    return command
+
+
+def _daemon_command(workspace: ConfigWorkspace, args: argparse.Namespace) -> list[str]:
+    command = [
+        sys.executable,
+        "-m",
+        "liteyukibot.cli",
+        "--workspace",
+        str(workspace.directory),
+        "--instance",
+        args.instance,
+    ]
+    for config_path in args.config:
+        command.extend(("--config", config_path))
+    for override in args.overrides:
+        command.extend(("--set", override))
+    command.append("run")
+    return command
+
+
+def _worker_runtime_secrets() -> dict[str, str]:
+    raw = os.environ.pop("LITEYUKI_RUNTIME_SECRETS", "{}")
+    try:
+        decoded = json.loads(raw)
+    except json.JSONDecodeError as error:
+        raise ValueError("daemon supplied invalid runtime secrets") from error
+    valid = isinstance(decoded, dict) and all(
+        isinstance(key, str) and isinstance(value, str) for key, value in decoded.items()
+    )
+    if not valid:
+        raise ValueError("daemon supplied invalid runtime secrets")
+    return {key: value for key, value in decoded.items() if isinstance(key, str) and isinstance(value, str)}
+
+
+def _detach_daemon(
+    settings: AppSettings,
+    workspace: ConfigWorkspace,
+    args: argparse.Namespace,
+    paths: InstancePaths,
+) -> int:
+    paths.root.mkdir(parents=True, exist_ok=True)
+    command = _daemon_command(workspace, args)
+    log_path = paths.root / "logs" / "daemon.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("ab") as output:
+        kwargs: dict[str, Any] = {
+            "cwd": workspace.directory,
+            "env": {**os.environ, "LITEYUKI_RUNTIME_SECRETS": json.dumps(_runtime_secrets(settings, workspace))},
+            "stdin": subprocess.DEVNULL,
+            "stdout": output,
+            "stderr": output,
+        }
+        if os.name == "nt":
+            kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+        else:
+            kwargs["start_new_session"] = True
+        process = subprocess.Popen(command, **kwargs)
+    print(json.dumps({"instance": paths.name, "pid": process.pid, "log": str(log_path)}, ensure_ascii=False))
+    return 0
+
+
+def _instance_command(args: argparse.Namespace) -> int:
+    workspace = ConfigWorkspace(args.workspace)
+    selected = InstancePaths.from_workspace(workspace, args.instance)
+    if args.instance_command == "list":
+        root = workspace.management_directory / "instances"
+        if not root.is_dir():
+            return 0
+        for descriptor in sorted(root.glob("*/daemon.json")):
+            try:
+                snapshot = asyncio.run(request_control(descriptor, "status", timeout_seconds=1.0))
+            except ControlError:
+                snapshot = {"instance": descriptor.parent.name, "state": "stopped"}
+            print(json.dumps(snapshot, ensure_ascii=False, default=str))
+        return 0
+    if args.instance_command == "logs":
+        if args.lines < 1:
+            raise ValueError("--lines must be positive")
+        log_path = selected.root / "logs" / "daemon.log"
+        if log_path.is_file():
+            print("\n".join(log_path.read_text(encoding="utf-8", errors="replace").splitlines()[-args.lines :]))
+        return 0
+    command = {"status": "status", "stop": "stop", "restart": "restart"}.get(args.instance_command)
+    if command is None:
+        raise RuntimeError(f"unknown instance command: {args.instance_command}")
+    result = asyncio.run(request_control(selected.daemon_descriptor, command))
+    print(json.dumps(result, ensure_ascii=False, default=str))
     return 0
 
 
@@ -638,6 +778,19 @@ def _exclusive_data_directory(data_directory: Path) -> Iterator[None]:
         raise RuntimeError(
             f"another LiteyukiBot instance is active for data directory {data_directory}"
         ) from error
+
+
+@contextmanager
+def _exclusive_daemon(paths: InstancePaths) -> Iterator[None]:
+    """Permit exactly one daemon to own a named instance's control endpoint."""
+
+    paths.root.mkdir(parents=True, exist_ok=True)
+    lock = FileLock(paths.daemon_lock, timeout=0)
+    try:
+        with lock:
+            yield
+    except Timeout as error:
+        raise RuntimeError(f"another LiteyukiBot daemon is active for instance {paths.name}") from error
 
 
 async def _run_until_signal(
