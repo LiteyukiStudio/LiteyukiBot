@@ -7,7 +7,7 @@ from typing import Any
 
 from tomli_w import dumps
 
-CONFIG_VERSION = 2
+CONFIG_VERSION = 3
 
 
 def render_config_template(
@@ -49,6 +49,18 @@ def render_config_template(
             "config": plugin_config or {},
         },
         "http": {"enabled": False, "host": "127.0.0.1", "port": 20216},
+        "daemon": {
+            "auto_restart": False,
+            "restart_limit": 5,
+            "restart_window_seconds": 60.0,
+            "restart_backoff_initial_seconds": 0.5,
+            "restart_backoff_max_seconds": 10.0,
+        },
+        "development": {
+            "dev_mode": False,
+            "watch_auto_restart": False,
+            "watch_debounce_seconds": 0.75,
+        },
         "runtimes": runtimes or {},
         "runtime_event_routes": list(runtime_event_routes),
     }

@@ -252,8 +252,32 @@ class HttpSettings(FrozenSettingsModel):
         return self
 
 
+class DaemonSettings(FrozenSettingsModel):
+    """Policy for the local daemon that owns one restartable kernel worker."""
+
+    auto_restart: bool = False
+    restart_limit: int = Field(default=5, ge=1)
+    restart_window_seconds: float = Field(default=60.0, gt=0)
+    restart_backoff_initial_seconds: float = Field(default=0.5, gt=0)
+    restart_backoff_max_seconds: float = Field(default=10.0, gt=0)
+
+    @model_validator(mode="after")
+    def validate_backoff(self) -> DaemonSettings:
+        if self.restart_backoff_max_seconds < self.restart_backoff_initial_seconds:
+            raise ValueError("restart_backoff_max_seconds must not be less than restart_backoff_initial_seconds")
+        return self
+
+
+class DevelopmentSettings(FrozenSettingsModel):
+    """Opt-in local development controls; they never create an HTTP API."""
+
+    dev_mode: bool = False
+    watch_auto_restart: bool = False
+    watch_debounce_seconds: float = Field(default=0.75, gt=0)
+
+
 class AppSettings(FrozenSettingsModel):
-    config_version: int = Field(default=2, ge=1)
+    config_version: int = Field(default=3, ge=1)
     core: CoreSettings = Field(default_factory=CoreSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     i18n: I18nSettings = Field(default_factory=I18nSettings)
@@ -262,6 +286,8 @@ class AppSettings(FrozenSettingsModel):
     runtimes: Mapping[str, RuntimeSettings] = Field(default_factory=dict)
     runtime_event_routes: tuple[RuntimeEventRoute, ...] = ()
     http: HttpSettings = Field(default_factory=HttpSettings)
+    daemon: DaemonSettings = Field(default_factory=DaemonSettings)
+    development: DevelopmentSettings = Field(default_factory=DevelopmentSettings)
 
     @field_validator("runtimes", mode="after")
     @classmethod

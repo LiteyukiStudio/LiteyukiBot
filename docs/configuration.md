@@ -89,6 +89,26 @@ data directory can therefore belong to only one live kernel; concurrent bots
 must use distinct `core.data_dir` values. `liteyuki --version` is equivalent to
 `liteyuki version`.
 
+## Named Instances
+
+Use `--instance NAME` before the subcommand to run a separate named bot from
+the same workspace. Names use lower-case ASCII letters, digits, and hyphens.
+The default instance preserves `core.data_dir`, `core.cache_dir`, and any
+configured log file. A named instance derives all of those paths below
+`.liteyuki/instances/<name>/`, so its kernel lock, cache, daemon descriptor,
+logs, and future history cannot collide with another instance.
+
+~~~bash
+liteyuki --workspace /srv/liteyuki --instance staging check
+liteyuki --instance staging config show
+~~~
+
+An optional `.liteyuki/instances/<name>.toml` overrides the base file and any
+explicit `--config` files, but is still overridden by `LITEYUKI__...` and
+`--set`. It may configure runtimes, plugins, HTTP ports, and daemon policy. It
+cannot set `config_version`, `core.data_dir`, `core.cache_dir`, or
+`logging.file`; named-instance storage is intentionally derived by the kernel.
+
 ## Instance Profiles
 
 `liteyuki profile stage` creates an isolated uv environment below the workspace,
@@ -117,8 +137,9 @@ The effective order is:
 2. Included files, in declared order.
 3. The including or primary file.
 4. Repeated --config files, in command-line order.
-5. LITEYUKI__SECTION__FIELD environment variables.
-6. Repeated --set section.field=JSON_VALUE options.
+5. The selected named-instance overlay, when present.
+6. LITEYUKI__SECTION__FIELD environment variables.
+7. Repeated --set section.field=JSON_VALUE options.
 
 Use global CLI options before the subcommand:
 
@@ -162,7 +183,7 @@ api_key_env configuration remains an explicit compatibility override.
 
 ## Upgrade Material
 
-config_version = 2 is the current v7 pre-release schema. Configurations
+config_version = 3 is the current v7 pre-release schema. Configurations
 schema. A root configuration with a missing or older version is preserved and
 blocks startup after generating:
 

@@ -350,6 +350,7 @@ def load_settings(
     primary_path: str | os.PathLike[str] | None = None,
     *,
     config_paths: Iterable[str | os.PathLike[str]] = (),
+    instance_config_paths: Iterable[str | os.PathLike[str]] = (),
     environ: Mapping[str, str] | None = None,
     cli_overrides: CliOverrides = (),
 ) -> AppSettings:
@@ -363,6 +364,7 @@ def load_settings(
     return _load_settings(
         primary_path,
         config_paths=config_paths,
+        instance_config_paths=instance_config_paths,
         environ=environ,
         cli_overrides=cli_overrides,
         tracker=None,
@@ -373,6 +375,7 @@ def inspect_settings(
     primary_path: str | os.PathLike[str] | None = None,
     *,
     config_paths: Iterable[str | os.PathLike[str]] = (),
+    instance_config_paths: Iterable[str | os.PathLike[str]] = (),
     environ: Mapping[str, str] | None = None,
     cli_overrides: CliOverrides = (),
 ) -> ConfigInspection:
@@ -383,6 +386,7 @@ def inspect_settings(
     settings, provenance = _load_settings(
         primary_path,
         config_paths=config_paths,
+        instance_config_paths=instance_config_paths,
         environ=environ,
         cli_overrides=cli_overrides,
         tracker=tracker,
@@ -395,6 +399,7 @@ def _load_settings(
     primary_path: str | os.PathLike[str] | None,
     *,
     config_paths: Iterable[str | os.PathLike[str]],
+    instance_config_paths: Iterable[str | os.PathLike[str]],
     environ: Mapping[str, str] | None,
     cli_overrides: CliOverrides,
     tracker: _ProvenanceTracker | None,
@@ -407,6 +412,10 @@ def _load_settings(
         merged = _deep_merge(merged, loader.load_root(primary_path))
     for config_path in config_paths:
         merged = _deep_merge(merged, loader.load_root(config_path))
+    for instance_config_path in instance_config_paths:
+        overlay = loader.load_root(instance_config_path)
+        _validate_instance_overlay(overlay, Path(instance_config_path))
+        merged = _deep_merge(merged, overlay)
 
     environment_values = _environment_layer(os.environ if environ is None else environ, issues)
     if tracker is not None:
@@ -435,6 +444,22 @@ def _load_settings(
     if settings is None:  # Kept explicit for type checkers; validation errors are handled above.
         raise RuntimeError("configuration validation failed without an issue")
     return settings, None if tracker is None else tracker.freeze()
+
+
+def _validate_instance_overlay(overlay: Mapping[str, Any], path: Path) -> None:
+    """Prevent an instance overlay from escaping its derived private storage."""
+
+    restricted = (("config_version",), ("core", "data_dir"), ("core", "cache_dir"), ("logging", "file"))
+    for parts in restricted:
+        current: Any = overlay
+        for part in parts:
+            if not isinstance(current, Mapping) or part not in current:
+                break
+            current = current[part]
+        else:
+            raise ConfigurationError(
+                [ConfigIssue(path, f"instance configuration cannot set {'.'.join(parts)}", parts)]
+            )
 
 
 def _parse_pointer(pointer: str) -> tuple[str, ...]:
