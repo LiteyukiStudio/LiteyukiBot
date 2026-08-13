@@ -1,7 +1,7 @@
 # Releasing v7 Packages
 
 v7 uses PyPI Trusted Publishing and immutable, package-specific tags. Release
-from a clean `v7` commit only after the full CI matrix passes.
+from a clean `main` commit only after the full CI matrix passes.
 
 ## Trusted Publishers
 
@@ -25,6 +25,7 @@ Before the first plugin upload, create these Pending Publishers:
 | `liteyukibot-v7-runtime-nonebot` | `pypi-runtime-nonebot` |
 | `liteyukibot-v7-runtime-adapter` | `pypi-runtime-adapter` |
 | `liteyukibot-v7-adapter-onebot` | `pypi-adapter-onebot` |
+| `liteyukibot-v7-adapter-satori` | `pypi-adapter-satori` |
 | `liteyukibot-v7-runtime-v6` | `pypi-runtime-v6` |
 | `liteyukibot-v7-agent-resolver` | `pypi-agent-resolver` |
 | `liteyukibot-v7-agent` | `pypi-agent` |
@@ -54,6 +55,7 @@ distribution inside the workflow.
 | `liteyukibot-v7-runtime-nonebot==0.1.0a1` | `packages/runtime-nonebot` | `runtime-nonebot-v0.1.0a1` |
 | `liteyukibot-v7-runtime-adapter==0.1.0a2` | `packages/runtime-adapter` | `runtime-adapter-v0.1.0a2` |
 | `liteyukibot-v7-adapter-onebot==0.1.0a1` | `packages/adapter-onebot` | `adapter-onebot-v0.1.0a1` |
+| `liteyukibot-v7-adapter-satori==0.1.0a1` | `packages/adapter-satori` | `adapter-satori-v0.1.0a1` |
 | `liteyukibot-v7-runtime-v6==0.1.0a2` | `packages/runtime-v6` | `runtime-v6-v0.1.0a2` |
 | `liteyukibot-v7-agent-resolver==0.1.0a1` | `packages/agent-resolver` | `agent-resolver-v0.1.0a1` |
 | `liteyukibot-v7-agent==0.1.0a9` | `packages/agent` | `agent-v0.1.0a9` |
@@ -77,11 +79,12 @@ Push and wait for each release before creating the next tag:
 8. `runtime-nonebot-v0.1.0a1`.
 9. `runtime-adapter-v0.1.0a2`.
 10. `adapter-onebot-v0.1.0a1`.
-11. `runtime-v6-v0.1.0a2`.
-12. `agent-resolver-v0.1.0a1`.
-13. `agent-v0.1.0a9` (requires `commands-v0.2.0a2`).
-14. `runtime-astrbot-v0.1.0a7`.
-15. `runtime-mofox-v0.1.0a8`.
+11. `adapter-satori-v0.1.0a1`.
+12. `runtime-v6-v0.1.0a2`.
+13. `agent-resolver-v0.1.0a1`.
+14. `agent-v0.1.0a9` (requires `commands-v0.2.0a2`).
+15. `runtime-astrbot-v0.1.0a7`.
+16. `runtime-mofox-v0.1.0a8`.
 
 Each plugin workflow builds only its selected project, installs that wheel in a
 temporary uv environment against already published dependencies, exercises its

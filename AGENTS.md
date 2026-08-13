@@ -52,6 +52,6 @@ events, actions, IPC, configuration, services, or plugin contracts change.
 Use temporary pytest paths; tests must not depend on local `data/`, `plugins/`,
 credentials, or network accounts. Commit subjects follow Conventional Commits,
 such as `fix(runtime): externalize dependency` or `test(onebot): cover restart`.
-Target PRs to `v7`, keep each focused on one owned boundary, and state the
+Target PRs to `main`, keep each focused on one owned boundary, and state the
 validation commands plus configuration or release impact. Do not commit
 `dist/`, caches, secrets, local workspaces, or `tmp/` artifacts.
