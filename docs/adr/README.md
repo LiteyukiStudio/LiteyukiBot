@@ -27,3 +27,4 @@ stable-release guarantee.
 21. [Kernel-mediated runtime integration](0021-kernel-mediated-runtime-integration.md)
 22. [Runtime IPC v4 delivery tracing](0022-runtime-ipc-protocol-v4.md)
 23. [Runtime IPC v5 kernel controls](0023-runtime-ipc-protocol-v5.md)
+24. [Instance daemon lifecycle](0024-instance-daemon-lifecycle.md)
