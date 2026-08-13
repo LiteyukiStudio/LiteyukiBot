@@ -50,3 +50,20 @@ captured from three clean runs per platform. A regression review is required
 when startup, latency, or RSS rises by more than 20%, or throughput falls by more
 than 20%. The comparison must use the same Python minor version, event count,
 runner architecture, and benchmark schema.
+
+## Schema 2 Workloads
+
+Current CI artifacts use schema 2. Each platform starts three separate Python
+processes and records every raw sample plus arithmetic mean, standard deviation,
+minimum, and maximum. Separate processes keep startup, tracemalloc, and peak
+RSS measurements independent.
+
+The event matrix contains independently ordered conversations submitted at
+concurrency 1, 10, and 100; a single-conversation FIFO workload; and a workload
+where every event performs one successful Action. Every workload uses 5,000
+events. Function catalog setup, first call, and hot calls remain included.
+
+Schema 1 alpha references are historical and cannot be compared mechanically to
+schema 2 because the workload set and aggregation shape changed. Schema 2
+artifacts are reviewed manually: GitHub-hosted runner variance must be examined
+through raw samples and dispersion before attributing a change to the code.
