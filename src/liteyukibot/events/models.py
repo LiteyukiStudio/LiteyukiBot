@@ -174,6 +174,15 @@ class SendMessage(FrozenModel):
         return self
 
 
+class EditMessage(FrozenModel):
+    """Replace a platform message previously created by this bot."""
+
+    type: Literal["edit_message"] = "edit_message"
+    message_id: str = Field(min_length=1)
+    message: Message
+    conversation: ConversationRef | None = None
+
+
 class CallApi(FrozenModel):
     type: Literal["call_api"] = "call_api"
     api: str = Field(min_length=1)
@@ -195,7 +204,7 @@ class CallApi(FrozenModel):
         return {key: _thaw_json(item) for key, item in value.items()}
 
 
-type Action = Annotated[SendMessage | CallApi, Field(discriminator="type")]
+type Action = Annotated[SendMessage | EditMessage | CallApi, Field(discriminator="type")]
 
 
 class ActionEnvelope(FrozenModel):

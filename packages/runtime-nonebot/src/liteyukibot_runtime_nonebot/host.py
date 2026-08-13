@@ -14,7 +14,7 @@ from concurrent.futures import Future
 from pathlib import Path, PurePath
 from typing import Any
 
-from liteyukibot.events import ActionEnvelope, CallApi, EventEnvelope, SendMessage
+from liteyukibot.events import ActionEnvelope, CallApi, EditMessage, EventEnvelope, SendMessage
 from liteyukibot.logging import configure_runtime_child_logging, get_logger
 from liteyukibot.runtime import RuntimeClient
 from liteyukibot.runtime.protocol import (
@@ -221,6 +221,7 @@ class NoneBotHost:
         envelope = ActionEnvelope.model_validate(payload)
         bot = self.nonebot.get_bot(envelope.bot_id)
         action = envelope.action
+        selected_adapter = adapter_id(str(bot.adapter.get_name()))
         if isinstance(action, CallApi):
             params = json_value(action.params)
             if not isinstance(params, dict):
@@ -228,7 +229,6 @@ class NoneBotHost:
             result = await bot.call_api(action.api, **params)
             return True, json_value(result), None
         if isinstance(action, SendMessage):
-            selected_adapter = adapter_id(str(bot.adapter.get_name()))
             try:
                 message = to_native_message(selected_adapter, action.message)
                 if action.reply_token:
@@ -244,6 +244,18 @@ class NoneBotHost:
                     result = await target_bot.send(event, message)
                 else:
                     result = await send_proactive(bot, selected_adapter, action, message)
+            except AdapterContractError as error:
+                return False, None, str(error)
+            return True, json_value(result), None
+        if isinstance(action, EditMessage):
+            if selected_adapter != "satori":
+                return False, None, f"adapter {selected_adapter!r} does not support edit_message"
+            try:
+                message = to_native_message(selected_adapter, action.message)
+                edit_params: dict[str, Any] = {"message_id": action.message_id, "content": message}
+                if action.conversation is not None:
+                    edit_params["channel_id"] = action.conversation.id
+                result = await bot.call_api("message_update", **edit_params)
             except AdapterContractError as error:
                 return False, None, str(error)
             return True, json_value(result), None

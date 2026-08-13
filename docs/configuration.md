@@ -46,6 +46,18 @@ closed. Runtime IPC can invoke only an existing, capability-authorized kernel
 management command. It cannot execute a shell command or install a remote
 handler.
 
+## Native Adapter Runtimes
+
+Install `liteyukibot-v7-runtime-adapter` with the required protocol package.
+`onebot-v11` and `onebot-v12` support `transport = "http_post"` (the default),
+`forward_websocket` with `ws_url`, and `reverse_websocket` with `ws_host`,
+`ws_port`, and `ws_path`. Non-loopback OneBot listeners require `access_token`.
+
+The `satori` adapter is an external Satori v1 gateway client, not a Node or
+embedded gateway server. Configure an absolute `gateway_url`, `api_root`, and
+an optional vault-backed `access_token`. Each account must be configured under
+only one ingress adapter, including when an AstrBot or MoFox runtime is enabled.
+
 ## Resource Packs
 
 The kernel loads read-only resource packs for language catalogs, functions, and
