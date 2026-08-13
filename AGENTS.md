@@ -29,6 +29,11 @@ package boundary, wheel, entry point, or runtime host also require its matching
 `python -m scripts.run_<package>_install` verifier. CI in
 `.github/workflows/ci.yaml` is the authoritative complete sequence.
 
+For performance-path changes, read `.agents/skills/benchmark-tests/SKILL.md`.
+It defines schema-2 benchmark workloads, isolated three-sample collection, and
+the required deterministic test coverage; benchmark artifacts require manual
+review and are not CI pass/fail gates.
+
 ## Coding Style and Contracts
 
 Use four-space indentation, type annotations, and strict mypy-compatible
