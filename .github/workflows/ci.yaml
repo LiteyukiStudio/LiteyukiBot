@@ -2,9 +2,9 @@ name: v7 CI
 
 on:
   push:
-    branches: [v7]
+    branches: [main]
   pull_request:
-    branches: [v7]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -18,10 +18,17 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           path: LiteyukiBot
-      - uses: astral-sh/setup-uv@v8.3.2
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 11.5.3
+          run_install: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: LiteyukiBot/.node-version
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.11.16"
           enable-cache: true
@@ -33,6 +40,9 @@ jobs:
       - name: Quality checks
         working-directory: LiteyukiBot
         run: |
+          pnpm --dir webui install --frozen-lockfile
+          pnpm --dir webui build
+          uv run python scripts/stage_webui_assets.py
           uv run python scripts/check_release.py
           uv run python scripts/check_release.py --package permissions
           uv run python scripts/check_release.py --package commands
@@ -46,6 +56,8 @@ jobs:
           uv run python scripts/check_release.py --package agent
           uv run python scripts/check_release.py --package runtime-astrbot
           uv run python scripts/check_release.py --package runtime-mofox
+          uv run python scripts/check_release.py --package webui
+          uv run python scripts/check_release.py --package ipc-native
           uv run ruff check src tests scripts examples packages
           uv run mypy
           uv run pytest
@@ -67,10 +79,17 @@ jobs:
           uv run python -m scripts.run_agent_install
           uv run python -m scripts.run_astrbot_runtime_install
           uv run python -m scripts.run_mofox_runtime_install
+          uv run python -m scripts.run_webui_install
+      - name: Run WebUI browser checks
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: LiteyukiBot
+        run: |
+          pnpm --dir webui exec playwright install --with-deps chromium
+          pnpm --dir webui test:e2e
       - name: Capture baseline
         working-directory: LiteyukiBot
         run: uv run python scripts/benchmark_v7.py --samples 3 --output benchmark.json
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: v7-baseline-${{ matrix.os }}
           path: LiteyukiBot/benchmark.json
@@ -82,10 +101,10 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           path: LiteyukiBot
-      - uses: astral-sh/setup-uv@v8.3.2
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.11.16"
       - name: Verify published wheel in isolation
@@ -97,10 +116,10 @@ jobs:
   nonebot-contract:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           path: LiteyukiBot
-      - uses: astral-sh/setup-uv@v8.3.2
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.11.16"
       - name: Run NoneBot runtime contract

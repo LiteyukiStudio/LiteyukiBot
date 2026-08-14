@@ -1,0 +1,19 @@
+[project]
+name = "liteyukibot-v7-webui"
+version = "0.1.0b4"
+description = "Local WebUI distribution wrapper for LiteyukiBot v7."
+requires-python = ">=3.14"
+license = "LicenseRef-LSO"
+license-files = ["LICENSE"]
+authors = [
+    { name = "LiteyukiStudio" },
+]
+
+[build-system]
+requires = ["uv_build>=0.11.32,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = "src"
+module-name = "liteyukibot_webui"
+
