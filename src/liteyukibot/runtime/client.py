@@ -1,4 +1,4 @@
-"""Reusable versioned client for supervised child runtimes."""
+"""Reusable LYIP v1 client for supervised child runtimes."""
 
 from __future__ import annotations
 
@@ -8,7 +8,11 @@ import time
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+import zmq.asyncio
+
 from ..exceptions import RuntimeProtocolError
+from ..lyip import LyipError, LyipFrame, LyipLane, LyipOfferResult, ZmqLyipDealer
+from .lyip import decode_runtime_message, encode_runtime_message
 from .protocol import (
     PROTOCOL_VERSION,
     SUPPORTED_PROTOCOL_VERSIONS,
@@ -28,8 +32,21 @@ from .protocol import (
     Welcome,
     WireMessage,
     json_mapping,
-    read_message,
-    write_message,
+)
+
+_DEFAULT_BUSINESS_HWM = 1024
+_DEFAULT_CONTROL_HWM = 64
+_LYIP_ENVIRONMENT_NAMES = (
+    "LITEYUKI_LYIP_BUSINESS_ENDPOINT",
+    "LITEYUKI_LYIP_CONTROL_ENDPOINT",
+    "LITEYUKI_LYIP_GENERATION",
+    "LITEYUKI_LYIP_LEASE_ID",
+    "LITEYUKI_LYIP_IDENTITY",
+    "LITEYUKI_RUNTIME_ID",
+    "LITEYUKI_RUNTIME_TOKEN",
+)
+_LYIP_BOOTSTRAP_REQUIRED = (
+    "LYIP runtime bootstrap is required; v5 TCP runtime environment variables are no longer supported"
 )
 
 
@@ -37,30 +54,47 @@ class RuntimeClient:
     def __init__(
         self,
         *,
-        host: str,
-        port: int,
+        business_endpoint: str,
+        control_endpoint: str,
+        generation: int,
+        lease_id: str,
+        identity: str,
         runtime_id: str,
         kind: str,
         token: str,
         protocol_version: ProtocolVersion = PROTOCOL_VERSION,
+        context: zmq.asyncio.Context | None = None,
     ) -> None:
-        if not host or not runtime_id or not kind or not token:
-            raise ValueError("runtime connection identity must not be empty")
-        if not 1 <= port <= 65535:
-            raise ValueError("runtime port must be between 1 and 65535")
+        if not all(
+            value and value == value.strip()
+            for value in (business_endpoint, control_endpoint, lease_id, identity, runtime_id, kind, token)
+        ):
+            raise ValueError("LYIP runtime identity and endpoints must not be empty")
+        if generation < 1:
+            raise ValueError("LYIP runtime generation must be positive")
         if protocol_version not in SUPPORTED_PROTOCOL_VERSIONS:
             raise ValueError(f"unsupported runtime protocol version: {protocol_version}")
-        self.host = host
-        self.port = port
+
+        encoded_identity = identity.encode("utf-8")
+        if not encoded_identity:
+            raise ValueError("LYIP runtime identity must not be empty")
+        self.business_endpoint = business_endpoint
+        self.control_endpoint = control_endpoint
+        self.generation = generation
+        self.lease_id = lease_id
+        self.identity = identity
         self.runtime_id = runtime_id
         self.kind = kind
         self.token = token
         self.protocol_version = protocol_version
         self.negotiated_protocol: ProtocolVersion | None = None
-        self._reader: asyncio.StreamReader | None = None
-        self._writer: asyncio.StreamWriter | None = None
+        self._context = context if context is not None else zmq.asyncio.Context.instance()
+        self._identity_bytes = encoded_identity
+        self._dealer: ZmqLyipDealer | None = None
         self._send_lock = asyncio.Lock()
         self._receive_lock = asyncio.Lock()
+        self._lane_receives: dict[LyipLane, asyncio.Task[LyipFrame]] = {}
+        self._next_sequences: dict[str, int] = {}
         self._heartbeat_interval: float | None = None
         self._heartbeat_task: asyncio.Task[None] | None = None
         self._capabilities: frozenset[str] = frozenset()
@@ -79,9 +113,22 @@ class RuntimeClient:
         protocol_version: ProtocolVersion = PROTOCOL_VERSION,
     ) -> RuntimeClient:
         values = os.environ if environment is None else environment
+        missing = tuple(name for name in _LYIP_ENVIRONMENT_NAMES if not values.get(name, "").strip())
+        if missing:
+            names = ", ".join(missing)
+            raise RuntimeError(f"{_LYIP_BOOTSTRAP_REQUIRED}; missing {names}")
+        try:
+            generation = int(values["LITEYUKI_LYIP_GENERATION"])
+        except ValueError as error:
+            raise ValueError("LITEYUKI_LYIP_GENERATION must be a positive integer") from error
+        if generation < 1:
+            raise ValueError("LITEYUKI_LYIP_GENERATION must be a positive integer")
         return cls(
-            host=values["LITEYUKI_RUNTIME_HOST"],
-            port=int(values["LITEYUKI_RUNTIME_PORT"]),
+            business_endpoint=values["LITEYUKI_LYIP_BUSINESS_ENDPOINT"],
+            control_endpoint=values["LITEYUKI_LYIP_CONTROL_ENDPOINT"],
+            generation=generation,
+            lease_id=values["LITEYUKI_LYIP_LEASE_ID"],
+            identity=values["LITEYUKI_LYIP_IDENTITY"],
             runtime_id=values["LITEYUKI_RUNTIME_ID"],
             kind=kind,
             token=values["LITEYUKI_RUNTIME_TOKEN"],
@@ -90,12 +137,22 @@ class RuntimeClient:
 
     @property
     def connected(self) -> bool:
-        return self._writer is not None and not self._closed
+        return self._dealer is not None and not self._closed
 
     async def connect(self) -> Mapping[str, JsonValue]:
-        if self._reader is not None or self._writer is not None or self._closed:
+        if self._dealer is not None or self._closed:
             raise RuntimeError("runtime client connection is single-use")
-        self._reader, self._writer = await asyncio.open_connection(self.host, self.port)
+        self._dealer = ZmqLyipDealer(
+            context=self._context,
+            endpoints={
+                LyipLane.BUSINESS: self.business_endpoint,
+                LyipLane.CONTROL: self.control_endpoint,
+            },
+            generation=self.generation,
+            identity=self._identity_bytes,
+            business_hwm=_DEFAULT_BUSINESS_HWM,
+            control_hwm=_DEFAULT_CONTROL_HWM,
+        )
         try:
             await self.send(
                 Hello(
@@ -105,14 +162,12 @@ class RuntimeClient:
                     protocol=self.protocol_version,
                 )
             )
-            welcome = await self.receive()
+            welcome = await self._receive_lane(LyipLane.CONTROL)
             if not isinstance(welcome, Welcome):
                 raise RuntimeProtocolError("expected welcome during runtime handshake")
             if welcome.protocol != self.protocol_version:
-                raise RuntimeProtocolError(
-                    "supervisor confirmed a different runtime protocol version"
-                )
-            config = await self.receive()
+                raise RuntimeProtocolError("supervisor confirmed a different runtime protocol version")
+            config = await self._receive_lane(LyipLane.CONTROL)
             if not isinstance(config, ConfigMessage):
                 raise RuntimeProtocolError("expected config during runtime handshake")
             if welcome.heartbeat_interval <= 0:
@@ -137,19 +192,16 @@ class RuntimeClient:
         )
 
     async def receive(self) -> WireMessage:
-        if self._reader is None or self._closed:
+        if self._dealer is None or self._closed:
             raise ConnectionError("runtime client is not connected")
         if self._receive_lock.locked():
             raise RuntimeError("runtime client already has an active receiver")
         async with self._receive_lock:
             while True:
                 try:
-                    message = await read_message(self._reader)
-                except (EOFError, ConnectionError, RuntimeProtocolError) as error:
-                    self._fail_pending_actions(error)
-                    self._fail_pending_agent_tools(error)
-                    self._fail_pending_controls(error)
-                    self._fail_pending_management(error)
+                    message = await self._receive_any_lane()
+                except (ConnectionError, LyipError, RuntimeProtocolError) as error:
+                    self._fail_pending(error)
                     raise
                 if isinstance(message, ActionResponse):
                     future = self._pending_actions.pop(message.correlation_id, None)
@@ -247,13 +299,16 @@ class RuntimeClient:
             self._pending_agent_tools.pop(correlation_id, None)
 
     async def send(self, message: WireMessage) -> None:
-        writer = self._writer
-        if writer is None or self._closed:
+        dealer = self._dealer
+        if dealer is None or self._closed:
             raise ConnectionError("runtime client is not connected")
         async with self._send_lock:
-            if self._writer is not writer or self._closed:
+            if self._dealer is not dealer or self._closed:
                 raise ConnectionError("runtime client is not connected")
-            await write_message(writer, message)
+            frame = self._encode(message)
+            if await dealer.offer(frame) is LyipOfferResult.FULL:
+                raise LyipError(f"LYIP {frame.lane} lane is full")
+            self._next_sequences[frame.stream_id] = frame.sequence + 1
 
     async def execute_management(
         self, correlation_id: str, command: str, timeout_seconds: float = 30.0
@@ -277,46 +332,84 @@ class RuntimeClient:
         if self._closed:
             return
         self._closed = True
-        self._fail_pending_actions(ConnectionError("runtime client closed"))
-        self._fail_pending_agent_tools(ConnectionError("runtime client closed"))
-        self._fail_pending_controls(ConnectionError("runtime client closed"))
-        self._fail_pending_management(ConnectionError("runtime client closed"))
+        self._fail_pending(ConnectionError("runtime client closed"))
         heartbeat, self._heartbeat_task = self._heartbeat_task, None
         self._capabilities = frozenset()
         if heartbeat is not None:
             heartbeat.cancel()
             await asyncio.gather(heartbeat, return_exceptions=True)
+        receives, self._lane_receives = tuple(self._lane_receives.values()), {}
+        for receive in receives:
+            receive.cancel()
+        if receives:
+            await asyncio.gather(*receives, return_exceptions=True)
         async with self._send_lock:
-            writer, self._writer = self._writer, None
-            self._reader = None
+            dealer, self._dealer = self._dealer, None
             self.negotiated_protocol = None
-            if writer is not None:
-                writer.close()
-                await writer.wait_closed()
+            if dealer is not None:
+                dealer.close()
 
-    def _fail_pending_actions(self, error: BaseException) -> None:
-        for future in self._pending_actions.values():
-            if not future.done():
-                future.set_exception(error)
-        self._pending_actions.clear()
+    def _encode(self, message: WireMessage) -> LyipFrame:
+        probe = encode_runtime_message(
+            message,
+            generation=self.generation,
+            stream_id="probe",
+            sequence=0,
+            lease_id=self.lease_id,
+        )
+        stream_id = f"runtime:{self.runtime_id}:{probe.lane}"
+        return encode_runtime_message(
+            message,
+            generation=self.generation,
+            stream_id=stream_id,
+            sequence=self._next_sequences.get(stream_id, 0),
+            lease_id=self.lease_id,
+        )
 
-    def _fail_pending_agent_tools(self, error: BaseException) -> None:
-        for future in self._pending_agent_tools.values():
-            if not future.done():
-                future.set_exception(error)
-        self._pending_agent_tools.clear()
+    async def _receive_lane(self, lane: LyipLane) -> WireMessage:
+        task = self._lane_receives.pop(lane, None)
+        if task is None:
+            dealer = self._dealer
+            if dealer is None or self._closed:
+                raise ConnectionError("runtime client is not connected")
+            task = asyncio.create_task(dealer.receive(lane), name=f"runtime-lyip-receive:{self.runtime_id}:{lane}")
+        frame = await task
+        return self._decode(frame, lane)
 
-    def _fail_pending_controls(self, error: BaseException) -> None:
-        for future in self._pending_controls.values():
-            if not future.done():
-                future.set_exception(error)
-        self._pending_controls.clear()
+    async def _receive_any_lane(self) -> WireMessage:
+        for lane in LyipLane:
+            if lane not in self._lane_receives:
+                dealer = self._dealer
+                if dealer is None or self._closed:
+                    raise ConnectionError("runtime client is not connected")
+                self._lane_receives[lane] = asyncio.create_task(
+                    dealer.receive(lane), name=f"runtime-lyip-receive:{self.runtime_id}:{lane}"
+                )
+        done, _ = await asyncio.wait(self._lane_receives.values(), return_when=asyncio.FIRST_COMPLETED)
+        lane = LyipLane.CONTROL if self._lane_receives[LyipLane.CONTROL] in done else LyipLane.BUSINESS
+        return await self._receive_lane(lane)
 
-    def _fail_pending_management(self, error: BaseException) -> None:
-        for future in self._pending_management.values():
-            if not future.done():
-                future.set_exception(error)
-        self._pending_management.clear()
+    def _decode(self, frame: LyipFrame, lane: LyipLane) -> WireMessage:
+        if frame.lease_id != self.lease_id:
+            raise LyipError("LYIP frame lease does not match runtime lease")
+        if frame.lane is not lane:
+            raise LyipError("LYIP frame arrived on the wrong lane")
+        expected_stream_id = f"kernel:{self.runtime_id}:{lane}"
+        if frame.stream_id != expected_stream_id:
+            raise LyipError("LYIP frame stream does not match runtime direction")
+        return decode_runtime_message(frame)
+
+    def _fail_pending(self, error: BaseException) -> None:
+        for pending in (
+            self._pending_actions,
+            self._pending_agent_tools,
+            self._pending_controls,
+            self._pending_management,
+        ):
+            for future in pending.values():
+                if not future.done():
+                    future.set_exception(error)
+            pending.clear()
 
     async def _heartbeat(self, interval: float) -> None:
         while True:

@@ -9,8 +9,10 @@ from typing import Any
 
 import pytest
 
-from liteyukibot.config import LoggingSettings
+from liteyukibot.config import LoggingSettings, LyipLinkSettings, LyipSettings
+from liteyukibot.lyip import LyipLane, LyipOfferResult, ZmqLyipDealer
 from liteyukibot.runtime import RuntimeCatalog, RuntimeSpec, RuntimeState, RuntimeSupervisor
+from liteyukibot.runtime.lyip import decode_runtime_message, encode_runtime_message
 from liteyukibot.runtime.protocol import (
     ActionRequest,
     ActionResponse,
@@ -27,8 +29,7 @@ from liteyukibot.runtime.protocol import (
     ProtocolVersion,
     Ready,
     Welcome,
-    read_message,
-    write_message,
+    WireMessage,
 )
 from liteyukibot.runtime.supervisor import (
     ActionProvenance,
@@ -76,18 +77,57 @@ class RecordingLogger(FakeLogger):
         self.records.append(dict(self.fields))
 
 
-class NullWriter:
-    def write(self, _value: bytes) -> None:
-        return None
+class LyipTestClient:
+    def __init__(self, supervisor: RuntimeSupervisor, record: RuntimeRecord, *, identity: bytes | None = None) -> None:
+        assert record.router is not None
+        assert record.expected_identity is not None
+        self.record = record
+        self._supervisor = supervisor
+        self._dealer = ZmqLyipDealer(
+            context=supervisor._zmq_context,
+            endpoints=record.router.endpoints,
+            generation=record.generation,
+            identity=record.expected_identity if identity is None else identity,
+            business_hwm=1024,
+            control_hwm=256,
+        )
+        self._sequences = {LyipLane.BUSINESS: 0, LyipLane.CONTROL: 0}
 
-    async def drain(self) -> None:
-        return None
+    async def send(self, message: WireMessage) -> None:
+        assert self.record.lease_id is not None
+        lane = LyipLane.CONTROL if message.type in {
+            "hello",
+            "welcome",
+            "config",
+            "ready",
+            "heartbeat",
+            "shutdown",
+            "control",
+            "control_result",
+            "management",
+            "management_result",
+            "error",
+        } else LyipLane.BUSINESS
+        frame = encode_runtime_message(
+            message,
+            generation=self.record.generation,
+            stream_id=self._supervisor._inbound_stream_id(self.record, lane),
+            sequence=self._sequences[lane],
+            lease_id=self.record.lease_id,
+        )
+        assert await self._dealer.offer(frame) is LyipOfferResult.ACCEPTED
+        self._sequences[frame.lane] += 1
+
+    async def receive(self, lane: LyipLane = LyipLane.CONTROL) -> WireMessage:
+        return decode_runtime_message(await self._dealer.receive(lane))
 
     def close(self) -> None:
-        return None
+        self._dealer.close()
 
-    async def wait_closed(self) -> None:
-        return None
+
+async def _open_lyip_client(supervisor: RuntimeSupervisor, record: RuntimeRecord) -> LyipTestClient:
+    supervisor._prepare_transport(record)
+    return LyipTestClient(supervisor, record)
 
 
 @pytest.mark.asyncio
@@ -221,27 +261,76 @@ async def test_runtime_spawn_failure_is_reported_without_waiting_for_ready_timeo
 @pytest.mark.asyncio
 async def test_runtime_rejects_bad_and_duplicate_connections() -> None:
     supervisor = RuntimeSupervisor(logger=FakeLogger())
-    supervisor.add(
-        RuntimeSpec(
-            id="echo",
-            kind="noop",
-            ready_timeout=5,
-            heartbeat_interval=0.05,
-            stale_after=1,
-        )
-    )
-
-    await supervisor.start()
+    supervisor.add(RuntimeSpec(id="echo", kind="custom"))
     record = supervisor.records["echo"]
-    for token in ("wrong", record.token):
-        reader, writer = await asyncio.open_connection("127.0.0.1", supervisor._port)
-        await write_message(writer, Hello(runtime_id="echo", kind="noop", token=token))
-        assert await asyncio.wait_for(reader.read(), timeout=1) == b""
-        writer.close()
-        await writer.wait_closed()
-        assert record.state is RuntimeState.READY
+    client = await _open_lyip_client(supervisor, record)
+    assert record.router is not None
+    assert record.lease_id is not None
+    try:
+        await client.send(Hello(runtime_id="echo", kind="custom", token=record.token))
+        assert isinstance(await client.receive(), Welcome)
+        assert isinstance(await client.receive(), ConfigMessage)
+        await client.send(Ready(capabilities=()))
+        await asyncio.wait_for(record.ready.wait(), timeout=1)
 
-    await supervisor.stop()
+        rogue = ZmqLyipDealer(
+            context=supervisor._zmq_context,
+            endpoints=record.router.endpoints,
+            generation=record.generation,
+            identity=b"wrong-identity",
+            business_hwm=1024,
+            control_hwm=256,
+        )
+        try:
+            frame = encode_runtime_message(
+                Hello(runtime_id="echo", kind="custom", token="wrong"),
+                generation=record.generation,
+                stream_id=supervisor._inbound_stream_id(record, LyipLane.CONTROL),
+                sequence=0,
+                lease_id=record.lease_id,
+            )
+            assert await rogue.offer(frame) is LyipOfferResult.ACCEPTED
+            with pytest.raises(TimeoutError):
+                await asyncio.wait_for(rogue.receive(LyipLane.CONTROL), timeout=0.05)
+        finally:
+            rogue.close()
+
+        await client.send(Hello(runtime_id="echo", kind="custom", token=record.token))
+        with pytest.raises(TimeoutError):
+            await asyncio.wait_for(client.receive(), timeout=0.05)
+        assert record.state is RuntimeState.READY
+    finally:
+        client.close()
+        await supervisor._disconnect(record)
+
+
+@pytest.mark.asyncio
+async def test_runtime_lyip_relaunch_rotates_endpoints_identity_lease_and_generation() -> None:
+    supervisor = RuntimeSupervisor(logger=FakeLogger())
+    supervisor.add(RuntimeSpec(id="worker", kind="custom"))
+    record = supervisor.records["worker"]
+
+    supervisor._prepare_transport(record)
+    assert record.router is not None
+    assert record.expected_identity is not None
+    assert record.lease_id is not None
+    first_endpoints = dict(record.router.endpoints)
+    first_identity = record.expected_identity
+    first_lease = record.lease_id
+    first_generation = record.generation
+    await supervisor._disconnect(record)
+
+    supervisor._prepare_transport(record)
+    try:
+        assert record.router is not None
+        assert record.expected_identity is not None
+        assert record.lease_id is not None
+        assert record.generation == first_generation + 1
+        assert record.router.endpoints != first_endpoints
+        assert record.expected_identity != first_identity
+        assert record.lease_id != first_lease
+    finally:
+        await supervisor._disconnect(record)
 
 
 @pytest.mark.asyncio
@@ -253,34 +342,17 @@ async def test_runtime_negotiates_v1_v2_and_v3_connections_concurrently() -> Non
     legacy = supervisor.records["legacy"]
     modern = supervisor.records["modern"]
     current = supervisor.records["current"]
-    server = await asyncio.start_server(supervisor._accept, "127.0.0.1", 0)
-    port = int(server.sockets[0].getsockname()[1])
-    legacy_reader, legacy_writer = await asyncio.open_connection("127.0.0.1", port)
-    modern_reader, modern_writer = await asyncio.open_connection("127.0.0.1", port)
-    current_reader, current_writer = await asyncio.open_connection("127.0.0.1", port)
+    legacy_client = await _open_lyip_client(supervisor, legacy)
+    modern_client = await _open_lyip_client(supervisor, modern)
+    current_client = await _open_lyip_client(supervisor, current)
     try:
-        await write_message(
-            legacy_writer,
-            Hello(protocol=1, runtime_id="legacy", kind="custom", token=legacy.token),
-        )
-        assert await read_message(legacy_reader) == Welcome(protocol=1)
-        assert isinstance(await read_message(legacy_reader), ConfigMessage)
-        await write_message(legacy_writer, Ready(capabilities=("runtime.events.receive",)))
-
-        await write_message(
-            modern_writer,
-            Hello(protocol=2, runtime_id="modern", kind="custom", token=modern.token),
-        )
-        assert await read_message(modern_reader) == Welcome(protocol=2)
-        assert isinstance(await read_message(modern_reader), ConfigMessage)
-        await write_message(modern_writer, Ready(capabilities=("runtime.events.receive",)))
-        await write_message(
-            current_writer,
-            Hello(protocol=3, runtime_id="current", kind="custom", token=current.token),
-        )
-        assert await read_message(current_reader) == Welcome(protocol=3)
-        assert isinstance(await read_message(current_reader), ConfigMessage)
-        await write_message(current_writer, Ready(capabilities=("runtime.events.receive",)))
+        clients = ((legacy_client, legacy), (modern_client, modern), (current_client, current))
+        protocols: tuple[ProtocolVersion, ...] = (1, 2, 3)
+        for (client, record), protocol in zip(clients, protocols, strict=True):
+            await client.send(Hello(protocol=protocol, runtime_id=record.spec.id, kind="custom", token=record.token))
+            assert await client.receive() == Welcome(protocol=protocol)
+            assert isinstance(await client.receive(), ConfigMessage)
+            await client.send(Ready(capabilities=("runtime.events.receive",)))
         await asyncio.wait_for(
             asyncio.gather(legacy.ready.wait(), modern.ready.wait(), current.ready.wait()),
             timeout=1,
@@ -295,39 +367,29 @@ async def test_runtime_negotiates_v1_v2_and_v3_connections_concurrently() -> Non
         delivery = asyncio.create_task(
             supervisor.dispatch_event("modern", "event-v2", {"message": "hello"})
         )
-        outbound = await asyncio.wait_for(read_message(modern_reader), timeout=1)
+        outbound = await asyncio.wait_for(modern_client.receive(LyipLane.BUSINESS), timeout=1)
         assert outbound == EventMessage(
             correlation_id="event-v2",
             payload={"message": "hello"},
         )
-        await write_message(
-            modern_writer,
-            EventAccepted(correlation_id="event-v2", status="accepted"),
-        )
+        await modern_client.send(EventAccepted(correlation_id="event-v2", status="accepted"))
         assert (await delivery).status == "accepted"
 
         current_delivery = asyncio.create_task(
             supervisor.dispatch_event("current", "event-v3", {"message": "hello"})
         )
-        current_outbound = await asyncio.wait_for(read_message(current_reader), timeout=1)
+        current_outbound = await asyncio.wait_for(current_client.receive(LyipLane.BUSINESS), timeout=1)
         assert current_outbound == EventMessage(
             correlation_id="event-v3",
             payload={"message": "hello"},
         )
-        await write_message(
-            current_writer,
-            EventAccepted(correlation_id="event-v3", status="accepted"),
-        )
+        await current_client.send(EventAccepted(correlation_id="event-v3", status="accepted"))
         assert (await current_delivery).status == "accepted"
     finally:
-        legacy_writer.close()
-        modern_writer.close()
-        current_writer.close()
-        await legacy_writer.wait_closed()
-        await modern_writer.wait_closed()
-        await current_writer.wait_closed()
-        server.close()
-        await server.wait_closed()
+        legacy_client.close()
+        modern_client.close()
+        current_client.close()
+        await asyncio.gather(*(supervisor._disconnect(record) for record in (legacy, modern, current)))
 
 
 @pytest.mark.asyncio
@@ -346,24 +408,16 @@ async def test_v3_child_action_reaches_core_sink_with_correlation() -> None:
     )
     supervisor.add(RuntimeSpec(id="compat", kind="custom"))
     record = supervisor.records["compat"]
-    server = await asyncio.start_server(supervisor._accept, "127.0.0.1", 0)
-    port = int(server.sockets[0].getsockname()[1])
-    reader, writer = await asyncio.open_connection("127.0.0.1", port)
+    client = await _open_lyip_client(supervisor, record)
     try:
-        await write_message(
-            writer,
-            Hello(protocol=3, runtime_id="compat", kind="custom", token=record.token),
-        )
-        assert await read_message(reader) == Welcome(protocol=3)
-        assert isinstance(await read_message(reader), ConfigMessage)
-        await write_message(writer, Ready(capabilities=("runtime.actions.send",)))
+        await client.send(Hello(protocol=3, runtime_id="compat", kind="custom", token=record.token))
+        assert await client.receive() == Welcome(protocol=3)
+        assert isinstance(await client.receive(), ConfigMessage)
+        await client.send(Ready(capabilities=("runtime.actions.send",)))
         await asyncio.wait_for(record.ready.wait(), timeout=1)
 
-        await write_message(
-            writer,
-            ActionRequest(correlation_id="reply-1", payload={"type": "send_message"}),
-        )
-        response = await asyncio.wait_for(read_message(reader), timeout=1)
+        await client.send(ActionRequest(correlation_id="reply-1", payload={"type": "send_message"}))
+        response = await asyncio.wait_for(client.receive(LyipLane.BUSINESS), timeout=1)
 
         assert response == ActionResponse(
             correlation_id="reply-1",
@@ -372,10 +426,8 @@ async def test_v3_child_action_reaches_core_sink_with_correlation() -> None:
         )
         assert observed == [("compat", {"type": "send_message"})]
     finally:
-        writer.close()
-        await writer.wait_closed()
-        server.close()
-        await server.wait_closed()
+        client.close()
+        await supervisor._disconnect(record)
 
 
 @pytest.mark.asyncio
@@ -398,7 +450,6 @@ async def test_agent_tool_request_requires_an_agent_harness_and_active_delivery(
         spec=RuntimeSpec(id="agent", kind="custom", agent_harness="native"),
         token="token",
         state=RuntimeState.READY,
-        writer=NullWriter(),  # type: ignore[arg-type]
         protocol_version=3,
         capabilities=frozenset({"agent.tools.execute"}),
     )
@@ -458,7 +509,6 @@ async def test_child_event_does_not_block_action_response_reader(
         spec=RuntimeSpec(id="runtime", kind="custom"),
         token="token",
         state=RuntimeState.READY,
-        writer=NullWriter(),  # type: ignore[arg-type]
     )
     supervisor.records[record.spec.id] = record
 
@@ -508,7 +558,6 @@ async def test_child_event_limit_rejects_duplicates_and_overload_then_cancels_si
         spec=RuntimeSpec(id="runtime", kind="custom", max_inbound_events=1),
         token="token",
         state=RuntimeState.READY,
-        writer=NullWriter(),  # type: ignore[arg-type]
     )
     responses: list[EventAccepted] = []
 
@@ -576,7 +625,6 @@ async def test_child_action_requires_v3_capability_and_sink(
         spec=RuntimeSpec(id="compat", kind="custom"),
         token="token",
         state=RuntimeState.READY,
-        writer=NullWriter(),  # type: ignore[arg-type]
         protocol_version=protocol_version,
         capabilities=capabilities,
     )
@@ -615,7 +663,6 @@ async def test_child_action_sink_failure_is_isolated(
         spec=RuntimeSpec(id="compat", kind="custom"),
         token="token",
         state=RuntimeState.READY,
-        writer=NullWriter(),  # type: ignore[arg-type]
         protocol_version=3,
         capabilities=frozenset({"runtime.actions.send"}),
     )
@@ -663,7 +710,6 @@ async def test_v4_child_action_requires_active_delivery_and_forwards_provenance(
         spec=RuntimeSpec(id="agent", kind="custom", agent_harness="native"),
         token="token",
         state=RuntimeState.READY,
-        writer=NullWriter(),  # type: ignore[arg-type]
         protocol_version=4,
         capabilities=frozenset({"runtime.actions.send"}),
     )
@@ -725,7 +771,6 @@ async def test_v5_kernel_control_requires_capability_and_correlates_response(
         spec=RuntimeSpec(id="agent", kind="custom", agent_harness="native"),
         token="token",
         state=RuntimeState.READY,
-        writer=NullWriter(),  # type: ignore[arg-type]
         protocol_version=5,
         capabilities=frozenset({"runtime.controls.execute"}),
     )
@@ -789,7 +834,6 @@ async def test_duplicate_child_action_is_rejected_and_disconnect_cancels_sink(
         spec=RuntimeSpec(id="compat", kind="custom"),
         token="token",
         state=RuntimeState.READY,
-        writer=NullWriter(),  # type: ignore[arg-type]
         protocol_version=3,
         capabilities=frozenset({"runtime.actions.send"}),
     )
@@ -849,7 +893,13 @@ async def test_heartbeat_timeout_terminates_stale_runtime(monkeypatch: pytest.Mo
 
 
 @pytest.mark.asyncio
-async def test_runtime_handshake_timeout_closes_unresponsive_client() -> None:
+async def test_runtime_handshake_timeout_terminates_unresponsive_runtime() -> None:
+    class FakeProcess:
+        terminated = False
+
+        def terminate(self) -> None:
+            self.terminated = True
+
     supervisor = RuntimeSupervisor(logger=FakeLogger())
     supervisor.add(
         RuntimeSpec(
@@ -859,40 +909,35 @@ async def test_runtime_handshake_timeout_closes_unresponsive_client() -> None:
             ready_timeout=1,
         )
     )
-    server = await asyncio.start_server(supervisor._accept, "127.0.0.1", 0)
-    supervisor._server = server
-    supervisor._port = int(server.sockets[0].getsockname()[1])
-    reader, writer = await asyncio.open_connection("127.0.0.1", supervisor._port)
+    record = supervisor.records["slow"]
+    supervisor._prepare_transport(record)
+    process = FakeProcess()
+    record.process = process  # type: ignore[assignment]
     try:
-        assert await asyncio.wait_for(reader.read(), timeout=1) == b""
+        await asyncio.wait_for(asyncio.sleep(0.1), timeout=1)
+        assert process.terminated is True
     finally:
-        writer.close()
-        await writer.wait_closed()
-        server.close()
-        await server.wait_closed()
+        await supervisor._disconnect(record)
+
+
+def test_runtime_rejects_unimplemented_shared_memory_transport() -> None:
+    supervisor = RuntimeSupervisor(
+        logger=FakeLogger(),
+        lyip_settings=LyipSettings(links={"native": LyipLinkSettings(backend="shm")}),
+    )
+    supervisor.add(RuntimeSpec(id="native", kind="noop"))
+
+    with pytest.raises(RuntimeError, match="shared-memory backend is unavailable"):
+        supervisor._prepare_transport(supervisor.records["native"])
 
 
 @pytest.mark.asyncio
 async def test_action_timeout_removes_pending_request(monkeypatch: pytest.MonkeyPatch) -> None:
-    class FakeWriter:
-        def write(self, _value: bytes) -> None:
-            return None
-
-        async def drain(self) -> None:
-            return None
-
-        def close(self) -> None:
-            return None
-
-        async def wait_closed(self) -> None:
-            return None
-
     supervisor = RuntimeSupervisor(logger=FakeLogger())
     record = RuntimeRecord(
         spec=RuntimeSpec(id="action", kind="custom"),
         token="token",
         state=RuntimeState.READY,
-        writer=FakeWriter(),  # type: ignore[arg-type]
     )
     supervisor.records[record.spec.id] = record
 
@@ -915,7 +960,6 @@ async def test_event_delivery_timeout_removes_pending_request(
         spec=RuntimeSpec(id="event", kind="custom"),
         token="token",
         state=RuntimeState.READY,
-        writer=NullWriter(),  # type: ignore[arg-type]
         protocol_version=2,
         capabilities=frozenset({"runtime.events.receive"}),
     )
@@ -938,7 +982,6 @@ async def test_v2_event_delivery_requires_receive_capability() -> None:
         spec=RuntimeSpec(id="event", kind="custom"),
         token="token",
         state=RuntimeState.READY,
-        writer=NullWriter(),  # type: ignore[arg-type]
         protocol_version=2,
     )
     supervisor.records[record.spec.id] = record
@@ -956,7 +999,6 @@ async def test_event_delivery_returns_child_rejection(monkeypatch: pytest.Monkey
         spec=RuntimeSpec(id="event", kind="custom"),
         token="token",
         state=RuntimeState.READY,
-        writer=NullWriter(),  # type: ignore[arg-type]
         protocol_version=2,
         capabilities=frozenset({"runtime.events.receive"}),
     )
@@ -990,7 +1032,6 @@ async def test_v4_event_delivery_carries_trace_and_records_terminal_outcome(
         spec=RuntimeSpec(id="agent", kind="custom"),
         token="token",
         state=RuntimeState.READY,
-        writer=NullWriter(),  # type: ignore[arg-type]
         protocol_version=4,
         capabilities=frozenset({"runtime.events.receive", "runtime.events.complete"}),
     )
@@ -1061,7 +1102,6 @@ async def test_v3_event_delivery_does_not_serialize_v4_trace(monkeypatch: pytest
         spec=RuntimeSpec(id="legacy", kind="custom"),
         token="token",
         state=RuntimeState.READY,
-        writer=NullWriter(),  # type: ignore[arg-type]
         protocol_version=3,
         capabilities=frozenset({"runtime.events.receive"}),
     )
@@ -1099,7 +1139,6 @@ async def test_duplicate_event_delivery_and_disconnect_are_deterministic(
         spec=RuntimeSpec(id="event", kind="custom"),
         token="token",
         state=RuntimeState.READY,
-        writer=NullWriter(),  # type: ignore[arg-type]
         protocol_version=2,
         capabilities=frozenset({"runtime.events.receive"}),
     )
@@ -1122,26 +1161,12 @@ async def test_duplicate_event_delivery_and_disconnect_are_deterministic(
 
 @pytest.mark.asyncio
 async def test_disconnect_fails_pending_action(monkeypatch: pytest.MonkeyPatch) -> None:
-    class FakeWriter:
-        def write(self, _value: bytes) -> None:
-            return None
-
-        async def drain(self) -> None:
-            return None
-
-        def close(self) -> None:
-            return None
-
-        async def wait_closed(self) -> None:
-            return None
-
     sent = asyncio.Event()
     supervisor = RuntimeSupervisor(logger=FakeLogger())
     record = RuntimeRecord(
         spec=RuntimeSpec(id="action", kind="custom"),
         token="token",
         state=RuntimeState.READY,
-        writer=FakeWriter(),  # type: ignore[arg-type]
     )
     supervisor.records[record.spec.id] = record
 
@@ -1168,7 +1193,6 @@ async def test_duplicate_action_request_does_not_replace_pending_future(
         spec=RuntimeSpec(id="action", kind="custom"),
         token="token",
         state=RuntimeState.READY,
-        writer=NullWriter(),  # type: ignore[arg-type]
     )
     supervisor.records[record.spec.id] = record
 

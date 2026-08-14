@@ -1,0 +1,18 @@
+[build-system]
+requires = ["maturin>=1.14,<2"]
+build-backend = "maturin"
+
+[project]
+name = "liteyukibot-v7-ipc-native"
+version = "0.1.0b3"
+description = "Optional native primitives for Liteyuki IPC."
+requires-python = ">=3.14"
+license = "LicenseRef-LSO"
+license-files = ["LICENSE"]
+authors = [{ name = "LiteyukiStudio" }]
+
+[tool.maturin]
+python-source = "python"
+module-name = "liteyukibot_ipc_native._native"
+manifest-path = "Cargo.toml"
+bindings = "pyo3"
