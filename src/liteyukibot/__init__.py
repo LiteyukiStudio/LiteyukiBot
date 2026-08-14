@@ -6,13 +6,23 @@ from .functions import FUNCTION_DISPATCH_SERVICE, FunctionCall, FunctionDispatch
 from .i18n import I18N_SERVICE, Translator
 from .init_specs import InitFieldKind, InitFieldSpec, PluginInitSpec, RuntimeInitSpec
 from .management import MANAGEMENT_SERVICE, ManagementCommand, ManagementRegistry
+from .operations import ManagementPrincipal, OperationDefinition, OperationLedger, OperationRequest, OperationState
 from .plugins import (
+    WEBUI_API_VERSION,
+    WEBUI_SCHEMA_DRAFT_2020_12,
     PluginContext,
     PluginDefinition,
     PluginHandle,
     PluginManifest,
     PluginPaths,
     PluginServices,
+    WebUiComponent,
+    WebUiContributionManifest,
+    WebUiDiagnostic,
+    WebUiProvider,
+    WebUiSnapshot,
+    WebUiSnapshotState,
+    WebUiSurfaceManifest,
 )
 from .resource_packs import RESOURCE_CATALOG_SERVICE, ResourceCatalog, ResourcePackDeclaration
 from .services import ServiceKey, ServiceRegistry, ServiceRequirement
@@ -32,6 +42,15 @@ __all__ = [
     "PluginInitSpec",
     "PluginPaths",
     "PluginServices",
+    "WEBUI_API_VERSION",
+    "WEBUI_SCHEMA_DRAFT_2020_12",
+    "WebUiComponent",
+    "WebUiContributionManifest",
+    "WebUiDiagnostic",
+    "WebUiProvider",
+    "WebUiSnapshot",
+    "WebUiSnapshotState",
+    "WebUiSurfaceManifest",
     "ServiceKey",
     "ServiceRegistry",
     "ServiceRequirement",
@@ -43,6 +62,11 @@ __all__ = [
     "MANAGEMENT_SERVICE",
     "ManagementCommand",
     "ManagementRegistry",
+    "ManagementPrincipal",
+    "OperationDefinition",
+    "OperationLedger",
+    "OperationRequest",
+    "OperationState",
     "RESOURCE_CATALOG_SERVICE",
     "ResourceCatalog",
     "ResourcePackDeclaration",

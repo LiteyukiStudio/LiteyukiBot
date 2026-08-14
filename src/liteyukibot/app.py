@@ -139,6 +139,7 @@ class LiteyukiApp:
             event_sink=self._ingest_runtime_event,
             action_sink=self._execute_runtime_action,
             secret_values=runtime_secrets,
+            lyip_settings=settings.lyip,
         )
         self.runtimes.set_logging_settings(settings.logging)
         self.runtimes.set_management_sink(self._execute_runtime_management)
@@ -182,6 +183,7 @@ class LiteyukiApp:
         self._logging_started = False
         self._plugins_setup = False
         self._runtimes_started = False
+        self._management_started = False
         self._control_started = False
         self._http_started = False
         self._started_at: float | None = None
@@ -348,6 +350,8 @@ class LiteyukiApp:
             allows_management = getattr(permissions, "allows_management", None)
             if callable(allows_management):
                 self.management.registry.set_authorizer(allows_management)
+            await self.management.start_operations(self.settings.core.data_dir)
+            self._management_started = True
             broker = self.services.get(AGENT_TOOL_BROKER_SERVICE)
             if broker is not None:
                 if not isinstance(broker, AgentToolBroker):
@@ -511,6 +515,12 @@ class LiteyukiApp:
             except BaseException as error:
                 errors.append(error)
             self._control_started = False
+        if self._management_started:
+            try:
+                await self.management.close_operations()
+            except BaseException as error:
+                errors.append(error)
+            self._management_started = False
         try:
             await self.events.aclose()
         except BaseException as error:

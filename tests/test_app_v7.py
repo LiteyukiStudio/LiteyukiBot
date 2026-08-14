@@ -39,6 +39,7 @@ from liteyukibot.events import (
 from liteyukibot.exceptions import PluginError
 from liteyukibot.functions import FunctionCall
 from liteyukibot.plugins import PluginDefinition, PluginHandle, PluginManifest
+from liteyukibot.resource_packs import write_resource_manifest
 from liteyukibot.runtime.protocol import EventAccepted, EventTrace
 from liteyukibot.runtime.supervisor import ActionProvenance
 from liteyukibot.services import ServiceKey, ServiceRequirement
@@ -96,6 +97,7 @@ async def test_app_shutdown_cancels_function_background_tasks(tmp_path: Path) ->
     )
     (functions / "background.lyf").write_text("nohup sleep 60\n", encoding="utf-8")
     (workspace / "resources" / "index.json").write_text('["legacy"]', encoding="utf-8")
+    write_resource_manifest(functions.parent)
     settings = AppSettings(core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"))
     app = LiteyukiApp(settings, logger=FakeLogger(), resource_workspace=str(workspace))  # type: ignore[arg-type]
 

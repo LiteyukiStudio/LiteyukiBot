@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import os
+import secrets
 import shlex
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
 from typing import Any, Protocol
 
+from .operations import ManagementPrincipal, OperationDefinition, OperationLedger, OperationRecord, OperationRequest
 from .plugin_install import PluginInstallationService
 from .plugin_store import RuntimeGenerationStore
 from .services import ServiceKey
@@ -133,7 +137,100 @@ class KernelManagement:
         self._app = app
         self._workspace = workspace
         self._stop = stop
+        self.operations: OperationLedger | None = None
         self._register_kernel_commands()
+
+    async def start_operations(self, data_dir: Path) -> None:
+        """Start durable command execution after all command providers are registered."""
+
+        if self.operations is not None:
+            return
+        self.operations = OperationLedger(data_dir / "operations.sqlite3", audit_key=self._audit_key(data_dir))
+        await self.operations.start()
+
+    async def close_operations(self) -> None:
+        if self.operations is not None:
+            await self.operations.close()
+            self.operations = None
+
+    async def submit_operation(
+        self,
+        principal: ManagementPrincipal,
+        command_name: tuple[str, ...],
+        arguments: tuple[str, ...],
+        *,
+        confirmed: bool,
+        idempotency_key: str,
+    ) -> OperationRecord:
+        """Queue an authorized management command without persisting its raw arguments."""
+
+        if self.operations is None:
+            raise ManagementError("management operation service is not running")
+        caller = ManagementCaller(principal.subject, principal.kind.value, principal.capabilities)
+        command = self.registry.resolve(caller, shlex.join((*command_name, *arguments)))[0]
+        if command.danger is ManagementDanger.CONFIRM and not confirmed:
+            raise ManagementError(f"management command requires confirmation: {' '.join(command.name)}")
+        operation_name = self._operation_name(command.name)
+        if not self.operations.has_definition(operation_name):
+            self.operations.register(
+                OperationDefinition(
+                    operation_name,
+                    command.capability,
+                    mutating=command.name not in {("help",), ("status",), ("runtime", "list"), ("plugin", "list")},
+                    cancellable=False,
+                ),
+                self._execute_operation,
+            )
+        return await self.operations.submit(
+            principal,
+            OperationRequest(
+                operation=operation_name,
+                target=arguments[0] if arguments else "kernel",
+                input={"command": list(command.name), "arguments": list(arguments), "confirmed": confirmed},
+                idempotency_key=idempotency_key,
+            ),
+        )
+
+    async def _execute_operation(self, principal: ManagementPrincipal, request: OperationRequest) -> str:
+        command_name = self._command_name(request.operation)
+        arguments = request.input.get("arguments")
+        if not isinstance(arguments, list) or not all(isinstance(argument, str) for argument in arguments):
+            raise ManagementError("invalid management operation payload")
+        caller = ManagementCaller(principal.subject, principal.kind.value, principal.capabilities)
+        await self.registry.execute(caller, shlex.join((*command_name, *arguments)))
+        return "ok"
+
+    @staticmethod
+    def _operation_name(command_name: tuple[str, ...]) -> str:
+        return f"management.{'.'.join(command_name)}"
+
+    @staticmethod
+    def _command_name(operation_name: str) -> tuple[str, ...]:
+        if not operation_name.startswith("management."):
+            raise ManagementError("invalid management operation")
+        tokens = tuple(operation_name.removeprefix("management.").split("."))
+        if not tokens or any(not token for token in tokens):
+            raise ManagementError("invalid management operation")
+        return tokens
+
+    @staticmethod
+    def _audit_key(data_dir: Path) -> bytes:
+        path = data_dir / "operations.audit-key"
+        try:
+            key = path.read_bytes()
+        except FileNotFoundError:
+            key = secrets.token_bytes(32)
+            try:
+                descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            except FileExistsError:
+                key = path.read_bytes()
+            else:
+                with os.fdopen(descriptor, "wb") as handle:
+                    handle.write(key)
+                path.chmod(0o600)
+        if len(key) != 32:
+            raise ManagementError("management audit key must contain exactly 32 bytes")
+        return key
 
     def _register_kernel_commands(self) -> None:
         registrations = (
