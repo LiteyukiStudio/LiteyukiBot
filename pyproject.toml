@@ -13,10 +13,13 @@ dependencies = [
     "cryptography>=46,<51",
     "filelock>=3.19,<4",
     "pydantic>=2.13,<3",
+    "pyzmq>=27.1.0",
     "PyYAML>=6,<7",
     "prompt_toolkit>=3.0,<4",
     "tomli-w>=1.2,<2",
     "yukilog>=1,<2",
+    "jsonschema>=4.26,<5",
+    "tornado>=6.1,<7",
 ]
 
 [project.optional-dependencies]
@@ -40,6 +43,12 @@ dev = [
     "pytest>=9,<10",
     "pytest-asyncio>=1.2,<2",
     "ruff>=0.14,<1",
+    "maturin>=1.14.1",
+    "types-jsonschema>=4.26,<5",
+]
+release = [
+    "cyclonedx-bom>=7.3.1",
+    "license-expression>=30.4.4",
 ]
 
 [build-system]

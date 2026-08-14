@@ -13,11 +13,11 @@ from liteyukibot.config import ConfigUpgradeRequired, ConfigurationError, Config
 def test_workspace_init_creates_current_valid_template(tmp_path: Path) -> None:
     workspace = ConfigWorkspace(tmp_path)
 
-    path = workspace.initialize(payload_exclude_runtimes=("mofox",))
+    path = workspace.initialize()
 
     assert path == tmp_path / "liteyuki.toml"
-    assert load_settings(path, environ={}).config_version == 3
-    assert load_settings(path, environ={}).logging.payload_exclude_runtimes == ("mofox",)
+    assert load_settings(path, environ={}).config_version == 4
+    assert load_settings(path, environ={}).logging.payload_exclude_runtimes == ()
 
 
 def test_workspace_init_rejects_invalid_logging_values_without_writing(tmp_path: Path) -> None:
@@ -29,15 +29,21 @@ def test_workspace_init_rejects_invalid_logging_values_without_writing(tmp_path:
 
 def test_outdated_workspace_config_is_backed_up_and_blocks_start(tmp_path: Path) -> None:
     config = tmp_path / "liteyuki.toml"
-    config.write_text("[core]\nqueue_capacity = 1\n", encoding="utf-8")
+    original = "[core]\nqueue_capacity = 1\nobsolete_field = true\n"
+    config.write_text(original, encoding="utf-8")
 
     with pytest.raises(ConfigUpgradeRequired, match="manual upgrade"):
         ConfigWorkspace(tmp_path).prepare()
 
     backups = list((tmp_path / ".liteyuki" / "config-backups").glob("*/liteyuki.toml"))
     assert len(backups) == 1
-    template = tmp_path / ".liteyuki" / "config-upgrades" / "liteyuki.v3.toml"
-    assert "config_version = 3" in template.read_text(encoding="utf-8")
+    assert backups[0].read_text(encoding="utf-8") == original
+    assert backups[0].stat().st_mode & 0o200 == 0
+    assert config.read_text(encoding="utf-8") == original
+    template = tmp_path / ".liteyuki" / "config-upgrades" / "liteyuki.v4.toml"
+    assert "config_version = 4" in template.read_text(encoding="utf-8")
+    instructions = (tmp_path / ".liteyuki" / "config-upgrades" / "README.md").read_text(encoding="utf-8")
+    assert "did not modify your existing configuration" in instructions
 
 
 def test_workspace_upgrade_is_idempotent_until_explicit_refresh(tmp_path: Path) -> None:
@@ -58,11 +64,27 @@ def test_workspace_upgrade_is_idempotent_until_explicit_refresh(tmp_path: Path) 
 
 def test_future_workspace_config_is_not_backed_up(tmp_path: Path) -> None:
     config = tmp_path / "liteyuki.toml"
-    config.write_text("config_version = 4\n", encoding="utf-8")
+    config.write_text("config_version = 5\n", encoding="utf-8")
 
     with pytest.raises(ConfigurationError, match="newer than this kernel"):
         ConfigWorkspace(tmp_path).prepare()
     assert not (tmp_path / ".liteyuki").exists()
+
+
+@pytest.mark.parametrize("version", (0, 1, 2, 3))
+def test_every_pre_v4_version_creates_recovery_material_without_validating_old_fields(
+    tmp_path: Path, version: int
+) -> None:
+    config = tmp_path / "liteyuki.toml"
+    original = f"config_version = {version}\nobsolete = {{ nested = true }}\n"
+    config.write_text(original, encoding="utf-8")
+
+    with pytest.raises(ConfigUpgradeRequired, match="manual upgrade"):
+        ConfigWorkspace(tmp_path).prepare()
+
+    backup = next((tmp_path / ".liteyuki" / "config-backups").glob("*/liteyuki.toml"))
+    assert backup.read_text(encoding="utf-8") == original
+    assert config.read_text(encoding="utf-8") == original
 
 
 def test_regular_workspace_without_config_requires_initialization(

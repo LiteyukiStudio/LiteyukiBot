@@ -409,7 +409,10 @@ def _load_settings(
     merged: ConfigMap = {}
 
     if primary_path is not None:
-        merged = _deep_merge(merged, loader.load_root(primary_path))
+        primary_values = loader.load_root(primary_path)
+        if "config_version" not in primary_values:
+            issues.append(ConfigIssue(Path(primary_path), "root configuration requires config_version = 4"))
+        merged = _deep_merge(merged, primary_values)
     for config_path in config_paths:
         merged = _deep_merge(merged, loader.load_root(config_path))
     for instance_config_path in instance_config_paths:

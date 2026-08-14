@@ -15,7 +15,7 @@ def test_inspection_tracks_all_precedence_layers_with_json_pointer(tmp_path: Pat
     included.write_text("[core]\nqueue_capacity = 10\n", encoding="utf-8")
     primary = tmp_path / "liteyuki.toml"
     primary.write_text(
-        'config_version = 1\ninclude = ["included.toml"]\n[core]\nqueue_capacity = 20\n',
+        'config_version = 4\ninclude = ["included.toml"]\n[core]\nqueue_capacity = 20\n',
         encoding="utf-8",
     )
     additional = tmp_path / "extra.toml"
@@ -43,7 +43,7 @@ def test_inspection_tracks_all_precedence_layers_with_json_pointer(tmp_path: Pat
 def test_inspection_json_pointer_keeps_dotted_plugin_ids_unambiguous(tmp_path: Path) -> None:
     config = tmp_path / "liteyuki.toml"
     config.write_text(
-        'config_version = 1\n[plugins.config."example.plugin"]\nvalue = "configured"\n',
+        'config_version = 4\n[plugins.config."example.plugin"]\nvalue = "configured"\n',
         encoding="utf-8",
     )
 
@@ -59,7 +59,7 @@ def test_config_show_and_explain_redact_sensitive_values(
 ) -> None:
     config = tmp_path / "liteyuki.toml"
     config.write_text(
-        'config_version = 3\n[plugins.config.demo]\napi_key = "live-value"\n',
+        'config_version = 4\n[plugins.config.demo]\napi_key = "live-value"\n',
         encoding="utf-8",
     )
     monkeypatch.chdir(tmp_path)

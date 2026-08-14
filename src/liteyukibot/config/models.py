@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from importlib import import_module, metadata
 from ipaddress import ip_address
 from pathlib import Path
+from platform import platform
 from types import MappingProxyType
 from typing import Any, Literal, cast
 
@@ -268,16 +270,168 @@ class DaemonSettings(FrozenSettingsModel):
         return self
 
 
+class LyipLinkCapacitySettings(FrozenSettingsModel):
+    """An all-or-nothing link capacity override.
+
+    A partial override would make a capacity profile ambiguous and could give
+    the two transport implementations different backpressure limits.
+    """
+
+    business_slots: int | None = None
+    control_slots: int | None = None
+    blob_arena_mib: int | None = None
+    zmq_hwm: int | None = None
+
+    @field_validator("business_slots")
+    @classmethod
+    def validate_business_slots(cls, value: int | None) -> int | None:
+        return _validate_power_of_two(value, minimum=256, maximum=65_536, name="business_slots")
+
+    @field_validator("control_slots")
+    @classmethod
+    def validate_control_slots(cls, value: int | None) -> int | None:
+        return _validate_power_of_two(value, minimum=32, maximum=4_096, name="control_slots")
+
+    @field_validator("blob_arena_mib")
+    @classmethod
+    def validate_blob_arena_mib(cls, value: int | None) -> int | None:
+        return _validate_power_of_two(value, minimum=4, maximum=512, name="blob_arena_mib")
+
+    @field_validator("zmq_hwm")
+    @classmethod
+    def validate_zmq_hwm(cls, value: int | None) -> int | None:
+        return _validate_power_of_two(value, minimum=256, maximum=65_536, name="zmq_hwm")
+
+    @model_validator(mode="after")
+    def require_complete_override(self) -> LyipLinkCapacitySettings:
+        values = (self.business_slots, self.control_slots, self.blob_arena_mib, self.zmq_hwm)
+        if any(value is not None for value in values) and any(value is None for value in values):
+            raise ValueError("LYIP capacity override must provide all four values")
+        return self
+
+    @property
+    def is_configured(self) -> bool:
+        return self.business_slots is not None
+
+
+class LyipCapacitySettings(FrozenSettingsModel):
+    """The concrete limits used by one resolved LYIP link."""
+
+    business_slots: int
+    control_slots: int
+    blob_arena_mib: int
+    zmq_hwm: int
+
+
+class LyipLinkResolution(FrozenSettingsModel):
+    """Configuration-derived, but not availability-derived, link policy."""
+
+    backend: Literal["auto", "shm", "zmq"]
+    capacity_profile: Literal["latency", "balanced", "throughput"]
+    capacity: LyipCapacitySettings
+
+
+class LyipNativeDiagnostics(FrozenSettingsModel):
+    """Derived native capability state suitable for CLI and WebUI diagnostics."""
+
+    state: Literal["available", "unavailable"]
+    wheel_version: str | None = None
+    abi: int | None = Field(default=None, ge=1)
+    platform: str
+    fallback_reason: str | None = None
+
+    @model_validator(mode="after")
+    def validate_state(self) -> LyipNativeDiagnostics:
+        if self.state == "available":
+            if self.wheel_version is None or self.abi is None:
+                raise ValueError("available native diagnostics require wheel_version and ABI")
+            if self.fallback_reason is not None:
+                raise ValueError("available native diagnostics cannot have a fallback reason")
+        elif not self.fallback_reason:
+            raise ValueError("unavailable native diagnostics require a fallback reason")
+        return self
+
+
+class LyipLinkSettings(FrozenSettingsModel):
+    backend: Literal["shm", "zmq"] | None = None
+    capacity_profile: Literal["latency", "balanced", "throughput"] | None = None
+    capacity: LyipLinkCapacitySettings = Field(default_factory=LyipLinkCapacitySettings)
+
+
+class LyipSettings(FrozenSettingsModel):
+    default_backend: Literal["auto", "shm", "zmq"] = "auto"
+    capacity_profile: Literal["latency", "balanced", "throughput"] = "balanced"
+    terminal_capacity: int = Field(default=16_384, ge=1_024, le=262_144)
+    terminal_ttl_seconds: int = Field(default=3_600, ge=60, le=86_400)
+    dev_summary_ttl_seconds: int = Field(default=900, ge=60, le=3_600)
+    zmq_large_payload_fallback: bool = False
+    links: Mapping[str, LyipLinkSettings] = Field(default_factory=dict)
+
+    @field_validator("links", mode="after")
+    @classmethod
+    def freeze_links(cls, value: Mapping[str, LyipLinkSettings]) -> Mapping[str, LyipLinkSettings]:
+        if any(not runtime_id.strip() or runtime_id != runtime_id.strip() for runtime_id in value):
+            raise ValueError("LYIP link runtime identifiers must be non-empty and trimmed")
+        return MappingProxyType(dict(value))
+
+    @field_serializer("links")
+    def serialize_links(self, value: Mapping[str, LyipLinkSettings]) -> dict[str, LyipLinkSettings]:
+        return dict(value)
+
+    def resolve_link(self, runtime_id: str) -> LyipLinkResolution:
+        """Resolve inheritance once before a worker starts.
+
+        Native availability is intentionally excluded here: it is observed at
+        startup and converts ``auto`` to a transport without changing this
+        immutable requested policy.
+        """
+
+        link = self.links.get(runtime_id)
+        backend = self.default_backend if link is None or link.backend is None else link.backend
+        profile = self.capacity_profile if link is None or link.capacity_profile is None else link.capacity_profile
+        override = None if link is None else link.capacity
+        if override is None or not override.is_configured:
+            capacity = _LYIP_CAPACITY_PROFILES[profile]
+        else:
+            assert override.business_slots is not None
+            assert override.control_slots is not None
+            assert override.blob_arena_mib is not None
+            assert override.zmq_hwm is not None
+            capacity = LyipCapacitySettings(
+                business_slots=override.business_slots,
+                control_slots=override.control_slots,
+                blob_arena_mib=override.blob_arena_mib,
+                zmq_hwm=override.zmq_hwm,
+            )
+        return LyipLinkResolution(backend=backend, capacity_profile=profile, capacity=capacity)
+
+
+class WebUISettings(FrozenSettingsModel):
+    mode: Literal["disabled", "on_demand", "always"] = "on_demand"
+    port: int = Field(default=0, ge=0, le=65_535)
+    idle_shutdown_seconds: int = Field(default=300, ge=30, le=3_600)
+    ticket_ttl_seconds: int = Field(default=60, ge=15, le=300)
+    session_idle_seconds: int = Field(default=1_800, ge=60, le=14_400)
+    session_max_seconds: int = Field(default=28_800, ge=300, le=86_400)
+
+    @model_validator(mode="after")
+    def validate_session_windows(self) -> WebUISettings:
+        if self.session_max_seconds < self.session_idle_seconds:
+            raise ValueError("session_max_seconds must not be less than session_idle_seconds")
+        return self
+
+
 class DevelopmentSettings(FrozenSettingsModel):
     """Opt-in local development controls; they never create an HTTP API."""
 
-    dev_mode: bool = False
+    enabled: bool = False
+    allow_drills: bool = False
     watch_auto_restart: bool = False
     watch_debounce_seconds: float = Field(default=0.75, gt=0)
 
 
 class AppSettings(FrozenSettingsModel):
-    config_version: int = Field(default=3, ge=1)
+    config_version: int = 4
     core: CoreSettings = Field(default_factory=CoreSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     i18n: I18nSettings = Field(default_factory=I18nSettings)
@@ -287,7 +441,16 @@ class AppSettings(FrozenSettingsModel):
     runtime_event_routes: tuple[RuntimeEventRoute, ...] = ()
     http: HttpSettings = Field(default_factory=HttpSettings)
     daemon: DaemonSettings = Field(default_factory=DaemonSettings)
+    lyip: LyipSettings = Field(default_factory=LyipSettings)
+    webui: WebUISettings = Field(default_factory=WebUISettings)
     development: DevelopmentSettings = Field(default_factory=DevelopmentSettings)
+
+    @field_validator("config_version")
+    @classmethod
+    def require_current_config_version(cls, value: int) -> int:
+        if value != 4:
+            raise ValueError("config_version must be 4")
+        return value
 
     @field_validator("runtimes", mode="after")
     @classmethod
@@ -301,7 +464,27 @@ class AppSettings(FrozenSettingsModel):
         return dict(value)
 
     @model_validator(mode="after")
-    def validate_runtime_event_routes(self) -> AppSettings:
+    def validate_cross_section_policy(self) -> AppSettings:
+        if self.development.allow_drills and not self.development.enabled:
+            raise ValueError("development.allow_drills requires development.enabled")
+        if self.development.watch_auto_restart and not self.development.enabled:
+            raise ValueError("development.watch_auto_restart requires development.enabled")
+        if self.logging.payload_mode == "full":
+            if not self.development.enabled:
+                raise ValueError("logging.payload_mode=full requires development.enabled")
+            if self.logging.file is None:
+                raise ValueError("logging.payload_mode=full requires an instance-private logging.file")
+            if self.logging.console:
+                raise ValueError("logging.payload_mode=full requires logging.console=false")
+            if self.logging.json_lines:
+                raise ValueError("logging.payload_mode=full requires logging.json_lines=false")
+            try:
+                self.logging.file.resolve(strict=False).relative_to(self.core.data_dir.resolve(strict=False))
+            except ValueError as error:
+                raise ValueError("logging.payload_mode=full requires logging.file below core.data_dir") from error
+        elif self.logging.payload_exclude_runtimes:
+            raise ValueError("logging.payload_exclude_runtimes requires logging.payload_mode=full")
+
         enabled = {runtime_id for runtime_id, runtime in self.runtimes.items() if runtime.enabled}
         routes: set[tuple[tuple[str, ...], str, bool]] = set()
         for route in self.runtime_event_routes:
@@ -319,3 +502,79 @@ class AppSettings(FrozenSettingsModel):
                 raise ValueError("runtime event routes must not contain duplicates")
             routes.add(key)
         return self
+
+
+def _validate_power_of_two(value: int | None, *, minimum: int, maximum: int, name: str) -> int | None:
+    if value is None:
+        return None
+    if not minimum <= value <= maximum:
+        raise ValueError(f"{name} must be between {minimum} and {maximum}")
+    if value & (value - 1):
+        raise ValueError(f"{name} must be a power of two")
+    return value
+
+
+_LYIP_CAPACITY_PROFILES: Mapping[str, LyipCapacitySettings] = MappingProxyType(
+    {
+        "latency": LyipCapacitySettings(business_slots=1_024, control_slots=64, blob_arena_mib=8, zmq_hwm=1_024),
+        "balanced": LyipCapacitySettings(business_slots=4_096, control_slots=256, blob_arena_mib=32, zmq_hwm=4_096),
+        "throughput": LyipCapacitySettings(
+            business_slots=16_384, control_slots=512, blob_arena_mib=128, zmq_hwm=16_384
+        ),
+    }
+)
+
+
+def lyip_native_diagnostics() -> LyipNativeDiagnostics:
+    """Probe the optional wheel without turning native availability into config.
+
+    The probe is intentionally conservative. A successfully importable wheel is
+    not considered available until it declares the supported ABI and an actual
+    shared-memory transport.
+    """
+
+    platform_name = platform(aliased=True)
+    try:
+        native = import_module("liteyukibot_ipc_native")
+    except ImportError:
+        return LyipNativeDiagnostics(
+            state="unavailable",
+            platform=platform_name,
+            fallback_reason="the Liteyuki IPC native wheel is not installed",
+        )
+    try:
+        wheel_version = metadata.version("liteyukibot-v7-ipc-native")
+    except metadata.PackageNotFoundError:
+        wheel_version = None
+    abi = getattr(native, "LYIP_NATIVE_ABI", None)
+    if not isinstance(abi, int) or isinstance(abi, bool):
+        return LyipNativeDiagnostics(
+            state="unavailable",
+            wheel_version=wheel_version,
+            platform=platform_name,
+            fallback_reason="the native wheel does not declare a valid LYIP ABI",
+        )
+    if abi != 1:
+        return LyipNativeDiagnostics(
+            state="unavailable",
+            wheel_version=wheel_version,
+            abi=abi,
+            platform=platform_name,
+            fallback_reason="the native wheel ABI is incompatible with LYIP v1",
+        )
+    if not getattr(native, "native_available", False):
+        return LyipNativeDiagnostics(
+            state="unavailable",
+            wheel_version=wheel_version,
+            abi=abi,
+            platform=platform_name,
+            fallback_reason="the native wheel has no usable shared-memory transport",
+        )
+    if wheel_version is None:
+        return LyipNativeDiagnostics(
+            state="unavailable",
+            abi=abi,
+            platform=platform_name,
+            fallback_reason="the native wheel version cannot be determined",
+        )
+    return LyipNativeDiagnostics(state="available", wheel_version=wheel_version, abi=abi, platform=platform_name)
