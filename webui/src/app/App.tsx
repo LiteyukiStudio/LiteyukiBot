@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CircleAlert, RefreshCw } from "lucide-react";
 
 import { Sidebar, TopStatusBar } from "@/components/app-shell";
@@ -28,16 +28,21 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const reloadSequence = useRef(0);
 
   const reload = useCallback(async (requestedLocale?: string) => {
+    const requestId = reloadSequence.current + 1;
+    reloadSequence.current = requestId;
     try {
-      setError(null);
       await api.initialize();
-      setSessionReady(true);
       const [bootstrap, ledger, catalog, audit, resolvedPresentation] = await Promise.all([api.bootstrap(), api.ledger(), api.catalog(), api.audit(), api.presentation(requestedLocale ?? getLocale())]);
+      if (requestId !== reloadSequence.current) return;
+      setError(null);
+      setSessionReady(true);
       applyPresentation(resolvedPresentation);
       setDashboard(projectDashboard(bootstrap, ledger, catalog.operations, audit.items));
     } catch (cause) {
+      if (requestId !== reloadSequence.current) return;
       setDashboard(null);
       setSessionReady(false);
       setError(cause instanceof Error ? cause.message : "webui.request_failed");

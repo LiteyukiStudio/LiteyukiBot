@@ -106,7 +106,8 @@ test("workspaces project live ledger, topology, runtimes, and plugins", async ({
 });
 
 test("ledger virtualizes large retained record lists", async ({ page }) => {
-  const records = Array.from({ length: 300 }, (_, index) => ({ id: `op-${index}`, at: `2026-08-15T03:${String(index).padStart(2, "0")}:00Z`, title: `operation-${index}`, source: "redacted", status: "healthy", detail: "ok" }));
+  const firstRecordAt = new Date("2026-08-15T03:00:00Z");
+  const records = Array.from({ length: 300 }, (_, index) => ({ id: `op-${index}`, at: new Date(firstRecordAt.getTime() + index * 60_000).toISOString(), title: `operation-${index}`, source: "redacted", status: "healthy", detail: "ok" }));
   await mockDaemon(page, undefined, records);
   await page.goto("/#/events");
   const viewport = page.locator('[data-slot="ledger-viewport"]');
