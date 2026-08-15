@@ -281,6 +281,11 @@ class InstanceDaemon:
             "webui": self._webui_status(),
         }
 
+    async def presentation(self, _principal: Any, locale: str | None) -> dict[str, object]:
+        request = {"locale": locale} if locale is not None else {}
+        value = await self._worker_webui_control("daemon.webui.presentation", **request)
+        return value if isinstance(value, dict) else {"locale": "en-US", "locales": [], "messages": {}}
+
     async def snapshot(self, _principal: Any) -> dict[str, object]:
         value = await self._worker_webui_control("daemon.webui.snapshot")
         return value if isinstance(value, dict) else {"state": "worker_unavailable"}

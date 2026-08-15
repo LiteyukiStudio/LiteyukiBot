@@ -25,7 +25,7 @@ from .control import ControlServer
 from .events import ActionEnvelope, ActionResult, CallApi, EventBus, EventEnvelope
 from .functions import FUNCTION_DISPATCH_SERVICE, FunctionDispatcher
 from .http import HttpServer
-from .i18n import I18N_SERVICE, Translator
+from .i18n import I18N_SERVICE, SUPPORTED_LOCALES, Translator, normalize_locale
 from .instance_daemon import INSTANCE_DAEMON_SERVICE, InstanceDaemonService
 from .logging import Logger, configure_logging, get_logger, log_payload, shutdown_logging
 from .management import (
@@ -180,6 +180,7 @@ class LiteyukiApp:
                 "management.execute": self._execute_local_management,
                 "topology": self._control_topology,
                 "daemon.webui.snapshot": self._daemon_webui_snapshot,
+                "daemon.webui.presentation": self._daemon_webui_presentation,
                 "daemon.webui.operation_catalog": self._daemon_webui_operation_catalog,
                 "daemon.webui.operation.execute": self._daemon_webui_execute_operation,
                 "daemon.webui.plugin_surfaces": self._daemon_webui_plugin_surfaces,
@@ -340,6 +341,42 @@ class LiteyukiApp:
             "status": self.status(),
             "topology": self.topology(),
             "webui_generation": self.plugins.webui_generation,
+        }
+
+    async def _daemon_webui_presentation(self, request: Mapping[str, Any]) -> dict[str, Any]:
+        if self.translator is None:
+            raise RuntimeError("WebUI presentation is unavailable before resource initialization")
+        requested = request.get("locale")
+        locale = normalize_locale(requested) if isinstance(requested, str) else self.translator.locale
+        if locale not in SUPPORTED_LOCALES:
+            locale = self.translator.locale
+        keys = (
+            "webui.app.name",
+            "webui.app.subtitle",
+            "webui.nav.overview",
+            "webui.nav.events",
+            "webui.nav.topology",
+            "webui.nav.runtimes",
+            "webui.nav.plugins",
+            "webui.nav.configuration",
+            "webui.header.language",
+            "webui.header.theme",
+            "webui.header.accent",
+            "webui.header.open_navigation",
+            "webui.theme.system",
+            "webui.theme.light",
+            "webui.theme.dark",
+            "webui.theme.blue",
+            "webui.theme.lavender",
+            "webui.theme.cyan",
+            "webui.status.ready",
+            "webui.status.runtimes",
+            "webui.action.refresh",
+        )
+        return {
+            "locale": locale,
+            "locales": list(SUPPORTED_LOCALES),
+            "messages": {key: self.translator.text_for(locale, key) for key in keys},
         }
 
     async def _daemon_webui_operation_catalog(self, _request: Mapping[str, Any]) -> dict[str, Any]:

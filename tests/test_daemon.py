@@ -157,12 +157,18 @@ async def test_daemon_webui_bridge_owns_tickets_and_operation_ledger(tmp_path: P
         executed.append(request)
         return {"result_code": "ok"}
 
+    async def presentation(request: object) -> object:
+        assert isinstance(request, dict)
+        assert request["locale"] == "zh-CN"
+        return {"locale": "zh-CN", "locales": ["en-US", "zh-CN"], "messages": {"webui.app.name": "Liteyuki"}}
+
     worker = ControlServer(
         worker_descriptor,
         status_provider=lambda: {"state": "ready", "runtime_health": {}},
         handlers={
             "daemon.webui.operation_catalog": catalog,
             "daemon.webui.operation.execute": execute,
+            "daemon.webui.presentation": presentation,
         },
     )
     await worker.start()
@@ -184,6 +190,11 @@ async def test_daemon_webui_bridge_owns_tickets_and_operation_ledger(tmp_path: P
         assert isinstance(catalog_entries, list)
         assert isinstance(catalog_entries[0], dict)
         assert catalog_entries[0]["id"] == "management.runtime.restart"
+        assert await daemon.presentation(principal, "zh-CN") == {
+            "locale": "zh-CN",
+            "locales": ["en-US", "zh-CN"],
+            "messages": {"webui.app.name": "Liteyuki"},
+        }
 
         submitted = await daemon.submit_operation(
             principal,
