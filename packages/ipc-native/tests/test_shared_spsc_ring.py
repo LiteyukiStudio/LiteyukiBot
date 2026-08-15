@@ -3,7 +3,12 @@ from __future__ import annotations
 from uuid import uuid4
 
 import pytest
-from liteyukibot_ipc_native import SharedSpscRing, native_available
+from liteyukibot_ipc_native import native_available
+
+if not native_available:
+    pytest.skip("shared SPSC ring requires a supported native platform", allow_module_level=True)
+
+from liteyukibot_ipc_native import SharedSpscRing
 
 
 def _name() -> str:
