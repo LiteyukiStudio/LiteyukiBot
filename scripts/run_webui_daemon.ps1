@@ -43,7 +43,15 @@ function Invoke-Liteyuki {
 }
 
 function Get-WebUiStatus {
-    $output = & uv run --extra webui liteyuki --workspace $Workspace --instance $Instance web status 2>&1
+    $previousNativeErrorPreference = $PSNativeCommandUseErrorActionPreference
+    try {
+        # A missing descriptor is normal before the first detached daemon starts.
+        $PSNativeCommandUseErrorActionPreference = $false
+        $output = & uv run --extra webui liteyuki --workspace $Workspace --instance $Instance web status 2>$null
+    }
+    finally {
+        $PSNativeCommandUseErrorActionPreference = $previousNativeErrorPreference
+    }
     if ($LASTEXITCODE -ne 0) {
         return $null
     }
