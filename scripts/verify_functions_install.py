@@ -15,7 +15,7 @@ import liteyukibot_functions
 
 import liteyukibot
 from liteyukibot.functions import FunctionCall, FunctionDispatcher
-from liteyukibot.resource_packs import ResourceCatalog
+from liteyukibot.resource_packs import ResourceCatalog, write_resource_manifest
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 
@@ -48,6 +48,7 @@ async def verify(expected_version: str | None = None) -> None:
         (pack / "metadata.yml").write_text('id: legacy\nname: Legacy\nversion: "6"\n', encoding="utf-8")
         (workspace / "resources" / "index.json").write_text('["legacy"]', encoding="utf-8")
         (functions / "verify.lyf").write_text("api verify value=1\n", encoding="utf-8")
+        write_resource_manifest(pack)
         capabilities = _Capabilities()
         await FunctionDispatcher(ResourceCatalog.load(workspace)).dispatch(
             FunctionCall("verify", {}, capabilities=capabilities)
