@@ -1,0 +1,4 @@
+interface:
+  display_name: "Liteyuki WebUI Frontend"
+  short_description: "Build and verify the LiteyukiBot WebUI."
+  default_prompt: "Use $liteyuki-webui-frontend to implement this LiteyukiBot WebUI change."
