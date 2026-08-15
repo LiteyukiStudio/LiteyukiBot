@@ -134,6 +134,8 @@ button, input { font: inherit; }
 .webui-topbar-state .webui-status-dot { background: var(--status-good-border); }
 .webui-topbar-state--attention .webui-status-dot { background: var(--status-attention-border); }
 .webui-topbar-runtime-summary { padding-left: 7px; border-left: 1px solid var(--border); color: var(--muted-foreground); }
+.webui-workspace-base { min-height: min(730px, calc(100vh - 150px)); padding: clamp(16px, 2.3vw, 25px); background-color: color-mix(in oklch, var(--card), var(--background) 35%); border: 1px solid color-mix(in oklch, var(--border), var(--card) 48%); border-radius: 18px; }
+.dark .webui-workspace-base { background-color: color-mix(in oklch, var(--card), var(--background) 28%); border-color: color-mix(in oklch, var(--border), var(--background) 35%); }
 .webui-float-card { border: 1px solid color-mix(in oklch, var(--border), white 35%); border-radius: 15px; box-shadow: 0 8px 22px color-mix(in srgb, oklch(0.28 0.03 252), transparent 92%); }
 .webui-status-strip { border: 1px solid var(--status-good-border); border-radius: 12px; background-color: var(--status-good); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--card), transparent 18%); }
 .webui-status-strip--attention { border-color: var(--status-attention-border); background-color: var(--status-attention); }
@@ -146,6 +148,7 @@ html.webui-theme-transition body,
 html.webui-theme-transition .webui-sidebar,
 html.webui-theme-transition .webui-topbar,
 html.webui-theme-transition .webui-topbar-state,
+html.webui-theme-transition .webui-workspace-base,
 html.webui-theme-transition .webui-status-strip,
 html.webui-theme-transition .webui-runtime-mark,
 html.webui-theme-transition [data-slot="card"],

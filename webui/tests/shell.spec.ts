@@ -78,6 +78,8 @@ for (const [name, viewport] of [["desktop", { width: 1440, height: 960 }], ["mob
     else {
       await expect(page.getByText("v7.0.0b4+1.0.0")).toBeVisible();
       await expect(page.locator(".webui-workbench")).toHaveCount(0);
+      await expect(page.locator(".webui-workspace-base")).toBeVisible();
+      await expect(page.locator(".webui-workspace-base")).toHaveCSS("box-shadow", "none");
       const sidebarBackground = await page.locator(".webui-sidebar").evaluate((element) => getComputedStyle(element).backgroundColor);
       await expect(page.locator(".webui-topbar")).toHaveCSS("background-color", sidebarBackground);
     }
