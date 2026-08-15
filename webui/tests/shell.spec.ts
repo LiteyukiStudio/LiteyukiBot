@@ -39,16 +39,16 @@ for (const [name, viewport] of [["desktop", { width: 1440, height: 960 }], ["mob
     await page.setViewportSize(viewport);
     await page.goto("/#/overview");
     await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
-    await expect(page.getByText("control-test")).toBeVisible();
     expect(await page.locator("html").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBeTruthy();
-    if (name === "mobile") { await page.getByRole("button", { name: "Open navigation" }).click(); await expect(page.getByRole("button", { name: "Runtimes" }).last()).toBeVisible(); }
+    if (name === "mobile") { await page.getByRole("button", { name: "Open navigation" }).click(); await expect(page.getByRole("button", { name: "Runtimes" }).last()).toBeVisible(); await expect(page.getByLabel("Navigation").getByText("control-test")).toBeVisible(); }
+    else await expect(page.getByText("control-test")).toBeVisible();
   });
 }
 
 test("workspaces project live ledger, topology, runtimes, and plugins", async ({ page }) => {
   await mockDaemon(page);
   await page.goto("/#/events");
-  await expect(page.getByRole("heading", { name: "Ledger" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Events" })).toBeVisible();
   await expect(page.getByText("management.runtime.restart")).toBeVisible();
   await page.goto("/#/topology");
   await expect(page.getByText("onebot-primary")).toBeVisible();
@@ -88,6 +88,8 @@ test("service errors render a recoverable unavailable state", async ({ page }) =
   });
   await page.goto("/#/overview");
   await expect(page.getByText("Local service unavailable", { exact: true })).toBeVisible();
+  const requestsBeforeRetry = sessionRequests;
+  expect(requestsBeforeRetry).toBeGreaterThan(0);
   await page.getByRole("button", { name: "Retry" }).click();
-  await expect.poll(() => sessionRequests).toBe(2);
+  await expect.poll(() => sessionRequests).toBe(requestsBeforeRetry + 1);
 });

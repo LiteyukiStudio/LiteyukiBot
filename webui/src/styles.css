@@ -27,28 +27,41 @@
 }
 
 :root {
-  --background: oklch(0.982 0.004 247);
+  --background: oklch(0.962 0.012 247);
   --foreground: oklch(0.22 0.025 252);
-  --card: oklch(1 0 0);
+  --card: oklch(0.995 0.002 247);
   --card-foreground: oklch(0.22 0.025 252);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.22 0.025 252);
   --primary: oklch(0.55 0.17 248);
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.956 0.012 247);
+  --secondary: oklch(0.91 0.036 235);
   --secondary-foreground: oklch(0.28 0.028 252);
-  --muted: oklch(0.956 0.012 247);
+  --muted: oklch(0.942 0.014 247);
   --muted-foreground: oklch(0.52 0.026 252);
-  --accent: oklch(0.93 0.033 243);
+  --accent: oklch(0.91 0.04 235);
   --accent-foreground: oklch(0.35 0.09 247);
   --border: oklch(0.9 0.012 247);
   --input: oklch(0.9 0.012 247);
   --ring: oklch(0.55 0.17 248);
   --destructive: oklch(0.58 0.19 27);
-  --radius: 0.45rem;
+  --radius: 0.7rem;
+  --status-good: oklch(0.955 0.037 160);
+  --status-good-border: oklch(0.86 0.075 160);
+  --status-attention: oklch(0.96 0.035 85);
+  --status-attention-border: oklch(0.87 0.075 85);
 }
 
 * { border-color: var(--border); }
 html { background: var(--background); }
 body { min-width: 320px; min-height: 100vh; margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-sans); }
 button, input { font: inherit; }
+
+.webui-sidebar { background: color-mix(in oklch, var(--background), white 36%); }
+.webui-brand-mark { display: grid; width: 29px; height: 29px; place-items: center; color: var(--primary-foreground); background: linear-gradient(135deg, var(--primary), color-mix(in oklch, var(--primary), var(--accent) 38%)); border-radius: 8px; box-shadow: 0 5px 13px color-mix(in srgb, var(--primary), transparent 72%); }
+.webui-workbench { min-height: min(730px, calc(100vh - 150px)); padding: clamp(16px, 2.3vw, 25px); background: color-mix(in oklch, var(--card), white 20%); border: 1px solid color-mix(in oklch, var(--border), white 28%); border-radius: 20px; box-shadow: 0 14px 34px color-mix(in srgb, oklch(0.28 0.03 252), transparent 91%); }
+.webui-float-card { border: 1px solid color-mix(in oklch, var(--border), white 35%); border-radius: 15px; box-shadow: 0 8px 22px color-mix(in srgb, oklch(0.28 0.03 252), transparent 92%); }
+.webui-status-strip { border: 1px solid var(--status-good-border); border-radius: 12px; background: var(--status-good); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--card), transparent 18%); }
+.webui-status-strip--attention { border-color: var(--status-attention-border); background: var(--status-attention); }
+
+@media (max-width: 1023px) { .webui-workbench { min-height: auto; } }

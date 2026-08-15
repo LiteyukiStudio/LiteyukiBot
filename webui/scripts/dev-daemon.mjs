@@ -12,10 +12,19 @@ const workspace = resolve(options.workspace ?? join(repositoryRoot, "tmp", "webu
 const descriptor = join(workspace, ".liteyuki", "instances", options.instance, "daemon.json");
 
 await ensureDaemon();
-const handoff = await requestControl("webui.open");
+const initialWebUiStatus = await requestControl("webui.status");
+let handoff;
+if (!webUiIsReady(initialWebUiStatus)) handoff = await requestControl("webui.open");
+const webUiStatus = webUiIsReady(initialWebUiStatus) ? initialWebUiStatus : await waitForWebUi();
+handoff ??= await requestControl("webui.open");
 if (!handoff || typeof handoff.url !== "string") throw new Error("daemon returned an invalid WebUI handoff URL");
 
 const daemonUrl = new URL(handoff.url);
+const handoffPort = daemonUrl.port === "" ? 80 : Number(daemonUrl.port);
+if (daemonUrl.protocol !== "http:" || daemonUrl.hostname !== webUiStatus.host || (handoffPort !== 0 && handoffPort !== webUiStatus.port)) {
+  throw new Error("daemon returned a WebUI handoff URL inconsistent with its running server");
+}
+daemonUrl.port = String(webUiStatus.port);
 const ticket = daemonUrl.hash;
 if (!/^#ticket=[^&]+$/.test(ticket)) throw new Error("daemon returned an invalid WebUI ticket");
 
@@ -76,7 +85,28 @@ async function waitForDaemonRunning() {
   return false;
 }
 
-async function requestControl(command) {
+function webUiIsReady(status) {
+  return status?.state === "running" && status.host === "127.0.0.1"
+    && Number.isInteger(status.port) && status.port > 0 && status.port <= 65535;
+}
+
+async function waitForWebUi() {
+  const deadline = Date.now() + 7500;
+  while (Date.now() < deadline) {
+    await delay(Math.min(250, deadline - Date.now()));
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+    try {
+      const status = await requestControl("webui.status", remaining);
+      if (webUiIsReady(status)) return status;
+    } catch {
+      // The daemon is still publishing its WebUI server state.
+    }
+  }
+  throw new Error(`WebUI did not become ready; inspect ${join(workspace, ".liteyuki", "instances", options.instance, "logs", "daemon.log")}`);
+}
+
+async function requestControl(command, timeoutMilliseconds = 5000) {
   const value = JSON.parse(await readFile(descriptor, "utf8"));
   if (
     value?.protocol !== 1 || value.host !== "127.0.0.1" || !Number.isInteger(value.port)
@@ -87,7 +117,7 @@ async function requestControl(command) {
   return await new Promise((resolveResponse, reject) => {
     const socket = net.createConnection({ host: value.host, port: value.port });
     let buffer = "";
-    const timeout = setTimeout(() => socket.destroy(new Error("daemon control request timed out")), 5000);
+    const timeout = setTimeout(() => socket.destroy(new Error("daemon control request timed out")), timeoutMilliseconds);
     socket.setEncoding("utf8");
     socket.once("connect", () => socket.write(`${JSON.stringify({ token: value.token, command })}\n`));
     socket.on("data", (chunk) => {
@@ -119,6 +149,7 @@ function parseOptions(arguments_) {
   const options_ = { instance: "default", port: 5173, workspace: undefined, noOpen: false };
   for (let index = 0; index < arguments_.length; index += 1) {
     const value = arguments_[index];
+    if (value === "--") continue;
     if (value === "--workspace") options_.workspace = requiredValue(arguments_, ++index, value);
     else if (value === "--instance") options_.instance = requiredValue(arguments_, ++index, value);
     else if (value === "--port") options_.port = Number(requiredValue(arguments_, ++index, value));
