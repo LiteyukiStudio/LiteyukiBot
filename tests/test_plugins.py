@@ -10,12 +10,18 @@ import pytest
 from liteyukibot.events import EventBus
 from liteyukibot.exceptions import PluginError, ServiceError
 from liteyukibot.plugins import (
+    WEBUI_SCHEMA_DRAFT_2020_12,
     ActionServiceLike,
     PluginContext,
     PluginDefinition,
     PluginHandle,
     PluginManager,
     PluginManifest,
+    WebUiComponent,
+    WebUiContributionManifest,
+    WebUiDiagnostic,
+    WebUiSnapshotState,
+    WebUiSurfaceManifest,
 )
 from liteyukibot.services import ServiceKey, ServiceRegistry, ServiceRequirement
 
@@ -82,6 +88,35 @@ def make_manager(tmp_path: Path, *, logger: FakeLogger | None = None) -> PluginM
     )
 
 
+def webui_manifest(*, plugin_id: str = "example", api_version: int = 1) -> WebUiContributionManifest:
+    prefix = f"webui.plugin.{plugin_id}."
+    return WebUiContributionManifest(
+        api_version=api_version,
+        i18n_keys=(f"{prefix}title", f"{prefix}table"),
+        surfaces=(
+            WebUiSurfaceManifest(
+                id="overview",
+                title_key=f"{prefix}title",
+                icon="Gauge",
+                read_capability="example.read",
+                data_schema={
+                    "$schema": WEBUI_SCHEMA_DRAFT_2020_12,
+                    "type": "object",
+                    "required": ["rows"],
+                    "properties": {"rows": {"type": "array", "items": {"type": "object"}}},
+                    "additionalProperties": False,
+                },
+                operation_ids=("management.example.refresh",),
+                components=(
+                    WebUiComponent(id="root", kind="status", title_key=f"{prefix}title"),
+                    WebUiComponent(id="rows", kind="table", title_key=f"{prefix}table", data_path=("rows",)),
+                    WebUiComponent(id="refresh", kind="operation_form", operation_id="management.example.refresh"),
+                ),
+            ),
+        ),
+    )
+
+
 def test_service_registry_rejects_duplicate_provider() -> None:
     registry = ServiceRegistry()
     key = ServiceKey("example.clock")
@@ -99,6 +134,214 @@ def test_plugin_manifest_rejects_invalid_identity_and_metadata() -> None:
         PluginManifest.model_validate(
             {"id": "example", "name": "Example", "version": "1.0.0", "unknown": True}
         )
+    with pytest.raises(ValueError, match="webui.unexpected"):
+        PluginManifest.model_validate(
+            {
+                "id": "example",
+                "name": "Example",
+                "version": "1.0.0",
+                "webui": {"surfaces": [], "unexpected": True},
+            }
+        )
+
+
+def test_webui_manifest_is_strict_and_bounded() -> None:
+    with pytest.raises(ValueError, match="host-approved"):
+        WebUiSurfaceManifest(
+            id="overview",
+            title_key="webui.plugin.example.title",
+            icon="ArbitraryIcon",
+            read_capability="example.read",
+            data_schema={"$schema": WEBUI_SCHEMA_DRAFT_2020_12},
+            components=(WebUiComponent(id="root", kind="status"),),
+        )
+    with pytest.raises(ValueError, match="allowlisted"):
+        WebUiSurfaceManifest(
+            id="overview",
+            title_key="webui.plugin.example.title",
+            icon="Gauge",
+            read_capability="example.read",
+            data_schema={"$schema": WEBUI_SCHEMA_DRAFT_2020_12},
+            components=(WebUiComponent(id="run", kind="operation_form", operation_id="management.example.run"),),
+        )
+    with pytest.raises(ValueError, match="data_schema is invalid"):
+        WebUiSurfaceManifest(
+            id="overview",
+            title_key="webui.plugin.example.title",
+            icon="Gauge",
+            read_capability="example.read",
+            data_schema={"$schema": WEBUI_SCHEMA_DRAFT_2020_12, "type": "not-a-json-schema-type"},
+            components=(WebUiComponent(id="root", kind="status"),),
+        )
+    with pytest.raises(ValueError, match="Input should be"):
+        WebUiComponent.model_validate({"id": "script", "kind": "custom_script"})
+    with pytest.raises(ValueError, match="at most 16"):
+        WebUiContributionManifest(surfaces=tuple(webui_manifest().surfaces * 17))
+    with pytest.raises(ValueError, match="Extra inputs"):
+        WebUiContributionManifest.model_validate({"surfaces": [], "unexpected": True})
+
+
+@pytest.mark.asyncio
+async def test_webui_provider_registers_after_start_and_withdraws_before_stop(tmp_path: Path) -> None:
+    manager = make_manager(tmp_path)
+    calls: list[str] = []
+
+    class Provider:
+        def snapshot(self, surface_id: str) -> dict[str, object]:
+            calls.append(f"snapshot:{surface_id}")
+            return {"rows": []}
+
+    async def setup(_context: PluginContext) -> PluginHandle:
+        async def stop() -> None:
+            assert manager.webui_surfaces() == ()
+            calls.append("stop")
+
+        return PluginHandle(stop=stop, webui_provider=Provider())
+
+    definition = PluginDefinition(
+        PluginManifest(id="example", name="Example", version="1.0.0", webui=webui_manifest()), setup
+    )
+    await manager.setup({"example": definition}, {})
+    assert manager.webui_surfaces() == ()
+
+    await manager.start()
+    assert [(plugin_id, surface.route(plugin_id)) for plugin_id, surface in manager.webui_surfaces()] == [
+        ("example", "/plugins/example/overview")
+    ]
+    denied = await manager.webui_snapshot("example", "overview", frozenset())
+    assert denied.state is WebUiSnapshotState.UNAVAILABLE
+    assert denied.code == "not_authorized"
+    assert calls == []
+
+    snapshot = await manager.webui_snapshot("example", "overview", frozenset({"example.read"}))
+    assert snapshot.state is WebUiSnapshotState.AVAILABLE
+    assert snapshot.data == {"rows": []}
+    assert calls == ["snapshot:overview"]
+    generation = manager.webui_generation
+
+    await manager.stop()
+    assert calls[-1] == "stop"
+    assert manager.webui_generation == generation + 1
+    withdrawn = await manager.webui_snapshot("example", "overview", frozenset({"example.read"}))
+    assert withdrawn.code == "surface_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_webui_provider_failures_are_isolated_and_bounded(tmp_path: Path) -> None:
+    manager = make_manager(tmp_path)
+
+    class Provider:
+        async def snapshot(self, _surface_id: str) -> dict[str, object]:
+            await asyncio.sleep(1)
+            return {"rows": []}
+
+    async def setup(_context: PluginContext) -> PluginHandle:
+        return PluginHandle(webui_provider=Provider())
+
+    definition = PluginDefinition(
+        PluginManifest(id="example", name="Example", version="1.0.0", webui=webui_manifest()), setup
+    )
+    await manager.setup({"example": definition}, {})
+    await manager.start()
+    timeout = await manager.webui_snapshot("example", "overview", frozenset({"example.read"}))
+    assert timeout.code == "snapshot_timeout"
+
+    class TooManyRows:
+        def snapshot(self, _surface_id: str) -> dict[str, object]:
+            return {"rows": [{}] * 201}
+
+    manager._webui_providers["example"] = TooManyRows()  # noqa: SLF001 - focused provider limit contract
+    table = await manager.webui_snapshot("example", "overview", frozenset({"example.read"}))
+    assert table.code == "table_row_limit"
+
+    class InvalidSchemaData:
+        def snapshot(self, _surface_id: str) -> dict[str, object]:
+            return {"wrong": []}
+
+    manager._webui_providers["example"] = InvalidSchemaData()  # noqa: SLF001 - focused schema failure contract
+    invalid = await manager.webui_snapshot("example", "overview", frozenset({"example.read"}))
+    assert invalid.code == "invalid_snapshot"
+    await manager.stop()
+
+
+@pytest.mark.asyncio
+async def test_webui_contribution_incompatibility_does_not_stop_plugin_core(tmp_path: Path) -> None:
+    manager = make_manager(tmp_path)
+    started: list[str] = []
+
+    class Provider:
+        def snapshot(self, _surface_id: str) -> dict[str, object]:
+            return {"rows": []}
+
+    async def setup(_context: PluginContext) -> PluginHandle:
+        async def start() -> None:
+            started.append("started")
+
+        return PluginHandle(start=start, webui_provider=Provider())
+
+    unsupported = PluginDefinition(
+        PluginManifest(
+            id="unsupported",
+            name="Unsupported",
+            version="1.0.0",
+            webui=webui_manifest(plugin_id="unsupported", api_version=2),
+        ),
+        setup,
+    )
+    wrong_namespace = PluginDefinition(
+        PluginManifest(
+            id="wrong",
+            name="Wrong",
+            version="1.0.0",
+            webui=webui_manifest(plugin_id="other"),
+        ),
+        setup,
+    )
+    await manager.setup({"unsupported": unsupported, "wrong": wrong_namespace}, {})
+    await manager.start()
+
+    assert started == ["started", "started"]
+    assert manager.webui_surfaces() == ()
+    assert {(item.plugin_id, item.code) for item in manager.webui_diagnostics} == {
+        ("unsupported", "unsupported_webui_api"),
+        ("wrong", "webui_i18n_namespace"),
+    }
+    await manager.stop()
+
+
+@pytest.mark.asyncio
+async def test_webui_i18n_duplicate_disables_only_new_plugin_generation(tmp_path: Path) -> None:
+    manager = make_manager(tmp_path)
+
+    class Provider:
+        def snapshot(self, _surface_id: str) -> dict[str, object]:
+            return {"rows": []}
+
+    async def setup(_context: PluginContext) -> PluginHandle:
+        return PluginHandle(webui_provider=Provider())
+
+    first = PluginDefinition(
+        PluginManifest(id="first", name="First", version="1.0.0", webui=webui_manifest(plugin_id="first")), setup
+    )
+    duplicate = PluginDefinition(
+        PluginManifest(
+            id="second",
+            name="Second",
+            version="1.0.0",
+            webui=WebUiContributionManifest.model_construct(
+                api_version=1,
+                surfaces=webui_manifest(plugin_id="first").surfaces,
+                i18n_keys=("webui.plugin.first.title", "webui.plugin.first.table"),
+            ),
+        ),
+        setup,
+    )
+    await manager.setup({"first": first, "second": duplicate}, {})
+    await manager.start()
+
+    assert [plugin_id for plugin_id, _surface in manager.webui_surfaces()] == ["first"]
+    assert manager.webui_diagnostics == (WebUiDiagnostic("second", "webui_i18n_duplicate"),)
+    await manager.stop()
 
 
 def test_plugin_manager_discovers_enabled_entry_point(

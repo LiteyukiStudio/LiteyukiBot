@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import inspect
+import json
+import re
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
@@ -11,8 +14,9 @@ from functools import partial
 from importlib import import_module, metadata
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Protocol, cast
 
+from jsonschema import Draft202012Validator, SchemaError, ValidationError
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from .events import ActionEnvelope, ActionResult, EventBus, EventEnvelope
@@ -21,6 +25,260 @@ from .init_specs import PluginInitSpec
 from .resource_packs import ResourcePackDeclaration
 from .services import ServiceKey, ServiceRegistry, ServiceRequirement
 from .tasks import ManagedTasks
+
+type JsonValue = str | int | float | bool | None | list[JsonValue] | dict[str, JsonValue]
+
+WEBUI_API_VERSION = 1
+WEBUI_SCHEMA_DRAFT_2020_12 = "https://json-schema.org/draft/2020-12/schema"
+WEBUI_SNAPSHOT_TIMEOUT_SECONDS = 0.25
+WEBUI_SNAPSHOT_MAX_BYTES = 64 * 1024
+WEBUI_TABLE_MAX_ROWS = 200
+_WEBUI_TOKEN = re.compile(r"^[a-z][a-z0-9-]*$")
+_WEBUI_PATH_TOKEN = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
+_WEBUI_ICON_NAMES = frozenset(
+    {
+        "Activity",
+        "Archive",
+        "Bell",
+        "Bot",
+        "Box",
+        "ChartBar",
+        "CheckCircle",
+        "CircleHelp",
+        "Clock",
+        "Cloud",
+        "Cog",
+        "Database",
+        "Eye",
+        "FileText",
+        "Gauge",
+        "Globe",
+        "HeartPulse",
+        "Info",
+        "KeyRound",
+        "LayoutDashboard",
+        "List",
+        "Lock",
+        "MessageSquare",
+        "Network",
+        "Package",
+        "Plug",
+        "RefreshCw",
+        "Search",
+        "Server",
+        "Settings",
+        "ShieldCheck",
+        "Sparkles",
+        "Table",
+        "Terminal",
+        "TriangleAlert",
+        "Users",
+        "Wrench",
+    }
+)
+
+
+def _validate_webui_token(value: str, field: str) -> str:
+    if not _WEBUI_TOKEN.fullmatch(value):
+        raise ValueError(f"{field} must use lowercase ASCII letters, digits, or '-'")
+    return value
+
+
+def _validate_webui_key(value: str, field: str) -> str:
+    if not value or value != value.strip() or any(part == "" for part in value.split(".")):
+        raise ValueError(f"{field} must be a non-empty i18n key")
+    return value
+
+
+class WebUiComponent(BaseModel):
+    """One declarative, host-rendered plugin WebUI component."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: str
+    kind: Literal[
+        "navigation",
+        "status",
+        "metric",
+        "detail",
+        "table",
+        "table_row_drawer",
+        "operation_form",
+        "operation_result",
+    ]
+    title_key: str | None = None
+    summary_key: str | None = None
+    data_path: tuple[str, ...] = ()
+    operation_id: str | None = None
+    children: tuple[WebUiComponent, ...] = ()
+
+    @field_validator("id")
+    @classmethod
+    def validate_id(cls, value: str) -> str:
+        return _validate_webui_token(value, "webui component id")
+
+    @field_validator("title_key", "summary_key")
+    @classmethod
+    def validate_i18n_key(cls, value: str | None, info: Any) -> str | None:
+        return _validate_webui_key(value, info.field_name) if value is not None else value
+
+    @field_validator("data_path")
+    @classmethod
+    def validate_data_path(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not _WEBUI_PATH_TOKEN.fullmatch(part) for part in value):
+            raise ValueError("webui data_path must contain object field names")
+        return value
+
+    @field_validator("operation_id")
+    @classmethod
+    def validate_operation_id(cls, value: str | None) -> str | None:
+        if value is not None and (not value or value != value.strip() or " " in value):
+            raise ValueError("webui operation_id must be a non-empty operation identifier")
+        return value
+
+    def model_post_init(self, __context: Any) -> None:
+        child_ids = [child.id for child in self.children]
+        if len(child_ids) != len(set(child_ids)):
+            raise ValueError("webui component children must have unique ids")
+        if self.kind == "operation_form" and self.operation_id is None:
+            raise ValueError("webui operation_form requires operation_id")
+        if self.kind != "operation_form" and self.operation_id is not None:
+            raise ValueError("webui operation_id is only valid for operation_form")
+
+
+class WebUiSurfaceManifest(BaseModel):
+    """A bounded plugin contribution rendered by the host Plugins workspace."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: str
+    title_key: str
+    summary_key: str | None = None
+    icon: str
+    read_capability: str
+    data_schema: dict[str, JsonValue]
+    operation_ids: tuple[str, ...] = ()
+    components: tuple[WebUiComponent, ...]
+
+    @field_validator("id")
+    @classmethod
+    def validate_id(cls, value: str) -> str:
+        return _validate_webui_token(value, "webui surface id")
+
+    @field_validator("title_key", "summary_key")
+    @classmethod
+    def validate_i18n_key(cls, value: str | None, info: Any) -> str | None:
+        return _validate_webui_key(value, info.field_name) if value is not None else value
+
+    @field_validator("icon")
+    @classmethod
+    def validate_icon(cls, value: str) -> str:
+        if value not in _WEBUI_ICON_NAMES:
+            raise ValueError("webui icon is not host-approved")
+        return value
+
+    @field_validator("read_capability")
+    @classmethod
+    def validate_read_capability(cls, value: str) -> str:
+        if not value or value != value.strip() or " " in value:
+            raise ValueError("webui read_capability must be a non-empty capability identifier")
+        return value
+
+    @field_validator("operation_ids")
+    @classmethod
+    def validate_operation_ids(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if len(value) != len(set(value)):
+            raise ValueError("webui operation_ids must be unique")
+        for operation_id in value:
+            if not operation_id or operation_id != operation_id.strip() or " " in operation_id:
+                raise ValueError("webui operation_ids must contain operation identifiers")
+        return value
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.data_schema.get("$schema") != WEBUI_SCHEMA_DRAFT_2020_12:
+            raise ValueError("webui data_schema must declare Draft 2020-12")
+        try:
+            Draft202012Validator.check_schema(self.data_schema)
+        except SchemaError as error:
+            raise ValueError(f"webui data_schema is invalid: {error.message}") from error
+        if not self.components:
+            raise ValueError("webui surface requires at least one component")
+        component_ids = _component_ids(self.components)
+        if len(component_ids) != len(set(component_ids)):
+            raise ValueError("webui surface component ids must be unique")
+        for component in _walk_components(self.components):
+            if component.kind == "operation_form" and component.operation_id not in self.operation_ids:
+                raise ValueError("webui operation_form must reference an allowlisted operation_id")
+
+    def route(self, plugin_id: str) -> str:
+        return f"/plugins/{plugin_id}/{self.id}"
+
+
+class WebUiContributionManifest(BaseModel):
+    """Versioned declarative Plugin WebUI contribution contract."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    api_version: int = WEBUI_API_VERSION
+    surfaces: tuple[WebUiSurfaceManifest, ...] = ()
+    i18n_keys: tuple[str, ...] = ()
+
+    @field_validator("api_version")
+    @classmethod
+    def validate_api_version(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("webui api_version must be positive")
+        return value
+
+    @field_validator("i18n_keys")
+    @classmethod
+    def validate_i18n_keys(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if len(value) != len(set(value)):
+            raise ValueError("webui i18n_keys must be unique")
+        return tuple(_validate_webui_key(key, "webui i18n key") for key in value)
+
+    def model_post_init(self, __context: Any) -> None:
+        if len(self.surfaces) > 16:
+            raise ValueError("webui contribution supports at most 16 surfaces")
+        ids = [surface.id for surface in self.surfaces]
+        if len(ids) != len(set(ids)):
+            raise ValueError("webui surface ids must be unique")
+
+
+def _walk_components(components: Sequence[WebUiComponent]) -> tuple[WebUiComponent, ...]:
+    values: list[WebUiComponent] = []
+    for component in components:
+        values.append(component)
+        values.extend(_walk_components(component.children))
+    return tuple(values)
+
+
+def _component_ids(components: Sequence[WebUiComponent]) -> tuple[str, ...]:
+    return tuple(component.id for component in _walk_components(components))
+
+
+class WebUiProvider(Protocol):
+    def snapshot(self, surface_id: str) -> Mapping[str, object] | Awaitable[Mapping[str, object]]: ...
+
+
+class WebUiSnapshotState(StrEnum):
+    AVAILABLE = "available"
+    UNAVAILABLE = "unavailable"
+
+
+@dataclass(frozen=True, slots=True)
+class WebUiSnapshot:
+    plugin_id: str
+    surface_id: str
+    state: WebUiSnapshotState
+    data: Mapping[str, JsonValue] | None = None
+    code: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class WebUiDiagnostic:
+    plugin_id: str
+    code: str
 
 
 class LoggerLike(Protocol):
@@ -64,6 +322,7 @@ class PluginManifest(BaseModel):
     requires: tuple[ServiceRequirement, ...] = ()
     storage: Literal["none", "private"] = "none"
     resource_packs: tuple[ResourcePackDeclaration, ...] = ()
+    webui: WebUiContributionManifest | None = None
 
     @field_validator("id")
     @classmethod
@@ -121,6 +380,7 @@ class _PluginCleanup:
 class PluginHandle:
     start: PluginCallback | None = None
     stop: PluginCallback | None = None
+    webui_provider: WebUiProvider | None = None
 
 
 PluginSetup = Callable[["PluginContext"], Awaitable[PluginHandle | None]]
@@ -224,6 +484,99 @@ class PluginManager:
         self.data_dir = data_dir
         self.cache_dir = cache_dir
         self.loaded: dict[str, LoadedPlugin] = {}
+        self._webui_providers: dict[str, WebUiProvider] = {}
+        self._webui_diagnostics: dict[str, WebUiDiagnostic] = {}
+        self._webui_generation = 0
+
+    @property
+    def webui_generation(self) -> int:
+        """Monotonic provider revision for an owning WebUI bridge to emit reset."""
+
+        return self._webui_generation
+
+    @property
+    def webui_diagnostics(self) -> tuple[WebUiDiagnostic, ...]:
+        return tuple(self._webui_diagnostics[plugin_id] for plugin_id in sorted(self._webui_diagnostics))
+
+    def webui_surfaces(self) -> tuple[tuple[str, WebUiSurfaceManifest], ...]:
+        """Return only active, host-derived Plugin workspace surfaces."""
+
+        values: list[tuple[str, WebUiSurfaceManifest]] = []
+        for plugin_id in sorted(self._webui_providers):
+            manifest = self.loaded[plugin_id].definition.manifest.webui
+            if manifest is not None:
+                values.extend((plugin_id, surface) for surface in manifest.surfaces)
+        return tuple(values)
+
+    async def webui_snapshot(
+        self,
+        plugin_id: str,
+        surface_id: str,
+        capabilities: frozenset[str],
+    ) -> WebUiSnapshot:
+        """Read one authorized bounded provider snapshot without leaking provider failures."""
+
+        provider = self._webui_providers.get(plugin_id)
+        loaded = self.loaded.get(plugin_id)
+        manifest = loaded.definition.manifest.webui if loaded is not None else None
+        surface = next((item for item in manifest.surfaces if item.id == surface_id), None) if manifest else None
+        if provider is None or surface is None:
+            return WebUiSnapshot(plugin_id, surface_id, WebUiSnapshotState.UNAVAILABLE, code="surface_unavailable")
+        if surface.read_capability not in capabilities:
+            return WebUiSnapshot(plugin_id, surface_id, WebUiSnapshotState.UNAVAILABLE, code="not_authorized")
+        try:
+            result = provider.snapshot(surface_id)
+            if inspect.isawaitable(result):
+                data = await asyncio.wait_for(result, timeout=WEBUI_SNAPSHOT_TIMEOUT_SECONDS)
+            else:
+                data = result
+            if not isinstance(data, Mapping):
+                raise TypeError("snapshot must return a mapping")
+            normalized = _normalize_json_mapping(data)
+            encoded = json.dumps(normalized, ensure_ascii=True, allow_nan=False, separators=(",", ":")).encode()
+            if len(encoded) > WEBUI_SNAPSHOT_MAX_BYTES:
+                return WebUiSnapshot(plugin_id, surface_id, WebUiSnapshotState.UNAVAILABLE, code="snapshot_too_large")
+            Draft202012Validator(surface.data_schema).validate(normalized)
+            if _table_rows_exceed_limit(normalized, surface.components):
+                return WebUiSnapshot(plugin_id, surface_id, WebUiSnapshotState.UNAVAILABLE, code="table_row_limit")
+        except TimeoutError:
+            return WebUiSnapshot(plugin_id, surface_id, WebUiSnapshotState.UNAVAILABLE, code="snapshot_timeout")
+        except (TypeError, ValueError, ValidationError):
+            return WebUiSnapshot(plugin_id, surface_id, WebUiSnapshotState.UNAVAILABLE, code="invalid_snapshot")
+        except Exception:
+            return WebUiSnapshot(plugin_id, surface_id, WebUiSnapshotState.UNAVAILABLE, code="provider_failed")
+        return WebUiSnapshot(plugin_id, surface_id, WebUiSnapshotState.AVAILABLE, data=normalized)
+
+    def _register_webui_provider(self, plugin_id: str, plugin: LoadedPlugin) -> None:
+        manifest = plugin.definition.manifest.webui
+        provider = plugin.handle.webui_provider
+        if manifest is None:
+            return
+        if manifest.api_version != WEBUI_API_VERSION:
+            self._webui_diagnostics[plugin_id] = WebUiDiagnostic(plugin_id, "unsupported_webui_api")
+            return
+        if provider is None:
+            self._webui_diagnostics[plugin_id] = WebUiDiagnostic(plugin_id, "webui_provider_missing")
+            return
+        active_keys: set[str] = set()
+        for active_id in self._webui_providers:
+            active_manifest = self.loaded[active_id].definition.manifest.webui
+            if active_manifest is not None:
+                active_keys.update(active_manifest.i18n_keys)
+        if active_keys.intersection(manifest.i18n_keys):
+            self._webui_diagnostics[plugin_id] = WebUiDiagnostic(plugin_id, "webui_i18n_duplicate")
+            return
+        if not _contribution_i18n_is_owned(plugin_id, manifest):
+            self._webui_diagnostics[plugin_id] = WebUiDiagnostic(plugin_id, "webui_i18n_namespace")
+            return
+        self._webui_providers[plugin_id] = provider
+        self._webui_diagnostics.pop(plugin_id, None)
+        self._webui_generation += 1
+
+    def _withdraw_webui_provider(self, plugin_id: str) -> None:
+        self._webui_diagnostics.pop(plugin_id, None)
+        if self._webui_providers.pop(plugin_id, None) is not None:
+            self._webui_generation += 1
 
     def discover(self, enabled: Sequence[str], local_modules: Sequence[str] = ()) -> dict[str, PluginDefinition]:
         wanted = set(enabled)
@@ -389,10 +742,12 @@ class PluginManager:
             if plugin.handle.start is not None:
                 await plugin.handle.start()
             plugin.state = PluginState.READY
+            self._register_webui_provider(plugin.definition.manifest.id, plugin)
 
     async def stop(self) -> None:
         errors: list[BaseException] = []
         for plugin in reversed(tuple(self.loaded.values())):
+            self._withdraw_webui_provider(plugin.definition.manifest.id)
             try:
                 if plugin.handle.stop is not None:
                     await plugin.handle.stop()
@@ -418,3 +773,38 @@ class PluginManager:
         data.mkdir(parents=True, exist_ok=True)
         cache.mkdir(parents=True, exist_ok=True)
         return PluginPaths(data=data, cache=cache)
+
+
+def _contribution_i18n_is_owned(plugin_id: str, manifest: WebUiContributionManifest) -> bool:
+    prefix = f"webui.plugin.{plugin_id}."
+    keys = set(manifest.i18n_keys)
+    referenced = {
+        key
+        for surface in manifest.surfaces
+        for component in _walk_components(surface.components)
+        for key in (surface.title_key, surface.summary_key, component.title_key, component.summary_key)
+        if key is not None
+    }
+    return all(key.startswith(prefix) for key in keys | referenced) and referenced.issubset(keys)
+
+
+def _normalize_json_mapping(value: Mapping[str, object]) -> dict[str, JsonValue]:
+    encoded = json.dumps(value, ensure_ascii=True, allow_nan=False, separators=(",", ":"))
+    decoded = json.loads(encoded)
+    if not isinstance(decoded, dict):
+        raise TypeError("snapshot must serialize as a JSON object")
+    return cast(dict[str, JsonValue], decoded)
+
+
+def _table_rows_exceed_limit(data: Mapping[str, JsonValue], components: Sequence[WebUiComponent]) -> bool:
+    for component in _walk_components(components):
+        if component.kind != "table":
+            continue
+        value: object = data
+        for part in component.data_path:
+            if not isinstance(value, dict):
+                return True
+            value = value.get(part)
+        if not isinstance(value, list) or len(value) > WEBUI_TABLE_MAX_ROWS:
+            return True
+    return False
