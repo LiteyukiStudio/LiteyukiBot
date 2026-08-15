@@ -9,6 +9,7 @@ __pycache__/
 .vscode/
 .venv/
 venv/
+node_modules/
 
 # platform
 # macOS
@@ -27,4 +28,5 @@ config.yaml
 config-dev.yaml
 config-prod.yaml
 tmp/
+/dist/
 /benchmark.json
