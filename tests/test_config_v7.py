@@ -45,6 +45,15 @@ def test_primary_configuration_requires_explicit_v4_version(tmp_path: Path) -> N
         load_settings(config, environ={})
 
 
+def test_primary_config_version_cannot_be_supplied_by_an_include(tmp_path: Path) -> None:
+    (tmp_path / "included.toml").write_text("config_version = 4\n", encoding="utf-8")
+    primary = tmp_path / "liteyuki.toml"
+    primary.write_text('include = ["included.toml"]\n', encoding="utf-8")
+
+    with pytest.raises(ConfigurationError, match="requires config_version = 4"):
+        load_settings(primary, environ={})
+
+
 def test_file_env_and_cli_precedence_with_source_relative_paths(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

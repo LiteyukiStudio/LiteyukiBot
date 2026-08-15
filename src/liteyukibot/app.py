@@ -281,7 +281,7 @@ class LiteyukiApp:
         self._stop_callback()
 
     async def _inject_event(self, request: Mapping[str, Any]) -> dict[str, Any]:
-        if not self.settings.development.dev_mode:
+        if not self.settings.development.enabled:
             raise PermissionError("development controls are disabled")
         raw_event = request.get("event")
         if not isinstance(raw_event, Mapping):
@@ -291,7 +291,7 @@ class LiteyukiApp:
         return result.model_dump(mode="json")
 
     async def _execute_local_management(self, request: Mapping[str, Any]) -> dict[str, Any]:
-        if not self.settings.development.dev_mode:
+        if not self.settings.development.enabled:
             raise PermissionError("development controls are disabled")
         line = request.get("line")
         if not isinstance(line, str) or not line.strip():
@@ -304,7 +304,7 @@ class LiteyukiApp:
         return {"text": result.text, "data": result.data}
 
     async def _control_topology(self, _request: Mapping[str, Any]) -> dict[str, object]:
-        if not self.settings.development.dev_mode:
+        if not self.settings.development.enabled:
             raise PermissionError("development controls are disabled")
         return self.topology()
 

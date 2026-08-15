@@ -52,7 +52,7 @@ class InstanceDaemon:
             status_provider=self.status,
             handlers={"stop": self._request_stop, "restart": self._request_restart},
         )
-        if self.development.dev_mode:
+        if self.development.enabled:
             self.control.handlers.update(
                 {
                     "dev.status": self._worker_control,
@@ -82,7 +82,7 @@ class InstanceDaemon:
         try:
             await self._start_worker()
             self._install_signal_handlers()
-            if self.development.dev_mode and self.development.watch_auto_restart:
+            if self.development.enabled and self.development.watch_auto_restart:
                 self._watch_task = asyncio.create_task(self._watch_for_changes(), name="daemon-watch")
             while not self._stop_event.is_set():
                 outcome = await self._wait_for_worker_change()
@@ -175,7 +175,7 @@ class InstanceDaemon:
         return {"accepted": True}
 
     async def _worker_control(self, request: Mapping[str, Any]) -> Any:
-        if not self.development.dev_mode or self.worker_descriptor is None:
+        if not self.development.enabled or self.worker_descriptor is None:
             raise PermissionError("development controls are disabled")
         command = request.get("command")
         if not isinstance(command, str) or not command.startswith("dev."):
