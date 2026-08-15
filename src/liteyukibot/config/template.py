@@ -7,7 +7,7 @@ from typing import Any
 
 from tomli_w import dumps
 
-CONFIG_VERSION = 3
+CONFIG_VERSION = 4
 
 
 def render_config_template(
@@ -56,8 +56,26 @@ def render_config_template(
             "restart_backoff_initial_seconds": 0.5,
             "restart_backoff_max_seconds": 10.0,
         },
+        "lyip": {
+            "default_backend": "auto",
+            "capacity_profile": "balanced",
+            "terminal_capacity": 16384,
+            "terminal_ttl_seconds": 3600,
+            "dev_summary_ttl_seconds": 900,
+            "zmq_large_payload_fallback": False,
+            "links": {},
+        },
+        "webui": {
+            "mode": "on_demand",
+            "port": 0,
+            "idle_shutdown_seconds": 300,
+            "ticket_ttl_seconds": 60,
+            "session_idle_seconds": 1800,
+            "session_max_seconds": 28800,
+        },
         "development": {
-            "dev_mode": False,
+            "enabled": False,
+            "allow_drills": False,
             "watch_auto_restart": False,
             "watch_debounce_seconds": 0.75,
         },

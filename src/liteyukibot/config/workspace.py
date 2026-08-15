@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import stat
 import tomllib
 from datetime import UTC, datetime
 from pathlib import Path
@@ -11,7 +12,6 @@ from typing import Any
 
 from ..exceptions import LiteyukiError
 from .errors import ConfigIssue, ConfigurationError
-from .loader import load_settings
 from .models import AppSettings, LoggingSettings
 from .template import CONFIG_VERSION, render_config_template
 
@@ -146,11 +146,7 @@ class ConfigWorkspace:
             )
         return value
 
-    def _validate_current_file(self) -> None:
-        load_settings(self.path, environ={}, cli_overrides={"config_version": CONFIG_VERSION})
-
     def _upgrade(self, *, version: int | None, refresh: bool) -> None:
-        self._validate_current_file()
         self._write_upgrade_material(version=version, refresh=refresh)
 
     def _write_upgrade_material(self, *, version: int | None, refresh: bool) -> None:
@@ -167,6 +163,7 @@ class ConfigWorkspace:
         backup.parent.mkdir(parents=True, exist_ok=True)
         upgrade_directory.mkdir(parents=True, exist_ok=True)
         shutil.copy2(self.path, backup)
+        backup.chmod(stat.S_IREAD)
         upgrade.write_text(render_config_template(), encoding="utf-8")
         (upgrade_directory / "README.md").write_text(
             "# Configuration upgrade required\n\n"

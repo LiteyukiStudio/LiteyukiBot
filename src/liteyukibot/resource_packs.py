@@ -7,6 +7,7 @@ import zipfile
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from functools import partial
+from hashlib import sha256
 from importlib import resources
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -16,6 +17,8 @@ import yaml
 from .services import ServiceKey
 
 RESOURCE_CATALOG_SERVICE = ServiceKey("liteyukibot.resource-packs", 1)
+RESOURCE_MANIFEST_FILENAME = "manifest-v1.json"
+RESOURCE_MANIFEST_SCHEMA = 1
 
 
 class ResourcePackError(ValueError):
@@ -33,6 +36,57 @@ def _relative_path(value: str) -> str:
     if path.is_absolute() or not path.parts or any(part in {"", ".", ".."} for part in path.parts):
         raise ResourcePackError(f"resource path is unsafe: {value!r}")
     return path.as_posix()
+
+
+def _canonical_json(value: object) -> bytes:
+    return json.dumps(value, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode("utf-8")
+
+
+def _manifest_payload(files: Mapping[str, bytes]) -> dict[str, object]:
+    entries = [
+        {"path": path, "sha256": sha256(content).hexdigest(), "size": len(content)}
+        for path, content in sorted(files.items())
+    ]
+    payload: dict[str, object] = {"files": entries, "schema": RESOURCE_MANIFEST_SCHEMA}
+    return {**payload, "root_sha256": sha256(_canonical_json(payload)).hexdigest()}
+
+
+def write_resource_manifest(root: str | Path) -> Path:
+    """Write the explicit integrity manifest for one directory resource pack."""
+
+    directory = Path(root).resolve()
+    if not directory.is_dir():
+        raise ResourcePackError(f"resource manifest root is not a directory: {directory}")
+    files: dict[str, bytes] = {}
+    for candidate in directory.rglob("*"):
+        if candidate.is_dir():
+            continue
+        if candidate.is_symlink() or not candidate.resolve().is_relative_to(directory):
+            raise ResourcePackError(f"resource pack contains an unsafe file: {candidate}")
+        relative = _relative_path(candidate.relative_to(directory).as_posix())
+        if relative == RESOURCE_MANIFEST_FILENAME:
+            continue
+        files[relative] = candidate.read_bytes()
+    manifest = directory / RESOURCE_MANIFEST_FILENAME
+    manifest.write_bytes(_canonical_json(_manifest_payload(files)) + b"\n")
+    return manifest
+
+
+def verify_resource_manifest(root: str | Path) -> None:
+    """Verify a directory resource pack without loading it into a catalog."""
+
+    directory = Path(root).resolve()
+    if not directory.is_dir():
+        raise ResourcePackError(f"resource manifest root is not a directory: {directory}")
+    files: dict[str, ResourceFile] = {}
+    for candidate in directory.rglob("*"):
+        if candidate.is_dir():
+            continue
+        if candidate.is_symlink() or not candidate.resolve().is_relative_to(directory):
+            raise ResourcePackError(f"resource pack contains an unsafe file: {candidate}")
+        relative = _relative_path(candidate.relative_to(directory).as_posix())
+        files[relative] = ResourceFile("verification", relative, candidate.read_bytes)
+    _verify_manifest(files)
 
 
 @dataclass(frozen=True, slots=True)
@@ -188,6 +242,50 @@ def _read_metadata(raw: str, origin: str, fallback_id: str) -> ResourcePackMetad
     return _metadata(value, origin, fallback_id)
 
 
+def _verify_manifest(files: Mapping[str, ResourceFile]) -> None:
+    try:
+        raw = files[RESOURCE_MANIFEST_FILENAME].read_bytes()
+    except KeyError as error:
+        raise ResourcePackError("resource pack has no manifest-v1.json") from error
+    try:
+        manifest = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ResourcePackError("resource manifest is not valid JSON") from error
+    if not isinstance(manifest, dict) or set(manifest) != {"files", "root_sha256", "schema"}:
+        raise ResourcePackError("resource manifest has an invalid shape")
+    if manifest.get("schema") != RESOURCE_MANIFEST_SCHEMA:
+        raise ResourcePackError("resource manifest schema is unsupported")
+    entries = manifest.get("files")
+    root_digest = manifest.get("root_sha256")
+    if not isinstance(entries, list) or not isinstance(root_digest, str):
+        raise ResourcePackError("resource manifest has invalid entries")
+    normalized: list[dict[str, object]] = []
+    paths: set[str] = set()
+    for entry in entries:
+        if not isinstance(entry, dict) or set(entry) != {"path", "sha256", "size"}:
+            raise ResourcePackError("resource manifest entry has an invalid shape")
+        path, digest, size = entry.get("path"), entry.get("sha256"), entry.get("size")
+        if not isinstance(path, str) or _relative_path(path) != path or path == RESOURCE_MANIFEST_FILENAME:
+            raise ResourcePackError("resource manifest entry path is invalid")
+        if path in paths or not isinstance(digest, str) or len(digest) != 64 or not isinstance(size, int) or size < 0:
+            raise ResourcePackError("resource manifest entry is invalid")
+        paths.add(path)
+        normalized.append({"path": path, "sha256": digest, "size": size})
+    if normalized != sorted(normalized, key=lambda entry: str(entry["path"])):
+        raise ResourcePackError("resource manifest entries are not sorted")
+    payload: dict[str, object] = {"files": normalized, "schema": RESOURCE_MANIFEST_SCHEMA}
+    if sha256(_canonical_json(payload)).hexdigest() != root_digest:
+        raise ResourcePackError("resource manifest root digest does not match")
+    actual = {path for path in files if path != RESOURCE_MANIFEST_FILENAME}
+    if paths != actual:
+        raise ResourcePackError("resource manifest file set does not match")
+    for entry in normalized:
+        path = str(entry["path"])
+        content = files[path].read_bytes()
+        if len(content) != entry["size"] or sha256(content).hexdigest() != entry["sha256"]:
+            raise ResourcePackError(f"resource manifest digest does not match: {path}")
+
+
 def _load_directory(root: Path, origin: str) -> ResourcePack:
     root = root.resolve()
     metadata_path = root / "metadata.yml"
@@ -202,6 +300,7 @@ def _load_directory(root: Path, origin: str) -> ResourcePack:
             raise ResourcePackError(f"resource pack contains an unsafe file: {candidate}")
         relative = _relative_path(candidate.relative_to(root).as_posix())
         files[relative] = ResourceFile(metadata.id, relative, candidate.read_bytes)
+    _verify_manifest(files)
     _validate_icon(metadata, files)
     return ResourcePack(metadata, files)
 
@@ -222,6 +321,7 @@ def _load_traversable(root: resources.abc.Traversable, origin: str) -> ResourceP
                 files[relative] = ResourceFile(metadata.id, relative, child.read_bytes)
 
     visit(root)
+    _verify_manifest(files)
     _validate_icon(metadata, files)
     return ResourcePack(metadata, files)
 
@@ -249,6 +349,7 @@ def _load_zip(path: Path) -> ResourcePack:
         )
         for name in entries
     }
+    _verify_manifest(files)
     _validate_icon(metadata, files)
     return ResourcePack(metadata, files)
 
@@ -314,4 +415,8 @@ __all__ = [
     "ResourcePackDeclaration",
     "ResourcePackError",
     "ResourcePackMetadata",
+    "RESOURCE_MANIFEST_FILENAME",
+    "RESOURCE_MANIFEST_SCHEMA",
+    "verify_resource_manifest",
+    "write_resource_manifest",
 ]

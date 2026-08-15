@@ -229,11 +229,13 @@ class _FileLoader:
     def _identity(path: Path) -> str:
         return os.path.normcase(str(path.resolve(strict=False)))
 
-    def load_root(self, path: str | os.PathLike[str]) -> ConfigMap:
+    def load_root(self, path: str | os.PathLike[str], *, require_config_version: bool = False) -> ConfigMap:
         resolved = Path(path).expanduser().resolve(strict=False)
-        return self._load_file(resolved, included_by=None)
+        return self._load_file(resolved, included_by=None, require_config_version=require_config_version)
 
-    def _load_file(self, path: Path, *, included_by: Path | None) -> ConfigMap:
+    def _load_file(
+        self, path: Path, *, included_by: Path | None, require_config_version: bool = False
+    ) -> ConfigMap:
         identity = self._identity(path)
         active_identities = [self._identity(active) for active in self._active]
         if identity in active_identities:
@@ -256,6 +258,8 @@ class _FileLoader:
         parsed = self._parse_file(path)
         if parsed is None:
             return {}
+        if require_config_version and parsed.get("config_version") != 4:
+            self.issues.append(ConfigIssue(path, "root configuration requires config_version = 4"))
         self._loaded[identity] = path
         self._active.append(path)
         try:
@@ -409,7 +413,8 @@ def _load_settings(
     merged: ConfigMap = {}
 
     if primary_path is not None:
-        merged = _deep_merge(merged, loader.load_root(primary_path))
+        primary_values = loader.load_root(primary_path, require_config_version=True)
+        merged = _deep_merge(merged, primary_values)
     for config_path in config_paths:
         merged = _deep_merge(merged, loader.load_root(config_path))
     for instance_config_path in instance_config_paths:

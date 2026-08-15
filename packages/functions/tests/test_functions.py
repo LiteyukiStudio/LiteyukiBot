@@ -9,7 +9,7 @@ import pytest
 from liteyukibot_functions import V6FunctionCapabilityError, V6FunctionExecutor, V6FunctionSyntaxError
 
 from liteyukibot.functions import FunctionCall, FunctionDispatcher, FunctionError, FunctionRecursionError
-from liteyukibot.resource_packs import ResourceCatalog
+from liteyukibot.resource_packs import ResourceCatalog, write_resource_manifest
 
 
 def _resources(tmp_path: Path, functions: Mapping[str, str]) -> ResourceCatalog:
@@ -22,6 +22,7 @@ def _resources(tmp_path: Path, functions: Mapping[str, str]) -> ResourceCatalog:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(source, encoding="utf-8")
     (tmp_path / "resources" / "index.json").write_text('["legacy"]', encoding="utf-8")
+    write_resource_manifest(pack)
     return ResourceCatalog.load(tmp_path)
 
 

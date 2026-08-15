@@ -15,7 +15,7 @@ from liteyukibot.functions import (
     FunctionExecutorUnavailableError,
 )
 from liteyukibot.i18n import Translator
-from liteyukibot.resource_packs import ResourceCatalog, ResourcePackError
+from liteyukibot.resource_packs import ResourceCatalog, ResourcePackError, write_resource_manifest
 
 
 def _pack(root: Path, name: str, *, language: str | None = None, function: str | None = None) -> Path:
@@ -30,6 +30,7 @@ def _pack(root: Path, name: str, *, language: str | None = None, function: str |
         functions = pack / "functions"
         functions.mkdir()
         (functions / "hello.lyf").write_text(function, encoding="utf-8")
+    write_resource_manifest(pack)
     return pack
 
 
@@ -83,6 +84,39 @@ def test_resource_zip_rejects_path_traversal(tmp_path: Path) -> None:
         ResourceCatalog.load(tmp_path)
 
 
+def test_resource_pack_requires_manifest(tmp_path: Path) -> None:
+    resources = tmp_path / "resources"
+    pack = resources / "missing"
+    pack.mkdir(parents=True)
+    (pack / "metadata.yml").write_text('id: missing\nname: Missing\nversion: "1"\n', encoding="utf-8")
+    (resources / "index.json").write_text('["missing"]', encoding="utf-8")
+
+    with pytest.raises(ResourcePackError, match="manifest-v1"):
+        ResourceCatalog.load(tmp_path)
+
+
+def test_resource_manifest_rejects_changed_content_and_unlisted_zip_file(tmp_path: Path) -> None:
+    resources = tmp_path / "resources"
+    pack = _pack(resources, "verified", language="verified.title=Verified\n")
+    (resources / "index.json").write_text('["verified"]', encoding="utf-8")
+    (pack / "lang" / "en-US.lang").write_text("verified.title=Changed\n", encoding="utf-8")
+
+    with pytest.raises(ResourcePackError, match="digest does not match"):
+        ResourceCatalog.load(tmp_path)
+
+    write_resource_manifest(pack)
+    archive = resources / "verified.zip"
+    with zipfile.ZipFile(archive, "w") as output:
+        for source in pack.rglob("*"):
+            if source.is_file():
+                output.write(source, source.relative_to(pack).as_posix())
+        output.writestr("unlisted.txt", "not allowed")
+    (resources / "index.json").write_text('["verified.zip"]', encoding="utf-8")
+
+    with pytest.raises(ResourcePackError, match="file set does not match"):
+        ResourceCatalog.load(tmp_path)
+
+
 def test_resource_pack_exposes_validated_presentation_metadata(tmp_path: Path) -> None:
     resources = tmp_path / "resources"
     pack = _pack(resources, "presentation")
@@ -101,6 +135,7 @@ def test_resource_pack_exposes_validated_presentation_metadata(tmp_path: Path) -
         "name_key: presentation.name\ndescription_key: presentation.description\nicon: icon.png\n",
         encoding="utf-8",
     )
+    write_resource_manifest(pack)
     (resources / "index.json").write_text('["presentation"]', encoding="utf-8")
 
     catalog = ResourceCatalog.load(tmp_path)
@@ -127,6 +162,7 @@ def test_resource_pack_rejects_non_alpha_icon(tmp_path: Path) -> None:
         "id: presentation\nname: Presentation\nversion: 1.0.0\nicon: icon.png\n",
         encoding="utf-8",
     )
+    write_resource_manifest(pack)
     (resources / "index.json").write_text('["presentation"]', encoding="utf-8")
 
     with pytest.raises(ResourcePackError, match="alpha"):

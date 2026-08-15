@@ -228,6 +228,17 @@ def test_init_minimal_wizard_writes_locale_and_resource_index(
     assert (workspace / "resources" / "index.json").read_text(encoding="utf-8") == "[]\n"
 
 
+def test_resource_manifest_and_verify_commands(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    pack = tmp_path / "pack"
+    pack.mkdir()
+    (pack / "metadata.yml").write_text("id: test\nname: Test\nversion: 1\n", encoding="utf-8")
+
+    assert cli_module.main(["resource", "manifest", str(pack)]) == 0
+    assert capsys.readouterr().out.strip().endswith("manifest-v1.json")
+    assert cli_module.main(["resource", "verify", str(pack)]) == 0
+    assert capsys.readouterr().out.strip() == "resource manifest valid"
+
+
 def test_inspect_topology_emits_the_resolved_graph(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

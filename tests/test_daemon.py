@@ -106,7 +106,7 @@ async def test_development_daemon_forwards_only_to_the_local_worker(tmp_path: Pa
         (sys.executable, "-c", "import time; time.sleep(60)"),
         {},
         worker_descriptor=worker_descriptor,
-        development=DevelopmentSettings(dev_mode=True),
+        development=DevelopmentSettings(enabled=True),
     )
     task = asyncio.create_task(daemon.run())
     for _ in range(100):
@@ -132,7 +132,7 @@ async def test_invalid_watcher_configuration_preserves_the_healthy_worker(tmp_pa
         DaemonSettings(),
         (sys.executable, "-c", "import time; time.sleep(60)"),
         {},
-        development=DevelopmentSettings(dev_mode=True, watch_auto_restart=True, watch_debounce_seconds=0.01),
+        development=DevelopmentSettings(enabled=True, watch_auto_restart=True, watch_debounce_seconds=0.01),
         watch_root=tmp_path,
         validate_configuration=lambda: (_ for _ in ()).throw(ValueError("invalid")),
     )

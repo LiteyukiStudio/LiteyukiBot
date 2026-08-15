@@ -43,6 +43,7 @@ from .plugin_install import PluginInstallationService
 from .plugin_sources import PluginSource, PluginSourceStore
 from .plugin_store import RuntimeGenerationStore
 from .profiles import ProfileManifest, ProfileStore
+from .resource_packs import verify_resource_manifest, write_resource_manifest
 from .terminal import run_local_console, supports_local_console
 
 
@@ -62,6 +63,13 @@ def build_parser() -> argparse.ArgumentParser:
     init = subcommands.add_parser("init", help="create a project configuration")
     init.add_argument("--non-interactive", action="store_true")
     init.add_argument("--locale", choices=("auto", "zh-CN", "en-US"), default="auto")
+
+    resource = subcommands.add_parser("resource", help="resource pack integrity operations")
+    resource_commands = resource.add_subparsers(dest="resource_command", required=True)
+    resource_manifest = resource_commands.add_parser("manifest")
+    resource_manifest.add_argument("directory", type=Path)
+    resource_verify = resource_commands.add_parser("verify")
+    resource_verify.add_argument("directory", type=Path)
 
     config = subcommands.add_parser("config", help="configuration operations")
     config_commands = config.add_subparsers(dest="config_command", required=True)
@@ -163,6 +171,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if args.command == "init":
             return _init(args.workspace, args.non_interactive, args.locale)
+        if args.command == "resource":
+            return _resource_command(args)
         if args.command == "config" and args.config_command == "upgrade":
             return _upgrade(args.workspace, args.refresh)
         if args.command == "config" and args.config_command == "show":
@@ -257,6 +267,17 @@ def _load(
         cli_overrides=overrides,
     )
     return paths.apply_storage(settings)
+
+
+def _resource_command(args: argparse.Namespace) -> int:
+    if args.resource_command == "manifest":
+        print(write_resource_manifest(args.directory))
+        return 0
+    if args.resource_command == "verify":
+        verify_resource_manifest(args.directory)
+        print("resource manifest valid")
+        return 0
+    raise RuntimeError(f"unknown resource command: {args.resource_command}")
 
 
 def _init(directory: str, non_interactive: bool, locale: str) -> int:
@@ -748,7 +769,9 @@ def _detach_daemon(
             "stderr": output,
         }
         if os.name == "nt":
-            kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+            kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(
+                subprocess, "DETACHED_PROCESS", 0
+            )
         else:
             kwargs["start_new_session"] = True
         process = subprocess.Popen(command, **kwargs)
@@ -786,8 +809,8 @@ def _instance_command(args: argparse.Namespace) -> int:
 
 
 def _development_command(args: argparse.Namespace, settings: AppSettings, workspace: ConfigWorkspace) -> int:
-    if not settings.development.dev_mode:
-        raise PermissionError("development controls require development.dev_mode = true")
+    if not settings.development.enabled:
+        raise PermissionError("development controls require development.enabled = true")
     paths = InstancePaths.from_workspace(workspace, args.instance)
     if args.dev_command == "status":
         result = asyncio.run(request_control(paths.daemon_descriptor, "dev.status"))

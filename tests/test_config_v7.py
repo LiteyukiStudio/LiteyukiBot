@@ -7,7 +7,21 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
-from liteyukibot.config import AgentSettings, AppSettings, ConfigurationError, RuntimeSettings, load_settings
+import liteyukibot.config.models as config_models
+from liteyukibot.config import (
+    AgentSettings,
+    AppSettings,
+    ConfigurationError,
+    DevelopmentSettings,
+    LyipLinkCapacitySettings,
+    LyipLinkSettings,
+    LyipNativeDiagnostics,
+    LyipSettings,
+    RuntimeSettings,
+    WebUISettings,
+    load_settings,
+    lyip_native_diagnostics,
+)
 
 
 def test_defaults_and_result_are_deeply_immutable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -21,6 +35,33 @@ def test_defaults_and_result_are_deeply_immutable(tmp_path: Path, monkeypatch: p
         settings.core.queue_capacity = 1
     with pytest.raises(TypeError):
         settings.runtimes["worker"] = settings.runtimes.get("worker")  # type: ignore[index]
+
+
+def test_primary_configuration_requires_explicit_v4_version(tmp_path: Path) -> None:
+    config = tmp_path / "liteyuki.toml"
+    config.write_text("[core]\nqueue_capacity = 32\n", encoding="utf-8")
+
+    with pytest.raises(ConfigurationError, match="requires config_version = 4"):
+        load_settings(config, environ={})
+
+
+def test_primary_config_version_cannot_be_supplied_by_an_include(tmp_path: Path) -> None:
+    (tmp_path / "included.toml").write_text("config_version = 4\n", encoding="utf-8")
+    primary = tmp_path / "liteyuki.toml"
+    primary.write_text('include = ["included.toml"]\n', encoding="utf-8")
+
+    with pytest.raises(ConfigurationError, match="requires config_version = 4"):
+        load_settings(primary, environ={})
+
+
+def test_primary_v3_config_cannot_be_upgraded_by_an_additional_layer(tmp_path: Path) -> None:
+    primary = tmp_path / "liteyuki.toml"
+    primary.write_text("config_version = 3\n", encoding="utf-8")
+    override = tmp_path / "override.toml"
+    override.write_text("config_version = 4\n", encoding="utf-8")
+
+    with pytest.raises(ConfigurationError, match="requires config_version = 4"):
+        load_settings(primary, config_paths=(override,), environ={})
 
 
 def test_file_env_and_cli_precedence_with_source_relative_paths(
@@ -52,6 +93,7 @@ nested = { include = true }
     )
     (tmp_path / "primary.toml").write_text(
         """
+config_version = 4
 include = ["includes/base.toml"]
 
 [core]
@@ -164,6 +206,195 @@ def test_agent_harness_must_be_a_trimmed_nonempty_identifier() -> None:
         AgentSettings(agent_harness=" native ")
 
 
+def test_v4_lyip_webui_and_development_settings_are_typed_and_serialized() -> None:
+    settings = AppSettings(
+        lyip=LyipSettings(
+            default_backend="zmq",
+            capacity_profile="throughput",
+            links={
+                "worker": LyipLinkSettings(
+                    backend="shm",
+                    capacity=LyipLinkCapacitySettings(
+                        business_slots=1_024, control_slots=64, blob_arena_mib=8, zmq_hwm=1_024
+                    ),
+                )
+            },
+        ),
+        webui=WebUISettings(mode="always", port=0, session_idle_seconds=60, session_max_seconds=300),
+        development=DevelopmentSettings(enabled=True, allow_drills=True),
+    )
+
+    assert settings.config_version == 4
+    assert settings.lyip.default_backend == "zmq"
+    assert settings.lyip.links["worker"].capacity.business_slots == 1_024
+    assert settings.webui.mode == "always"
+    assert settings.development.allow_drills is True
+    assert settings.model_dump(mode="json")["lyip"]["links"]["worker"]["backend"] == "shm"
+    with pytest.raises(TypeError):
+        settings.lyip.links["other"] = settings.lyip.links["worker"]  # type: ignore[index]
+
+
+@pytest.mark.parametrize(
+    ("factory", "message"),
+    (
+        (lambda: LyipSettings(links={" worker": LyipLinkSettings()}), "LYIP link runtime identifiers"),
+        (lambda: WebUISettings(session_idle_seconds=61, session_max_seconds=60), "session_max_seconds"),
+        (lambda: DevelopmentSettings.model_validate({"dev_mode": True}), "dev_mode"),
+        (lambda: AppSettings(config_version=3), "config_version must be 4"),
+    ),
+)
+def test_v4_settings_reject_invalid_or_legacy_fields(factory: object, message: str) -> None:
+    with pytest.raises(ValidationError, match=message):
+        factory()  # type: ignore[operator]
+
+
+@pytest.mark.parametrize(
+    ("capacity", "message"),
+    (
+        (LyipLinkCapacitySettings(business_slots=256, control_slots=32, blob_arena_mib=4, zmq_hwm=256), None),
+        ({"business_slots": 512}, "must provide all four"),
+        ({"business_slots": 300, "control_slots": 32, "blob_arena_mib": 4, "zmq_hwm": 256}, "power of two"),
+        ({"business_slots": 128, "control_slots": 32, "blob_arena_mib": 4, "zmq_hwm": 256}, "between 256 and 65536"),
+        ({"business_slots": 256, "control_slots": 16, "blob_arena_mib": 4, "zmq_hwm": 256}, "between 32 and 4096"),
+        ({"business_slots": 256, "control_slots": 32, "blob_arena_mib": 2, "zmq_hwm": 256}, "between 4 and 512"),
+        ({"business_slots": 256, "control_slots": 32, "blob_arena_mib": 4, "zmq_hwm": 128}, "between 256 and 65536"),
+    ),
+)
+def test_lyip_capacity_override_requires_all_power_of_two_limits(
+    capacity: LyipLinkCapacitySettings | dict[str, int], message: str | None
+) -> None:
+    if message is None:
+        assert capacity.business_slots == 256  # type: ignore[union-attr]
+        return
+    with pytest.raises(ValidationError, match=message):
+        LyipLinkCapacitySettings.model_validate(capacity)
+
+
+def test_lyip_link_resolution_inherits_profile_or_uses_complete_override() -> None:
+    settings = LyipSettings(
+        default_backend="auto",
+        capacity_profile="latency",
+        links={
+            "inherited": LyipLinkSettings(),
+            "custom": LyipLinkSettings(
+                backend="zmq",
+                capacity_profile="throughput",
+                capacity=LyipLinkCapacitySettings(
+                    business_slots=8_192,
+                    control_slots=1_024,
+                    blob_arena_mib=64,
+                    zmq_hwm=8_192,
+                ),
+            ),
+        },
+    )
+
+    inherited = settings.resolve_link("inherited")
+    missing = settings.resolve_link("missing")
+    custom = settings.resolve_link("custom")
+
+    assert inherited.backend == "auto"
+    assert inherited.capacity_profile == "latency"
+    assert inherited.capacity.business_slots == 1_024
+    assert missing.capacity.blob_arena_mib == 8
+    assert custom.backend == "zmq"
+    assert custom.capacity_profile == "throughput"
+    assert custom.capacity.control_slots == 1_024
+
+
+def test_native_diagnostics_are_derived_and_require_an_explanation(monkeypatch: pytest.MonkeyPatch) -> None:
+    def missing_native(_name: str) -> object:
+        raise ImportError
+
+    monkeypatch.setattr(config_models, "import_module", missing_native)
+    absent = lyip_native_diagnostics()
+    assert absent.state == "unavailable"
+    assert absent.wheel_version is None
+    assert absent.fallback_reason is not None
+    assert "not installed" in absent.fallback_reason
+
+    monkeypatch.setattr(
+        config_models,
+        "import_module",
+        lambda _name: SimpleNamespace(LYIP_NATIVE_ABI=1, native_available=False),
+    )
+    monkeypatch.setattr("liteyukibot.config.models.metadata.version", lambda _name: "0.1.0b3")
+    fallback = lyip_native_diagnostics()
+    assert fallback.model_dump(mode="json") == {
+        "state": "unavailable",
+        "wheel_version": "0.1.0b3",
+        "abi": 1,
+        "platform": fallback.platform,
+        "fallback_reason": "the native wheel has no usable shared-memory transport",
+    }
+    with pytest.raises(ValidationError, match="fallback reason"):
+        LyipNativeDiagnostics(state="unavailable", platform="test")
+
+
+@pytest.mark.parametrize(
+    ("factory", "message"),
+    (
+        (lambda: LyipSettings(terminal_capacity=1_023), "greater than or equal to 1024"),
+        (lambda: LyipSettings(terminal_capacity=262_145), "less than or equal to 262144"),
+        (lambda: LyipSettings(terminal_ttl_seconds=59), "greater than or equal to 60"),
+        (lambda: LyipSettings(dev_summary_ttl_seconds=3_601), "less than or equal to 3600"),
+        (lambda: WebUISettings.model_validate({"mode": "always_on"}), "Input should be"),
+        (lambda: WebUISettings(idle_shutdown_seconds=29), "greater than or equal to 30"),
+        (lambda: WebUISettings(ticket_ttl_seconds=14), "greater than or equal to 15"),
+        (lambda: WebUISettings(session_idle_seconds=14_401), "less than or equal to 14400"),
+        (lambda: WebUISettings(session_max_seconds=299), "greater than or equal to 300"),
+    ),
+)
+def test_v4_lyip_and_webui_ranges_are_exact(factory: object, message: str) -> None:
+    with pytest.raises(ValidationError, match=message):
+        factory()  # type: ignore[operator]
+
+
+@pytest.mark.parametrize(
+    ("factory", "message"),
+    (
+        (lambda: AppSettings(development=DevelopmentSettings(allow_drills=True)), "allow_drills requires"),
+        (lambda: AppSettings(development=DevelopmentSettings(watch_auto_restart=True)), "watch_auto_restart requires"),
+        (
+            lambda: AppSettings(logging={"payload_mode": "full"}),  # type: ignore[arg-type]
+            "payload_mode=full requires development.enabled",
+        ),
+        (
+            lambda: AppSettings(logging={"payload_mode": "metadata", "payload_exclude_runtimes": ["worker"]}),  # type: ignore[arg-type]
+            "payload_exclude_runtimes requires",
+        ),
+    ),
+)
+def test_v4_cross_section_development_and_logging_policies(factory: object, message: str) -> None:
+    with pytest.raises(ValidationError, match=message):
+        factory()  # type: ignore[operator]
+
+
+def test_full_payload_logging_requires_development_private_file_and_safe_outputs(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    valid = AppSettings(
+        core={"data_dir": data_dir},  # type: ignore[arg-type]
+        logging={"payload_mode": "full", "file": data_dir / "logs" / "payload.log", "console": False},  # type: ignore[arg-type]
+        development=DevelopmentSettings(enabled=True),
+    )
+
+    assert valid.logging.payload_mode == "full"
+    for logging, message in (
+        ({"payload_mode": "full", "file": data_dir / "payload.log", "console": True}, "console=false"),
+        (
+            {"payload_mode": "full", "file": data_dir / "payload.log", "console": False, "json_lines": True},
+            "json_lines=false",
+        ),
+        ({"payload_mode": "full", "file": tmp_path / "outside.log", "console": False}, "below core.data_dir"),
+    ):
+        with pytest.raises(ValidationError, match=message):
+            AppSettings(
+                core={"data_dir": data_dir},  # type: ignore[arg-type]
+                logging=logging,  # type: ignore[arg-type]
+                development=DevelopmentSettings(enabled=True),
+            )
+
+
 @pytest.mark.parametrize(
     ("routes", "message"),
     (
@@ -202,7 +433,9 @@ def test_nested_includes_merge_in_declared_order(tmp_path: Path) -> None:
     (nested / "first.json").write_text('{"core": {"queue_capacity": 5, "max_concurrent_events": 8}}', encoding="utf-8")
     (nested / "second.toml").write_text("[core]\nqueue_capacity = 6\n", encoding="utf-8")
     (tmp_path / "primary.toml").write_text(
-        'include = ["nested/first.json", "nested/second.toml"]\n[core]\nhandler_timeout_seconds = 12\n',
+        "config_version = 4\n"
+        'include = ["nested/first.json", "nested/second.toml"]\n'
+        "[core]\nhandler_timeout_seconds = 12\n",
         encoding="utf-8",
     )
 
@@ -217,6 +450,7 @@ def test_duplicate_and_validation_errors_are_aggregated_without_values(tmp_path:
     (tmp_path / "included.toml").write_text("[core]\nqueue_capacity = 1\n", encoding="utf-8")
     (tmp_path / "primary.toml").write_text(
         """
+config_version = 4
 include = ["included.toml", "included.toml"]
 secret_value = "must-not-appear"
 
@@ -238,7 +472,7 @@ queue_capacity = 0
 
 
 def test_include_cycle_has_the_full_chain(tmp_path: Path) -> None:
-    (tmp_path / "a.toml").write_text('include = ["b.toml"]\n', encoding="utf-8")
+    (tmp_path / "a.toml").write_text('config_version = 4\ninclude = ["b.toml"]\n', encoding="utf-8")
     (tmp_path / "b.toml").write_text('include = ["a.toml"]\n', encoding="utf-8")
 
     with pytest.raises(ConfigurationError) as captured:
@@ -254,7 +488,7 @@ def test_yaml_support_is_lazy_and_has_an_actionable_missing_extra_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     yaml_path = tmp_path / "settings.yaml"
-    yaml_path.write_text("core:\n  queue_capacity: 7\n", encoding="utf-8")
+    yaml_path.write_text("config_version: 4\ncore:\n  queue_capacity: 7\n", encoding="utf-8")
     real_import_module = importlib.import_module
 
     def fail_yaml_import(name: str) -> object:
@@ -269,8 +503,8 @@ def test_yaml_support_is_lazy_and_has_an_actionable_missing_extra_error(
 
 def test_yaml_uses_safe_load_when_extra_is_available(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     yaml_path = tmp_path / "settings.yaml"
-    yaml_path.write_text("core:\n  queue_capacity: 7\n", encoding="utf-8")
-    fake_yaml = SimpleNamespace(safe_load=lambda value: {"core": {"queue_capacity": 7}})
+    yaml_path.write_text("config_version: 4\ncore:\n  queue_capacity: 7\n", encoding="utf-8")
+    fake_yaml = SimpleNamespace(safe_load=lambda value: {"config_version": 4, "core": {"queue_capacity": 7}})
     monkeypatch.setattr(importlib, "import_module", lambda name: fake_yaml)
 
     settings = load_settings(yaml_path, environ={})
@@ -280,7 +514,7 @@ def test_yaml_uses_safe_load_when_extra_is_available(tmp_path: Path, monkeypatch
 
 def test_http_is_restricted_to_loopback(tmp_path: Path) -> None:
     config_path = tmp_path / "remote.toml"
-    config_path.write_text('[http]\nenabled = true\nhost = "0.0.0.0"\n', encoding="utf-8")
+    config_path.write_text('config_version = 4\n[http]\nenabled = true\nhost = "0.0.0.0"\n', encoding="utf-8")
 
     with pytest.raises(ConfigurationError, match="HTTP host must be a loopback address"):
         load_settings(config_path, environ={})
