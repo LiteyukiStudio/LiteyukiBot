@@ -71,10 +71,13 @@ description: Build, review, or test LiteyukiBot v7's React/Vite WebUI under webu
 - Keep the Signal Ledger layout: one continuous application shell with a fixed
   navigation rail and top status bar sharing the page background. Do not create
   a decorative inner curve, a sidebar/top-bar color split, or a floating outer
-  workbench. Elevation starts at real information panels. Keep navigation
-  unframed with one theme-derived active row; the mobile drawer remains an
-  independent bordered surface. Extend the status bar for real transfer progress
-  only when that capability exists.
+  workbench. A low-contrast, unshadowed workspace base may frame the center
+  content; elevation starts at real information panels. Keep navigation unframed
+  with one theme-derived active row; the mobile drawer remains an independent
+  bordered surface. Extend the status bar for real transfer progress only when
+  that capability exists. On desktop, center the page title against the content
+  axis and keep controls right-aligned; top-bar pointer interactions must not
+  leave a persistent accent focus ring after a menu closes.
 - Use Lucide icons from the installed set. Icon-only controls need an accessible
   name and tooltip. Keep cards at modest radii, preserve desktop/mobile text
   fit, and inspect both layouts for overflow or overlap.

@@ -114,8 +114,10 @@ button, input { font: inherit; }
 .webui-sidebar::after { display: none; }
 .webui-sidebar--drawer { border-right: 1px solid var(--border); }
 .webui-sidebar--drawer::after { display: none; }
-.webui-sidebar-brand { display: flex; align-items: center; gap: 9px; padding: 0 4px; margin-bottom: 25px; }
-.webui-brand-mark { display: grid; width: 28px; height: 28px; place-items: center; color: var(--primary); }
+.webui-sidebar-brand { width: 100%; padding: 0 8px; margin-bottom: 25px; border: 0; background: transparent; color: var(--foreground); cursor: pointer; text-align: left; }
+.webui-sidebar-brand:not([aria-current="page"]):hover { color: var(--primary); }
+.webui-sidebar-brand:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; border-radius: 4px; }
+.webui-sidebar-brand-name { display: block; font-size: 18px; font-weight: 700; line-height: 1.2; }
 .webui-sidebar-nav { display: grid; gap: 3px; }
 .webui-sidebar-nav-item { width: 100%; height: 37px; justify-content: flex-start; gap: 10px; padding: 0 10px; color: var(--muted-foreground); border: 0 !important; border-radius: 4px; background: transparent; box-shadow: none; font-size: 16px; font-weight: 400; }
 .webui-sidebar-nav-item:hover { background: color-mix(in oklch, var(--nav-active), transparent 38%); color: var(--foreground); }
@@ -123,15 +125,18 @@ button, input { font: inherit; }
 .webui-sidebar-version { margin-top: auto; padding: 17px 8px 0; border-top: 1px solid var(--border); color: var(--muted-foreground); font-size: 11px; }
 .webui-status-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--status-good-border); }
 .webui-runtime-mark { display: grid; width: 28px; height: 28px; place-items: center; color: var(--primary); background-color: color-mix(in oklch, var(--accent-soft), var(--card) 20%); border-radius: 6px; }
-.webui-topbar { position: sticky; top: 0; z-index: 20; display: flex; min-height: 66px; align-items: center; justify-content: space-between; gap: 16px; padding: 0 24px; background-color: var(--background); }
+.webui-topbar { position: sticky; top: 0; z-index: 20; display: grid; min-height: 66px; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 16px; padding: 0 24px; background-color: var(--background); }
 .webui-topbar-page, .webui-topbar-actions, .webui-topbar-state { display: flex; align-items: center; }
-.webui-topbar-page { gap: 12px; min-width: 0; }
+.webui-topbar-page { grid-column: 2; justify-self: center; gap: 12px; min-width: 0; }
 .webui-topbar-page h1 { margin: 0; color: var(--foreground); font-size: 17px; font-weight: 650; line-height: 1.2; }
-.webui-topbar-actions { gap: 9px; }
+.webui-topbar-actions { grid-column: 3; justify-self: end; gap: 9px; }
+.webui-topbar-actions button:focus-visible { border-color: var(--border); box-shadow: none; }
 .webui-topbar-state { min-height: 31px; gap: 7px; padding: 0 10px; color: var(--muted-foreground); background-color: color-mix(in oklch, var(--card), var(--background) 22%); border: 1px solid color-mix(in oklch, var(--border), var(--card) 35%); border-radius: 999px; box-shadow: 0 2px 7px var(--topbar-shadow); font-size: 11px; }
 .webui-topbar-state .webui-status-dot { background: var(--status-good-border); }
 .webui-topbar-state--attention .webui-status-dot { background: var(--status-attention-border); }
 .webui-topbar-runtime-summary { padding-left: 7px; border-left: 1px solid var(--border); color: var(--muted-foreground); }
+.webui-workspace-base { min-height: min(730px, calc(100vh - 150px)); padding: clamp(16px, 2.3vw, 25px); background-color: color-mix(in oklch, var(--card), var(--background) 35%); border: 1px solid color-mix(in oklch, var(--border), var(--card) 48%); border-radius: 18px; }
+.dark .webui-workspace-base { background-color: color-mix(in oklch, var(--card), var(--background) 28%); border-color: color-mix(in oklch, var(--border), var(--background) 35%); }
 .webui-float-card { border: 1px solid color-mix(in oklch, var(--border), white 35%); border-radius: 15px; box-shadow: 0 8px 22px color-mix(in srgb, oklch(0.28 0.03 252), transparent 92%); }
 .webui-status-strip { border: 1px solid var(--status-good-border); border-radius: 12px; background-color: var(--status-good); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--card), transparent 18%); }
 .webui-status-strip--attention { border-color: var(--status-attention-border); background-color: var(--status-attention); }
@@ -144,6 +149,7 @@ html.webui-theme-transition body,
 html.webui-theme-transition .webui-sidebar,
 html.webui-theme-transition .webui-topbar,
 html.webui-theme-transition .webui-topbar-state,
+html.webui-theme-transition .webui-workspace-base,
 html.webui-theme-transition .webui-status-strip,
 html.webui-theme-transition .webui-runtime-mark,
 html.webui-theme-transition [data-slot="card"],
@@ -151,5 +157,5 @@ html.webui-theme-transition [data-slot="button"] {
   transition: background-color 900ms cubic-bezier(.25, 0, .7, .2), border-color 900ms cubic-bezier(.25, 0, .7, .2);
 }
 
-@media (max-width: 1023px) { .webui-sidebar--drawer { background-color: var(--card); } }
+@media (max-width: 1023px) { .webui-sidebar--drawer { background-color: var(--card); } .webui-topbar { display: flex; justify-content: space-between; } .webui-topbar-page, .webui-topbar-actions { grid-column: auto; justify-self: auto; } }
 @media (max-width: 639px) { .webui-topbar { min-height: 60px; padding: 0 16px; } .webui-topbar-runtime-summary { display: none; } }

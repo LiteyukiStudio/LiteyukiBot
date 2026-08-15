@@ -29,7 +29,6 @@ init.runtime_missing_vault=runtime {kind} requires the secure vault and was skip
 init.enable_runtime=Enable runtime {kind}
 init.route_agent=Route messages from {source} to agent runtime {target}
 webui.app.name=Liteyuki
-webui.app.subtitle=Signal Ledger
 webui.nav.overview=Overview
 webui.nav.events=Events
 webui.nav.topology=Topology

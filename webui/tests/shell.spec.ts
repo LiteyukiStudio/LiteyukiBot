@@ -19,7 +19,7 @@ const catalog = { operations: [
 ] };
 
 const messages = {
-  "webui.app.name": "Liteyuki", "webui.app.subtitle": "Signal Ledger",
+  "webui.app.name": "Liteyuki",
   "webui.nav.overview": "Overview", "webui.nav.events": "Events", "webui.nav.topology": "Topology", "webui.nav.runtimes": "Runtimes", "webui.nav.plugins": "Plugins", "webui.nav.configuration": "Configuration",
   "webui.header.language": "Language", "webui.header.theme": "Theme", "webui.header.accent": "Accent color", "webui.header.open_navigation": "Open navigation",
   "webui.theme.system": "System", "webui.theme.light": "Light", "webui.theme.dark": "Dark", "webui.theme.blue": "Blue", "webui.theme.lavender": "Lavender", "webui.theme.cyan": "Cyan",
@@ -35,7 +35,7 @@ const messages = {
 
 const zhMessages = {
   ...messages,
-  "webui.app.subtitle": "信号账本", "webui.nav.overview": "概览", "webui.nav.events": "事件", "webui.nav.topology": "拓扑", "webui.nav.runtimes": "运行时", "webui.nav.plugins": "插件", "webui.nav.configuration": "配置",
+  "webui.nav.overview": "概览", "webui.nav.events": "事件", "webui.nav.topology": "拓扑", "webui.nav.runtimes": "运行时", "webui.nav.plugins": "插件", "webui.nav.configuration": "配置",
   "webui.header.language": "语言", "webui.header.theme": "主题", "webui.header.accent": "强调色", "webui.header.open_navigation": "打开导航",
   "webui.theme.system": "跟随系统", "webui.theme.light": "浅色", "webui.theme.dark": "深色", "webui.theme.blue": "蓝色", "webui.theme.lavender": "薰衣草", "webui.theme.cyan": "青色",
   "webui.status.ready": "就绪", "webui.status.runtimes": "{active} / {total} 个运行时", "webui.action.refresh": "刷新",
@@ -78,8 +78,14 @@ for (const [name, viewport] of [["desktop", { width: 1440, height: 960 }], ["mob
     else {
       await expect(page.getByText("v7.0.0b4+1.0.0")).toBeVisible();
       await expect(page.locator(".webui-workbench")).toHaveCount(0);
+      await expect(page.locator(".webui-workspace-base")).toBeVisible();
+      await expect(page.locator(".webui-workspace-base")).toHaveCSS("box-shadow", "none");
       const sidebarBackground = await page.locator(".webui-sidebar").evaluate((element) => getComputedStyle(element).backgroundColor);
       await expect(page.locator(".webui-topbar")).toHaveCSS("background-color", sidebarBackground);
+      const [topbar, title] = await Promise.all([page.locator(".webui-topbar").boundingBox(), page.getByRole("heading", { name: "Overview" }).boundingBox()]);
+      expect(topbar).not.toBeNull();
+      expect(title).not.toBeNull();
+      expect(Math.abs((title!.x + title!.width / 2) - (topbar!.x + topbar!.width / 2))).toBeLessThan(1);
     }
   });
 }
@@ -95,6 +101,16 @@ test("workspaces project live ledger, topology, runtimes, and plugins", async ({
   await expect(page.getByText("Profile", { exact: true })).toBeVisible();
 });
 
+test("brand returns to overview only from another workspace", async ({ page }) => {
+  await mockDaemon(page);
+  await page.goto("/#/runtimes");
+  const brand = page.getByRole("button", { name: "Liteyuki" });
+  await brand.click();
+  await expect(page).toHaveURL(/#\/overview$/);
+  await brand.click();
+  await expect(page).toHaveURL(/#\/overview$/);
+});
+
 test("handoff fragment redeems its ticket before loading the local snapshot", async ({ page }) => {
   const tickets: unknown[] = [];
   await mockDaemon(page);
@@ -108,7 +124,11 @@ test("handoff fragment redeems its ticket before loading the local snapshot", as
 test("top bar persists the selected locale and applies the selected theme", async ({ page }) => {
   await mockDaemon(page);
   await page.goto("/#/overview");
-  await page.getByRole("button", { name: "Language" }).click();
+  const language = page.getByRole("button", { name: "Language" });
+  await language.click();
+  await page.keyboard.press("Escape");
+  await expect(language).toHaveCSS("box-shadow", "none");
+  await language.click();
   await page.getByRole("menuitemradio", { name: "简体中文" }).click();
   await expect(page.getByRole("heading", { name: "概览" })).toBeVisible();
   await page.getByRole("button", { name: "主题" }).click();
