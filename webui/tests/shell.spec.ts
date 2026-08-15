@@ -107,8 +107,13 @@ test("top bar persists the selected locale and applies the selected theme", asyn
   await page.getByRole("menuitemradio", { name: "简体中文" }).click();
   await expect(page.getByRole("heading", { name: "概览" })).toBeVisible();
   await page.getByRole("button", { name: "主题" }).click();
+  await page.getByRole("menuitemradio", { name: "薰衣草" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-accent", "lavender");
+  await page.getByRole("button", { name: "主题" }).click();
   await page.getByRole("menuitemradio", { name: "深色" }).click();
+  await expect(page.locator(".webui-theme-reveal--dark")).toBeVisible();
   await expect(page.locator("html")).toHaveClass(/dark/);
+  await expect(page.locator(".webui-theme-reveal")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "刷新" })).toBeVisible();
 });
 
