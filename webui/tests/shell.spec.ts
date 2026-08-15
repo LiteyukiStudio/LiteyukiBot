@@ -66,6 +66,18 @@ test("handoff fragment redeems its ticket before loading the local snapshot", as
   await expect(page).toHaveURL(/#\/overview$/);
 });
 
+test("top bar persists the selected locale and applies the selected theme", async ({ page }) => {
+  await mockDaemon(page);
+  await page.goto("/#/overview");
+  await page.getByRole("button", { name: "Language" }).click();
+  await page.getByRole("menuitemradio", { name: "简体中文" }).click();
+  await expect(page.getByRole("heading", { name: "概览" })).toBeVisible();
+  await page.getByRole("button", { name: "主题" }).click();
+  await page.getByRole("menuitemradio", { name: "深色" }).click();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await expect(page.getByRole("button", { name: "刷新" })).toBeVisible();
+});
+
 test("high-impact operations require an explicit target and submit typed input", async ({ page }) => {
   let submitted: unknown;
   await mockDaemon(page, (body) => { submitted = body; });

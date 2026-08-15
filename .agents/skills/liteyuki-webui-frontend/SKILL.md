@@ -56,6 +56,9 @@ description: Build, review, or test LiteyukiBot v7's React/Vite WebUI under webu
 - Use semantic CSS tokens from `:root`; active states, status colors, shadows,
   and surfaces must derive from tokens rather than hard-coded component colors.
   Do not put `var(...)` or hex values in Tailwind class names.
+- Keep the locale catalog restricted to actual user-facing UI. The top status
+  bar owns the persisted language and theme controls; themes use semantic token
+  overrides and must work without per-component hard-coded active colors.
 - Keep the Signal Ledger layout: a white fixed navigation rail, unframed normal
   navigation, one theme-derived active row, elevated content surfaces, and a
   compact top status bar for the current page and live state. On desktop, the
