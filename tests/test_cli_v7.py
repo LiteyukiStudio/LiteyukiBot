@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import argparse
 import signal
 import subprocess
 import sys
+import webbrowser
 from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
@@ -12,7 +14,7 @@ import pytest
 from filelock import Timeout
 
 import liteyukibot.cli as cli_module
-from liteyukibot.config import AppSettings
+from liteyukibot.config import AppSettings, ConfigWorkspace
 from liteyukibot.init_wizard import InitWizardResult
 from liteyukibot.plugin_store import PlatformTarget, RuntimeGeneration, RuntimeGenerationStore
 
@@ -52,6 +54,56 @@ class FakeSignalLoop:
 
     def call_soon_threadsafe(self, callback: Callable[[], None]) -> None:
         callback()
+
+
+@pytest.mark.asyncio
+async def test_web_command_uses_daemon_control_and_opens_handoff(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    requests: list[tuple[Path, str]] = []
+
+    async def request(descriptor: Path, command: str) -> dict[str, str]:
+        requests.append((descriptor, command))
+        return {"url": "http://127.0.0.1:8123/#ticket=x"}
+
+    monkeypatch.setattr(
+        cli_module,
+        "request_control",
+        request,
+    )
+    opened: list[str] = []
+
+    def open_url(url: str) -> bool:
+        opened.append(url)
+        return True
+
+    monkeypatch.setattr(webbrowser, "open", open_url)
+
+    await cli_module._web_command(
+        ConfigWorkspace(tmp_path),
+        argparse.Namespace(instance="default", web_command="open"),
+    )
+
+    assert requests == [(tmp_path / ".liteyuki" / "instances" / "default" / "daemon.json", "webui.open")]
+    assert opened == ["http://127.0.0.1:8123/#ticket=x"]
+    assert capsys.readouterr().out.strip() == "http://127.0.0.1:8123/#ticket=x"
+
+
+@pytest.mark.asyncio
+async def test_web_status_uses_daemon_control(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    async def request(_descriptor: Path, command: str) -> dict[str, str]:
+        return {"mode": "always", "command": command}
+
+    monkeypatch.setattr(cli_module, "request_control", request)
+
+    await cli_module._web_command(
+        ConfigWorkspace(tmp_path),
+        argparse.Namespace(instance="default", web_command="status"),
+    )
+
+    assert '"command": "webui.status"' in capsys.readouterr().out
 
 
 @pytest.mark.asyncio

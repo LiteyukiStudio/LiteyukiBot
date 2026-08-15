@@ -30,6 +30,11 @@ http = [
     "fastapi>=0.141,<1",
     "uvicorn>=0.52,<1",
 ]
+webui = [
+    "fastapi>=0.141,<1",
+    "uvicorn>=0.52,<1",
+    "liteyukibot-v7-webui[server]>=0.1.0b4",
+]
 
 [project.scripts]
 liteyukibot = "liteyukibot.cli:main"
@@ -57,6 +62,9 @@ build-backend = "uv_build"
 
 [tool.uv.workspace]
 members = ["packages/*"]
+
+[tool.uv.sources]
+liteyukibot-v7-webui = { workspace = true }
 
 [tool.uv.build-backend]
 module-root = "src"

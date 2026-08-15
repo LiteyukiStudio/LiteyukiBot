@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from collections.abc import Callable, Mapping
 from enum import StrEnum
 from pathlib import Path
@@ -27,7 +28,15 @@ from .http import HttpServer
 from .i18n import I18N_SERVICE, Translator
 from .instance_daemon import INSTANCE_DAEMON_SERVICE, InstanceDaemonService
 from .logging import Logger, configure_logging, get_logger, log_payload, shutdown_logging
-from .management import MANAGEMENT_SERVICE, KernelManagement, ManagementCaller, ManagementDanger, ManagementError
+from .management import (
+    MANAGEMENT_ADMIN,
+    MANAGEMENT_SERVICE,
+    KernelManagement,
+    ManagementCaller,
+    ManagementDanger,
+    ManagementError,
+)
+from .operations import ManagementPrincipal, OperationRequest, PrincipalKind
 from .plugin_store import RuntimeGenerationStore
 from .plugins import PluginManager
 from .resource_packs import RESOURCE_CATALOG_SERVICE, ResourceCatalog
@@ -170,6 +179,10 @@ class LiteyukiApp:
                 "event.inject": self._inject_event,
                 "management.execute": self._execute_local_management,
                 "topology": self._control_topology,
+                "daemon.webui.snapshot": self._daemon_webui_snapshot,
+                "daemon.webui.operation_catalog": self._daemon_webui_operation_catalog,
+                "daemon.webui.operation.execute": self._daemon_webui_execute_operation,
+                "daemon.webui.plugin_surfaces": self._daemon_webui_plugin_surfaces,
             },
         )
         self.http = (
@@ -310,6 +323,67 @@ class LiteyukiApp:
             raise PermissionError("development controls are disabled")
         return self.topology()
 
+    @staticmethod
+    def _daemon_webui_principal() -> ManagementPrincipal:
+        """The daemon control descriptor is the sole authority for this worker bridge."""
+
+        return ManagementPrincipal(
+            PrincipalKind.SYSTEM,
+            "daemon-webui",
+            "daemon-control",
+            None,
+            frozenset({MANAGEMENT_ADMIN}),
+        )
+
+    async def _daemon_webui_snapshot(self, _request: Mapping[str, Any]) -> dict[str, Any]:
+        return {
+            "status": self.status(),
+            "topology": self.topology(),
+            "webui_generation": self.plugins.webui_generation,
+        }
+
+    async def _daemon_webui_operation_catalog(self, _request: Mapping[str, Any]) -> dict[str, Any]:
+        return {"operations": list(self.management.operation_catalog(self._daemon_webui_principal()))}
+
+    async def _daemon_webui_execute_operation(self, request: Mapping[str, Any]) -> dict[str, str]:
+        operation_id = request.get("operation_id")
+        target = request.get("target")
+        input_value = request.get("input")
+        idempotency_key = request.get("idempotency_key")
+        confirmation_target = request.get("confirmation_target")
+        if (
+            not isinstance(operation_id, str)
+            or not isinstance(target, str)
+            or not isinstance(input_value, Mapping)
+            or not isinstance(idempotency_key, str)
+            or confirmation_target is not None
+            and not isinstance(confirmation_target, str)
+        ):
+            raise ValueError("invalid daemon WebUI operation request")
+        result = await self.management.execute_structured_operation(
+            self._daemon_webui_principal(),
+            OperationRequest(
+                operation=operation_id,
+                target=target,
+                input=input_value,
+                idempotency_key=idempotency_key,
+                confirmed=request.get("confirmed") is True,
+                confirmation_target=confirmation_target,
+            ),
+        )
+        return {"result_code": result}
+
+    async def _daemon_webui_plugin_surfaces(self, _request: Mapping[str, Any]) -> dict[str, Any]:
+        surfaces = [
+            {"plugin_id": plugin_id, "surface": surface.model_dump(mode="json")}
+            for plugin_id, surface in self.plugins.webui_surfaces()
+        ]
+        diagnostics = [
+            {"plugin_id": item.plugin_id, "code": item.code}
+            for item in self.plugins.webui_diagnostics
+        ]
+        return {"generation": self.plugins.webui_generation, "surfaces": surfaces, "diagnostics": diagnostics}
+
     async def start(self) -> None:
         if self.state is not AppState.CREATED:
             raise RuntimeError(f"application cannot start from state {self.state}")
@@ -350,8 +424,9 @@ class LiteyukiApp:
             allows_management = getattr(permissions, "allows_management", None)
             if callable(allows_management):
                 self.management.registry.set_authorizer(allows_management)
-            await self.management.start_operations(self.settings.core.data_dir)
-            self._management_started = True
+            if os.environ.get("LITEYUKI_DAEMON_WORKER") != "1":
+                await self.management.start_operations(self.settings.core.data_dir)
+                self._management_started = True
             broker = self.services.get(AGENT_TOOL_BROKER_SERVICE)
             if broker is not None:
                 if not isinstance(broker, AgentToolBroker):

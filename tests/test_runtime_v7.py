@@ -162,6 +162,22 @@ async def test_noop_runtime_handshake_action_and_shutdown() -> None:
 
 
 @pytest.mark.asyncio
+async def test_runtime_can_be_stopped_and_started_independently() -> None:
+    supervisor = RuntimeSupervisor(logger=FakeLogger())
+    supervisor.add(RuntimeSpec(id="echo", kind="noop", ready_timeout=5, heartbeat_interval=0.05, stale_after=1))
+
+    await supervisor.start()
+    await supervisor.stop_runtime("echo")
+    assert supervisor.health()["echo"]["state"] == RuntimeState.STOPPED.value
+
+    await supervisor.start_runtime("echo")
+    assert supervisor.health()["echo"]["state"] == RuntimeState.READY.value
+    assert supervisor.records["echo"].launch_count == 2
+
+    await supervisor.stop()
+
+
+@pytest.mark.asyncio
 async def test_runtime_rejects_duplicate_ids() -> None:
     supervisor = RuntimeSupervisor(logger=FakeLogger())
     supervisor.add(RuntimeSpec(id="same", kind="noop"))

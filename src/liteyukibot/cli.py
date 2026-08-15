@@ -12,6 +12,7 @@ import signal
 import subprocess
 import sys
 import time
+import webbrowser
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -132,6 +133,10 @@ def build_parser() -> argparse.ArgumentParser:
     runtime_commands.add_parser("list")
     restart = runtime_commands.add_parser("restart")
     restart.add_argument("runtime_id")
+    web = subcommands.add_parser("web", help="local WebUI operations")
+    web_commands = web.add_subparsers(dest="web_command", required=True)
+    web_commands.add_parser("open", help="open the local WebUI in the default browser")
+    web_commands.add_parser("status", help="show local WebUI service status")
     instance = subcommands.add_parser("instance", help="named instance lifecycle operations")
     instance_commands = instance.add_subparsers(dest="instance_command", required=True)
     instance_commands.add_parser("list")
@@ -229,6 +234,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         if args.command == "runtime":
             return asyncio.run(_runtime_command(settings, args.runtime_command, args))
+        if args.command == "web":
+            return asyncio.run(_web_command(workspace, args))
     except (ConfigurationError, ControlError, LiteyukiError, RuntimeError, ValueError) as error:
         print(error, file=sys.stderr)
         return 2
@@ -671,6 +678,7 @@ def _run(settings: AppSettings, workspace: ConfigWorkspace, args: argparse.Names
                     environment,
                     worker_descriptor=settings.core.data_dir / "control.json",
                     development=settings.development,
+                    webui=settings.webui,
                     watch_root=workspace.directory,
                     validate_configuration=lambda: _validate_instance_configuration(
                         workspace, args.config, args.overrides, args.instance
@@ -984,6 +992,24 @@ async def _runtime_command(settings: AppSettings, command: str, args: argparse.N
         print(json.dumps(result, ensure_ascii=False, default=str))
         return 0
     raise RuntimeError(f"unknown runtime command: {command}")
+
+
+async def _web_command(workspace: ConfigWorkspace, args: argparse.Namespace) -> int:
+    paths = InstancePaths.from_workspace(workspace, args.instance)
+    if args.web_command == "status":
+        result = await request_control(paths.daemon_descriptor, "webui.status")
+        print(json.dumps(result, ensure_ascii=False, default=str))
+        return 0
+    if args.web_command == "open":
+        result = await request_control(paths.daemon_descriptor, "webui.open")
+        if not isinstance(result, Mapping) or not isinstance(result.get("url"), str):
+            raise RuntimeError("daemon returned an invalid WebUI handoff URL")
+        url = result["url"]
+        if not webbrowser.open(url):
+            raise RuntimeError("could not open the local WebUI in the default browser")
+        print(url)
+        return 0
+    raise RuntimeError(f"unknown web command: {args.web_command}")
 
 
 if __name__ == "__main__":

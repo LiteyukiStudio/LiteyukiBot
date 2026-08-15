@@ -16,7 +16,7 @@ from liteyukibot.management import (
     ManagementRegistry,
     ManagementResult,
 )
-from liteyukibot.operations import ManagementPrincipal, PrincipalKind
+from liteyukibot.operations import ManagementPrincipal, OperationLedger, OperationState, PrincipalKind
 
 
 async def _result(_caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
@@ -100,3 +100,67 @@ async def test_kernel_management_queues_a_structured_command_without_storing_arg
         assert b"sensitive-argument" not in (tmp_path / "operations.sqlite3").read_bytes()
     finally:
         await management.close_operations()
+
+
+@pytest.mark.asyncio
+async def test_kernel_management_catalog_submits_structured_operation_without_command_line(tmp_path: Path) -> None:
+    restarted: list[str] = []
+
+    class Runtimes:
+        async def start_runtime(self, runtime_id: str) -> None:
+            restarted.append(f"started:{runtime_id}")
+
+        async def stop_runtime(self, runtime_id: str) -> None:
+            restarted.append(f"stopped:{runtime_id}")
+
+        async def restart(self, runtime_id: str) -> None:
+            restarted.append(runtime_id)
+
+    app = type("App", (), {"runtimes": Runtimes()})()
+    management = KernelManagement(app, str(tmp_path), lambda: None)
+    management.registry.set_authorizer(lambda _caller, capability: capability == MANAGEMENT_ADMIN)
+    principal = ManagementPrincipal(
+        PrincipalKind.WEB_SESSION,
+        "web-session-1",
+        "loopback-ticket",
+        datetime.now(UTC) + timedelta(minutes=1),
+        frozenset({MANAGEMENT_ADMIN}),
+    )
+    ledger = OperationLedger(tmp_path / "operations.sqlite3", audit_key=b"key")
+    try:
+        catalog = management.operation_catalog(principal)
+        restart = next(item for item in catalog if item["id"] == "management.runtime.restart")
+        assert restart["input_schema"]["required"] == ["runtime_id"]
+        assert restart["target"] == "runtime_id"
+        assert restart["confirmation"] == "explicit"
+        management.bind_operations(ledger)
+        await ledger.start()
+        record = await management.submit_structured_operation(
+            principal,
+            "management.runtime.restart",
+            "runtime-a",
+            {"runtime_id": "runtime-a"},
+            confirmed=True,
+            confirmation_target=None,
+            idempotency_key="restart-1",
+        )
+        for _ in range(20):
+            current = management.operations.get(record.id) if management.operations else None
+            if current is not None and current.state is OperationState.SUCCEEDED:
+                break
+            await asyncio.sleep(0)
+        assert current is not None and current.result_code == "ok"
+        assert restarted == ["runtime-a"]
+        with pytest.raises(ManagementError, match="target does not match"):
+            await management.submit_structured_operation(
+                principal,
+                "management.runtime.restart",
+                "runtime-b",
+                {"runtime_id": "runtime-a"},
+                confirmed=True,
+                confirmation_target=None,
+                idempotency_key="restart-2",
+            )
+    finally:
+        await management.close_operations()
+        await ledger.close()

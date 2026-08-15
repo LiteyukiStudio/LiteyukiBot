@@ -6,7 +6,16 @@ from .functions import FUNCTION_DISPATCH_SERVICE, FunctionCall, FunctionDispatch
 from .i18n import I18N_SERVICE, Translator
 from .init_specs import InitFieldKind, InitFieldSpec, PluginInitSpec, RuntimeInitSpec
 from .management import MANAGEMENT_SERVICE, ManagementCommand, ManagementRegistry
-from .operations import ManagementPrincipal, OperationDefinition, OperationLedger, OperationRequest, OperationState
+from .operations import (
+    ManagementPrincipal,
+    OperationConfirmation,
+    OperationDefinition,
+    OperationImpact,
+    OperationLedger,
+    OperationRequest,
+    OperationState,
+    WorkerOperationBridge,
+)
 from .plugins import (
     WEBUI_API_VERSION,
     WEBUI_SCHEMA_DRAFT_2020_12,
@@ -63,7 +72,9 @@ __all__ = [
     "ManagementCommand",
     "ManagementRegistry",
     "ManagementPrincipal",
+    "OperationConfirmation",
     "OperationDefinition",
+    "OperationImpact",
     "OperationLedger",
     "OperationRequest",
     "OperationState",
@@ -71,5 +82,6 @@ __all__ = [
     "ResourceCatalog",
     "ResourcePackDeclaration",
     "Translator",
+    "WorkerOperationBridge",
     "__version__",
 ]

@@ -1027,6 +1027,35 @@ class RuntimeSupervisor:
         async with asyncio.timeout(record.spec.ready_timeout):
             await record.ready.wait()
 
+    async def start_runtime(self, runtime_id: str) -> None:
+        """Start one configured runtime without restarting the supervisor."""
+
+        if self._closing or not self._transport_started:
+            raise RuntimeError("runtime supervisor is not running")
+        record = self.records[runtime_id]
+        if record.desired and record.runner is not None and not record.runner.done():
+            if record.ready.is_set():
+                return
+            async with asyncio.timeout(record.spec.ready_timeout):
+                await record.ready.wait()
+            return
+        if record.runner is not None and not record.runner.done():
+            await self._request_stop(record, "start requested")
+            await record.runner
+        record.failures.clear()
+        record.desired = True
+        record.runner = asyncio.create_task(self._run(record), name=f"runtime:{runtime_id}")
+        async with asyncio.timeout(record.spec.ready_timeout):
+            await record.ready.wait()
+
+    async def stop_runtime(self, runtime_id: str) -> None:
+        """Stop one runtime while keeping the supervisor available to others."""
+
+        record = self.records[runtime_id]
+        await self._request_stop(record, "management stop")
+        if record.runner is not None and record.runner is not asyncio.current_task():
+            await record.runner
+
     async def stop(self) -> None:
         self._closing = True
         if self._heartbeat_task is not None:

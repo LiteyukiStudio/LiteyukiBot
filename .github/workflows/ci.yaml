@@ -36,7 +36,7 @@ jobs:
         working-directory: LiteyukiBot
         run: |
           uv python install 3.14
-          uv sync --locked --all-packages --extra onebot --extra satori
+          uv sync --locked --all-packages --extra onebot --extra satori --extra webui
       - name: Quality checks
         working-directory: LiteyukiBot
         run: |

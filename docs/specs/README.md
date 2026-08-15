@@ -16,6 +16,7 @@ and tests in the same pull request.
 - [Runtime LYIP v1](runtime-lyip-v1.md)
 - [Native Plugin and Service v1](native-plugin-service-v1.md)
 - [Plugin WebUI Contribution v1](plugin-webui-contribution-v1.md)
+- [Local WebUI Service v1](webui-service-v1.md)
 - [Management and Command v1](management-command-v1.md)
 - [Release and Maintenance v1](release-maintenance-v1.md)
 - [Instance Daemon v1](instance-daemon-v1.md)

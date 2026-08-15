@@ -11,7 +11,16 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol
 
-from .operations import ManagementPrincipal, OperationDefinition, OperationLedger, OperationRecord, OperationRequest
+from .operations import (
+    ManagementPrincipal,
+    OperationConfirmation,
+    OperationDefinition,
+    OperationImpact,
+    OperationLedger,
+    OperationRecord,
+    OperationRequest,
+    PrincipalKind,
+)
 from .plugin_install import PluginInstallationService
 from .plugin_store import RuntimeGenerationStore
 from .services import ServiceKey
@@ -67,6 +76,38 @@ class ManagementResult:
     data: Mapping[str, Any] | Sequence[Any] | str | int | float | bool | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class ManagementOperationRoute:
+    """Map a catalogued structured operation to one registered command."""
+
+    definition: OperationDefinition
+    command_name: tuple[str, ...]
+    argument_fields: tuple[str, ...]
+    target_field: str | None = None
+
+    def target_for(self, input: Mapping[str, Any]) -> str:
+        if self.target_field is None:
+            return "kernel"
+        target = input.get(self.target_field)
+        return target if isinstance(target, str) else ""
+
+    def arguments_from_input(self, input: Mapping[str, Any]) -> tuple[str, ...]:
+        arguments: list[str] = []
+        for field in self.argument_fields:
+            value = input.get(field)
+            if value is None:
+                continue
+            if not isinstance(value, str):
+                raise ManagementError(f"invalid operation input field: {field}")
+            arguments.append(value)
+        return tuple(arguments)
+
+    def input_from_arguments(self, arguments: tuple[str, ...]) -> dict[str, str]:
+        if len(arguments) > len(self.argument_fields):
+            raise ManagementError(f"too many arguments for operation: {self.definition.id}")
+        return {field: arguments[index] for index, field in enumerate(self.argument_fields[: len(arguments)])}
+
+
 type ManagementHandler = Callable[[ManagementCaller, tuple[str, ...]], Awaitable[ManagementResult]]
 type ManagementAuthorizer = Callable[[ManagementCaller, str], bool]
 
@@ -85,6 +126,12 @@ class ManagementRegistry:
         if command.name in self._commands:
             raise ManagementError(f"management command already registered: {' '.join(command.name)}")
         self._commands[command.name] = (command, handler)
+
+    def command(self, name: tuple[str, ...]) -> ManagementCommand:
+        try:
+            return self._commands[name][0]
+        except KeyError as error:
+            raise ManagementError(f"management command is not registered: {' '.join(name)}") from error
 
     def unregister_owner(self, owner: str) -> None:
         for name in [name for name, (command, _handler) in self._commands.items() if command.owner == owner]:
@@ -138,6 +185,8 @@ class KernelManagement:
         self._workspace = workspace
         self._stop = stop
         self.operations: OperationLedger | None = None
+        self._owns_operations = False
+        self._operation_routes: dict[str, ManagementOperationRoute] = {}
         self._register_kernel_commands()
 
     async def start_operations(self, data_dir: Path) -> None:
@@ -145,13 +194,27 @@ class KernelManagement:
 
         if self.operations is not None:
             return
-        self.operations = OperationLedger(data_dir / "operations.sqlite3", audit_key=self._audit_key(data_dir))
-        await self.operations.start()
+        ledger = OperationLedger(data_dir / "operations.sqlite3", audit_key=self._audit_key(data_dir))
+        self.bind_operations(ledger)
+        self._owns_operations = True
+        await ledger.start()
+
+    def bind_operations(self, ledger: OperationLedger) -> None:
+        """Bind a daemon-owned ledger without starting or closing it."""
+
+        if self.operations is not None and self.operations is not ledger:
+            raise ManagementError("management operation service is already bound")
+        if self.operations is ledger:
+            return
+        self.operations = ledger
+        for route in self._operation_routes.values():
+            ledger.register(route.definition, self.execute_structured_operation)
 
     async def close_operations(self) -> None:
-        if self.operations is not None:
+        if self.operations is not None and self._owns_operations:
             await self.operations.close()
-            self.operations = None
+        self.operations = None
+        self._owns_operations = False
 
     async def submit_operation(
         self,
@@ -171,6 +234,19 @@ class KernelManagement:
         if command.danger is ManagementDanger.CONFIRM and not confirmed:
             raise ManagementError(f"management command requires confirmation: {' '.join(command.name)}")
         operation_name = self._operation_name(command.name)
+        route = self._operation_routes.get(operation_name)
+        if route is not None:
+            input = route.input_from_arguments(arguments)
+            target = route.target_for(input)
+            return await self.submit_structured_operation(
+                principal,
+                operation_name,
+                target,
+                input,
+                confirmed=confirmed,
+                confirmation_target=target if confirmed else None,
+                idempotency_key=idempotency_key,
+            )
         if not self.operations.has_definition(operation_name):
             self.operations.register(
                 OperationDefinition(
@@ -186,19 +262,93 @@ class KernelManagement:
             OperationRequest(
                 operation=operation_name,
                 target=arguments[0] if arguments else "kernel",
-                input={"command": list(command.name), "arguments": list(arguments), "confirmed": confirmed},
+                input={"command": list(command.name), "arguments": list(arguments)},
                 idempotency_key=idempotency_key,
+                confirmed=confirmed,
             ),
         )
 
+    def operation_catalog(self, principal: ManagementPrincipal) -> tuple[dict[str, Any], ...]:
+        """Return WebUI-safe operation metadata, without exposing command strings."""
+
+        return tuple(
+            route.definition.catalog_entry()
+            for route in self._operation_routes.values()
+            if self._route_is_authorized(principal, route)
+        )
+
+    async def submit_structured_operation(
+        self,
+        principal: ManagementPrincipal,
+        operation_id: str,
+        target: str,
+        input: Mapping[str, Any],
+        *,
+        confirmed: bool,
+        confirmation_target: str | None,
+        idempotency_key: str,
+    ) -> OperationRecord:
+        """Submit a catalogued operation without accepting a raw command line."""
+
+        if self.operations is None:
+            raise ManagementError("management operation service is not running")
+        route = self._operation_routes.get(operation_id)
+        if route is None:
+            raise ManagementError(f"unknown structured operation: {operation_id}")
+        if target != route.target_for(input):
+            raise ManagementError("operation target does not match structured input")
+        return await self.operations.submit(
+            principal,
+            OperationRequest(
+                operation=operation_id,
+                target=target,
+                input=input,
+                idempotency_key=idempotency_key,
+                confirmed=confirmed,
+                confirmation_target=confirmation_target,
+            ),
+        )
+
+    async def execute_structured_operation(self, principal: ManagementPrincipal, request: OperationRequest) -> str:
+        """Execute one validated route for a daemon-owned ledger worker bridge."""
+
+        route = self._operation_routes.get(request.operation)
+        if route is None:
+            raise ManagementError(f"unknown structured operation: {request.operation}")
+        if request.target != route.target_for(request.input):
+            raise ManagementError("operation target does not match structured input")
+        validation_error = OperationLedger.validate_request(route.definition, request)
+        if validation_error is not None:
+            raise ManagementError(f"invalid structured operation: {validation_error}")
+        return await self._execute_operation(principal, request)
+
     async def _execute_operation(self, principal: ManagementPrincipal, request: OperationRequest) -> str:
         command_name = self._command_name(request.operation)
-        arguments = request.input.get("arguments")
-        if not isinstance(arguments, list) or not all(isinstance(argument, str) for argument in arguments):
-            raise ManagementError("invalid management operation payload")
-        caller = ManagementCaller(principal.subject, principal.kind.value, principal.capabilities)
+        route = self._operation_routes.get(request.operation)
+        if route is not None:
+            arguments = route.arguments_from_input(request.input)
+        else:
+            raw_arguments = request.input.get("arguments")
+            if not isinstance(raw_arguments, list) or not all(isinstance(argument, str) for argument in raw_arguments):
+                raise ManagementError("invalid management operation payload")
+            arguments = tuple(raw_arguments)
+        caller = (
+            ManagementCaller.local_terminal()
+            if principal.kind is PrincipalKind.SYSTEM and principal.authentication_origin == "daemon-control"
+            else ManagementCaller(principal.subject, principal.kind.value, principal.capabilities)
+        )
         await self.registry.execute(caller, shlex.join((*command_name, *arguments)))
         return "ok"
+
+    def _route_is_authorized(self, principal: ManagementPrincipal, route: ManagementOperationRoute) -> bool:
+        if not principal.allows(route.definition.capability):
+            return False
+        caller = ManagementCaller(principal.subject, principal.kind.value, principal.capabilities)
+        try:
+            self.registry.resolve(caller, shlex.join(route.command_name))
+        except ManagementError:
+            return False
+        return True
 
     @staticmethod
     def _operation_name(command_name: tuple[str, ...]) -> str:
@@ -237,6 +387,8 @@ class KernelManagement:
             (("help",), "List available management commands", self._help, ManagementDanger.NONE),
             (("status",), "Show kernel status", self._status, ManagementDanger.NONE),
             (("runtime", "list"), "List runtime health", self._runtime_list, ManagementDanger.NONE),
+            (("runtime", "start"), "Start a runtime", self._runtime_start, ManagementDanger.NONE),
+            (("runtime", "stop"), "Stop a runtime", self._runtime_stop, ManagementDanger.CONFIRM),
             (("runtime", "restart"), "Restart a runtime", self._runtime_restart, ManagementDanger.NONE),
             (("plugin", "list"), "List runtime plugin generations", self._plugin_list, ManagementDanger.NONE),
             (("plugin", "install"), "Install a runtime plugin bundle", self._plugin_install, ManagementDanger.NONE),
@@ -260,6 +412,73 @@ class KernelManagement:
         )
         for name, summary, handler, danger in registrations:
             self.registry.register(ManagementCommand(name, summary, danger=danger), handler)
+        self._register_operation_routes()
+
+    def _register_operation_routes(self) -> None:
+        object_schema = {"type": "object", "additionalProperties": False}
+
+        def register(
+            command_name: tuple[str, ...],
+            fields: tuple[str, ...],
+            schema: Mapping[str, Any],
+            *,
+            impact: OperationImpact = OperationImpact.STANDARD,
+            confirmation: OperationConfirmation = OperationConfirmation.EXPLICIT,
+            target_field: str | None = "runtime_id",
+        ) -> None:
+            operation_id = self._operation_name(command_name)
+            command = self.registry.command(command_name)
+            self._operation_routes[operation_id] = ManagementOperationRoute(
+                OperationDefinition(
+                    operation_id,
+                    command.capability,
+                    mutating=True,
+                    input_schema={**object_schema, **schema},
+                    impact=impact,
+                    confirmation=confirmation,
+                    target=target_field or "kernel",
+                    target_input_field=target_field,
+                ),
+                command_name,
+                fields,
+                target_field,
+            )
+
+        runtime_id = {"runtime_id": {"type": "string", "minLength": 1}}
+        bundle_id = {"bundle_id": {"type": "string", "minLength": 1}}
+        source_id = {"source_id": {"type": "string", "minLength": 1}}
+        register(("runtime", "start"), ("runtime_id",), {"properties": runtime_id, "required": ["runtime_id"]})
+        register(
+            ("runtime", "stop"),
+            ("runtime_id",),
+            {"properties": runtime_id, "required": ["runtime_id"]},
+            impact=OperationImpact.HIGH,
+            confirmation=OperationConfirmation.TARGET,
+        )
+        register(("runtime", "restart"), ("runtime_id",), {"properties": runtime_id, "required": ["runtime_id"]})
+        register(
+            ("plugin", "install"),
+            ("runtime_id", "bundle_id", "source_id"),
+            {"properties": {**runtime_id, **bundle_id, **source_id}, "required": ["runtime_id", "bundle_id"]},
+        )
+        register(
+            ("plugin", "update"),
+            ("runtime_id", "source_id"),
+            {"properties": {**runtime_id, **source_id}, "required": ["runtime_id"]},
+        )
+        for operation in ("enable", "disable"):
+            register(
+                ("plugin", operation),
+                ("runtime_id", "bundle_id"),
+                {"properties": {**runtime_id, **bundle_id}, "required": ["runtime_id", "bundle_id"]},
+            )
+        register(
+            ("plugin", "rollback"),
+            ("runtime_id",),
+            {"properties": runtime_id, "required": ["runtime_id"]},
+            impact=OperationImpact.HIGH,
+            confirmation=OperationConfirmation.TARGET,
+        )
 
     async def _help(self, caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
         if arguments:
@@ -286,6 +505,18 @@ class KernelManagement:
             raise ManagementError("usage: runtime restart <runtime-id>")
         await self._app.runtimes.restart(arguments[0])
         return ManagementResult(f"restarted {arguments[0]}")
+
+    async def _runtime_start(self, _caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
+        if len(arguments) != 1:
+            raise ManagementError("usage: runtime start <runtime-id>")
+        await self._app.runtimes.start_runtime(arguments[0])
+        return ManagementResult(f"started {arguments[0]}")
+
+    async def _runtime_stop(self, _caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
+        if len(arguments) != 1:
+            raise ManagementError("usage: runtime stop <runtime-id>")
+        await self._app.runtimes.stop_runtime(arguments[0])
+        return ManagementResult(f"stopped {arguments[0]}")
 
     def _runtime(self, runtime_id: str) -> Any:
         try:
@@ -378,6 +609,7 @@ __all__ = [
     "ManagementCommand",
     "ManagementDanger",
     "ManagementError",
+    "ManagementOperationRoute",
     "ManagementRegistry",
     "ManagementResult",
     "ManagementService",
