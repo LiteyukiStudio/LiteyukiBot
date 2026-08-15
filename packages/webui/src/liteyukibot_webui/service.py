@@ -33,6 +33,7 @@ _COOKIE_NAME = "liteyuki_webui_session"
 _EVENT_TYPES = frozenset({"snapshot", "ledger_append", "operation", "heartbeat", "reset"})
 _UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 _MAX_EVENT_REPLAY = 4096
+_SSE_REAUTHORIZATION_SECONDS = 15.0
 
 
 class WebUiUnavailableError(RuntimeError):
@@ -146,7 +147,7 @@ class _SessionStore:
         self._sessions[identifier] = session
         return identifier, session
 
-    def get(self, identifier: str | None) -> _Session | None:
+    def get(self, identifier: str | None, *, touch: bool = True) -> _Session | None:
         if identifier is None:
             return None
         session = self._sessions.get(identifier)
@@ -156,7 +157,8 @@ class _SessionStore:
         if now - session.last_seen_at > self._idle_seconds or now - session.created_at > self._maximum_seconds:
             self._sessions.pop(identifier, None)
             return None
-        session.last_seen_at = now
+        if touch:
+            session.last_seen_at = now
         return session
 
     def remove(self, identifier: str | None) -> None:
@@ -243,9 +245,9 @@ def create_app(
             return _error("webui.origin_required", 403)
         return await call_next(request)
 
-    async def authenticated(request: Request, *, csrf: bool = False) -> _Session:
+    async def authenticated(request: Request, *, csrf: bool = False, touch: bool = True) -> _Session:
         identifier = request.cookies.get(_COOKIE_NAME)
-        session = sessions.get(identifier)
+        session = sessions.get(identifier, touch=touch)
         if session is None:
             raise WebUiServiceError("webui.session_required", 401)
         if csrf and not hmac.compare_digest(request.headers.get("x-csrf-token", ""), session.csrf_token):
@@ -371,6 +373,14 @@ def create_app(
         replay = await invoke(bridge.replay_events(session.principal, after_id, _MAX_EVENT_REPLAY))
 
         async def stream() -> AsyncIterable[str]:
+            next_reauthorization_at = time.monotonic() + _SSE_REAUTHORIZATION_SECONDS
+
+            async def reauthorize_if_due() -> None:
+                nonlocal next_reauthorization_at
+                if time.monotonic() >= next_reauthorization_at:
+                    await authenticated(request, touch=False)
+                    next_reauthorization_at = time.monotonic() + _SSE_REAUTHORIZATION_SECONDS
+
             if replay.reset:
                 yield _sse(WebUiEvent("reset", {"reason": "replay_unavailable"}))
                 return
@@ -378,6 +388,7 @@ def create_app(
                 yield _sse(event)
             try:
                 async for event in bridge.stream_events(session.principal, after_id):
+                    await reauthorize_if_due()
                     yield _sse(event)
             except WebUiServiceError as error:
                 yield _sse(WebUiEvent("reset", {"reason": error.code}))

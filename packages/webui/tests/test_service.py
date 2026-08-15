@@ -3,8 +3,10 @@ from __future__ import annotations
 from collections.abc import AsyncIterable
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 from liteyukibot_webui import WebUiEvent, WebUiEventReplay, WebUiPrincipal, WebUiServer, create_app
+from liteyukibot_webui import service as webui_service
 from liteyukibot_webui.service import JsonObject
 
 
@@ -63,10 +65,27 @@ class Bridge:
             yield WebUiEvent("heartbeat", {})
 
 
-def _client(tmp_path: Path) -> tuple[TestClient, Bridge]:
+def _client(
+    tmp_path: Path,
+    bridge: Bridge | None = None,
+    *,
+    session_idle_seconds: int = 1800,
+    session_max_seconds: int = 28800,
+) -> tuple[TestClient, Bridge]:
     (tmp_path / "index.html").write_text("<main>Liteyuki</main>", encoding="utf-8")
-    bridge = Bridge()
-    return TestClient(create_app(bridge, asset_directory=tmp_path), base_url="http://127.0.0.1:9321"), bridge
+    resolved_bridge = bridge or Bridge()
+    return (
+        TestClient(
+            create_app(
+                resolved_bridge,
+                asset_directory=tmp_path,
+                session_idle_seconds=session_idle_seconds,
+                session_max_seconds=session_max_seconds,
+            ),
+            base_url="http://127.0.0.1:9321",
+        ),
+        resolved_bridge,
+    )
 
 
 def _session(client: TestClient) -> str:
@@ -126,6 +145,52 @@ def test_sse_replay_and_reset_are_protocol_events(tmp_path: Path) -> None:
 
     reset = client.get("/api/v1/events", headers={"Last-Event-ID": "expired"})
     assert "event: reset\ndata: {\"reason\":\"replay_unavailable\"}" in reset.text
+
+
+def test_sse_reauthorizes_before_emitting_follow_up_events(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    class RevokedBridge(Bridge):
+        def __init__(self) -> None:
+            super().__init__()
+            self.authorized = True
+
+        async def authorize_session(self, principal: WebUiPrincipal) -> bool:
+            return self.authorized and await super().authorize_session(principal)
+
+        async def stream_events(self, _principal: WebUiPrincipal, _after_id: str | None) -> AsyncIterable[WebUiEvent]:
+            self.authorized = False
+            yield WebUiEvent("operation", {"id": "must-not-be-delivered"})
+
+    monkeypatch.setattr(webui_service, "_SSE_REAUTHORIZATION_SECONDS", 0.0)
+    client, _bridge = _client(tmp_path, RevokedBridge())
+    _session(client)
+
+    response = client.get("/api/v1/events")
+
+    assert "event: reset\ndata: {\"reason\":\"webui.session_invalid\"}" in response.text
+    assert "must-not-be-delivered" not in response.text
+
+
+def test_sse_idle_expiry_does_not_continue_stream_delivery(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    class ExpiringBridge(Bridge):
+        async def stream_events(self, _principal: WebUiPrincipal, _after_id: str | None) -> AsyncIterable[WebUiEvent]:
+            clock[0] = 61.0
+            yield WebUiEvent("operation", {"id": "must-not-be-delivered"})
+
+    clock = [0.0]
+    monkeypatch.setattr("liteyukibot_webui.service.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr(webui_service, "_SSE_REAUTHORIZATION_SECONDS", 0.0)
+    client, _bridge = _client(
+        tmp_path,
+        ExpiringBridge(),
+        session_idle_seconds=60,
+        session_max_seconds=300,
+    )
+    _session(client)
+
+    response = client.get("/api/v1/events")
+
+    assert "event: reset\ndata: {\"reason\":\"webui.session_required\"}" in response.text
+    assert "must-not-be-delivered" not in response.text
 
 
 def test_static_spa_fallback_is_packaged_by_the_server(tmp_path: Path) -> None:
