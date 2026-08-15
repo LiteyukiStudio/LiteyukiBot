@@ -1,0 +1,32 @@
+{
+  "name": "liteyukibot-webui",
+  "private": true,
+  "version": "0.1.0-beta.4",
+  "type": "module",
+  "packageManager": "pnpm@11.5.3",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "lucide-react": "^0.544.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@tailwindcss/vite": "^4.1.13",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.4",
+    "tailwindcss": "^4.1.13",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.4"
+  }
+}

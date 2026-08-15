@@ -12,7 +12,7 @@ from liteyukibot.instances import InstancePaths, normalize_instance_name
 
 def test_named_instance_overlay_follows_config_but_precedes_environment_and_cli(tmp_path: Path) -> None:
     primary = tmp_path / "liteyuki.toml"
-    primary.write_text("config_version = 3\n[core]\nqueue_capacity = 10\n", encoding="utf-8")
+    primary.write_text("config_version = 4\n[core]\nqueue_capacity = 10\n", encoding="utf-8")
     extra = tmp_path / "extra.toml"
     extra.write_text("[core]\nqueue_capacity = 15\n", encoding="utf-8")
     overlay = tmp_path / "instance.toml"
@@ -29,10 +29,10 @@ def test_named_instance_overlay_follows_config_but_precedes_environment_and_cli(
     assert settings.core.queue_capacity == 40
 
 
-@pytest.mark.parametrize("path", ("config_version = 3\n", "[core]\ndata_dir = 'outside'\n", "[logging]\nfile = 'x'\n"))
+@pytest.mark.parametrize("path", ("config_version = 4\n", "[core]\ndata_dir = 'outside'\n", "[logging]\nfile = 'x'\n"))
 def test_instance_overlay_cannot_redirect_isolated_storage(tmp_path: Path, path: str) -> None:
     primary = tmp_path / "liteyuki.toml"
-    primary.write_text("config_version = 3\n", encoding="utf-8")
+    primary.write_text("config_version = 4\n", encoding="utf-8")
     overlay = tmp_path / "instance.toml"
     overlay.write_text(path, encoding="utf-8")
 

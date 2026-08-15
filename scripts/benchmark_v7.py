@@ -32,7 +32,7 @@ from liteyukibot.events import (
     HandlerResult,
 )
 from liteyukibot.functions import FunctionCall, FunctionDispatcher
-from liteyukibot.resource_packs import ResourceCatalog
+from liteyukibot.resource_packs import ResourceCatalog, write_resource_manifest
 
 SCHEMA_VERSION = 2
 DEFAULT_EVENT_COUNT = 5_000
@@ -277,6 +277,7 @@ def _write_function_resources(workspace: Path, packs: int, functions_per_pack: i
                 "var value=1\nvar rendered=${value}\n",
                 encoding="utf-8",
             )
+        write_resource_manifest(pack)
     (root / "index.json").write_text(json.dumps(index), encoding="utf-8")
 
 

@@ -86,6 +86,13 @@ def test_function_benchmark_reports_missing_executor(monkeypatch: pytest.MonkeyP
     }
 
 
+def test_function_benchmark_resources_include_integrity_manifests(tmp_path: Path) -> None:
+    benchmark_v7._write_function_resources(tmp_path, packs=2, functions_per_pack=1)
+
+    for name in ("pack-0", "pack-1"):
+        assert (tmp_path / "resources" / name / "manifest-v1.json").is_file()
+
+
 def test_latency_summary_uses_ceil_rank_for_p95() -> None:
     assert benchmark_v7._latency_summary([1.0, 2.0, 3.0, 4.0, 100.0]) == {"median": 3.0, "p95": 100.0}
 

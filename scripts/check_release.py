@@ -161,6 +161,22 @@ RELEASE_PROJECTS: dict[str, ReleaseProject] = {
         tag_selector="runtime-mofox-v",
         verifier="scripts/verify_mofox_runtime_install.py",
     ),
+    "webui": ReleaseProject(
+        name="webui",
+        project_dir="packages/webui",
+        distribution="liteyukibot-v7-webui",
+        tag_prefix="webui-v",
+        tag_selector="webui-v",
+        verifier="scripts/verify_webui_install.py",
+    ),
+    "ipc-native": ReleaseProject(
+        name="ipc-native",
+        project_dir="packages/ipc-native",
+        distribution="liteyukibot-v7-ipc-native",
+        tag_prefix="ipc-native-v",
+        tag_selector="ipc-native-v",
+        verifier="scripts/verify_ipc_native_install.py",
+    ),
 }
 
 
