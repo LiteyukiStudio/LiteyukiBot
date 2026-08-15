@@ -50,6 +50,8 @@
   --status-good-border: oklch(0.86 0.075 160);
   --status-attention: oklch(0.96 0.035 85);
   --status-attention-border: oklch(0.87 0.075 85);
+  --nav-active: color-mix(in oklch, var(--secondary), white 18%);
+  --nav-active-foreground: var(--primary);
 }
 
 * { border-color: var(--border); }
@@ -57,8 +59,15 @@ html { background: var(--background); }
 body { min-width: 320px; min-height: 100vh; margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-sans); }
 button, input { font: inherit; }
 
-.webui-sidebar { background: color-mix(in oklch, var(--background), white 36%); }
-.webui-brand-mark { display: grid; width: 29px; height: 29px; place-items: center; color: var(--primary-foreground); background: linear-gradient(135deg, var(--primary), color-mix(in oklch, var(--primary), var(--accent) 38%)); border-radius: 8px; box-shadow: 0 5px 13px color-mix(in srgb, var(--primary), transparent 72%); }
+.webui-sidebar { padding: 24px 12px; background: var(--card); border-right: 1px solid var(--border); }
+.webui-sidebar-brand { display: flex; align-items: center; gap: 9px; padding: 0 4px; margin-bottom: 25px; }
+.webui-brand-mark { display: grid; width: 28px; height: 28px; place-items: center; color: var(--primary); }
+.webui-sidebar-nav { display: grid; gap: 3px; }
+.webui-sidebar-nav-item { width: 100%; height: 37px; justify-content: flex-start; gap: 10px; padding: 0 10px; color: var(--muted-foreground); border: 0 !important; border-radius: 4px; background: transparent; box-shadow: none; font-size: 16px; font-weight: 400; }
+.webui-sidebar-nav-item:hover { background: color-mix(in oklch, var(--nav-active), transparent 38%); color: var(--foreground); }
+.webui-sidebar-nav-item[data-active="true"] { background: var(--nav-active); color: var(--nav-active-foreground); font-weight: 600; }
+.webui-sidebar-status { margin-top: auto; padding: 17px 8px 0; border-top: 1px solid var(--border); color: var(--muted-foreground); font-size: 11px; }
+.webui-status-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--status-good-border); }
 .webui-workbench { min-height: min(730px, calc(100vh - 150px)); padding: clamp(16px, 2.3vw, 25px); background: color-mix(in oklch, var(--card), white 20%); border: 1px solid color-mix(in oklch, var(--border), white 28%); border-radius: 20px; box-shadow: 0 14px 34px color-mix(in srgb, oklch(0.28 0.03 252), transparent 91%); }
 .webui-float-card { border: 1px solid color-mix(in oklch, var(--border), white 35%); border-radius: 15px; box-shadow: 0 8px 22px color-mix(in srgb, oklch(0.28 0.03 252), transparent 92%); }
 .webui-status-strip { border: 1px solid var(--status-good-border); border-radius: 12px; background: var(--status-good); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--card), transparent 18%); }

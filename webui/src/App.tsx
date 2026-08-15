@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, ArrowRight, Boxes, Cable, CheckCircle2, ChevronRight, CircleAlert, CircleDot, Cog, FileClock, Menu, Network, Play, Radio, RefreshCw, ShieldCheck, X } from "lucide-react";
+import { Activity, ArrowRight, Boxes, Cable, CheckCircle2, ChevronRight, CircleAlert, CircleDot, Cog, FileClock, Menu, MoveUpRight, Network, Play, Radio, RefreshCw, ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -82,7 +82,7 @@ export function App() {
 }
 
 function Sidebar({ active, dashboard, drawer = false, navigate }: { active: Workspace; dashboard: Dashboard; drawer?: boolean; navigate: (workspace: Workspace) => void }) {
-  return <aside className={cn("webui-sidebar h-full min-h-screen flex-col px-3 py-6", drawer ? "flex" : "hidden lg:flex")}><div className="mb-8 flex items-center gap-2.5 px-1"><div className="webui-brand-mark"><Network size={18} strokeWidth={2.4} /></div><div><strong className="block text-sm leading-tight">Liteyuki</strong><span className="text-[11px] text-muted-foreground">Signal Ledger</span></div></div><nav className="grid gap-1">{navigation.map(({ id, label, icon: Icon }) => <Button key={id} variant={active === id ? "secondary" : "ghost"} className="h-9 justify-start rounded-lg px-3 text-[15px] font-normal data-[variant=secondary]:font-semibold" onClick={() => navigate(id)}><Icon size={16} strokeWidth={1.8} />{label}</Button>)}</nav><div className="mt-auto px-2 pt-4 text-[11px] text-muted-foreground"><div className="mb-1 flex items-center gap-2"><span className="size-1.5 rounded-full bg-emerald-500" />{dashboard.kernelState}</div><span className="font-mono">{dashboard.instance}</span></div></aside>;
+  return <aside className={cn("webui-sidebar h-full min-h-screen flex-col", drawer ? "flex" : "hidden lg:flex")}><div className="webui-sidebar-brand"><div className="webui-brand-mark"><MoveUpRight size={27} strokeWidth={2.55} /></div><div><strong className="block text-sm leading-tight">Liteyuki</strong><span className="text-[11px] text-muted-foreground">Signal Ledger</span></div></div><nav className="webui-sidebar-nav">{navigation.map(({ id, label, icon: Icon }) => <Button key={id} variant="ghost" data-active={active === id || undefined} className="webui-sidebar-nav-item" onClick={() => navigate(id)}><Icon size={16} strokeWidth={1.8} />{label}</Button>)}</nav><div className="webui-sidebar-status"><div className="mb-1 flex items-center gap-2"><span className="webui-status-dot" />{dashboard.kernelState}</div><span className="font-mono">{dashboard.instance}</span></div></aside>;
 }
 
 function WorkspaceView({ workspace, dashboard, openOperation }: { workspace: Workspace; dashboard: Dashboard; openOperation: (operation: WebUiOperation) => void }) {
