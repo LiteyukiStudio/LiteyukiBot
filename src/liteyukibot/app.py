@@ -350,28 +350,8 @@ class LiteyukiApp:
         locale = normalize_locale(requested) if isinstance(requested, str) else self.translator.locale
         if locale not in SUPPORTED_LOCALES:
             locale = self.translator.locale
-        keys = (
-            "webui.app.name",
-            "webui.app.subtitle",
-            "webui.nav.overview",
-            "webui.nav.events",
-            "webui.nav.topology",
-            "webui.nav.runtimes",
-            "webui.nav.plugins",
-            "webui.nav.configuration",
-            "webui.header.language",
-            "webui.header.theme",
-            "webui.header.accent",
-            "webui.header.open_navigation",
-            "webui.theme.system",
-            "webui.theme.light",
-            "webui.theme.dark",
-            "webui.theme.blue",
-            "webui.theme.lavender",
-            "webui.theme.cyan",
-            "webui.status.ready",
-            "webui.status.runtimes",
-            "webui.action.refresh",
+        keys = sorted(
+            {key for catalog in self.translator.catalogs.values() for key in catalog if key.startswith("webui.")}
         )
         return {
             "locale": locale,
