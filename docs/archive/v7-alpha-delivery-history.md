@@ -5,13 +5,13 @@
 
 This record preserves completed alpha delivery phases that no longer belong in
 the current architecture overview. It is historical context only; use the
-current architecture, ADRs, release guide, and changelog for active decisions.
+current architecture, specifications, release guide, and changelog for active decisions.
 
 ## Phases 1-3: Kernel And Compatibility
 
 `7.0.0a1` established the Python 3.14 kernel, non-root Docker build, and
 version/tag/wheel release integrity. Kernel stabilization then added the
-runtime failure matrix, v1 ADRs, three-platform verification, isolated PyPI
+runtime failure matrix, early v1 contract records, three-platform verification, isolated PyPI
 installation checks, and an informational performance reference.
 
 `7.0.0a2` completed the first bounded compatibility phase: reusable child
@@ -27,7 +27,7 @@ rendering stayed outside the kernel. The first package release order was root,
 permissions, commands, then essentials.
 
 The following plugin contract release advanced permissions, commands, and
-essentials to `0.2.0a1`. ADRs 0016-0019 recorded exact capabilities,
+essentials to `0.2.0a1`. Early contract records captured exact capabilities,
 structured schemas, hierarchical routing, and Essentials-owned help rendering;
 runtime IPC remained at v3.
 

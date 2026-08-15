@@ -8,7 +8,7 @@ Active documentation stays in:
 
 - [`../architecture/v7.md`](../architecture/v7.md) for the current kernel and
   runtime boundaries;
-- [`../adr/README.md`](../adr/README.md) for accepted architectural decisions;
+- [`../specs/README.md`](../specs/README.md) for current public contracts;
 - [`../development/`](../development/) for contributor and maintainer guides;
 - [`../migration-v6.md`](../migration-v6.md) for the supported v6 compatibility
   surface.

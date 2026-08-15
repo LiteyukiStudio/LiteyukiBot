@@ -2,9 +2,8 @@
 
 ## Scope And Branches
 
-`main` is the LiteyukiBot v6 maintenance line. v7 work targets the `v7` branch.
-Start a feature or fix branch from an up-to-date `v7`; do not merge v6 source
-or dependencies into v7 wholesale.
+`main` is the v7 development branch. Start a feature or fix branch from an
+up-to-date `main`; do not merge v6 source or dependencies into v7 wholesale.
 
 Keep one change focused on one kernel contract, package, runtime, test surface,
 or documentation concern. The kernel owns the portable models, runtime IPC,
@@ -44,7 +43,7 @@ or temporary research artifacts.
 
 ## Contracts And Tests
 
-Update the relevant accepted ADR, architecture guide, or package README when a
+Update the relevant specification, architecture guide, or package README when a
 public Event, Action, runtime IPC, configuration, service, or plugin contract
 changes. Keep protocol models JSON-safe and versioned. A child runtime must use
 the shared `RuntimeClient`, declare capabilities explicitly, and never create a
@@ -56,7 +55,7 @@ change crosses a process or installation boundary.
 
 ## Pull Requests And Releases
 
-Open pull requests against `v7`. Keep stacks short; merge a green independent
+Open pull requests against `main`. Keep stacks short; merge a green independent
 pull request promptly and never let a Stack grow beyond 20 layers. PR text
 should state the owned boundary, validation commands, and any configuration or
 release impact.

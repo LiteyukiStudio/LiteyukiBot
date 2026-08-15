@@ -59,8 +59,11 @@ dictionary. Prefix keys with the plugin ID, for example `example.echo.name`.
 
 `metadata.yml` may contain `name_key`, `description_key`, and `icon`. The icon
 is package-relative, local-only `icon.png`: a transparent square PNG no larger
-than 512 KiB. Resource metadata and `ResourceCatalog.icon()` form a read-only
-future WebUI interface; v7 does not yet expose an HTTP asset route or WebUI.
+than 512 KiB. Resource metadata and `ResourceCatalog.icon()` remain read-only
+package presentation. A native plugin may separately use the declarative
+`PluginManifest.webui` contribution contract; it does not grant an HTTP route,
+browser credentials, JavaScript, or arbitrary frontend assets. See
+[`Plugin WebUI Contribution v1`](../specs/plugin-webui-contribution-v1.md).
 Enabled plugin packs overlay kernel resources but are overridden by workspace
 packs. Declare `RESOURCE_CATALOG_SERVICE` when a plugin needs to read the
 resolved catalog.

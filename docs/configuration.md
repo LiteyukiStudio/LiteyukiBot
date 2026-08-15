@@ -49,12 +49,12 @@ exits retry with finite exponential backoff; clean exits never restart.
 
 ## Development Controls
 
-Set `[development] dev_mode = true` to enable the local daemon development
-commands. They authenticate to the instance descriptor and forward only to its
-current worker; they are never exposed through HTTP. `watch_auto_restart =
-true` watches project Python, resource, and configuration files with the
-configured debounce period. A changed configuration is validated before a
-restart, so an invalid edit leaves the healthy worker running.
+Set `[development] enabled = true` to enable the local daemon development
+commands. `allow_drills = true` and `watch_auto_restart = true` both require
+development to be enabled. They authenticate to the instance descriptor and
+forward only to its current worker; they are never exposed through HTTP. A
+changed configuration is validated before a restart, so an invalid edit leaves
+the healthy worker running.
 
 ~~~bash
 liteyuki --instance dev dev status
@@ -211,19 +211,23 @@ api_key_env configuration remains an explicit compatibility override.
 
 ## Upgrade Material
 
-config_version = 3 is the current v7 pre-release schema. Configurations
-schema. A root configuration with a missing or older version is preserved and
-blocks startup after generating:
+config_version = 4 is the current v7 pre-release schema. A root configuration
+with a missing version or a version through 3 is preserved without v4
+validation and blocks startup after generating:
 
-- a backup under .liteyuki/config-backups/;
-- a current template under .liteyuki/config-upgrades/;
+- a timestamped, read-only backup under `.liteyuki/config-backups/`;
+- a fresh v4 template under `.liteyuki/config-upgrades/`;
 - recovery instructions in that upgrade directory.
 
-Generation is idempotent. After reviewing and merging the template manually,
-use this command only when a fresh backup/template is required:
+The root file is never changed. Generation is idempotent; use `--refresh` only
+when a fresh backup/template set is required:
 
 ~~~bash
 uv run liteyuki config upgrade --refresh
 ~~~
 
 Configurations from a newer schema are rejected without creating backups.
+The saved v3 configuration is usable only with the older pre-v4 beta binary;
+there is no v4 rollback command because the old root was not mutated. See the
+[Configuration v4 specification](specs/configuration-v4.md) for exact LYIP,
+WebUI, logging, and development limits.

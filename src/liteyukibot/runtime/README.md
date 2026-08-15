@@ -6,7 +6,7 @@ supervisor lifecycle. It is the only kernel-side runtime transport.
 
 Do not add direct runtime-to-runtime channels. Keep framing bounded, payloads
 JSON-safe, and child capabilities explicit. Public protocol changes require
-models, compatibility tests, and an accepted ADR.
+models, compatibility tests, and the matching versioned specification.
 
 Protocol v5 allows a ready child with `runtime.management.execute` to invoke an
 already registered kernel management command. It is capability-gated by the
