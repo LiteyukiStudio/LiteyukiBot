@@ -48,6 +48,8 @@ from .protocol import (
 )
 
 EventSink = Callable[[str, dict[str, JsonValue]], Awaitable[str]]
+RuntimeOutputSink = Callable[[str, Literal["stdout", "stderr"], str], None]
+DeliveryCompletionSink = Callable[[str, EventCompleted], Awaitable[None]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,6 +181,8 @@ class RuntimeSupervisor:
         action_sink: ActionSink | None = None,
         agent_tool_sink: AgentToolSink | None = None,
         management_sink: ManagementSink | None = None,
+        output_sink: RuntimeOutputSink | None = None,
+        delivery_completion_sink: DeliveryCompletionSink | None = None,
         secret_values: Mapping[str, str] | None = None,
         lyip_settings: LyipSettings | None = None,
     ) -> None:
@@ -187,6 +191,8 @@ class RuntimeSupervisor:
         self.action_sink = action_sink
         self.agent_tool_sink = agent_tool_sink
         self.management_sink = management_sink
+        self.output_sink = output_sink
+        self.delivery_completion_sink = delivery_completion_sink
         self.secret_values = dict(secret_values or {})
         self._lyip_settings = lyip_settings or LyipSettings()
         self.records: dict[str, RuntimeRecord] = {}
@@ -572,6 +578,8 @@ class RuntimeSupervisor:
             status=message.status,
             detail=message.detail,
         ).info("runtime event delivery {}", message.status)
+        if self.delivery_completion_sink is not None:
+            await self.delivery_completion_sink(record.spec.id, message)
 
     async def _accept_child_event(self, record: RuntimeRecord, message: EventMessage) -> None:
         if message.correlation_id in record.inbound_events:
@@ -1196,7 +1204,12 @@ class RuntimeSupervisor:
         if inbound_management:
             await asyncio.gather(*inbound_management, return_exceptions=True)
 
-    async def _capture_output(self, record: RuntimeRecord, stream: asyncio.StreamReader, channel: str) -> None:
+    async def _capture_output(
+        self,
+        record: RuntimeRecord,
+        stream: asyncio.StreamReader,
+        channel: Literal["stdout", "stderr"],
+    ) -> None:
         logger = self.logger.bind(
             runtime=record.spec.id,
             component="runtime",
@@ -1205,6 +1218,8 @@ class RuntimeSupervisor:
         )
         while line := await stream.readline():
             text = line.decode("utf-8", errors="replace").rstrip("\r\n")
+            if self.output_sink is not None:
+                self.output_sink(record.spec.id, channel, text)
             structured = decode_child_runtime_line(text)
             if structured is not None:
                 self._emit_structured_output(logger, structured)

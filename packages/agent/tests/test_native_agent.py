@@ -270,7 +270,6 @@ async def test_native_agent_child_round_trips_mock_provider_tool_and_source_acti
 
     server = await asyncio.start_server(provider, "127.0.0.1", 0)
     port = int(server.sockets[0].getsockname()[1])
-    action_received = asyncio.Event()
     observed_tools: list[tuple[str, str, str, Mapping[str, JsonValue]]] = []
     observed_actions: list[Mapping[str, JsonValue]] = []
 
@@ -287,7 +286,6 @@ async def test_native_agent_child_round_trips_mock_provider_tool_and_source_acti
 
     async def action_sink(_runtime_id: str, payload: dict[str, JsonValue]) -> ActionSinkResult:
         observed_actions.append(payload)
-        action_received.set()
         return ActionSinkResult(ok=True)
 
     spec = RuntimeSpec(
@@ -343,7 +341,8 @@ async def test_native_agent_child_round_trips_mock_provider_tool_and_source_acti
                 },
             )
             assert accepted == EventAccepted(correlation_id="delivery-1", status="accepted")
-            await asyncio.wait_for(action_received.wait(), timeout=12)
+            completed = await harness.wait_for_delivery_completion("delivery-1", timeout_seconds=12)
+            assert completed == EventCompleted(correlation_id="delivery-1", status="completed")
     finally:
         server.close()
         await server.wait_closed()

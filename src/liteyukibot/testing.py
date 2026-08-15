@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import tempfile
+from collections import deque
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import replace
 from pathlib import Path
@@ -28,7 +30,7 @@ from .runtime import (
     RuntimeState,
     RuntimeSupervisor,
 )
-from .runtime.protocol import JsonValue, json_mapping
+from .runtime.protocol import EventCompleted, JsonValue, json_mapping
 from .runtime.supervisor import ActionProvenance, ActionSinkResult, AgentToolSink, AgentToolSinkResult, EventSink
 from .services import ServiceKey, ServiceRegistry
 
@@ -180,11 +182,16 @@ class RuntimeTestHarness:
         self._agent_tool_sink = agent_tool_sink
         self._child_events: list[tuple[str, dict[str, JsonValue]]] = []
         self._child_actions: list[tuple[str, dict[str, JsonValue]]] = []
+        self._child_output: deque[tuple[str, str]] = deque(maxlen=100)
+        self._delivery_completions: dict[str, EventCompleted] = {}
+        self._delivery_completion_condition = asyncio.Condition()
         self._supervisor = RuntimeSupervisor(
             logger=get_logger(component="runtime-test"),
             event_sink=self._record_event,
             action_sink=self._record_action,
             agent_tool_sink=self._record_agent_tool,
+            output_sink=self._record_output,
+            delivery_completion_sink=self._record_delivery_completion,
         )
         self._supervisor.add(self.spec)
         self._started = False
@@ -215,6 +222,15 @@ class RuntimeTestHarness:
             (runtime_id, json_mapping(payload))
             for runtime_id, payload in self._child_actions
         )
+
+    @property
+    def child_output(self) -> tuple[tuple[str, str], ...]:
+        return tuple(self._child_output)
+
+    def diagnostics(self) -> str:
+        health = self._supervisor.health()[self.spec.id]
+        output = "\n".join(f"[{channel}] {line}" for channel, line in self._child_output)
+        return f"runtime health: {health}\nchild output:\n{output or '<none>'}"
 
     async def start(self) -> None:
         if self._closed:
@@ -272,6 +288,22 @@ class RuntimeTestHarness:
             timeout_seconds,
         )
 
+    async def wait_for_delivery_completion(self, correlation_id: str, *, timeout_seconds: float) -> EventCompleted:
+        if not self._started:
+            raise RuntimeError("runtime test harness is not started")
+        try:
+            async with asyncio.timeout(timeout_seconds):
+                async with self._delivery_completion_condition:
+                    await self._delivery_completion_condition.wait_for(
+                        lambda: correlation_id in self._delivery_completions
+                    )
+                    return self._delivery_completions[correlation_id]
+        except TimeoutError as error:
+            raise TimeoutError(
+                f"runtime delivery {correlation_id} did not complete within {timeout_seconds:.1f}s\n"
+                f"{self.diagnostics()}"
+            ) from error
+
     async def _record_event(self, runtime_id: str, payload: dict[str, JsonValue]) -> str:
         self._child_events.append((runtime_id, json_mapping(payload)))
         if self._event_sink is None:
@@ -300,6 +332,14 @@ class RuntimeTestHarness:
         if self._agent_tool_sink is None:
             return AgentToolSinkResult(ok=False, error="agent tool sink is not configured")
         return await self._agent_tool_sink(runtime_id, delivery_correlation_id, payload, tool_id, arguments)
+
+    def _record_output(self, _runtime_id: str, channel: str, line: str) -> None:
+        self._child_output.append((channel, line))
+
+    async def _record_delivery_completion(self, _runtime_id: str, message: EventCompleted) -> None:
+        async with self._delivery_completion_condition:
+            self._delivery_completions[message.correlation_id] = message
+            self._delivery_completion_condition.notify_all()
 
     async def __aenter__(self) -> RuntimeTestHarness:
         await self.start()

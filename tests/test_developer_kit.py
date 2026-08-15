@@ -282,6 +282,8 @@ async def test_custom_runtime_example_round_trips_events_and_actions() -> None:
             correlation_id="event-delivery",
             status="accepted",
         )
+        completed = await harness.wait_for_delivery_completion("event-delivery", timeout_seconds=2)
+        assert completed.status == "completed"
         assert len(harness.child_actions) == 1
         runtime_id, payload = harness.child_actions[0]
         assert runtime_id == "example-runtime"
@@ -303,6 +305,10 @@ async def test_custom_runtime_example_round_trips_events_and_actions() -> None:
         )
         assert invalid.status == "invalid"
         assert invalid.detail is not None
+
+        with pytest.raises(TimeoutError, match="runtime health") as error:
+            await harness.wait_for_delivery_completion("missing-delivery", timeout_seconds=0.01)
+        assert "child output" in str(error.value)
 
     assert harness.state.value == RuntimeState.STOPPED.value
     await harness.stop()
