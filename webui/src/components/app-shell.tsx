@@ -6,11 +6,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenu
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLocale, type Locale } from "@/i18n/locale";
-import type { Dashboard } from "@/lib/dashboard";
+import type { Dashboard } from "@/models/dashboard";
+import type { Workspace } from "@/models/workspace";
 import { cn } from "@/lib/utils";
 import { accents, useThemeController, type Accent, type ThemeMode } from "@/themes/theme-controller";
-
-export type Workspace = "overview" | "events" | "topology" | "runtimes" | "plugins" | "configuration";
 
 export const navigation: { id: Workspace; labelKey: string; icon: typeof Activity }[] = [
   { id: "overview", labelKey: "webui.nav.overview", icon: Activity },

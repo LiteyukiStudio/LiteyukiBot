@@ -68,12 +68,13 @@ description: Build, review, or test LiteyukiBot v7's React/Vite WebUI under webu
   token values in the CSS registry. Visual mode changes use a non-occluding,
   slow-start/fast-end background and border-color transition, never a full-page
   masking layer; reduced-motion users receive an immediate transition.
-- Keep the Signal Ledger layout: a white fixed navigation rail, unframed normal
-  navigation, one theme-derived active row, elevated content surfaces, and a
-  compact top status bar for the current page and live state. On desktop, the
-  rail and top bar form one continuous shell with a rounded inner transition;
-  the mobile drawer remains an independent bordered surface. Extend the status
-  bar for real transfer progress only when that capability exists.
+- Keep the Signal Ledger layout: one continuous application shell with a fixed
+  navigation rail and top status bar sharing the page background. Do not create
+  a decorative inner curve, a sidebar/top-bar color split, or a floating outer
+  workbench. Elevation starts at real information panels. Keep navigation
+  unframed with one theme-derived active row; the mobile drawer remains an
+  independent bordered surface. Extend the status bar for real transfer progress
+  only when that capability exists.
 - Use Lucide icons from the installed set. Icon-only controls need an accessible
   name and tooltip. Keep cards at modest radii, preserve desktop/mobile text
   fit, and inspect both layouts for overflow or overlap.

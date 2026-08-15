@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
-import type { WebUiPresentation } from "@/lib/api";
+import type { WebUiPresentation } from "@/models/api";
 
 const storageKey = "liteyukibot.webui.locale";
 const supportedLocales = ["en-US", "zh-CN"] as const;

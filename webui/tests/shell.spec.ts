@@ -68,14 +68,19 @@ async function mockDaemon(page: Page, onSubmit?: (body: unknown) => void) {
 }
 
 for (const [name, viewport] of [["desktop", { width: 1440, height: 960 }], ["mobile", { width: 390, height: 844 }]] as const) {
-  test(`${name} workbench consumes the daemon snapshot without overflow`, async ({ page }) => {
+  test(`${name} application shell consumes the daemon snapshot without overflow`, async ({ page }) => {
     await mockDaemon(page);
     await page.setViewportSize(viewport);
     await page.goto("/#/overview");
     await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
     expect(await page.locator("html").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBeTruthy();
     if (name === "mobile") { await page.getByRole("button", { name: "Open navigation" }).click(); await expect(page.getByRole("button", { name: "Runtimes" }).last()).toBeVisible(); await expect(page.getByLabel("Navigation").getByText("v7.0.0b4+1.0.0")).toBeVisible(); }
-    else await expect(page.getByText("v7.0.0b4+1.0.0")).toBeVisible();
+    else {
+      await expect(page.getByText("v7.0.0b4+1.0.0")).toBeVisible();
+      await expect(page.locator(".webui-workbench")).toHaveCount(0);
+      const sidebarBackground = await page.locator(".webui-sidebar").evaluate((element) => getComputedStyle(element).backgroundColor);
+      await expect(page.locator(".webui-topbar")).toHaveCSS("background-color", sidebarBackground);
+    }
   });
 }
 

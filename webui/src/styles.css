@@ -110,8 +110,8 @@ html { background-color: var(--background); }
 body { min-width: 320px; min-height: 100vh; margin: 0; background-color: var(--background); color: var(--foreground); font-family: var(--font-sans); }
 button, input { font: inherit; }
 
-.webui-sidebar { position: relative; padding: 24px 12px; background-color: var(--card); }
-.webui-sidebar::after { position: absolute; top: 66px; right: 0; bottom: 0; width: 1px; background: var(--border); content: ""; }
+.webui-sidebar { position: relative; padding: 24px 12px; background-color: var(--background); }
+.webui-sidebar::after { display: none; }
 .webui-sidebar--drawer { border-right: 1px solid var(--border); }
 .webui-sidebar--drawer::after { display: none; }
 .webui-sidebar-brand { display: flex; align-items: center; gap: 9px; padding: 0 4px; margin-bottom: 25px; }
@@ -123,7 +123,7 @@ button, input { font: inherit; }
 .webui-sidebar-version { margin-top: auto; padding: 17px 8px 0; border-top: 1px solid var(--border); color: var(--muted-foreground); font-size: 11px; }
 .webui-status-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--status-good-border); }
 .webui-runtime-mark { display: grid; width: 28px; height: 28px; place-items: center; color: var(--primary); background-color: color-mix(in oklch, var(--accent-soft), var(--card) 20%); border-radius: 6px; }
-.webui-topbar { position: sticky; top: 0; z-index: 20; display: flex; min-height: 66px; align-items: center; justify-content: space-between; gap: 16px; padding: 0 24px; background-color: var(--topbar-background); border-bottom: 1px solid color-mix(in oklch, var(--border), var(--card) 55%); border-bottom-left-radius: 20px; box-shadow: 0 2px 12px var(--topbar-shadow); }
+.webui-topbar { position: sticky; top: 0; z-index: 20; display: flex; min-height: 66px; align-items: center; justify-content: space-between; gap: 16px; padding: 0 24px; background-color: var(--background); }
 .webui-topbar-page, .webui-topbar-actions, .webui-topbar-state { display: flex; align-items: center; }
 .webui-topbar-page { gap: 12px; min-width: 0; }
 .webui-topbar-page h1 { margin: 0; color: var(--foreground); font-size: 17px; font-weight: 650; line-height: 1.2; }
@@ -132,8 +132,6 @@ button, input { font: inherit; }
 .webui-topbar-state .webui-status-dot { background: var(--status-good-border); }
 .webui-topbar-state--attention .webui-status-dot { background: var(--status-attention-border); }
 .webui-topbar-runtime-summary { padding-left: 7px; border-left: 1px solid var(--border); color: var(--muted-foreground); }
-.webui-workbench { min-height: min(730px, calc(100vh - 150px)); padding: clamp(16px, 2.3vw, 25px); background-color: color-mix(in oklch, var(--card), white 20%); border: 1px solid color-mix(in oklch, var(--border), white 28%); border-radius: 20px; box-shadow: 0 14px 34px color-mix(in srgb, oklch(0.28 0.03 252), transparent 91%); }
-.dark .webui-workbench { background-color: color-mix(in oklch, var(--card), black 7%); border-color: color-mix(in oklch, var(--border), black 15%); }
 .webui-float-card { border: 1px solid color-mix(in oklch, var(--border), white 35%); border-radius: 15px; box-shadow: 0 8px 22px color-mix(in srgb, oklch(0.28 0.03 252), transparent 92%); }
 .webui-status-strip { border: 1px solid var(--status-good-border); border-radius: 12px; background-color: var(--status-good); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--card), transparent 18%); }
 .webui-status-strip--attention { border-color: var(--status-attention-border); background-color: var(--status-attention); }
@@ -146,7 +144,6 @@ html.webui-theme-transition body,
 html.webui-theme-transition .webui-sidebar,
 html.webui-theme-transition .webui-topbar,
 html.webui-theme-transition .webui-topbar-state,
-html.webui-theme-transition .webui-workbench,
 html.webui-theme-transition .webui-status-strip,
 html.webui-theme-transition .webui-runtime-mark,
 html.webui-theme-transition [data-slot="card"],
@@ -154,5 +151,5 @@ html.webui-theme-transition [data-slot="button"] {
   transition: background-color 900ms cubic-bezier(.25, 0, .7, .2), border-color 900ms cubic-bezier(.25, 0, .7, .2);
 }
 
-@media (max-width: 1023px) { .webui-sidebar::after { display: none; } .webui-topbar { border-bottom-left-radius: 0; } .webui-workbench { min-height: auto; } }
+@media (max-width: 1023px) { .webui-sidebar--drawer { background-color: var(--card); } }
 @media (max-width: 639px) { .webui-topbar { min-height: 60px; padding: 0 16px; } .webui-topbar-runtime-summary { display: none; } }
