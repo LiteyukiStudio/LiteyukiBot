@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import type { WebUiPresentation } from "@/models/api";
 
@@ -30,6 +30,8 @@ type LocaleContextValue = {
 };
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
+type LocaleActionsContextValue = Pick<LocaleContextValue, "setLocale" | "applyPresentation"> & { getLocale: () => Locale };
+const LocaleActionsContext = createContext<LocaleActionsContextValue | null>(null);
 
 function initialLocale(): Locale {
   try {
@@ -44,8 +46,11 @@ function normalizeLocale(value: string | null | undefined): Locale {
 }
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocale] = useState<Locale>(initialLocale);
+  const [locale, setLocaleState] = useState<Locale>(initialLocale);
   const [presentation, setPresentation] = useState<Presentation | null>(null);
+  const localeRef = useRef(locale);
+  const setLocale = useCallback((next: Locale) => { localeRef.current = next; setLocaleState(next); }, []);
+  const getLocale = useCallback(() => localeRef.current, []);
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -69,11 +74,18 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     () => ({ locale, setLocale, presentation, applyPresentation, t }),
     [locale, presentation, applyPresentation, t],
   );
-  return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
+  const actions = useMemo(() => ({ setLocale, applyPresentation, getLocale }), [setLocale, applyPresentation, getLocale]);
+  return <LocaleActionsContext.Provider value={actions}><LocaleContext.Provider value={value}>{children}</LocaleContext.Provider></LocaleActionsContext.Provider>;
 }
 
 export function useLocale() {
   const value = useContext(LocaleContext);
   if (value === null) throw new Error("useLocale must be rendered inside LocaleProvider");
+  return value;
+}
+
+export function useLocaleActions() {
+  const value = useContext(LocaleActionsContext);
+  if (value === null) throw new Error("useLocaleActions must be rendered inside LocaleProvider");
   return value;
 }
