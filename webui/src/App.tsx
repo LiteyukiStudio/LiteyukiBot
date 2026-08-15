@@ -34,6 +34,7 @@ export function App() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [dismissFirstRun, setDismissFirstRun] = useState(false);
   const [operation, setOperation] = useState<WebUiOperation | null>(null);
 
   const reload = useCallback(async () => {
@@ -62,7 +63,7 @@ export function App() {
   const navigate = (next: Workspace) => { window.location.hash = `#/${next}`; setWorkspace(next); setMenuOpen(false); };
   if (error) return <Unavailable error={error} retry={reload} />;
   if (!dashboard) return <Loading />;
-  if (dashboard.firstRun) return <FirstRun instance={dashboard.instance} />;
+  if (dashboard.firstRun && !dismissFirstRun) return <FirstRun instance={dashboard.instance} open={() => { setDismissFirstRun(true); setWorkspace("runtimes"); window.location.hash = "#/runtimes"; }} />;
   return <TooltipProvider><div className="grid min-h-screen lg:grid-cols-[248px_minmax(0,1fr)]">
     <Sidebar active={workspace} dashboard={dashboard} navigate={navigate} />
     <Sheet open={menuOpen} onOpenChange={setMenuOpen}><SheetContent side="left" className="w-72 p-0"><SheetHeader className="sr-only"><SheetTitle>Navigation</SheetTitle></SheetHeader><Sidebar active={workspace} dashboard={dashboard} navigate={navigate} /></SheetContent></Sheet>
@@ -104,11 +105,12 @@ function State({ value }: { value: string }) { const positive = ["ready", "runni
 function Empty({ label }: { label: string }) { return <div className="grid min-h-32 place-items-center border-t text-sm text-muted-foreground">{label}</div>; }
 function Loading() { return <main className="grid min-h-screen place-items-center"><div className="w-[min(440px,90vw)] space-y-3"><Skeleton className="h-7 w-44" /><Skeleton className="h-28 w-full" /><Skeleton className="h-48 w-full" /></div></main>; }
 function Unavailable({ error, retry }: { error: string; retry: () => Promise<void> }) { return <main className="grid min-h-screen place-items-center p-5"><Card className="w-full max-w-md"><CardHeader><CircleAlert className="mb-2 text-destructive" /><CardTitle>Local service unavailable</CardTitle><CardDescription>The WebUI could not read the running daemon.</CardDescription></CardHeader><CardContent className="flex items-center justify-between gap-3"><code className="text-xs text-muted-foreground">{error}</code><Button onClick={() => void retry()}><RefreshCw size={15} />Retry</Button></CardContent></Card></main>; }
-function FirstRun({ instance }: { instance: string }) { return <main className="grid min-h-screen place-items-center p-5"><Card className="w-full max-w-xl"><CardHeader><CardTitle>Set up {instance}</CardTitle><CardDescription>No runnable runtime is configured yet. Create the first runtime through an explicit local management operation.</CardDescription></CardHeader><CardContent><Button onClick={() => { window.location.hash = "#/runtimes"; window.location.reload(); }}>Open runtimes <ChevronRight size={15} /></Button></CardContent></Card></main>; }
+function FirstRun({ instance, open }: { instance: string; open: () => void }) { return <main className="grid min-h-screen place-items-center p-5"><Card className="w-full max-w-xl"><CardHeader><CardTitle>Set up {instance}</CardTitle><CardDescription>No runnable runtime is configured yet. Create the first runtime through an explicit local management operation.</CardDescription></CardHeader><CardContent><Button onClick={open}>Open runtimes <ChevronRight size={15} /></Button></CardContent></Card></main>; }
 function OperationDialog({ operation, close, api, reload }: { operation: WebUiOperation | null; close: () => void; api: WebUiApi; reload: () => Promise<void> }) {
   const [values, setValues] = useState<Record<string, string>>({});
+  const [confirmation, setConfirmation] = useState("");
   const [pending, setPending] = useState(false);
-  useEffect(() => { setValues({}); }, [operation]);
+  useEffect(() => { setValues({}); setConfirmation(""); }, [operation]);
   if (!operation) return null;
   const schema = operation.input_schema;
   const properties = schema.properties && typeof schema.properties === "object" && !Array.isArray(schema.properties) ? schema.properties as JsonObject : {};
@@ -116,7 +118,7 @@ function OperationDialog({ operation, close, api, reload }: { operation: WebUiOp
   const fields = Object.entries(properties).filter(([, definition]) => typeof definition === "object" && definition !== null && !Array.isArray(definition));
   const targetField = operation.target_input_field ?? required[0] ?? "target";
   const target = values[targetField] ?? "";
-  const canSubmit = target.trim().length > 0 && required.every((field) => values[field]?.trim());
+  const canSubmit = target.trim().length > 0 && required.every((field) => values[field]?.trim()) && (operation.impact !== "high" || confirmation === target);
   const submit = async () => {
     if (!canSubmit) return;
     setPending(true);
@@ -133,5 +135,5 @@ function OperationDialog({ operation, close, api, reload }: { operation: WebUiOp
     const details = definition as JsonObject;
     const requiredField = required.includes(field);
     return <div key={field} className="grid gap-2"><label className="text-sm font-medium" htmlFor={`operation-${field}`}>{field}{requiredField && <span className="text-destructive"> *</span>}</label><Input id={`operation-${field}`} value={values[field] ?? ""} onChange={(event) => setValues((current) => ({ ...current, [field]: event.target.value }))} placeholder={typeof details.description === "string" ? details.description : `Enter ${field}`} />{field === targetField && operation.confirmation === "target" && <p className="text-xs text-muted-foreground">High-impact operations require the exact target confirmation.</p>}</div>;
-  })}</div><DialogFooter><Button variant="outline" onClick={close}>Cancel</Button><Button disabled={!canSubmit || pending} onClick={() => void submit()}>{pending ? "Queueing" : "Queue operation"}</Button></DialogFooter></DialogContent></Dialog>;
+  })}{operation.impact === "high" && <div className="grid gap-2"><label className="text-sm font-medium" htmlFor="operation-confirmation">Confirm target</label><Input id="operation-confirmation" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} placeholder="Type the exact target identifier" /></div>}</div><DialogFooter><Button variant="outline" onClick={close}>Cancel</Button><Button disabled={!canSubmit || pending} onClick={() => void submit()}>{pending ? "Queueing" : "Queue operation"}</Button></DialogFooter></DialogContent></Dialog>;
 }

@@ -287,6 +287,11 @@ def create_app(
         response.set_cookie(_COOKIE_NAME, identifier, httponly=True, samesite="strict", secure=False, path="/")
         return response
 
+    @app.get("/api/v1/session")
+    async def session(request: Request) -> Any:
+        active = await authenticated(request)
+        return {"csrf_token": active.csrf_token}
+
     @app.delete("/api/v1/session")
     async def close_session(request: Request) -> Any:
         await authenticated(request, csrf=True)

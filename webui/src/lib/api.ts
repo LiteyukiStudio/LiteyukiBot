@@ -25,13 +25,13 @@ export class WebUiApi {
 
   async initialize(): Promise<void> {
     const match = /^#ticket=([^&]+)$/.exec(window.location.hash);
-    if (!match) return;
-    const ticket = decodeURIComponent(match[1]);
-    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#/overview`);
-    const result = await this.request<{ csrf_token: string }>("/session", {
-      method: "POST",
-      body: JSON.stringify({ ticket }),
-    });
+    const result = match
+      ? await this.request<{ csrf_token: string }>("/session", {
+        method: "POST",
+        body: JSON.stringify({ ticket: decodeURIComponent(match[1]) }),
+      })
+      : await this.request<{ csrf_token: string }>("/session");
+    if (match) window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#/overview`);
     this.csrfToken = result.csrf_token;
   }
 
@@ -70,9 +70,9 @@ export class WebUiApi {
 
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const response = await fetch(`/api/v1${path}`, {
+      ...init,
       credentials: "same-origin",
       headers: { "content-type": "application/json", ...init.headers },
-      ...init,
     });
     if (!response.ok) {
       const body = await response.json().catch(() => null) as { error?: { code?: string } } | null;

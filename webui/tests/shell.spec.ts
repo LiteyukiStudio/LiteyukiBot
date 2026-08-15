@@ -74,6 +74,7 @@ test("high-impact operations require an explicit target and submit typed input",
   const submit = page.getByRole("button", { name: "Queue operation" });
   await expect(submit).toBeDisabled();
   await page.getByLabel(/runtime_id/).fill("onebot-primary");
+  await page.getByLabel("Confirm target").fill("onebot-primary");
   await expect(submit).toBeEnabled();
   await submit.click();
   await expect.poll(() => submitted).toMatchObject({ operation_id: "management.runtime.stop", target: "onebot-primary", input: { runtime_id: "onebot-primary" }, confirmed: true, confirmation_target: "onebot-primary" });
