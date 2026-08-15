@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, ArrowRight, Boxes, Cable, CheckCircle2, ChevronRight, CircleAlert, CircleDot, Cog, FileClock, Menu, MoveUpRight, Network, Play, Radio, RefreshCw, ShieldCheck, X } from "lucide-react";
+import { Activity, ArrowRight, Boxes, Cable, CheckCircle2, CircleAlert, CircleDot, Cog, FileClock, Menu, MoveUpRight, Network, Play, Radio, RefreshCw, ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +36,6 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [dismissFirstRun, setDismissFirstRun] = useState(false);
   const [operation, setOperation] = useState<WebUiOperation | null>(null);
 
   const reload = useCallback(async () => {
@@ -68,7 +67,6 @@ export function App() {
   const navigate = (next: Workspace) => { window.location.hash = `#/${next}`; setWorkspace(next); setMenuOpen(false); };
   if (error) return <Unavailable error={error} retry={reload} />;
   if (!dashboard) return <Loading />;
-  if (dashboard.firstRun && !dismissFirstRun) return <FirstRun instance={dashboard.instance} open={() => { setDismissFirstRun(true); setWorkspace("runtimes"); window.location.hash = "#/runtimes"; }} />;
   const pageTitle = navigation.find((entry) => entry.id === workspace)?.label;
   return <TooltipProvider><div className="grid min-h-screen bg-background lg:grid-cols-[236px_minmax(0,1fr)]">
     <Sidebar active={workspace} dashboard={dashboard} navigate={navigate} />
@@ -85,7 +83,7 @@ function TopStatusBar({ dashboard, pageTitle, openNavigation, refresh }: { dashb
 }
 
 function Sidebar({ active, dashboard, drawer = false, navigate }: { active: Workspace; dashboard: Dashboard; drawer?: boolean; navigate: (workspace: Workspace) => void }) {
-  return <aside className={cn("webui-sidebar h-full min-h-screen flex-col", drawer ? "flex" : "hidden lg:flex")}><div className="webui-sidebar-brand"><div className="webui-brand-mark"><MoveUpRight size={27} strokeWidth={2.55} /></div><div><strong className="block text-sm leading-tight">Liteyuki</strong><span className="text-[11px] text-muted-foreground">Signal Ledger</span></div></div><nav className="webui-sidebar-nav">{navigation.map(({ id, label, icon: Icon }) => <Button key={id} variant="ghost" data-active={active === id || undefined} className="webui-sidebar-nav-item" onClick={() => navigate(id)}><Icon size={16} strokeWidth={1.8} />{label}</Button>)}</nav><div className="webui-sidebar-status"><div className="mb-1 flex items-center gap-2"><span className="webui-status-dot" />{dashboard.kernelState}</div><span className="font-mono">{dashboard.instance}</span></div></aside>;
+  return <aside className={cn("webui-sidebar h-full min-h-screen flex-col", drawer ? "webui-sidebar--drawer flex" : "hidden lg:flex")}><div className="webui-sidebar-brand"><div className="webui-brand-mark"><MoveUpRight size={27} strokeWidth={2.55} /></div><div><strong className="block text-sm leading-tight">Liteyuki</strong><span className="text-[11px] text-muted-foreground">Signal Ledger</span></div></div><nav className="webui-sidebar-nav">{navigation.map(({ id, label, icon: Icon }) => <Button key={id} variant="ghost" data-active={active === id || undefined} className="webui-sidebar-nav-item" onClick={() => navigate(id)}><Icon size={16} strokeWidth={1.8} />{label}</Button>)}</nav><div className="webui-sidebar-status"><div className="mb-1 flex items-center gap-2"><span className="webui-status-dot" />{dashboard.kernelState}</div><span className="font-mono">{dashboard.instance}</span></div></aside>;
 }
 
 function WorkspaceView({ workspace, dashboard, openOperation }: { workspace: Workspace; dashboard: Dashboard; openOperation: (operation: WebUiOperation) => void }) {
@@ -118,7 +116,6 @@ function State({ value }: { value: string }) { const positive = ["ready", "runni
 function Empty({ label }: { label: string }) { return <div className="grid min-h-32 place-items-center border-t text-sm text-muted-foreground">{label}</div>; }
 function Loading() { return <main className="grid min-h-screen place-items-center"><div className="w-[min(440px,90vw)] space-y-3"><Skeleton className="h-7 w-44" /><Skeleton className="h-28 w-full" /><Skeleton className="h-48 w-full" /></div></main>; }
 function Unavailable({ error, retry }: { error: string; retry: () => Promise<void> }) { return <main className="grid min-h-screen place-items-center p-5"><Card className="w-full max-w-md"><CardHeader><CircleAlert className="mb-2 text-destructive" /><CardTitle>Local service unavailable</CardTitle><CardDescription>The WebUI could not read the running daemon.</CardDescription></CardHeader><CardContent className="flex items-center justify-between gap-3"><code className="text-xs text-muted-foreground">{error}</code><Button onClick={() => void retry()}><RefreshCw size={15} />Retry</Button></CardContent></Card></main>; }
-function FirstRun({ instance, open }: { instance: string; open: () => void }) { return <main className="grid min-h-screen place-items-center p-5"><Card className="w-full max-w-xl"><CardHeader><CardTitle>Set up {instance}</CardTitle><CardDescription>No runnable runtime is configured yet. Create the first runtime through an explicit local management operation.</CardDescription></CardHeader><CardContent><Button onClick={open}>Open runtimes <ChevronRight size={15} /></Button></CardContent></Card></main>; }
 function OperationDialog({ operation, close, api, reload }: { operation: WebUiOperation | null; close: () => void; api: WebUiApi; reload: () => Promise<void> }) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [confirmation, setConfirmation] = useState("");

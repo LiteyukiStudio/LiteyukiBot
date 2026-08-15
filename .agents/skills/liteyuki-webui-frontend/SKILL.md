@@ -42,6 +42,9 @@ description: Build, review, or test LiteyukiBot v7's React/Vite WebUI under webu
 - Empty states and errors must state the actual condition and the available
   recovery action. Do not use decorative sample events, runtimes, progress, or
   metrics.
+- Do not make initial setup a blocking default route. Put setup instructions in
+  a dedicated help surface or an on-demand Runtimes action when that surface is
+  implemented.
 
 ## Design System
 
@@ -55,7 +58,9 @@ description: Build, review, or test LiteyukiBot v7's React/Vite WebUI under webu
   Do not put `var(...)` or hex values in Tailwind class names.
 - Keep the Signal Ledger layout: a white fixed navigation rail, unframed normal
   navigation, one theme-derived active row, elevated content surfaces, and a
-  compact top status bar for the current page and live state. Extend the status
+  compact top status bar for the current page and live state. On desktop, the
+  rail and top bar form one continuous shell with a rounded inner transition;
+  the mobile drawer remains an independent bordered surface. Extend the status
   bar for real transfer progress only when that capability exists.
 - Use Lucide icons from the installed set. Icon-only controls need an accessible
   name and tooltip. Keep cards at modest radii, preserve desktop/mobile text
