@@ -8,7 +8,9 @@ import pytest
 
 from liteyukibot.operations import (
     ManagementPrincipal,
+    OperationConfirmation,
     OperationDefinition,
+    OperationImpact,
     OperationLedger,
     OperationRequest,
     OperationState,
@@ -78,3 +80,96 @@ async def test_operation_ledger_marks_interrupted_work_unknown_after_restart(tmp
         assert current.result_code == "worker_restarted"
     finally:
         await recovered.close()
+
+
+@pytest.mark.asyncio
+async def test_operation_ledger_exposes_catalog_and_requires_target_confirmation(tmp_path: Path) -> None:
+    executed: list[str] = []
+
+    async def handler(_principal: ManagementPrincipal, request: OperationRequest) -> str:
+        executed.append(request.target)
+        return "done"
+
+    ledger = OperationLedger(tmp_path / "operations.sqlite3", audit_key=b"key")
+    ledger.register(
+        OperationDefinition(
+            "plugin.rollback",
+            "plugin.write",
+            True,
+            api="liteyuki.management",
+            version=1,
+            input_schema={
+                "type": "object",
+                "properties": {"runtime_id": {"type": "string", "minLength": 1}},
+                "required": ["runtime_id"],
+                "additionalProperties": False,
+            },
+            impact=OperationImpact.HIGH,
+            confirmation=OperationConfirmation.TARGET,
+            target="runtime_id",
+            target_input_field="runtime_id",
+        ),
+        handler,
+    )
+    await ledger.start()
+    try:
+        principal = _principal("plugin.write")
+        assert ledger.catalog(principal) == (
+            {
+                "id": "plugin.rollback",
+                "api": "liteyuki.management",
+                "version": 1,
+                "input_schema": {
+                    "type": "object",
+                    "properties": {"runtime_id": {"type": "string", "minLength": 1}},
+                    "required": ["runtime_id"],
+                    "additionalProperties": False,
+                },
+                "impact": "high",
+                "capability": "plugin.write",
+                "confirmation": "target",
+                "target": "runtime_id",
+                "target_input_field": "runtime_id",
+                "mutating": True,
+                "cancellable": False,
+            },
+        )
+        invalid = await ledger.submit(principal, OperationRequest("plugin.rollback", "runtime-a", {}, "invalid"))
+        assert invalid.state is OperationState.REJECTED
+        assert invalid.result_code == "invalid_input"
+        unconfirmed = await ledger.submit(
+            principal,
+            OperationRequest("plugin.rollback", "runtime-a", {"runtime_id": "runtime-a"}, "unconfirmed"),
+        )
+        assert unconfirmed.result_code == "target_confirmation_required"
+        mismatched = await ledger.submit(
+            principal,
+            OperationRequest(
+                "plugin.rollback",
+                "runtime-b",
+                {"runtime_id": "runtime-a"},
+                "mismatched",
+                confirmed=True,
+                confirmation_target="runtime-b",
+            ),
+        )
+        assert mismatched.result_code == "target_mismatch"
+        accepted = await ledger.submit(
+            principal,
+            OperationRequest(
+                "plugin.rollback",
+                "runtime-a",
+                {"runtime_id": "runtime-a"},
+                "confirmed",
+                confirmed=True,
+                confirmation_target="runtime-a",
+            ),
+        )
+        for _ in range(20):
+            current = ledger.get(accepted.id)
+            if current is not None and current.state is OperationState.SUCCEEDED:
+                break
+            await asyncio.sleep(0)
+        assert executed == ["runtime-a"]
+    finally:
+        await ledger.close()

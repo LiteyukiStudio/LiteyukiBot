@@ -8,7 +8,7 @@ import hmac
 import json
 import sqlite3
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
@@ -38,6 +38,22 @@ class OperationState(StrEnum):
     REJECTED = "rejected"
 
 
+class OperationImpact(StrEnum):
+    """The operator-visible consequence class for an operation."""
+
+    NONE = "none"
+    STANDARD = "standard"
+    HIGH = "high"
+
+
+class OperationConfirmation(StrEnum):
+    """The confirmation evidence required before an operation can run."""
+
+    NONE = "none"
+    EXPLICIT = "explicit"
+    TARGET = "target"
+
+
 @dataclass(frozen=True, slots=True)
 class ManagementPrincipal:
     kind: PrincipalKind
@@ -57,6 +73,52 @@ class OperationDefinition:
     capability: str
     mutating: bool
     cancellable: bool = False
+    api: str = "liteyuki.management"
+    version: int = 1
+    input_schema: Mapping[str, Any] = field(default_factory=lambda: {"type": "object"})
+    impact: OperationImpact = OperationImpact.STANDARD
+    confirmation: OperationConfirmation = OperationConfirmation.NONE
+    target: str = "kernel"
+    target_input_field: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.name or self.name != self.name.strip():
+            raise ValueError("operation name must be non-empty and trimmed")
+        if not self.api or self.api != self.api.strip() or self.version < 1:
+            raise ValueError("operation API metadata is invalid")
+        if not self.capability or self.capability != self.capability.strip():
+            raise ValueError("operation capability must be non-empty and trimmed")
+        if not isinstance(self.input_schema, Mapping):
+            raise ValueError("operation input schema must be a mapping")
+        if not self.target or self.target != self.target.strip():
+            raise ValueError("operation target metadata must be non-empty and trimmed")
+        if self.target_input_field is not None and (
+            not self.target_input_field or self.target_input_field != self.target_input_field.strip()
+        ):
+            raise ValueError("operation target input field must be non-empty and trimmed")
+
+    @property
+    def id(self) -> str:
+        """Stable catalog identifier. ``name`` remains for beta CLI compatibility."""
+
+        return self.name
+
+    def catalog_entry(self) -> dict[str, Any]:
+        """Return the JSON-safe metadata projected to management clients."""
+
+        return {
+            "id": self.id,
+            "api": self.api,
+            "version": self.version,
+            "input_schema": dict(self.input_schema),
+            "impact": self.impact.value,
+            "capability": self.capability,
+            "confirmation": self.confirmation.value,
+            "target": self.target,
+            "target_input_field": self.target_input_field,
+            "mutating": self.mutating,
+            "cancellable": self.cancellable,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +127,8 @@ class OperationRequest:
     target: str
     input: Mapping[str, Any]
     idempotency_key: str
+    confirmed: bool = False
+    confirmation_target: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +145,20 @@ class OperationRecord:
 type OperationHandler = Callable[[ManagementPrincipal, OperationRequest], Awaitable[str | None]]
 
 
+class WorkerOperationBridge:
+    """Typed worker-side execution bridge for a daemon-owned operation ledger.
+
+    The ledger owns state transitions and audit persistence. A worker bridge owns
+    only execution of an already-authorized, schema-validated request.
+    """
+
+    def __init__(self, handler: OperationHandler) -> None:
+        self._handler = handler
+
+    async def execute(self, principal: ManagementPrincipal, request: OperationRequest) -> str | None:
+        return await self._handler(principal, request)
+
+
 class OperationLedger:
     """Single-instance FIFO executor whose database never stores raw user input."""
 
@@ -94,7 +172,7 @@ class OperationLedger:
         self._key = audit_key
         self._retention_days = retention_days
         self._retention_rows = retention_rows
-        self._definitions: dict[str, tuple[OperationDefinition, OperationHandler]] = {}
+        self._definitions: dict[str, tuple[OperationDefinition, WorkerOperationBridge]] = {}
         self._queue: asyncio.Queue[tuple[ManagementPrincipal, OperationRequest, str]] = asyncio.Queue()
         self._worker: asyncio.Task[None] | None = None
         self._cancelled: set[str] = set()
@@ -121,10 +199,20 @@ class OperationLedger:
     def register(self, definition: OperationDefinition, handler: OperationHandler) -> None:
         if definition.name in self._definitions:
             raise OperationError(f"operation already registered: {definition.name}")
-        self._definitions[definition.name] = (definition, handler)
+        self._definitions[definition.name] = (definition, WorkerOperationBridge(handler))
 
     def has_definition(self, name: str) -> bool:
         return name in self._definitions
+
+    def catalog(self, principal: ManagementPrincipal) -> tuple[dict[str, Any], ...]:
+        """Return only operations the principal may discover and submit."""
+
+        now = datetime.now(UTC)
+        return tuple(
+            definition.catalog_entry()
+            for definition, _bridge in sorted(self._definitions.values(), key=lambda item: item[0].id)
+            if principal.allows(definition.capability, now=now)
+        )
 
     async def start(self) -> None:
         if self._worker is None:
@@ -142,6 +230,9 @@ class OperationLedger:
         now = datetime.now(UTC)
         if selected is None or not principal.allows(selected[0].capability, now=now):
             return self._write(principal, request, OperationState.REJECTED, "unauthorized", now)
+        validation_error = self.validate_request(selected[0], request)
+        if validation_error is not None:
+            return self._write(principal, request, OperationState.REJECTED, validation_error, now)
         existing = self._connection.execute(
             "SELECT id, operation, target, state, result_code, created_at, updated_at "
             "FROM operations WHERE idempotency = ?",
@@ -167,6 +258,16 @@ class OperationLedger:
         ).fetchone()
         return self._record(row) if row else None
 
+    def records(self, limit: int) -> tuple[OperationRecord, ...]:
+        if not 1 <= limit <= 500:
+            raise ValueError("operation record limit must be between 1 and 500")
+        rows = self._connection.execute(
+            "SELECT id, operation, target, state, result_code, created_at, updated_at "
+            "FROM operations ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return tuple(self._record(row) for row in rows)
+
     async def _run(self) -> None:
         while True:
             principal, request, record_id = await self._queue.get()
@@ -174,9 +275,9 @@ class OperationLedger:
                 self._transition(record_id, OperationState.CANCELLED, "cancelled")
                 continue
             self._transition(record_id, OperationState.RUNNING, None)
-            _definition, handler = self._definitions[request.operation]
+            _definition, bridge = self._definitions[request.operation]
             try:
-                result = await handler(principal, request)
+                result = await bridge.execute(principal, request)
             except Exception:
                 self._transition(record_id, OperationState.FAILED, "operation_failed")
             else:
@@ -247,6 +348,35 @@ class OperationLedger:
             f"{self._principal(principal)}:{request.operation}:{request.target}:{self._digest(request.input)}:{request.idempotency_key}".encode(),
             hashlib.sha256,
         ).hexdigest()
+
+    @staticmethod
+    def validate_request(definition: OperationDefinition, request: OperationRequest) -> str | None:
+        if not request.idempotency_key or request.idempotency_key != request.idempotency_key.strip():
+            return "invalid_idempotency_key"
+        if not request.target or request.target != request.target.strip():
+            return "invalid_target"
+        try:
+            json.dumps(request.input, sort_keys=True, separators=(",", ":"))
+        except (TypeError, ValueError):
+            return "invalid_input"
+        try:
+            from jsonschema import Draft202012Validator
+
+            Draft202012Validator(definition.input_schema).validate(dict(request.input))
+        except Exception:
+            return "invalid_input"
+        if (
+            definition.target_input_field is not None
+            and request.input.get(definition.target_input_field) != request.target
+        ):
+            return "target_mismatch"
+        if definition.confirmation is OperationConfirmation.EXPLICIT and not request.confirmed:
+            return "confirmation_required"
+        if definition.confirmation is OperationConfirmation.TARGET and (
+            not request.confirmed or request.confirmation_target != request.target
+        ):
+            return "target_confirmation_required"
+        return None
 
     @staticmethod
     def _record(row: tuple[Any, ...]) -> OperationRecord:

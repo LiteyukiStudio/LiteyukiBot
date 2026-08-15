@@ -1,0 +1,135 @@
+from __future__ import annotations
+
+from collections.abc import AsyncIterable
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+from liteyukibot_webui import WebUiEvent, WebUiEventReplay, WebUiPrincipal, WebUiServer, create_app
+from liteyukibot_webui.service import JsonObject
+
+
+class Bridge:
+    def __init__(self) -> None:
+        self.principal = WebUiPrincipal("local-admin", frozenset({"runtime.control"}))
+        self.submissions: list[JsonObject] = []
+
+    async def issue_ticket(self) -> str:
+        return "unused"
+
+    async def redeem_ticket(self, ticket: str) -> WebUiPrincipal | None:
+        return self.principal if ticket == "ticket" else None
+
+    async def authorize_session(self, principal: WebUiPrincipal) -> bool:
+        return principal == self.principal
+
+    async def bootstrap(self, principal: WebUiPrincipal) -> JsonObject:
+        return {"subject": principal.subject}
+
+    async def snapshot(self, _principal: WebUiPrincipal) -> JsonObject:
+        return {"state": "ready"}
+
+    async def operation_catalog(self, _principal: WebUiPrincipal) -> JsonObject:
+        return {"operations": ["runtime.restart"]}
+
+    async def submit_operation(self, _principal: WebUiPrincipal, request: JsonObject) -> JsonObject:
+        self.submissions.append(request)
+        return {"id": "operation-1", "state": "queued"}
+
+    async def operation(self, _principal: WebUiPrincipal, operation_id: str) -> JsonObject | None:
+        return {"id": operation_id} if operation_id == "operation-1" else None
+
+    async def ledger(self, _principal: WebUiPrincipal, cursor: str | None, limit: int) -> JsonObject:
+        return {"cursor": cursor, "limit": limit, "entries": []}
+
+    async def audit(self, _principal: WebUiPrincipal, cursor: str | None, limit: int) -> JsonObject:
+        return {"cursor": cursor, "limit": limit, "entries": []}
+
+    async def plugin_surfaces(self, _principal: WebUiPrincipal) -> JsonObject:
+        return {"generation": 1, "surfaces": []}
+
+    async def replay_events(
+        self, _principal: WebUiPrincipal, after_id: str | None, limit: int
+    ) -> WebUiEventReplay:
+        assert limit == 4096
+        if after_id == "expired":
+            return WebUiEventReplay((), reset=True)
+        return WebUiEventReplay((WebUiEvent("snapshot", {"state": "ready"}, "2"),))
+
+    async def stream_events(self, _principal: WebUiPrincipal, _after_id: str | None) -> AsyncIterable[WebUiEvent]:
+        if False:
+            yield WebUiEvent("heartbeat", {})
+
+
+def _client(tmp_path: Path) -> tuple[TestClient, Bridge]:
+    (tmp_path / "index.html").write_text("<main>Liteyuki</main>", encoding="utf-8")
+    bridge = Bridge()
+    return TestClient(create_app(bridge, asset_directory=tmp_path), base_url="http://127.0.0.1:9321"), bridge
+
+
+def _session(client: TestClient) -> str:
+    response = client.post("/api/v1/session", json={"ticket": "ticket"}, headers={"Origin": "http://127.0.0.1:9321"})
+    assert response.status_code == 200
+    return str(response.json()["csrf_token"])
+
+
+def test_ticket_session_and_mutation_csrf_policy(tmp_path: Path) -> None:
+    client, bridge = _client(tmp_path)
+    assert client.get("/api/v1/bootstrap").json() == {"error": {"code": "webui.session_required"}}
+    csrf_token = _session(client)
+
+    forbidden = client.post(
+        "/api/v1/operations",
+        json={"operation": "runtime.restart"},
+        headers={"Origin": "http://127.0.0.1:9321"},
+    )
+    assert forbidden.json() == {"error": {"code": "webui.csrf_required"}}
+
+    submitted = client.post(
+        "/api/v1/operations",
+        json={"operation": "runtime.restart"},
+        headers={"Origin": "http://127.0.0.1:9321", "X-CSRF-Token": csrf_token},
+    )
+    assert submitted.json() == {"id": "operation-1", "state": "queued"}
+    assert bridge.submissions == [{"operation": "runtime.restart"}]
+
+
+def test_loopback_origin_and_host_are_enforced(tmp_path: Path) -> None:
+    client, _bridge = _client(tmp_path)
+    assert client.get("/", headers={"Host": "example.test"}).json() == {"error": {"code": "webui.invalid_host"}}
+    assert client.post("/api/v1/session", json={"ticket": "ticket"}).json() == {
+        "error": {"code": "webui.origin_required"}
+    }
+    assert client.post(
+        "/api/v1/session", json={"ticket": "ticket"}, headers={"Origin": "http://example.test"}
+    ).json() == {"error": {"code": "webui.invalid_origin"}}
+
+
+def test_sse_replay_and_reset_are_protocol_events(tmp_path: Path) -> None:
+    client, _bridge = _client(tmp_path)
+    _session(client)
+    replay = client.get("/api/v1/events")
+    assert replay.headers["content-type"].startswith("text/event-stream")
+    assert "id: 2\nevent: snapshot\ndata: {\"state\":\"ready\"}" in replay.text
+
+    reset = client.get("/api/v1/events", headers={"Last-Event-ID": "expired"})
+    assert "event: reset\ndata: {\"reason\":\"replay_unavailable\"}" in reset.text
+
+
+def test_static_spa_fallback_is_packaged_by_the_server(tmp_path: Path) -> None:
+    client, _bridge = _client(tmp_path)
+    response = client.get("/runtimes")
+    assert response.status_code == 200
+    assert response.text == "<main>Liteyuki</main>"
+
+
+async def test_server_open_issues_fragment_handoff_and_reports_bound_port(tmp_path: Path) -> None:
+    (tmp_path / "index.html").write_text("<main>Liteyuki</main>", encoding="utf-8")
+    server = WebUiServer(Bridge(), asset_directory=tmp_path)
+    try:
+        handoff = await server.open()
+        status = server.status()
+        assert status["state"] == "running"
+        assert isinstance(status["port"], int) and status["port"] > 0
+        assert handoff == f"http://127.0.0.1:{status['port']}/#ticket=unused"
+    finally:
+        await server.stop()
