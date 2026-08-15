@@ -59,6 +59,14 @@ description: Build, review, or test LiteyukiBot v7's React/Vite WebUI under webu
 - Keep the locale catalog restricted to actual user-facing UI. The top status
   bar owns the persisted language and theme controls; themes use semantic token
   overrides and must work without per-component hard-coded active colors.
+- Resolve `webui.*` text through the authenticated presentation endpoint. The
+  endpoint is backed by the kernel `ResourceCatalog`, including enabled plugin
+  packs; frontend source may name stable message keys and interpolation values,
+  but must not introduce a second translated catalog.
+- Theme selection consists of light/dark/system mode plus the Blue, Lavender,
+  and Cyan accent groups from `tmp/v7-webui-uiux-design.md`. Keep their paired
+  token values in the CSS registry and use the theme reveal controller for
+  visual mode changes; reduced-motion users receive an immediate transition.
 - Keep the Signal Ledger layout: a white fixed navigation rail, unframed normal
   navigation, one theme-derived active row, elevated content surfaces, and a
   compact top status bar for the current page and live state. On desktop, the
