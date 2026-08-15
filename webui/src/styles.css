@@ -101,7 +101,7 @@ button, input { font: inherit; }
 .webui-sidebar-nav-item[data-active="true"] { background: var(--nav-active); color: var(--nav-active-foreground); font-weight: 600; }
 .webui-sidebar-status { margin-top: auto; padding: 17px 8px 0; border-top: 1px solid var(--border); color: var(--muted-foreground); font-size: 11px; }
 .webui-status-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--status-good-border); }
-.webui-topbar { position: sticky; top: 0; z-index: 20; display: flex; min-height: 66px; align-items: center; justify-content: space-between; gap: 16px; padding: 0 24px; background: var(--topbar-background); border-bottom: 1px solid color-mix(in oklch, var(--border), var(--card) 55%); border-top-left-radius: 20px; box-shadow: 0 2px 12px var(--topbar-shadow); }
+.webui-topbar { position: sticky; top: 0; z-index: 20; display: flex; min-height: 66px; align-items: center; justify-content: space-between; gap: 16px; padding: 0 24px; background: var(--topbar-background); border-bottom: 1px solid color-mix(in oklch, var(--border), var(--card) 55%); border-bottom-left-radius: 20px; box-shadow: 0 2px 12px var(--topbar-shadow); }
 .webui-topbar-page, .webui-topbar-actions, .webui-topbar-state { display: flex; align-items: center; }
 .webui-topbar-page { gap: 12px; min-width: 0; }
 .webui-topbar-page h1 { margin: 0; color: var(--foreground); font-size: 17px; font-weight: 650; line-height: 1.2; }
@@ -116,5 +116,5 @@ button, input { font: inherit; }
 .webui-status-strip { border: 1px solid var(--status-good-border); border-radius: 12px; background: var(--status-good); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--card), transparent 18%); }
 .webui-status-strip--attention { border-color: var(--status-attention-border); background: var(--status-attention); }
 
-@media (max-width: 1023px) { .webui-sidebar::after { display: none; } .webui-topbar { border-top-left-radius: 0; } .webui-workbench { min-height: auto; } }
+@media (max-width: 1023px) { .webui-sidebar::after { display: none; } .webui-topbar { border-bottom-left-radius: 0; } .webui-workbench { min-height: auto; } }
 @media (max-width: 639px) { .webui-topbar { min-height: 60px; padding: 0 16px; } .webui-topbar-runtime-summary { display: none; } }
