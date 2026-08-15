@@ -82,6 +82,10 @@ for (const [name, viewport] of [["desktop", { width: 1440, height: 960 }], ["mob
       await expect(page.locator(".webui-workspace-base")).toHaveCSS("box-shadow", "none");
       const sidebarBackground = await page.locator(".webui-sidebar").evaluate((element) => getComputedStyle(element).backgroundColor);
       await expect(page.locator(".webui-topbar")).toHaveCSS("background-color", sidebarBackground);
+      const [topbar, title] = await Promise.all([page.locator(".webui-topbar").boundingBox(), page.getByRole("heading", { name: "Overview" }).boundingBox()]);
+      expect(topbar).not.toBeNull();
+      expect(title).not.toBeNull();
+      expect(Math.abs((title!.x + title!.width / 2) - (topbar!.x + topbar!.width / 2))).toBeLessThan(1);
     }
   });
 }
@@ -120,7 +124,11 @@ test("handoff fragment redeems its ticket before loading the local snapshot", as
 test("top bar persists the selected locale and applies the selected theme", async ({ page }) => {
   await mockDaemon(page);
   await page.goto("/#/overview");
-  await page.getByRole("button", { name: "Language" }).click();
+  const language = page.getByRole("button", { name: "Language" });
+  await language.click();
+  await page.keyboard.press("Escape");
+  await expect(language).toHaveCSS("box-shadow", "none");
+  await language.click();
   await page.getByRole("menuitemradio", { name: "简体中文" }).click();
   await expect(page.getByRole("heading", { name: "概览" })).toBeVisible();
   await page.getByRole("button", { name: "主题" }).click();
