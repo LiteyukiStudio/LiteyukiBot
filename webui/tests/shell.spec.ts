@@ -81,7 +81,13 @@ test("high-impact operations require an explicit target and submit typed input",
 });
 
 test("service errors render a recoverable unavailable state", async ({ page }) => {
-  await page.route("**/api/v1/**", (route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "webui.bridge_unavailable" } }) }));
+  let sessionRequests = 0;
+  await page.route("**/api/v1/**", (route) => {
+    if (new URL(route.request().url()).pathname.endsWith("/session")) sessionRequests += 1;
+    return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "webui.bridge_unavailable" } }) });
+  });
   await page.goto("/#/overview");
   await expect(page.getByText("Local service unavailable", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Retry" }).click();
+  await expect.poll(() => sessionRequests).toBe(2);
 });

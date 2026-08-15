@@ -38,28 +38,42 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
 vite.once("exit", (code, signal) => process.exitCode = code ?? (signal ? 1 : 0));
 
 async function ensureDaemon() {
+  let responding = false;
   try {
-    await requestControl("status");
-    return;
+    if (await daemonIsRunning()) return;
+    responding = true;
   } catch {
-    if (!existsSync(join(workspace, "liteyuki.toml"))) {
-      await run("uv", ["run", "--extra", "webui", "liteyuki", "--workspace", workspace, "init", "--non-interactive", "--locale", "en-US"]);
-    }
-    await run("uv", [
-      "run", "--extra", "webui", "liteyuki", "--workspace", workspace, "--instance", options.instance,
-      "--set", "webui.mode=always", "--set", "webui.port=0", "run", "--detach",
-    ]);
-    for (let attempt = 0; attempt < 30; attempt += 1) {
-      await delay(250);
-      try {
-        await requestControl("status");
-        return;
-      } catch {
-        // The detached daemon has not published its descriptor yet.
-      }
-    }
-    throw new Error(`daemon did not become ready; inspect ${join(workspace, ".liteyuki", "instances", options.instance, "logs", "daemon.log")}`);
+    // A missing or stale descriptor permits launching a replacement daemon.
   }
+  if (responding && await waitForDaemonRunning()) return;
+  if (responding && existsSync(descriptor)) throw new Error("existing daemon did not reach the running state");
+
+  if (!existsSync(join(workspace, "liteyuki.toml"))) {
+    await run("uv", ["run", "--extra", "webui", "liteyuki", "--workspace", workspace, "init", "--non-interactive", "--locale", "en-US"]);
+  }
+  await run("uv", [
+    "run", "--extra", "webui", "liteyuki", "--workspace", workspace, "--instance", options.instance,
+    "--set", "webui.mode=always", "--set", "webui.port=0", "run", "--detach",
+  ]);
+  if (await waitForDaemonRunning()) return;
+  throw new Error(`daemon did not become ready; inspect ${join(workspace, ".liteyuki", "instances", options.instance, "logs", "daemon.log")}`);
+}
+
+async function daemonIsRunning() {
+  const status = await requestControl("status");
+  return status?.state === "running";
+}
+
+async function waitForDaemonRunning() {
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    await delay(250);
+    try {
+      if (await daemonIsRunning()) return true;
+    } catch {
+      // The detached daemon has not published its descriptor yet.
+    }
+  }
+  return false;
 }
 
 async function requestControl(command) {

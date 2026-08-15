@@ -25,7 +25,12 @@ export class WebUiApi {
   private initialization: Promise<void> | null = null;
 
   async initialize(): Promise<void> {
-    this.initialization ??= this.initializeSession();
+    if (this.initialization === null) {
+      this.initialization = this.initializeSession().catch((error: unknown) => {
+        this.initialization = null;
+        throw error;
+      });
+    }
     return this.initialization;
   }
 

@@ -47,6 +47,7 @@ export function App() {
       setDashboard(projectDashboard(bootstrap, ledger, catalog.operations, audit.items));
     } catch (cause) {
       setDashboard(null);
+      setSessionReady(false);
       setError(cause instanceof Error ? cause.message : "webui.request_failed");
     }
   }, [api]);
