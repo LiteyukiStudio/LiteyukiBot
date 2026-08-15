@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Activity, ArrowRight, Boxes, Cable, CheckCircle2, CircleAlert, CircleDot, Cog, FileClock, Languages, Menu, MoveUpRight, Network, Play, Radio, RefreshCw, ShieldCheck, SunMoon, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowRight, Boxes, Cable, CheckCircle2, CircleAlert, CircleDot, FileClock, Play, RefreshCw, ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -7,10 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SurfaceCard } from "@/components/surface-card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,15 +16,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { WebUiApi, type JsonObject, type WebUiOperation } from "@/lib/api";
 import { projectDashboard, type Dashboard } from "@/lib/dashboard";
 import { cn } from "@/lib/utils";
-import { useLocale, type Locale } from "@/i18n/locale";
-import { accents, useThemeController, type Accent, type ThemeMode } from "@/themes/theme-controller";
+import { Sidebar, TopStatusBar, navigation, type Workspace } from "@/components/app-shell";
+import { useLocale } from "@/i18n/locale";
 
-type Workspace = "overview" | "events" | "topology" | "runtimes" | "plugins" | "configuration";
-const navigation: { id: Workspace; labelKey: string; icon: typeof Activity }[] = [
-  { id: "overview", labelKey: "webui.nav.overview", icon: Activity }, { id: "events", labelKey: "webui.nav.events", icon: Radio },
-  { id: "topology", labelKey: "webui.nav.topology", icon: Network }, { id: "runtimes", labelKey: "webui.nav.runtimes", icon: Cable },
-  { id: "plugins", labelKey: "webui.nav.plugins", icon: Boxes }, { id: "configuration", labelKey: "webui.nav.configuration", icon: Cog },
-];
 
 function currentWorkspace(): Workspace {
   const value = window.location.hash.replace(/^#\//, "") as Workspace;
@@ -80,24 +72,6 @@ export function App() {
     <div className="min-w-0"><TopStatusBar dashboard={dashboard} pageTitle={pageTitle} openNavigation={() => setMenuOpen(true)} refresh={() => void reload()} /><main className="px-4 py-6 sm:px-7 sm:py-7 lg:px-10 lg:py-6"><div className="mx-auto max-w-[1120px]"><section className="webui-workbench"><WorkspaceView workspace={workspace} dashboard={dashboard} openOperation={setOperation} /></section></div></main></div>
     <OperationDialog operation={operation} close={() => setOperation(null)} api={api} reload={reload} />
   </div></TooltipProvider>;
-}
-
-function TopStatusBar({ dashboard, pageTitle, openNavigation, refresh }: { dashboard: Dashboard; pageTitle: string; openNavigation: () => void; refresh: () => void }) {
-  const { locale, setLocale, t } = useLocale();
-  const { accent, mode, setAccent, setMode } = useThemeController();
-  const themeButton = useRef<HTMLButtonElement>(null);
-  const ready = dashboard.kernelState === "ready";
-  const activeRuntimes = dashboard.runtimes.filter((runtime) => runtime.state === "ready").length;
-  const runtimeSummary = t("webui.status.runtimes", { active: activeRuntimes, total: dashboard.runtimes.length });
-  const applyLocale = (value: string) => { if (value === "en-US" || value === "zh-CN") setLocale(value as Locale); };
-  const applyAccent = (value: string) => { if (accents.includes(value as Accent)) setAccent(value as Accent); };
-  const applyMode = (value: string) => { if (["system", "light", "dark"].includes(value)) setMode(value as ThemeMode, themeButton.current); };
-  return <header className="webui-topbar"><div className="webui-topbar-page"><Button className="lg:hidden" variant="outline" size="icon" onClick={openNavigation} aria-label={t("webui.header.open_navigation")}><Menu /></Button><h1>{pageTitle}</h1></div><div className="webui-topbar-actions"><div className={cn("webui-topbar-state", !ready && "webui-topbar-state--attention")} aria-label={`Kernel ${dashboard.kernelState}`}><span className="webui-status-dot" /><span className="font-medium">{ready ? t("webui.status.ready") : dashboard.kernelState}</span><span className="webui-topbar-runtime-summary">{runtimeSummary}</span></div><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label={t("webui.header.language")}><Languages size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={locale} onValueChange={applyLocale}><DropdownMenuRadioItem value="en-US">English</DropdownMenuRadioItem><DropdownMenuRadioItem value="zh-CN">简体中文</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu><DropdownMenu><DropdownMenuTrigger asChild><Button ref={themeButton} variant="outline" size="icon" aria-label={t("webui.header.theme")}><SunMoon size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={mode} onValueChange={applyMode}><DropdownMenuRadioItem value="system">{t("webui.theme.system")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="light">{t("webui.theme.light")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="dark">{t("webui.theme.dark")}</DropdownMenuRadioItem></DropdownMenuRadioGroup><Separator className="my-1" /><DropdownMenuRadioGroup value={accent} onValueChange={applyAccent}>{accents.map((item) => <DropdownMenuRadioItem value={item} key={item}><span className={`webui-theme-swatch webui-theme-swatch--${item}`} />{t(`webui.theme.${item}`)}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu><Tooltip><TooltipTrigger asChild><Button variant="outline" size="icon" onClick={refresh} aria-label={t("webui.action.refresh")}><RefreshCw size={16} /></Button></TooltipTrigger><TooltipContent>{t("webui.action.refresh")}</TooltipContent></Tooltip></div></header>;
-}
-
-function Sidebar({ active, dashboard, drawer = false, navigate, webuiVersion }: { active: Workspace; dashboard: Dashboard; drawer?: boolean; navigate: (workspace: Workspace) => void; webuiVersion: string }) {
-  const { t } = useLocale();
-  return <aside className={cn("webui-sidebar h-full min-h-screen flex-col", drawer ? "webui-sidebar--drawer flex" : "hidden lg:flex")}><div className="webui-sidebar-brand"><div className="webui-brand-mark"><MoveUpRight size={27} strokeWidth={2.55} /></div><div><strong className="block text-sm leading-tight">{t("webui.app.name")}</strong><span className="text-[11px] text-muted-foreground">{t("webui.app.subtitle")}</span></div></div><nav className="webui-sidebar-nav">{navigation.map(({ id, labelKey, icon: Icon }) => <Button key={id} variant="ghost" data-active={active === id || undefined} className="webui-sidebar-nav-item" onClick={() => navigate(id)}><Icon size={16} strokeWidth={1.8} />{t(labelKey)}</Button>)}</nav><div className="webui-sidebar-version font-mono">v{dashboard.version}+{webuiVersion}</div></aside>;
 }
 
 function WorkspaceView({ workspace, dashboard, openOperation }: { workspace: Workspace; dashboard: Dashboard; openOperation: (operation: WebUiOperation) => void }) {
