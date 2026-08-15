@@ -100,7 +100,7 @@ description: Build, review, or test LiteyukiBot v7's React/Vite WebUI under webu
 pnpm --dir webui install --frozen-lockfile
 pnpm --dir webui typecheck
 pnpm --dir webui build
-$env:PLAYWRIGHT_EXECUTABLE_PATH = Join-Path ${env:ProgramFiles(x86)} "Microsoft\Edge\Application\msedge.exe"
+pnpm --dir webui exec playwright install chromium
 pnpm --dir webui test:e2e
 uv run --extra webui pytest -q packages/webui/tests
 uv build --project packages/webui --out-dir dist/workspace
@@ -115,6 +115,50 @@ uv run python scripts/stage_webui_assets.py
   navigation behavior, and staged static assets.
 - Run the narrowest relevant checks while editing, then the commands above for a
   WebUI feature, package boundary, static asset, or launcher change.
+
+## Playwright
+
+- Keep browser tests in `webui/tests/*.spec.ts`. The project config starts Vite
+  on `127.0.0.1:4173`; tests navigate through the configured `baseURL` and do
+  not start a second server themselves.
+- Install the Chromium revision matching the installed Playwright package before
+  a first local run with `pnpm --dir webui exec playwright install chromium`.
+  CI installs its browser explicitly with `--with-deps`; do not add a browser
+  binary or Playwright cache to the repository.
+- When the managed browser cannot be installed locally, use an already installed
+  compatible Chrome or Edge binary for that invocation. `playwright.config.ts`
+  reads `PLAYWRIGHT_EXECUTABLE_PATH`, so the fallback changes neither project
+  configuration nor dependency state:
+
+  ```powershell
+  $edgeCandidates = @(
+    (Join-Path ${env:ProgramFiles(x86)} "Microsoft\Edge\Application\msedge.exe"),
+    (Join-Path $env:ProgramFiles "Microsoft\Edge\Application\msedge.exe")
+  )
+  $env:PLAYWRIGHT_EXECUTABLE_PATH = $edgeCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+  if (-not $env:PLAYWRIGHT_EXECUTABLE_PATH) { throw "Install Playwright Chromium or provide a browser executable." }
+  pnpm --dir webui test:e2e -- shell.spec.ts
+  ```
+
+- Use `pnpm --dir webui test:e2e -- <file-or-grep>` while iterating and run
+  `pnpm --dir webui test:e2e` for a WebUI delivery. Do not use fixed sleeps;
+  wait with `expect(...).toBeVisible()`, URL assertions, or `expect.poll()` for
+  actions that complete asynchronously.
+- Register `page.route("**/api/v1/**", ...)` before `page.goto()`. Reuse or
+  extend the typed daemon fixture in `shell.spec.ts`, return contract-shaped
+  bootstrap, presentation, ledger, catalog, audit, session, and SSE responses,
+  and explicitly cover failure responses for recovery UI. Browser tests must not
+  require a real daemon, local credentials, or a ticket from another run.
+- Query user-visible controls by role, accessible name, label, or stable text.
+  Reserve CSS locators for structural assertions such as the workspace shell,
+  overflow, virtualized rows, or deliberate geometry checks. Assert outcomes,
+  not implementation call counts, except where a request payload or one-time
+  ticket redemption is the contract under test.
+- For visual changes, exercise desktop and mobile viewports, verify no horizontal
+  overflow, and inspect the changed hierarchy and geometry with `boundingBox()`
+  only where a relationship is a requirement. For a virtual list, assert the
+  initial and scrolled-to record are visible while the rendered row count stays
+  bounded; never require every retained item to be in the DOM.
 
 ## Delivery
 
