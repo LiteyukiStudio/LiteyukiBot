@@ -251,7 +251,10 @@ async def test_native_agent_child_round_trips_mock_provider_tool_and_source_acti
                 {
                     "id": "call-1",
                     "type": "function",
-                    "function": {"name": "docs.search", "arguments": '{"query":"liteyuki"}'},
+                    "function": {
+                        "name": "docs.search",
+                        "arguments": '{"query":"liteyuki","limit":true}',
+                    },
                 }
             ],
         },
@@ -345,11 +348,24 @@ async def test_native_agent_child_round_trips_mock_provider_tool_and_source_acti
         server.close()
         await server.wait_closed()
 
-    assert observed_tools == [("agent", "delivery-1", "event-1", {"query": "liteyuki"})]
+    assert observed_tools == [("agent", "delivery-1", "event-1", {"query": "liteyuki", "limit": True})]
     assert observed_actions[0]["runtime_id"] == "nonebot"
     assert len(requests) == 2
     assert requests[0]["model"] == "mock-model"
     assert requests[0]["tools"] != []
+    second_messages = requests[1]["messages"]
+    assert isinstance(second_messages, list)
+    assistant_message = second_messages[-2]
+    assert isinstance(assistant_message, dict)
+    tool_calls = assistant_message["tool_calls"]
+    assert isinstance(tool_calls, list) and len(tool_calls) == 1
+    tool_call = tool_calls[0]
+    assert isinstance(tool_call, dict)
+    function = tool_call["function"]
+    assert isinstance(function, dict)
+    arguments = function["arguments"]
+    assert arguments == '{"query":"liteyuki","limit":true}'
+    assert json.loads(arguments) == {"query": "liteyuki", "limit": True}
 
 
 @pytest.mark.asyncio

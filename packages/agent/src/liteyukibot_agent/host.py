@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -319,7 +320,10 @@ def _assistant_tool_message(reply: ModelReply) -> Mapping[str, object]:
             {
                 "id": call.id,
                 "type": "function",
-                "function": {"name": call.tool_id, "arguments": str(dict(call.arguments))},
+                "function": {
+                    "name": call.tool_id,
+                    "arguments": json.dumps(dict(call.arguments), separators=(",", ":")),
+                },
             }
             for call in reply.tool_calls
         ],
