@@ -48,7 +48,7 @@ const zhMessages = {
   "webui.error.unavailable": "本地服务不可用", "webui.error.unavailable_detail": "WebUI 无法读取正在运行的 daemon。", "webui.action.retry": "重试", "webui.operation.queued": "操作已加入队列", "webui.operation.queued_failed": "操作无法加入队列", "webui.operation.description": "daemon 执行前会校验操作输入并记录到本地账本。", "webui.operation.confirm_hint": "高影响操作需要准确确认目标。", "webui.operation.confirm_target": "确认目标", "webui.operation.confirm_placeholder": "输入准确的目标标识", "webui.action.cancel": "取消", "webui.operation.queue": "加入操作队列", "webui.operation.queueing": "正在加入队列", "webui.operation.enter": "输入{field}",
 };
 
-async function mockDaemon(page: Page, onSubmit?: (body: unknown) => void) {
+async function mockDaemon(page: Page, onSubmit?: (body: unknown) => void, ledgerItems?: unknown[]) {
   await page.route("**/api/v1/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
@@ -59,7 +59,7 @@ async function mockDaemon(page: Page, onSubmit?: (body: unknown) => void) {
     }
     if (path.endsWith("/bootstrap") || path.endsWith("/snapshot")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(bootstrap) });
     if (path.endsWith("/operations/catalog")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(catalog) });
-    if (path.endsWith("/ledger")) return route.fulfill({ contentType: "application/json", body: JSON.stringify({ items: [{ id: "op-1", at: "2026-08-15T03:00:00Z", title: "management.runtime.restart", source: "redacted", status: "healthy", detail: "ok" }] }) });
+    if (path.endsWith("/ledger")) return route.fulfill({ contentType: "application/json", body: JSON.stringify({ items: ledgerItems ?? [{ id: "op-1", at: "2026-08-15T03:00:00Z", title: "management.runtime.restart", source: "redacted", status: "healthy", detail: "ok" }] }) });
     if (path.endsWith("/audit")) return route.fulfill({ contentType: "application/json", body: JSON.stringify({ items: [] }) });
     if (path.endsWith("/events")) return route.fulfill({ contentType: "text/event-stream", body: "event: heartbeat\ndata: {}\n\n" });
     if (path.endsWith("/operations") && route.request().method() === "POST") { onSubmit?.(route.request().postDataJSON()); return route.fulfill({ contentType: "application/json", body: JSON.stringify({ id: "op-2", state: "queued" }) }); }
@@ -82,10 +82,14 @@ for (const [name, viewport] of [["desktop", { width: 1440, height: 960 }], ["mob
       await expect(page.locator(".webui-workspace-base")).toHaveCSS("box-shadow", "none");
       const sidebarBackground = await page.locator(".webui-sidebar").evaluate((element) => getComputedStyle(element).backgroundColor);
       await expect(page.locator(".webui-topbar")).toHaveCSS("background-color", sidebarBackground);
-      const [topbar, title] = await Promise.all([page.locator(".webui-topbar").boundingBox(), page.getByRole("heading", { name: "Overview" }).boundingBox()]);
+      const [topbar, workspace, title] = await Promise.all([page.locator(".webui-topbar").boundingBox(), page.locator(".webui-workspace-base").boundingBox(), page.getByRole("heading", { name: "Overview" }).boundingBox()]);
       expect(topbar).not.toBeNull();
+      expect(workspace).not.toBeNull();
       expect(title).not.toBeNull();
-      expect(Math.abs((title!.x + title!.width / 2) - (topbar!.x + topbar!.width / 2))).toBeLessThan(1);
+      expect(Math.abs(title!.x - workspace!.x)).toBeLessThan(3);
+      expect(title!.y).toBeGreaterThan(topbar!.y);
+      expect(title!.y + title!.height).toBeLessThan(topbar!.y + topbar!.height);
+      expect(title!.y + title!.height).toBeLessThan(workspace!.y);
     }
   });
 }
@@ -99,6 +103,18 @@ test("workspaces project live ledger, topology, runtimes, and plugins", async ({
   await expect(page.getByText("onebot-primary")).toBeVisible();
   await page.goto("/#/plugins");
   await expect(page.getByText("Profile", { exact: true })).toBeVisible();
+});
+
+test("ledger virtualizes large retained record lists", async ({ page }) => {
+  const records = Array.from({ length: 300 }, (_, index) => ({ id: `op-${index}`, at: `2026-08-15T03:${String(index).padStart(2, "0")}:00Z`, title: `operation-${index}`, source: "redacted", status: "healthy", detail: "ok" }));
+  await mockDaemon(page, undefined, records);
+  await page.goto("/#/events");
+  const viewport = page.locator('[data-slot="ledger-viewport"]');
+  await expect(viewport).toBeVisible();
+  await expect(page.getByText("operation-0")).toBeVisible();
+  expect(await page.locator("tr[data-virtual-index]").count()).toBeLessThan(32);
+  await viewport.evaluate((element) => { element.scrollTop = element.scrollHeight; element.dispatchEvent(new Event("scroll")); });
+  await expect(page.getByText("operation-299")).toBeVisible();
 });
 
 test("brand returns to overview only from another workspace", async ({ page }) => {

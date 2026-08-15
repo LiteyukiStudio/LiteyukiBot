@@ -157,5 +157,10 @@ html.webui-theme-transition [data-slot="button"] {
   transition: background-color 900ms cubic-bezier(.25, 0, .7, .2), border-color 900ms cubic-bezier(.25, 0, .7, .2);
 }
 
+@media (min-width: 1024px) {
+  .webui-topbar { min-height: 110px; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 66px 44px; column-gap: 16px; row-gap: 0; }
+  .webui-topbar-page { grid-column: 1 / -1; grid-row: 2; width: min(1120px, calc(100% - 32px)); align-self: stretch; justify-self: center; justify-content: flex-start; padding-top: 12px; }
+  .webui-topbar-actions { grid-column: 2; grid-row: 1; }
+}
 @media (max-width: 1023px) { .webui-sidebar--drawer { background-color: var(--card); } .webui-topbar { display: flex; justify-content: space-between; } .webui-topbar-page, .webui-topbar-actions { grid-column: auto; justify-self: auto; } }
 @media (max-width: 639px) { .webui-topbar { min-height: 60px; padding: 0 16px; } .webui-topbar-runtime-summary { display: none; } }
