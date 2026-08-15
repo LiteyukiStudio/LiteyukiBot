@@ -57,12 +57,12 @@ test("workspaces project live ledger, topology, runtimes, and plugins", async ({
 });
 
 test("handoff fragment redeems its ticket before loading the local snapshot", async ({ page }) => {
-  let ticket: unknown;
+  const tickets: unknown[] = [];
   await mockDaemon(page);
-  await page.route("**/api/v1/session", async (route) => { ticket = route.request().postDataJSON(); await route.fulfill({ contentType: "application/json", body: JSON.stringify({ csrf_token: "csrf" }) }); });
+  await page.route("**/api/v1/session", async (route) => { tickets.push(route.request().postDataJSON()); await route.fulfill({ contentType: "application/json", body: JSON.stringify({ csrf_token: "csrf" }) }); });
   await page.goto("/#ticket=one-time-ticket");
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
-  expect(ticket).toEqual({ ticket: "one-time-ticket" });
+  expect(tickets).toEqual([{ ticket: "one-time-ticket" }]);
   await expect(page).toHaveURL(/#\/overview$/);
 });
 

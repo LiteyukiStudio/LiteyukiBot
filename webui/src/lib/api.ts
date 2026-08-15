@@ -22,8 +22,14 @@ export type WebUiOperationRecord = {
 
 export class WebUiApi {
   private csrfToken: string | null = null;
+  private initialization: Promise<void> | null = null;
 
   async initialize(): Promise<void> {
+    this.initialization ??= this.initializeSession();
+    return this.initialization;
+  }
+
+  private async initializeSession(): Promise<void> {
     const match = /^#ticket=([^&]+)$/.exec(window.location.hash);
     const result = match
       ? await this.request<{ csrf_token: string }>("/session", {

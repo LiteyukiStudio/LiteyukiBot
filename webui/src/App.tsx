@@ -33,6 +33,7 @@ export function App() {
   const [workspace, setWorkspace] = useState<Workspace>(currentWorkspace);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sessionReady, setSessionReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [dismissFirstRun, setDismissFirstRun] = useState(false);
   const [operation, setOperation] = useState<WebUiOperation | null>(null);
@@ -41,6 +42,7 @@ export function App() {
     try {
       setError(null);
       await api.initialize();
+      setSessionReady(true);
       const [bootstrap, ledger, catalog, audit] = await Promise.all([api.bootstrap(), api.ledger(), api.catalog(), api.audit()]);
       setDashboard(projectDashboard(bootstrap, ledger, catalog.operations, audit.items));
     } catch (cause) {
@@ -56,9 +58,10 @@ export function App() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
   useEffect(() => {
+    if (!sessionReady) return;
     const source = api.events((type) => { if (type !== "heartbeat") void reload(); }, () => undefined);
     return () => source.close();
-  }, [api, reload]);
+  }, [api, reload, sessionReady]);
 
   const navigate = (next: Workspace) => { window.location.hash = `#/${next}`; setWorkspace(next); setMenuOpen(false); };
   if (error) return <Unavailable error={error} retry={reload} />;

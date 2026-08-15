@@ -50,6 +50,7 @@ dev = [
     "ruff>=0.14,<1",
     "maturin>=1.14.1",
     "types-jsonschema>=4.26,<5",
+    "httpx2>=2.9,<3",
 ]
 release = [
     "cyclonedx-bom>=7.3.1",
