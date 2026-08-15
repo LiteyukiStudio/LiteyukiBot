@@ -20,6 +20,13 @@ export type WebUiOperationRecord = {
   updated_at: string;
 };
 
+export type WebUiPresentation = {
+  locale: string;
+  locales: string[];
+  messages: Record<string, string>;
+  webui_version: string;
+};
+
 export class WebUiApi {
   private csrfToken: string | null = null;
   private initialization: Promise<void> | null = null;
@@ -47,6 +54,7 @@ export class WebUiApi {
   }
 
   bootstrap() { return this.request<JsonObject>("/bootstrap"); }
+  presentation(locale: string) { return this.request<WebUiPresentation>(`/presentation?locale=${encodeURIComponent(locale)}`); }
   snapshot() { return this.request<JsonObject>("/snapshot"); }
   catalog() { return this.request<{ operations: WebUiOperation[] }>("/operations/catalog"); }
   ledger() { return this.request<{ items: JsonObject[] }>("/ledger?limit=100"); }

@@ -28,23 +28,28 @@
 
 :root {
   color-scheme: light;
+  --accent-base: #4fb3ff;
+  --accent-soft: #e6f5ff;
+  --accent-strong: #1789e6;
+  --accent-dark-soft: #16364d;
+  --accent-dark-strong: #67c0ff;
   --background: oklch(0.962 0.012 247);
   --foreground: oklch(0.22 0.025 252);
   --card: oklch(0.995 0.002 247);
   --card-foreground: oklch(0.22 0.025 252);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.22 0.025 252);
-  --primary: oklch(0.55 0.17 248);
+  --primary: var(--accent-strong);
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.91 0.036 235);
+  --secondary: var(--accent-soft);
   --secondary-foreground: oklch(0.28 0.028 252);
   --muted: oklch(0.942 0.014 247);
   --muted-foreground: oklch(0.52 0.026 252);
-  --accent: oklch(0.91 0.04 235);
-  --accent-foreground: oklch(0.35 0.09 247);
+  --accent: var(--accent-soft);
+  --accent-foreground: var(--accent-strong);
   --border: oklch(0.9 0.012 247);
   --input: oklch(0.9 0.012 247);
-  --ring: oklch(0.55 0.17 248);
+  --ring: var(--accent-strong);
   --destructive: oklch(0.58 0.19 27);
   --radius: 0.7rem;
   --status-good: oklch(0.955 0.037 160);
@@ -57,6 +62,22 @@
   --topbar-shadow: color-mix(in srgb, oklch(0.28 0.03 252), transparent 94%);
 }
 
+:root[data-accent="lavender"] {
+  --accent-base: #aa6bff;
+  --accent-soft: #f1e9ff;
+  --accent-strong: #8148d5;
+  --accent-dark-soft: #352348;
+  --accent-dark-strong: #c39aff;
+}
+
+:root[data-accent="cyan"] {
+  --accent-base: #6bffe6;
+  --accent-soft: #dffff9;
+  --accent-strong: #1ec9b0;
+  --accent-dark-soft: #153c3a;
+  --accent-dark-strong: #7fffea;
+}
+
 .dark {
   color-scheme: dark;
   --background: oklch(0.19 0.018 250);
@@ -65,17 +86,17 @@
   --card-foreground: oklch(0.93 0.012 247);
   --popover: oklch(0.255 0.022 250);
   --popover-foreground: oklch(0.93 0.012 247);
-  --primary: oklch(0.7 0.145 248);
+  --primary: var(--accent-dark-strong);
   --primary-foreground: oklch(0.19 0.018 250);
-  --secondary: oklch(0.3 0.035 246);
+  --secondary: var(--accent-dark-soft);
   --secondary-foreground: oklch(0.93 0.012 247);
   --muted: oklch(0.275 0.02 250);
   --muted-foreground: oklch(0.7 0.02 247);
-  --accent: oklch(0.31 0.045 246);
-  --accent-foreground: oklch(0.91 0.02 247);
+  --accent: var(--accent-dark-soft);
+  --accent-foreground: var(--accent-dark-strong);
   --border: oklch(0.36 0.018 250);
   --input: oklch(0.36 0.018 250);
-  --ring: oklch(0.7 0.145 248);
+  --ring: var(--accent-dark-strong);
   --destructive: oklch(0.69 0.17 27);
   --status-good: oklch(0.29 0.052 160);
   --status-good-border: oklch(0.55 0.105 160);
@@ -99,8 +120,9 @@ button, input { font: inherit; }
 .webui-sidebar-nav-item { width: 100%; height: 37px; justify-content: flex-start; gap: 10px; padding: 0 10px; color: var(--muted-foreground); border: 0 !important; border-radius: 4px; background: transparent; box-shadow: none; font-size: 16px; font-weight: 400; }
 .webui-sidebar-nav-item:hover { background: color-mix(in oklch, var(--nav-active), transparent 38%); color: var(--foreground); }
 .webui-sidebar-nav-item[data-active="true"] { background: var(--nav-active); color: var(--nav-active-foreground); font-weight: 600; }
-.webui-sidebar-status { margin-top: auto; padding: 17px 8px 0; border-top: 1px solid var(--border); color: var(--muted-foreground); font-size: 11px; }
+.webui-sidebar-version { margin-top: auto; padding: 17px 8px 0; border-top: 1px solid var(--border); color: var(--muted-foreground); font-size: 11px; }
 .webui-status-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--status-good-border); }
+.webui-runtime-mark { display: grid; width: 28px; height: 28px; place-items: center; color: var(--primary); background: color-mix(in oklch, var(--accent-soft), var(--card) 20%); border-radius: 6px; }
 .webui-topbar { position: sticky; top: 0; z-index: 20; display: flex; min-height: 66px; align-items: center; justify-content: space-between; gap: 16px; padding: 0 24px; background: var(--topbar-background); border-bottom: 1px solid color-mix(in oklch, var(--border), var(--card) 55%); border-bottom-left-radius: 20px; box-shadow: 0 2px 12px var(--topbar-shadow); }
 .webui-topbar-page, .webui-topbar-actions, .webui-topbar-state { display: flex; align-items: center; }
 .webui-topbar-page { gap: 12px; min-width: 0; }
@@ -115,6 +137,15 @@ button, input { font: inherit; }
 .webui-float-card { border: 1px solid color-mix(in oklch, var(--border), white 35%); border-radius: 15px; box-shadow: 0 8px 22px color-mix(in srgb, oklch(0.28 0.03 252), transparent 92%); }
 .webui-status-strip { border: 1px solid var(--status-good-border); border-radius: 12px; background: var(--status-good); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--card), transparent 18%); }
 .webui-status-strip--attention { border-color: var(--status-attention-border); background: var(--status-attention); }
+.webui-theme-swatch { display: inline-block; width: 9px; height: 9px; margin-right: 7px; border: 1px solid color-mix(in oklch, var(--foreground), transparent 75%); border-radius: 999px; }
+.webui-theme-swatch--blue { background: #4fb3ff; }
+.webui-theme-swatch--lavender { background: #aa6bff; }
+.webui-theme-swatch--cyan { background: #1ec9b0; }
+.webui-theme-reveal { position: fixed; z-index: 100; inset: 0; pointer-events: none; clip-path: circle(0 at var(--reveal-x) var(--reveal-y)); animation: webui-theme-reveal 1.08s cubic-bezier(.2, .8, .15, 1) forwards; }
+.webui-theme-reveal--dark { background: oklch(0.19 0.018 250); }
+.webui-theme-reveal--light { background: oklch(0.962 0.012 247); }
+@keyframes webui-theme-reveal { 0% { clip-path: circle(0 at var(--reveal-x) var(--reveal-y)); } 72% { clip-path: circle(90vmax at var(--reveal-x) var(--reveal-y)); } 100% { clip-path: circle(150vmax at var(--reveal-x) var(--reveal-y)); } }
 
 @media (max-width: 1023px) { .webui-sidebar::after { display: none; } .webui-topbar { border-bottom-left-radius: 0; } .webui-workbench { min-height: auto; } }
 @media (max-width: 639px) { .webui-topbar { min-height: 60px; padding: 0 16px; } .webui-topbar-runtime-summary { display: none; } }
+@media (prefers-reduced-motion: reduce) { .webui-theme-reveal { display: none; } }

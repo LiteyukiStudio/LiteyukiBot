@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useTheme } from "next-themes";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Activity, ArrowRight, Boxes, Cable, CheckCircle2, CircleAlert, CircleDot, Cog, FileClock, Languages, Menu, MoveUpRight, Network, Play, Radio, RefreshCw, ShieldCheck, SunMoon, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -11,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,14 +18,14 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { WebUiApi, type JsonObject, type WebUiOperation } from "@/lib/api";
 import { projectDashboard, type Dashboard } from "@/lib/dashboard";
 import { cn } from "@/lib/utils";
-import { useLocale } from "@/i18n/locale";
-import type { Locale, MessageKey } from "@/i18n/messages";
+import { useLocale, type Locale } from "@/i18n/locale";
+import { accents, useThemeController, type Accent, type ThemeMode } from "@/themes/theme-controller";
 
 type Workspace = "overview" | "events" | "topology" | "runtimes" | "plugins" | "configuration";
-const navigation: { id: Workspace; labelKey: MessageKey; icon: typeof Activity }[] = [
-  { id: "overview", labelKey: "nav.overview", icon: Activity }, { id: "events", labelKey: "nav.events", icon: Radio },
-  { id: "topology", labelKey: "nav.topology", icon: Network }, { id: "runtimes", labelKey: "nav.runtimes", icon: Cable },
-  { id: "plugins", labelKey: "nav.plugins", icon: Boxes }, { id: "configuration", labelKey: "nav.configuration", icon: Cog },
+const navigation: { id: Workspace; labelKey: string; icon: typeof Activity }[] = [
+  { id: "overview", labelKey: "webui.nav.overview", icon: Activity }, { id: "events", labelKey: "webui.nav.events", icon: Radio },
+  { id: "topology", labelKey: "webui.nav.topology", icon: Network }, { id: "runtimes", labelKey: "webui.nav.runtimes", icon: Cable },
+  { id: "plugins", labelKey: "webui.nav.plugins", icon: Boxes }, { id: "configuration", labelKey: "webui.nav.configuration", icon: Cog },
 ];
 
 function currentWorkspace(): Workspace {
@@ -34,7 +34,7 @@ function currentWorkspace(): Workspace {
 }
 
 export function App() {
-  const { t } = useLocale();
+  const { locale, presentation, applyPresentation, t } = useLocale();
   const api = useMemo(() => new WebUiApi(), []);
   const [workspace, setWorkspace] = useState<Workspace>(currentWorkspace);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
@@ -48,14 +48,15 @@ export function App() {
       setError(null);
       await api.initialize();
       setSessionReady(true);
-      const [bootstrap, ledger, catalog, audit] = await Promise.all([api.bootstrap(), api.ledger(), api.catalog(), api.audit()]);
+      const [bootstrap, ledger, catalog, audit, resolvedPresentation] = await Promise.all([api.bootstrap(), api.ledger(), api.catalog(), api.audit(), api.presentation(locale)]);
+      applyPresentation(resolvedPresentation);
       setDashboard(projectDashboard(bootstrap, ledger, catalog.operations, audit.items));
     } catch (cause) {
       setDashboard(null);
       setSessionReady(false);
       setError(cause instanceof Error ? cause.message : "webui.request_failed");
     }
-  }, [api]);
+  }, [api, applyPresentation, locale]);
 
   useEffect(() => { void reload(); }, [reload]);
   useEffect(() => {
@@ -72,10 +73,10 @@ export function App() {
   const navigate = (next: Workspace) => { window.location.hash = `#/${next}`; setWorkspace(next); setMenuOpen(false); };
   if (error) return <Unavailable error={error} retry={reload} />;
   if (!dashboard) return <Loading />;
-  const pageTitle = t(navigation.find((entry) => entry.id === workspace)?.labelKey ?? "nav.overview");
+  const pageTitle = t(navigation.find((entry) => entry.id === workspace)?.labelKey ?? "webui.nav.overview");
   return <TooltipProvider><div className="grid min-h-screen bg-background lg:grid-cols-[236px_minmax(0,1fr)]">
-    <Sidebar active={workspace} dashboard={dashboard} navigate={navigate} />
-    <Sheet open={menuOpen} onOpenChange={setMenuOpen}><SheetContent side="left" className="w-72 p-0"><SheetHeader className="sr-only"><SheetTitle>Navigation</SheetTitle></SheetHeader><Sidebar active={workspace} dashboard={dashboard} drawer navigate={navigate} /></SheetContent></Sheet>
+    <Sidebar active={workspace} webuiVersion={presentation?.webuiVersion ?? "-"} dashboard={dashboard} navigate={navigate} />
+    <Sheet open={menuOpen} onOpenChange={setMenuOpen}><SheetContent side="left" className="w-72 p-0"><SheetHeader className="sr-only"><SheetTitle>Navigation</SheetTitle></SheetHeader><Sidebar active={workspace} webuiVersion={presentation?.webuiVersion ?? "-"} dashboard={dashboard} drawer navigate={navigate} /></SheetContent></Sheet>
     <div className="min-w-0"><TopStatusBar dashboard={dashboard} pageTitle={pageTitle} openNavigation={() => setMenuOpen(true)} refresh={() => void reload()} /><main className="px-4 py-6 sm:px-7 sm:py-7 lg:px-10 lg:py-6"><div className="mx-auto max-w-[1120px]"><section className="webui-workbench"><WorkspaceView workspace={workspace} dashboard={dashboard} openOperation={setOperation} /></section></div></main></div>
     <OperationDialog operation={operation} close={() => setOperation(null)} api={api} reload={reload} />
   </div></TooltipProvider>;
@@ -83,17 +84,20 @@ export function App() {
 
 function TopStatusBar({ dashboard, pageTitle, openNavigation, refresh }: { dashboard: Dashboard; pageTitle: string; openNavigation: () => void; refresh: () => void }) {
   const { locale, setLocale, t } = useLocale();
-  const { theme, setTheme } = useTheme();
+  const { accent, mode, setAccent, setMode } = useThemeController();
+  const themeButton = useRef<HTMLButtonElement>(null);
   const ready = dashboard.kernelState === "ready";
   const activeRuntimes = dashboard.runtimes.filter((runtime) => runtime.state === "ready").length;
-  const runtimeSummary = t("status.runtimes").replace("{active}", String(activeRuntimes)).replace("{total}", String(dashboard.runtimes.length));
+  const runtimeSummary = t("webui.status.runtimes", { active: activeRuntimes, total: dashboard.runtimes.length });
   const applyLocale = (value: string) => { if (value === "en-US" || value === "zh-CN") setLocale(value as Locale); };
-  return <header className="webui-topbar"><div className="webui-topbar-page"><Button className="lg:hidden" variant="outline" size="icon" onClick={openNavigation} aria-label={t("header.openMenu")}><Menu /></Button><h1>{pageTitle}</h1></div><div className="webui-topbar-actions"><div className={cn("webui-topbar-state", !ready && "webui-topbar-state--attention")} aria-label={`Kernel ${dashboard.kernelState}`}><span className="webui-status-dot" /><span className="font-medium">{ready ? t("status.ready") : dashboard.kernelState}</span><span className="webui-topbar-runtime-summary">{runtimeSummary}</span></div><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label={t("header.language")}><Languages size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={locale} onValueChange={applyLocale}><DropdownMenuRadioItem value="en-US">English</DropdownMenuRadioItem><DropdownMenuRadioItem value="zh-CN">简体中文</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label={t("header.theme")}><SunMoon size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={theme ?? "system"} onValueChange={setTheme}><DropdownMenuRadioItem value="system">{t("theme.system")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="light">{t("theme.light")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="dark">{t("theme.dark")}</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu><Tooltip><TooltipTrigger asChild><Button variant="outline" size="icon" onClick={refresh} aria-label={t("common.refresh")}><RefreshCw size={16} /></Button></TooltipTrigger><TooltipContent>{t("common.refresh")}</TooltipContent></Tooltip></div></header>;
+  const applyAccent = (value: string) => { if (accents.includes(value as Accent)) setAccent(value as Accent); };
+  const applyMode = (value: string) => { if (["system", "light", "dark"].includes(value)) setMode(value as ThemeMode, themeButton.current); };
+  return <header className="webui-topbar"><div className="webui-topbar-page"><Button className="lg:hidden" variant="outline" size="icon" onClick={openNavigation} aria-label={t("webui.header.open_navigation")}><Menu /></Button><h1>{pageTitle}</h1></div><div className="webui-topbar-actions"><div className={cn("webui-topbar-state", !ready && "webui-topbar-state--attention")} aria-label={`Kernel ${dashboard.kernelState}`}><span className="webui-status-dot" /><span className="font-medium">{ready ? t("webui.status.ready") : dashboard.kernelState}</span><span className="webui-topbar-runtime-summary">{runtimeSummary}</span></div><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label={t("webui.header.language")}><Languages size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={locale} onValueChange={applyLocale}><DropdownMenuRadioItem value="en-US">English</DropdownMenuRadioItem><DropdownMenuRadioItem value="zh-CN">简体中文</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu><DropdownMenu><DropdownMenuTrigger asChild><Button ref={themeButton} variant="outline" size="icon" aria-label={t("webui.header.theme")}><SunMoon size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={mode} onValueChange={applyMode}><DropdownMenuRadioItem value="system">{t("webui.theme.system")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="light">{t("webui.theme.light")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="dark">{t("webui.theme.dark")}</DropdownMenuRadioItem></DropdownMenuRadioGroup><Separator className="my-1" /><DropdownMenuRadioGroup value={accent} onValueChange={applyAccent}>{accents.map((item) => <DropdownMenuRadioItem value={item} key={item}><span className={`webui-theme-swatch webui-theme-swatch--${item}`} />{t(`webui.theme.${item}`)}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu><Tooltip><TooltipTrigger asChild><Button variant="outline" size="icon" onClick={refresh} aria-label={t("webui.action.refresh")}><RefreshCw size={16} /></Button></TooltipTrigger><TooltipContent>{t("webui.action.refresh")}</TooltipContent></Tooltip></div></header>;
 }
 
-function Sidebar({ active, dashboard, drawer = false, navigate }: { active: Workspace; dashboard: Dashboard; drawer?: boolean; navigate: (workspace: Workspace) => void }) {
+function Sidebar({ active, dashboard, drawer = false, navigate, webuiVersion }: { active: Workspace; dashboard: Dashboard; drawer?: boolean; navigate: (workspace: Workspace) => void; webuiVersion: string }) {
   const { t } = useLocale();
-  return <aside className={cn("webui-sidebar h-full min-h-screen flex-col", drawer ? "webui-sidebar--drawer flex" : "hidden lg:flex")}><div className="webui-sidebar-brand"><div className="webui-brand-mark"><MoveUpRight size={27} strokeWidth={2.55} /></div><div><strong className="block text-sm leading-tight">{t("app.name")}</strong><span className="text-[11px] text-muted-foreground">{t("app.subtitle")}</span></div></div><nav className="webui-sidebar-nav">{navigation.map(({ id, labelKey, icon: Icon }) => <Button key={id} variant="ghost" data-active={active === id || undefined} className="webui-sidebar-nav-item" onClick={() => navigate(id)}><Icon size={16} strokeWidth={1.8} />{t(labelKey)}</Button>)}</nav><div className="webui-sidebar-status"><div className="mb-1 flex items-center gap-2"><span className="webui-status-dot" />{dashboard.kernelState}</div><span className="font-mono">{dashboard.instance}</span></div></aside>;
+  return <aside className={cn("webui-sidebar h-full min-h-screen flex-col", drawer ? "webui-sidebar--drawer flex" : "hidden lg:flex")}><div className="webui-sidebar-brand"><div className="webui-brand-mark"><MoveUpRight size={27} strokeWidth={2.55} /></div><div><strong className="block text-sm leading-tight">{t("webui.app.name")}</strong><span className="text-[11px] text-muted-foreground">{t("webui.app.subtitle")}</span></div></div><nav className="webui-sidebar-nav">{navigation.map(({ id, labelKey, icon: Icon }) => <Button key={id} variant="ghost" data-active={active === id || undefined} className="webui-sidebar-nav-item" onClick={() => navigate(id)}><Icon size={16} strokeWidth={1.8} />{t(labelKey)}</Button>)}</nav><div className="webui-sidebar-version font-mono">v{dashboard.version}+{webuiVersion}</div></aside>;
 }
 
 function WorkspaceView({ workspace, dashboard, openOperation }: { workspace: Workspace; dashboard: Dashboard; openOperation: (operation: WebUiOperation) => void }) {
@@ -114,7 +118,7 @@ function Overview({ dashboard, openOperation }: { dashboard: Dashboard; openOper
 
 function Metric({ label, value, detail, emphasis = false }: { label: string; value: string; detail: string; emphasis?: boolean }) { return <SurfaceCard><CardContent className="p-4"><p className="text-xs text-muted-foreground">{label}</p><strong className={cn("mt-2 block font-mono text-[26px] font-semibold", emphasis && "text-amber-600")}>{value}</strong><span className="mt-1 block text-[11px] text-muted-foreground">{detail}</span></CardContent></SurfaceCard>; }
 function Ledger({ dashboard, compact = false }: { dashboard: Dashboard; compact?: boolean }) { return <SurfaceCard className={cn(compact && "min-h-[382px]")}><CardHeader className="flex-row items-start justify-between px-5 pt-5"><CardTitle className="text-sm font-semibold">Operation ledger</CardTitle></CardHeader><CardContent className="px-5 pb-5">{dashboard.ledger.length === 0 ? <Empty label="No retained operation records." /> : <ScrollArea className="max-h-[310px]"><Table><TableHeader><TableRow><TableHead>Operation</TableHead><TableHead>State</TableHead><TableHead className="hidden sm:table-cell">Updated</TableHead></TableRow></TableHeader><TableBody>{dashboard.ledger.map((item) => <TableRow key={item.id}><TableCell><div><p className="font-medium">{item.title}</p><p className="font-mono text-xs text-muted-foreground">{item.source}</p></div></TableCell><TableCell><State value={item.status} /></TableCell><TableCell className="hidden font-mono text-xs text-muted-foreground sm:table-cell">{item.at}</TableCell></TableRow>)}</TableBody></Table></ScrollArea>}</CardContent></SurfaceCard>; }
-function RuntimeHealth({ dashboard }: { dashboard: Dashboard }) { return <SurfaceCard className="min-h-[190px]"><CardHeader className="px-4 pt-4"><CardTitle className="text-sm font-semibold">Runtime health</CardTitle></CardHeader><CardContent className="px-4 pb-3">{dashboard.runtimes.length === 0 ? <Empty label="No supervised runtimes." /> : <div className="grid">{dashboard.runtimes.slice(0, 4).map((runtime) => <div className="grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-2 border-t py-3 first:border-t-0" key={runtime.id}><span className="grid size-7 place-items-center rounded-lg bg-blue-50 text-primary"><Cable size={15} /></span><div className="min-w-0"><p className="truncate text-xs font-semibold">{runtime.id}</p><p className="mt-0.5 truncate text-[11px] text-muted-foreground">{runtime.kind} · {runtime.activity}</p></div><State value={runtime.state} /></div>)}</div>}</CardContent></SurfaceCard>; }
+function RuntimeHealth({ dashboard }: { dashboard: Dashboard }) { return <SurfaceCard className="min-h-[190px]"><CardHeader className="px-4 pt-4"><CardTitle className="text-sm font-semibold">Runtime health</CardTitle></CardHeader><CardContent className="px-4 pb-3">{dashboard.runtimes.length === 0 ? <Empty label="No supervised runtimes." /> : <div className="grid">{dashboard.runtimes.slice(0, 4).map((runtime) => <div className="grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-2 border-t py-3 first:border-t-0" key={runtime.id}><span className="webui-runtime-mark"><Cable size={15} /></span><div className="min-w-0"><p className="truncate text-xs font-semibold">{runtime.id}</p><p className="mt-0.5 truncate text-[11px] text-muted-foreground">{runtime.kind} · {runtime.activity}</p></div><State value={runtime.state} /></div>)}</div>}</CardContent></SurfaceCard>; }
 function RecentEvidence({ dashboard }: { dashboard: Dashboard }) { const evidence = dashboard.audit.slice(0, 3); return <SurfaceCard className="min-h-[150px]"><CardHeader className="px-4 pt-4"><CardTitle className="text-sm font-semibold">Recent evidence</CardTitle></CardHeader><CardContent className="px-4 pb-3">{evidence.length === 0 ? <Empty label="No retained audit records." /> : evidence.map((record) => <div className="grid grid-cols-[18px_minmax(0,1fr)_16px] items-center gap-2 border-t py-3" key={record.id}><CircleDot className="text-amber-500" size={16} /><div className="min-w-0"><p className="truncate text-xs font-semibold">{record.operation}</p><p className="mt-0.5 truncate text-[11px] text-muted-foreground">{record.target} · {record.updated_at}</p></div><ArrowRight className="text-muted-foreground" size={15} /></div>)}</CardContent></SurfaceCard>; }
 function Runtimes({ dashboard, openOperation }: { dashboard: Dashboard; openOperation: (operation: WebUiOperation) => void }) { return <Card><CardHeader className="flex-row items-start justify-between"><CardTitle>Supervised runtimes</CardTitle>{dashboard.operations[0] && <Button size="sm" onClick={() => openOperation(dashboard.operations[0])}>Queue action</Button>}</CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Runtime</TableHead><TableHead>State</TableHead><TableHead className="hidden md:table-cell">Protocol</TableHead><TableHead className="hidden md:table-cell">Activity</TableHead></TableRow></TableHeader><TableBody>{dashboard.runtimes.map((runtime) => <TableRow key={runtime.id}><TableCell><p className="font-medium">{runtime.id}</p><p className="text-xs text-muted-foreground">{runtime.kind}</p></TableCell><TableCell><State value={runtime.state} /></TableCell><TableCell className="hidden font-mono text-xs md:table-cell">{runtime.protocol}</TableCell><TableCell className="hidden text-xs text-muted-foreground md:table-cell">{runtime.activity}</TableCell></TableRow>)}</TableBody></Table></CardContent></Card>; }
 function Plugins({ dashboard }: { dashboard: Dashboard }) { return <Card><CardHeader><CardTitle>Plugin generations</CardTitle></CardHeader><CardContent><div className="grid gap-3 md:grid-cols-2">{dashboard.plugins.map((plugin) => <Card key={plugin.id} className="bg-muted/30 shadow-none"><CardContent className="p-4"><div className="flex items-start justify-between gap-2"><div><p className="font-medium">{plugin.name}</p><p className="font-mono text-xs text-muted-foreground">{plugin.id} · {plugin.version}</p></div><State value={plugin.state} /></div><div className="mt-4 flex flex-wrap gap-1">{plugin.provides.slice(0, 4).map((service) => <Badge key={service} variant="secondary" className="font-mono text-[10px]">{service}</Badge>)}</div></CardContent></Card>)}</div>{dashboard.plugins.length === 0 && <Empty label="No plugins are active in this instance." />}</CardContent></Card>; }
