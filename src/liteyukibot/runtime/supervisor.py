@@ -14,10 +14,13 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal
 
+import zmq.asyncio
 from yukilog import decode_child_runtime_line
 
-from ..config import LoggingSettings
+from ..config import LoggingSettings, LyipSettings
+from ..lyip import LyipError, LyipFrame, LyipLane, LyipOfferResult, ZmqLyipRouter
 from .catalog import RuntimeCatalog
+from .lyip import decode_runtime_message, encode_runtime_message
 from .protocol import (
     ActionRequest,
     ActionResponse,
@@ -42,8 +45,6 @@ from .protocol import (
     Welcome,
     WireMessage,
     json_mapping,
-    read_message,
-    write_message,
 )
 
 EventSink = Callable[[str, dict[str, JsonValue]], Awaitable[str]]
@@ -134,8 +135,13 @@ class RuntimeRecord:
     token: str
     state: RuntimeState = RuntimeState.STOPPED
     process: asyncio.subprocess.Process | None = None
-    reader: asyncio.StreamReader | None = None
-    writer: asyncio.StreamWriter | None = None
+    router: ZmqLyipRouter | None = None
+    expected_identity: bytes | None = None
+    identity: bytes | None = None
+    generation: int = 0
+    lease_id: str | None = None
+    receive_tasks: tuple[asyncio.Task[None], ...] = ()
+    handshake_task: asyncio.Task[None] | None = None
     ready: asyncio.Event = field(default_factory=asyncio.Event)
     connected: asyncio.Event = field(default_factory=asyncio.Event)
     desired: bool = True
@@ -158,6 +164,9 @@ class RuntimeRecord:
     protocol_version: ProtocolVersion | None = None
     capabilities: frozenset[str] = frozenset()
     send_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    send_sequences: dict[LyipLane, int] = field(
+        default_factory=lambda: {LyipLane.BUSINESS: 0, LyipLane.CONTROL: 0}
+    )
     launch_count: int = 0
 
 
@@ -171,6 +180,7 @@ class RuntimeSupervisor:
         agent_tool_sink: AgentToolSink | None = None,
         management_sink: ManagementSink | None = None,
         secret_values: Mapping[str, str] | None = None,
+        lyip_settings: LyipSettings | None = None,
     ) -> None:
         self.logger = logger
         self.event_sink = event_sink
@@ -178,10 +188,10 @@ class RuntimeSupervisor:
         self.agent_tool_sink = agent_tool_sink
         self.management_sink = management_sink
         self.secret_values = dict(secret_values or {})
+        self._lyip_settings = lyip_settings or LyipSettings()
         self.records: dict[str, RuntimeRecord] = {}
-        self._server: asyncio.Server | None = None
-        self._host = "127.0.0.1"
-        self._port = 0
+        self._transport_started = False
+        self._zmq_context = zmq.asyncio.Context.instance()
         self._closing = False
         self._heartbeat_task: asyncio.Task[None] | None = None
         self._logging_settings = LoggingSettings()
@@ -192,22 +202,22 @@ class RuntimeSupervisor:
         self.records[spec.id] = RuntimeRecord(spec=spec, token=secrets.token_urlsafe(32))
 
     def set_agent_tool_sink(self, sink: AgentToolSink | None) -> None:
-        if self._server is not None:
+        if self._transport_started:
             raise RuntimeError("agent tool sink cannot change after runtime startup")
         self.agent_tool_sink = sink
 
     def set_management_sink(self, sink: ManagementSink | None) -> None:
-        if self._server is not None:
+        if self._transport_started:
             raise RuntimeError("management sink cannot change after runtime startup")
         self.management_sink = sink
 
     def set_logging_settings(self, settings: LoggingSettings) -> None:
-        if self._server is not None:
+        if self._transport_started:
             raise RuntimeError("runtime logging settings cannot change after runtime startup")
         self._logging_settings = settings
 
     def merge_options(self, runtime_id: str, options: Mapping[str, Any]) -> None:
-        if self._server is not None:
+        if self._transport_started:
             raise RuntimeError("runtime options cannot change after runtime startup")
         record = self.records[runtime_id]
         record.spec = replace(record.spec, options={**record.spec.options, **options})
@@ -242,9 +252,7 @@ class RuntimeSupervisor:
         return snapshots
 
     async def start(self) -> None:
-        self._server = await asyncio.start_server(self._accept, self._host, 0)
-        socket = self._server.sockets[0]
-        self._port = int(socket.getsockname()[1])
+        self._transport_started = True
         self._heartbeat_task = asyncio.create_task(self._watch_heartbeats(), name="runtime-heartbeats")
         for record in self.records.values():
             record.desired = True
@@ -287,11 +295,22 @@ class RuntimeSupervisor:
             self.logger.bind(runtime=record.spec.id, component="runtime").info(
                 "starting {} runtime (attempt {})", record.spec.kind, record.launch_count + 1
             )
-            env = self._child_environment(record)
+            self._prepare_transport(record)
+            try:
+                env = self._child_environment(record)
+            except BaseException:
+                await self._disconnect(record)
+                raise
+            assert record.router is not None
+            assert record.lease_id is not None
+            assert record.expected_identity is not None
             env.update(
                 {
-                    "LITEYUKI_RUNTIME_HOST": self._host,
-                    "LITEYUKI_RUNTIME_PORT": str(self._port),
+                    "LITEYUKI_LYIP_BUSINESS_ENDPOINT": record.router.endpoints[LyipLane.BUSINESS],
+                    "LITEYUKI_LYIP_CONTROL_ENDPOINT": record.router.endpoints[LyipLane.CONTROL],
+                    "LITEYUKI_LYIP_GENERATION": str(record.generation),
+                    "LITEYUKI_LYIP_LEASE_ID": record.lease_id,
+                    "LITEYUKI_LYIP_IDENTITY": record.expected_identity.decode("ascii"),
                     "LITEYUKI_RUNTIME_TOKEN": record.token,
                     "LITEYUKI_RUNTIME_ID": record.spec.id,
                     "LITEYUKI_RUNTIME_KIND": record.spec.kind,
@@ -313,7 +332,9 @@ class RuntimeSupervisor:
             except OSError as error:
                 self.logger.error("runtime {} could not start: {}", record.spec.id, error)
                 if not self._register_failure(record):
+                    await self._disconnect(record)
                     return
+                await self._disconnect(record)
                 await asyncio.sleep(delay)
                 delay = min(delay * 2, 30.0)
                 continue
@@ -373,52 +394,101 @@ class RuntimeSupervisor:
     def _default_command(spec: RuntimeSpec) -> tuple[str, ...]:
         return RuntimeCatalog().command_for(spec.kind)
 
-    async def _accept(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-        record: RuntimeRecord | None = None
-        try:
-            handshake_timeout = max(
-                (candidate.spec.handshake_timeout for candidate in self.records.values()),
-                default=10.0,
+    def _prepare_transport(self, record: RuntimeRecord) -> None:
+        if record.router is not None:
+            raise RuntimeError(f"runtime {record.spec.id} already has an active LYIP transport")
+        record.generation += 1
+        record.lease_id = secrets.token_urlsafe(32)
+        record.expected_identity = secrets.token_urlsafe(32).encode("ascii")
+        record.identity = None
+        record.send_sequences = {LyipLane.BUSINESS: 0, LyipLane.CONTROL: 0}
+        resolution = self._lyip_settings.resolve_link(record.spec.id)
+        if resolution.backend == "shm":
+            raise RuntimeError("LYIP native shared-memory backend is unavailable for this runtime lifecycle")
+        record.router = ZmqLyipRouter(
+            context=self._zmq_context,
+            endpoint="tcp://127.0.0.1:*",
+            generation=record.generation,
+            business_hwm=resolution.capacity.zmq_hwm,
+            control_hwm=resolution.capacity.zmq_hwm,
+        )
+        record.receive_tasks = tuple(
+            asyncio.create_task(
+                self._receive_loop(record, lane),
+                name=f"runtime-lyip:{record.spec.id}:{lane.value}",
             )
-            async with asyncio.timeout(handshake_timeout):
-                message = await read_message(reader)
-            if not isinstance(message, Hello):
-                raise ValueError("first runtime message must be hello")
-            record = self.records.get(message.runtime_id)
-            if record is None or not secrets.compare_digest(record.token, message.token):
-                raise ValueError("runtime authentication failed")
-            if message.kind != record.spec.kind or record.writer is not None:
-                raise ValueError("runtime identity mismatch or duplicate connection")
-            record.reader = reader
-            record.writer = writer
+            for lane in LyipLane
+        )
+        record.handshake_task = asyncio.create_task(
+            self._watch_handshake(record, record.generation),
+            name=f"runtime-handshake:{record.spec.id}:{record.generation}",
+        )
+
+    async def _watch_handshake(self, record: RuntimeRecord, generation: int) -> None:
+        await asyncio.sleep(record.spec.handshake_timeout)
+        if record.generation == generation and record.identity is None and record.process is not None:
+            self.logger.error("runtime {} did not complete its LYIP handshake", record.spec.id)
+            record.process.terminate()
+
+    async def _receive_loop(self, record: RuntimeRecord, lane: LyipLane) -> None:
+        while True:
+            router = record.router
+            if router is None:
+                return
+            try:
+                identity, frame = await router.receive(lane)
+                await self._receive_frame(record, lane, identity, frame)
+            except asyncio.CancelledError:
+                raise
+            except LyipError as error:
+                self.logger.warning("runtime {} LYIP frame rejected: {}", record.spec.id, error)
+            except Exception as error:
+                self.logger.error("runtime {} LYIP receiver failed: {}", record.spec.id, error)
+
+    async def _receive_frame(
+        self,
+        record: RuntimeRecord,
+        lane: LyipLane,
+        identity: bytes,
+        frame: LyipFrame,
+    ) -> None:
+        if record.expected_identity is None or not secrets.compare_digest(identity, record.expected_identity):
+            raise LyipError("LYIP identity does not match the current runtime launch")
+        if record.lease_id is None or not secrets.compare_digest(frame.lease_id, record.lease_id):
+            raise LyipError("LYIP lease does not match the current runtime launch")
+        if frame.stream_id != self._inbound_stream_id(record, lane):
+            raise LyipError("LYIP frame does not belong to the runtime lane stream")
+        message = decode_runtime_message(frame)
+        if record.identity is None:
+            if lane is not LyipLane.CONTROL or not isinstance(message, Hello):
+                raise LyipError("first runtime LYIP frame must be a control hello")
+            if message.runtime_id != record.spec.id or not secrets.compare_digest(record.token, message.token):
+                raise LyipError("runtime authentication failed")
+            if message.kind != record.spec.kind:
+                raise LyipError("runtime identity mismatch")
+            record.identity = identity
             record.connected.set()
             record.last_heartbeat = time.monotonic()
             record.protocol_version = message.protocol
             await self._send(
                 record,
-                Welcome(
-                    protocol=message.protocol,
-                    heartbeat_interval=record.spec.heartbeat_interval,
-                ),
+                Welcome(protocol=message.protocol, heartbeat_interval=record.spec.heartbeat_interval),
             )
             await self._send(record, ConfigMessage(options=json_mapping(record.spec.options)))
-            await self._receive_loop(record)
-        except EOFError, ConnectionError:
-            pass
-        except BaseException as exc:
-            self.logger.error("runtime connection rejected: {}", exc)
-        finally:
-            if record is not None and record.writer is writer:
-                await self._disconnect(record)
-            else:
-                writer.close()
-                await writer.wait_closed()
+            return
+        if not secrets.compare_digest(identity, record.identity):
+            raise LyipError("LYIP identity changed during runtime launch")
+        if isinstance(message, Hello):
+            raise LyipError("duplicate LYIP hello")
+        await self._handle_message(record, message)
 
-    async def _receive_loop(self, record: RuntimeRecord) -> None:
-        assert record.reader is not None
-        while True:
-            message = await read_message(record.reader)
-            await self._handle_message(record, message)
+    @staticmethod
+    def _inbound_stream_id(record: RuntimeRecord, lane: LyipLane) -> str:
+        return f"runtime:{record.spec.id}:{lane.value}"
+
+    @staticmethod
+    def _outbound_stream_id(record: RuntimeRecord, lane: LyipLane) -> str:
+        return f"kernel:{record.spec.id}:{lane.value}"
 
     async def _handle_message(self, record: RuntimeRecord, message: WireMessage) -> None:
         if isinstance(message, Ready):
@@ -969,14 +1039,12 @@ class RuntimeSupervisor:
         runners = [record.runner for record in self.records.values() if record.runner is not None]
         if runners:
             await asyncio.gather(*runners, return_exceptions=True)
-        if self._server is not None:
-            self._server.close()
-            await self._server.wait_closed()
+        self._transport_started = False
 
     async def _request_stop(self, record: RuntimeRecord, reason: str) -> None:
         record.desired = False
         record.state = RuntimeState.STOPPING
-        if record.writer is not None:
+        if record.identity is not None:
             try:
                 await self._send(record, Shutdown(reason=reason))
             except ConnectionError, RuntimeError:
@@ -1002,14 +1070,59 @@ class RuntimeSupervisor:
                 await process.wait()
 
     async def _send(self, record: RuntimeRecord, message: WireMessage) -> None:
-        if record.writer is None:
+        router = record.router
+        identity = record.identity
+        lease_id = record.lease_id
+        if router is None or identity is None or lease_id is None:
             raise ConnectionError(f"runtime {record.spec.id} is not connected")
         async with record.send_lock:
-            await write_message(record.writer, message)
+            lane = LyipLane.CONTROL if message.type in {
+                "hello",
+                "welcome",
+                "config",
+                "ready",
+                "heartbeat",
+                "shutdown",
+                "control",
+                "control_result",
+                "management",
+                "management_result",
+                "error",
+            } else LyipLane.BUSINESS
+            sequence = record.send_sequences[lane]
+            frame = encode_runtime_message(
+                message,
+                generation=record.generation,
+                stream_id=self._outbound_stream_id(record, lane),
+                sequence=sequence,
+                lease_id=lease_id,
+            )
+            result = await router.offer(identity, frame)
+            if result is LyipOfferResult.FULL:
+                raise ConnectionError(f"runtime {record.spec.id} LYIP {lane.value} lane is full")
+            record.send_sequences[lane] = sequence + 1
 
     async def _disconnect(self, record: RuntimeRecord) -> None:
-        writer, record.writer = record.writer, None
-        record.reader = None
+        router, record.router = record.router, None
+        record.identity = None
+        record.expected_identity = None
+        record.lease_id = None
+        handshake_task, record.handshake_task = record.handshake_task, None
+        receive_tasks, record.receive_tasks = record.receive_tasks, ()
+        if handshake_task is not None and handshake_task is not asyncio.current_task():
+            handshake_task.cancel()
+        for task in receive_tasks:
+            if task is not asyncio.current_task():
+                task.cancel()
+        transport_tasks = [
+            task
+            for task in (handshake_task, *receive_tasks)
+            if task is not None and task is not asyncio.current_task()
+        ]
+        if transport_tasks:
+            await asyncio.gather(*transport_tasks, return_exceptions=True)
+        if router is not None:
+            router.close()
         record.connected.clear()
         record.ready.clear()
         record.protocol_version = None
@@ -1053,9 +1166,6 @@ class RuntimeSupervisor:
             task.cancel()
         if inbound_management:
             await asyncio.gather(*inbound_management, return_exceptions=True)
-        if writer is not None:
-            writer.close()
-            await writer.wait_closed()
 
     async def _capture_output(self, record: RuntimeRecord, stream: asyncio.StreamReader, channel: str) -> None:
         logger = self.logger.bind(

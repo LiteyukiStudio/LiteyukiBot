@@ -1,0 +1,17 @@
+[package]
+name = "liteyukibot-ipc-native"
+version = "0.1.0-beta.3"
+edition = "2024"
+description = "Optional native primitives for LiteyukiBot v7 IPC."
+license-file = "LICENSE"
+repository = "https://github.com/LiteyukiStudio/LiteyukiBot"
+rust-version = "1.85"
+publish = false
+
+[lib]
+name = "liteyukibot_ipc_native"
+crate-type = ["cdylib", "rlib"]
+path = "rust/src/lib.rs"
+
+[dependencies]
+pyo3 = { version = "0.28", features = ["extension-module"] }
