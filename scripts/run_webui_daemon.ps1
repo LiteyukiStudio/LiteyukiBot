@@ -43,19 +43,32 @@ function Invoke-Liteyuki {
 }
 
 function Get-WebUiStatus {
-    $previousNativeErrorPreference = $PSNativeCommandUseErrorActionPreference
+    $nativeErrorPreference = Get-Variable -Name "PSNativeCommandUseErrorActionPreference" -ErrorAction SilentlyContinue
+    $previousErrorActionPreference = $ErrorActionPreference
     try {
         # A missing descriptor is normal before the first detached daemon starts.
-        $PSNativeCommandUseErrorActionPreference = $false
+        $ErrorActionPreference = "Continue"
+        if ($null -ne $nativeErrorPreference) {
+            Set-Variable -Name "PSNativeCommandUseErrorActionPreference" -Value $false -Scope Local
+        }
         $output = & uv run --extra webui liteyuki --workspace $Workspace --instance $Instance web status 2>$null
     }
     finally {
-        $PSNativeCommandUseErrorActionPreference = $previousNativeErrorPreference
+        $ErrorActionPreference = $previousErrorActionPreference
+        if ($null -ne $nativeErrorPreference) {
+            Remove-Variable -Name "PSNativeCommandUseErrorActionPreference" -Scope Local -ErrorAction SilentlyContinue
+        }
     }
     if ($LASTEXITCODE -ne 0) {
         return $null
     }
     return ($output | Out-String | ConvertFrom-Json)
+}
+
+function Write-WebUiEndpoint {
+    param([Parameter(Mandatory)]$Status)
+
+    Write-Host ("WebUI: http://{0}:{1}" -f $Status.host, $Status.port)
 }
 
 function Initialize-Workspace {
@@ -97,10 +110,13 @@ Push-Location $RepositoryRoot
 try {
     switch ($Action) {
         "Start" {
-            Start-WebUi | ConvertTo-Json -Compress
+            $status = Start-WebUi
+            Write-WebUiEndpoint $status
+            $status | ConvertTo-Json -Compress
         }
         "Open" {
             $status = Start-WebUi
+            Write-WebUiEndpoint $status
             $status | ConvertTo-Json -Compress
             Invoke-Liteyuki @("web", "open")
         }
