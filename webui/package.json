@@ -9,6 +9,8 @@
   },
   "scripts": {
     "dev": "vite",
+    "web": "node ./scripts/dev-daemon.mjs",
+    "dev:daemon": "node ./scripts/dev-daemon.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",

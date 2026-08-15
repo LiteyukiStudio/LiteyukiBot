@@ -57,12 +57,12 @@ test("workspaces project live ledger, topology, runtimes, and plugins", async ({
 });
 
 test("handoff fragment redeems its ticket before loading the local snapshot", async ({ page }) => {
-  let ticket: unknown;
+  const tickets: unknown[] = [];
   await mockDaemon(page);
-  await page.route("**/api/v1/session", async (route) => { ticket = route.request().postDataJSON(); await route.fulfill({ contentType: "application/json", body: JSON.stringify({ csrf_token: "csrf" }) }); });
+  await page.route("**/api/v1/session", async (route) => { tickets.push(route.request().postDataJSON()); await route.fulfill({ contentType: "application/json", body: JSON.stringify({ csrf_token: "csrf" }) }); });
   await page.goto("/#ticket=one-time-ticket");
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
-  expect(ticket).toEqual({ ticket: "one-time-ticket" });
+  expect(tickets).toEqual([{ ticket: "one-time-ticket" }]);
   await expect(page).toHaveURL(/#\/overview$/);
 });
 
@@ -81,7 +81,13 @@ test("high-impact operations require an explicit target and submit typed input",
 });
 
 test("service errors render a recoverable unavailable state", async ({ page }) => {
-  await page.route("**/api/v1/**", (route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "webui.bridge_unavailable" } }) }));
+  let sessionRequests = 0;
+  await page.route("**/api/v1/**", (route) => {
+    if (new URL(route.request().url()).pathname.endsWith("/session")) sessionRequests += 1;
+    return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "webui.bridge_unavailable" } }) });
+  });
   await page.goto("/#/overview");
   await expect(page.getByText("Local service unavailable", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Retry" }).click();
+  await expect.poll(() => sessionRequests).toBe(2);
 });
