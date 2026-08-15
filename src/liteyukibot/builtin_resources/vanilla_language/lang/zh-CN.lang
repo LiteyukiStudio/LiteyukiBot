@@ -29,7 +29,6 @@ init.runtime_missing_vault=运行时{kind}需要安全存储库，已在本次�
 init.enable_runtime=启用运行时{kind}
 init.route_agent=将{source}的消息路由到代理运行时{target}
 webui.app.name=Liteyuki
-webui.app.subtitle=信号账本
 webui.nav.overview=概览
 webui.nav.events=事件
 webui.nav.topology=拓扑

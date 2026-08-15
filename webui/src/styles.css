@@ -114,8 +114,10 @@ button, input { font: inherit; }
 .webui-sidebar::after { display: none; }
 .webui-sidebar--drawer { border-right: 1px solid var(--border); }
 .webui-sidebar--drawer::after { display: none; }
-.webui-sidebar-brand { display: flex; align-items: center; gap: 9px; padding: 0 4px; margin-bottom: 25px; }
-.webui-brand-mark { display: grid; width: 28px; height: 28px; place-items: center; color: var(--primary); }
+.webui-sidebar-brand { width: 100%; padding: 0 8px; margin-bottom: 25px; border: 0; background: transparent; color: var(--foreground); cursor: pointer; text-align: left; }
+.webui-sidebar-brand:not([aria-current="page"]):hover { color: var(--primary); }
+.webui-sidebar-brand:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; border-radius: 4px; }
+.webui-sidebar-brand-name { display: block; font-size: 18px; font-weight: 700; line-height: 1.2; }
 .webui-sidebar-nav { display: grid; gap: 3px; }
 .webui-sidebar-nav-item { width: 100%; height: 37px; justify-content: flex-start; gap: 10px; padding: 0 10px; color: var(--muted-foreground); border: 0 !important; border-radius: 4px; background: transparent; box-shadow: none; font-size: 16px; font-weight: 400; }
 .webui-sidebar-nav-item:hover { background: color-mix(in oklch, var(--nav-active), transparent 38%); color: var(--foreground); }

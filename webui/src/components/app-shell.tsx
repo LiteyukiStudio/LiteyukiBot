@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Activity, Boxes, Cable, Cog, Languages, Menu, MoveUpRight, Network, Radio, RefreshCw, SunMoon } from "lucide-react";
+import { Activity, Boxes, Cable, Cog, Languages, Menu, Network, Radio, RefreshCw, SunMoon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -36,5 +36,6 @@ export function TopStatusBar({ dashboard, pageTitle, openNavigation, refresh }: 
 
 export function Sidebar({ active, dashboard, drawer = false, navigate, webuiVersion }: { active: Workspace; dashboard: Dashboard; drawer?: boolean; navigate: (workspace: Workspace) => void; webuiVersion: string }) {
   const { t } = useLocale();
-  return <aside className={cn("webui-sidebar h-full min-h-screen flex-col", drawer ? "webui-sidebar--drawer flex" : "hidden lg:flex")}><div className="webui-sidebar-brand"><div className="webui-brand-mark"><MoveUpRight size={27} strokeWidth={2.55} /></div><div><strong className="block text-sm leading-tight">{t("webui.app.name")}</strong><span className="text-[11px] text-muted-foreground">{t("webui.app.subtitle")}</span></div></div><nav className="webui-sidebar-nav">{navigation.map(({ id, labelKey, icon: Icon }) => <Button key={id} variant="ghost" data-active={active === id || undefined} className="webui-sidebar-nav-item" onClick={() => navigate(id)}><Icon size={16} strokeWidth={1.8} />{t(labelKey)}</Button>)}</nav><div className="webui-sidebar-version font-mono">v{dashboard.version}+{webuiVersion}</div></aside>;
+  const isOverview = active === "overview";
+  return <aside className={cn("webui-sidebar h-full min-h-screen flex-col", drawer ? "webui-sidebar--drawer flex" : "hidden lg:flex")}><button type="button" className="webui-sidebar-brand" aria-current={isOverview ? "page" : undefined} onClick={() => { if (!isOverview) navigate("overview"); }}><span className="webui-sidebar-brand-name">{t("webui.app.name")}</span></button><nav className="webui-sidebar-nav">{navigation.map(({ id, labelKey, icon: Icon }) => <Button key={id} variant="ghost" data-active={active === id || undefined} className="webui-sidebar-nav-item" onClick={() => navigate(id)}><Icon size={16} strokeWidth={1.8} />{t(labelKey)}</Button>)}</nav><div className="webui-sidebar-version font-mono">v{dashboard.version}+{webuiVersion}</div></aside>;
 }
