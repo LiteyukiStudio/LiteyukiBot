@@ -1,4 +1,4 @@
-import { type Json, type JsonObject, type WebUiOperation, type WebUiOperationRecord } from "@/lib/api";
+import type { Json, JsonObject, WebUiOperation, WebUiOperationRecord } from "@/models/api";
 
 export type RuntimeView = { id: string; kind: string; state: string; protocol: string; activity: string };
 export type PluginView = { id: string; name: string; version: string; state: string; provides: string[] };

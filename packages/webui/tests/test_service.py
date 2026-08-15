@@ -25,6 +25,9 @@ class Bridge:
     async def bootstrap(self, principal: WebUiPrincipal) -> JsonObject:
         return {"subject": principal.subject}
 
+    async def presentation(self, _principal: WebUiPrincipal, locale: str | None) -> JsonObject:
+        return {"locale": locale or "en-US", "messages": {"webui.nav.overview": "Overview"}}
+
     async def snapshot(self, _principal: WebUiPrincipal) -> JsonObject:
         return {"state": "ready"}
 
@@ -91,6 +94,16 @@ def test_ticket_session_and_mutation_csrf_policy(tmp_path: Path) -> None:
     )
     assert submitted.json() == {"id": "operation-1", "state": "queued"}
     assert bridge.submissions == [{"operation": "runtime.restart"}]
+
+
+def test_presentation_is_session_scoped_and_carries_the_package_version(tmp_path: Path) -> None:
+    client, _bridge = _client(tmp_path)
+    _session(client)
+    response = client.get("/api/v1/presentation?locale=zh-CN")
+    assert response.status_code == 200
+    assert response.json()["locale"] == "zh-CN"
+    assert response.json()["messages"] == {"webui.nav.overview": "Overview"}
+    assert isinstance(response.json()["webui_version"], str)
 
 
 def test_loopback_origin_and_host_are_enforced(tmp_path: Path) -> None:

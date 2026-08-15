@@ -98,6 +98,8 @@ class WebUiBridge(Protocol):
 
     def bootstrap(self, principal: WebUiPrincipal) -> MaybeAwaitable[JsonObject]: ...
 
+    def presentation(self, principal: WebUiPrincipal, locale: str | None) -> MaybeAwaitable[JsonObject]: ...
+
     def snapshot(self, principal: WebUiPrincipal) -> MaybeAwaitable[JsonObject]: ...
 
     def operation_catalog(self, principal: WebUiPrincipal) -> MaybeAwaitable[JsonObject]: ...
@@ -304,6 +306,15 @@ def create_app(
     async def bootstrap(request: Request) -> JsonObject:
         session = await authenticated(request)
         return await invoke(bridge.bootstrap(session.principal))
+
+    @app.get("/api/v1/presentation")
+    async def presentation(request: Request, locale: str | None = None) -> JsonObject:
+        session = await authenticated(request)
+        value = dict(await invoke(bridge.presentation(session.principal, locale)))
+        from . import __version__
+
+        value["webui_version"] = __version__
+        return value
 
     @app.get("/api/v1/snapshot")
     async def snapshot(request: Request) -> JsonObject:

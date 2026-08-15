@@ -1,5 +1,6 @@
 """Distribution wrapper for LiteyukiBot's local WebUI assets."""
 
+from importlib.metadata import PackageNotFoundError, version
 from importlib.resources import files
 from importlib.resources.abc import Traversable
 
@@ -15,6 +16,7 @@ from .service import (
 )
 
 __all__ = [
+    "__version__",
     "WebUiBridge",
     "WebUiEvent",
     "WebUiEventReplay",
@@ -25,6 +27,11 @@ __all__ = [
     "create_app",
     "static_assets",
 ]
+
+try:
+    __version__ = version("liteyukibot-v7-webui")
+except PackageNotFoundError:
+    __version__ = "0+unknown"
 
 
 def static_assets() -> Traversable:

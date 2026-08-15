@@ -134,6 +134,21 @@ def test_kernel_status_service_is_available_before_plugin_resolution(tmp_path: P
 
 
 @pytest.mark.asyncio
+async def test_webui_presentation_is_resolved_from_kernel_resource_packs(tmp_path: Path) -> None:
+    settings = AppSettings(core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"))
+    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
+    await app.start()
+    try:
+        presentation = await app._daemon_webui_presentation({"locale": "zh-CN"})
+    finally:
+        await app.stop()
+
+    assert presentation["locale"] == "zh-CN"
+    assert presentation["messages"]["webui.nav.overview"] == "概览"
+    assert presentation["messages"]["webui.action.refresh"] == "刷新"
+
+
+@pytest.mark.asyncio
 async def test_kernel_status_uptime_freezes_after_stop(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
