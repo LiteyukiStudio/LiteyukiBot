@@ -258,7 +258,7 @@ class _FileLoader:
         parsed = self._parse_file(path)
         if parsed is None:
             return {}
-        if require_config_version and "config_version" not in parsed:
+        if require_config_version and parsed.get("config_version") != 4:
             self.issues.append(ConfigIssue(path, "root configuration requires config_version = 4"))
         self._loaded[identity] = path
         self._active.append(path)
