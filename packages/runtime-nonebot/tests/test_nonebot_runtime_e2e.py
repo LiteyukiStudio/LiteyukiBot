@@ -14,9 +14,16 @@ import pytest
 from liteyukibot.app import LiteyukiApp
 from liteyukibot.config import AppSettings, CoreSettings, PluginSettings, RuntimeSettings
 
+
+def _module_available(module: str) -> bool:
+    try:
+        return importlib.util.find_spec(module) is not None
+    except ModuleNotFoundError:
+        return False
+
+
 pytestmark = pytest.mark.skipif(
-    importlib.util.find_spec("nonebot") is None
-    or importlib.util.find_spec("nonebot.adapters.onebot.v11") is None,
+    not _module_available("nonebot") or not _module_available("nonebot.adapters.onebot.v11"),
     reason="NoneBot OneBot v11 extras are not installed",
 )
 

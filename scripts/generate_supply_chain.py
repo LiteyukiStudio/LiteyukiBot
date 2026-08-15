@@ -8,7 +8,7 @@ import json
 import tomllib
 from pathlib import Path
 
-from license_expression import get_spdx_licensing  # type: ignore[import-untyped]
+from license_expression import get_spdx_licensing
 
 
 def _digest(path: Path) -> str:

@@ -78,3 +78,12 @@ select = ["E", "F", "I", "UP", "B", "ASYNC"]
 python_version = "3.14"
 strict = true
 files = ["src", "tests", "scripts", "examples", "packages"]
+
+[[tool.mypy.overrides]]
+module = ["license_expression"]
+follow_untyped_imports = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["scripts.generate_supply_chain"]
+disable_error_code = ["no-untyped-call"]
