@@ -12,10 +12,16 @@ const workspace = resolve(options.workspace ?? join(repositoryRoot, "tmp", "webu
 const descriptor = join(workspace, ".liteyuki", "instances", options.instance, "daemon.json");
 
 await ensureDaemon();
+const initialWebUiStatus = await requestControl("webui.status");
+if (!webUiIsReady(initialWebUiStatus)) await requestControl("webui.open");
+const webUiStatus = await waitForWebUi();
 const handoff = await requestControl("webui.open");
 if (!handoff || typeof handoff.url !== "string") throw new Error("daemon returned an invalid WebUI handoff URL");
 
 const daemonUrl = new URL(handoff.url);
+if (daemonUrl.protocol !== "http:" || daemonUrl.hostname !== webUiStatus.host || Number(daemonUrl.port) !== webUiStatus.port) {
+  throw new Error("daemon returned a WebUI handoff URL inconsistent with its running server");
+}
 const ticket = daemonUrl.hash;
 if (!/^#ticket=[^&]+$/.test(ticket)) throw new Error("daemon returned an invalid WebUI ticket");
 
@@ -74,6 +80,24 @@ async function waitForDaemonRunning() {
     }
   }
   return false;
+}
+
+function webUiIsReady(status) {
+  return status?.state === "running" && status.host === "127.0.0.1"
+    && Number.isInteger(status.port) && status.port > 0 && status.port <= 65535;
+}
+
+async function waitForWebUi() {
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    await delay(250);
+    try {
+      const status = await requestControl("webui.status");
+      if (webUiIsReady(status)) return status;
+    } catch {
+      // The daemon is still publishing its WebUI server state.
+    }
+  }
+  throw new Error(`WebUI did not become ready; inspect ${join(workspace, ".liteyuki", "instances", options.instance, "logs", "daemon.log")}`);
 }
 
 async function requestControl(command) {
