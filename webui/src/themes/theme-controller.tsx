@@ -1,11 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTheme } from "next-themes";
 
 export const accents = ["blue", "lavender", "cyan"] as const;
 export type Accent = (typeof accents)[number];
 export type ThemeMode = "system" | "light" | "dark";
 
-type Reveal = { x: number; y: number; target: "light" | "dark" };
 type ThemeControllerValue = {
   accent: Accent;
   mode: ThemeMode;
@@ -25,19 +24,10 @@ function initialAccent(): Accent {
   }
 }
 
-function prefersDark(mode: ThemeMode): boolean {
-  return mode === "dark" || (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-}
-
-function ThemeReveal({ reveal }: { reveal: Reveal | null }) {
-  if (reveal === null) return null;
-  return <div className={`webui-theme-reveal webui-theme-reveal--${reveal.target}`} style={{ "--reveal-x": `${reveal.x}px`, "--reveal-y": `${reveal.y}px` } as CSSProperties} />;
-}
-
 export function ThemeControllerProvider({ children }: { children: ReactNode }) {
   const { theme, setTheme } = useTheme();
   const [accent, setAccentState] = useState<Accent>(initialAccent);
-  const [reveal, setReveal] = useState<Reveal | null>(null);
+  const transitionTimer = useRef<number | null>(null);
   const mode = (theme === "light" || theme === "dark" ? theme : "system") as ThemeMode;
 
   useEffect(() => {
@@ -45,23 +35,30 @@ export function ThemeControllerProvider({ children }: { children: ReactNode }) {
     try { localStorage.setItem(accentStorageKey, accent); } catch { /* The active session still has its accent. */ }
   }, [accent]);
 
+  useEffect(() => () => {
+    if (transitionTimer.current !== null) window.clearTimeout(transitionTimer.current);
+    document.documentElement.classList.remove("webui-theme-transition");
+  }, []);
+
   const setAccent = useCallback((value: Accent) => setAccentState(value), []);
-  const setMode = useCallback((value: ThemeMode, origin?: HTMLElement | null) => {
+  const setMode = useCallback((value: ThemeMode, _origin?: HTMLElement | null) => {
     if (value === mode) return;
-    const target = prefersDark(value) ? "dark" : "light";
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduced || origin === null || origin === undefined) {
+    if (reduced) {
       setTheme(value);
       return;
     }
-    const bounds = origin.getBoundingClientRect();
-    setReveal({ x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2, target });
-    window.setTimeout(() => setTheme(value), 850);
-    window.setTimeout(() => setReveal(null), 1_080);
+    if (transitionTimer.current !== null) window.clearTimeout(transitionTimer.current);
+    document.documentElement.classList.add("webui-theme-transition");
+    window.requestAnimationFrame(() => setTheme(value));
+    transitionTimer.current = window.setTimeout(() => {
+      document.documentElement.classList.remove("webui-theme-transition");
+      transitionTimer.current = null;
+    }, 950);
   }, [mode, setTheme]);
 
   const value = useMemo(() => ({ accent, mode, setAccent, setMode }), [accent, mode, setAccent, setMode]);
-  return <ThemeControllerContext.Provider value={value}>{children}<ThemeReveal reveal={reveal} /></ThemeControllerContext.Provider>;
+  return <ThemeControllerContext.Provider value={value}>{children}</ThemeControllerContext.Provider>;
 }
 
 export function useThemeController() {

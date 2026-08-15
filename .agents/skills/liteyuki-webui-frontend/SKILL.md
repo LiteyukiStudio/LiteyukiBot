@@ -65,8 +65,9 @@ description: Build, review, or test LiteyukiBot v7's React/Vite WebUI under webu
   but must not introduce a second translated catalog.
 - Theme selection consists of light/dark/system mode plus the Blue, Lavender,
   and Cyan accent groups from `tmp/v7-webui-uiux-design.md`. Keep their paired
-  token values in the CSS registry and use the theme reveal controller for
-  visual mode changes; reduced-motion users receive an immediate transition.
+  token values in the CSS registry. Visual mode changes use a non-occluding,
+  slow-start/fast-end background and border-color transition, never a full-page
+  masking layer; reduced-motion users receive an immediate transition.
 - Keep the Signal Ledger layout: a white fixed navigation rail, unframed normal
   navigation, one theme-derived active row, elevated content surfaces, and a
   compact top status bar for the current page and live state. On desktop, the

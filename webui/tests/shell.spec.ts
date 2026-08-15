@@ -111,9 +111,10 @@ test("top bar persists the selected locale and applies the selected theme", asyn
   await expect(page.locator("html")).toHaveAttribute("data-accent", "lavender");
   await page.getByRole("button", { name: "主题" }).click();
   await page.getByRole("menuitemradio", { name: "深色" }).click();
-  await expect(page.locator(".webui-theme-reveal--dark")).toBeVisible();
+  await expect(page.locator("html")).toHaveClass(/webui-theme-transition/);
   await expect(page.locator("html")).toHaveClass(/dark/);
   await expect(page.locator(".webui-theme-reveal")).toHaveCount(0);
+  await expect(page.locator("html")).not.toHaveClass(/webui-theme-transition/);
   await expect(page.getByRole("button", { name: "刷新" })).toBeVisible();
 });
 
