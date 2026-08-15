@@ -27,4 +27,4 @@ uv run pytest tests
 ```
 
 Public contract changes require focused tests and the matching document under
-`docs/adr/`, `docs/architecture/`, or `docs/configuration.md`.
+`docs/specs/`, `docs/architecture/`, or `docs/configuration.md`.

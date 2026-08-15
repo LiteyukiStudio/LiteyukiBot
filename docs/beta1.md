@@ -102,11 +102,11 @@ health probe leaves the prior active/rollback pointers intact.
 
 ## Upgrade And Recovery
 
-`config_version = 3` is the current pre-release configuration schema. Configurations
-with an older or missing version block startup after LiteyukiBot writes a backup
-and a current upgrade template below `.liteyuki/`; newer configurations are
-rejected without modification. Review the template, merge it manually, then
-run `liteyuki config upgrade --refresh` only to regenerate recovery material.
+At the Beta1 release point, `config_version = 3` was the current pre-release
+configuration schema. The current v4 cutover preserves pre-v4 configurations,
+writes a read-only backup plus a fresh template below `.liteyuki/`, and blocks
+startup for manual replacement. See the current configuration specification for
+the active schema and recovery rules.
 
 Managed profiles and runtime generations retain a verified previous pointer.
 Use `liteyuki profile rollback` to restore the preceding profile. Package-owned

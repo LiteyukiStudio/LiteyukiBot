@@ -4,9 +4,8 @@
 that match the current implementation and tested release state; do not use this
 tree for scratch plans or promises about unimplemented work.
 
+- `specs/` contains the versioned, normative public contracts.
 - `architecture/` describes the current system boundary and lifecycle.
-- `adr/` contains accepted architecture decisions; superseded decisions remain
-  for historical reasoning rather than being rewritten.
 - `development/` contains contributor, plugin-author, runtime-author, and
   release-maintainer guidance.
 - `archive/` holds completed historical records that remain useful for design
@@ -15,4 +14,5 @@ tree for scratch plans or promises about unimplemented work.
   current Beta1 support contract.
 
 Keep relative Markdown links valid. Contract changes need focused tests in the
-same pull request and a corresponding documentation update.
+same pull request and a corresponding specification update. Git history, not a
+documentation subtree, preserves removed design rationale.
