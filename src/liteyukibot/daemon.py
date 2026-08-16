@@ -13,7 +13,7 @@ from time import monotonic
 from typing import Any, cast
 
 from .config import DaemonSettings, DevelopmentSettings, WebUISettings
-from .control import ControlServer, request_control
+from .control import ControlError, ControlServer, request_control
 from .instances import InstancePaths
 from .operations import (
     ManagementPrincipal,
@@ -24,6 +24,14 @@ from .operations import (
     OperationRecord,
     OperationRequest,
     PrincipalKind,
+)
+
+_EVENT_LEDGER_DELIVERY_TIMESTAMPS = (
+    "admitted_at",
+    "offered_at",
+    "accepted_at",
+    "active_at",
+    "terminal_at",
 )
 
 
@@ -65,6 +73,8 @@ class InstanceDaemon:
         self._webui_subscribers: set[asyncio.Queue[Any]] = set()
         self._webui_sequence = 0
         self._webui_operations_ready = False
+        self._event_ledger_task: asyncio.Task[None] | None = None
+        self._event_ledger_view: str | None = None
         self.operations = OperationLedger(paths.root / "operations.sqlite3", audit_key=self._operation_audit_key())
         self._started_at = monotonic()
         self.control = ControlServer(
@@ -242,8 +252,14 @@ class InstanceDaemon:
             session_max_seconds=self.webui.session_max_seconds,
         )
         await self._webui_server.start()
+        self._event_ledger_task = asyncio.create_task(self._poll_event_ledger(), name="webui-event-ledger")
 
     async def _stop_webui(self) -> None:
+        if self._event_ledger_task is not None:
+            self._event_ledger_task.cancel()
+            await asyncio.gather(self._event_ledger_task, return_exceptions=True)
+            self._event_ledger_task = None
+        self._event_ledger_view = None
         if self._webui_server is not None:
             await self._webui_server.stop()
             self._webui_server = None
@@ -355,6 +371,19 @@ class InstanceDaemon:
             "items": [self._operation_record(record) for record in self.operations.records(limit)],
             "next_cursor": None,
         }
+
+    async def event_ledger(self, _principal: Any, cursor: str | None, limit: int) -> dict[str, object]:
+        value = await self._worker_webui_control("daemon.webui.event_ledger", cursor=cursor, limit=limit)
+        return self._project_event_ledger_page(value)
+
+    async def event_ledger_detail(self, _principal: Any, event_id: str) -> dict[str, object] | None:
+        try:
+            value = await self._worker_webui_control("daemon.webui.event_ledger.detail", event_id=event_id)
+        except ControlError as error:
+            if "UnknownLedgerRecordError" in str(error):
+                return None
+            raise
+        return self._project_event_ledger_detail(value)
 
     async def plugin_surfaces(self, _principal: Any) -> dict[str, object]:
         value = await self._worker_webui_control("daemon.webui.plugin_surfaces")
@@ -482,6 +511,206 @@ class InstanceDaemon:
                 await self._publish_webui_event("operation", self._operation_record(record))
                 return
             await asyncio.sleep(0.02)
+
+    async def _poll_event_ledger(self) -> None:
+        while not self._stop_event.is_set() and self._webui_server is not None:
+            try:
+                value = await self._worker_webui_control("daemon.webui.event_ledger", cursor=None, limit=1)
+                page = self._project_event_ledger_page(value)
+                summary = page.get("summary")
+                worker_summary = value.get("summary") if isinstance(value, Mapping) else None
+                revision = worker_summary.get("revision") if isinstance(worker_summary, Mapping) else None
+                if not isinstance(summary, Mapping) or not isinstance(revision, str):
+                    raise RuntimeError("worker returned an invalid event ledger summary")
+                fingerprint = revision
+                if fingerprint != self._event_ledger_view:
+                    self._event_ledger_view = fingerprint
+                    await self._publish_webui_event("event_ledger", summary)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                pass
+            await asyncio.sleep(0.5)
+
+    def _project_event_ledger_page(self, value: Any) -> dict[str, object]:
+        if not isinstance(value, Mapping):
+            raise RuntimeError("worker returned an invalid event ledger page")
+        if value.get("error") == "invalid_cursor" and set(value) == {"error"}:
+            return {"error": "invalid_cursor"}
+        items = value.get("items")
+        cursor = value.get("next_cursor")
+        summary = value.get("summary")
+        if (
+            not isinstance(items, list)
+            or (cursor is not None and not isinstance(cursor, str))
+            or not isinstance(summary, Mapping)
+        ):
+            raise RuntimeError("worker returned an invalid event ledger page")
+        return {
+            "items": [self._project_event_ledger_summary(item) for item in items],
+            "next_cursor": cursor,
+            "summary": self._project_event_ledger_view_summary(summary),
+        }
+
+    def _project_event_ledger_detail(self, value: Any) -> dict[str, object]:
+        if not isinstance(value, Mapping):
+            raise RuntimeError("worker returned an invalid event ledger detail")
+        detail = self._project_event_ledger_summary(value)
+        deliveries = value.get("deliveries")
+        actions = value.get("actions")
+        if not isinstance(deliveries, list) or not isinstance(actions, list):
+            raise RuntimeError("worker returned an invalid event ledger detail")
+        detail["deliveries"] = [self._project_event_ledger_delivery(delivery) for delivery in deliveries]
+        detail["actions"] = [self._project_event_ledger_action(action) for action in actions]
+        return detail
+
+    def _project_event_ledger_summary(self, value: Any) -> dict[str, object]:
+        if not isinstance(value, Mapping):
+            raise RuntimeError("worker returned an invalid event ledger record")
+        event_id = value.get("event_id")
+        source = value.get("source")
+        state = value.get("state")
+        admitted_at = value.get("admitted_at")
+        terminal_at = value.get("terminal_at")
+        delivery_count = value.get("delivery_count")
+        action_count = value.get("action_count")
+        if (
+            not isinstance(event_id, str)
+            or not isinstance(source, Mapping)
+            or not isinstance(state, str)
+            or type(admitted_at) not in {int, float}
+            or terminal_at is not None and type(terminal_at) not in {int, float}
+            or type(delivery_count) is not int
+            or type(action_count) is not int
+        ):
+            raise RuntimeError("worker returned an invalid event ledger record")
+        identities = self._project_event_ledger_source(source)
+        return {
+            "event_id": event_id,
+            "source": identities,
+            "state": state,
+            "admitted_at": admitted_at,
+            "terminal_at": terminal_at,
+            "delivery_count": delivery_count,
+            "action_count": action_count,
+        }
+
+    def _project_event_ledger_source(self, value: Mapping[str, Any]) -> dict[str, str]:
+        identities = {
+            "runtime_id": "source_runtime",
+            "event_id": "source_event",
+            "bot_id": "bot",
+            "conversation_id": "conversation",
+        }
+        projected: dict[str, str] = {}
+        for field, category in identities.items():
+            raw = value.get(field)
+            if not isinstance(raw, str):
+                raise RuntimeError("worker returned an invalid event ledger source")
+            projected[field] = self.operations.redact_diagnostic_identifier(category, raw)
+        return projected
+
+    @staticmethod
+    def _project_event_ledger_delivery(value: Any) -> dict[str, object]:
+        if not isinstance(value, Mapping):
+            raise RuntimeError("worker returned an invalid event ledger delivery")
+        allowed = {
+            "delivery_id",
+            "target_runtime_id",
+            "policy",
+            "completion",
+            "messages_only",
+            "state",
+            "attempt",
+            "admitted_at",
+            "offered_at",
+            "accepted_at",
+            "active_at",
+            "terminal_at",
+            "terminal_reason",
+        }
+        if set(value) != allowed:
+            raise RuntimeError("worker returned an invalid event ledger delivery")
+        delivery_id = value["delivery_id"]
+        target_runtime_id = value["target_runtime_id"]
+        policy = value["policy"]
+        completion = value["completion"]
+        messages_only = value["messages_only"]
+        state = value["state"]
+        attempt = value["attempt"]
+        terminal_reason = value["terminal_reason"]
+        timestamps = {field: value[field] for field in _EVENT_LEDGER_DELIVERY_TIMESTAMPS}
+        if (
+            not all(isinstance(item, str) for item in (delivery_id, target_runtime_id, policy, completion, state))
+            or type(messages_only) is not bool
+            or type(attempt) is not int
+            or terminal_reason is not None
+            and not isinstance(terminal_reason, str)
+            or not all(timestamp is None or type(timestamp) in {int, float} for timestamp in timestamps.values())
+        ):
+            raise RuntimeError("worker returned an invalid event ledger delivery")
+        return {
+            "delivery_id": delivery_id,
+            "target_runtime_id": target_runtime_id,
+            "policy": policy,
+            "completion": completion,
+            "messages_only": messages_only,
+            "state": state,
+            "attempt": attempt,
+            **timestamps,
+            "terminal_reason": terminal_reason,
+        }
+
+    @staticmethod
+    def _project_event_ledger_action(value: Any) -> dict[str, object]:
+        if not isinstance(value, Mapping):
+            raise RuntimeError("worker returned an invalid event ledger action")
+        allowed = {"target_runtime_id", "correlation_id", "claimed_at", "completed_at", "state"}
+        if set(value) != allowed:
+            raise RuntimeError("worker returned an invalid event ledger action")
+        target_runtime_id = value["target_runtime_id"]
+        correlation_id = value["correlation_id"]
+        claimed_at = value["claimed_at"]
+        completed_at = value["completed_at"]
+        state = value["state"]
+        if (
+            not isinstance(target_runtime_id, str)
+            or not isinstance(correlation_id, str)
+            or type(claimed_at) not in {int, float}
+            or completed_at is not None
+            and type(completed_at) not in {int, float}
+            or not isinstance(state, str)
+        ):
+            raise RuntimeError("worker returned an invalid event ledger action")
+        return {
+            "target_runtime_id": target_runtime_id,
+            "correlation_id": correlation_id,
+            "claimed_at": claimed_at,
+            "completed_at": completed_at,
+            "state": state,
+        }
+
+    @staticmethod
+    def _project_event_ledger_view_summary(value: Mapping[str, Any]) -> dict[str, object]:
+        active_count = value.get("active_count")
+        terminal_count = value.get("terminal_count")
+        latest_event_id = value.get("latest_event_id")
+        latest_state = value.get("latest_state")
+        revision = value.get("revision")
+        if (
+            type(active_count) is not int
+            or type(terminal_count) is not int
+            or latest_event_id is not None and not isinstance(latest_event_id, str)
+            or latest_state is not None and not isinstance(latest_state, str)
+            or not isinstance(revision, str)
+        ):
+            raise RuntimeError("worker returned an invalid event ledger summary")
+        return {
+            "active_count": active_count,
+            "terminal_count": terminal_count,
+            "latest_event_id": latest_event_id,
+            "latest_state": latest_state,
+        }
 
     def _new_webui_event(self, event: str, data: Mapping[str, object]) -> Any:
         from liteyukibot_webui import WebUiEvent

@@ -1,14 +1,14 @@
 # Runtime LYIP v1
 
 - Specification version: `1`
-- Applies to: the Beta3 supervised child-runtime lifecycle, transport-neutral
-  LYIP frame, ZMQ backend, and typed runtime message codec.
+- Applies to: the current supervised child-runtime lifecycle, LYIP ABI v2
+  frame, ZMQ backend, and typed runtime message codec.
 - Compatibility: pre-stable. Every supervised child uses LYIP v1. The former
   v5 length-prefixed TCP lifecycle is historical and is not a fallback.
 
 ## Frame And Ordering
 
-Every frame has protocol `1`, a positive kernel generation, lane, fixed type
+Every frame has ABI `2`, a positive kernel generation, lane, fixed type
 ID, stream ID, per-stream sequence, lease ID, and opaque bytes. Send and
 receive both reject generation or sequence mismatches. A full lane must not
 advance the sender sequence.
@@ -34,7 +34,7 @@ The codec verifies that frame type ID, decoded discriminator, and lane agree.
 
 ## Backend Availability
 
-The active lifecycle backend is ZMQ. The native package exposes an ABI and
+The active lifecycle backend is ZMQ. The native package exposes a separate ABI and
 shared-memory SPSC ring primitive, but no SHM LYIP transport adapter yet; it
 therefore cannot be selected for a child lifecycle. The ring remains an
 optional native foundation, not an implicit transport switch.

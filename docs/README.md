@@ -10,8 +10,7 @@ tree for scratch plans or promises about unimplemented work.
   release-maintainer guidance.
 - `archive/` holds completed historical records that remain useful for design
   or release archaeology.
-- top-level documents cover configuration, compatibility, performance, and the
-  current Beta1 support contract.
+- top-level documents cover configuration, compatibility, and performance.
 
 Keep relative Markdown links valid. Contract changes need focused tests in the
 same pull request and a corresponding specification update. Git history, not a

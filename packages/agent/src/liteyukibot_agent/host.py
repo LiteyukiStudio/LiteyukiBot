@@ -20,7 +20,6 @@ from liteyukibot.runtime.protocol import (
     EventAccepted,
     EventCompleted,
     EventMessage,
-    EventTrace,
     Shutdown,
 )
 
@@ -87,36 +86,36 @@ class NativeAgentHost:
         except ValueError:
             await self.client.send(
                 EventAccepted(
-                    correlation_id=message.correlation_id,
+                    delivery_id=message.delivery_id,
                     status="invalid",
                     detail="invalid EventEnvelope",
                 )
             )
             return
         if event.message is None or not event.message.plain_text.strip():
-            await self.client.send(EventAccepted(correlation_id=message.correlation_id, status="accepted"))
+            await self.client.send(EventAccepted(delivery_id=message.delivery_id, status="accepted"))
             await self.client.send(
-                EventCompleted(correlation_id=message.correlation_id, status="completed")
+                EventCompleted(delivery_id=message.delivery_id, status="completed")
             )
             return
         if len(self._tasks) >= self.max_concurrent_events:
             await self.client.send(
                 EventAccepted(
-                    correlation_id=message.correlation_id,
+                    delivery_id=message.delivery_id,
                     status="overloaded",
                     detail="native agent event capacity is exhausted",
                 )
             )
             return
-        await self.client.send(EventAccepted(correlation_id=message.correlation_id, status="accepted"))
+        await self.client.send(EventAccepted(delivery_id=message.delivery_id, status="accepted"))
         task = asyncio.create_task(
             self._process_event(
-                message.correlation_id,
+                message.delivery_id,
                 event,
-                message.trace,
+                message.kernel_event_id,
                 _tool_schemas(message.agent_tool_catalog),
             ),
-            name=f"agent-event:{message.correlation_id}",
+            name=f"agent-event:{message.delivery_id}",
         )
         self._tasks.add(task)
         task.add_done_callback(self._event_finished)
@@ -171,33 +170,33 @@ class NativeAgentHost:
 
     async def _process_event(
         self,
-        delivery_correlation_id: str,
+        delivery_id: str,
         event: EventEnvelope,
-        trace: EventTrace | None,
+        kernel_event_id: str,
         tools: Sequence[Mapping[str, object]],
     ) -> None:
         try:
             async with asyncio.timeout(self.event_timeout_seconds):
-                await self._process_event_body(delivery_correlation_id, event, tools)
+                await self._process_event_body(delivery_id, event, tools)
         except Exception as error:
             detail = "agent event timed out" if isinstance(error, TimeoutError) else f"{type(error).__name__}: {error}"
             self.logger.bind(
-                correlation_id=delivery_correlation_id,
-                trace_id=trace.trace_id if trace is not None else None,
+                delivery_id=delivery_id,
+                kernel_event_id=kernel_event_id,
             ).error("native agent event failed: {}", detail)
             await self.client.send(
                 EventCompleted(
-                    correlation_id=delivery_correlation_id,
+                    delivery_id=delivery_id,
                     status="failed",
                     detail=detail,
                 )
             )
             raise
-        await self.client.send(EventCompleted(correlation_id=delivery_correlation_id, status="completed"))
+        await self.client.send(EventCompleted(delivery_id=delivery_id, status="completed"))
 
     async def _process_event_body(
         self,
-        delivery_correlation_id: str,
+        delivery_id: str,
         event: EventEnvelope,
         tools: Sequence[Mapping[str, object]],
     ) -> None:
@@ -217,7 +216,7 @@ class NativeAgentHost:
             for call in reply.tool_calls:
                 result = await self.client.execute_agent_tool(
                     f"tool-{uuid4()}",
-                    delivery_correlation_id,
+                    delivery_id,
                     call.tool_id,
                     call.arguments,
                 )
@@ -247,7 +246,7 @@ class NativeAgentHost:
                 response = await self.client.execute_action(
                     action.action_id,
                     action.model_dump(mode="json"),
-                    delivery_correlation_id=delivery_correlation_id,
+                    delivery_id=delivery_id,
                 )
                 if not response.ok:
                     raise RuntimeError(response.error or "source runtime rejected agent output")

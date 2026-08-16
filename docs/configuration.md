@@ -229,5 +229,5 @@ uv run liteyuki config upgrade --refresh
 Configurations from a newer schema are rejected without creating backups.
 The saved v3 configuration is usable only with the older pre-v4 beta binary;
 there is no v4 rollback command because the old root was not mutated. See the
-[Configuration v4 specification](specs/configuration-v4.md) for exact LYIP,
+[Configuration v5 specification](specs/configuration-v4.md) for exact LYIP,
 WebUI, logging, and development limits.

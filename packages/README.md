@@ -10,7 +10,10 @@ packages directly.
 - `permissions`, `commands`, `resources`, `profile`, and `essentials` are
   native plugin/service packages.
 - `functions` is the separate executor for documented v6 resource functions.
-- `runtime-*` packages are supervised child-runtime hosts.
+- `runtime-*` packages are supervised child-runtime hosts. `runtime-cordis` is
+  currently a package-core only: its compiled first-party catcher manifest and
+  PyO3 action planner are present, but its LYIP child loop and release-wheel
+  Rust binary artifact are not. It must not be enabled as a runtime yet.
 - `adapter-onebot` is a platform adapter loaded by `runtime-adapter`.
 - `agent` and `agent-resolver` provide the native agent runtime and its
   declarative resolver.

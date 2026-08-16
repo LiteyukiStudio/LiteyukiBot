@@ -2,7 +2,7 @@
 
 - Specification version: `1`
 - Applies to: `liteyukibot-v7[webui]` and `liteyukibot-v7-webui[server]`
-- Compatibility: Beta4, pre-stable
+- Compatibility: pre-stable
 
 ## Boundary
 
@@ -23,11 +23,23 @@ plugin-hosted HTTP extension point.
 ## API And Streaming
 
 The authenticated `/api/v1` namespace exposes bootstrap state, kernel
-snapshots, operation catalog and status, audit records, plugin surfaces, and
-an SSE event stream.  Responses are JSON-safe snapshots.  The stream supports
+snapshots, operation catalog and status, audit records, plugin surfaces, the
+read-only event ledger, and an SSE event stream. Responses are JSON-safe
+snapshots. The stream supports
 `Last-Event-ID`; when an event has expired from the bounded replay buffer, the
 service emits a `reset` event rather than silently continuing from an
 incomplete history.
+
+`GET /api/v1/event-ledger?cursor=&limit=` returns a bounded page with a limit
+of `1..500`; `GET /api/v1/event-ledger/{event_id}` returns one retained detail
+or `404`. Both endpoints are observation-only. SSE emits an `event_ledger`
+summary only, so consumers fetch detail explicitly instead of receiving a
+payload-bearing delivery stream.
+
+The daemon validates the worker projection and HMAC-redacts source runtime ID,
+source event ID, bot ID, and conversation ID using its diagnostic audit key.
+It omits event payloads, message segments, action payloads, credentials, and
+raw exceptions from every response and SSE event.
 
 The UI is a static SPA served by the same local service.  `assets.manifest.json`
 contains the SHA-256 and byte size of every staged asset.  Release workflows

@@ -12,7 +12,8 @@ configuration, or plugin contract changes only with its owning specification
 and tests in the same pull request.
 
 - [Core Event and Action v1](core-event-action-v1.md)
-- [Runtime IPC v5](runtime-ipc-v5.md)
+- [Runtime IPC v6](runtime-ipc-v6.md)
+- [Runtime IPC v5 (historical)](runtime-ipc-v5.md)
 - [Runtime LYIP v1](runtime-lyip-v1.md)
 - [Native Plugin and Service v1](native-plugin-service-v1.md)
 - [Plugin WebUI Contribution v1](plugin-webui-contribution-v1.md)
@@ -20,7 +21,7 @@ and tests in the same pull request.
 - [Management and Command v1](management-command-v1.md)
 - [Release and Maintenance v1](release-maintenance-v1.md)
 - [Instance Daemon v1](instance-daemon-v1.md)
-- [Configuration v4](configuration-v4.md)
+- [Configuration v5](configuration-v4.md)
 - [Resources v1](resources-v1.md)
 - [v6 Compatibility](v6-compatibility.md)
 

@@ -26,6 +26,7 @@ members = [
     "liteyukibot-v7-resources",
     "liteyukibot-v7-runtime-adapter",
     "liteyukibot-v7-runtime-astrbot",
+    "liteyukibot-v7-runtime-cordis",
     "liteyukibot-v7-runtime-mofox",
     "liteyukibot-v7-runtime-nonebot",
     "liteyukibot-v7-runtime-v6",
@@ -1557,6 +1558,17 @@ requires-dist = [
     { name = "astrbot", specifier = "==4.27.2" },
     { name = "liteyukibot-v7", editable = "." },
 ]
+
+[[package]]
+name = "liteyukibot-v7-runtime-cordis"
+version = "0.1.0b1"
+source = { editable = "packages/runtime-cordis" }
+dependencies = [
+    { name = "liteyukibot-v7" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "liteyukibot-v7", editable = "." }]
 
 [[package]]
 name = "liteyukibot-v7-runtime-mofox"

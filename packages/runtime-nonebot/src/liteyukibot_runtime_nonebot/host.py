@@ -20,6 +20,7 @@ from liteyukibot.runtime import RuntimeClient
 from liteyukibot.runtime.protocol import (
     ActionRequest,
     ActionResponse,
+    EventIngress,
     EventMessage,
     Shutdown,
     WireMessage,
@@ -85,7 +86,7 @@ class SupervisorBridge:
 
     def emit_event(self, event: EventEnvelope) -> None:
         future = self._submit(
-            self._send(EventMessage(correlation_id=event.id, payload=event.model_dump(mode="json")))
+            self._send(EventIngress(source_event_id=event.id, payload=event.model_dump(mode="json")))
         )
         future.add_done_callback(self._report_send_failure)
 

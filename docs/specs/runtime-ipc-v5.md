@@ -1,10 +1,9 @@
-# Runtime IPC v5
+# Runtime IPC v5 (Historical)
 
 - Specification version: `5`
-- Applies to: historical typed wire models and compatibility semantics.
-- Compatibility: the message catalog remains the source representation for
-  LYIP v1 codec mapping. Its former length-prefixed TCP child transport is
-  removed and must not be restored as a fallback.
+- Applies to: superseded typed wire models and compatibility semantics.
+- Compatibility: superseded by Runtime IPC v6. Its former length-prefixed TCP
+  child transport is removed and must not be restored as a fallback.
 
 ## Transport And Handshake
 
@@ -30,10 +29,11 @@ shell, or arbitrary command channel.
 Actions remain kernel-to-child and are correlated with their original Event
 delivery. Control and management results are structured and redacted. The
 exact Pydantic wire models, discriminators, and frame validation live in
-`src/liteyukibot/runtime/protocol.py`; that source and its protocol tests are
-the executable shape of this pre-stable specification.
+`src/liteyukibot/runtime/protocol.py`; v5 is retained only as historical
+context. The current protocol is specified by
+[Runtime IPC v6](runtime-ipc-v6.md).
 
 ## Evidence
 
-Run `uv run pytest tests/test_runtime_v7.py tests/test_runtime_client_v7.py`.
-The active lifecycle transport is specified by `runtime-lyip-v1.md`.
+Do not use this document to implement a new runtime. The active lifecycle
+transport is specified by `runtime-lyip-v1.md`.

@@ -1,14 +1,14 @@
-"""LYIP v1 encoding for the existing typed runtime message catalog."""
+"""LYIP v2 encoding for the typed runtime message catalog."""
 
 from __future__ import annotations
 
 import json
 from collections.abc import Mapping
 
-from ..lyip import LyipError, LyipFrame, LyipLane
+from ..lyip import LYIP_ABI, LyipError, LyipFrame, LyipLane
 from .protocol import WIRE_ADAPTER, WireMessage
 
-LYIP_RUNTIME_ABI = 1
+LYIP_RUNTIME_ABI = LYIP_ABI
 
 _TYPE_IDS: Mapping[str, int] = {
     "hello": 1,
@@ -17,6 +17,7 @@ _TYPE_IDS: Mapping[str, int] = {
     "ready": 4,
     "heartbeat": 5,
     "shutdown": 6,
+    "event_ingress": 9,
     "event": 10,
     "event_accepted": 11,
     "event_completed": 12,
@@ -59,7 +60,7 @@ def encode_runtime_message(
     type_id = _TYPE_IDS[message.type]
     lane = LyipLane.CONTROL if message.type in _CONTROL_TYPES else LyipLane.BUSINESS
     return LyipFrame(
-        1,
+        LYIP_RUNTIME_ABI,
         generation,
         lane,
         type_id,
@@ -71,6 +72,8 @@ def encode_runtime_message(
 
 
 def decode_runtime_message(frame: LyipFrame) -> WireMessage:
+    if frame.protocol != LYIP_RUNTIME_ABI:
+        raise LyipError(f"unsupported LYIP runtime ABI: {frame.protocol}")
     expected_type = _TYPE_NAMES.get(frame.type_id)
     if expected_type is None:
         raise LyipError(f"unsupported LYIP runtime type ID: {frame.type_id}")

@@ -204,6 +204,8 @@ class RuntimeEventRoute(FrozenSettingsModel):
     sources: tuple[str, ...]
     target: str
     messages_only: bool = False
+    policy: Literal["required", "best_effort"]
+    completion: Literal["sync", "async"]
 
     @field_validator("sources")
     @classmethod
@@ -361,9 +363,6 @@ class LyipLinkSettings(FrozenSettingsModel):
 class LyipSettings(FrozenSettingsModel):
     default_backend: Literal["auto", "shm", "zmq"] = "auto"
     capacity_profile: Literal["latency", "balanced", "throughput"] = "balanced"
-    terminal_capacity: int = Field(default=16_384, ge=1_024, le=262_144)
-    terminal_ttl_seconds: int = Field(default=3_600, ge=60, le=86_400)
-    dev_summary_ttl_seconds: int = Field(default=900, ge=60, le=3_600)
     zmq_large_payload_fallback: bool = False
     links: Mapping[str, LyipLinkSettings] = Field(default_factory=dict)
 
@@ -406,6 +405,12 @@ class LyipSettings(FrozenSettingsModel):
         return LyipLinkResolution(backend=backend, capacity_profile=profile, capacity=capacity)
 
 
+class EventLedgerSettings(FrozenSettingsModel):
+    active_capacity: int = Field(default=1_024, ge=1_024, le=262_144)
+    terminal_capacity: int = Field(default=16_384, ge=1_024, le=262_144)
+    terminal_ttl_seconds: int = Field(default=3_600, ge=60, le=86_400)
+
+
 class WebUISettings(FrozenSettingsModel):
     mode: Literal["disabled", "on_demand", "always"] = "on_demand"
     port: int = Field(default=0, ge=0, le=65_535)
@@ -431,7 +436,7 @@ class DevelopmentSettings(FrozenSettingsModel):
 
 
 class AppSettings(FrozenSettingsModel):
-    config_version: int = 4
+    config_version: int = 5
     core: CoreSettings = Field(default_factory=CoreSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     i18n: I18nSettings = Field(default_factory=I18nSettings)
@@ -442,14 +447,15 @@ class AppSettings(FrozenSettingsModel):
     http: HttpSettings = Field(default_factory=HttpSettings)
     daemon: DaemonSettings = Field(default_factory=DaemonSettings)
     lyip: LyipSettings = Field(default_factory=LyipSettings)
+    event_ledger: EventLedgerSettings = Field(default_factory=EventLedgerSettings)
     webui: WebUISettings = Field(default_factory=WebUISettings)
     development: DevelopmentSettings = Field(default_factory=DevelopmentSettings)
 
     @field_validator("config_version")
     @classmethod
     def require_current_config_version(cls, value: int) -> int:
-        if value != 4:
-            raise ValueError("config_version must be 4")
+        if value != 5:
+            raise ValueError("config_version must be 5")
         return value
 
     @field_validator("runtimes", mode="after")
@@ -486,7 +492,7 @@ class AppSettings(FrozenSettingsModel):
             raise ValueError("logging.payload_exclude_runtimes requires logging.payload_mode=full")
 
         enabled = {runtime_id for runtime_id, runtime in self.runtimes.items() if runtime.enabled}
-        routes: set[tuple[tuple[str, ...], str, bool]] = set()
+        routes: set[tuple[str, bool, str]] = set()
         for route in self.runtime_event_routes:
             if route.target not in self.runtimes:
                 raise ValueError(f"runtime event route target {route.target!r} is not configured")
@@ -497,10 +503,11 @@ class AppSettings(FrozenSettingsModel):
                     raise ValueError(f"runtime event route source {source!r} is not configured")
                 if source not in enabled:
                     raise ValueError(f"runtime event route source {source!r} is disabled")
-            key = (route.sources, route.target, route.messages_only)
-            if key in routes:
-                raise ValueError("runtime event routes must not contain duplicates")
-            routes.add(key)
+            for source in route.sources:
+                key = (source, route.messages_only, route.target)
+                if key in routes:
+                    raise ValueError("runtime event routes must not contain duplicate source/filter/target rules")
+                routes.add(key)
         return self
 
 

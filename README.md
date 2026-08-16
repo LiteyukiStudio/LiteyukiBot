@@ -125,7 +125,7 @@ tokens, or message payloads in public reports.
 
 - [Configuration operations](docs/configuration.md)
 - [v7 architecture](docs/architecture/v7.md)
-- [Beta1 contract and support boundary](docs/beta1.md)
+- [v7 contract specifications](docs/specs/README.md)
 - [v6 compatibility](docs/migration-v6.md)
 - [Native plugin development](docs/development/native-plugins.md)
 - [Custom runtime development](docs/development/custom-runtimes.md)

@@ -333,7 +333,15 @@ def _collect_agent_routes(
                 ),
                 default=False,
             ):
-                routes.append({"sources": [source], "target": runtime_id, "messages_only": True})
+                routes.append(
+                    {
+                        "sources": [source],
+                        "target": runtime_id,
+                        "messages_only": True,
+                        "policy": "required",
+                        "completion": "async",
+                    }
+                )
     return tuple(routes)
 
 

@@ -3,7 +3,7 @@
 - Specification version: `1`
 - Applies to: native v7 `PluginManifest.webui` declarations and plugin-owned
   snapshot providers
-- Compatibility: Beta3, pre-stable
+- Compatibility: pre-stable
 
 ## Boundary
 

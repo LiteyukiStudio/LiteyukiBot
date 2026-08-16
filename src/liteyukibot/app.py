@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import binascii
+import hashlib
+import json
 import os
 from collections.abc import Callable, Mapping
 from enum import StrEnum
@@ -50,6 +54,7 @@ from .runtime import (
     RuntimeSupervisor,
     json_value,
 )
+from .runtime.ledger import DeliverySnapshot, EventLedger, EventProvenance, EventSnapshot, RouteSnapshot
 from .services import ServiceKey, ServiceRegistry
 from .status import KERNEL_STATUS_SERVICE, KernelStatusSnapshot
 from .tasks import ManagedTasks
@@ -149,6 +154,13 @@ class LiteyukiApp:
             action_sink=self._execute_runtime_action,
             secret_values=runtime_secrets,
             lyip_settings=settings.lyip,
+            ledger=EventLedger(
+                active_capacity=settings.event_ledger.active_capacity,
+                terminal_capacity=settings.event_ledger.terminal_capacity,
+                terminal_ttl_seconds=settings.event_ledger.terminal_ttl_seconds,
+            ),
+            delivery_timeout_seconds=settings.core.handler_timeout_seconds,
+            agent_tool_catalog_provider=self._agent_tool_catalog,
         )
         self.runtimes.set_logging_settings(settings.logging)
         self.runtimes.set_management_sink(self._execute_runtime_management)
@@ -184,6 +196,8 @@ class LiteyukiApp:
                 "daemon.webui.operation_catalog": self._daemon_webui_operation_catalog,
                 "daemon.webui.operation.execute": self._daemon_webui_execute_operation,
                 "daemon.webui.plugin_surfaces": self._daemon_webui_plugin_surfaces,
+                "daemon.webui.event_ledger": self._daemon_webui_event_ledger,
+                "daemon.webui.event_ledger.detail": self._daemon_webui_event_ledger_detail,
             },
         )
         self.http = (
@@ -401,6 +415,152 @@ class LiteyukiApp:
         ]
         return {"generation": self.plugins.webui_generation, "surfaces": surfaces, "diagnostics": diagnostics}
 
+    async def _daemon_webui_event_ledger(self, request: Mapping[str, Any]) -> dict[str, Any]:
+        cursor = request.get("cursor")
+        limit = request.get("limit", 100)
+        if cursor is not None and not isinstance(cursor, str):
+            raise ValueError("event ledger cursor must be a string")
+        if type(limit) is not int or not 1 <= limit <= 500:
+            raise ValueError("event ledger limit must be between 1 and 500")
+        snapshots = self._event_ledger_snapshots()
+        start = 0
+        if cursor is not None:
+            try:
+                cursor_event_id = self._decode_event_ledger_cursor(cursor)
+            except ValueError:
+                return {"error": "invalid_cursor"}
+            for index, snapshot in enumerate(snapshots):
+                if snapshot.event_id == cursor_event_id:
+                    start = index + 1
+                    break
+            else:
+                return {"error": "invalid_cursor"}
+        page = snapshots[start : start + limit]
+        next_cursor = (
+            self._encode_event_ledger_cursor(page[-1].event_id) if start + len(page) < len(snapshots) else None
+        )
+        return {
+            "items": [self._event_ledger_summary(snapshot) for snapshot in page],
+            "next_cursor": next_cursor,
+            "summary": self._event_ledger_view_summary(snapshots),
+        }
+
+    async def _daemon_webui_event_ledger_detail(self, request: Mapping[str, Any]) -> dict[str, Any]:
+        event_id = request.get("event_id")
+        if not isinstance(event_id, str) or not event_id or event_id != event_id.strip():
+            raise ValueError("event ledger event_id must be a non-empty string")
+        snapshot = self.runtimes.ledger.snapshot(event_id)
+        return self._event_ledger_detail(snapshot)
+
+    def _event_ledger_snapshots(self) -> tuple[EventSnapshot, ...]:
+        snapshots = (*self.runtimes.ledger.active_snapshots(), *self.runtimes.ledger.terminal_snapshots())
+        return tuple(sorted(snapshots, key=lambda snapshot: snapshot.admitted_at, reverse=True))
+
+    @staticmethod
+    def _encode_event_ledger_cursor(event_id: str) -> str:
+        value = json.dumps({"v": 1, "event_id": event_id}, separators=(",", ":")).encode()
+        return base64.urlsafe_b64encode(value).decode().rstrip("=")
+
+    @staticmethod
+    def _decode_event_ledger_cursor(cursor: str) -> str:
+        if not cursor or len(cursor) > 512:
+            raise ValueError("event ledger cursor is malformed")
+        try:
+            padded = cursor + "=" * (-len(cursor) % 4)
+            value = json.loads(base64.urlsafe_b64decode(padded.encode()))
+        except (binascii.Error, ValueError, UnicodeDecodeError) as error:
+            raise ValueError("event ledger cursor is malformed") from error
+        if not isinstance(value, dict) or value.get("v") != 1:
+            raise ValueError("event ledger cursor is malformed")
+        event_id = value.get("event_id")
+        if not isinstance(event_id, str) or not event_id or event_id != event_id.strip():
+            raise ValueError("event ledger cursor is malformed")
+        return event_id
+
+    @staticmethod
+    def _event_ledger_summary(snapshot: EventSnapshot) -> dict[str, Any]:
+        return {
+            "event_id": snapshot.event_id,
+            "source": {
+                "runtime_id": snapshot.provenance.source_runtime_id,
+                "event_id": snapshot.provenance.source_event_id,
+                "bot_id": snapshot.provenance.bot_id,
+                "conversation_id": snapshot.provenance.conversation_id,
+            },
+            "state": snapshot.state.value,
+            "admitted_at": snapshot.admitted_at,
+            "terminal_at": snapshot.terminal_at,
+            "delivery_count": len(snapshot.deliveries),
+            "action_count": len(snapshot.actions),
+        }
+
+    @classmethod
+    def _event_ledger_detail(cls, snapshot: EventSnapshot) -> dict[str, Any]:
+        detail = cls._event_ledger_summary(snapshot)
+        detail["deliveries"] = [
+            {
+                "delivery_id": delivery.delivery_id,
+                "target_runtime_id": delivery.route.target_runtime_id,
+                "policy": delivery.route.policy,
+                "completion": delivery.route.completion,
+                "messages_only": delivery.route.messages_only,
+                "state": delivery.state.value,
+                "attempt": delivery.attempt,
+                "admitted_at": delivery.admitted_at,
+                "offered_at": delivery.offered_at,
+                "accepted_at": delivery.accepted_at,
+                "active_at": delivery.active_at,
+                "terminal_at": delivery.terminal_at,
+                "terminal_reason": delivery.terminal_reason.value if delivery.terminal_reason is not None else None,
+            }
+            for delivery in snapshot.deliveries
+        ]
+        detail["actions"] = [
+            {
+                "target_runtime_id": action.target_runtime_id,
+                "correlation_id": action.correlation_id,
+                "claimed_at": action.claimed_at,
+                "completed_at": action.completed_at,
+                "state": "completed" if action.completed_at is not None else "pending",
+            }
+            for action in snapshot.actions
+        ]
+        return detail
+
+    @staticmethod
+    def _event_ledger_view_summary(snapshots: tuple[EventSnapshot, ...]) -> dict[str, Any]:
+        active_count = sum(1 for snapshot in snapshots if not snapshot.terminal)
+        latest = snapshots[0] if snapshots else None
+        revision = hashlib.sha256(
+            json.dumps(
+                [
+                    {
+                        "event_id": snapshot.event_id,
+                        "state": snapshot.state.value,
+                        "terminal_at": snapshot.terminal_at,
+                        "deliveries": [
+                            (delivery.delivery_id, delivery.state.value, delivery.terminal_reason)
+                            for delivery in snapshot.deliveries
+                        ],
+                        "actions": [
+                            (action.target_runtime_id, action.correlation_id, action.completed_at)
+                            for action in snapshot.actions
+                        ],
+                    }
+                    for snapshot in snapshots
+                ],
+                separators=(",", ":"),
+                default=str,
+            ).encode()
+        ).hexdigest()
+        return {
+            "active_count": active_count,
+            "terminal_count": len(snapshots) - active_count,
+            "latest_event_id": latest.event_id if latest is not None else None,
+            "latest_state": latest.state.value if latest is not None else None,
+            "revision": revision,
+        }
+
     async def start(self) -> None:
         if self.state is not AppState.CREATED:
             raise RuntimeError(f"application cannot start from state {self.state}")
@@ -577,6 +737,8 @@ class LiteyukiApp:
                     "sources": list(route.sources),
                     "target": route.target,
                     "messages_only": route.messages_only,
+                    "policy": route.policy,
+                    "completion": route.completion,
                 }
                 for route in self._runtime_event_routes
             ],
@@ -594,6 +756,7 @@ class LiteyukiApp:
 
     async def _cleanup(self) -> None:
         self._accepting_events = False
+        self.runtimes.ledger.shutdown()
         errors: list[BaseException] = []
         if self._http_started and self.http is not None:
             try:
@@ -646,7 +809,7 @@ class LiteyukiApp:
     def _function_task_failed(self, name: str, error: BaseException) -> None:
         self.logger.bind(component="functions").error("function task {} failed: {}", name, error)
 
-    async def _ingest_runtime_event(self, runtime_id: str, payload: dict[str, Any]) -> str:
+    async def _ingest_runtime_event(self, runtime_id: str, source_event_id: str, payload: dict[str, Any]) -> str:
         log_payload(
             self.logger,
             self.settings.logging,
@@ -655,6 +818,8 @@ class LiteyukiApp:
             runtime_id=runtime_id,
         )
         if not self._accepting_events:
+            return "invalid"
+        if source_event_id != source_event_id.strip():
             return "invalid"
         try:
             event = EventEnvelope.model_validate(payload)
@@ -668,6 +833,7 @@ class LiteyukiApp:
                 "runtime event claimed a different runtime id"
             )
             return "invalid"
+        event = event.model_copy(update={"id": source_event_id})
         result = await self.events.publish(event)
         return "accepted" if result.status == "processed" else result.status
 
@@ -852,6 +1018,8 @@ class LiteyukiApp:
                         sources=sources,
                         target=runtime_id,
                         messages_only=True,
+                        policy="required",
+                        completion="async",
                     )
                 )
         if settings.agent.enabled:
@@ -888,6 +1056,8 @@ class LiteyukiApp:
                             sources=sources,
                             target=target,
                             messages_only=True,
+                            policy="required",
+                            completion="async",
                         )
                     )
         return tuple(routes)
@@ -895,7 +1065,7 @@ class LiteyukiApp:
     async def _execute_agent_tool(
         self,
         _agent_runtime_id: str,
-        _delivery_correlation_id: str,
+        _delivery_id: str,
         event_payload: dict[str, Any],
         tool_id: str,
         arguments: dict[str, Any],
@@ -916,59 +1086,44 @@ class LiteyukiApp:
             return AgentToolSinkResult(ok=False, error="agent tool broker returned an invalid result")
         return AgentToolSinkResult(ok=result.ok, data=json_value(result.data), error=result.error)
 
+    def _agent_tool_catalog(self, delivery: DeliverySnapshot) -> Mapping[str, Any] | None:
+        record = self.runtimes.records.get(delivery.route.target_runtime_id)
+        if record is None or record.spec.agent_harness is None:
+            return None
+        broker = self.services.get(AGENT_TOOL_BROKER_SERVICE)
+        if broker is None:
+            return None
+        if not isinstance(broker, EventAgentToolCatalog):
+            raise RuntimeError("agent tool broker cannot produce event-scoped catalogs")
+        event = EventEnvelope.model_validate(dict(self.runtimes.ledger.snapshot(delivery.event_id).payload))
+        return broker.catalog_for(event)
+
     async def _forward_runtime_event(self, event: EventEnvelope) -> None:
-        targets = tuple(
-            route.target
+        routes = tuple(
+            RouteSnapshot(
+                target_runtime_id=route.target,
+                policy=route.policy,
+                completion=route.completion,
+                messages_only=route.messages_only,
+            )
             for route in self._runtime_event_routes
             if event.runtime_id in route.sources and (not route.messages_only or event.message is not None)
         )
-        if not targets:
+        if not routes:
             return
-        outcomes = await asyncio.gather(
-            *(self._deliver_runtime_event(runtime_id, event) for runtime_id in targets),
-            return_exceptions=True,
-        )
-        fatal = next(
-            (
-                outcome
-                for outcome in outcomes
-                if isinstance(outcome, BaseException) and not isinstance(outcome, Exception)
+        event_id = self.runtimes.admit_event(
+            provenance=EventProvenance(
+                source_runtime_id=event.runtime_id,
+                source_event_id=event.id,
+                bot_id=event.bot_id,
+                conversation_id=event.conversation.ordering_key,
             ),
-            None,
+            payload=event.model_dump(mode="json"),
+            routes=routes,
         )
-        if fatal is not None:
-            raise fatal
-        errors = [outcome for outcome in outcomes if isinstance(outcome, Exception)]
-        if len(errors) == 1:
-            raise errors[0]
-        if len(errors) > 1:
-            raise ExceptionGroup("runtime event delivery failed", errors)
-
-    async def _deliver_runtime_event(self, runtime_id: str, event: EventEnvelope) -> None:
-        catalog: Mapping[str, Any] | None = None
-        record = self.runtimes.records[runtime_id]
-        if record.spec.agent_harness is not None:
-            broker = self.services.get(AGENT_TOOL_BROKER_SERVICE)
-            if broker is not None:
-                if not isinstance(broker, EventAgentToolCatalog):
-                    raise RuntimeError("agent tool broker cannot produce event-scoped catalogs")
-                catalog = broker.catalog_for(event)
-        if catalog is None:
-            result = await self.runtimes.dispatch_event(
-                runtime_id,
-                event.id,
-                event.model_dump(mode="json"),
-            )
-        else:
-            result = await self.runtimes.dispatch_event(
-                runtime_id,
-                event.id,
-                event.model_dump(mode="json"),
-                agent_tool_catalog=catalog,
-            )
-        if result.status != "accepted":
-            detail = f": {result.detail}" if result.detail else ""
-            raise RuntimeError(f"runtime {runtime_id} rejected event {event.id} as {result.status}{detail}")
+        await self.runtimes.schedule_deliveries()
+        if any(route.policy == "required" and route.completion == "sync" for route in routes):
+            await self.runtimes.wait_for_required(event_id)
 
     @staticmethod
     def _plugin_configs(config: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:

@@ -335,6 +335,15 @@ class OperationLedger:
     def _target(self, target: str) -> str:
         return self._hmac("target", target)
 
+    def redact_diagnostic_identifier(self, category: str, value: str) -> str:
+        """Return a daemon-owned pseudonym for a constrained diagnostic identity."""
+
+        if category not in {"bot", "conversation", "source_runtime", "source_event"}:
+            raise ValueError("unsupported diagnostic identity category")
+        if not value or value != value.strip():
+            raise ValueError("diagnostic identity must be non-empty and trimmed")
+        return self._hmac(f"diagnostic.{category}", value)
+
     def _hmac(self, domain: str, value: str) -> str:
         return hmac.new(self._key, f"{domain}:{value}".encode(), hashlib.sha256).hexdigest()
 

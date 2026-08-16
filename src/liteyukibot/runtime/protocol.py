@@ -12,12 +12,12 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from ..exceptions import RuntimeProtocolError
 
-type ProtocolVersion = Literal[1, 2, 3, 4, 5]
+type ProtocolVersion = Literal[6]
 type JsonScalar = str | int | float | bool | None
 type JsonValue = JsonScalar | list[JsonValue] | dict[str, JsonValue]
 
-PROTOCOL_VERSION: ProtocolVersion = 5
-SUPPORTED_PROTOCOL_VERSIONS: tuple[ProtocolVersion, ...] = (1, 2, 3, 4, 5)
+PROTOCOL_VERSION: ProtocolVersion = 6
+SUPPORTED_PROTOCOL_VERSIONS: tuple[ProtocolVersion, ...] = (6,)
 MAX_FRAME_SIZE = 8 * 1024 * 1024
 
 
@@ -59,34 +59,46 @@ class Shutdown(WireModel):
     reason: str = "requested"
 
 
-class EventTrace(WireModel):
-    """Immutable kernel-owned context carried across an event delivery."""
+class EventSourceProvenance(WireModel):
+    """Source identity frozen by the kernel when it admits an event."""
 
-    trace_id: str = Field(min_length=1)
     source_runtime_id: str = Field(min_length=1)
     source_event_id: str = Field(min_length=1)
 
 
+class EventIngress(WireModel):
+    """A source runtime's event submission before kernel admission."""
+
+    type: Literal["event_ingress"] = "event_ingress"
+    source_event_id: str = Field(min_length=1)
+    payload: dict[str, JsonValue]
+
+
 class EventMessage(WireModel):
     type: Literal["event"] = "event"
-    correlation_id: str
+    kernel_event_id: str = Field(min_length=1)
+    source: EventSourceProvenance
+    delivery_id: str = Field(min_length=1)
+    target_runtime_id: str = Field(min_length=1)
+    attempt: int = Field(ge=1)
+    lease_id: str = Field(min_length=1)
+    deadline_monotonic: float = Field(gt=0)
     payload: dict[str, JsonValue]
-    trace: EventTrace | None = None
     agent_tool_catalog: dict[str, JsonValue] | None = None
 
 
 class EventAccepted(WireModel):
     type: Literal["event_accepted"] = "event_accepted"
-    correlation_id: str
+    delivery_id: str = Field(min_length=1)
     status: Literal["accepted", "overloaded", "invalid"]
     detail: str | None = None
 
 
 class EventCompleted(WireModel):
-    """Terminal v4 outcome for an already accepted core-to-child Event."""
+    """Terminal outcome for an accepted kernel delivery."""
 
     type: Literal["event_completed"] = "event_completed"
-    correlation_id: str = Field(min_length=1)
+    delivery_id: str = Field(min_length=1)
     status: Literal["completed", "failed"]
     detail: str | None = None
 
@@ -94,8 +106,8 @@ class EventCompleted(WireModel):
 class ActionRequest(WireModel):
     type: Literal["action"] = "action"
     correlation_id: str
+    delivery_id: str = Field(min_length=1)
     payload: dict[str, JsonValue]
-    delivery_correlation_id: str | None = None
 
 
 class ActionResponse(WireModel):
@@ -111,7 +123,7 @@ class AgentToolRequest(WireModel):
 
     type: Literal["agent_tool"] = "agent_tool"
     correlation_id: str = Field(min_length=1)
-    delivery_correlation_id: str = Field(min_length=1)
+    delivery_id: str = Field(min_length=1)
     tool_id: str = Field(min_length=1)
     arguments: dict[str, JsonValue] = Field(default_factory=dict)
 
@@ -172,6 +184,7 @@ type WireMessage = Annotated[
     | Ready
     | Heartbeat
     | Shutdown
+    | EventIngress
     | EventMessage
     | EventAccepted
     | EventCompleted

@@ -14,6 +14,8 @@ import zmq.asyncio
 
 from .config.models import LyipSettings
 
+LYIP_ABI = 2
+
 
 class LyipError(RuntimeError):
     pass
@@ -36,7 +38,7 @@ class LyipBackend(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class LyipFrame:
-    protocol: Literal[1]
+    protocol: Literal[2]
     generation: int
     lane: LyipLane
     type_id: int
@@ -46,6 +48,8 @@ class LyipFrame:
     payload: bytes
 
     def __post_init__(self) -> None:
+        if self.protocol != LYIP_ABI:
+            raise ValueError(f"LYIP ABI must be {LYIP_ABI}")
         if self.generation < 1 or self.type_id < 0 or self.sequence < 0:
             raise ValueError("LYIP generation, type ID, and sequence must be non-negative")
         if not self.stream_id or self.stream_id != self.stream_id.strip() or not self.lease_id:

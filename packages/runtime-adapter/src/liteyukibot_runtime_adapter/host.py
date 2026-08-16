@@ -13,7 +13,7 @@ from typing import Any
 from liteyukibot.events import ActionEnvelope, EventEnvelope
 from liteyukibot.logging import configure_runtime_child_logging, get_logger
 from liteyukibot.runtime import RuntimeClient
-from liteyukibot.runtime.protocol import ActionRequest, ActionResponse, EventMessage, Shutdown, json_value
+from liteyukibot.runtime.protocol import ActionRequest, ActionResponse, EventIngress, Shutdown, json_value
 
 from .contracts import AdapterConnection, AdapterContext, AdapterPlugin
 
@@ -70,7 +70,7 @@ class AdapterHost:
         if event.bot_id != bot_id:
             raise ValueError("adapter event bot_id does not match its connection")
         async with self._emit_lock:
-            await self.client.send(EventMessage(correlation_id=event.id, payload=event.model_dump(mode="json")))
+            await self.client.send(EventIngress(source_event_id=event.id, payload=event.model_dump(mode="json")))
 
     async def execute(self, request: ActionRequest) -> ActionResponse:
         try:

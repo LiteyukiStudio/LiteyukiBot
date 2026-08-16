@@ -7,7 +7,7 @@ from typing import Any
 
 from tomli_w import dumps
 
-CONFIG_VERSION = 4
+CONFIG_VERSION = 5
 
 
 def render_config_template(
@@ -59,11 +59,13 @@ def render_config_template(
         "lyip": {
             "default_backend": "auto",
             "capacity_profile": "balanced",
-            "terminal_capacity": 16384,
-            "terminal_ttl_seconds": 3600,
-            "dev_summary_ttl_seconds": 900,
             "zmq_large_payload_fallback": False,
             "links": {},
+        },
+        "event_ledger": {
+            "active_capacity": 1024,
+            "terminal_capacity": 16384,
+            "terminal_ttl_seconds": 3600,
         },
         "webui": {
             "mode": "on_demand",

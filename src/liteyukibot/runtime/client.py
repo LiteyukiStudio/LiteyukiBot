@@ -1,4 +1,4 @@
-"""Reusable LYIP v1 client for supervised child runtimes."""
+"""Reusable LYIP v2 client for supervised child runtimes."""
 
 from __future__ import annotations
 
@@ -72,8 +72,8 @@ class RuntimeClient:
             raise ValueError("LYIP runtime identity and endpoints must not be empty")
         if generation < 1:
             raise ValueError("LYIP runtime generation must be positive")
-        if protocol_version not in SUPPORTED_PROTOCOL_VERSIONS:
-            raise ValueError(f"unsupported runtime protocol version: {protocol_version}")
+        if protocol_version != PROTOCOL_VERSION:
+            raise ValueError(f"runtime protocol must be exactly v{PROTOCOL_VERSION}")
 
         encoded_identity = identity.encode("utf-8")
         if not encoded_identity:
@@ -230,17 +230,15 @@ class RuntimeClient:
         correlation_id: str,
         payload: Mapping[str, Any],
         *,
-        delivery_correlation_id: str | None = None,
+        delivery_id: str,
         timeout_seconds: float = 30.0,
     ) -> ActionResponse:
         if timeout_seconds <= 0:
             raise ValueError("runtime action timeout must be positive")
-        if self.negotiated_protocol not in (3, 4, 5):
-            raise RuntimeError("child-originated actions require runtime protocol v3, v4, or v5")
-        if delivery_correlation_id is not None and (
-            not delivery_correlation_id or self.negotiated_protocol not in (4, 5)
-        ):
-            raise RuntimeError("action delivery correlation id requires runtime protocol v4 or v5")
+        if not delivery_id:
+            raise ValueError("action delivery ID must not be empty")
+        if self.negotiated_protocol != PROTOCOL_VERSION:
+            raise RuntimeError("child-originated actions require runtime protocol v6")
         if self._heartbeat_task is None:
             raise RuntimeError("runtime client is not ready")
         if "runtime.actions.send" not in self._capabilities:
@@ -250,8 +248,8 @@ class RuntimeClient:
 
         request = ActionRequest(
             correlation_id=correlation_id,
+            delivery_id=delivery_id,
             payload=json_mapping(payload),
-            delivery_correlation_id=delivery_correlation_id,
         )
         future: asyncio.Future[ActionResponse] = asyncio.get_running_loop().create_future()
         self._pending_actions[correlation_id] = future
@@ -265,17 +263,17 @@ class RuntimeClient:
     async def execute_agent_tool(
         self,
         correlation_id: str,
-        delivery_correlation_id: str,
+        delivery_id: str,
         tool_id: str,
         arguments: Mapping[str, Any],
         timeout_seconds: float = 30.0,
     ) -> AgentToolResponse:
         if timeout_seconds <= 0:
             raise ValueError("agent tool timeout must be positive")
-        if not delivery_correlation_id or not tool_id:
-            raise ValueError("agent tool delivery correlation id and tool id must not be empty")
-        if self.negotiated_protocol not in (3, 4, 5):
-            raise RuntimeError("agent tools require runtime protocol v3, v4, or v5")
+        if not delivery_id or not tool_id:
+            raise ValueError("agent tool delivery ID and tool ID must not be empty")
+        if self.negotiated_protocol != PROTOCOL_VERSION:
+            raise RuntimeError("agent tools require runtime protocol v6")
         if self._heartbeat_task is None:
             raise RuntimeError("runtime client is not ready")
         if "agent.tools.execute" not in self._capabilities:
@@ -285,7 +283,7 @@ class RuntimeClient:
 
         request = AgentToolRequest(
             correlation_id=correlation_id,
-            delivery_correlation_id=delivery_correlation_id,
+            delivery_id=delivery_id,
             tool_id=tool_id,
             arguments=json_mapping(arguments),
         )
@@ -315,8 +313,8 @@ class RuntimeClient:
     ) -> ManagementResponse:
         if not command.strip() or timeout_seconds <= 0:
             raise ValueError("management command and timeout must be positive")
-        if self.negotiated_protocol != 5 or "runtime.management.execute" not in self._capabilities:
-            raise RuntimeError("runtime client did not declare runtime.management.execute over protocol v5")
+        if self.negotiated_protocol != PROTOCOL_VERSION or "runtime.management.execute" not in self._capabilities:
+            raise RuntimeError("runtime client did not declare runtime.management.execute over protocol v6")
         if correlation_id in self._pending_management:
             raise ValueError(f"duplicate management correlation id: {correlation_id}")
         future: asyncio.Future[ManagementResponse] = asyncio.get_running_loop().create_future()

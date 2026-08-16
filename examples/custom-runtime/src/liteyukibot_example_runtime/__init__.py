@@ -53,6 +53,7 @@ async def _handle_event(client: RuntimeClient, message: EventMessage) -> None:
                 result = await client.execute_action(
                     reply.action_id,
                     reply.model_dump(mode="json"),
+                    delivery_id=message.delivery_id,
                 )
                 if not result.ok:
                     status = "invalid"
@@ -63,7 +64,7 @@ async def _handle_event(client: RuntimeClient, message: EventMessage) -> None:
 
     await client.send(
         EventAccepted(
-            correlation_id=message.correlation_id,
+            delivery_id=message.delivery_id,
             status=status,
             detail=detail,
         )
@@ -71,7 +72,7 @@ async def _handle_event(client: RuntimeClient, message: EventMessage) -> None:
     if status == "accepted":
         await client.send(
             EventCompleted(
-                correlation_id=message.correlation_id,
+                delivery_id=message.delivery_id,
                 status="completed",
             )
         )
@@ -112,14 +113,14 @@ async def run() -> None:
                 if len(tasks) >= MAX_IN_FLIGHT:
                     await client.send(
                         EventAccepted(
-                            correlation_id=message.correlation_id,
+                            delivery_id=message.delivery_id,
                             status="overloaded",
                         )
                     )
                 else:
                     spawn(
                         _handle_event(client, message),
-                        name=f"event:{message.correlation_id}",
+                        name=f"event:{message.delivery_id}",
                     )
             elif isinstance(message, ActionRequest):
                 if len(tasks) >= MAX_IN_FLIGHT:
@@ -133,7 +134,7 @@ async def run() -> None:
                 else:
                     spawn(
                         _handle_action(client, message),
-                        name=f"action:{message.correlation_id}",
+                        name=f"action:{message.delivery_id}",
                     )
     finally:
         for task in tasks:

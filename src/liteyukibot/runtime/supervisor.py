@@ -20,6 +20,16 @@ from yukilog import decode_child_runtime_line
 from ..config import LoggingSettings, LyipSettings
 from ..lyip import LyipError, LyipFrame, LyipLane, LyipOfferResult, ZmqLyipRouter
 from .catalog import RuntimeCatalog
+from .ledger import (
+    ActionClaimState,
+    DeliverySnapshot,
+    DeliveryTerminalReason,
+    DeliveryTransitionError,
+    EventLedger,
+    EventLedgerError,
+    EventProvenance,
+    RouteSnapshot,
+)
 from .lyip import decode_runtime_message, encode_runtime_message
 from .protocol import (
     ActionRequest,
@@ -32,8 +42,9 @@ from .protocol import (
     ErrorMessage,
     EventAccepted,
     EventCompleted,
+    EventIngress,
     EventMessage,
-    EventTrace,
+    EventSourceProvenance,
     Heartbeat,
     Hello,
     JsonValue,
@@ -47,9 +58,10 @@ from .protocol import (
     json_mapping,
 )
 
-EventSink = Callable[[str, dict[str, JsonValue]], Awaitable[str]]
+EventSink = Callable[[str, str, dict[str, JsonValue]], Awaitable[str]]
 RuntimeOutputSink = Callable[[str, Literal["stdout", "stderr"], str], None]
 DeliveryCompletionSink = Callable[[str, EventCompleted], Awaitable[None]]
+AgentToolCatalogProvider = Callable[[DeliverySnapshot], Mapping[str, Any] | None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,10 +73,11 @@ class ActionSinkResult:
 
 @dataclass(frozen=True, slots=True)
 class ActionProvenance:
-    """Kernel-validated source event context for a v4 child Action."""
+    """Kernel-validated source event context for a child side effect."""
 
-    delivery_correlation_id: str
-    trace: EventTrace
+    delivery_id: str
+    source_runtime_id: str
+    source_event_id: str
     event_payload: dict[str, JsonValue]
 
 
@@ -152,17 +165,11 @@ class RuntimeRecord:
     runner: asyncio.Task[None] | None = None
     output_tasks: tuple[asyncio.Task[None], ...] = ()
     pending_actions: dict[str, asyncio.Future[ActionResponse]] = field(default_factory=dict)
-    pending_events: dict[str, asyncio.Future[EventAccepted]] = field(default_factory=dict)
-    pending_event_payloads: dict[str, dict[str, JsonValue]] = field(default_factory=dict)
-    pending_event_traces: dict[str, EventTrace] = field(default_factory=dict)
     pending_controls: dict[str, asyncio.Future[ControlResponse]] = field(default_factory=dict)
     inbound_actions: dict[str, asyncio.Task[None]] = field(default_factory=dict)
     inbound_events: dict[str, asyncio.Task[None]] = field(default_factory=dict)
     inbound_agent_tools: dict[str, asyncio.Task[None]] = field(default_factory=dict)
     inbound_management: dict[str, asyncio.Task[None]] = field(default_factory=dict)
-    active_delivery_contexts: dict[str, tuple[float, dict[str, JsonValue], EventTrace | None]] = field(
-        default_factory=dict
-    )
     protocol_version: ProtocolVersion | None = None
     capabilities: frozenset[str] = frozenset()
     send_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
@@ -185,6 +192,9 @@ class RuntimeSupervisor:
         delivery_completion_sink: DeliveryCompletionSink | None = None,
         secret_values: Mapping[str, str] | None = None,
         lyip_settings: LyipSettings | None = None,
+        ledger: EventLedger | None = None,
+        delivery_timeout_seconds: float = 30.0,
+        agent_tool_catalog_provider: AgentToolCatalogProvider | None = None,
     ) -> None:
         self.logger = logger
         self.event_sink = event_sink
@@ -195,6 +205,11 @@ class RuntimeSupervisor:
         self.delivery_completion_sink = delivery_completion_sink
         self.secret_values = dict(secret_values or {})
         self._lyip_settings = lyip_settings or LyipSettings()
+        if delivery_timeout_seconds <= 0:
+            raise ValueError("delivery timeout must be positive")
+        self.ledger = ledger or EventLedger()
+        self._delivery_timeout_seconds = delivery_timeout_seconds
+        self._agent_tool_catalog_provider = agent_tool_catalog_provider
         self.records: dict[str, RuntimeRecord] = {}
         self._transport_started = False
         self._zmq_context = zmq.asyncio.Context.instance()
@@ -247,13 +262,13 @@ class RuntimeSupervisor:
                 ),
                 "failures_in_window": failures,
                 "pending_actions": len(record.pending_actions),
-                "pending_events": len(record.pending_events),
                 "pending_controls": len(record.pending_controls),
                 "inbound_actions": len(record.inbound_actions),
                 "inbound_events": len(record.inbound_events),
                 "inbound_agent_tools": len(record.inbound_agent_tools),
                 "inbound_management": len(record.inbound_management),
-                "active_deliveries": len(record.active_delivery_contexts),
+                "ledger_active_events": self.ledger.active_count,
+                "ledger_terminal_events": self.ledger.terminal_count,
             }
         return snapshots
 
@@ -472,6 +487,8 @@ class RuntimeSupervisor:
                 raise LyipError("runtime authentication failed")
             if message.kind != record.spec.kind:
                 raise LyipError("runtime identity mismatch")
+            if message.protocol != 6:
+                raise LyipError("runtime must negotiate protocol v6")
             record.identity = identity
             record.connected.set()
             record.last_heartbeat = time.monotonic()
@@ -509,26 +526,12 @@ class RuntimeSupervisor:
             ).info("runtime is ready")
         elif isinstance(message, Heartbeat):
             record.last_heartbeat = time.monotonic()
-        elif isinstance(message, EventMessage):
+        elif isinstance(message, EventIngress):
             await self._accept_child_event(record, message)
+        elif isinstance(message, EventMessage):
+            raise LyipError("child runtimes must submit EventIngress, not EventMessage")
         elif isinstance(message, EventAccepted):
-            event_future = record.pending_events.pop(message.correlation_id, None)
-            if event_future is not None and not event_future.done():
-                payload = record.pending_event_payloads.pop(message.correlation_id, None)
-                if message.status == "accepted":
-                    if payload is None:
-                        self.logger.warning(
-                            "runtime {} accepted event {} without a pending delivery context",
-                            record.spec.id,
-                            message.correlation_id,
-                        )
-                    else:
-                        record.active_delivery_contexts[message.correlation_id] = (
-                            time.monotonic() + 30.0,
-                            payload,
-                            record.pending_event_traces.pop(message.correlation_id, None),
-                        )
-                event_future.set_result(message)
+            await self._accept_event_accepted(record, message)
         elif isinstance(message, EventCompleted):
             await self._accept_event_completed(record, message)
         elif isinstance(message, ActionRequest):
@@ -550,45 +553,80 @@ class RuntimeSupervisor:
         else:
             self.logger.debug("ignored runtime {} message {}", record.spec.id, message.type)
 
-    async def _accept_event_completed(self, record: RuntimeRecord, message: EventCompleted) -> None:
-        if record.protocol_version not in (4, 5) or "runtime.events.complete" not in record.capabilities:
+    async def _accept_event_accepted(self, record: RuntimeRecord, message: EventAccepted) -> None:
+        if record.protocol_version != 6 or "runtime.events.receive" not in record.capabilities:
             self.logger.warning(
-                "runtime {} sent an unsupported event outcome over protocol v{}",
+                "runtime {} sent an unsupported event acceptance over protocol v{}",
                 record.spec.id,
                 record.protocol_version,
             )
             return
-        delivery = record.active_delivery_contexts.pop(message.correlation_id, None)
-        if delivery is None:
+        try:
+            snapshot = self._find_delivery(message.delivery_id)
+            if snapshot.route.target_runtime_id != record.spec.id:
+                raise DeliveryTransitionError("delivery belongs to another runtime")
+            assert snapshot.lease_id is not None
+            if message.status == "accepted":
+                self.ledger.accept_delivery(snapshot.delivery_id, snapshot.lease_id)
+                self.ledger.activate_delivery(snapshot.delivery_id, snapshot.lease_id)
+            else:
+                reason = (
+                    DeliveryTerminalReason.OVERLOADED
+                    if message.status == "overloaded"
+                    else DeliveryTerminalReason.RUNTIME_REJECTED
+                )
+                self.ledger.fail_delivery(snapshot.delivery_id, reason, lease_id=snapshot.lease_id)
+        except EventLedgerError as error:
             self.logger.warning(
-                "runtime {} completed unknown event delivery {}",
+                "runtime {} accepted invalid delivery {}: {}",
                 record.spec.id,
-                message.correlation_id,
+                message.delivery_id,
+                error,
             )
+        await self._schedule_ready_offers()
+
+    async def _accept_event_completed(self, record: RuntimeRecord, message: EventCompleted) -> None:
+        if record.protocol_version != 6 or "runtime.events.complete" not in record.capabilities:
+            self.logger.warning("runtime {} sent an unsupported event outcome", record.spec.id)
             return
-        _deadline, _payload, trace = delivery
+        try:
+            snapshot = self._find_delivery(message.delivery_id)
+            if snapshot.route.target_runtime_id != record.spec.id:
+                raise DeliveryTransitionError("delivery belongs to another runtime")
+            assert snapshot.lease_id is not None
+            if message.status == "completed":
+                self.ledger.complete_delivery(snapshot.delivery_id, snapshot.lease_id)
+            else:
+                self.ledger.fail_delivery(
+                    snapshot.delivery_id,
+                    DeliveryTerminalReason.RUNTIME_FAILED,
+                    lease_id=snapshot.lease_id,
+                )
+        except EventLedgerError as error:
+            self.logger.warning("runtime {} completed invalid delivery {}: {}", record.spec.id, message.delivery_id, error)
+            return
         self.logger.bind(
             runtime=record.spec.id,
             component="ipc",
-            correlation_id=message.correlation_id,
-            trace_id=trace.trace_id if trace is not None else None,
-            source_runtime_id=trace.source_runtime_id if trace is not None else None,
-            source_event_id=trace.source_event_id if trace is not None else None,
+            delivery_id=message.delivery_id,
             operation="event.completed",
             status=message.status,
             detail=message.detail,
         ).info("runtime event delivery {}", message.status)
         if self.delivery_completion_sink is not None:
             await self.delivery_completion_sink(record.spec.id, message)
+        await self._schedule_ready_offers()
 
-    async def _accept_child_event(self, record: RuntimeRecord, message: EventMessage) -> None:
-        if message.correlation_id in record.inbound_events:
+    async def _accept_child_event(self, record: RuntimeRecord, message: EventIngress) -> None:
+        if record.protocol_version != 6:
+            return
+        if message.source_event_id in record.inbound_events:
             await self._send(
                 record,
                 EventAccepted(
-                    correlation_id=message.correlation_id,
+                    delivery_id=message.source_event_id,
                     status="invalid",
-                    detail="duplicate child event correlation id",
+                    detail="duplicate child source event id",
                 ),
             )
             return
@@ -596,7 +634,7 @@ class RuntimeSupervisor:
             await self._send(
                 record,
                 EventAccepted(
-                    correlation_id=message.correlation_id,
+                    delivery_id=message.source_event_id,
                     status="overloaded",
                     detail="runtime inbound event capacity is exhausted",
                 ),
@@ -604,28 +642,30 @@ class RuntimeSupervisor:
             return
         task = asyncio.create_task(
             self._execute_child_event(record, message),
-            name=f"runtime-event:{record.spec.id}:{message.correlation_id}",
+            name=f"runtime-event:{record.spec.id}:{message.source_event_id}",
         )
-        record.inbound_events[message.correlation_id] = task
+        record.inbound_events[message.source_event_id] = task
 
-    async def _execute_child_event(self, record: RuntimeRecord, message: EventMessage) -> None:
+    async def _execute_child_event(self, record: RuntimeRecord, message: EventIngress) -> None:
         detail: str | None = None
         try:
-            status = "accepted" if self.event_sink is None else await self.event_sink(record.spec.id, message.payload)
+            status = "accepted" if self.event_sink is None else await self.event_sink(
+                record.spec.id, message.source_event_id, message.payload
+            )
             match status:
                 case "accepted" | "overloaded" | "invalid":
                     normalized = status
                 case _:
                     normalized = "invalid"
         except Exception as error:
-            self.logger.error("runtime {} child event {} failed: {}", record.spec.id, message.correlation_id, error)
+            self.logger.error("runtime {} child event {} failed: {}", record.spec.id, message.source_event_id, error)
             normalized = "invalid"
             detail = "core event sink failed"
         try:
             await self._send(
                 record,
                 EventAccepted(
-                    correlation_id=message.correlation_id,
+                    delivery_id=message.source_event_id,
                     status=normalized,
                     detail=detail,
                 ),
@@ -633,14 +673,14 @@ class RuntimeSupervisor:
         except ConnectionError, RuntimeError:
             pass
         finally:
-            record.inbound_events.pop(message.correlation_id, None)
+            record.inbound_events.pop(message.source_event_id, None)
 
     async def _accept_child_action(self, record: RuntimeRecord, request: ActionRequest) -> None:
-        if record.protocol_version not in (3, 4, 5):
+        if record.protocol_version != 6:
             await self._reject_child_action(
                 record,
                 request,
-                "child-originated actions require runtime protocol v3, v4, or v5",
+                "child-originated actions require runtime protocol v6",
             )
             return
         if "runtime.actions.send" not in record.capabilities:
@@ -650,51 +690,45 @@ class RuntimeSupervisor:
                 "child runtime did not declare runtime.actions.send",
             )
             return
-        if (
-            record.protocol_version in (4, 5)
-            and record.spec.agent_harness is not None
-            and request.delivery_correlation_id is None
-        ):
-            await self._reject_child_action(
-                record,
-                request,
-                "agent runtime actions require a v4 or v5 delivery correlation id",
-            )
-            return
-        provenance: ActionProvenance | None = None
-        if request.delivery_correlation_id is not None:
-            self._clear_expired_delivery_contexts(record)
-            if record.protocol_version not in (4, 5):
-                await self._reject_child_action(
-                    record,
-                    request,
-                    "action delivery correlation id requires runtime protocol v4 or v5",
-                )
-                return
-            context = record.active_delivery_contexts.get(request.delivery_correlation_id)
-            if context is None:
-                await self._reject_child_action(
-                    record,
-                    request,
-                    "action request is not bound to an active event delivery",
-                )
-                return
-            _deadline, event_payload, trace = context
-            if trace is None:
-                await self._reject_child_action(
-                    record,
-                    request,
-                    "action delivery does not carry v4 or v5 trace context",
-                )
-                return
-            provenance = ActionProvenance(
-                delivery_correlation_id=request.delivery_correlation_id,
-                trace=trace,
-                event_payload=dict(event_payload),
-            )
         if self.action_sink is None:
             await self._reject_child_action(record, request, "core action sink is unavailable")
             return
+        try:
+            delivery = self._find_delivery(request.delivery_id)
+            if delivery.route.target_runtime_id != record.spec.id or delivery.lease_id is None:
+                raise DeliveryTransitionError("action delivery is not owned by this runtime")
+            claim = self.ledger.claim_action(
+                delivery_id=delivery.delivery_id,
+                lease_id=delivery.lease_id,
+                correlation_id=request.correlation_id,
+                payload=request.payload,
+            )
+        except EventLedgerError as error:
+            await self._reject_child_action(record, request, str(error))
+            return
+        if claim.state is ActionClaimState.RECORDED:
+            result = claim.record.result
+            if isinstance(result, Mapping):
+                await self._send(
+                    record,
+                    ActionResponse(
+                        correlation_id=request.correlation_id,
+                        ok=result.get("ok") is True,
+                        data=result.get("data"),
+                        error=result.get("error") if isinstance(result.get("error"), str) else None,
+                    ),
+                )
+            return
+        if claim.state is ActionClaimState.PENDING:
+            await self._reject_child_action(record, request, "action request is already in progress")
+            return
+        event = self._event_for_delivery(delivery)
+        provenance = ActionProvenance(
+            delivery_id=delivery.delivery_id,
+            source_runtime_id=delivery.provenance.source_runtime_id,
+            source_event_id=delivery.provenance.source_event_id,
+            event_payload=dict(event.payload),
+        )
         if request.correlation_id in record.inbound_actions:
             await self._reject_child_action(
                 record,
@@ -713,7 +747,7 @@ class RuntimeSupervisor:
         self,
         record: RuntimeRecord,
         request: ActionRequest,
-        provenance: ActionProvenance | None,
+        provenance: ActionProvenance,
     ) -> None:
         try:
             assert self.action_sink is not None
@@ -722,9 +756,16 @@ class RuntimeSupervisor:
                 "action.child_request",
                 request.correlation_id,
                 request.payload,
-                trace=provenance.trace if provenance is not None else None,
             )
             result = await self.action_sink(record.spec.id, request.payload, provenance)
+            delivery = self._find_delivery(request.delivery_id)
+            assert delivery.lease_id is not None
+            self.ledger.record_action_result(
+                delivery_id=delivery.delivery_id,
+                lease_id=delivery.lease_id,
+                correlation_id=request.correlation_id,
+                result={"ok": result.ok, "data": result.data, "error": result.error},
+            )
             response = ActionResponse(
                 correlation_id=request.correlation_id,
                 ok=result.ok,
@@ -732,9 +773,18 @@ class RuntimeSupervisor:
                 error=result.error,
             )
         except Exception as error:
-            self.logger.bind(
-                trace_id=provenance.trace.trace_id if provenance is not None else None
-            ).error(
+            try:
+                delivery = self._find_delivery(request.delivery_id)
+                if delivery.lease_id is not None:
+                    self.ledger.record_action_result(
+                        delivery_id=delivery.delivery_id,
+                        lease_id=delivery.lease_id,
+                        correlation_id=request.correlation_id,
+                        result={"ok": False, "data": None, "error": "core action sink failed"},
+                    )
+            except EventLedgerError:
+                pass
+            self.logger.bind(delivery_id=provenance.delivery_id).error(
                 "runtime {} child action {} failed: {}",
                 record.spec.id,
                 request.correlation_id,
@@ -768,10 +818,9 @@ class RuntimeSupervisor:
         )
 
     async def _accept_agent_tool_request(self, record: RuntimeRecord, request: AgentToolRequest) -> None:
-        self._clear_expired_delivery_contexts(record)
-        if record.protocol_version not in (3, 4, 5):
+        if record.protocol_version != 6:
             await self._reject_agent_tool_request(
-                record, request, "agent tools require runtime protocol v3, v4, or v5"
+                record, request, "agent tools require runtime protocol v6"
             )
             return
         if record.spec.agent_harness is None:
@@ -780,14 +829,39 @@ class RuntimeSupervisor:
         if "agent.tools.execute" not in record.capabilities:
             await self._reject_agent_tool_request(record, request, "child runtime did not declare agent.tools.execute")
             return
-        delivery_context = record.active_delivery_contexts.get(request.delivery_correlation_id)
-        if delivery_context is None:
-            await self._reject_agent_tool_request(
-                record, request, "agent tool request is not bound to an active event delivery"
-            )
-            return
         if self.agent_tool_sink is None:
             await self._reject_agent_tool_request(record, request, "agent tool broker is unavailable")
+            return
+        try:
+            delivery = self._find_delivery(request.delivery_id)
+            if delivery.route.target_runtime_id != record.spec.id or delivery.lease_id is None:
+                raise DeliveryTransitionError("agent tool delivery is not owned by this runtime")
+            claim = self.ledger.claim_action(
+                delivery_id=delivery.delivery_id,
+                lease_id=delivery.lease_id,
+                correlation_id=request.correlation_id,
+                payload={"agent_tool": request.tool_id, "arguments": request.arguments},
+            )
+        except EventLedgerError as error:
+            await self._reject_agent_tool_request(
+                record, request, str(error)
+            )
+            return
+        if claim.state is ActionClaimState.RECORDED:
+            result = claim.record.result
+            if isinstance(result, Mapping):
+                await self._send(
+                    record,
+                    AgentToolResponse(
+                        correlation_id=request.correlation_id,
+                        ok=result.get("ok") is True,
+                        data=result.get("data"),
+                        error=result.get("error") if isinstance(result.get("error"), str) else None,
+                    ),
+                )
+            return
+        if claim.state is ActionClaimState.PENDING:
+            await self._reject_agent_tool_request(record, request, "agent tool request is already in progress")
             return
         if request.correlation_id in record.inbound_agent_tools:
             await self._reject_agent_tool_request(
@@ -803,13 +877,21 @@ class RuntimeSupervisor:
     async def _execute_agent_tool_request(self, record: RuntimeRecord, request: AgentToolRequest) -> None:
         try:
             assert self.agent_tool_sink is not None
-            _deadline, payload, _trace = record.active_delivery_contexts[request.delivery_correlation_id]
+            delivery = self._find_delivery(request.delivery_id)
+            event = self._event_for_delivery(delivery)
             result = await self.agent_tool_sink(
                 record.spec.id,
-                request.delivery_correlation_id,
-                payload,
+                request.delivery_id,
+                dict(event.payload),
                 request.tool_id,
                 request.arguments,
+            )
+            assert delivery.lease_id is not None
+            self.ledger.record_action_result(
+                delivery_id=delivery.delivery_id,
+                lease_id=delivery.lease_id,
+                correlation_id=request.correlation_id,
+                result={"ok": result.ok, "data": result.data, "error": result.error},
             )
             response = AgentToolResponse(
                 correlation_id=request.correlation_id,
@@ -818,6 +900,17 @@ class RuntimeSupervisor:
                 error=result.error,
             )
         except Exception as error:
+            try:
+                delivery = self._find_delivery(request.delivery_id)
+                if delivery.lease_id is not None:
+                    self.ledger.record_action_result(
+                        delivery_id=delivery.delivery_id,
+                        lease_id=delivery.lease_id,
+                        correlation_id=request.correlation_id,
+                        result={"ok": False, "data": None, "error": "agent tool broker failed"},
+                    )
+            except EventLedgerError:
+                pass
             self.logger.error("runtime {} agent tool {} failed: {}", record.spec.id, request.tool_id, error)
             response = AgentToolResponse(
                 correlation_id=request.correlation_id,
@@ -847,7 +940,7 @@ class RuntimeSupervisor:
         )
 
     async def _accept_management_request(self, record: RuntimeRecord, request: ManagementRequest) -> None:
-        if record.protocol_version != 5 or "runtime.management.execute" not in record.capabilities:
+        if record.protocol_version != 6 or "runtime.management.execute" not in record.capabilities:
             await self._reject_management_request(record, request, "runtime management is unavailable")
             return
         if self.management_sink is None:
@@ -887,13 +980,6 @@ class RuntimeSupervisor:
     ) -> None:
         await self._send(record, ManagementResponse(correlation_id=request.correlation_id, ok=False, error=error))
 
-    @staticmethod
-    def _clear_expired_delivery_contexts(record: RuntimeRecord) -> None:
-        now = time.monotonic()
-        for correlation_id, (deadline, _payload, _trace) in tuple(record.active_delivery_contexts.items()):
-            if deadline <= now:
-                record.active_delivery_contexts.pop(correlation_id, None)
-
     async def execute_action(
         self,
         runtime_id: str,
@@ -914,7 +1000,13 @@ class RuntimeSupervisor:
             self._log_payload(record, "action.request", correlation_id, payload)
             await self._send(
                 record,
-                ActionRequest(correlation_id=correlation_id, payload=json_mapping(payload)),
+                # Kernel-originated adapter actions are not child side effects and
+                # intentionally bypass ledger lease validation at the receiving runtime.
+                ActionRequest(
+                    correlation_id=correlation_id,
+                    delivery_id=f"kernel:{correlation_id}",
+                    payload=json_mapping(payload),
+                ),
             )
             async with asyncio.timeout(timeout_seconds):
                 response = await future
@@ -928,59 +1020,84 @@ class RuntimeSupervisor:
         finally:
             record.pending_actions.pop(correlation_id, None)
 
-    async def dispatch_event(
+    def admit_event(
         self,
-        runtime_id: str,
-        correlation_id: str,
-        payload: Mapping[str, Any],
-        timeout_seconds: float = 30.0,
         *,
-        agent_tool_catalog: Mapping[str, Any] | None = None,
-    ) -> EventAccepted:
-        if timeout_seconds <= 0:
-            raise ValueError("runtime event timeout must be positive")
-        record = self.records[runtime_id]
-        if record.state is not RuntimeState.READY:
-            raise RuntimeError(f"runtime {runtime_id} is not ready")
-        if record.protocol_version not in (2, 3, 4, 5):
-            raise RuntimeError(f"runtime {runtime_id} did not negotiate protocol v2, v3, v4, or v5")
-        if agent_tool_catalog is not None and record.protocol_version not in (4, 5):
-            raise RuntimeError(f"runtime {runtime_id} must negotiate protocol v4 or v5 for an agent tool catalog")
-        if "runtime.events.receive" not in record.capabilities:
-            raise RuntimeError(f"runtime {runtime_id} does not accept core events")
-        if correlation_id in record.pending_events:
-            raise ValueError(f"duplicate event correlation id: {correlation_id}")
-        future: asyncio.Future[EventAccepted] = asyncio.get_running_loop().create_future()
-        record.pending_events[correlation_id] = future
-        record.pending_event_payloads[correlation_id] = json_mapping(payload)
-        trace = self._event_trace(record, correlation_id, record.pending_event_payloads[correlation_id])
-        if record.protocol_version in (4, 5):
-            record.pending_event_traces[correlation_id] = trace
-        try:
-            self._log_payload(record, "event.dispatch", correlation_id, payload, trace=trace)
-            await self._send(
-                record,
-                EventMessage(
-                    correlation_id=correlation_id,
-                    payload=record.pending_event_payloads[correlation_id],
-                    trace=trace if record.protocol_version in (4, 5) else None,
-                    agent_tool_catalog=json_mapping(agent_tool_catalog) if agent_tool_catalog is not None else None,
-                ),
-            )
-            async with asyncio.timeout(timeout_seconds):
-                accepted = await future
-            self._log_payload(
-                record,
-                "event.accepted",
-                correlation_id,
-                {"status": accepted.status, "detail": accepted.detail},
-                trace=trace,
-            )
-            return accepted
-        finally:
-            record.pending_events.pop(correlation_id, None)
-            record.pending_event_payloads.pop(correlation_id, None)
-            record.pending_event_traces.pop(correlation_id, None)
+        provenance: EventProvenance,
+        payload: Mapping[str, Any],
+        routes: Sequence[RouteSnapshot],
+    ) -> str:
+        event = self.ledger.admit(provenance=provenance, payload=payload, routes=routes)
+        return event.event_id
+
+    async def schedule_deliveries(self) -> None:
+        """Offer one pending delivery per ledger ordering lane."""
+
+        await self._schedule_ready_offers()
+
+    async def wait_for_required(self, event_id: str) -> None:
+        """Wait until all required deliveries are terminal, then surface failure."""
+
+        while True:
+            event = self.ledger.snapshot(event_id)
+            if event.required_deliveries_terminal:
+                if event.required_deliveries_succeeded is False:
+                    raise RuntimeError(f"required runtime delivery failed for event {event_id}")
+                return
+            await asyncio.sleep(0.01)
+
+    async def _schedule_ready_offers(self) -> None:
+        for expired in self.ledger.expire():
+            self.logger.warning("runtime delivery {} expired", expired.delivery_id)
+        while offers := self.ledger.ready_offers(delivery_timeout_seconds=self._delivery_timeout_seconds):
+            for delivery in offers:
+                record = self.records.get(delivery.route.target_runtime_id)
+                if record is None or record.state is not RuntimeState.READY or record.protocol_version != 6:
+                    self.ledger.fail_delivery(delivery.delivery_id, DeliveryTerminalReason.DISCONNECTED)
+                    continue
+                if "runtime.events.receive" not in record.capabilities:
+                    self.ledger.fail_delivery(delivery.delivery_id, DeliveryTerminalReason.RUNTIME_REJECTED)
+                    continue
+                try:
+                    await self._send_delivery(record, delivery)
+                except (ConnectionError, RuntimeError):
+                    self.ledger.fail_delivery(delivery.delivery_id, DeliveryTerminalReason.SEND_FAILED)
+
+    async def _send_delivery(self, record: RuntimeRecord, delivery: DeliverySnapshot) -> None:
+        event = self._event_for_delivery(delivery)
+        if delivery.lease_id is None or delivery.deadline is None:
+            raise RuntimeError("ledger offered a delivery without a lease or deadline")
+        message = EventMessage(
+            kernel_event_id=event.event_id,
+            source=EventSourceProvenance(
+                source_runtime_id=delivery.provenance.source_runtime_id,
+                source_event_id=delivery.provenance.source_event_id,
+            ),
+            delivery_id=delivery.delivery_id,
+            target_runtime_id=record.spec.id,
+            attempt=delivery.attempt,
+            lease_id=delivery.lease_id,
+            deadline_monotonic=delivery.deadline,
+            payload=json_mapping(event.payload),
+            agent_tool_catalog=(
+                json_mapping(catalog)
+                if self._agent_tool_catalog_provider is not None
+                and (catalog := self._agent_tool_catalog_provider(delivery)) is not None
+                else None
+            ),
+        )
+        self._log_payload(record, "event.dispatch", delivery.delivery_id, message.payload)
+        await self._send(record, message)
+
+    def _find_delivery(self, delivery_id: str) -> DeliverySnapshot:
+        for event in self.ledger.active_snapshots():
+            for delivery in event.deliveries:
+                if delivery.delivery_id == delivery_id:
+                    return delivery
+        raise DeliveryTransitionError(f"delivery {delivery_id!r} is not active")
+
+    def _event_for_delivery(self, delivery: DeliverySnapshot):
+        return self.ledger.snapshot(delivery.event_id)
 
     async def execute_control(
         self,
@@ -995,8 +1112,8 @@ class RuntimeSupervisor:
         record = self.records[runtime_id]
         if record.state is not RuntimeState.READY:
             raise RuntimeError(f"runtime {runtime_id} is not ready")
-        if record.protocol_version != 5 or "runtime.controls.execute" not in record.capabilities:
-            raise RuntimeError(f"runtime {runtime_id} does not accept protocol v5 controls")
+        if record.protocol_version != 6 or "runtime.controls.execute" not in record.capabilities:
+            raise RuntimeError(f"runtime {runtime_id} does not accept protocol v6 controls")
         if correlation_id in record.pending_controls:
             raise ValueError(f"duplicate control correlation id: {correlation_id}")
         request = ControlRequest(
@@ -1076,6 +1193,7 @@ class RuntimeSupervisor:
         runners = [record.runner for record in self.records.values() if record.runner is not None]
         if runners:
             await asyncio.gather(*runners, return_exceptions=True)
+        self.ledger.shutdown()
         self._transport_started = False
 
     async def _request_stop(self, record: RuntimeRecord, reason: str) -> None:
@@ -1164,17 +1282,14 @@ class RuntimeSupervisor:
         record.ready.clear()
         record.protocol_version = None
         record.capabilities = frozenset()
-        record.active_delivery_contexts.clear()
+        for event in self.ledger.active_snapshots():
+            for delivery in event.deliveries:
+                if delivery.route.target_runtime_id == record.spec.id and not delivery.terminal:
+                    self.ledger.fail_delivery(delivery.delivery_id, DeliveryTerminalReason.DISCONNECTED)
         for action_future in record.pending_actions.values():
             if not action_future.done():
                 action_future.set_exception(ConnectionError(f"runtime {record.spec.id} disconnected"))
         record.pending_actions.clear()
-        for event_future in record.pending_events.values():
-            if not event_future.done():
-                event_future.set_exception(ConnectionError(f"runtime {record.spec.id} disconnected"))
-        record.pending_events.clear()
-        record.pending_event_payloads.clear()
-        record.pending_event_traces.clear()
         for control_future in record.pending_controls.values():
             if not control_future.done():
                 control_future.set_exception(ConnectionError(f"runtime {record.spec.id} disconnected"))
@@ -1203,6 +1318,8 @@ class RuntimeSupervisor:
             task.cancel()
         if inbound_management:
             await asyncio.gather(*inbound_management, return_exceptions=True)
+        if not self._closing:
+            await self._schedule_ready_offers()
 
     async def _capture_output(
         self,
@@ -1267,8 +1384,6 @@ class RuntimeSupervisor:
         operation: str,
         correlation_id: str,
         payload: Mapping[str, Any],
-        *,
-        trace: EventTrace | None = None,
     ) -> None:
         serialized = json_mapping(payload)
         context: dict[str, Any] = {
@@ -1279,40 +1394,9 @@ class RuntimeSupervisor:
             "payload_keys": tuple(sorted(serialized)),
             "payload_bytes": len(json.dumps(serialized, ensure_ascii=True, separators=(",", ":"))),
         }
-        if trace is not None:
-            context.update(
-                trace_id=trace.trace_id,
-                source_runtime_id=trace.source_runtime_id,
-                source_event_id=trace.source_event_id,
-            )
         if self._payload_mode(record) == "full":
             context["payload"] = serialized
         self.logger.bind(**context).debug("runtime IPC {}", operation)
-
-    @staticmethod
-    def _event_trace(
-        record: RuntimeRecord,
-        correlation_id: str,
-        payload: Mapping[str, JsonValue],
-    ) -> EventTrace:
-        source_runtime_id = payload.get("runtime_id")
-        source_event_id = payload.get("id")
-        if (
-            isinstance(source_runtime_id, str)
-            and source_runtime_id
-            and isinstance(source_event_id, str)
-            and source_event_id
-        ):
-            return EventTrace(
-                trace_id=source_event_id,
-                source_runtime_id=source_runtime_id,
-                source_event_id=source_event_id,
-            )
-        return EventTrace(
-            trace_id=correlation_id,
-            source_runtime_id=record.spec.id,
-            source_event_id=correlation_id,
-        )
 
     async def _watch_heartbeats(self) -> None:
         while True:
@@ -1323,3 +1407,4 @@ class RuntimeSupervisor:
                     self.logger.error("runtime {} heartbeat timed out", record.spec.id)
                     if record.process is not None:
                         record.process.terminate()
+            await self._schedule_ready_offers()

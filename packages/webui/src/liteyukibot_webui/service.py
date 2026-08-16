@@ -30,7 +30,7 @@ type JsonObject = Mapping[str, JsonValue]
 type MaybeAwaitable[T] = T | Awaitable[T]
 
 _COOKIE_NAME = "liteyuki_webui_session"
-_EVENT_TYPES = frozenset({"snapshot", "ledger_append", "operation", "heartbeat", "reset"})
+_EVENT_TYPES = frozenset({"snapshot", "ledger_append", "operation", "event_ledger", "heartbeat", "reset"})
 _UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 _MAX_EVENT_REPLAY = 4096
 _SSE_REAUTHORIZATION_SECONDS = 15.0
@@ -114,6 +114,10 @@ class WebUiBridge(Protocol):
     ) -> MaybeAwaitable[JsonObject]: ...
 
     def audit(self, principal: WebUiPrincipal, cursor: str | None, limit: int) -> MaybeAwaitable[JsonObject]: ...
+
+    def event_ledger(self, principal: WebUiPrincipal, cursor: str | None, limit: int) -> MaybeAwaitable[JsonObject]: ...
+
+    def event_ledger_detail(self, principal: WebUiPrincipal, event_id: str) -> MaybeAwaitable[JsonObject | None]: ...
 
     def plugin_surfaces(self, principal: WebUiPrincipal) -> MaybeAwaitable[JsonObject]: ...
 
@@ -360,6 +364,24 @@ def create_app(
         if not 1 <= limit <= 500:
             raise WebUiServiceError("webui.invalid_page_size", 400)
         return await invoke(bridge.audit(session.principal, cursor, limit))
+
+    @app.get("/api/v1/event-ledger")
+    async def event_ledger(request: Request, cursor: str | None = None, limit: int = 100) -> JsonObject:
+        session = await authenticated(request)
+        if not 1 <= limit <= 500:
+            raise WebUiServiceError("webui.invalid_page_size", 400)
+        page = await invoke(bridge.event_ledger(session.principal, cursor, limit))
+        if page.get("error") == "invalid_cursor":
+            raise WebUiServiceError("webui.invalid_event_ledger_cursor", 400)
+        return page
+
+    @app.get("/api/v1/event-ledger/{event_id}")
+    async def event_ledger_detail(request: Request, event_id: str) -> JsonObject:
+        session = await authenticated(request)
+        record = await invoke(bridge.event_ledger_detail(session.principal, event_id))
+        if record is None:
+            raise WebUiServiceError("webui.event_ledger_not_found", 404)
+        return record
 
     @app.get("/api/v1/plugins/surfaces")
     async def plugin_surfaces(request: Request) -> JsonObject:

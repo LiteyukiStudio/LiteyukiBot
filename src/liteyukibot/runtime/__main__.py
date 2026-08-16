@@ -38,13 +38,13 @@ async def run_noop(kind: str) -> None:
             if isinstance(message, EventMessage):
                 await client.send(
                     EventAccepted(
-                        correlation_id=message.correlation_id,
+                        delivery_id=message.delivery_id,
                         status="accepted",
                     )
                 )
                 await client.send(
                     EventCompleted(
-                        correlation_id=message.correlation_id,
+                        delivery_id=message.delivery_id,
                         status="completed",
                     )
                 )

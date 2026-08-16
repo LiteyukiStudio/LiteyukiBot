@@ -1,15 +1,15 @@
-# Configuration v4
+# Configuration v5
 
-- Specification version: `4`
-- Applies to: current `config_version = 4` workspace configuration
+- Specification version: `5`
+- Applies to: current `config_version = 5` workspace configuration
 - Compatibility: root configurations without `config_version`, and every
-  version through `3`, are pre-release input. Startup preserves them and
-  blocks for a manual upgrade. Versions greater than `4` are rejected.
+  version through `4`, are pre-release input. Startup preserves them and
+  blocks for a manual upgrade. Versions greater than `5` are rejected.
 
 Configuration is typed, strict, and loaded in precedence order: defaults, root
 configuration, instance overlay, explicit configuration path, environment
 overrides, and CLI overrides. Diagnostics retain provenance and redact secret
-values. A root workspace configuration must declare version `4`; lower-level
+values. A root workspace configuration must declare version `5`; lower-level
 configuration loading may omit it only to support partial programmatic layers.
 
 ## LYIP
@@ -21,9 +21,6 @@ claim native availability.
 | --- | --- | --- |
 | `default_backend` | `auto` | `auto`, `shm`, `zmq` |
 | `capacity_profile` | `balanced` | `latency`, `balanced`, `throughput` |
-| `terminal_capacity` | `16384` | `1024..262144` |
-| `terminal_ttl_seconds` | `3600` | `60..86400` |
-| `dev_summary_ttl_seconds` | `900` | `60..3600` |
 | `zmq_large_payload_fallback` | `false` | boolean |
 
 The resolved per-direction profiles are immutable:
@@ -42,12 +39,29 @@ values are powers of two in `256..65536`, `32..4096`, and `256..65536`;
 `blob_arena_mib` is a power of two in `4..512`.
 
 A worker resolves a requested link once at startup and never switches it live.
-Beta3's active child lifecycle binds ZMQ. The native diagnostics report wheel,
+The active child lifecycle binds ZMQ. The native diagnostics report wheel,
 ABI, platform, and fallback reason without becoming a configuration flag; the
 optional native package exposes an SPSC ring primitive, but no SHM LYIP
 transport adapter. Consequently `auto` and `zmq` resolve to ZMQ; an explicit
 `shm` request fails at startup until that adapter is implemented, regardless of
 a locally importable native wheel.
+
+## Event Ledger
+
+`[event_ledger]` owns bounded, in-memory retention of kernel event ownership
+and terminal delivery diagnostics. It does not enable persistence, replay, or
+retry.
+
+| Field | Default | Valid values |
+| --- | --- | --- |
+| `active_capacity` | `1024` | `1024..262144` |
+| `terminal_capacity` | `16384` | `1024..262144` |
+| `terminal_ttl_seconds` | `3600` | `60..86400` |
+
+Every `[[runtime_event_routes]]` entry must explicitly set both
+`policy = "required" | "best_effort"` and
+`completion = "sync" | "async"`. Duplicate source/filter/target routes are
+rejected even if their policy or completion differs.
 
 ## WebUI And Development
 
@@ -79,16 +93,16 @@ operation audit store.
 ## Cutover And Recovery
 
 `liteyuki config upgrade` never edits the root `liteyuki.toml`. For a missing
-version or a version through `3`, it copies the exact source to a timestamped
+version or a version through `4`, it copies the exact source to a timestamped
 read-only `.liteyuki/config-backups/<timestamp>/liteyuki.toml`, then writes a
-fresh v4 template and instructions under `.liteyuki/config-upgrades/`. An old
-file is not parsed as v4 before backup, so removed fields do not prevent
+fresh v5 template and instructions under `.liteyuki/config-upgrades/`. An old
+file is not parsed as v5 before backup, so removed fields do not prevent
 recovery. Repeated calls use the first material until `--refresh`, which creates
 a new backup and template set. Startup remains blocked until the operator
-replaces the root with valid v4 TOML. The backup can only be used by an older
-pre-v4 beta; v4 has no rollback command because it never changed the root.
+replaces the root with valid v5 TOML. The backup can only be used by an older
+pre-v5 beta; v5 has no rollback command because it never changed the root.
 
-Versions greater than `4` are rejected without backup or generated material.
+Versions greater than `5` are rejected without backup or generated material.
 
 ## Evidence
 

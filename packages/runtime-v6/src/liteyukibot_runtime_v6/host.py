@@ -91,7 +91,7 @@ class _V6RuntimeHost:
         if len(self._event_tasks) >= self.max_concurrent_events:
             await self.client.send(
                 EventAccepted(
-                    correlation_id=message.correlation_id,
+                    delivery_id=message.delivery_id,
                     status="overloaded",
                     detail="v6 runtime event capacity is exhausted",
                 )
@@ -99,7 +99,7 @@ class _V6RuntimeHost:
             return
         task = asyncio.create_task(
             self._process_event(message),
-            name=f"v6-event:{message.correlation_id}",
+            name=f"v6-event:{message.delivery_id}",
         )
         self._event_tasks.add(task)
         task.add_done_callback(self._event_finished)
@@ -119,7 +119,7 @@ class _V6RuntimeHost:
             self.logger.warning("v6 runtime rejected invalid EventEnvelope: {}", error)
             await self.client.send(
                 EventAccepted(
-                    correlation_id=message.correlation_id,
+                    delivery_id=message.delivery_id,
                     status="invalid",
                     detail="invalid EventEnvelope",
                 )
@@ -144,6 +144,7 @@ class _V6RuntimeHost:
                     response = await self.client.execute_action(
                         action.action_id,
                         action.model_dump(mode="json"),
+                        delivery_id=message.delivery_id,
                         timeout_seconds=self.action_timeout_seconds,
                     )
                     if not response.ok:
@@ -157,13 +158,13 @@ class _V6RuntimeHost:
 
         await self.client.send(
             EventAccepted(
-                correlation_id=message.correlation_id,
+                delivery_id=message.delivery_id,
                 status="accepted",
             )
         )
         await self.client.send(
             EventCompleted(
-                correlation_id=message.correlation_id,
+                delivery_id=message.delivery_id,
                 status="completed",
             )
         )

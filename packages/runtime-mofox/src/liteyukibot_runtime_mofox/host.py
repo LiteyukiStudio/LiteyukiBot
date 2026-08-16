@@ -25,7 +25,6 @@ from liteyukibot.runtime.protocol import (
     EventAccepted,
     EventCompleted,
     EventMessage,
-    EventTrace,
     Shutdown,
 )
 
@@ -187,7 +186,7 @@ class MoFoxRuntimeHost:
         except ValueError:
             await self.client.send(
                 EventAccepted(
-                    correlation_id=message.correlation_id,
+                    delivery_id=message.delivery_id,
                     status="invalid",
                     detail="MoFox agent runtime requires a valid message EventEnvelope",
                 )
@@ -196,16 +195,16 @@ class MoFoxRuntimeHost:
         if len(self._tasks) >= self.max_concurrent_events:
             await self.client.send(
                 EventAccepted(
-                    correlation_id=message.correlation_id,
+                    delivery_id=message.delivery_id,
                     status="overloaded",
                     detail="MoFox agent runtime event capacity is exhausted",
                 )
             )
             return
-        await self.client.send(EventAccepted(correlation_id=message.correlation_id, status="accepted"))
+        await self.client.send(EventAccepted(delivery_id=message.delivery_id, status="accepted"))
         task = asyncio.create_task(
-            self._process_event(message.correlation_id, event, message.trace),
-            name=f"mofox-event:{message.correlation_id}",
+            self._process_event(message.delivery_id, event, message.kernel_event_id),
+            name=f"mofox-event:{message.delivery_id}",
         )
         self._tasks.add(task)
         task.add_done_callback(self._event_finished)
@@ -220,16 +219,16 @@ class MoFoxRuntimeHost:
 
     async def _process_event(
         self,
-        correlation_id: str,
+        delivery_id: str,
         event: EventEnvelope,
-        trace: EventTrace | None,
+        kernel_event_id: str,
     ) -> None:
         async def emit(message: Message) -> None:
             action = to_send_action(event, message)
             result = await self.client.execute_action(
                 action.action_id,
                 action.model_dump(mode="json"),
-                delivery_correlation_id=correlation_id,
+                delivery_id=delivery_id,
             )
             if not result.ok:
                 raise RuntimeError(result.error or "source runtime rejected MoFox output")
@@ -238,18 +237,18 @@ class MoFoxRuntimeHost:
             await self.engine.process(event, emit)
         except Exception as error:
             self.logger.bind(
-                correlation_id=correlation_id,
-                trace_id=trace.trace_id if trace is not None else None,
+                delivery_id=delivery_id,
+                kernel_event_id=kernel_event_id,
             ).error("MoFox event failed: {}", error)
             await self.client.send(
                 EventCompleted(
-                    correlation_id=correlation_id,
+                    delivery_id=delivery_id,
                     status="failed",
                     detail=f"{type(error).__name__}: {error}",
                 )
             )
             raise
-        await self.client.send(EventCompleted(correlation_id=correlation_id, status="completed"))
+        await self.client.send(EventCompleted(delivery_id=delivery_id, status="completed"))
 
 
 async def run() -> None:
