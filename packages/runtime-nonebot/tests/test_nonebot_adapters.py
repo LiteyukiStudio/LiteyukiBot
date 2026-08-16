@@ -4,12 +4,10 @@ import importlib
 import importlib.util
 import json
 import math
-import signal
 from datetime import UTC, datetime
 from typing import Any
 
 import pytest
-from liteyukibot_runtime_nonebot import host as nonebot_runtime
 from liteyukibot_runtime_nonebot.contracts import (
     AdapterContractError,
     adapter_id,
@@ -19,14 +17,8 @@ from liteyukibot_runtime_nonebot.contracts import (
 )
 from liteyukibot_runtime_nonebot.host import NoneBotHost
 
-from liteyukibot.events import (
-    ActionEnvelope,
-    CallApi,
-    ConversationRef,
-    Message,
-    Segment,
-    SendMessage,
-)
+from liteyukibot.broker import MESSAGE_SEND_KIND, ActionRequest, MessageSendPayload, message_send_resource_key
+from liteyukibot.events import ConversationRef, Message, Segment
 
 _ADAPTER_MODULES = (
     "nonebot.adapters.onebot.v11",
@@ -85,29 +77,6 @@ class FakeNoneBot:
 
     def get_bot(self, bot_id: str) -> FakeBot:
         return self.bots[bot_id]
-
-
-def test_nonebot_shutdown_prefers_driver_exit_and_falls_back_to_sigint(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    class ExitDriver:
-        def __init__(self) -> None:
-            self.calls = 0
-
-        def exit(self) -> None:
-            self.calls += 1
-
-    class CombinedDriver:
-        pass
-
-    exit_driver = ExitDriver()
-    nonebot_runtime._stop_driver(exit_driver)
-    assert exit_driver.calls == 1
-
-    signals: list[int] = []
-    monkeypatch.setattr(signal, "raise_signal", signals.append)
-    nonebot_runtime._stop_driver(CombinedDriver())
-    assert signals == [signal.SIGINT]
 
 
 def _onebot_v11_group_event() -> Any:
@@ -224,12 +193,28 @@ def _satori_event(*, direct: bool) -> Any:
     return event_class.model_validate(value)
 
 
-def _action(bot_id: str, action: SendMessage | CallApi) -> dict[str, Any]:
-    return ActionEnvelope(
-        runtime_id="nonebot",
+def _message_send_request(
+    bot_id: str,
+    *,
+    message: Message,
+    conversation: ConversationRef | None = None,
+    reply_token: str | None = None,
+) -> ActionRequest:
+    payload = MessageSendPayload(
         bot_id=bot_id,
-        action=action,
-    ).model_dump(mode="json")
+        message=message,
+        conversation=conversation,
+        reply_token=reply_token,
+    )
+    return ActionRequest(
+        delivery_id="delivery",
+        lease_id="lease",
+        correlation_id="correlation",
+        action_id="action",
+        kind=MESSAGE_SEND_KIND,
+        resource_key=message_send_resource_key("nonebot", bot_id),
+        payload=payload.model_dump(mode="json", exclude_none=True),
+    )
 
 
 def test_adapter_ids_and_strict_json_results() -> None:
@@ -308,6 +293,17 @@ def test_onebot_v11_private_conversation_is_actor_not_composite_session() -> Non
 
     assert envelope.conversation == ConversationRef(id="1001", type="private")
     assert envelope.type == "message.private.friend"
+
+
+def test_nonebot_message_ingress_uses_fixed_topic_and_conversation_ordering() -> None:
+    envelope = normalize_event(FakeBot("42", "OneBot V11"), _onebot_v11_group_event())
+
+    ingress = NoneBotHost.event_ingress(envelope)
+
+    assert ingress.topic == "message.created"
+    assert ingress.source_event_id == envelope.id
+    assert ingress.ordering_key == "group:2002"
+    assert ingress.payload["conversation"] == {"id": "2002", "type": "group", "parent_id": None}
 
 
 @pytest.mark.parametrize(
@@ -474,9 +470,10 @@ async def test_nonebot_host_executes_structured_reply_and_legacy_adapter_segment
     event = _onebot_v11_group_event()
     envelope = normalize_event(bot, event)
     assert envelope.reply_token is not None
-    host = NoneBotHost(FakeNoneBot(bot), bridge=None)  # type: ignore[arg-type]
+    host = NoneBotHost(FakeNoneBot(bot), None, "nonebot")
     host.events[envelope.reply_token] = (bot, event)
-    action = SendMessage(
+    action = _message_send_request(
+        "42",
         reply_token=envelope.reply_token,
         message=Message(
             segments=(
@@ -489,11 +486,9 @@ async def test_nonebot_host_executes_structured_reply_and_legacy_adapter_segment
         ),
     )
 
-    assert await host.execute_action(_action("42", action)) == (
-        True,
-        {"message_id": "sent"},
-        None,
-    )
+    outcome = await host.execute_message_send(action)
+    assert outcome.success is True
+    assert outcome.payload == {"message_id": "sent"}
     assert len(bot.replies) == 1
     target_event, native_message = bot.replies[0]
     assert target_event is event
@@ -507,20 +502,24 @@ async def test_nonebot_host_rejects_expired_and_cross_bot_reply_tokens() -> None
     source = FakeBot("42", "OneBot V11")
     selected = FakeBot("84", "OneBot V11")
     event = _onebot_v11_group_event()
-    host = NoneBotHost(FakeNoneBot(source, selected), bridge=None)  # type: ignore[arg-type]
+    host = NoneBotHost(FakeNoneBot(source, selected), None, "nonebot")
     host.events["source-token"] = (source, event)
     message = Message(segments=(Segment(type="text", data={"text": "reply"}),))
 
-    assert await host.execute_action(_action("42", SendMessage(reply_token="expired", message=message))) == (
-        False,
-        None,
-        "reply token is unknown or expired",
+    expired = await host.execute_message_send(_message_send_request("42", reply_token="expired", message=message))
+    cross_bot = await host.execute_message_send(
+        _message_send_request("84", reply_token="source-token", message=message)
     )
-    assert await host.execute_action(_action("84", SendMessage(reply_token="source-token", message=message))) == (
-        False,
-        None,
-        "reply token belongs to a different bot",
-    )
+    assert expired.success is False
+    assert expired.payload == {
+        "error": "message_send_failed",
+        "message": "reply token is unknown or expired",
+    }
+    assert cross_bot.success is False
+    assert cross_bot.payload == {
+        "error": "message_send_failed",
+        "message": "reply token belongs to a different bot",
+    }
     assert source.replies == []
     assert selected.replies == []
 
@@ -546,13 +545,14 @@ async def test_nonebot_host_executes_onebot_proactive_routes(
     expected_target: tuple[str, Any],
 ) -> None:
     bot = FakeBot("bot", adapter_name)
-    host = NoneBotHost(FakeNoneBot(bot), bridge=None)  # type: ignore[arg-type]
-    action = SendMessage(
+    host = NoneBotHost(FakeNoneBot(bot), None, "nonebot")
+    action = _message_send_request(
+        "bot",
         conversation=conversation,
         message=Message(segments=(Segment(type="text", data={"text": "proactive"}),)),
     )
 
-    assert (await host.execute_action(_action("bot", action)))[0] is True
+    assert (await host.execute_message_send(action)).success is True
     api, params = bot.api_calls[0]
     assert api == expected_api
     assert params[expected_target[0]] == expected_target[1]
@@ -560,47 +560,20 @@ async def test_nonebot_host_executes_onebot_proactive_routes(
 
 
 @pytest.mark.asyncio
-async def test_nonebot_host_executes_satori_channel_send_and_call_api() -> None:
+async def test_nonebot_host_executes_satori_channel_send() -> None:
     bot = FakeBot("discord:bot", "Satori")
-    host = NoneBotHost(FakeNoneBot(bot), bridge=None)  # type: ignore[arg-type]
+    host = NoneBotHost(FakeNoneBot(bot), None, "nonebot")
     message = Message(segments=(Segment(type="text", data={"text": "hello"}),))
 
-    sent = await host.execute_action(
-        _action(
+    sent = await host.execute_message_send(
+        _message_send_request(
             "discord:bot",
-            SendMessage(
-                conversation=ConversationRef(id="direct-channel", type="private"),
-                message=message,
-            ),
-        )
-    )
-    called = await host.execute_action(
-        _action(
-            "discord:bot",
-            CallApi(
-                api="message_get",
-                params={
-                    "channel_id": "direct-channel",
-                    "message_id": "1",
-                    "nested": {"values": (1, 2)},
-                },
-            ),
+            conversation=ConversationRef(id="direct-channel", type="private"),
+            message=message,
         )
     )
 
-    assert sent == (True, {"message_id": "sent"}, None)
+    assert sent.success is True
     assert bot.channel_sends[0][0] == "direct-channel"
     assert str(bot.channel_sends[0][1]) == "hello"
-    assert called == (True, {"message_id": "sent"}, None)
-    assert bot.api_calls == [
-        (
-            "message_get",
-            {
-                "channel_id": "direct-channel",
-                "message_id": "1",
-                "nested": {"values": [1, 2]},
-            },
-        )
-    ]
-    assert type(bot.api_calls[0][1]["nested"]) is dict
-    assert type(bot.api_calls[0][1]["nested"]["values"]) is list
+    assert bot.api_calls == []

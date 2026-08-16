@@ -3,10 +3,11 @@
 ## Broker peers (implemented B5 foundation)
 
 New cross-process work targets the standalone broker peer contract, not the
-legacy supervised-child protocol below. A host constructs `BrokerPeerServer`;
-a bridge receives its broker endpoints, generation, ZMQ identity, configured
-bridge ID, and instance token from its own integration lifecycle. It registers
-with `BridgeClient` and a `BridgeManifest`, then uses the protocol-6 control
+legacy supervised-child protocol below. Run the broker with `liteyuki broker
+run`; run a configured bridge with `liteyuki bridge run <bridge-id>`. Bridge
+launchers are discovered from `liteyukibot.bridges`. A bridge process receives
+its configured bridge ID and vault-resolved token from its launcher, constructs
+`BridgeClient`, and registers a `BridgeManifest` using the protocol-6 control
 and business catalogs described by [Broker Peer IPC v6](../specs/runtime-ipc-v6.md).
 
 Registration declares `full` or `limited` access, exact topic subscriptions,
@@ -22,11 +23,17 @@ terminal outcome. `lease_ttl_ms` is advisory only; the broker evaluates its
 owns that active delivery and presents the current lease. There is no retry or
 replay protocol.
 
-The B5 foundation does not yet provide environment bootstrap, a runtime TOML
-shape, process supervision, readiness/heartbeat messages, or an installable
-broker-peer example. Framework adapters and custom runtime packages therefore
-must not claim broker compatibility until their own integration contract is
-implemented and tested.
+The broker does not provide environment bootstrap, readiness/heartbeat
+messages, retries, persistence, or process supervision. The manifest and
+token reference are configured under `broker.bridges`; bridge-specific startup
+is supplied under its `options` mapping. The B5-4 NoneBot bridge is the
+reference implementation. A new bridge must document its own lifecycle and
+test it against the same peer contract before claiming compatibility.
+
+For B5-4, the portable surface is intentionally narrow: publish
+`message.created` and handle `message.send`. The resource key for a bot owned
+by bridge `bridge-id` is `bot:bridge-id:<bot-id>`. `CallApi`, message editing,
+and a generic function/decorator DSL are deferred to later version planning.
 
 ## Legacy supervised child runtimes (historical)
 

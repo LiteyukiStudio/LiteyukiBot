@@ -206,6 +206,7 @@ def test_duplicate_action_request_does_not_redispatch_owner_and_replays_retained
     assert replay[0].target == caller
     assert replay[0].message == ActionResult(
         action_id=dispatched_request.action_id,
+        correlation_id="call-1",
         success=True,
         payload={"message_id": "7"},
     )

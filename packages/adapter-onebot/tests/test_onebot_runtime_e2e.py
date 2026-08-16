@@ -13,6 +13,8 @@ import pytest
 from liteyukibot.app import LiteyukiApp
 from liteyukibot.config import AppSettings, CoreSettings, PluginSettings, RuntimeSettings
 
+pytestmark = pytest.mark.skip(reason="legacy child-supervisor integration is historical; B5 uses broker bridges")
+
 
 @dataclass(frozen=True, slots=True)
 class ApiRequest:
@@ -123,7 +125,7 @@ async def test_adapter_runtime_onebot_v11_group_help_round_trip(tmp_path: Path) 
     await api.start()
     event_port = _unused_port()
     app = LiteyukiApp(
-        AppSettings(
+        AppSettings(  # type: ignore[call-arg]  # historical child-supervisor configuration
             core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"),
             plugins=PluginSettings(
                 enabled=("liteyukibot.permissions", "liteyukibot.commands", "liteyukibot.essentials"),

@@ -199,6 +199,9 @@ class ActionResult(BrokerModel):
     type: Literal["action.result"] = "action.result"
     protocol: Literal[6] = BROKER_PROTOCOL_VERSION
     action_id: str = Field(min_length=1)
+    # The owner omits this field. The broker fills it from the retained request
+    # before forwarding the result to its origin bridge.
+    correlation_id: str | None = Field(default=None, min_length=1)
     success: bool
     payload: JsonValue = None
 
@@ -483,7 +486,12 @@ class BrokerLedger:
             raise BrokerAdmissionError("action_owner_mismatch", "action response owner does not match route")
         _validate_json(payload, "action result")
         if action.result is None:
-            action.result = ActionResult(action_id=action_id, success=success, payload=payload)
+            action.result = ActionResult(
+                action_id=action_id,
+                correlation_id=action.routed.request.correlation_id,
+                success=success,
+                payload=payload,
+            )
         elif (
             action.result.success != success
             or self._canonical_json(action.result.payload) != self._canonical_json(payload)

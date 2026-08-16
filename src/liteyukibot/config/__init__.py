@@ -3,6 +3,9 @@ from .loader import ConfigExplanation, ConfigInspection, ConfigProvenance, Confi
 from .models import (
     AgentSettings,
     AppSettings,
+    BrokerActionResourceSettings,
+    BrokerBridgeSettings,
+    BrokerSettings,
     CoreSettings,
     DaemonSettings,
     DevelopmentSettings,
@@ -29,6 +32,9 @@ from .workspace import ConfigUpgradeRequired, ConfigWorkspace
 __all__ = (
     "AgentSettings",
     "AppSettings",
+    "BrokerActionResourceSettings",
+    "BrokerBridgeSettings",
+    "BrokerSettings",
     "ConfigIssue",
     "ConfigExplanation",
     "ConfigInspection",

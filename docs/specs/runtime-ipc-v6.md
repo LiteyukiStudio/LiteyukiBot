@@ -1,22 +1,26 @@
 # Broker Peer IPC v6
 
 - Specification version: `6`
-- Applies to: the implemented B5-1/B5-2/B5-3 standalone broker peer contract.
+- Applies to: the implemented B5 standalone broker peer contract and the B5-4
+  NoneBot bridge.
 - Compatibility: pre-stable hard cut. This contract is not interoperable with
   the former child-supervisor Runtime IPC v1 through v5 catalog.
 
 ## Scope And Status
 
-The implemented B5 foundation is a standalone broker service. It registers
-independent bridge peers and routes their JSON-safe broker messages; it does
-not launch, configure, supervise, or restart framework processes. Existing
-child-runtime hosts and their `RuntimeSupervisor` protocol remain historical
-implementation context, not the broker integration contract.
+The implemented B5 service is a standalone broker. It registers independent
+bridge peers and routes their JSON-safe messages; it does not launch,
+configure, supervise, or restart framework processes. Bridge processes own
+their framework lifecycle and are discovered through the
+`liteyukibot.bridges` entry-point group. The B5-4 NoneBot bridge is the first
+production bridge and is started with `liteyuki bridge run <bridge-id>`.
 
-No production framework bridge, runtime configuration, native adapter, or
-custom-runtime example is wired to this broker yet. Such integrations must
-declare their manifests, lifecycle ownership, and failure behavior before this
-specification may be treated as an integration migration guide.
+The broker registry in `liteyuki.toml` is authoritative: a bridge must match
+the configured access class, subscriptions, and action resources at
+registration time. Bridge tokens are references into the local secret vault;
+they are never sent through broker configuration or business payloads. The
+former child-runtime hosts and `RuntimeSupervisor` protocol remain historical
+implementation context, not this integration contract.
 
 ## LYIP v2 Peer Registration
 
@@ -110,7 +114,9 @@ and presents that delivery's current lease in both the payload and LYIP frame.
 The broker assigns `action_id`; callers must not provide one. Requests are
 deduplicated within the event by target session, correlation ID, and canonical
 JSON. Reusing the correlation ID with different content is rejected. The
-selected owner alone may send the retained `action.result`.
+selected owner alone may send the retained `action.result`. The broker copies
+the request `correlation_id` into the result; an action owner does not choose
+or rewrite it.
 
 An action owner is resolved from matching `(kind, resource_prefix)` manifest
 declarations. A `full` bridge class always takes priority over `limited`; within
@@ -118,6 +124,14 @@ the selected class the longest matching resource prefix wins. Ties at the same
 class and prefix length are rejected as ambiguous. Registration also rejects
 an exact resource declaration already owned by a live bridge in the same access
 class. There is no fallback to a lower access class after a same-class conflict.
+
+### B5-4 portable action
+
+The first portable action is `message.send`. Its resource key is
+`bot:<owner-bridge-id>:<bot-id>`, and its payload contains a protocol-neutral
+`Message` plus either a conversation reference or a reply token. Generic
+`CallApi`, message editing, and decorator-based function APIs are outside this
+version of the contract.
 
 ## Evidence
 

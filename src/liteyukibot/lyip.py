@@ -8,6 +8,7 @@ from collections import deque
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Literal
+from urllib.parse import urlparse
 
 import zmq
 import zmq.asyncio
@@ -181,6 +182,17 @@ class ZmqLyipRouter(_ZmqEndpoint):
                 base_endpoint = endpoint.rsplit(":", 1)[0]
                 port = socket.bind_to_random_port(base_endpoint)
                 self.endpoints[lane] = f"{base_endpoint}:{port}"
+            elif endpoint.startswith("tcp://"):
+                parsed = urlparse(endpoint)
+                if parsed.port is None or parsed.port >= 65_535:
+                    raise LyipError("LYIP TCP endpoint must leave one port available for its business lane")
+                port = parsed.port + (0 if lane is LyipLane.CONTROL else 1)
+                host = parsed.hostname
+                if host is None:
+                    raise LyipError("LYIP TCP endpoint host is invalid")
+                bind_host = f"[{host}]" if ":" in host else host
+                self.endpoints[lane] = f"tcp://{bind_host}:{port}"
+                socket.bind(self.endpoints[lane])
             else:
                 self.endpoints[lane] = f"{endpoint}.{lane}"
                 socket.bind(self.endpoints[lane])

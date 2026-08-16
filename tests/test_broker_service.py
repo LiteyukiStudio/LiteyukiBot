@@ -1,0 +1,238 @@
+from __future__ import annotations
+
+import asyncio
+import socket
+import threading
+from typing import Any, cast
+
+import pytest
+import zmq.asyncio
+from pydantic import ValidationError
+
+import liteyukibot.cli as cli
+from liteyukibot.broker.peer import BridgeRegistrationError
+from liteyukibot.broker.protocol import (
+    ActionResourceDeclaration,
+    BridgeAccess,
+    BridgeManifest,
+    BridgeRegister,
+    BridgeRejected,
+    decode_broker_message,
+    encode_broker_message,
+)
+from liteyukibot.broker.service import (
+    BridgeCatalog,
+    BridgeLauncher,
+    BrokerService,
+    InstalledBridge,
+    _AuthoritativePeerService,
+)
+from liteyukibot.config import AppSettings
+from liteyukibot.lyip import LyipLane, ZmqLyipRouter
+
+
+def _settings() -> AppSettings:
+    return AppSettings.model_validate(
+        {
+            "config_version": 5,
+            "broker": {
+                "bridges": {
+                    "nonebot": {
+                        "kind": "nonebot",
+                        "token_secret": "broker.nonebot.token",
+                        "access": "limited",
+                        "subscriptions": ["message.created"],
+                        "action_resources": [{"kind": "message.send", "resource_prefix": "bot:nonebot:"}],
+                        "options": {"adapter": "onebot", "features": ["messages"], "nested": {"enabled": True}},
+                    }
+                }
+            },
+        }
+    )
+
+
+def test_broker_settings_are_v5_only_and_authoritative() -> None:
+    settings = _settings()
+
+    assert settings.broker.bridges["nonebot"].access == "limited"
+    assert settings.broker.bridges["nonebot"].model_dump(mode="json")["options"] == {
+        "adapter": "onebot",
+        "features": ["messages"],
+        "nested": {"enabled": True},
+    }
+    with pytest.raises(TypeError):
+        settings.broker.bridges["nonebot"].options["nested"]["enabled"] = False  # type: ignore[index]
+    with pytest.raises(ValidationError, match="config_version must be 5"):
+        AppSettings(config_version=4)
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        AppSettings.model_validate({"config_version": 5, "runtimes": {}})
+    with pytest.raises(ValidationError, match="loopback"):
+        AppSettings.model_validate({"config_version": 5, "broker": {"endpoint": "tcp://0.0.0.0:20217"}})
+    with pytest.raises(ValidationError, match="duplicate 'limited' ownership"):
+        AppSettings.model_validate(
+            {
+                "config_version": 5,
+                "broker": {
+                    "bridges": {
+                        "one": {
+                            "kind": "one",
+                            "token_secret": "one",
+                            "action_resources": [{"kind": "message.send", "resource_prefix": "bot:"}],
+                        },
+                        "two": {
+                            "kind": "two",
+                            "token_secret": "two",
+                            "action_resources": [{"kind": "message.send", "resource_prefix": "bot:"}],
+                        },
+                    }
+                },
+            }
+        )
+    full_and_limited = AppSettings.model_validate(
+        {
+            "config_version": 5,
+            "broker": {
+                "bridges": {
+                    "owner": {
+                        "kind": "owner",
+                        "token_secret": "owner",
+                        "access": "full",
+                        "action_resources": [{"kind": "message.send", "resource_prefix": "bot:"}],
+                    },
+                    "fallback": {
+                        "kind": "fallback",
+                        "token_secret": "fallback",
+                        "access": "limited",
+                        "action_resources": [{"kind": "message.send", "resource_prefix": "bot:"}],
+                    },
+                }
+            },
+        }
+    )
+    assert full_and_limited.broker.bridges["owner"].access == "full"
+    with pytest.raises(ValidationError, match="must not contain duplicates"):
+        AppSettings.model_validate(
+            {
+                "config_version": 5,
+                "broker": {
+                    "bridges": {
+                        "one": {
+                            "kind": "one",
+                            "token_secret": "one",
+                            "action_resources": [
+                                {"kind": "message.send", "resource_prefix": "bot:"},
+                                {"kind": "message.send", "resource_prefix": "bot:"},
+                            ],
+                        }
+                    }
+                },
+            }
+        )
+
+
+def test_authoritative_service_rejects_token_matched_manifest_mismatch() -> None:
+    configured = BridgeManifest(
+        bridge_id="nonebot",
+        access=BridgeAccess.LIMITED,
+        subscriptions=("message.created",),
+        action_resources=(ActionResourceDeclaration(kind="message.send", resource_prefix="bot:nonebot:"),),
+    )
+    service = _AuthoritativePeerService(
+        manifests={"nonebot": configured},
+        instance_tokens={"nonebot": "secret"},
+        generation=1,
+        active_capacity=1024,
+        terminal_capacity=16384,
+        terminal_ttl_seconds=3600,
+        delivery_timeout_seconds=30,
+    )
+    request = BridgeRegister(
+        bridge_id="nonebot",
+        instance_token="secret",
+        manifest=BridgeManifest(bridge_id="nonebot", access=BridgeAccess.LIMITED),
+    )
+    frame = encode_broker_message(
+        request,
+        generation=1,
+        stream_id="bridge:nonebot:control",
+        sequence=0,
+        lease_id="registration",
+    )
+
+    reply = decode_broker_message(service.handle_control(b"nonebot-peer", frame))
+
+    assert isinstance(reply, BridgeRejected)
+    assert reply.code == "manifest_mismatch"
+
+
+def test_broker_service_resolves_every_configured_vault_token() -> None:
+    settings = _settings()
+
+    with pytest.raises(ValueError, match="every configured bridge"):
+        BrokerService(settings, {})
+
+
+def test_tcp_router_uses_adjacent_control_and_business_ports() -> None:
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    context = zmq.asyncio.Context()
+    router = ZmqLyipRouter(
+        context=context,
+        endpoint=f"tcp://127.0.0.1:{port}",
+        generation=1,
+        business_hwm=10,
+        control_hwm=10,
+    )
+    try:
+        assert router.endpoints[LyipLane.CONTROL] == f"tcp://127.0.0.1:{port}"
+        assert router.endpoints[LyipLane.BUSINESS] == f"tcp://127.0.0.1:{port + 1}"
+    finally:
+        router.close()
+        context.term()
+
+
+def test_cli_exposes_standalone_broker_and_bridge_commands() -> None:
+    assert cli.build_parser().parse_args(["broker", "run"]).broker_command == "run"
+    args = cli.build_parser().parse_args(["bridge", "run", "nonebot"])
+    assert (args.bridge_command, args.bridge_id) == ("run", "nonebot")
+
+
+@pytest.mark.asyncio
+async def test_business_pump_survives_registration_rejection() -> None:
+    class Server:
+        calls = 0
+
+        async def serve_business_once(self) -> None:
+            self.calls += 1
+            if self.calls == 1:
+                raise BridgeRegistrationError("unregistered")
+            raise asyncio.CancelledError
+
+    service = object.__new__(BrokerService)
+    server = Server()
+    service.server = cast(Any, server)
+
+    with pytest.raises(asyncio.CancelledError):
+        await service._serve_business()
+
+    assert server.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_sync_bridge_launcher_runs_off_the_asyncio_thread() -> None:
+    catalog = BridgeCatalog()
+    caller_thread = threading.get_ident()
+    launch_thread: list[int] = []
+
+    def launch(_settings: AppSettings, _bridge_id: str, _token: str) -> None:
+        launch_thread.append(threading.get_ident())
+
+    catalog.discover = lambda: {  # type: ignore[method-assign]
+        "nonebot": InstalledBridge(kind="nonebot", launch=cast(BridgeLauncher, launch))
+    }
+
+    await catalog.launch(_settings(), "nonebot", "secret")
+
+    assert launch_thread
+    assert launch_thread[0] != caller_thread

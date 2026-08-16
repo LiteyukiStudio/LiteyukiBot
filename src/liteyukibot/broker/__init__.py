@@ -4,6 +4,13 @@ This is the v6 broker migration entry point. It is intentionally not
 interoperable with the legacy runtime child protocol.
 """
 
+from .actions import (
+    MESSAGE_SEND_KIND,
+    MessageSendPayload,
+    make_message_send_request,
+    message_send_resource_key,
+    parse_message_send_request,
+)
 from .business import (
     BROKER_ACTION_REQUEST_TYPE_ID,
     BROKER_ACTION_RESULT_TYPE_ID,
@@ -15,6 +22,7 @@ from .business import (
     decode_business_message,
     encode_business_message,
 )
+from .host import ActionOutcome, BrokerBridgeRunner, BrokerDelivery
 from .peer import (
     BridgeClient,
     BridgeRegistrationError,
@@ -52,9 +60,11 @@ from .routing import (
     EventSnapshot,
     RoutedAction,
 )
+from .service import BridgeCatalog, BridgeLauncher, BrokerService, bridge_token_from_vault
 
 __all__ = [
     "BROKER_PROTOCOL_VERSION",
+    "MESSAGE_SEND_KIND",
     "BROKER_ACTION_REQUEST_TYPE_ID",
     "BROKER_ACTION_RESULT_TYPE_ID",
     "BROKER_EVENT_ACCEPTED_TYPE_ID",
@@ -62,10 +72,13 @@ __all__ = [
     "BROKER_EVENT_INGRESS_TYPE_ID",
     "BROKER_EVENT_MESSAGE_TYPE_ID",
     "ActionRequest",
+    "ActionOutcome",
     "ActionResourceDeclaration",
     "ActionResult",
     "BridgeAccess",
     "BridgeClient",
+    "BrokerBridgeRunner",
+    "BrokerDelivery",
     "BridgeManifest",
     "BridgeRegister",
     "BridgeRegistered",
@@ -82,6 +95,9 @@ __all__ = [
     "BrokerPeerServer",
     "BrokerPeerService",
     "BrokerWireError",
+    "BrokerService",
+    "BridgeCatalog",
+    "BridgeLauncher",
     "DeliverySnapshot",
     "DeliveryState",
     "EventIngress",
@@ -89,9 +105,14 @@ __all__ = [
     "EventCompleted",
     "EventMessage",
     "EventSnapshot",
+    "MessageSendPayload",
     "RoutedAction",
     "decode_broker_message",
     "decode_business_message",
     "encode_business_message",
     "encode_broker_message",
+    "bridge_token_from_vault",
+    "make_message_send_request",
+    "message_send_resource_key",
+    "parse_message_send_request",
 ]

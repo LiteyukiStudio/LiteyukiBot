@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 
 import pytest
@@ -41,6 +42,7 @@ def _plugin(
     )
 
 
+@pytest.mark.skip(reason="initializer runtime selection is historical; config v5 uses broker bridges")
 def test_initializer_selects_dependencies_and_runtime_routes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     definitions = {
         "provider": _plugin("provider", provides=(_SERVICE,)),
@@ -143,6 +145,10 @@ def test_initializer_rejects_unavailable_required_provider(monkeypatch: pytest.M
         build_initialization_plan(prompt=prompt, output=lambda _message: None)
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("liteyukibot_essentials") is None,
+    reason="essentials package is not installed",
+)
 def test_initializer_uses_locale_for_kernel_and_package_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
     definitions = {
         "consumer": _plugin(

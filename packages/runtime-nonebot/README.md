@@ -1,8 +1,8 @@
 # LiteyukiBot NoneBot Runtime
 
-`liteyukibot-v7-runtime-nonebot` hosts NoneBot2 as a supervised LiteyukiBot v7
-child runtime. It is discovered through the `liteyukibot.runtimes` entry-point
-group, so a configuration with `kind = "nonebot"` needs no explicit command.
+`liteyukibot-v7-runtime-nonebot` hosts a NoneBot2 bridge for the standalone
+Liteyuki broker. It is discovered through the `liteyukibot.bridges` entry-point
+group and launched with `liteyuki bridge run <bridge-id>`.
 
 Install the base host and one adapter family:
 
@@ -10,9 +10,13 @@ Install the base host and one adapter family:
 uv add "liteyukibot-v7-runtime-nonebot[onebot]"
 ```
 
-The runtime converts NoneBot events and actions into LiteyukiBot's frozen
-Event/Action schemas. NoneBot plugins, adapters, drivers, and Bot objects stay
-inside this child process.
+The B5 bridge publishes normalized NoneBot messages as `message.created` and
+owns only the portable `message.send` action. Its action resource keys are
+bridge-scoped (`bot:<bridge-id>:<bot-id>`). NoneBot plugins, adapters, drivers,
+and Bot objects remain local to the bridge process. Bridge-local NoneBot
+initialization is configured under `broker.bridges.<id>.options` with
+`config`, `adapters`, `plugins`, and `plugin_dirs`; generic `CallApi` and
+message editing are not part of this bridge contract.
 
 ## Development
 

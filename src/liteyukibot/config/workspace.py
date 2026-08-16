@@ -121,8 +121,6 @@ class ConfigWorkspace:
             locale=locale,
             plugins=plugins,
             plugin_config=plugin_config,
-            runtimes=runtimes,
-            runtime_event_routes=runtime_event_routes,
         )
         AppSettings.model_validate(tomllib.loads(rendered))
         self.path.write_text(rendered, encoding="utf-8")

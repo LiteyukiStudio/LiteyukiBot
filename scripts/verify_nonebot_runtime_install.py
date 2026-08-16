@@ -10,7 +10,6 @@ from pathlib import Path
 import liteyukibot_runtime_nonebot
 
 import liteyukibot
-from liteyukibot.runtime import RuntimeCatalog
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 
@@ -19,11 +18,17 @@ def verify(expected_version: str | None = None) -> None:
     imported = (Path(liteyukibot.__file__).resolve(), Path(liteyukibot_runtime_nonebot.__file__).resolve())
     if any(path.is_relative_to(SOURCE_ROOT) for path in imported):
         raise RuntimeError(f"workspace source import detected: {imported}")
-    plugin = RuntimeCatalog().discover().get("nonebot")
-    if plugin is None:
-        raise RuntimeError("NoneBot runtime entry point was not discovered")
-    if plugin.command[2:] != ("liteyukibot_runtime_nonebot",):
-        raise RuntimeError(f"unexpected NoneBot runtime command: {plugin.command}")
+    entry_points = importlib.metadata.entry_points(group="liteyukibot.bridges")
+    bridge = next((entry for entry in entry_points if entry.name == "nonebot"), None)
+    if bridge is None:
+        raise RuntimeError("NoneBot bridge entry point was not discovered")
+    if bridge.value != "liteyukibot_runtime_nonebot:launch":
+        raise RuntimeError(f"unexpected NoneBot bridge entry point: {bridge.value}")
+    legacy = [
+        entry for entry in importlib.metadata.entry_points(group="liteyukibot.runtimes") if entry.name == "nonebot"
+    ]
+    if legacy:
+        raise RuntimeError("NoneBot package must not publish a legacy runtime entry point")
     observed = {
         name: importlib.metadata.version(name)
         for name in ("liteyukibot-v7", "liteyukibot-v7-runtime-nonebot")

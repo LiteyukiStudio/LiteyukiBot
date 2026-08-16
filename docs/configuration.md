@@ -13,17 +13,17 @@ The interactive initializer is a responsive full-screen terminal wizard. It
 starts with language, workspace, and a minimal-versus-custom choice; Back and
 Cancel never write configuration. Selection pages support arrows, Space,
 Enter, mouse input, and unique green mnemonic keys. Minimal setup creates safe
-defaults without optional plugins or runtimes. Custom setup first collects
+defaults without optional plugins or bridges. Custom setup first collects
 structured logging choices (level, console/JSON sinks, payload mode, and
-runtime exclusions), then discovers installed native plugins and runtime
+runtime exclusions), then discovers installed native plugins and bridge
 packages, resolves required native service providers, writes only package-owned
-safe options, and can add message routes to an agent runtime. A broken,
+safe options, and can add topic subscriptions to a broker bridge. A broken,
 unrelated entry point is reported as a diagnostic instead of preventing other
 choices. The wizard does not paint a terminal background; transparency remains
 the terminal emulator's setting.
 
-liteyuki init --non-interactive and a missing Docker configuration both create
-a minimal configuration with no enabled plugins, runtimes, or secrets.
+`liteyuki init --non-interactive` and a missing Docker configuration both create
+a minimal configuration with no enabled plugins, bridges, or secrets.
 
 `init --locale auto|zh-CN|en-US` selects the wizard and stored CLI language.
 `auto` follows the system locale, but falls back to English when terminal CJK
@@ -133,7 +133,7 @@ liteyuki --instance staging config show
 
 An optional `.liteyuki/instances/<name>.toml` overrides the base file and any
 explicit `--config` files, but is still overridden by `LITEYUKI__...` and
-`--set`. It may configure runtimes, plugins, HTTP ports, and daemon policy. It
+`--set`. It may configure broker bridges, plugins, HTTP ports, and daemon policy. It
 cannot set `config_version`, `core.data_dir`, `core.cache_dir`, or
 `logging.file`; named-instance storage is intentionally derived by the kernel.
 
@@ -201,22 +201,23 @@ uv run liteyuki vault rotate
 ~~~
 
 Local commands use hidden password prompts. Docker requires
-LITEYUKI_VAULT_PASSWORD; it is removed from every child runtime environment.
-The kernel decrypts only the IDs required by enabled runtimes and injects each
-value only into the environment variable declared by that runtime's InitSpec.
-Secrets never enter runtime IPC, control APIs, or configuration diagnostics.
+`LITEYUKI_VAULT_PASSWORD`. The broker decrypts only the token IDs referenced by
+configured `broker.bridges`; resolved tokens are passed to the bridge launcher
+and never enter broker business payloads or configuration diagnostics.
 
 The native agent runtime uses LITEYUKI_AGENT_API_KEY by default. Existing
 api_key_env configuration remains an explicit compatibility override.
 
 ## Upgrade Material
 
-config_version = 4 is the current v7 pre-release schema. A root configuration
-with a missing version or a version through 3 is preserved without v4
-validation and blocks startup after generating:
+`config_version = 5` is the current v7 pre-release schema. This is a hard cut:
+the root configuration must declare version 5, and the former `runtimes` and
+`runtime_event_routes` sections are not accepted as broker configuration. A
+root configuration with a missing version or a version below 5 is preserved
+and blocks startup after generating:
 
 - a timestamped, read-only backup under `.liteyuki/config-backups/`;
-- a fresh v4 template under `.liteyuki/config-upgrades/`;
+- a fresh v5 template under `.liteyuki/config-upgrades/`;
 - recovery instructions in that upgrade directory.
 
 The root file is never changed. Generation is idempotent; use `--refresh` only
@@ -227,7 +228,36 @@ uv run liteyuki config upgrade --refresh
 ~~~
 
 Configurations from a newer schema are rejected without creating backups.
-The saved v3 configuration is usable only with the older pre-v4 beta binary;
-there is no v4 rollback command because the old root was not mutated. See the
-[Configuration v4 specification](specs/configuration-v4.md) for exact LYIP,
-WebUI, logging, and development limits.
+The saved configuration is usable only with the matching older beta binary;
+there is no in-place rollback command because the old root was not mutated.
+Broker defaults and bridge manifest fields are defined by the v5 settings model
+and the [Broker Peer IPC v6 specification](specs/runtime-ipc-v6.md).
+
+### Broker bridge registry
+
+The broker uses a local loopback endpoint by default and treats each
+`broker.bridges.<id>` table as an authoritative manifest:
+
+```toml
+[broker]
+endpoint = "tcp://127.0.0.1:20217"
+
+[broker.bridges.nonebot]
+kind = "nonebot"
+token_secret = "broker.nonebot.token"
+access = "limited"
+subscriptions = ["message.created"]
+action_resources = [{ kind = "message.send", resource_prefix = "bot:nonebot:" }]
+
+[broker.bridges.nonebot.options]
+config = { driver = "~fastapi+~httpx", host = "127.0.0.1", port = 8080 }
+adapters = ["nonebot.adapters.onebot.v11:Adapter"]
+plugins = ["plugins"]
+plugin_dirs = []
+```
+
+The `kind` must be provided by an installed `liteyukibot.bridges` entry point.
+Registration is rejected when a bridge manifest differs from this table.
+`full` bridges receive every topic; `limited` bridges receive only their
+configured subscriptions. The B5-4 NoneBot bridge currently publishes
+`message.created` and owns the portable `message.send` action only.

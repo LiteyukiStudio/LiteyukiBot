@@ -1,7 +1,7 @@
 [project]
 name = "liteyukibot-v7-runtime-nonebot"
 version = "0.1.0a1"
-description = "NoneBot2 runtime host for LiteyukiBot v7."
+description = "NoneBot2 broker bridge for LiteyukiBot v7."
 readme = "README.md"
 requires-python = ">=3.14"
 license = "LicenseRef-LSO"
@@ -22,8 +22,8 @@ satori = [
     "nonebot-adapter-satori>=1.3,<2",
 ]
 
-[project.entry-points."liteyukibot.runtimes"]
-nonebot = "liteyukibot_runtime_nonebot:runtime_plugin"
+[project.entry-points."liteyukibot.bridges"]
+nonebot = "liteyukibot_runtime_nonebot:launch"
 
 [build-system]
 requires = ["uv_build>=0.11.32,<0.12"]

@@ -128,6 +128,5 @@ jobs:
           uv python install 3.14
           uv sync --locked --all-packages --extra onebot --extra satori
           uv run pytest \
-            tests/test_runtime_v7.py::test_nonebot_runtime_loads_an_existing_plugin \
             packages/runtime-nonebot/tests/test_nonebot_adapters.py \
-            packages/runtime-nonebot/tests/test_nonebot_runtime_e2e.py
+            packages/runtime-nonebot/tests/test_nonebot_bridge.py

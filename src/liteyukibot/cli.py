@@ -24,6 +24,7 @@ from tomli_w import dumps as dump_toml
 
 from . import __version__
 from .app import LiteyukiApp
+from .broker.service import BridgeCatalog, BrokerService, bridge_token_from_vault
 from .config import (
     AppSettings,
     ConfigInspection,
@@ -59,6 +60,13 @@ def build_parser() -> argparse.ArgumentParser:
     run = subcommands.add_parser("run", help="start the application through its local daemon")
     run.add_argument("--detach", action="store_true", help="start the daemon in the background")
     run.add_argument("--daemon-worker", action="store_true", help=argparse.SUPPRESS)
+    broker = subcommands.add_parser("broker", help="run the standalone local broker")
+    broker_commands = broker.add_subparsers(dest="broker_command", required=True)
+    broker_commands.add_parser("run", help="serve configured bridge peers")
+    bridge = subcommands.add_parser("bridge", help="launch one configured broker bridge")
+    bridge_commands = bridge.add_subparsers(dest="bridge_command", required=True)
+    bridge_run = bridge_commands.add_parser("run", help="launch one bridge through its package entry point")
+    bridge_run.add_argument("bridge_id")
     subcommands.add_parser("check", help="validate configuration and plugin topology")
     subcommands.add_parser("version", help="show the installed version")
     init = subcommands.add_parser("init", help="create a project configuration")
@@ -204,6 +212,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             if args.daemon_worker:
                 return _run_worker(settings, workspace)
             return _run(settings, workspace, args)
+        if args.command == "broker":
+            return asyncio.run(_broker_command(settings, workspace))
+        if args.command == "bridge":
+            return asyncio.run(_bridge_command(settings, workspace, args.bridge_id))
         if args.command in {"check", "config"}:
             if args.command == "check":
                 _check(settings)
@@ -628,6 +640,27 @@ def _runtime_secrets(settings: AppSettings, workspace: ConfigWorkspace) -> dict[
     if missing:
         raise ValueError(f"secret vault is missing required secrets: {', '.join(missing)}")
     return {name: values[name] for name in names}
+
+
+async def _broker_command(settings: AppSettings, workspace: ConfigWorkspace) -> int:
+    service = BrokerService.from_vault(
+        settings,
+        SecretVault(workspace.management_directory),
+        _vault_password(workspace),
+    )
+    await service.run_until_cancelled()
+    return 0
+
+
+async def _bridge_command(settings: AppSettings, workspace: ConfigWorkspace, bridge_id: str) -> int:
+    _bridge, token = bridge_token_from_vault(
+        settings,
+        bridge_id,
+        SecretVault(workspace.management_directory),
+        _vault_password(workspace),
+    )
+    await BridgeCatalog().launch(settings, bridge_id, token)
+    return 0
 
 
 def _check(settings: AppSettings) -> None:

@@ -1,6 +1,4 @@
-"""Run the NoneBot framework host under the LiteyukiBot supervisor."""
-
-from .host import run
+"""Use liteyuki bridge run <bridge-id> to start a configured bridge."""
 
 if __name__ == "__main__":
-    run()
+    raise SystemExit("use liteyuki bridge run <bridge-id> to start a configured NoneBot bridge")
