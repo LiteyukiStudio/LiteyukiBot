@@ -241,6 +241,9 @@ async def test_native_agent_binds_tool_calls_to_the_delivered_event(tmp_path: Pa
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip(
+    reason="native agent child-supervisor integration is not selected by config v5; broker-peer coverage follows B5-5"
+)
 async def test_native_agent_child_round_trips_mock_provider_tool_and_source_action(tmp_path: Path) -> None:
     requests: list[dict[str, object]] = []
     responses: Sequence[dict[str, object]] = (

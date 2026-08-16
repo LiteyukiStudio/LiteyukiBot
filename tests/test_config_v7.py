@@ -37,20 +37,20 @@ def test_defaults_and_result_are_deeply_immutable(tmp_path: Path, monkeypatch: p
         settings.runtimes["worker"] = settings.runtimes.get("worker")  # type: ignore[index]
 
 
-def test_primary_configuration_requires_explicit_v4_version(tmp_path: Path) -> None:
+def test_primary_configuration_requires_explicit_v5_version(tmp_path: Path) -> None:
     config = tmp_path / "liteyuki.toml"
     config.write_text("[core]\nqueue_capacity = 32\n", encoding="utf-8")
 
-    with pytest.raises(ConfigurationError, match="requires config_version = 4"):
+    with pytest.raises(ConfigurationError, match="requires config_version = 5"):
         load_settings(config, environ={})
 
 
 def test_primary_config_version_cannot_be_supplied_by_an_include(tmp_path: Path) -> None:
-    (tmp_path / "included.toml").write_text("config_version = 4\n", encoding="utf-8")
+    (tmp_path / "included.toml").write_text("config_version = 5\n", encoding="utf-8")
     primary = tmp_path / "liteyuki.toml"
     primary.write_text('include = ["included.toml"]\n', encoding="utf-8")
 
-    with pytest.raises(ConfigurationError, match="requires config_version = 4"):
+    with pytest.raises(ConfigurationError, match="requires config_version = 5"):
         load_settings(primary, environ={})
 
 
@@ -58,9 +58,9 @@ def test_primary_v3_config_cannot_be_upgraded_by_an_additional_layer(tmp_path: P
     primary = tmp_path / "liteyuki.toml"
     primary.write_text("config_version = 3\n", encoding="utf-8")
     override = tmp_path / "override.toml"
-    override.write_text("config_version = 4\n", encoding="utf-8")
+    override.write_text("config_version = 5\n", encoding="utf-8")
 
-    with pytest.raises(ConfigurationError, match="requires config_version = 4"):
+    with pytest.raises(ConfigurationError, match="requires config_version = 5"):
         load_settings(primary, config_paths=(override,), environ={})
 
 
@@ -93,7 +93,7 @@ nested = { include = true }
     )
     (tmp_path / "primary.toml").write_text(
         """
-config_version = 4
+config_version = 5
 include = ["includes/base.toml"]
 
 [core]
@@ -113,21 +113,7 @@ nested = { primary = true }
         """{
   "core": {"queue_capacity": 30},
   "plugins": {"config": {"demo": {"from_additional": true}}},
-  "runtimes": {
-    "nb": {
-      "kind": "nonebot",
-      "working_directory": "runtime",
-      "max_inbound_events": 7,
-      "options": {"adapter": "onebot", "features": ["messages", "notices"]}
-    },
-    "compat": {
-      "kind": "custom",
-      "command": ["compat-runtime"]
-    }
-  },
-  "runtime_event_routes": [
-    {"sources": ["nb"], "target": "compat", "messages_only": true}
-  ]
+  "broker": {"generation": 3}
 }""",
         encoding="utf-8",
     )
@@ -149,22 +135,11 @@ nested = { primary = true }
         "from_additional": True,
         "nested": {"include": True, "primary": True},
     }
-    assert settings.runtimes["nb"].working_directory == additional_directory / "runtime"
-    assert settings.runtimes["nb"].max_inbound_events == 7
-    assert settings.runtimes["nb"].secret_env == {}
-    assert settings.runtimes["nb"].options["features"] == ("messages", "notices")
-    assert settings.runtime_event_routes[0].sources == ("nb",)
-    assert settings.runtime_event_routes[0].target == "compat"
-    assert settings.runtime_event_routes[0].messages_only is True
+    assert settings.broker.generation == 3
     serialized = settings.model_dump(mode="json")
-    assert serialized["runtimes"]["nb"]["options"]["features"] == ["messages", "notices"]
-    assert serialized["runtime_event_routes"] == [
-        {"sources": ["nb"], "target": "compat", "messages_only": True}
-    ]
+    assert serialized["broker"]["generation"] == 3
     with pytest.raises(TypeError):
         settings.plugins.config["demo"]["new"] = True
-    with pytest.raises(TypeError):
-        settings.runtimes["nb"].options["new"] = True  # type: ignore[index]
 
 
 def test_runtime_secret_environment_is_immutable_and_serialized() -> None:
@@ -206,7 +181,7 @@ def test_agent_harness_must_be_a_trimmed_nonempty_identifier() -> None:
         AgentSettings(agent_harness=" native ")
 
 
-def test_v4_lyip_webui_and_development_settings_are_typed_and_serialized() -> None:
+def test_v5_lyip_webui_and_development_settings_are_typed_and_serialized() -> None:
     settings = AppSettings(
         lyip=LyipSettings(
             default_backend="zmq",
@@ -224,7 +199,7 @@ def test_v4_lyip_webui_and_development_settings_are_typed_and_serialized() -> No
         development=DevelopmentSettings(enabled=True, allow_drills=True),
     )
 
-    assert settings.config_version == 4
+    assert settings.config_version == 5
     assert settings.lyip.default_backend == "zmq"
     assert settings.lyip.links["worker"].capacity.business_slots == 1_024
     assert settings.webui.mode == "always"
@@ -240,10 +215,10 @@ def test_v4_lyip_webui_and_development_settings_are_typed_and_serialized() -> No
         (lambda: LyipSettings(links={" worker": LyipLinkSettings()}), "LYIP link runtime identifiers"),
         (lambda: WebUISettings(session_idle_seconds=61, session_max_seconds=60), "session_max_seconds"),
         (lambda: DevelopmentSettings.model_validate({"dev_mode": True}), "dev_mode"),
-        (lambda: AppSettings(config_version=3), "config_version must be 4"),
+        (lambda: AppSettings(config_version=3), "config_version must be 5"),
     ),
 )
-def test_v4_settings_reject_invalid_or_legacy_fields(factory: object, message: str) -> None:
+def test_v5_settings_reject_invalid_or_legacy_fields(factory: object, message: str) -> None:
     with pytest.raises(ValidationError, match=message):
         factory()  # type: ignore[operator]
 
@@ -395,36 +370,13 @@ def test_full_payload_logging_requires_development_private_file_and_safe_outputs
             )
 
 
-@pytest.mark.parametrize(
-    ("routes", "message"),
-    (
-        (
-            ({"sources": ["source"], "target": "missing"},),
-            "target 'missing' is not configured",
-        ),
-        (
-            ({"sources": ["source"], "target": "target"},),
-            "source 'source' is disabled",
-        ),
-        (
-            (
-                {"sources": ["source"], "target": "target"},
-                {"sources": ["source"], "target": "target"},
-            ),
-            "must not contain duplicates",
-        ),
-    ),
-)
-def test_runtime_event_routes_require_distinct_enabled_configured_runtimes(
-    routes: tuple[dict[str, object], ...], message: str
-) -> None:
-    runtimes = {
-        "source": RuntimeSettings(kind="nonebot", enabled=message != "source 'source' is disabled"),
-        "target": RuntimeSettings(kind="custom", command=("runtime",)),
-    }
-
-    with pytest.raises(ValidationError, match=message):
-        AppSettings(runtimes=runtimes, runtime_event_routes=routes)  # type: ignore[arg-type]
+def test_v5_rejects_legacy_runtime_configuration() -> None:
+    with pytest.raises(ValidationError, match="Extra inputs"):
+        AppSettings.model_validate({"config_version": 5, "runtimes": {"source": {"kind": "nonebot"}}})
+    with pytest.raises(ValidationError, match="Extra inputs"):
+        AppSettings.model_validate(
+            {"config_version": 5, "runtime_event_routes": [{"sources": ["source"], "target": "target"}]}
+        )
 
 
 def test_nested_includes_merge_in_declared_order(tmp_path: Path) -> None:
@@ -433,7 +385,7 @@ def test_nested_includes_merge_in_declared_order(tmp_path: Path) -> None:
     (nested / "first.json").write_text('{"core": {"queue_capacity": 5, "max_concurrent_events": 8}}', encoding="utf-8")
     (nested / "second.toml").write_text("[core]\nqueue_capacity = 6\n", encoding="utf-8")
     (tmp_path / "primary.toml").write_text(
-        "config_version = 4\n"
+        "config_version = 5\n"
         'include = ["nested/first.json", "nested/second.toml"]\n'
         "[core]\nhandler_timeout_seconds = 12\n",
         encoding="utf-8",
@@ -450,7 +402,7 @@ def test_duplicate_and_validation_errors_are_aggregated_without_values(tmp_path:
     (tmp_path / "included.toml").write_text("[core]\nqueue_capacity = 1\n", encoding="utf-8")
     (tmp_path / "primary.toml").write_text(
         """
-config_version = 4
+config_version = 5
 include = ["included.toml", "included.toml"]
 secret_value = "must-not-appear"
 
@@ -472,7 +424,7 @@ queue_capacity = 0
 
 
 def test_include_cycle_has_the_full_chain(tmp_path: Path) -> None:
-    (tmp_path / "a.toml").write_text('config_version = 4\ninclude = ["b.toml"]\n', encoding="utf-8")
+    (tmp_path / "a.toml").write_text('config_version = 5\ninclude = ["b.toml"]\n', encoding="utf-8")
     (tmp_path / "b.toml").write_text('include = ["a.toml"]\n', encoding="utf-8")
 
     with pytest.raises(ConfigurationError) as captured:
@@ -488,7 +440,7 @@ def test_yaml_support_is_lazy_and_has_an_actionable_missing_extra_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     yaml_path = tmp_path / "settings.yaml"
-    yaml_path.write_text("config_version: 4\ncore:\n  queue_capacity: 7\n", encoding="utf-8")
+    yaml_path.write_text("config_version: 5\ncore:\n  queue_capacity: 7\n", encoding="utf-8")
     real_import_module = importlib.import_module
 
     def fail_yaml_import(name: str) -> object:
@@ -503,8 +455,8 @@ def test_yaml_support_is_lazy_and_has_an_actionable_missing_extra_error(
 
 def test_yaml_uses_safe_load_when_extra_is_available(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     yaml_path = tmp_path / "settings.yaml"
-    yaml_path.write_text("config_version: 4\ncore:\n  queue_capacity: 7\n", encoding="utf-8")
-    fake_yaml = SimpleNamespace(safe_load=lambda value: {"config_version": 4, "core": {"queue_capacity": 7}})
+    yaml_path.write_text("config_version: 5\ncore:\n  queue_capacity: 7\n", encoding="utf-8")
+    fake_yaml = SimpleNamespace(safe_load=lambda value: {"config_version": 5, "core": {"queue_capacity": 7}})
     monkeypatch.setattr(importlib, "import_module", lambda name: fake_yaml)
 
     settings = load_settings(yaml_path, environ={})
@@ -514,7 +466,7 @@ def test_yaml_uses_safe_load_when_extra_is_available(tmp_path: Path, monkeypatch
 
 def test_http_is_restricted_to_loopback(tmp_path: Path) -> None:
     config_path = tmp_path / "remote.toml"
-    config_path.write_text('config_version = 4\n[http]\nenabled = true\nhost = "0.0.0.0"\n', encoding="utf-8")
+    config_path.write_text('config_version = 5\n[http]\nenabled = true\nhost = "0.0.0.0"\n', encoding="utf-8")
 
     with pytest.raises(ConfigurationError, match="HTTP host must be a loopback address"):
         load_settings(config_path, environ={})

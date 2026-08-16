@@ -564,7 +564,7 @@ def test_uninstalling_the_final_root_deactivates_but_keeps_rollback(
     assert store.rollback("legacy").runtime_generations == {"legacy": installed.generation.id}
 
 
-def test_plugin_rollback_cli_switches_to_the_previous_generation(
+def test_plugin_rollback_cli_rejects_legacy_runtime_under_config_v5(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     ConfigWorkspace(tmp_path).initialize(runtimes={"legacy": {"kind": "v6"}})
@@ -594,7 +594,6 @@ def test_plugin_rollback_cli_switches_to_the_previous_generation(
     store.activate("legacy", first.id)
     store.activate("legacy", second.id)
 
-    assert main(["--workspace", str(tmp_path), "plugin", "rollback", "--runtime", "legacy"]) == 0
-
-    assert store.active().runtime_generations == {"legacy": "first"}
-    assert capsys.readouterr().out.strip() == "activated first"
+    assert main(["--workspace", str(tmp_path), "plugin", "rollback", "--runtime", "legacy"]) == 2
+    assert "runtime 'legacy' is not configured" in capsys.readouterr().err
+    assert store.active().runtime_generations == {"legacy": "second"}

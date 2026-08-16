@@ -430,38 +430,150 @@ class DevelopmentSettings(FrozenSettingsModel):
     watch_debounce_seconds: float = Field(default=0.75, gt=0)
 
 
+class BrokerActionResourceSettings(FrozenSettingsModel):
+    kind: str
+    resource_prefix: str
+
+    @field_validator("kind", "resource_prefix")
+    @classmethod
+    def require_trimmed_identifier(cls, value: str) -> str:
+        if not value.strip() or value != value.strip():
+            raise ValueError("broker action resource identifiers must be non-empty and trimmed")
+        return value
+
+
+class BrokerBridgeSettings(FrozenSettingsModel):
+    """One configuration-authoritative bridge manifest and token reference."""
+
+    kind: str
+    token_secret: str
+    access: Literal["full", "limited"] = "limited"
+    subscriptions: tuple[str, ...] = ()
+    action_resources: tuple[BrokerActionResourceSettings, ...] = ()
+    options: Mapping[str, JsonValue] = Field(default_factory=dict)
+
+    @field_validator("kind", "token_secret")
+    @classmethod
+    def require_trimmed_identifier(cls, value: str) -> str:
+        if not value.strip() or value != value.strip():
+            raise ValueError("broker bridge identifiers must be non-empty and trimmed")
+        return value
+
+    @field_validator("subscriptions")
+    @classmethod
+    def validate_subscriptions(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not topic.strip() or topic != topic.strip() for topic in value):
+            raise ValueError("broker subscriptions must be non-empty and trimmed")
+        if len(value) != len(set(value)):
+            raise ValueError("broker subscriptions must not contain duplicates")
+        return value
+
+    @field_validator("action_resources")
+    @classmethod
+    def reject_duplicate_action_resources(
+        cls, value: tuple[BrokerActionResourceSettings, ...]
+    ) -> tuple[BrokerActionResourceSettings, ...]:
+        keys = {(resource.kind, resource.resource_prefix) for resource in value}
+        if len(keys) != len(value):
+            raise ValueError("broker action resources must not contain duplicates")
+        return value
+
+    @field_validator("options", mode="after")
+    @classmethod
+    def freeze_options(cls, value: Mapping[str, JsonValue]) -> Mapping[str, JsonValue]:
+        return cast(Mapping[str, JsonValue], _freeze(value))
+
+    @field_serializer("options")
+    def serialize_options(self, value: Mapping[str, JsonValue]) -> dict[str, Any]:
+        return cast(dict[str, Any], _thaw(value))
+
+
+class BrokerSettings(FrozenSettingsModel):
+    endpoint: str = "tcp://127.0.0.1:20217"
+    generation: int = Field(default=1, ge=1)
+    active_capacity: int = Field(default=1_024, ge=1, le=262_144)
+    terminal_capacity: int = Field(default=16_384, ge=1_024, le=262_144)
+    terminal_ttl_seconds: int = Field(default=3_600, ge=60, le=86_400)
+    delivery_timeout_seconds: int = Field(default=30, ge=1, le=3_600)
+    bridges: Mapping[str, BrokerBridgeSettings] = Field(default_factory=dict)
+
+    @field_validator("endpoint")
+    @classmethod
+    def require_loopback_tcp_endpoint(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized.startswith("tcp://"):
+            raise ValueError("broker endpoint must be a tcp loopback endpoint")
+        host_port = normalized.removeprefix("tcp://")
+        host, separator, raw_port = host_port.rpartition(":")
+        if not separator or not raw_port.isdecimal() or not 1 <= int(raw_port) <= 65_534:
+            raise ValueError("broker endpoint must contain a TCP port between 1 and 65534")
+        try:
+            loopback = ip_address(host.removeprefix("[").removesuffix("]")).is_loopback
+        except ValueError:
+            loopback = host.lower() == "localhost"
+        if not loopback:
+            raise ValueError("broker endpoint must use a loopback address")
+        return normalized
+
+    @field_validator("bridges", mode="after")
+    @classmethod
+    def freeze_bridges(cls, value: Mapping[str, BrokerBridgeSettings]) -> Mapping[str, BrokerBridgeSettings]:
+        if any(not bridge_id.strip() or bridge_id != bridge_id.strip() for bridge_id in value):
+            raise ValueError("broker bridge identifiers must be non-empty and trimmed")
+        return MappingProxyType(dict(value))
+
+    @field_serializer("bridges")
+    def serialize_bridges(self, value: Mapping[str, BrokerBridgeSettings]) -> dict[str, BrokerBridgeSettings]:
+        return dict(value)
+
+    @model_validator(mode="after")
+    def reject_duplicate_action_resources(self) -> BrokerSettings:
+        owners: dict[tuple[str, str, str], str] = {}
+        for bridge_id, bridge in self.bridges.items():
+            for resource in bridge.action_resources:
+                key = (bridge.access, resource.kind, resource.resource_prefix)
+                existing = owners.get(key)
+                if existing is not None:
+                    raise ValueError(
+                        f"broker action resource {resource.kind!r}/{resource.resource_prefix!r} "
+                        f"has duplicate {bridge.access!r} ownership in {existing!r} and {bridge_id!r}"
+                    )
+                owners[key] = bridge_id
+        return self
+
+
 class AppSettings(FrozenSettingsModel):
-    config_version: int = 4
+    config_version: int = 5
     core: CoreSettings = Field(default_factory=CoreSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     i18n: I18nSettings = Field(default_factory=I18nSettings)
     plugins: PluginSettings = Field(default_factory=PluginSettings)
     agent: AgentSettings = Field(default_factory=AgentSettings)
-    runtimes: Mapping[str, RuntimeSettings] = Field(default_factory=dict)
-    runtime_event_routes: tuple[RuntimeEventRoute, ...] = ()
+    broker: BrokerSettings = Field(default_factory=BrokerSettings)
     http: HttpSettings = Field(default_factory=HttpSettings)
     daemon: DaemonSettings = Field(default_factory=DaemonSettings)
     lyip: LyipSettings = Field(default_factory=LyipSettings)
     webui: WebUISettings = Field(default_factory=WebUISettings)
     development: DevelopmentSettings = Field(default_factory=DevelopmentSettings)
 
+    @property
+    def runtimes(self) -> Mapping[str, RuntimeSettings]:
+        """Compatibility view for legacy daemon code; v5 never loads this from TOML."""
+
+        return MappingProxyType({})
+
+    @property
+    def runtime_event_routes(self) -> tuple[RuntimeEventRoute, ...]:
+        """Compatibility view for legacy daemon code; v5 never loads this from TOML."""
+
+        return ()
+
     @field_validator("config_version")
     @classmethod
     def require_current_config_version(cls, value: int) -> int:
-        if value != 4:
-            raise ValueError("config_version must be 4")
+        if value != 5:
+            raise ValueError("config_version must be 5")
         return value
-
-    @field_validator("runtimes", mode="after")
-    @classmethod
-    def freeze_runtimes(cls, value: Mapping[str, RuntimeSettings]) -> Mapping[str, RuntimeSettings]:
-        if any(not runtime_id.strip() for runtime_id in value):
-            raise ValueError("runtime identifiers must not be empty")
-        return MappingProxyType(dict(value))
-
-    @field_serializer("runtimes")
-    def serialize_runtimes(self, value: Mapping[str, RuntimeSettings]) -> dict[str, RuntimeSettings]:
-        return dict(value)
 
     @model_validator(mode="after")
     def validate_cross_section_policy(self) -> AppSettings:
@@ -485,22 +597,6 @@ class AppSettings(FrozenSettingsModel):
         elif self.logging.payload_exclude_runtimes:
             raise ValueError("logging.payload_exclude_runtimes requires logging.payload_mode=full")
 
-        enabled = {runtime_id for runtime_id, runtime in self.runtimes.items() if runtime.enabled}
-        routes: set[tuple[tuple[str, ...], str, bool]] = set()
-        for route in self.runtime_event_routes:
-            if route.target not in self.runtimes:
-                raise ValueError(f"runtime event route target {route.target!r} is not configured")
-            if route.target not in enabled:
-                raise ValueError(f"runtime event route target {route.target!r} is disabled")
-            for source in route.sources:
-                if source not in self.runtimes:
-                    raise ValueError(f"runtime event route source {source!r} is not configured")
-                if source not in enabled:
-                    raise ValueError(f"runtime event route source {source!r} is disabled")
-            key = (route.sources, route.target, route.messages_only)
-            if key in routes:
-                raise ValueError("runtime event routes must not contain duplicates")
-            routes.add(key)
         return self
 
 

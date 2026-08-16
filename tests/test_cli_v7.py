@@ -337,36 +337,14 @@ def test_plugin_list_runtime_shows_managed_generation_state(
     assert capsys.readouterr().out.strip() == "active\tgeneration-one\t-\texample.echo\t-"
 
 
-def test_plugin_disable_and_enable_cli_dispatch_to_the_runtime_service(
+def test_plugin_runtime_operations_reject_unconfigured_legacy_runtime(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     from liteyukibot.config import ConfigWorkspace
 
-    ConfigWorkspace(tmp_path).initialize(runtimes={"legacy": {"kind": "v6"}})
-    calls: list[tuple[str, str, str, str]] = []
+    ConfigWorkspace(tmp_path).initialize()
 
-    class InstallationService:
-        def __init__(self, workspace: Path) -> None:
-            assert workspace == tmp_path
-
-        def disable(self, bundle_id: str, *, runtime_id: str, runtime_kind: str) -> SimpleNamespace:
-            calls.append(("disable", bundle_id, runtime_id, runtime_kind))
-            return SimpleNamespace(generation=SimpleNamespace(id="disabled-generation"))
-
-        def enable(self, bundle_id: str, *, runtime_id: str, runtime_kind: str) -> SimpleNamespace:
-            calls.append(("enable", bundle_id, runtime_id, runtime_kind))
-            return SimpleNamespace(generation=SimpleNamespace(id="enabled-generation"))
-
-    monkeypatch.setattr(cli_module, "PluginInstallationService", InstallationService)
-
-    assert (
-        cli_module.main(["--workspace", str(tmp_path), "plugin", "disable", "example.echo", "--runtime", "legacy"])
-        == 0
-    )
-    assert capsys.readouterr().out.strip() == "disabled example.echo; activated disabled-generation"
-    assert (
-        cli_module.main(["--workspace", str(tmp_path), "plugin", "enable", "example.echo", "--runtime", "legacy"])
-        == 0
-    )
-    assert capsys.readouterr().out.strip() == "enabled example.echo; activated enabled-generation"
-    assert calls == [("disable", "example.echo", "legacy", "v6"), ("enable", "example.echo", "legacy", "v6")]
+    assert cli_module.main(
+        ["--workspace", str(tmp_path), "plugin", "disable", "example.echo", "--runtime", "legacy"]
+    ) == 2
+    assert "not configured" in capsys.readouterr().err

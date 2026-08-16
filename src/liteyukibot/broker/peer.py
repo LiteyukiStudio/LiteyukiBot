@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hmac
 import secrets
 from collections.abc import Callable, Mapping
@@ -496,6 +497,7 @@ class BridgeClient:
         )
         self._control_sequence = 0
         self._business_sequences: dict[str, int] = {}
+        self._business_send_lock = asyncio.Lock()
         self._delivery_leases: dict[str, str] = {}
         self.session_id: str | None = None
 
@@ -608,18 +610,19 @@ class BridgeClient:
     async def _send_business(self, message: BrokerBusinessMessage, *, suffix: str, lease_id: str) -> None:
         from .business import encode_business_message
 
-        stream_id = self.business_stream_id(suffix)
-        sequence = self._business_sequences.get(stream_id, 0)
-        frame = encode_business_message(
-            message,
-            generation=self._generation,
-            stream_id=stream_id,
-            sequence=sequence,
-            lease_id=lease_id,
-        )
-        if await self._dealer.offer(frame) is not LyipOfferResult.ACCEPTED:
-            raise BridgeRegistrationError("bridge business message could not be queued")
-        self._business_sequences[stream_id] = sequence + 1
+        async with self._business_send_lock:
+            stream_id = self.business_stream_id(suffix)
+            sequence = self._business_sequences.get(stream_id, 0)
+            frame = encode_business_message(
+                message,
+                generation=self._generation,
+                stream_id=stream_id,
+                sequence=sequence,
+                lease_id=lease_id,
+            )
+            if await self._dealer.offer(frame) is not LyipOfferResult.ACCEPTED:
+                raise BridgeRegistrationError("bridge business message could not be queued")
+            self._business_sequences[stream_id] = sequence + 1
 
     def _require_delivery_lease(self, delivery_id: str, lease_id: str) -> None:
         current = self._delivery_leases.get(delivery_id)

@@ -7,7 +7,7 @@ from typing import Any
 
 from tomli_w import dumps
 
-CONFIG_VERSION = 4
+CONFIG_VERSION = 5
 
 
 def render_config_template(
@@ -65,6 +65,15 @@ def render_config_template(
             "zmq_large_payload_fallback": False,
             "links": {},
         },
+        "broker": {
+            "endpoint": "tcp://127.0.0.1:20217",
+            "generation": 1,
+            "active_capacity": 1024,
+            "terminal_capacity": 16384,
+            "terminal_ttl_seconds": 3600,
+            "delivery_timeout_seconds": 30,
+            "bridges": {},
+        },
         "webui": {
             "mode": "on_demand",
             "port": 0,
@@ -79,7 +88,5 @@ def render_config_template(
             "watch_auto_restart": False,
             "watch_debounce_seconds": 0.75,
         },
-        "runtimes": runtimes or {},
-        "runtime_event_routes": list(runtime_event_routes),
     }
     return "# LiteyukiBot configuration schema. Do not edit config_version manually.\n" + dumps(document)

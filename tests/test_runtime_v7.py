@@ -1255,12 +1255,15 @@ def test_runtime_failure_limit_transitions_to_failed() -> None:
     assert record.state is RuntimeState.FAILED
 
 
-def test_runtime_catalog_discovers_nonebot_host_without_importing_nonebot() -> None:
-    command = RuntimeCatalog().command_for("nonebot")
+def test_runtime_catalog_does_not_expose_nonebot_bridge_as_legacy_runtime() -> None:
+    with pytest.raises(RuntimeError, match="runtime kind 'nonebot' is not installed"):
+        RuntimeCatalog().command_for("nonebot")
 
-    assert command[1:] == ("-m", "liteyukibot_runtime_nonebot")
 
-
+@pytest.mark.skipif(
+    importlib.util.find_spec("liteyukibot_runtime_v6") is None,
+    reason="v6 runtime package is not installed",
+)
 def test_runtime_catalog_discovers_v6_compatibility_host() -> None:
     plugin = RuntimeCatalog().discover().get("v6")
 
@@ -1271,6 +1274,9 @@ def test_runtime_catalog_discovers_v6_compatibility_host() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.skipif(importlib.util.find_spec("nonebot") is None, reason="NoneBot extra is not installed")
+@pytest.mark.skip(
+    reason="NoneBot is a broker bridge under config v5; bridge coverage lives in packages/runtime-nonebot"
+)
 async def test_nonebot_runtime_loads_an_existing_plugin(tmp_path: Path) -> None:
     (tmp_path / "nonebot_fixture.py").write_text(
         "from nonebot import on_message\nfixture = on_message()\n",
