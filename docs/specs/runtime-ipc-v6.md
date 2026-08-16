@@ -1,8 +1,8 @@
 # Broker Peer IPC v6
 
 - Specification version: `6`
-- Applies to: the implemented B5 standalone broker peer contract and the B5-4
-  NoneBot bridge.
+- Applies to: the implemented B5 standalone broker peer contract, the B5-4
+  NoneBot bridge, and the B5-5 in-process kernel peer.
 - Compatibility: pre-stable hard cut. This contract is not interoperable with
   the former child-supervisor Runtime IPC v1 through v5 catalog.
 
@@ -14,6 +14,13 @@ configure, supervise, or restart framework processes. Bridge processes own
 their framework lifecycle and are discovered through the
 `liteyukibot.bridges` entry-point group. The B5-4 NoneBot bridge is the first
 production bridge and is started with `liteyuki bridge run <bridge-id>`.
+
+`kind = "kernel"` is a reserved in-process bridge, not an entry-point package
+or a process launched with `liteyuki bridge run`. When present, `LiteyukiApp`
+resolves its vault token and registers it as a normal `full` peer after the
+native plugin manager has started. It must be unique, subscribe to at least one
+topic, and declare no action-resource ownership. The standalone broker still
+starts independently with `liteyuki broker run`.
 
 The broker registry in `liteyuki.toml` is authoritative: a bridge must match
 the configured access class, subscriptions, and action resources at
@@ -84,6 +91,11 @@ remaining duration for the peer. The broker evaluates expiry on its own clock;
 the wire contract deliberately carries no cross-process
 `deadline_monotonic` value.
 
+When a bridge issues an action through a delivery, the shared host runner also
+uses that TTL as its local upper bound while awaiting the correlated result. It
+does not reinterpret the value as a synchronized deadline; the broker remains
+the authority for delivery expiry.
+
 The delivery lifecycle is `pending -> offered -> accepted -> active ->`
 `completed | failed | expired`. A bridge must acknowledge an offered delivery
 with the matching lease; that acknowledgement advances it through accepted to
@@ -133,9 +145,24 @@ The first portable action is `message.send`. Its resource key is
 `CallApi`, message editing, and decorator-based function APIs are outside this
 version of the contract.
 
+### B5-5 kernel peer dispatch
+
+The kernel peer validates a delivered payload as an `EventEnvelope`, requires
+its payload `id` to equal `source_event_id` and its `runtime_id` to equal the
+authenticated source bridge, then replaces the envelope ID with the broker's
+`kernel_event_id` before publishing it to the native EventBus. Native plugins
+therefore see broker-issued event identities while retaining the source bridge
+as the event runtime identity.
+
+While that EventBus dispatch is active, the peer may translate a native
+`SendMessage` action into the B5 portable `message.send` request. Its resource
+key is resolved against the event's authenticated source bridge; the kernel
+does not own action resources. `CallApi`, `EditMessage`, and locally injected
+events have no B5-5 broker action path.
+
 ## Evidence
 
 Run `uv run pytest tests/test_broker_peer.py tests/test_broker_business.py
-tests/test_broker_routing.py`. The executable definitions are under
+tests/test_broker_routing.py tests/test_broker_kernel.py`. The executable definitions are under
 `src/liteyukibot/broker/`; LYIP frame mechanics are specified by
 [Runtime LYIP v2](runtime-lyip-v2.md).

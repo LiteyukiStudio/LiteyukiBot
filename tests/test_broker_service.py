@@ -236,3 +236,25 @@ async def test_sync_bridge_launcher_runs_off_the_asyncio_thread() -> None:
 
     assert launch_thread
     assert launch_thread[0] != caller_thread
+
+
+@pytest.mark.asyncio
+async def test_catalog_rejects_the_in_process_kernel_bridge() -> None:
+    settings = AppSettings.model_validate(
+        {
+            "config_version": 5,
+            "broker": {
+                "bridges": {
+                    "kernel": {
+                        "kind": "kernel",
+                        "token_secret": "broker.kernel.token",
+                        "access": "full",
+                        "subscriptions": ["message.created"],
+                    }
+                }
+            },
+        }
+    )
+
+    with pytest.raises(RuntimeError, match="reserved kernel bridge"):
+        await BridgeCatalog().launch(settings, "kernel", "secret")

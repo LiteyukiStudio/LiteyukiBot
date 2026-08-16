@@ -23,6 +23,7 @@ from .business import (
     encode_business_message,
 )
 from .host import ActionOutcome, BrokerBridgeRunner, BrokerDelivery
+from .kernel import KernelBridgeError, KernelBrokerPeer, configured_kernel_bridge
 from .peer import (
     BridgeClient,
     BridgeRegistrationError,
@@ -79,6 +80,8 @@ __all__ = [
     "BridgeClient",
     "BrokerBridgeRunner",
     "BrokerDelivery",
+    "KernelBridgeError",
+    "KernelBrokerPeer",
     "BridgeManifest",
     "BridgeRegister",
     "BridgeRegistered",
@@ -112,6 +115,7 @@ __all__ = [
     "encode_business_message",
     "encode_broker_message",
     "bridge_token_from_vault",
+    "configured_kernel_bridge",
     "make_message_send_request",
     "message_send_resource_key",
     "parse_message_send_request",

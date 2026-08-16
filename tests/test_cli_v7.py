@@ -15,6 +15,7 @@ from filelock import Timeout
 
 import liteyukibot.cli as cli_module
 from liteyukibot.config import AppSettings, ConfigWorkspace
+from liteyukibot.config.vault import SecretVault
 from liteyukibot.init_wizard import InitWizardResult
 from liteyukibot.plugin_store import PlatformTarget, RuntimeGeneration, RuntimeGenerationStore
 
@@ -54,6 +55,60 @@ class FakeSignalLoop:
 
     def call_soon_threadsafe(self, callback: Callable[[], None]) -> None:
         callback()
+
+
+def test_runtime_secrets_loads_configured_kernel_bridge_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = ConfigWorkspace(tmp_path)
+    settings = AppSettings.model_validate(
+        {
+            "config_version": 5,
+            "broker": {
+                "bridges": {
+                    "kernel": {
+                        "kind": "kernel",
+                        "token_secret": "broker.kernel.token",
+                        "access": "full",
+                        "subscriptions": ["message.created"],
+                    }
+                }
+            },
+        }
+    )
+    SecretVault(workspace.management_directory).initialize("password", {"broker.kernel.token": "secret-token"})
+    monkeypatch.setattr(cli_module, "_vault_password", lambda _workspace: "password")
+
+    assert cli_module._runtime_secrets(settings, workspace) == {"broker.kernel.token": "secret-token"}
+
+
+@pytest.mark.asyncio
+async def test_bridge_command_rejects_reserved_kernel_before_reading_vault(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = AppSettings.model_validate(
+        {
+            "config_version": 5,
+            "broker": {
+                "bridges": {
+                    "kernel": {
+                        "kind": "kernel",
+                        "token_secret": "broker.kernel.token",
+                        "access": "full",
+                        "subscriptions": ["message.created"],
+                    }
+                }
+            },
+        }
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "bridge_token_from_vault",
+        lambda *_args: pytest.fail("kernel bridge must not read the vault through bridge run"),
+    )
+
+    with pytest.raises(RuntimeError, match="reserved kernel bridge"):
+        await cli_module._bridge_command(settings, ConfigWorkspace(tmp_path), "kernel")
 
 
 @pytest.mark.asyncio

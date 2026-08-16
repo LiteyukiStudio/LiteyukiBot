@@ -242,6 +242,12 @@ The broker uses a local loopback endpoint by default and treats each
 [broker]
 endpoint = "tcp://127.0.0.1:20217"
 
+[broker.bridges.kernel]
+kind = "kernel"
+token_secret = "broker.kernel.token"
+access = "full"
+subscriptions = ["message.created"]
+
 [broker.bridges.nonebot]
 kind = "nonebot"
 token_secret = "broker.nonebot.token"
@@ -256,8 +262,11 @@ plugins = ["plugins"]
 plugin_dirs = []
 ```
 
-The `kind` must be provided by an installed `liteyukibot.bridges` entry point.
-Registration is rejected when a bridge manifest differs from this table.
-`full` bridges receive every topic; `limited` bridges receive only their
+Except for the reserved `kernel` kind, `kind` must be provided by an installed
+`liteyukibot.bridges` entry point. The kernel entry is unique, uses `full`
+access, declares subscriptions, and cannot declare action-resource ownership;
+the app registers it during `liteyuki run`, while `liteyuki broker run` remains
+separate. Registration is rejected when a bridge manifest differs from this
+table. `full` bridges receive every topic; `limited` bridges receive only their
 configured subscriptions. The B5-4 NoneBot bridge currently publishes
 `message.created` and owns the portable `message.send` action only.
