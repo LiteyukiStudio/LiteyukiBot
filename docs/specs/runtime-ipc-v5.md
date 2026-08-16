@@ -1,18 +1,17 @@
-# Runtime IPC v5
+# Runtime IPC v5 (Historical)
 
 - Specification version: `5`
-- Applies to: historical typed wire models and compatibility semantics.
-- Compatibility: the message catalog remains the source representation for
-  LYIP v1 codec mapping. Its former length-prefixed TCP child transport is
-  removed and must not be restored as a fallback.
+- Applies to: superseded child-supervisor typed wire models and compatibility
+  semantics.
+- Compatibility: historical. It is not interoperable with the standalone
+  broker peer protocol specified by [Broker Peer IPC v6](runtime-ipc-v6.md).
 
 ## Transport And Handshake
 
-The former kernel loopback TCP endpoint and length-prefixed JSON framing are
-retired. `hello`, `welcome`, configuration, readiness, lifecycle, controls,
-events, actions, agent tools, and management messages retain their typed
-catalog and capability semantics, but travel through the LYIP v1 codec and
-directed ZMQ lanes. Runtime-to-runtime transport remains forbidden.
+The former kernel loopback TCP endpoint and length-prefixed JSON framing were
+retired. This document records the old `hello`, `welcome`, configuration,
+readiness, lifecycle, controls, events, actions, agent tools, and management
+catalog. It must not be used to implement a new broker peer.
 
 The child declares capabilities in `ready`. The supervisor treats disconnect,
 timeout, stale heartbeat, invalid frame, and unsupported capability as bounded
@@ -36,4 +35,4 @@ the executable shape of this pre-stable specification.
 ## Evidence
 
 Run `uv run pytest tests/test_runtime_v7.py tests/test_runtime_client_v7.py`.
-The active lifecycle transport is specified by `runtime-lyip-v1.md`.
+The implemented broker transport is specified by `runtime-lyip-v2.md`.

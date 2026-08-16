@@ -12,8 +12,10 @@ configuration, or plugin contract changes only with its owning specification
 and tests in the same pull request.
 
 - [Core Event and Action v1](core-event-action-v1.md)
-- [Runtime IPC v5](runtime-ipc-v5.md)
-- [Runtime LYIP v1](runtime-lyip-v1.md)
+- [Broker Peer IPC v6](runtime-ipc-v6.md)
+- [Runtime LYIP v2](runtime-lyip-v2.md)
+- [Runtime IPC v5 (historical)](runtime-ipc-v5.md)
+- [Runtime LYIP v1 (historical)](runtime-lyip-v1.md)
 - [Native Plugin and Service v1](native-plugin-service-v1.md)
 - [Plugin WebUI Contribution v1](plugin-webui-contribution-v1.md)
 - [Local WebUI Service v1](webui-service-v1.md)

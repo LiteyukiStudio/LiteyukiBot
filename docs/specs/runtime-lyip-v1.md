@@ -1,10 +1,10 @@
-# Runtime LYIP v1
+# Runtime LYIP v1 (Historical)
 
 - Specification version: `1`
-- Applies to: the Beta3 supervised child-runtime lifecycle, transport-neutral
-  LYIP frame, ZMQ backend, and typed runtime message codec.
-- Compatibility: pre-stable. Every supervised child uses LYIP v1. The former
-  v5 length-prefixed TCP lifecycle is historical and is not a fallback.
+- Applies to: the former Beta3 supervised child-runtime lifecycle and its
+  transport-neutral LYIP framing notes.
+- Compatibility: historical. New broker peers use
+  [Runtime LYIP v2](runtime-lyip-v2.md) and [Broker Peer IPC v6](runtime-ipc-v6.md).
 
 ## Frame And Ordering
 
@@ -34,12 +34,10 @@ The codec verifies that frame type ID, decoded discriminator, and lane agree.
 
 ## Backend Availability
 
-The active lifecycle backend is ZMQ. The native package exposes an ABI and
-shared-memory SPSC ring primitive, but no SHM LYIP transport adapter yet; it
-therefore cannot be selected for a child lifecycle. The ring remains an
-optional native foundation, not an implicit transport switch.
+The active lifecycle backend recorded here was ZMQ. The native package exposed
+an ABI and shared-memory SPSC ring primitive, but no SHM transport adapter.
+The ring remains an optional foundation, not an implicit transport switch.
 
 ## Evidence
 
-Run `uv run pytest tests/test_lyip.py tests/test_runtime_lyip.py
-tests/test_runtime_client_v7.py tests/test_runtime_v7.py`.
+Do not use this document to implement a broker peer. See `runtime-lyip-v2.md`.

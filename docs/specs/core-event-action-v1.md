@@ -27,4 +27,4 @@ deliver directly to another runtime.
 
 The owning models and tests are `src/liteyukibot/events/` and
 `tests/test_events_v7.py`. Cross-process behavior is specified by
-[Runtime IPC v5](runtime-ipc-v5.md), not this document.
+[Broker Peer IPC v6](runtime-ipc-v6.md), not this document.
