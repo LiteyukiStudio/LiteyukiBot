@@ -1,6 +1,40 @@
-# Custom runtime development
+# Custom runtime and broker-peer development
 
-Custom runtimes are supervised local subprocesses. Configure an explicit
+## Broker peers (implemented B5 foundation)
+
+New cross-process work targets the standalone broker peer contract, not the
+legacy supervised-child protocol below. A host constructs `BrokerPeerServer`;
+a bridge receives its broker endpoints, generation, ZMQ identity, configured
+bridge ID, and instance token from its own integration lifecycle. It registers
+with `BridgeClient` and a `BridgeManifest`, then uses the protocol-6 control
+and business catalogs described by [Broker Peer IPC v6](../specs/runtime-ipc-v6.md).
+
+Registration declares `full` or `limited` access, exact topic subscriptions,
+and the action `(kind, resource_prefix)` namespaces the bridge can own. The
+broker assigns the session ID and kernel event ID. A bridge must not create
+either value, select event recipients, set an absolute monotonic deadline, or
+connect directly to another bridge.
+
+For each `EventMessage`, retain its opaque lease and respond once with
+`EventAccepted`, then with `EventCompleted` after the active delivery has a
+terminal outcome. `lease_ttl_ms` is advisory only; the broker evaluates its
+30-second default timeout. An action request is valid only while the bridge
+owns that active delivery and presents the current lease. There is no retry or
+replay protocol.
+
+The B5 foundation does not yet provide environment bootstrap, a runtime TOML
+shape, process supervision, readiness/heartbeat messages, or an installable
+broker-peer example. Framework adapters and custom runtime packages therefore
+must not claim broker compatibility until their own integration contract is
+implemented and tested.
+
+## Legacy supervised child runtimes (historical)
+
+The remaining guidance records the former v5 child-supervisor implementation.
+It is retained for existing `RuntimeClient` hosts and the matching example; it
+does not define a B5 broker peer and must not be used for new broker work.
+
+Legacy custom runtimes are supervised local subprocesses. Configure an explicit
 command; the supervisor injects authenticated loopback connection values through
 `LITEYUKI_RUNTIME_HOST`, `LITEYUKI_RUNTIME_PORT`, `LITEYUKI_RUNTIME_TOKEN`,
 `LITEYUKI_RUNTIME_ID`, `LITEYUKI_RUNTIME_KIND`, and
@@ -15,12 +49,12 @@ command = ["liteyuki-example-runtime"]
 mode = "example"
 ```
 
-The complete protocol-v5 child is in
+The complete historical protocol-v5 child is in
 [`examples/custom-runtime`](../../examples/custom-runtime). It uses
 `RuntimeClient.from_environment("custom")`, calls `connect()`, then declares
 capabilities with `ready()`.
 
-## Kernel-mediated routes
+## Legacy kernel-mediated routes
 
 Child runtimes never connect to each other. A runtime reports normalized
 `EventEnvelope` values to the kernel and submits `ActionEnvelope` values back
@@ -47,7 +81,7 @@ EventBus handler failure. The v6 compatibility runtime retains its historical
 message-only route by default; an explicit route targeting that runtime
 replaces the default.
 
-## Single reader rule
+## Legacy single reader rule
 
 Exactly one coroutine calls `RuntimeClient.receive()`. `execute_action()` sends
 an Action request and waits on a Future; it does not read the socket. Therefore
@@ -88,7 +122,7 @@ target and may change without backwards-compatibility shims before the stable
 v7 release. No pre-stable version will exceed v5. Pin the LiteyukiBot version
 used to build and test an external runtime.
 
-## Testing
+## Legacy testing
 
 `RuntimeTestHarness` launches the real command and protocol connection:
 

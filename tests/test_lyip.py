@@ -153,3 +153,35 @@ async def test_zmq_router_owns_sequences_per_directed_identity() -> None:
         second.close()
         router.close()
         context.term()
+
+
+@pytest.mark.asyncio
+async def test_zmq_router_disconnect_forgets_per_peer_sequence_state() -> None:
+    context = zmq.asyncio.Context()
+    router = ZmqLyipRouter(
+        context=context,
+        endpoint="inproc://lyip-disconnect-test",
+        generation=1,
+        business_hwm=4,
+        control_hwm=4,
+    )
+    first = ZmqLyipDealer(
+        context=context,
+        endpoints=router.endpoints,
+        generation=1,
+        identity=b"reused",
+        business_hwm=4,
+        control_hwm=4,
+    )
+    try:
+        assert await first.offer(_frame("control", 0, lane=LyipLane.CONTROL)) is LyipOfferResult.ACCEPTED
+        identity, _received = await router.receive(LyipLane.CONTROL)
+        assert identity == b"reused"
+        assert await router.offer(identity, _frame("reply", 0)) is LyipOfferResult.ACCEPTED
+        router.disconnect(identity)
+        assert not router._received
+        assert not router._sent
+    finally:
+        first.close()
+        router.close()
+        context.term()

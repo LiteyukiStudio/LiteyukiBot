@@ -202,6 +202,14 @@ class ZmqLyipRouter(_ZmqEndpoint):
         self._commit_offer(frame, expected, peer=identity)
         return LyipOfferResult.ACCEPTED
 
+    def disconnect(self, identity: bytes) -> None:
+        """Forget per-peer stream state after a broker session is terminalized."""
+
+        for state in (self._sent, self._received):
+            for key in tuple(state):
+                if key[0] == identity:
+                    state.pop(key, None)
+
     def close(self) -> None:
         for socket in self._sockets.values():
             socket.close(linger=0)
