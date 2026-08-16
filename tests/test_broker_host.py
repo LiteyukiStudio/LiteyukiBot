@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
+from typing import cast
 
 import pytest
 import zmq.asyncio
@@ -182,3 +183,24 @@ async def test_runner_correlates_concurrent_action_results_and_completes_deliver
         source.close()
         server.close()
         context.term()
+
+
+@pytest.mark.asyncio
+async def test_runner_expires_an_unresolved_delivery_scoped_action() -> None:
+    class PendingClient:
+        async def send_action_request(self, _request: ActionRequest) -> None:
+            return None
+
+    runner = BrokerBridgeRunner(cast(BridgeClient, PendingClient()))
+
+    with pytest.raises(TimeoutError):
+        await runner.request_action(
+            delivery_id="delivery-1",
+            lease_id="lease-1",
+            correlation_id="action-1",
+            kind="message.send",
+            resource_key="bot:source:bot-1",
+            timeout_seconds=0.01,
+        )
+
+    assert not runner._pending_results

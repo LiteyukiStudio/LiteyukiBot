@@ -56,6 +56,8 @@ class BridgeCatalog:
         bridge = settings.broker.bridges.get(bridge_id)
         if bridge is None:
             raise RuntimeError(f"broker bridge {bridge_id!r} is not configured")
+        if bridge.kind == "kernel":
+            raise RuntimeError("the reserved kernel bridge starts with liteyuki run, not liteyuki bridge run")
         launcher = self.discover().get(bridge.kind)
         if launcher is None:
             raise RuntimeError(f"broker bridge kind {bridge.kind!r} is not installed")

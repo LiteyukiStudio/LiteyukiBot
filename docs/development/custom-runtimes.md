@@ -16,6 +16,12 @@ broker assigns the session ID and kernel event ID. A bridge must not create
 either value, select event recipients, set an absolute monotonic deadline, or
 connect directly to another bridge.
 
+`kind = "kernel"` is reserved for LiteyukiApp's in-process full peer. It is
+not a `liteyukibot.bridges` entry point, cannot declare action-resource
+ownership, and must not be launched with `liteyuki bridge run`. It must use
+`access = "full"` and declare at least one subscription. The app registers it
+after native plugins start; the broker remains a separate process.
+
 For each `EventMessage`, retain its opaque lease and respond once with
 `EventAccepted`, then with `EventCompleted` after the active delivery has a
 terminal outcome. `lease_ttl_ms` is advisory only; the broker evaluates its
@@ -30,10 +36,12 @@ is supplied under its `options` mapping. The B5-4 NoneBot bridge is the
 reference implementation. A new bridge must document its own lifecycle and
 test it against the same peer contract before claiming compatibility.
 
-For B5-4, the portable surface is intentionally narrow: publish
+For B5-4/B5-5, the portable surface is intentionally narrow: publish
 `message.created` and handle `message.send`. The resource key for a bot owned
-by bridge `bridge-id` is `bot:bridge-id:<bot-id>`. `CallApi`, message editing,
-and a generic function/decorator DSL are deferred to later version planning.
+by bridge `bridge-id` is `bot:bridge-id:<bot-id>`. The kernel peer may issue
+that action only while dispatching the matching active broker delivery. `CallApi`,
+message editing, and a generic function/decorator DSL are deferred to later
+version planning.
 
 ## Legacy supervised child runtimes (historical)
 

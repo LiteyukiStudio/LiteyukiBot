@@ -488,6 +488,26 @@ class BrokerBridgeSettings(FrozenSettingsModel):
         return cast(dict[str, Any], _thaw(value))
 
 
+def configured_kernel_bridge_settings(
+    bridges: Mapping[str, BrokerBridgeSettings],
+) -> tuple[str, BrokerBridgeSettings] | None:
+    """Validate and return the reserved in-process kernel bridge, if configured."""
+
+    matches = tuple((bridge_id, bridge) for bridge_id, bridge in bridges.items() if bridge.kind == "kernel")
+    if len(matches) > 1:
+        raise ValueError("broker configuration must not contain multiple kernel bridges")
+    if not matches:
+        return None
+    bridge_id, bridge = matches[0]
+    if bridge.access != "full":
+        raise ValueError("kernel bridge must use full access")
+    if not bridge.subscriptions:
+        raise ValueError("kernel bridge must declare at least one subscription")
+    if bridge.action_resources:
+        raise ValueError("kernel bridge must not declare action ownership")
+    return bridge_id, bridge
+
+
 class BrokerSettings(FrozenSettingsModel):
     endpoint: str = "tcp://127.0.0.1:20217"
     generation: int = Field(default=1, ge=1)
@@ -527,8 +547,9 @@ class BrokerSettings(FrozenSettingsModel):
         return dict(value)
 
     @model_validator(mode="after")
-    def reject_duplicate_action_resources(self) -> BrokerSettings:
+    def validate_bridge_contracts(self) -> BrokerSettings:
         owners: dict[tuple[str, str, str], str] = {}
+        configured_kernel_bridge_settings(self.bridges)
         for bridge_id, bridge in self.bridges.items():
             for resource in bridge.action_resources:
                 key = (bridge.access, resource.kind, resource.resource_prefix)

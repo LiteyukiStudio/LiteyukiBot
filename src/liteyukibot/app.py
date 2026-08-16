@@ -19,6 +19,7 @@ from .agents import (
     AgentToolResult,
     EventAgentToolCatalog,
 )
+from .broker import KernelBrokerPeer, configured_kernel_bridge
 from .capabilities import ADAPTER_CALL_API, AGENT_HISTORY_CLEAR, PERMISSION_SERVICE_MAJOR, PERMISSION_SERVICE_NAME
 from .config import AppSettings, RuntimeEventRoute
 from .control import ControlServer
@@ -162,6 +163,9 @@ class LiteyukiApp:
             action_executor=self._execute_event_action,
             logger=self.logger,
         )
+        self._kernel_broker_peer: KernelBrokerPeer | None = None
+        self._configured_kernel_bridge = configured_kernel_bridge(settings)
+        self._runtime_secrets = dict(runtime_secrets or {})
         self.plugins = PluginManager(
             services=self.services,
             events=self.events,
@@ -197,6 +201,7 @@ class LiteyukiApp:
         self._logging_started = False
         self._plugins_setup = False
         self._runtimes_started = False
+        self._kernel_broker_started = False
         self._management_started = False
         self._control_started = False
         self._http_started = False
@@ -453,6 +458,16 @@ class LiteyukiApp:
             await self.runtimes.start()
             self._runtimes_started = True
             await self.plugins.start()
+            if self._configured_kernel_bridge is not None:
+                _bridge_id, bridge = self._configured_kernel_bridge
+                token = self._runtime_secrets.get(bridge.token_secret)
+                if token is None:
+                    raise RuntimeError("kernel broker bridge token is unavailable")
+                self._kernel_broker_peer = KernelBrokerPeer.from_settings(
+                    self.settings, token=token, events=self.events
+                )
+                await self._kernel_broker_peer.start()
+                self._kernel_broker_started = True
 
             self._control_started = True
             await self.control.start()
@@ -613,6 +628,12 @@ class LiteyukiApp:
             except BaseException as error:
                 errors.append(error)
             self._management_started = False
+        if self._kernel_broker_started and self._kernel_broker_peer is not None:
+            try:
+                await self._kernel_broker_peer.stop()
+            except BaseException as error:
+                errors.append(error)
+            self._kernel_broker_started = False
         try:
             await self.events.aclose()
         except BaseException as error:
@@ -785,6 +806,10 @@ class LiteyukiApp:
         )
 
     async def _execute_event_action(self, event: EventEnvelope, action: ActionEnvelope) -> ActionResult:
+        if self._kernel_broker_peer is not None:
+            result = await self._kernel_broker_peer.execute_action(event, action)
+            if result is not None:
+                return result
         return await self.actions.execute(action, event=event)
 
     async def _clear_agent_history(self, event: EventEnvelope) -> int:

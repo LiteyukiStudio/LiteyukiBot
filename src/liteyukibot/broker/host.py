@@ -51,6 +51,7 @@ class BrokerDelivery:
             kind=kind,
             resource_key=resource_key,
             payload=payload,
+            timeout_seconds=self.message.lease_ttl_ms / 1_000,
         )
 
 
@@ -138,6 +139,7 @@ class BrokerBridgeRunner:
         kind: str,
         resource_key: str,
         payload: Mapping[str, JsonValue] | None = None,
+        timeout_seconds: float | None = None,
     ) -> ActionResult:
         """Send one active-delivery action and await its exact correlation result."""
 
@@ -146,6 +148,8 @@ class BrokerBridgeRunner:
             raise ValueError("action correlation ID must be non-empty")
         if normalized_correlation in self._pending_results:
             raise BridgeRegistrationError("an action result is already pending for this correlation ID")
+        if timeout_seconds is not None and timeout_seconds <= 0:
+            raise ValueError("action timeout must be positive")
         future: asyncio.Future[ActionResult] = asyncio.get_running_loop().create_future()
         self._pending_results[normalized_correlation] = future
         try:
@@ -159,7 +163,10 @@ class BrokerBridgeRunner:
                     payload=payload or {},
                 )
             )
-            result = await future
+            if timeout_seconds is None:
+                result = await future
+            else:
+                result = await asyncio.wait_for(future, timeout=timeout_seconds)
             return result
         finally:
             if self._pending_results.get(normalized_correlation) is future:

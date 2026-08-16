@@ -24,6 +24,7 @@ from tomli_w import dumps as dump_toml
 
 from . import __version__
 from .app import LiteyukiApp
+from .broker import configured_kernel_bridge
 from .broker.service import BridgeCatalog, BrokerService, bridge_token_from_vault
 from .config import (
     AppSettings,
@@ -633,6 +634,9 @@ def _runtime_secrets(settings: AppSettings, workspace: ConfigWorkspace) -> dict[
         if runtime.enabled
         for secret_name in runtime.secret_env.values()
     }
+    configured_kernel = configured_kernel_bridge(settings)
+    if configured_kernel is not None:
+        names.add(configured_kernel[1].token_secret)
     if not names:
         return {}
     values = SecretVault(workspace.management_directory).read(_vault_password(workspace))
@@ -653,6 +657,9 @@ async def _broker_command(settings: AppSettings, workspace: ConfigWorkspace) -> 
 
 
 async def _bridge_command(settings: AppSettings, workspace: ConfigWorkspace, bridge_id: str) -> int:
+    configured = settings.broker.bridges.get(bridge_id)
+    if configured is not None and configured.kind == "kernel":
+        raise RuntimeError("the reserved kernel bridge starts with liteyuki run, not liteyuki bridge run")
     _bridge, token = bridge_token_from_vault(
         settings,
         bridge_id,
