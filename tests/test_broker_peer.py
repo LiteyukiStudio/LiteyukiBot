@@ -203,6 +203,68 @@ def test_service_releases_registration_after_explicit_disconnect() -> None:
     assert rejected.code == "invalid_session"
 
 
+def test_registration_normalizes_tokens_and_rejects_identity_and_resource_conflicts() -> None:
+    service = BrokerPeerService(instance_tokens={" one ": " one-token ", "two": "two-token"}, generation=1)
+    first_manifest = BridgeManifest(
+        bridge_id="one",
+        access=BridgeAccess.LIMITED,
+        action_resources=(ActionResourceDeclaration(kind="message.send", resource_prefix="bot:"),),
+    )
+    first_frame = encode_broker_message(
+        BridgeRegister(bridge_id=" one ", instance_token=" one-token ", manifest=first_manifest),
+        generation=1,
+        stream_id="bridge:one:control",
+        sequence=0,
+        lease_id="registration",
+    )
+    first = decode_broker_message(service.handle_control(b"one-peer", first_frame))
+    assert isinstance(first, BridgeRegistered)
+
+    identity_bound = decode_broker_message(
+        service.handle_control(
+            b"one-peer",
+            encode_broker_message(
+                BridgeRegister(
+                    bridge_id="two",
+                    instance_token="two-token",
+                    manifest=BridgeManifest(bridge_id="two", access=BridgeAccess.LIMITED),
+                ),
+                generation=1,
+                stream_id="bridge:two:control",
+                sequence=0,
+                lease_id="registration",
+            ),
+        )
+    )
+    assert isinstance(identity_bound, BridgeRejected)
+    assert identity_bound.code == "identity_bound"
+
+    conflicting = decode_broker_message(
+        service.handle_control(
+            b"two-peer",
+            encode_broker_message(
+                BridgeRegister(
+                    bridge_id="two",
+                    instance_token="two-token",
+                    manifest=BridgeManifest(
+                        bridge_id="two",
+                        access=BridgeAccess.LIMITED,
+                        action_resources=(
+                            ActionResourceDeclaration(kind="message.send", resource_prefix="bot:"),
+                        ),
+                    ),
+                ),
+                generation=1,
+                stream_id="bridge:two:control",
+                sequence=0,
+                lease_id="registration",
+            ),
+        )
+    )
+    assert isinstance(conflicting, BridgeRejected)
+    assert conflicting.code == "resource_conflict"
+
+
 @pytest.mark.asyncio
 async def test_zmq_registration_binds_lanes_and_releases_on_unregister() -> None:
     context = zmq.asyncio.Context()

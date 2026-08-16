@@ -15,9 +15,11 @@ from liteyukibot.broker import (
     BridgeClient,
     BridgeManifest,
     BridgeRegistrationError,
+    BridgeSession,
     BrokerBusinessWireError,
     BrokerEvent,
     BrokerPeerServer,
+    BrokerPeerService,
     EventAccepted,
     EventCompleted,
     EventIngress,
@@ -26,7 +28,7 @@ from liteyukibot.broker import (
     encode_business_message,
 )
 from liteyukibot.broker.business import BrokerBusinessMessage
-from liteyukibot.lyip import LyipFrame, LyipLane
+from liteyukibot.lyip import LyipFrame, LyipLane, LyipOfferResult
 
 
 def _manifest(
@@ -142,6 +144,73 @@ def test_business_models_emit_protocol_six_and_reject_protocol_five(message: Bro
         type(message).model_validate({**message.model_dump(mode="json"), "protocol": 5})
 
 
+def test_duplicate_action_request_does_not_redispatch_owner_and_replays_retained_result() -> None:
+    service = BrokerPeerService(
+        instance_tokens={"source": "source-token", "caller": "caller-token", "owner": "owner-token"},
+        generation=1,
+    )
+    source = BridgeSession("source", "source-session", _manifest("source"), b"source")
+    caller = BridgeSession(
+        "caller",
+        "caller-session",
+        _manifest("caller", subscriptions=("message.created",)),
+        b"caller",
+    )
+    owner = BridgeSession(
+        "owner",
+        "owner-session",
+        _manifest("owner", resources=(ActionResourceDeclaration(kind="message.send", resource_prefix="bot:"),)),
+        b"owner",
+    )
+    for session in (source, caller, owner):
+        service._sessions_by_bridge[session.bridge_id] = session
+        service._sessions_by_identity[session.peer_identity] = session
+    event = service.admit_event(
+        source.peer_identity,
+        EventIngress(source_event_id="platform-1", topic="message.created", ordering_key="chat:1"),
+    )
+    offer = service.ledger.offered_deliveries(event.kernel_event_id)[0]
+    service.ledger.accept_delivery(caller, offer.delivery_id, offer.lease_id)
+    service.ledger.activate_delivery(caller, offer.delivery_id, offer.lease_id)
+    request = ActionRequest(
+        delivery_id=offer.delivery_id,
+        lease_id=offer.lease_id,
+        correlation_id="call-1",
+        kind="message.send",
+        resource_key="bot:1",
+    )
+    request_frame = encode_business_message(
+        request,
+        generation=1,
+        stream_id="bridge:caller:caller-session:action",
+        sequence=0,
+        lease_id=offer.lease_id,
+    )
+    first = service.handle_business(caller.peer_identity, request_frame)
+    assert len(first) == 1
+    dispatched_request = first[0].message
+    assert isinstance(dispatched_request, ActionRequest)
+    assert dispatched_request.action_id is not None
+    assert service.handle_business(caller.peer_identity, request_frame) == ()
+
+    result_frame = encode_business_message(
+        ActionResult(action_id=dispatched_request.action_id, success=True, payload={"message_id": "7"}),
+        generation=1,
+        stream_id="bridge:owner:owner-session:action",
+        sequence=0,
+        lease_id="bridge-business",
+    )
+    assert len(service.handle_business(owner.peer_identity, result_frame)) == 1
+    replay = service.handle_business(caller.peer_identity, request_frame)
+    assert len(replay) == 1
+    assert replay[0].target == caller
+    assert replay[0].message == ActionResult(
+        action_id=dispatched_request.action_id,
+        success=True,
+        payload={"message_id": "7"},
+    )
+
+
 async def _register(server: BrokerPeerServer, client: BridgeClient) -> None:
     task = asyncio.create_task(client.register())
     await server.serve_control_once()
@@ -214,6 +283,21 @@ async def test_zmq_event_lifecycle_action_result_and_stale_lease_validation() ->
         request = await owner.receive_action_request()
         assert request.action_id is not None
 
+        # The same correlation is idempotent: it neither re-dispatches the owner nor changes the action ID.
+        await target.send_action_request(
+            ActionRequest(
+                delivery_id=delivery.delivery_id,
+                lease_id=delivery.lease_id,
+                correlation_id="call-1",
+                kind="message.send",
+                resource_key="bot:1",
+                payload={"text": "hello"},
+            )
+        )
+        await server.serve_business_once()
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(owner.receive_action_request(), timeout=0.05)
+
         await owner.send_action_result(
             ActionResult(action_id=request.action_id, success=True, payload={"message_id": "7"})
         )
@@ -221,6 +305,21 @@ async def test_zmq_event_lifecycle_action_result_and_stale_lease_validation() ->
         result = await target.receive_action_result()
         assert result.action_id == request.action_id
         assert result.payload == {"message_id": "7"}
+
+        # Once settled, the duplicate receives the retained result without another owner dispatch.
+        await target.send_action_request(
+            ActionRequest(
+                delivery_id=delivery.delivery_id,
+                lease_id=delivery.lease_id,
+                correlation_id="call-1",
+                kind="message.send",
+                resource_key="bot:1",
+                payload={"text": "hello"},
+            )
+        )
+        await server.serve_business_once()
+        replay = await target.receive_action_result()
+        assert replay == result
 
         await target.send_event_completed(
             EventCompleted(delivery_id=delivery.delivery_id, lease_id=delivery.lease_id, success=True)
@@ -231,6 +330,58 @@ async def test_zmq_event_lifecycle_action_result_and_stale_lease_validation() ->
     finally:
         owner.close()
         target.close()
+        source.close()
+        server.close()
+        context.term()
+
+
+@pytest.mark.asyncio
+async def test_business_pump_discards_invalid_frames_and_continues() -> None:
+    context = zmq.asyncio.Context()
+    server = BrokerPeerServer(
+        context=context,
+        endpoint="inproc://broker-business-pump",
+        generation=1,
+        instance_tokens={"source": "source-token"},
+    )
+    source = BridgeClient(
+        context=context,
+        endpoints=server.endpoints,
+        generation=1,
+        identity=b"source",
+        manifest=_manifest("source"),
+        instance_token="source-token",
+    )
+    try:
+        await _register(server, source)
+        malformed = LyipFrame(
+            1,
+            1,
+            LyipLane.BUSINESS,
+            999,
+            source.business_stream_id("malformed"),
+            0,
+            "broker-business",
+            b"{}",
+        )
+        assert await source._dealer.offer(malformed) is LyipOfferResult.ACCEPTED
+        assert await server.serve_business_once() is None
+
+        admission_failure = encode_business_message(
+            EventAccepted(delivery_id="missing", lease_id="lease"),
+            generation=1,
+            stream_id=source.business_stream_id("delivery"),
+            sequence=0,
+            lease_id="lease",
+        )
+        assert await source._dealer.offer(admission_failure) is LyipOfferResult.ACCEPTED
+        assert await server.serve_business_once() is None
+
+        await source.send_event_ingress(
+            EventIngress(source_event_id="platform-1", topic="message.created", ordering_key="chat:1")
+        )
+        assert await server.serve_business_once() is not None
+    finally:
         source.close()
         server.close()
         context.term()

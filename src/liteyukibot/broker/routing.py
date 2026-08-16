@@ -225,6 +225,7 @@ class RoutedAction:
     request: ActionRequest
     target: BridgeSession
     origin: BridgeSession
+    replayed: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -308,6 +309,7 @@ class BrokerLedger:
         self._terminal: dict[str, _EventRecord] = {}
         self._terminal_order: deque[str] = deque()
         self._delivery_index: dict[str, _EventRecord] = {}
+        self._action_index: dict[str, _Action] = {}
         self._lanes: dict[tuple[str, str, str], deque[str]] = {}
 
     @property
@@ -421,7 +423,6 @@ class BrokerLedger:
         """Complete one delivery and reveal the next FIFO offer, if it became sendable."""
 
         delivery = self._require_delivery(session, delivery_id, lease_id, DeliveryState.ACTIVE)
-        record = self._delivery_index[delivery.delivery_id]
         if success:
             delivery.state = DeliveryState.COMPLETED
         else:
@@ -430,7 +431,8 @@ class BrokerLedger:
         next_delivery = self._terminalize_delivery(delivery)
         next_offer = None
         if next_delivery is not None:
-            next_offer = (record.event, self._snapshot_delivery(next_delivery))
+            next_record = self._delivery_index[next_delivery.delivery_id]
+            next_offer = (next_record.event, self._snapshot_delivery(next_delivery))
         return self._snapshot_delivery(delivery), next_offer
 
     def route_action(
@@ -441,20 +443,28 @@ class BrokerLedger:
     ) -> RoutedAction:
         delivery = self._require_delivery(session, request.delivery_id, request.lease_id, DeliveryState.ACTIVE)
         record = self._delivery_index[delivery.delivery_id]
-        target = self._resolve_owner(request.kind, request.resource_key, sessions)
-        key = (target.session_id, request.correlation_id)
         canonical = json.dumps(
             request.model_dump(mode="json", by_alias=True, exclude_none=True),
             sort_keys=True,
             separators=(",", ":"),
         )
+        key = (session.session_id, request.correlation_id)
         previous = record.actions.get(key)
         if previous is not None:
             if previous.canonical_request != canonical:
                 raise BrokerAdmissionError("action_conflict", "correlation ID was already used with different content")
-            return previous.routed
+            return RoutedAction(
+                action_id=previous.routed.action_id,
+                event_id=previous.routed.event_id,
+                request=previous.routed.request,
+                target=previous.routed.target,
+                origin=previous.routed.origin,
+                replayed=True,
+            )
+        target = self._resolve_owner(request.kind, request.resource_key, sessions)
         routed = RoutedAction(str(uuid4()), record.event.kernel_event_id, request, target, session)
         record.actions[key] = _Action(routed=routed, canonical_request=canonical)
+        self._action_index[routed.action_id] = record.actions[key]
         return routed
 
     def complete_action(
@@ -466,25 +476,23 @@ class BrokerLedger:
         payload: JsonValue = None,
     ) -> ActionResult:
         self.expire()
-        for record in (*self._active.values(), *self._terminal.values()):
-            for action in record.actions.values():
-                if action.routed.action_id != action_id:
-                    continue
-                if action.routed.target.session_id != session.session_id:
-                    raise BrokerAdmissionError("action_owner_mismatch", "action response owner does not match route")
-                _validate_json(payload, "action result")
-                if action.result is None:
-                    action.result = ActionResult(action_id=action_id, success=success, payload=payload)
-                elif (
-                    action.result.success != success
-                    or self._canonical_json(action.result.payload) != self._canonical_json(payload)
-                ):
-                    raise BrokerAdmissionError(
-                        "action_result_conflict",
-                        "action result conflicts with the retained result",
-                    )
-                return action.result
-        raise BrokerAdmissionError("unknown_action", "broker action is not retained")
+        action = self._action_index.get(action_id)
+        if action is None:
+            raise BrokerAdmissionError("unknown_action", "broker action is not retained")
+        if action.routed.target.session_id != session.session_id:
+            raise BrokerAdmissionError("action_owner_mismatch", "action response owner does not match route")
+        _validate_json(payload, "action result")
+        if action.result is None:
+            action.result = ActionResult(action_id=action_id, success=success, payload=payload)
+        elif (
+            action.result.success != success
+            or self._canonical_json(action.result.payload) != self._canonical_json(payload)
+        ):
+            raise BrokerAdmissionError(
+                "action_result_conflict",
+                "action result conflicts with the retained result",
+            )
+        return action.result
 
     @staticmethod
     def _canonical_json(value: JsonValue) -> str:
@@ -494,11 +502,21 @@ class BrokerLedger:
         """Return retained action routing only for broker-side result forwarding."""
 
         self.expire()
-        for record in (*self._active.values(), *self._terminal.values()):
-            for action in record.actions.values():
-                if action.routed.action_id == action_id:
-                    return action.routed
-        raise BrokerAdmissionError("unknown_action", "broker action is not retained")
+        action = self._action_index.get(action_id)
+        if action is None:
+            raise BrokerAdmissionError("unknown_action", "broker action is not retained")
+        return action.routed
+
+    def action_result(self, action_id: str, session: BridgeSession) -> ActionResult | None:
+        """Return a retained result for replay, without dispatching the owner again."""
+
+        self.expire()
+        action = self._action_index.get(action_id)
+        if action is None:
+            raise BrokerAdmissionError("unknown_action", "broker action is not retained")
+        if action.routed.origin.session_id != session.session_id:
+            raise BrokerAdmissionError("action_origin_mismatch", "action replay origin does not match route")
+        return action.result
 
     def disconnect_bridge(self, bridge_id: str) -> None:
         self.expire()
@@ -521,6 +539,9 @@ class BrokerLedger:
                     delivery.state = DeliveryState.EXPIRED
                     delivery.failure_reason = "lease_expired"
                     self._terminalize_delivery(delivery)
+        self._expire_terminal_records(now)
+
+    def _expire_terminal_records(self, now: float) -> None:
         while self._terminal_order:
             event_id = self._terminal_order[0]
             record = self._terminal[event_id]
@@ -529,6 +550,8 @@ class BrokerLedger:
                 break
             self._terminal_order.popleft()
             self._terminal.pop(event_id, None)
+            for action_id in tuple(action.routed.action_id for action in record.actions.values()):
+                self._action_index.pop(action_id, None)
 
     @staticmethod
     def event_subscribers(event: BrokerEvent, sessions: tuple[BridgeSession, ...]) -> tuple[BridgeSession, ...]:
@@ -615,7 +638,8 @@ class BrokerLedger:
             self._delivery_index.pop(delivery_id, None)
         self._terminal[event_id] = record
         self._terminal_order.append(event_id)
-        self.expire()
+        # Settling can exceed the retention cap before the next public operation.
+        self._expire_terminal_records(record.terminal_at)
 
     def _delivery(self, delivery_id: str) -> _Delivery:
         record = self._delivery_index.get(delivery_id)

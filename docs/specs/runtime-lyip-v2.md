@@ -1,6 +1,8 @@
 # Runtime LYIP v2
 
 - Specification version: `2`
+- LYIP frame protocol marker: `1` (the v2 specification changes broker transport
+  semantics and catalog contracts; it does not change the frame marker).
 - Applies to: the implemented B5 standalone broker peer transport.
 - Compatibility: pre-stable. LYIP v2 replaces the child-supervisor lifecycle
   description for new broker work; it does not make legacy runtime hosts broker

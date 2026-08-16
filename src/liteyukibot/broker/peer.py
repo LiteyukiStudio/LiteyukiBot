@@ -78,7 +78,7 @@ class BrokerPeerService:
         if generation < 1:
             raise ValueError("broker LYIP generation must be positive")
         self.generation = generation
-        self._instance_tokens = {bridge_id.strip(): token for bridge_id, token in instance_tokens.items()}
+        self._instance_tokens = {bridge_id.strip(): token.strip() for bridge_id, token in instance_tokens.items()}
         if not self._instance_tokens or any(
             not bridge_id or not token.strip() for bridge_id, token in self._instance_tokens.items()
         ):
@@ -153,6 +153,7 @@ class BrokerPeerService:
         if session is not None:
             self._sessions_by_bridge.pop(session.bridge_id, None)
             self.ledger.disconnect_bridge(session.bridge_id)
+        self._reply_sequences.pop(peer_identity, None)
         return session
 
     def admit_event(self, peer_identity: bytes, ingress: EventIngress) -> BrokerEvent:
@@ -241,6 +242,11 @@ class BrokerPeerService:
                 raise BrokerAdmissionError("unexpected_action_id", "bridges must not assign action IDs")
             self._require_frame_lease(frame, message.lease_id)
             routed = self.ledger.route_action(session, message, self.sessions)
+            if routed.replayed:
+                result = self.ledger.action_result(routed.action_id, session)
+                if result is None:
+                    return ()
+                return (BusinessDispatch(target=routed.origin, message=result),)
             return (
                 BusinessDispatch(
                     target=routed.target,
@@ -345,8 +351,9 @@ class BrokerPeerService:
                 frame,
                 BridgeRejected(code="invalid_session", message="session identity is invalid"),
             )
+        reply = self._reply(peer_identity, frame, BridgeUnregistered(session_id=session.session_id))
         self.disconnect(peer_identity)
-        return self._reply(peer_identity, frame, BridgeUnregistered(session_id=session.session_id))
+        return reply
 
     def _reply(self, peer_identity: bytes, incoming: LyipFrame, message: BrokerWireMessage) -> LyipFrame:
         sequence = self._reply_sequences.get(peer_identity, 0)
@@ -405,20 +412,30 @@ class BrokerPeerServer:
         reply = self.service.handle_control(peer_identity, frame)
         if await self.router.offer(peer_identity, reply) is not LyipOfferResult.ACCEPTED:
             raise BridgeRegistrationError("broker control acknowledgement could not be queued")
+        if isinstance(decode_broker_message(reply), BridgeUnregistered):
+            self.router.disconnect(peer_identity)
+            self._business_sequences = {
+                key: sequence for key, sequence in self._business_sequences.items() if key[0] != peer_identity
+            }
 
     async def receive_business_once(self) -> tuple[BridgeSession, LyipFrame]:
         peer_identity, frame = await self.router.receive(LyipLane.BUSINESS)
         return self.service.require_business_peer(peer_identity, frame), frame
 
-    async def serve_business_once(self) -> tuple[BridgeSession, BrokerBusinessMessage]:
+    async def serve_business_once(self) -> tuple[BridgeSession, BrokerBusinessMessage] | None:
         """Receive one bridge message, apply its lifecycle transition, and send direct outputs."""
 
-        from .business import decode_business_message
+        from .business import BrokerBusinessWireError, decode_business_message
+        from .routing import BrokerAdmissionError
 
         peer_identity, frame = await self.router.receive(LyipLane.BUSINESS)
-        session = self.service.require_business_peer(peer_identity, frame)
-        message = decode_business_message(frame)
-        for dispatch in self.service.handle_business(peer_identity, frame):
+        try:
+            session = self.service.require_business_peer(peer_identity, frame)
+            message = decode_business_message(frame)
+            dispatches = self.service.handle_business(peer_identity, frame)
+        except (BrokerBusinessWireError, BrokerAdmissionError):
+            return None
+        for dispatch in dispatches:
             await self.send_business(dispatch.target, dispatch.message)
         return session, message
 
@@ -467,7 +484,7 @@ class BridgeClient:
         if not instance_token.strip():
             raise ValueError("bridge instance token must be non-empty")
         self.manifest = manifest
-        self._instance_token = instance_token
+        self._instance_token = instance_token.strip()
         self._generation = generation
         self._dealer = ZmqLyipDealer(
             context=context,

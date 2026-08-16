@@ -106,11 +106,30 @@ def test_fifo_lane_offers_only_one_delivery_until_predecessor_is_terminal() -> N
     assert ledger.offered_deliveries(second.kernel_event_id) == ()
     ledger.accept_delivery(target, first_offer.delivery_id, first_offer.lease_id)
     ledger.activate_delivery(target, first_offer.delivery_id, first_offer.lease_id)
-    ledger.complete_delivery(target, first_offer.delivery_id, first_offer.lease_id, success=True)
-    second_offer = next(
-        item for item in ledger.offered_deliveries(second.kernel_event_id) if item.target_bridge_id == "target"
+    _completed, next_offer = ledger.complete_delivery_with_next_offer(
+        target,
+        first_offer.delivery_id,
+        first_offer.lease_id,
+        success=True,
     )
+    assert next_offer is not None
+    next_event, second_offer = next_offer
+    assert next_event.kernel_event_id == second.kernel_event_id
+    assert second_offer.target_bridge_id == "target"
     assert second_offer.state is DeliveryState.OFFERED
+
+
+def test_settlement_immediately_enforces_terminal_capacity() -> None:
+    ledger = BrokerLedger(terminal_capacity=1)
+    source = _session("source", subscriptions=())
+    target = _session("target")
+
+    _, first_delivery_id, first_lease_id = _active_delivery(ledger, source, target)
+    ledger.complete_delivery(target, first_delivery_id, first_lease_id, success=True)
+    _, second_delivery_id, second_lease_id = _active_delivery(ledger, source, target)
+    ledger.complete_delivery(target, second_delivery_id, second_lease_id, success=True)
+
+    assert ledger.terminal_count == 1
 
 
 def test_terminal_retention_evicts_delivery_and_lane_indices() -> None:
@@ -174,7 +193,9 @@ def test_action_requires_active_lease_deduplicates_and_retains_result_until_even
         payload={"text": "hello"},
     )
     routed = ledger.route_action(caller, request, (source, caller, owner))
-    assert ledger.route_action(caller, request, (source, caller, owner)) == routed
+    replay = ledger.route_action(caller, request, (source, caller, owner))
+    assert replay.action_id == routed.action_id
+    assert replay.replayed
     conflict = request.model_copy(update={"payload": {"text": "changed"}})
     with pytest.raises(BrokerAdmissionError, match="different content"):
         ledger.route_action(caller, conflict, (source, caller, owner))
