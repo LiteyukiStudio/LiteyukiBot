@@ -2,7 +2,7 @@
 
 ## Status
 
-This is the accepted Beta6 contract and implementation target. It describes a
+This is the accepted Beta6 contract, with the B7 extension-topology rules. It describes a
 Python-first in-process plugin model; it is not a promise of JavaScript Cordis
 or Koishi compatibility and does not replace Native Plugin v1.
 
@@ -16,6 +16,18 @@ The kernel discovers exactly one Cordis host implementation from
 `liteyukibot.cordis_hosts`. That host adapts the shared EventBus, ActionService,
 logging, and lifecycle without widening Native Plugin v1's `PluginManager`.
 The host discovers plugin factories from `liteyukibot.cordis_plugins`.
+
+## Extension identity and coexistence
+
+Cordis Plugin v1 and Native Classic Plugin v1 are independent hosts. Each
+enabled extension declares an ID and a coexistence class. `exclusive` is the
+default: the same ID cannot be active in both hosts. Only matching Native and
+Cordis declarations that both explicitly set `infrastructure` may coexist.
+
+This check prevents accidental dual activation; it does not merge lifecycle,
+services, dependencies, or state across hosts. First-party infrastructure
+extensions must test their dual-host behavior. Third-party coexistence is
+best-effort and remains the extension author's compatibility responsibility.
 
 Cordis is optional. Its root configuration is:
 
@@ -70,3 +82,5 @@ audit queries. Audit records exclude payloads, credentials, and configuration.
 - JavaScript Cordis/Koishi compatibility or platform Session/Bot objects.
 - A Rust/PyO3 runtime, supervised catcher child, or second kernel.
 - Permission enforcement, Function DSL, implicit retries, HMR, or marketplace.
+- A promise that arbitrary third-party extensions can run concurrently in both
+  Native and Cordis hosts.

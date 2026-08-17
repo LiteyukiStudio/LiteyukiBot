@@ -1,302 +1,167 @@
 from __future__ import annotations
 
-import asyncio
-from collections.abc import Awaitable, Callable
 from pathlib import Path
+from types import SimpleNamespace
+from typing import cast
 
 import pytest
-from liteyukibot_runtime_astrbot.host import (
-    AstrBotHeadlessEngine,
-    AstrBotLogBridge,
-    AstrBotRuntimeHost,
-    _dispose_astrbot_global_database,
-    _restore_child_logging,
-    _to_portable_astr_message,
-)
-from liteyukibot_runtime_astrbot.translate import to_astr_event_input, to_send_action
+from liteyukibot_runtime_astrbot import bridge_definition
+from liteyukibot_runtime_astrbot.host import MESSAGE_CREATED_TOPIC, AstrBotGateway, _workspace_path
+from liteyukibot_runtime_astrbot.listener import configure_publisher, forward_native_event
+from liteyukibot_runtime_astrbot.translate import to_event_envelope
 
-from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope, Message, Segment, SendMessage
-from liteyukibot.runtime.protocol import ActionResponse, EventAccepted, EventCompleted, EventMessage
+from liteyukibot.broker import ActionRequest, EventIngress
+from liteyukibot.config import AppSettings
+from liteyukibot.events import ConversationRef, JsonValue, Message, Segment
 
 
-def _event() -> EventEnvelope:
-    return EventEnvelope(
-        id="event-1",
-        runtime_id="nonebot",
-        adapter="onebot",
-        bot_id="bot-1",
-        type="message",
-        conversation=ConversationRef(id="group-1", type="group"),
-        actor=ActorRef(id="user-1", display_name="User"),
-        message=Message(segments=(Segment(type="text", data={"text": "hello"}),)),
-        reply_token="reply-1",
-    )
-
-
-def test_astrbot_translation_preserves_source_identity_and_message_route() -> None:
-    event = _event()
-
-    translated = to_astr_event_input(event)
-    action = to_send_action(event, "response")
-
-    assert translated.runtime_id == "nonebot"
-    assert translated.conversation_type == "group"
-    assert translated.actor_id == "user-1"
-    assert translated.text == "hello"
-    assert action.runtime_id == "nonebot"
-    assert action.event_id == "event-1"
-    assert isinstance(action.action, SendMessage)
-    assert action.action.reply_token == "reply-1"
-
-
-def test_astrbot_translation_retains_structured_message_and_raw_data() -> None:
-    event = _event().model_copy(
-        update={
-            "message": Message(
-                segments=(
-                    Segment(type="text", data={"text": "hello "}),
-                    Segment(type="mention", data={"user_id": "other"}),
-                    Segment(type="media", data={"media_type": "image", "url": "https://example.test/a.png"}),
-                )
-            ),
-            "raw": {"source": "adapter"},
-        }
-    )
-
-    translated = to_astr_event_input(event)
-
-    assert translated.message == event.message
-    assert translated.raw == {"source": "adapter"}
-    assert translated.text == "hello "
-
-
-def test_astrbot_translation_rejects_non_message_events() -> None:
-    event = _event().model_copy(update={"message": None})
-
-    with pytest.raises(ValueError, match="message events"):
-        to_astr_event_input(event)
-
-
-def test_astrbot_output_mapping_preserves_portable_structure() -> None:
-    plain = type("Plain", (), {"text": "hello"})()
-    mention = type("At", (), {"qq": "user-1"})()
-    image = type("Image", (), {"url": "https://example.test/image.png", "file": ""})()
-    chain = type("Chain", (), {"chain": [plain, mention, image]})()
-
-    assert _to_portable_astr_message(chain) == Message(
-        segments=(
-            Segment(type="text", data={"text": "hello"}),
-            Segment(type="mention", data={"user_id": "user-1"}),
-            Segment(type="media", data={"media_type": "image", "url": "https://example.test/image.png"}),
-        )
-    )
-
-
-def _write_bridge_plugin(root: Path) -> None:
-    plugin = root / "astrbot" / "data" / "plugins" / "liteyuki_bridge_probe"
-    plugin.mkdir(parents=True)
-    (plugin / "metadata.yaml").write_text(
-        "name: liteyuki_bridge_probe\n"
-        "description: Liteyuki bridge verification plugin\n"
-        "version: 1.0.0\n"
-        "author: LiteyukiBot\n",
-        encoding="utf-8",
-    )
-    (plugin / "main.py").write_text(
-        "from astrbot.api import star\n"
-        "from astrbot.api.event import AstrMessageEvent, MessageEventResult, filter\n\n"
-        "@star.register('liteyuki_bridge_probe', 'LiteyukiBot', 'Bridge verification', '1.0.0')\n"
-        "class Main(star.Star):\n"
-        "    @filter.command('bridge_probe')\n"
-        "    async def bridge_probe(self, event: AstrMessageEvent) -> None:\n"
-        "        event.set_result(MessageEventResult().message('astrbot bridge reply'))\n",
-        encoding="utf-8",
-    )
-
-
-@pytest.mark.asyncio
-async def test_astrbot_upstream_pipeline_routes_a_managed_plugin_reply(tmp_path: Path) -> None:
-    """Exercise the installed AstrBot scheduler, not a substitute engine."""
-
-    _write_bridge_plugin(tmp_path)
-    logger = RecordingCleanupLogger()
-    engine = AstrBotHeadlessEngine(tmp_path, {}, logger)
-    sent: list[Message] = []
-
-    async def emit(message: Message) -> None:
-        sent.append(message)
-
-    event = _event().model_copy(
-        update={"message": Message(segments=(Segment(type="text", data={"text": "/bridge_probe"}),))}
-    )
-    try:
-        await engine.start()
-        await engine.process(event, emit)
-    finally:
-        await engine.close()
-
-    assert sent == [Message(segments=(Segment(type="text", data={"text": "astrbot bridge reply"}),))]
-
-
-class FakeClient:
+class FakeAstrEvent:
     def __init__(self) -> None:
+        self.message_obj = SimpleNamespace(message_id="message-1")
         self.sent: list[object] = []
-        self.actions: list[dict[str, object]] = []
 
-    async def send(self, message: object) -> None:
-        self.sent.append(message)
+    def get_platform_id(self) -> str:
+        return "qq"
 
-    async def execute_action(
-        self,
-        _correlation_id: str,
-        payload: dict[str, object],
-        *,
-        delivery_correlation_id: str | None = None,
-    ) -> ActionResponse:
-        assert delivery_correlation_id == "delivery-1"
-        self.actions.append(payload)
-        return ActionResponse(correlation_id="action", ok=True)
+    def get_platform_name(self) -> str:
+        return "aiocqhttp"
 
+    def get_self_id(self) -> str:
+        return "bot-1"
 
-class FakeEngine:
-    async def process(self, event: EventEnvelope, sink: Callable[[Message], Awaitable[None]]) -> None:
-        assert event.id == "event-1"
-        await sink(Message(segments=(Segment(type="text", data={"text": "AstrBot response"}),)))
+    def get_group_id(self) -> str:
+        return "group-1"
 
-    async def close(self) -> None:
-        return None
+    def get_session_id(self) -> str:
+        return "session-1"
+
+    def get_sender_id(self) -> str:
+        return "user-1"
+
+    def get_sender_name(self) -> str:
+        return "User"
+
+    def get_message_str(self) -> str:
+        return "hello"
+
+    def get_messages(self) -> list[object]:
+        return [type("Plain", (), {"text": "hello"})()]
+
+    def get_message_type(self) -> str:
+        return "group"
+
+    async def send(self, chain: object) -> dict[str, str]:
+        self.sent.append(chain)
+        return {"message_id": "reply-1"}
 
 
 class RecordingLogger:
-    def __init__(self, records: list[tuple[dict[str, object], str, str]] | None = None, **fields: object) -> None:
-        self.records = records if records is not None else []
-        self.fields = fields
+    def bind(self, **_fields: object) -> RecordingLogger:
+        return self
 
-    def bind(self, **fields: object) -> RecordingLogger:
-        return RecordingLogger(self.records, **self.fields, **fields)
-
-    def info(self, _format: str, message: str) -> None:
-        self.records.append((self.fields, "INFO", message))
-
-    def warning(self, _format: str, message: str) -> None:
-        self.records.append((self.fields, "WARNING", message))
+    def warning(self, *_args: object) -> None:
+        return None
 
 
-class FakeBroker:
-    def __init__(self) -> None:
-        self.queue: asyncio.Queue[object] = asyncio.Queue()
-        self.unregistered = False
-
-    def register(self) -> asyncio.Queue[object]:
-        return self.queue
-
-    def unregister(self, _queue: object) -> None:
-        self.unregistered = True
+def _settings(data_dir: Path) -> AppSettings:
+    return AppSettings.model_validate({"config_version": 5, "core": {"data_dir": str(data_dir)}})
 
 
-class FakeLogManager:
-    def __init__(self) -> None:
-        self.calls: list[tuple[object, object]] = []
+def test_astrbot_bridge_declares_experimental_package_metadata() -> None:
+    definition = bridge_definition()
 
-    def set_queue_handler(self, logger: object, broker: object) -> None:
-        self.calls.append((logger, broker))
-
-
-class FakeEngineLifecycle:
-    def __init__(self) -> None:
-        self.stopped = False
-
-    async def stop(self) -> None:
-        self.stopped = True
+    assert definition.kind == "astrbot"
+    assert definition.grade == "experimental"
+    assert definition.distribution == "liteyukibot-v7-runtime-astrbot"
 
 
-class RecordingCleanupLogger:
-    def __init__(self) -> None:
-        self.warnings: list[tuple[str, object]] = []
+def test_astrbot_ingress_projects_native_event_without_suppressing_pipeline() -> None:
+    envelope = to_event_envelope(FakeAstrEvent(), reply_token="qq:message-1")
 
-    def warning(self, message: str, error: object) -> None:
-        self.warnings.append((message, error))
+    assert envelope.id == "message-1"
+    assert envelope.runtime_id == "astrbot"
+    assert envelope.adapter == "aiocqhttp"
+    assert envelope.conversation == ConversationRef(id="group-1", type="group")
+    assert envelope.message == Message(segments=(Segment(type="text", data={"text": "hello"}),))
+    assert envelope.reply_token == "qq:message-1"
 
 
 @pytest.mark.asyncio
-async def test_astrbot_host_returns_pipeline_output_to_the_source_runtime() -> None:
-    client = FakeClient()
-    host = AstrBotRuntimeHost(client, FakeEngine(), max_concurrent_events=1)  # type: ignore[arg-type]
-    event = _event()
+async def test_astrbot_gateway_publishes_broker_ingress_and_retains_reply_route() -> None:
+    published: list[object] = []
 
-    await host._accept_event(EventMessage(correlation_id="delivery-1", payload=event.model_dump(mode="json")))
-    await asyncio.gather(*host._tasks)
-    await host.close()
+    async def send(ingress: object) -> None:
+        published.append(ingress)
 
-    assert client.sent == [
-        EventAccepted(correlation_id="delivery-1", status="accepted"),
-        EventCompleted(correlation_id="delivery-1", status="completed"),
-    ]
-    assert client.actions[0]["runtime_id"] == "nonebot"
-    assert client.actions[0]["event_id"] == "event-1"
+    gateway = AstrBotGateway(Path("workspace"), "astrbot", RecordingLogger())
+    gateway._ingress_sink = send
+    await gateway._publish_ingress(FakeAstrEvent())
+
+    ingress = cast(EventIngress, published[0])
+    assert ingress.topic == MESSAGE_CREATED_TOPIC
+    assert ingress.ordering_key == "group:group-1"
+    assert "qq:message-1" in gateway._reply_events
+    assert gateway._bot_platforms == {"bot-1": "qq"}
 
 
 @pytest.mark.asyncio
-async def test_astrbot_log_bridge_forwards_public_broker_records() -> None:
-    broker = FakeBroker()
-    logger = RecordingLogger()
-    manager = FakeLogManager()
-    bridge = AstrBotLogBridge(broker, logger)
+async def test_astrbot_public_star_listener_only_observes_native_events() -> None:
+    observed: list[object] = []
+    configure_publisher(observed.append)
+    try:
+        await forward_native_event(FakeAstrEvent())
+    finally:
+        configure_publisher(None)
 
-    bridge.start(manager, "astrbot")
-    await broker.queue.put({"level": "WARNING", "data": "upstream warning", "category": "plugin"})
-    await asyncio.sleep(0)
-    await bridge.close()
-
-    assert manager.calls == [("astrbot", broker)]
-    assert logger.records == [({"upstream": "astrbot", "upstream_category": "plugin"}, "WARNING", "upstream warning")]
-    assert broker.unregistered is True
+    assert len(observed) == 1
 
 
-def test_astrbot_restores_child_logging_after_upstream_initialization(monkeypatch: pytest.MonkeyPatch) -> None:
-    observed: list[str] = []
-    monkeypatch.setattr("liteyukibot_runtime_astrbot.host.shutdown_logging", lambda: observed.append("shutdown"))
-    monkeypatch.setattr(
-        "liteyukibot_runtime_astrbot.host.configure_runtime_child_logging",
-        lambda: observed.append("configure"),
+def test_astrbot_gateway_installs_public_star_bootstrap_without_touching_user_plugins(tmp_path: Path) -> None:
+    gateway = AstrBotGateway(tmp_path, "astrbot", RecordingLogger())
+
+    gateway._install_star_plugin()
+
+    plugin = tmp_path / "data" / "plugins" / "liteyuki_broker_ingress"
+    source = (plugin / "main.py").read_text(encoding="utf-8")
+    assert "@filter.event_message_type(EventMessageType.ALL)" in source
+    assert (plugin / "metadata.yaml").is_file()
+
+
+@pytest.mark.asyncio
+async def test_astrbot_gateway_owns_message_send_for_retained_reply(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    event = FakeAstrEvent()
+    gateway = AstrBotGateway(Path("workspace"), "astrbot", RecordingLogger())
+    gateway._reply_events["qq:message-1"] = ("bot-1", event)
+    monkeypatch.setattr("liteyukibot_runtime_astrbot.host._to_astr_chain", lambda _message: "native-chain")
+    request = ActionRequest(
+        delivery_id="delivery-1",
+        lease_id="lease-1",
+        correlation_id="action-1",
+        action_id="broker-action-1",
+        kind="message.send",
+        resource_key="bot:astrbot:bot-1",
+        payload=cast(
+            dict[str, JsonValue],
+            {
+                "bot_id": "bot-1",
+                "reply_token": "qq:message-1",
+                "message": {"segments": [{"type": "text", "data": {"text": "reply"}}]},
+            },
+        ),
     )
 
-    _restore_child_logging()
+    outcome = await gateway.execute_message_send(request)
 
-    assert observed == ["shutdown", "configure"]
-
-
-@pytest.mark.asyncio
-async def test_astrbot_engine_close_releases_global_database_after_lifecycle_stop(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    observed: list[str] = []
-    lifecycle = FakeEngineLifecycle()
-    engine = AstrBotHeadlessEngine(tmp_path, {}, RecordingCleanupLogger())
-    engine._lifecycle = lifecycle
-    async def dispose(_logger: object) -> None:
-        observed.append("dispose")
-
-    monkeypatch.setattr("liteyukibot_runtime_astrbot.host._dispose_astrbot_global_database", dispose)
-
-    await engine.close()
-
-    assert lifecycle.stopped is True
-    assert observed == ["dispose"]
+    assert outcome.success is True
+    assert event.sent == ["native-chain"]
 
 
-@pytest.mark.asyncio
-async def test_astrbot_global_database_cleanup_absorbs_upstream_failures(monkeypatch: pytest.MonkeyPatch) -> None:
-    logger = RecordingCleanupLogger()
+def test_astrbot_workspace_uses_bridge_options_or_the_core_default(tmp_path: Path) -> None:
+    settings = _settings(tmp_path / "data")
 
-    def unavailable(_name: str) -> object:
-        raise RuntimeError("not installed")
-
-    monkeypatch.setattr("liteyukibot_runtime_astrbot.host.import_module", unavailable)
-    await _dispose_astrbot_global_database(logger)
-
-    assert len(logger.warnings) == 1
-    message, error = logger.warnings[0]
-    assert message == "AstrBot global database cleanup failed: {}"
-    assert isinstance(error, RuntimeError)
-    assert str(error) == "not installed"
+    assert _workspace_path(settings, "astrbot", {}) == (tmp_path / "data" / "bridges" / "astrbot" / "astrbot").resolve()
+    assert _workspace_path(settings, "astrbot", {"workspace": "custom"}) == (Path.cwd() / "custom").resolve()
+    with pytest.raises(ValueError, match="workspace"):
+        _workspace_path(settings, "astrbot", {"workspace": 1})

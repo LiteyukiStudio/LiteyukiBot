@@ -30,10 +30,12 @@ type JsonObject = Mapping[str, JsonValue]
 type MaybeAwaitable[T] = T | Awaitable[T]
 
 _COOKIE_NAME = "liteyuki_webui_session"
-_EVENT_TYPES = frozenset({"snapshot", "ledger_append", "operation", "heartbeat", "reset"})
+_EVENT_TYPES = frozenset({"snapshot", "ledger_append", "operation", "event_delivery", "heartbeat", "reset"})
 _UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 _MAX_EVENT_REPLAY = 4096
 _SSE_REAUTHORIZATION_SECONDS = 15.0
+_MAX_EVENT_DELIVERY_FILTER_LENGTH = 256
+_MAX_EVENT_DELIVERY_ID_LENGTH = 256
 
 
 class WebUiUnavailableError(RuntimeError):
@@ -116,6 +118,16 @@ class WebUiBridge(Protocol):
     def audit(self, principal: WebUiPrincipal, cursor: str | None, limit: int) -> MaybeAwaitable[JsonObject]: ...
 
     def plugin_surfaces(self, principal: WebUiPrincipal) -> MaybeAwaitable[JsonObject]: ...
+
+    def event_deliveries(
+        self,
+        principal: WebUiPrincipal,
+        filters: Mapping[str, str],
+        cursor: str | None,
+        limit: int,
+    ) -> MaybeAwaitable[JsonObject]: ...
+
+    def event_delivery(self, principal: WebUiPrincipal, event_id: str) -> MaybeAwaitable[JsonObject | None]: ...
 
     def replay_events(
         self, principal: WebUiPrincipal, after_id: str | None, limit: int
@@ -365,6 +377,45 @@ def create_app(
     async def plugin_surfaces(request: Request) -> JsonObject:
         session = await authenticated(request)
         return await invoke(bridge.plugin_surfaces(session.principal))
+
+    @app.get("/api/v1/event-deliveries")
+    async def event_deliveries(
+        request: Request,
+        cursor: str | None = None,
+        limit: int = 100,
+        state: str | None = None,
+        topic: str | None = None,
+        source: str | None = None,
+        target: str | None = None,
+        failure: str | None = None,
+    ) -> JsonObject:
+        session = await authenticated(request)
+        if not 1 <= limit <= 500:
+            raise WebUiServiceError("webui.invalid_page_size", 400)
+        filters = {
+            name: value
+            for name, value in {
+                "state": state,
+                "topic": topic,
+                "source": source,
+                "target": target,
+                "failure": failure,
+            }.items()
+            if value is not None
+        }
+        if any(not value or len(value) > _MAX_EVENT_DELIVERY_FILTER_LENGTH for value in filters.values()):
+            raise WebUiServiceError("webui.invalid_event_delivery_filter", 400)
+        return await invoke(bridge.event_deliveries(session.principal, filters, cursor, limit))
+
+    @app.get("/api/v1/event-deliveries/{event_id}")
+    async def event_delivery(request: Request, event_id: str) -> JsonObject:
+        session = await authenticated(request)
+        if not event_id or len(event_id) > _MAX_EVENT_DELIVERY_ID_LENGTH:
+            raise WebUiServiceError("webui.invalid_event_delivery_id", 400)
+        record = await invoke(bridge.event_delivery(session.principal, event_id))
+        if record is None:
+            raise WebUiServiceError("webui.event_delivery_not_found", 404)
+        return record
 
     @app.get("/api/v1/events")
     async def events(request: Request) -> Any:

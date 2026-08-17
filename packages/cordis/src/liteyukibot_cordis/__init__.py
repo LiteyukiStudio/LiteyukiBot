@@ -2,7 +2,7 @@
 
 from .audit import CordisAuditRecord, CordisAuditService
 from .core import CordisDispatchResult, CordisEvent, CordisManager, CordisSession, PluginFactory
-from .host import CordisHost, host_factory
+from .host import CordisHost, CordisPluginDefinition, discover_cordis_plugins, host_factory
 from .scope import ProviderCycleError, Scope, UnavailableProviderError
 
 __all__ = [
@@ -11,6 +11,7 @@ __all__ = [
     "CordisDispatchResult",
     "CordisEvent",
     "CordisHost",
+    "CordisPluginDefinition",
     "CordisManager",
     "CordisSession",
     "PluginFactory",
@@ -18,4 +19,5 @@ __all__ = [
     "Scope",
     "UnavailableProviderError",
     "host_factory",
+    "discover_cordis_plugins",
 ]

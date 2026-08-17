@@ -12,6 +12,8 @@ from pathlib import Path
 from time import monotonic
 from typing import Any, cast
 
+import zmq.asyncio
+
 from .config import DaemonSettings, DevelopmentSettings, WebUISettings
 from .control import ControlServer, request_control
 from .instances import InstancePaths
@@ -42,6 +44,9 @@ class InstanceDaemon:
         webui: WebUISettings | None = None,
         watch_root: Path | None = None,
         validate_configuration: Callable[[], None] | None = None,
+        broker_endpoint: str | None = None,
+        broker_generation: int = 1,
+        broker_diagnostics_token: str | None = None,
     ) -> None:
         self.paths = paths
         self.settings = settings
@@ -52,6 +57,17 @@ class InstanceDaemon:
         self.webui = webui or WebUISettings()
         self.watch_root = watch_root
         self.validate_configuration = validate_configuration
+        self._broker_diagnostics = None
+        if broker_endpoint is not None and broker_diagnostics_token is not None:
+            from .broker import BrokerDiagnosticsClient
+
+            self._broker_diagnostics = BrokerDiagnosticsClient.from_broker_endpoint(
+                context=zmq.asyncio.Context.instance(),
+                endpoint=broker_endpoint,
+                generation=broker_generation,
+                identity=f"liteyuki-webui:{paths.name}".encode(),
+                diagnostics_token=broker_diagnostics_token,
+            )
         self.worker: asyncio.subprocess.Process | None = None
         self._stop_event = asyncio.Event()
         self._restart_event = asyncio.Event()
@@ -63,6 +79,7 @@ class InstanceDaemon:
         self._webui_tickets: dict[str, float] = {}
         self._webui_events: deque[Any] = deque(maxlen=4096)
         self._webui_subscribers: set[asyncio.Queue[Any]] = set()
+        self._broker_watch_task: asyncio.Task[None] | None = None
         self._webui_sequence = 0
         self._webui_operations_ready = False
         self.operations = OperationLedger(paths.root / "operations.sqlite3", audit_key=self._operation_audit_key())
@@ -242,13 +259,24 @@ class InstanceDaemon:
             session_max_seconds=self.webui.session_max_seconds,
         )
         await self._webui_server.start()
+        if self._broker_diagnostics is not None and self._broker_watch_task is None:
+            self._broker_watch_task = asyncio.create_task(
+                self._watch_broker_diagnostics(), name="webui-broker-diagnostics"
+            )
 
     async def _stop_webui(self) -> None:
+        if self._broker_watch_task is not None:
+            self._broker_watch_task.cancel()
+            await asyncio.gather(self._broker_watch_task, return_exceptions=True)
+            self._broker_watch_task = None
         if self._webui_server is not None:
             await self._webui_server.stop()
             self._webui_server = None
         self._webui_tickets.clear()
         self._webui_subscribers.clear()
+        if self._broker_diagnostics is not None:
+            self._broker_diagnostics.close()
+            self._broker_diagnostics = None
 
     async def issue_ticket(self) -> str:
         ticket = secrets.token_urlsafe(32)
@@ -360,6 +388,108 @@ class InstanceDaemon:
         value = await self._worker_webui_control("daemon.webui.plugin_surfaces")
         return value if isinstance(value, dict) else {"generation": 0, "surfaces": [], "diagnostics": []}
 
+    async def event_deliveries(
+        self,
+        _principal: Any,
+        filters: Mapping[str, str],
+        cursor: str | None,
+        limit: int,
+    ) -> dict[str, object]:
+        if self._broker_diagnostics is None:
+            return {
+                "broker": {
+                    "state": "disabled",
+                    "active": 0,
+                    "active_capacity": 0,
+                    "terminal": 0,
+                    "terminal_capacity": 0,
+                    "bridges": [],
+                },
+                "items": [],
+                "next_cursor": None,
+            }
+        try:
+            status = await self._broker_diagnostics.status()
+            page = await self._broker_diagnostics.list_events(cursor=cursor, limit=limit, **dict(filters))
+        except Exception:
+            return {
+                "broker": {
+                    "state": "unavailable",
+                    "active": 0,
+                    "active_capacity": 0,
+                    "terminal": 0,
+                    "terminal_capacity": 0,
+                    "bridges": [],
+                },
+                "items": [],
+                "next_cursor": None,
+            }
+        return {
+            "broker": {
+                "state": "ready",
+                "generation": status.generation,
+                "active": status.active_events,
+                "active_capacity": status.active_capacity,
+                "terminal": status.terminal_events,
+                "terminal_capacity": status.terminal_capacity,
+                "bridges": [
+                    {"id": bridge_id, "state": "connected", "session_state": "registered"}
+                    for bridge_id in status.sessions
+                ],
+            },
+            "items": [
+                {
+                    "id": item.event_id,
+                    "topic": item.topic,
+                    "source": item.source_bridge_id,
+                    "ordering_key": item.ordering_key,
+                    "status": item.status,
+                    "target_count": item.delivery_count,
+                    "failed_count": item.failure_count,
+                    "failure_code": item.failure_codes[0] if item.failure_codes else None,
+                }
+                for item in page.events
+            ],
+            "next_cursor": page.next_cursor,
+        }
+
+    async def event_delivery(self, _principal: Any, event_id: str) -> dict[str, object] | None:
+        if self._broker_diagnostics is None:
+            return None
+        try:
+            detail = await self._broker_diagnostics.detail(event_id)
+        except Exception as error:
+            if "unknown_event" in str(error) or "not retained" in str(error):
+                return None
+            raise
+        return {
+            "id": detail.event.event_id,
+            "topic": detail.event.topic,
+            "source": detail.event.source_bridge_id,
+            "ordering_key": detail.event.ordering_key,
+            "status": detail.event.status,
+            "target_count": detail.event.delivery_count,
+            "failed_count": detail.event.failure_count,
+            "failure_code": detail.event.failure_codes[0] if detail.event.failure_codes else None,
+            "deliveries": [
+                {"target": target, "state": detail.event.status}
+                for target in detail.event.targets
+            ],
+            "timeline": [
+                {
+                    "at": f"{item.elapsed_ms}ms",
+                    "phase": item.kind,
+                    "state": (
+                        item.state
+                        or ("succeeded" if item.success else "failed" if item.success is False else "observed")
+                    ),
+                    "target": item.target_bridge_id,
+                    "code": item.failure_code,
+                }
+                for item in detail.transitions
+            ],
+        }
+
     async def replay_events(self, _principal: Any, after_id: str | None, limit: int) -> Any:
         from liteyukibot_webui import WebUiEventReplay
 
@@ -424,6 +554,20 @@ class InstanceDaemon:
             )
         await self.operations.start()
         self._webui_operations_ready = True
+
+    async def _watch_broker_diagnostics(self) -> None:
+        assert self._broker_diagnostics is not None
+        previous: tuple[int, int, int] | None = None
+        while not self._stop_event.is_set():
+            try:
+                status = await self._broker_diagnostics.status()
+                current = (status.active_events, status.terminal_events, status.generation)
+                if previous is not None and current != previous:
+                    await self._publish_webui_event("event_delivery", {"reason": "broker_changed"})
+                previous = current
+            except Exception:
+                previous = None
+            await asyncio.sleep(2)
 
     async def _execute_worker_operation(self, _principal: ManagementPrincipal, request: OperationRequest) -> str:
         value = await self._worker_webui_control(

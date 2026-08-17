@@ -22,9 +22,10 @@ from liteyukibot.broker.protocol import (
 )
 from liteyukibot.broker.service import (
     BridgeCatalog,
+    BridgeDefinition,
     BridgeLauncher,
+    BridgeSupportGrade,
     BrokerService,
-    InstalledBridge,
     _AuthoritativePeerService,
 )
 from liteyukibot.config import AppSettings
@@ -229,7 +230,12 @@ async def test_sync_bridge_launcher_runs_off_the_asyncio_thread() -> None:
         launch_thread.append(threading.get_ident())
 
     catalog.discover = lambda: {  # type: ignore[method-assign]
-        "nonebot": InstalledBridge(kind="nonebot", launch=cast(BridgeLauncher, launch))
+        "nonebot": BridgeDefinition(
+            kind="nonebot",
+            grade=BridgeSupportGrade.STABLE,
+            distribution="liteyukibot-v7-runtime-nonebot",
+            launch=cast(BridgeLauncher, launch),
+        )
     }
 
     await catalog.launch(_settings(), "nonebot", "secret")
@@ -258,3 +264,45 @@ async def test_catalog_rejects_the_in_process_kernel_bridge() -> None:
 
     with pytest.raises(RuntimeError, match="reserved kernel bridge"):
         await BridgeCatalog().launch(settings, "kernel", "secret")
+
+
+def test_catalog_rejects_invalid_bridge_definition(monkeypatch: pytest.MonkeyPatch) -> None:
+    class EntryPoint:
+        name = "nonebot"
+
+        @staticmethod
+        def load() -> object:
+            return lambda: BridgeDefinition(
+                kind="astrbot",
+                grade=BridgeSupportGrade.EXPERIMENTAL,
+                distribution="liteyukibot-v7-runtime-nonebot",
+                launch=cast(BridgeLauncher, lambda _settings, _bridge_id, _token: None),
+            )
+
+    monkeypatch.setattr("liteyukibot.broker.service.metadata.entry_points", lambda *, group: (EntryPoint(),))
+
+    with pytest.raises(RuntimeError, match="mismatched bridge kind"):
+        BridgeCatalog().discover()
+
+
+def test_catalog_rejects_definition_claiming_another_distribution(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Distribution:
+        metadata = {"Name": "liteyukibot-v7-runtime-nonebot"}
+
+    class EntryPoint:
+        name = "nonebot"
+        dist = Distribution()
+
+        @staticmethod
+        def load() -> object:
+            return lambda: BridgeDefinition(
+                kind="nonebot",
+                grade=BridgeSupportGrade.STABLE,
+                distribution="liteyukibot-v7-runtime-astrbot",
+                launch=cast(BridgeLauncher, lambda _settings, _bridge_id, _token: None),
+            )
+
+    monkeypatch.setattr("liteyukibot.broker.service.metadata.entry_points", lambda *, group: (EntryPoint(),))
+
+    with pytest.raises(RuntimeError, match="declares distribution"):
+        BridgeCatalog().discover()

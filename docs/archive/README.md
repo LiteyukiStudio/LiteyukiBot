@@ -13,4 +13,6 @@ Active documentation stays in:
 - [`../migration-v6.md`](../migration-v6.md) for the supported v6 compatibility
   surface.
 
+- `2026-08-17/beta1-contract.md` records the former Beta1 release contract.
+
 Archived records are not compatibility promises or implementation guidance.

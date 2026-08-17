@@ -562,7 +562,17 @@ class BrokerSettings(FrozenSettingsModel):
     terminal_capacity: int = Field(default=16_384, ge=1_024, le=262_144)
     terminal_ttl_seconds: int = Field(default=3_600, ge=60, le=86_400)
     delivery_timeout_seconds: int = Field(default=30, ge=1, le=3_600)
+    diagnostics_token_secret: str | None = None
     bridges: Mapping[str, BrokerBridgeSettings] = Field(default_factory=dict)
+
+    @field_validator("diagnostics_token_secret")
+    @classmethod
+    def validate_diagnostics_token_secret(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not value.strip() or value != value.strip():
+            raise ValueError("broker diagnostics token secret must be a non-empty trimmed identifier")
+        return value
 
     @field_validator("endpoint")
     @classmethod

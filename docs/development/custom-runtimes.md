@@ -1,6 +1,6 @@
 # Custom runtime and broker-peer development
 
-## Broker peers (implemented B5 foundation)
+## Broker peers (implemented B7 contract)
 
 New cross-process work targets the standalone broker peer contract, not the
 legacy supervised-child protocol below. Run the broker with `liteyuki broker
@@ -32,11 +32,20 @@ replay protocol.
 The broker does not provide environment bootstrap, readiness/heartbeat
 messages, retries, persistence, or process supervision. The manifest and
 token reference are configured under `broker.bridges`; bridge-specific startup
-is supplied under its `options` mapping. The B5-4 NoneBot bridge is the
-reference implementation. A new bridge must document its own lifecycle and
-test it against the same peer contract before claiming compatibility.
+is supplied under its `options` mapping. An installed bridge entry point must
+return `BridgeDefinition(kind, grade, distribution, launch)`; the catalog
+validates that its entry-point name, distribution, declared kind, and support
+grade agree. NoneBot is the stable reference bridge. AstrBot is an experimental
+platform gateway, not a supervised runtime child: it owns the public AstrBot
+extension API, platform adapters, local pipeline, and native replies while it
+also publishes normalized `message.created` and handles `message.send`.
 
-For B5-4/B5-5, the portable surface is intentionally narrow: publish
+A new bridge must keep framework SDK objects, credentials, connections, and
+event/action conversion in the package that owns that framework. The kernel
+must not import the bridge SDK. Document its lifecycle and test it against the
+same peer contract before claiming a support grade.
+
+For B7, the portable surface is intentionally narrow: publish
 `message.created` and handle `message.send`. The resource key for a bot owned
 by bridge `bridge-id` is `bot:bridge-id:<bot-id>`. The kernel peer may issue
 that action only while dispatching the matching active broker delivery. `CallApi`,
@@ -47,7 +56,7 @@ version planning.
 
 The remaining guidance records the former v5 child-supervisor implementation.
 It is retained for existing `RuntimeClient` hosts and the matching example; it
-does not define a B5 broker peer and must not be used for new broker work.
+does not define a B7 broker peer and must not be used for new broker work.
 
 Legacy custom runtimes are supervised local subprocesses. Configure an explicit
 command; the supervisor injects authenticated loopback connection values through
@@ -76,10 +85,10 @@ Child runtimes never connect to each other. A runtime reports normalized
 to it. The kernel owns cross-runtime delivery and routes an Action to the
 runtime named by its `runtime_id`.
 
-An external compatibility host such as AstrBot or MoFox should initially use
-`kind = "custom"` and an explicit command. Its bridge translates between the
-framework's local event/action objects and these frozen LiteyukiBot models; it
-must not serialize framework objects over IPC.
+This historical route model is not a recommendation for AstrBot. The B7
+AstrBot integration is a broker gateway and must not use `kind = "custom"` or
+`runtime_event_routes`. Other legacy compatibility hosts remain subject to the
+old child-runtime contract until they receive a dedicated broker bridge design.
 
 Configure core-to-child event delivery explicitly:
 

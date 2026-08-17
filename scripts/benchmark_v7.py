@@ -17,11 +17,12 @@ import tempfile
 import time
 import tracemalloc
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from importlib import metadata
 from pathlib import Path
 from typing import Any, Literal, cast
 
 from liteyukibot.app import LiteyukiApp
-from liteyukibot.config import AppSettings, CoreSettings, LoggingSettings
+from liteyukibot.config import AppSettings, CordisSettings, CoreSettings, LoggingSettings, PluginSettings
 from liteyukibot.events import (
     ActionEnvelope,
     ActionResult,
@@ -42,6 +43,141 @@ DEFAULT_FUNCTION_CALLS = 1_000
 DEFAULT_SAMPLES = 3
 
 type WorkloadKind = Literal["independent", "fifo", "action"]
+type BenchmarkProfile = Literal["bare", "installed-first-party"]
+
+_NATIVE_PLUGIN_ENTRY_POINT_GROUP = "liteyukibot.plugins"
+_CORDIS_PLUGIN_ENTRY_POINT_GROUP = "liteyukibot.cordis_plugins"
+_CORDIS_HOST_ENTRY_POINT_GROUP = "liteyukibot.cordis_hosts"
+_BENCHMARK_PROFILES: tuple[BenchmarkProfile, ...] = ("bare", "installed-first-party")
+
+
+def discover_installed_first_party_manifest() -> tuple[dict[str, Any], ...]:
+    """Return a deterministic, import-free extension snapshot for installed packages."""
+
+    installed = tuple(metadata.distributions())
+    cordis_host_count = sum(
+        1
+        for distribution in installed
+        if _is_first_party_distribution(str(distribution.metadata.get("Name", "")))
+        for entry_point in distribution.entry_points
+        if entry_point.group == _CORDIS_HOST_ENTRY_POINT_GROUP
+    )
+    cordis_plugins_enabled = cordis_host_count == 1
+    distributions: list[dict[str, Any]] = []
+    for distribution in installed:
+        name = distribution.metadata.get("Name")
+        if not isinstance(name, str) or not _is_first_party_distribution(name):
+            continue
+        extensions = [
+            {
+                "host": "native" if entry_point.group == _NATIVE_PLUGIN_ENTRY_POINT_GROUP else "cordis",
+                "id": entry_point.name,
+                "enabled": entry_point.group == _NATIVE_PLUGIN_ENTRY_POINT_GROUP or cordis_plugins_enabled,
+            }
+            for entry_point in distribution.entry_points
+            if entry_point.group in {_NATIVE_PLUGIN_ENTRY_POINT_GROUP, _CORDIS_PLUGIN_ENTRY_POINT_GROUP}
+        ]
+        extensions.sort(key=lambda item: (str(item["host"]), str(item["id"])))
+        distributions.append(
+            {
+                "distribution": name,
+                "version": distribution.version,
+                "extensions": extensions,
+            }
+        )
+    distributions.sort(key=_manifest_sort_key)
+    return tuple(distributions)
+
+
+def _is_first_party_distribution(name: str) -> bool:
+    normalized = "".join("-" if character in "_." else character.lower() for character in name)
+    return normalized == "liteyukibot-v7" or normalized.startswith("liteyukibot-v7-")
+
+
+def _validate_profile(profile: str) -> BenchmarkProfile:
+    if profile not in _BENCHMARK_PROFILES:
+        raise ValueError(f"unsupported benchmark profile {profile!r}")
+    return profile
+
+
+def _serialize_extension_manifest(manifest: Sequence[Mapping[str, Any]]) -> str:
+    return json.dumps(manifest, separators=(",", ":"), sort_keys=True)
+
+
+def _parse_extension_manifest(value: str) -> tuple[dict[str, Any], ...]:
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as error:
+        raise ValueError("--extension-manifest must be valid JSON") from error
+    if not isinstance(parsed, list):
+        raise ValueError("--extension-manifest must be a JSON array")
+    if parsed != sorted(parsed, key=_manifest_sort_key):
+        raise ValueError("--extension-manifest must use stable distribution ordering")
+
+    manifest: list[dict[str, Any]] = []
+    for item in parsed:
+        if not isinstance(item, dict):
+            raise ValueError("--extension-manifest entries must be objects")
+        distribution = item.get("distribution")
+        version = item.get("version")
+        extensions = item.get("extensions")
+        if not isinstance(distribution, str) or not isinstance(version, str) or not isinstance(extensions, list):
+            raise ValueError("--extension-manifest entries require distribution, version, and extensions")
+        normalized_extensions: list[dict[str, Any]] = []
+        for extension in extensions:
+            if not isinstance(extension, dict):
+                raise ValueError("--extension-manifest extensions must be objects")
+            host = extension.get("host")
+            extension_id = extension.get("id")
+            enabled = extension.get("enabled")
+            if host not in {"native", "cordis"} or not isinstance(extension_id, str) or not isinstance(enabled, bool):
+                raise ValueError("--extension-manifest extensions require host, id, and enabled")
+            normalized_extensions.append({"host": host, "id": extension_id, "enabled": enabled})
+        ordered_extensions = sorted(
+            extensions,
+            key=lambda extension: (str(extension.get("host")), str(extension.get("id"))),
+        )
+        if extensions != ordered_extensions:
+            raise ValueError("--extension-manifest extensions must use stable ordering")
+        manifest.append({"distribution": distribution, "version": version, "extensions": normalized_extensions})
+    return tuple(manifest)
+
+
+def _manifest_sort_key(item: object) -> tuple[str, str, str]:
+    if not isinstance(item, Mapping):
+        return ("", "", "")
+    distribution = str(item.get("distribution", ""))
+    return (distribution.lower(), str(item.get("version", "")), distribution)
+
+
+def _resolve_profile_manifest(profile: BenchmarkProfile) -> tuple[dict[str, Any], ...]:
+    return () if profile == "bare" else discover_installed_first_party_manifest()
+
+
+def _settings_for_profile(root: Path, profile: BenchmarkProfile, manifest: Sequence[Mapping[str, Any]]) -> AppSettings:
+    native_plugins: list[str] = []
+    cordis_plugins: list[str] = []
+    if profile == "installed-first-party":
+        for distribution in manifest:
+            extensions = distribution.get("extensions", [])
+            if not isinstance(extensions, list):
+                continue
+            for extension in extensions:
+                if not isinstance(extension, Mapping) or extension.get("enabled") is not True:
+                    continue
+                extension_id = extension.get("id")
+                if not isinstance(extension_id, str):
+                    continue
+                if extension.get("host") == "native":
+                    native_plugins.append(extension_id)
+                elif extension.get("host") == "cordis":
+                    cordis_plugins.append(extension_id)
+    return AppSettings(
+        core=CoreSettings(data_dir=root / "data", cache_dir=root / "cache"),
+        logging=LoggingSettings(console=False),
+        plugins=PluginSettings(enabled=tuple(sorted(set(native_plugins)))),
+        cordis=CordisSettings(enabled=tuple(sorted(set(cordis_plugins)))),
+    )
 
 
 async def benchmark_sample(
@@ -50,18 +186,21 @@ async def benchmark_sample(
     function_packs: int,
     functions_per_pack: int,
     function_calls: int,
+    profile: BenchmarkProfile = "bare",
+    extension_manifest: Sequence[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     """Collect one isolated-process sample without spawning a child process."""
 
+    profile = _validate_profile(profile)
+    manifest = tuple(extension_manifest)
+    if profile == "bare" and manifest:
+        raise ValueError("bare benchmark profile must not have an extension manifest")
+    if manifest:
+        manifest = _parse_extension_manifest(_serialize_extension_manifest(manifest))
     started = time.perf_counter()
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
-        app = LiteyukiApp(
-            AppSettings(
-                core=CoreSettings(data_dir=root / "data", cache_dir=root / "cache"),
-                logging=LoggingSettings(console=False),
-            )
-        )
+        app = LiteyukiApp(_settings_for_profile(root, profile, manifest))
         await app.start()
         startup_ms = (time.perf_counter() - started) * 1000
         try:
@@ -90,6 +229,8 @@ async def benchmark_sample(
 
     return {
         "schema": SCHEMA_VERSION,
+        "profile": profile,
+        "extension_manifest": list(manifest),
         "platform": platform.platform(),
         "python": platform.python_version(),
         "event_count": event_count,
@@ -288,6 +429,8 @@ def aggregate_samples(samples: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     return {
         "schema": SCHEMA_VERSION,
         "sample_count": len(samples),
+        "profile": samples[0]["profile"],
+        "extension_manifest": samples[0]["extension_manifest"],
         "platform": samples[0]["platform"],
         "python": samples[0]["python"],
         "event_count": samples[0]["event_count"],
@@ -308,10 +451,12 @@ def aggregate_samples(samples: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
 
 def _validate_samples(samples: Sequence[Mapping[str, Any]]) -> None:
     expected = samples[0]
+    if expected.get("profile") not in _BENCHMARK_PROFILES or "extension_manifest" not in expected:
+        raise ValueError("benchmark samples are missing a valid profile manifest")
     for sample in samples:
         if sample.get("schema") != SCHEMA_VERSION:
             raise ValueError("benchmark sample has an unsupported schema")
-        for key in ("platform", "python", "event_count"):
+        for key in ("platform", "python", "event_count", "profile", "extension_manifest"):
             if sample.get(key) != expected.get(key):
                 raise ValueError(f"benchmark samples disagree on {key}")
         if sample.get("workloads", {}).keys() != expected.get("workloads", {}).keys():
@@ -349,13 +494,18 @@ def run_samples(
     function_packs: int,
     functions_per_pack: int,
     function_calls: int,
+    profile: BenchmarkProfile = "bare",
 ) -> dict[str, Any]:
+    profile = _validate_profile(profile)
+    extension_manifest = _resolve_profile_manifest(profile)
     measurements = [
         _run_child_sample(
             event_count=event_count,
             function_packs=function_packs,
             functions_per_pack=functions_per_pack,
             function_calls=function_calls,
+            profile=profile,
+            extension_manifest=extension_manifest,
         )
         for _ in range(samples)
     ]
@@ -368,7 +518,13 @@ def _run_child_sample(
     function_packs: int,
     functions_per_pack: int,
     function_calls: int,
+    profile: BenchmarkProfile = "bare",
+    extension_manifest: Sequence[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
+    profile = _validate_profile(profile)
+    manifest = _parse_extension_manifest(_serialize_extension_manifest(extension_manifest))
+    if profile == "bare" and manifest:
+        raise ValueError("bare benchmark profile must not have an extension manifest")
     command = [
         sys.executable,
         str(Path(__file__).resolve()),
@@ -381,6 +537,10 @@ def _run_child_sample(
         str(functions_per_pack),
         "--function-calls",
         str(function_calls),
+        "--profile",
+        profile,
+        "--extension-manifest",
+        _serialize_extension_manifest(manifest),
     ]
     completed = subprocess.run(command, check=True, capture_output=True, text=True)
     parsed = json.loads(completed.stdout)
@@ -435,6 +595,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--functions-per-pack", type=int, default=DEFAULT_FUNCTIONS_PER_PACK)
     parser.add_argument("--function-calls", type=int, default=DEFAULT_FUNCTION_CALLS)
     parser.add_argument("--samples", type=int, default=DEFAULT_SAMPLES)
+    parser.add_argument("--profile", choices=_BENCHMARK_PROFILES, default="bare")
+    parser.add_argument("--extension-manifest", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--sample", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--output", type=Path, default=Path("benchmark.json"))
     return parser
@@ -449,12 +611,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.samples < 1:
         _parser().error("--samples must be at least 1")
     if args.sample:
+        profile = _validate_profile(args.profile)
+        extension_manifest = (
+            _resolve_profile_manifest(profile)
+            if args.extension_manifest is None
+            else _parse_extension_manifest(args.extension_manifest)
+        )
+        if profile == "bare" and extension_manifest:
+            _parser().error("bare benchmark profile must not have an extension manifest")
         result = asyncio.run(
             benchmark_sample(
                 args.events,
                 function_packs=args.function_packs,
                 functions_per_pack=args.functions_per_pack,
                 function_calls=args.function_calls,
+                profile=profile,
+                extension_manifest=extension_manifest,
             )
         )
         print(json.dumps(result, separators=(",", ":")))
@@ -465,6 +637,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         function_packs=args.function_packs,
         functions_per_pack=args.functions_per_pack,
         function_calls=args.function_calls,
+        profile=_validate_profile(args.profile),
     )
     args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(result, indent=2))

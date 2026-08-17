@@ -1,19 +1,22 @@
 # Broker Peer IPC v6
 
 - Specification version: `6`
-- Applies to: the implemented B5 standalone broker peer contract, the B5-4
-  NoneBot bridge, and the B5-5 in-process kernel peer.
+- Applies to: the B7 standalone broker peer contract, its stable NoneBot
+  bridge, experimental AstrBot gateway, and in-process kernel peer.
 - Compatibility: pre-stable hard cut. This contract is not interoperable with
   the former child-supervisor Runtime IPC v1 through v5 catalog.
 
 ## Scope And Status
 
-The implemented B5 service is a standalone broker. It registers independent
+The implemented B7 service is a standalone broker. It registers independent
 bridge peers and routes their JSON-safe messages; it does not launch,
 configure, supervise, or restart framework processes. Bridge processes own
 their framework lifecycle and are discovered through the
-`liteyukibot.bridges` entry-point group. The B5-4 NoneBot bridge is the first
-production bridge and is started with `liteyuki bridge run <bridge-id>`.
+`liteyukibot.bridges` entry-point group. Each entry point returns a validated
+`BridgeDefinition(kind, grade, distribution, launch)`. The stable NoneBot
+bridge and experimental AstrBot gateway are started with `liteyuki bridge run
+<bridge-id>`; a support grade describes release qualification, not a different
+wire protocol.
 
 `kind = "kernel"` is a reserved in-process bridge, not an entry-point package
 or a process launched with `liteyuki bridge run`. When present, `LiteyukiApp`
@@ -57,6 +60,31 @@ The control catalog is:
 | 602 | `bridge.rejected` |
 | 603 | `bridge.unregister` |
 | 604 | `bridge.unregistered` |
+| 605 | `broker.diagnostics.status` |
+| 606 | `broker.diagnostics.list` |
+| 607 | `broker.diagnostics.detail` |
+| 608 | `broker.diagnostics.status.result` |
+| 609 | `broker.diagnostics.list.result` |
+| 610 | `broker.diagnostics.detail.result` |
+
+Type IDs are scoped by LYIP lane. The control-plane diagnostic result at 610
+therefore does not collide with the business-plane `event.ingress` type below.
+
+### Read-only diagnostics
+
+Diagnostics are authenticated independently of bridge registration with the
+vault secret named by `broker.diagnostics_token_secret`; reusing a configured
+bridge token is rejected. The requests and results above use the existing
+`control` lane only, with the dedicated `broker:diagnostics:control` stream.
+They never register a bridge or send a business frame.
+
+`status` reports current bounded-ledger capacities and registered bridge IDs.
+`list` accepts an opaque cursor and optional state/topic/source/target/failure
+filters, and returns at most 500 redacted rows. `detail` returns one retained
+event row plus its bounded lifecycle transitions. Diagnostics redact payloads,
+credentials, raw action data, and raw source event IDs. This is an observation
+surface only: it adds no persistence, replay, retry, delivery mutation, or
+cross-process deadline contract.
 
 ## Business Catalog
 
@@ -137,7 +165,7 @@ class and prefix length are rejected as ambiguous. Registration also rejects
 an exact resource declaration already owned by a live bridge in the same access
 class. There is no fallback to a lower access class after a same-class conflict.
 
-### B5-4 portable action
+### B7 portable action
 
 The first portable action is `message.send`. Its resource key is
 `bot:<owner-bridge-id>:<bot-id>`, and its payload contains a protocol-neutral
@@ -145,7 +173,7 @@ The first portable action is `message.send`. Its resource key is
 `CallApi`, message editing, and decorator-based function APIs are outside this
 version of the contract.
 
-### B5-5 kernel peer dispatch
+### B7 kernel peer dispatch
 
 The kernel peer validates a delivered payload as an `EventEnvelope`, requires
 its payload `id` to equal `source_event_id` and its `runtime_id` to equal the
@@ -155,10 +183,10 @@ therefore see broker-issued event identities while retaining the source bridge
 as the event runtime identity.
 
 While that EventBus dispatch is active, the peer may translate a native
-`SendMessage` action into the B5 portable `message.send` request. Its resource
+`SendMessage` action into the B7 portable `message.send` request. Its resource
 key is resolved against the event's authenticated source bridge; the kernel
 does not own action resources. `CallApi`, `EditMessage`, and locally injected
-events have no B5-5 broker action path.
+events have no B7 broker action path.
 
 ## Evidence
 

@@ -26,3 +26,62 @@ export type WebUiPresentation = {
   messages: Record<string, string>;
   webui_version: string;
 };
+
+export type EventDeliveryFilters = Partial<Record<"state" | "topic" | "source" | "target" | "failure", string>>;
+
+export type EventDeliveryBridge = {
+  id: string;
+  state: string;
+  session_state?: string;
+};
+
+export type EventDeliveryBroker = {
+  state: string;
+  generation?: string | number;
+  active: number;
+  active_capacity: number;
+  terminal: number;
+  terminal_capacity: number;
+  bridges: EventDeliveryBridge[];
+};
+
+export type EventDeliveryRecord = {
+  id: string;
+  topic: string;
+  source: string;
+  ordering_key?: string;
+  status: string;
+  target_count?: number;
+  failed_count?: number;
+  failure_code?: string;
+  observed_at?: string;
+  terminal_at?: string;
+};
+
+export type EventDeliveryTransition = {
+  at: string;
+  phase: string;
+  state: string;
+  target?: string;
+  code?: string;
+};
+
+export type EventDeliveryAttempt = {
+  id?: string;
+  target: string;
+  state: string;
+  attempt?: number;
+  failure_code?: string;
+  updated_at?: string;
+};
+
+export type EventDeliveryDetail = EventDeliveryRecord & {
+  deliveries: EventDeliveryAttempt[];
+  timeline: EventDeliveryTransition[];
+};
+
+export type EventDeliveryPage = {
+  broker: EventDeliveryBroker;
+  items: EventDeliveryRecord[];
+  next_cursor: string | null;
+};

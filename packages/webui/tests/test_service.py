@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterable
+from collections.abc import AsyncIterable, Mapping
 from pathlib import Path
 
 import pytest
@@ -14,6 +14,7 @@ class Bridge:
     def __init__(self) -> None:
         self.principal = WebUiPrincipal("local-admin", frozenset({"runtime.control"}))
         self.submissions: list[JsonObject] = []
+        self.event_delivery_queries: list[tuple[dict[str, str], str | None, int]] = []
 
     async def issue_ticket(self) -> str:
         return "unused"
@@ -51,6 +52,35 @@ class Bridge:
 
     async def plugin_surfaces(self, _principal: WebUiPrincipal) -> JsonObject:
         return {"generation": 1, "surfaces": []}
+
+    async def event_deliveries(
+        self, _principal: WebUiPrincipal, filters: Mapping[str, str], cursor: str | None, limit: int
+    ) -> JsonObject:
+        self.event_delivery_queries.append((dict(filters), cursor, limit))
+        return {
+            "broker": {
+                "state": "ready",
+                "active": 1,
+                "active_capacity": 32,
+                "terminal": 2,
+                "terminal_capacity": 128,
+                "bridges": [],
+            },
+            "items": [{"id": "event-1", "topic": "message.created", "source": "source:abc", "status": "delivered"}],
+            "next_cursor": None,
+        }
+
+    async def event_delivery(self, _principal: WebUiPrincipal, event_id: str) -> JsonObject | None:
+        if event_id != "event-1":
+            return None
+        return {
+            "id": event_id,
+            "topic": "message.created",
+            "source": "source:abc",
+            "status": "delivered",
+            "deliveries": [],
+            "timeline": [],
+        }
 
     async def replay_events(
         self, _principal: WebUiPrincipal, after_id: str | None, limit: int
@@ -134,6 +164,50 @@ def test_loopback_origin_and_host_are_enforced(tmp_path: Path) -> None:
     assert client.post(
         "/api/v1/session", json={"ticket": "ticket"}, headers={"Origin": "http://example.test"}
     ).json() == {"error": {"code": "webui.invalid_origin"}}
+
+
+def test_event_deliveries_are_authenticated_and_filter_inputs_are_bounded(tmp_path: Path) -> None:
+    client, bridge = _client(tmp_path)
+    assert client.get("/api/v1/event-deliveries").json() == {"error": {"code": "webui.session_required"}}
+    _session(client)
+
+    response = client.get(
+        "/api/v1/event-deliveries",
+        params={
+            "state": "delivered",
+            "topic": "message.created",
+            "source": "source:abc",
+            "limit": 20,
+            "cursor": "next",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["items"][0]["source"] == "source:abc"
+    assert bridge.event_delivery_queries == [
+        ({"state": "delivered", "topic": "message.created", "source": "source:abc"}, "next", 20)
+    ]
+    assert client.get("/api/v1/event-deliveries", params={"failure": ""}).json() == {
+        "error": {"code": "webui.invalid_event_delivery_filter"}
+    }
+    assert client.get("/api/v1/event-deliveries", params={"limit": 501}).json() == {
+        "error": {"code": "webui.invalid_page_size"}
+    }
+
+
+def test_event_delivery_detail_hides_missing_records_behind_a_stable_code(tmp_path: Path) -> None:
+    client, _bridge = _client(tmp_path)
+    _session(client)
+
+    detail = client.get("/api/v1/event-deliveries/event-1")
+    assert detail.status_code == 200
+    assert detail.json()["id"] == "event-1"
+    assert client.get("/api/v1/event-deliveries/missing").json() == {
+        "error": {"code": "webui.event_delivery_not_found"}
+    }
+    assert client.get(f"/api/v1/event-deliveries/{'x' * 257}").json() == {
+        "error": {"code": "webui.invalid_event_delivery_id"}
+    }
 
 
 def test_sse_replay_and_reset_are_protocol_events(tmp_path: Path) -> None:

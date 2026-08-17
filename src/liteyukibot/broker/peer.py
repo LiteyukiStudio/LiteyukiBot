@@ -19,6 +19,9 @@ from .protocol import (
     BridgeRejected,
     BridgeUnregister,
     BridgeUnregistered,
+    BrokerDiagnosticsDetail,
+    BrokerDiagnosticsList,
+    BrokerDiagnosticsStatus,
     BrokerWireError,
     BrokerWireMessage,
     decode_broker_message,
@@ -75,6 +78,7 @@ class BrokerPeerService:
         terminal_ttl_seconds: float = 3600.0,
         delivery_timeout_seconds: float = 30.0,
         monotonic: Callable[[], float] | None = None,
+        diagnostics_token: str | None = None,
     ) -> None:
         if generation < 1:
             raise ValueError("broker LYIP generation must be positive")
@@ -105,6 +109,23 @@ class BrokerPeerService:
                 delivery_timeout_seconds=delivery_timeout_seconds,
                 monotonic=monotonic,
             )
+        normalized_diagnostics_token = diagnostics_token.strip() if diagnostics_token is not None else None
+        if normalized_diagnostics_token == "":
+            raise ValueError("broker diagnostics token must be non-empty when configured")
+        if normalized_diagnostics_token is not None and any(
+            hmac.compare_digest(normalized_diagnostics_token, token) for token in self._instance_tokens.values()
+        ):
+            raise ValueError("broker diagnostics token must not reuse a bridge instance token")
+        if normalized_diagnostics_token is None:
+            self._diagnostics = None
+        else:
+            from .diagnostics import BrokerDiagnostics
+
+            self._diagnostics = BrokerDiagnostics(
+                ledger=self.ledger,
+                generation=generation,
+                token=normalized_diagnostics_token,
+            )
 
     @property
     def sessions(self) -> tuple[BridgeSession, ...]:
@@ -128,11 +149,48 @@ class BrokerPeerService:
             return self._register(peer_identity, frame, message)
         if isinstance(message, BridgeUnregister):
             return self._unregister(peer_identity, frame, message)
+        if isinstance(message, (BrokerDiagnosticsStatus, BrokerDiagnosticsList, BrokerDiagnosticsDetail)):
+            return self._diagnostics_reply(peer_identity, frame, message)
         return self._reply(
             peer_identity,
             frame,
             BridgeRejected(code="unexpected_message", message="bridge sent a broker-only response message"),
         )
+
+    def _diagnostics_reply(
+        self,
+        peer_identity: bytes,
+        frame: LyipFrame,
+        message: BrokerDiagnosticsStatus | BrokerDiagnosticsList | BrokerDiagnosticsDetail,
+    ) -> LyipFrame:
+        from .routing import BrokerAdmissionError
+
+        if self._diagnostics is None:
+            return self._reply(
+                peer_identity,
+                frame,
+                BridgeRejected(code="diagnostics_disabled", message="broker diagnostics are not configured"),
+            )
+        if not self._diagnostics.authenticate(message.token):
+            return self._reply(
+                peer_identity,
+                frame,
+                BridgeRejected(code="invalid_diagnostics_token", message="diagnostics token is invalid"),
+            )
+        try:
+            if isinstance(message, BrokerDiagnosticsStatus):
+                response: BrokerWireMessage = self._diagnostics.status(
+                    tuple(session.bridge_id for session in self.sessions)
+                )
+            elif isinstance(message, BrokerDiagnosticsList):
+                response = self._diagnostics.list_events(message)
+            else:
+                response = self._diagnostics.detail(message.event_id)
+        except ValueError:
+            response = BridgeRejected(code="invalid_diagnostics_request", message="diagnostics request is invalid")
+        except BrokerAdmissionError as error:
+            response = BridgeRejected(code=error.code, message="diagnostics event is not retained")
+        return self._reply(peer_identity, frame, response)
 
     def require_business_peer(self, peer_identity: bytes, frame: LyipFrame) -> BridgeSession:
         """Validate identity plus an opaque session-bound stream before B5 delivery work."""
@@ -385,6 +443,7 @@ class BrokerPeerServer:
         terminal_ttl_seconds: float = 3600.0,
         delivery_timeout_seconds: float = 30.0,
         monotonic: Callable[[], float] | None = None,
+        diagnostics_token: str | None = None,
     ) -> None:
         self.router = ZmqLyipRouter(
             context=context,
@@ -401,6 +460,7 @@ class BrokerPeerServer:
             terminal_ttl_seconds=terminal_ttl_seconds,
             delivery_timeout_seconds=delivery_timeout_seconds,
             monotonic=monotonic,
+            diagnostics_token=diagnostics_token,
         )
         self._business_sequences: dict[tuple[bytes, str], int] = {}
 

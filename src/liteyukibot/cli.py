@@ -19,12 +19,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import zmq.asyncio
 from filelock import FileLock, Timeout
 from tomli_w import dumps as dump_toml
 
 from . import __version__
 from .app import LiteyukiApp
-from .broker import configured_kernel_bridge
+from .broker import BrokerDiagnosticsClient, configured_kernel_bridge
 from .broker.service import BridgeCatalog, BrokerService, bridge_token_from_vault
 from .config import (
     AppSettings,
@@ -64,6 +65,19 @@ def build_parser() -> argparse.ArgumentParser:
     broker = subcommands.add_parser("broker", help="run the standalone local broker")
     broker_commands = broker.add_subparsers(dest="broker_command", required=True)
     broker_commands.add_parser("run", help="serve configured bridge peers")
+    broker_inspect = broker_commands.add_parser("inspect", help="read-only broker delivery diagnostics")
+    broker_inspect_commands = broker_inspect.add_subparsers(dest="broker_inspect_command", required=True)
+    broker_inspect_commands.add_parser("status")
+    broker_events = broker_inspect_commands.add_parser("events")
+    broker_events.add_argument("--cursor")
+    broker_events.add_argument("--limit", type=int, default=100)
+    broker_events.add_argument("--state")
+    broker_events.add_argument("--topic")
+    broker_events.add_argument("--source")
+    broker_events.add_argument("--target")
+    broker_events.add_argument("--failure")
+    broker_event = broker_inspect_commands.add_parser("event")
+    broker_event.add_argument("event_id")
     bridge = subcommands.add_parser("bridge", help="launch one configured broker bridge")
     bridge_commands = bridge.add_subparsers(dest="bridge_command", required=True)
     bridge_run = bridge_commands.add_parser("run", help="launch one bridge through its package entry point")
@@ -214,7 +228,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 return _run_worker(settings, workspace)
             return _run(settings, workspace, args)
         if args.command == "broker":
-            return asyncio.run(_broker_command(settings, workspace))
+            return asyncio.run(_broker_command(settings, workspace, args))
         if args.command == "bridge":
             return asyncio.run(_bridge_command(settings, workspace, args.bridge_id))
         if args.command in {"check", "config"}:
@@ -637,6 +651,8 @@ def _runtime_secrets(settings: AppSettings, workspace: ConfigWorkspace) -> dict[
     configured_kernel = configured_kernel_bridge(settings)
     if configured_kernel is not None:
         names.add(configured_kernel[1].token_secret)
+    if settings.broker.diagnostics_token_secret is not None:
+        names.add(settings.broker.diagnostics_token_secret)
     if not names:
         return {}
     values = SecretVault(workspace.management_directory).read(_vault_password(workspace))
@@ -646,14 +662,44 @@ def _runtime_secrets(settings: AppSettings, workspace: ConfigWorkspace) -> dict[
     return {name: values[name] for name in names}
 
 
-async def _broker_command(settings: AppSettings, workspace: ConfigWorkspace) -> int:
-    service = BrokerService.from_vault(
-        settings,
-        SecretVault(workspace.management_directory),
-        _vault_password(workspace),
+async def _broker_command(settings: AppSettings, workspace: ConfigWorkspace, args: argparse.Namespace) -> int:
+    vault = SecretVault(workspace.management_directory)
+    password = _vault_password(workspace)
+    if args.broker_command == "run":
+        await BrokerService.from_vault(settings, vault, password).run_until_cancelled()
+        return 0
+    token_secret = settings.broker.diagnostics_token_secret
+    if token_secret is None:
+        raise RuntimeError("broker diagnostics are disabled; configure broker.diagnostics_token_secret")
+    diagnostics_token = vault.read(password).get(token_secret)
+    if diagnostics_token is None:
+        raise RuntimeError("broker diagnostics secret is absent from the vault")
+    client = BrokerDiagnosticsClient.from_broker_endpoint(
+        context=zmq.asyncio.Context.instance(),
+        endpoint=settings.broker.endpoint,
+        generation=settings.broker.generation,
+        identity=f"liteyuki-cli:{settings.broker.generation}".encode(),
+        diagnostics_token=diagnostics_token,
     )
-    await service.run_until_cancelled()
-    return 0
+    try:
+        if args.broker_inspect_command == "status":
+            result: Any = await client.status()
+        elif args.broker_inspect_command == "events":
+            result = await client.list_events(
+                cursor=args.cursor,
+                limit=args.limit,
+                state=args.state,
+                topic=args.topic,
+                source=args.source,
+                target=args.target,
+                failure=args.failure,
+            )
+        else:
+            result = await client.detail(args.event_id)
+        print(result.model_dump_json())
+        return 0
+    finally:
+        client.close()
 
 
 async def _bridge_command(settings: AppSettings, workspace: ConfigWorkspace, bridge_id: str) -> int:
@@ -708,6 +754,12 @@ def _run(settings: AppSettings, workspace: ConfigWorkspace, args: argparse.Names
     )
     command = _daemon_worker_command(workspace, args)
     environment = {"LITEYUKI_RUNTIME_SECRETS": json.dumps(secrets)}
+    diagnostics_token = None
+    if (diagnostics_name := settings.broker.diagnostics_token_secret) is not None:
+        diagnostics_token = secrets.pop(diagnostics_name, None)
+        if diagnostics_token is None:
+            raise ValueError("broker diagnostics secret is absent from the vault")
+        environment["LITEYUKI_RUNTIME_SECRETS"] = json.dumps(secrets)
     try:
         with _exclusive_daemon(paths):
             return asyncio.run(
@@ -723,6 +775,9 @@ def _run(settings: AppSettings, workspace: ConfigWorkspace, args: argparse.Names
                     validate_configuration=lambda: _validate_instance_configuration(
                         workspace, args.config, args.overrides, args.instance
                     ),
+                    broker_endpoint=settings.broker.endpoint,
+                    broker_generation=settings.broker.generation,
+                    broker_diagnostics_token=diagnostics_token,
                 ).run()
             )
     except KeyboardInterrupt:
@@ -731,6 +786,8 @@ def _run(settings: AppSettings, workspace: ConfigWorkspace, args: argparse.Names
 
 def _run_worker(settings: AppSettings, workspace: ConfigWorkspace) -> int:
     runtime_secrets = _worker_runtime_secrets()
+    if (diagnostics_name := settings.broker.diagnostics_token_secret) is not None:
+        runtime_secrets.pop(diagnostics_name, None)
     try:
         with _exclusive_data_directory(settings.core.data_dir):
             asyncio.run(_run_until_signal(settings, runtime_secrets, workspace.directory))

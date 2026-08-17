@@ -23,7 +23,7 @@ from .broker import KernelBrokerPeer, configured_kernel_bridge
 from .capabilities import ADAPTER_CALL_API, AGENT_HISTORY_CLEAR, PERMISSION_SERVICE_MAJOR, PERMISSION_SERVICE_NAME
 from .config import AppSettings, RuntimeEventRoute
 from .control import ControlServer
-from .cordis_host import CordisHost, discover_cordis_host
+from .cordis_host import CordisHost, discover_cordis_host, validate_extension_topology
 from .events import ActionEnvelope, ActionResult, CallApi, EventBus, EventEnvelope
 from .functions import FUNCTION_DISPATCH_SERVICE, FunctionDispatcher
 from .http import HttpServer
@@ -430,6 +430,16 @@ class LiteyukiApp:
                 self.settings.plugins.enabled,
                 self.settings.plugins.local_modules,
             )
+            self._cordis_host = discover_cordis_host(
+                self.settings.cordis,
+                events=self.events,
+                actions=self.actions,
+                logger=self.logger,
+            )
+            validate_extension_topology(
+                self.plugins.identities(definitions),
+                self._cordis_host.plugin_identities if self._cordis_host is not None else (),
+            )
             declarations = tuple(
                 declaration
                 for definition in definitions.values()
@@ -460,12 +470,6 @@ class LiteyukiApp:
             await self.runtimes.start()
             self._runtimes_started = True
             await self.plugins.start()
-            self._cordis_host = discover_cordis_host(
-                self.settings.cordis,
-                events=self.events,
-                actions=self.actions,
-                logger=self.logger,
-            )
             if self._cordis_host is not None:
                 await self._cordis_host.start()
             if self._configured_kernel_bridge is not None:

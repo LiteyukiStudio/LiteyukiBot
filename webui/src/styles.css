@@ -144,6 +144,9 @@ button, input { font: inherit; }
 .webui-theme-swatch--blue { background: #4fb3ff; }
 .webui-theme-swatch--lavender { background: #aa6bff; }
 .webui-theme-swatch--cyan { background: #1ec9b0; }
+.webui-event-delivery-error { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 12px; border: 1px solid var(--status-attention-border); border-radius: 8px; background: var(--status-attention); color: var(--foreground); font-size: 12px; }
+.webui-event-delivery-error code { max-width: 100%; overflow-wrap: anywhere; color: var(--muted-foreground); font-family: var(--font-mono); font-size: 11px; }
+.webui-event-delivery-bridge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--muted); }
 html.webui-theme-transition,
 html.webui-theme-transition body,
 html.webui-theme-transition .webui-sidebar,
