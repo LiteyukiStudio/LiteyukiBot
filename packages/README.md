@@ -10,7 +10,10 @@ packages directly.
 - `permissions`, `commands`, `resources`, `profile`, and `essentials` are
   native plugin/service packages.
 - `functions` is the separate executor for documented v6 resource functions.
-- `runtime-*` packages are supervised child-runtime hosts.
+- `runtime-*` packages are supervised child-runtime hosts. The former
+  `runtime-cordis` Rust/PyO3 package was rejected and has been removed.
+- `cordis` is the independent Python in-process composition package introduced
+  by Beta6; the root kernel discovers it through host entry points.
 - `adapter-onebot` is a platform adapter loaded by `runtime-adapter`.
 - `agent` and `agent-resolver` provide the native agent runtime and its
   declarative resolver.

@@ -95,6 +95,8 @@ class ConfigWorkspace:
         locale: str = "auto",
         plugins: tuple[str, ...] = (),
         plugin_config: dict[str, dict[str, Any]] | None = None,
+        cordis_plugins: tuple[str, ...] = (),
+        cordis_config: dict[str, Any] | None = None,
         runtimes: dict[str, dict[str, Any]] | None = None,
         runtime_event_routes: tuple[dict[str, Any], ...] = (),
     ) -> Path:
@@ -121,6 +123,8 @@ class ConfigWorkspace:
             locale=locale,
             plugins=plugins,
             plugin_config=plugin_config,
+            cordis_plugins=cordis_plugins,
+            cordis_config=cordis_config,
         )
         AppSettings.model_validate(tomllib.loads(rendered))
         self.path.write_text(rendered, encoding="utf-8")

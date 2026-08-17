@@ -22,6 +22,8 @@ def render_config_template(
     locale: str = "auto",
     plugins: Iterable[str] = (),
     plugin_config: dict[str, dict[str, Any]] | None = None,
+    cordis_plugins: Iterable[str] = (),
+    cordis_config: dict[str, Any] | None = None,
     runtimes: dict[str, dict[str, Any]] | None = None,
     runtime_event_routes: Iterable[dict[str, Any]] = (),
 ) -> str:
@@ -47,6 +49,10 @@ def render_config_template(
             "enabled": list(plugins),
             "local_modules": [],
             "config": plugin_config or {},
+        },
+        "cordis": {
+            "enabled": list(cordis_plugins),
+            "config": cordis_config or {},
         },
         "http": {"enabled": False, "host": "127.0.0.1", "port": 20216},
         "daemon": {

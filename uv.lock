@@ -18,6 +18,7 @@ members = [
     "liteyukibot-v7-agent",
     "liteyukibot-v7-agent-resolver",
     "liteyukibot-v7-commands",
+    "liteyukibot-v7-cordis",
     "liteyukibot-v7-essentials",
     "liteyukibot-v7-functions",
     "liteyukibot-v7-ipc-native",
@@ -1457,6 +1458,17 @@ requires-dist = [
     { name = "liteyukibot-v7", editable = "." },
     { name = "liteyukibot-v7-permissions", editable = "packages/permissions" },
 ]
+
+[[package]]
+name = "liteyukibot-v7-cordis"
+version = "0.1.0b6"
+source = { editable = "packages/cordis" }
+dependencies = [
+    { name = "liteyukibot-v7" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "liteyukibot-v7", editable = "." }]
 
 [[package]]
 name = "liteyukibot-v7-essentials"
