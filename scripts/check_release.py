@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+_ALPHA_VERSION = re.compile(r"a\d+(?:[.+-]|$)", re.IGNORECASE)
 
 
 @dataclass(frozen=True, slots=True)
@@ -207,6 +209,7 @@ def validate_release(
     *,
     project: ReleaseProject = RELEASE_PROJECTS["root"],
     tag: str | None = None,
+    reject_alpha: bool = False,
 ) -> None:
     if identity.distribution != project.distribution:
         raise RuntimeError(f"expected project.name={project.distribution!r}, got {identity.distribution!r}")
@@ -214,6 +217,8 @@ def validate_release(
         expected_tag = f"{project.tag_prefix}{identity.version}"
         if tag != expected_tag:
             raise RuntimeError(f"expected release tag {expected_tag!r}, got {tag!r}")
+    if reject_alpha and _ALPHA_VERSION.search(identity.version):
+        raise RuntimeError("Alpha releases must use the signed GitHub bundle workflow, not PyPI")
 
 
 def _result(project: ReleaseProject, identity: ReleaseIdentity) -> dict[str, str]:
@@ -231,6 +236,7 @@ def main() -> int:
     parser.add_argument("--package", choices=tuple(RELEASE_PROJECTS))
     parser.add_argument("--tag")
     parser.add_argument("--github-output", type=Path)
+    parser.add_argument("--reject-alpha", action="store_true")
     args = parser.parse_args()
 
     if args.package is not None:
@@ -240,7 +246,7 @@ def main() -> int:
     else:
         project = RELEASE_PROJECTS["root"]
     identity = read_release_identity(project.project_file)
-    validate_release(identity, project=project, tag=args.tag)
+    validate_release(identity, project=project, tag=args.tag, reject_alpha=args.reject_alpha)
     result = _result(project, identity)
 
     if args.github_output is not None:

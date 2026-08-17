@@ -26,24 +26,24 @@ def test_kernel_import_namespace_uses_distribution_version() -> None:
 @pytest.mark.parametrize(
     ("name", "tag"),
     [
-        ("root", "v7.0.0b2"),
+        ("root", "v7.0.0a1"),
         ("permissions", "permissions-v0.2.0a2"),
         ("commands", "commands-v0.2.0a2"),
         ("resources", "resources-v0.1.0a2"),
         ("functions", "functions-v0.1.0a2"),
         ("profile", "profile-v0.1.0a2"),
         ("essentials", "essentials-v0.2.0a3"),
-        ("runtime-nonebot", "runtime-nonebot-v0.1.0a1"),
-        ("runtime-adapter", "runtime-adapter-v0.1.0a2"),
+        ("runtime-nonebot", "runtime-nonebot-v7.0.0a1"),
+        ("runtime-adapter", "runtime-adapter-v7.0.0a1"),
         ("adapter-onebot", "adapter-onebot-v0.1.0a1"),
         ("adapter-satori", "adapter-satori-v0.1.0a2"),
         ("runtime-v6", "runtime-v6-v0.1.0a2"),
         ("agent-resolver", "agent-resolver-v0.1.0a1"),
         ("agent", "agent-v0.1.0a9"),
-        ("runtime-astrbot", "runtime-astrbot-v0.1.0a7"),
+        ("runtime-astrbot", "runtime-astrbot-v7.0.0a1"),
         ("runtime-mofox", "runtime-mofox-v0.1.0a8"),
-        ("webui", "webui-v0.1.0b4"),
-        ("ipc-native", "ipc-native-v0.1.0b3"),
+        ("webui", "webui-v7.0.0a1"),
+        ("ipc-native", "ipc-native-v7.0.0a1"),
     ],
 )
 def test_current_release_identities_accept_exact_tags(name: str, tag: str) -> None:
@@ -76,6 +76,16 @@ def test_release_identity_rejects_mismatches(
 ) -> None:
     with pytest.raises(RuntimeError, match=message):
         validate_release(identity, project=RELEASE_PROJECTS[project_name], tag=tag)
+
+
+def test_release_identity_rejects_alpha_from_pypi_workflows() -> None:
+    with pytest.raises(RuntimeError, match="signed GitHub bundle"):
+        validate_release(
+            ReleaseIdentity("liteyukibot-v7", "7.0.0a1"),
+            project=RELEASE_PROJECTS["root"],
+            tag="v7.0.0a1",
+            reject_alpha=True,
+        )
 
 
 @pytest.mark.parametrize("tag", ["v6.9.0", "plugin-v0.1.0", ""])

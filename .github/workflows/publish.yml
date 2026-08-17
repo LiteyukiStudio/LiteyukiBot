@@ -30,7 +30,7 @@ jobs:
       - name: Require published Yukilog 1.x
         run: uv run --no-project --python 3.14 --with "yukilog>=1,<2" python -c "import yukilog"
       - name: Validate release identity
-        run: uv run --no-project --python 3.14 python scripts/check_release.py --tag "$RELEASE_TAG"
+        run: uv run --no-project --python 3.14 python scripts/check_release.py --tag "$RELEASE_TAG" --reject-alpha
       - name: Build distribution
         run: |
           uv build

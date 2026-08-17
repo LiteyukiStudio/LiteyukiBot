@@ -9,7 +9,7 @@ authors = [
     { name = "LiteyukiStudio" },
 ]
 dependencies = [
-    "liteyukibot-v7>=7.0.0a15,<8",
+    "liteyukibot-v7>=7.0.0a1,<8",
 ]
 
 [project.entry-points."liteyukibot.runtimes"]
