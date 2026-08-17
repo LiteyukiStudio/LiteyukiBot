@@ -39,8 +39,31 @@ configured PyPI Trusted Publisher environment. SBOMs, checksum manifests, and
 other release evidence are retained as workflow artifacts rather than uploaded
 as distributions.
 
+## Alpha Bundle
+
+The source Alpha 1 contract uses the exact `7.0.0a1` version for the kernel,
+Native IPC, Cordis, NoneBot bridge, AstrBot bridge, generic adapter bridge, and
+WebUI. The DevCLI identifier is reserved in the bundle inventory but has no
+artifact in Alpha 1. Independent business packages do not join this lockstep
+set.
+
+`scripts/alpha_release.py` validates source metadata, writes canonical UTF-8
+`artifacts.manifest.json`, and writes the deterministic CycloneDX 1.5
+`sbom.cdx.json`. The manifest records tag, common version, frozen LYIP v2 /
+Runtime IPC v6 / broker v6 / configuration v5 baselines, inventory, artifact
+metadata, sizes, and SHA-256 hashes. Its Sigstore sidecar is named
+`artifacts.manifest.sigstore.json` and must verify the GitHub OIDC issuer,
+repository, Alpha workflow path, and exact tag.
+
+`.github/workflows/alpha-release.yaml` is the only Alpha publication path. It
+builds the lockstep bundle, validates it in a fresh directory, exercises every
+staged install verifier, and uploads assets to an immutable GitHub Release. It
+never calls `uv publish`. The historical PyPI workflows call
+`scripts/check_release.py --reject-alpha` before building, so an Alpha version
+cannot reach their publish steps.
+
 ## Evidence
 
 Run `uv build --all-packages --out-dir dist/workspace --clear`,
 `uv run python -m scripts.run_webui_install`, and
-`uv run pytest tests/test_release_v7.py`.
+`uv run pytest tests/test_release_v7.py tests/test_alpha_release.py`.

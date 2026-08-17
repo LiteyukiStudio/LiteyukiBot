@@ -106,11 +106,11 @@ from the PyPI JSON endpoint is expected before the first trusted upload; an
 existing project owned elsewhere is a release blocker, not a reason to rename a
 distribution inside the workflow.
 
-## Historical Identities
+## Historical B7 Identities
 
 | Package | Source | Tag |
 | --- | --- | --- |
-| `liteyukibot-v7==7.0.0b2` | `pyproject.toml` | `v7.0.0b2` |
+| `liteyukibot-v7==7.0.0b2` | historical B7 release metadata | `v7.0.0b2` |
 | `liteyukibot-v7-permissions==0.2.0a2` | `packages/permissions` | `permissions-v0.2.0a2` |
 | `liteyukibot-v7-commands==0.2.0a2` | `packages/commands` | `commands-v0.2.0a2` |
 | `liteyukibot-v7-resources==0.1.0a2` | `packages/resources` | `resources-v0.1.0a2` |

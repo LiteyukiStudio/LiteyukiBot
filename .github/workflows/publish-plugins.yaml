@@ -83,7 +83,7 @@ jobs:
         id: release
         run: >-
           uv run --no-project --python 3.14 python scripts/check_release.py
-          --tag "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT"
+          --tag "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT" --reject-alpha
       - name: Build plugin distribution
         run: |
           if [[ "${{ steps.release.outputs.package }}" == "webui" ]]; then
@@ -181,7 +181,7 @@ jobs:
       - name: Validate native release identity
         run: >-
           uv run --no-project --python 3.14 python scripts/check_release.py
-          --tag "$RELEASE_TAG"
+          --tag "$RELEASE_TAG" --reject-alpha
       - name: Generate native SBOM and artifact manifest
         run: |
           uv export --project packages/ipc-native --no-dev --no-emit-project \

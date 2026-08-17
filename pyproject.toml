@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7"
-version = "7.0.0b2"
+version = "7.0.0a1"
 description = "A protocol-neutral, multi-runtime chatbot kernel."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -33,7 +33,7 @@ http = [
 webui = [
     "fastapi>=0.141,<1",
     "uvicorn>=0.52,<1",
-    "liteyukibot-v7-webui[server]>=0.1.0b4",
+    "liteyukibot-v7-webui[server]==7.0.0a1",
 ]
 
 [project.scripts]
@@ -55,6 +55,7 @@ dev = [
 release = [
     "cyclonedx-bom>=7.3.1",
     "license-expression>=30.4.4",
+    "sigstore>=4,<5",
 ]
 
 [build-system]
