@@ -12,6 +12,7 @@ from liteyukibot.exceptions import PluginError, ServiceError
 from liteyukibot.plugins import (
     WEBUI_SCHEMA_DRAFT_2020_12,
     ActionServiceLike,
+    ExtensionCoexistence,
     PluginContext,
     PluginDefinition,
     PluginHandle,
@@ -143,6 +144,20 @@ def test_plugin_manifest_rejects_invalid_identity_and_metadata() -> None:
                 "webui": {"surfaces": [], "unexpected": True},
             }
         )
+
+
+def test_plugin_manifest_defaults_to_exclusive_cross_host_identity() -> None:
+    async def setup(_context: PluginContext) -> None:
+        return None
+
+    definition = PluginDefinition(
+        PluginManifest(id="example.plugin", name="Example", version="1.0.0"),
+        setup,
+    )
+
+    assert definition.manifest.coexistence is ExtensionCoexistence.EXCLUSIVE
+    assert definition.identity.id == "example.plugin"
+    assert definition.identity.coexistence is ExtensionCoexistence.EXCLUSIVE
 
 
 def test_webui_manifest_is_strict_and_bounded() -> None:

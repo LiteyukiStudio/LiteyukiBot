@@ -67,3 +67,28 @@ Schema 1 alpha references are historical and cannot be compared mechanically to
 schema 2 because the workload set and aggregation shape changed. Schema 2
 artifacts are reviewed manually: GitHub-hosted runner variance must be examined
 through raw samples and dispersion before attributing a change to the code.
+
+## Beta 7 Runtime Profiles
+
+Schema 2 now supports two explicit profiles. `bare` is the default and starts
+the kernel with no extensions. `installed-first-party` resolves the installed
+LiteyukiBot first-party distributions once in the parent process, records a
+stable distribution/version and Native/Cordis entry-point manifest, and passes
+that exact JSON snapshot to every independent sample child. It does not import
+optional hosts while discovering metadata. A Cordis entry point is marked
+disabled when no unambiguous Cordis host is installed; the package is still
+present in the manifest and is not silently treated as exercised.
+
+The stable qualification set should publish two artifacts using the same
+schema-2 event and function matrix:
+
+```bash
+uv run python scripts/benchmark_v7.py --profile bare --samples 3 --output benchmark-bare.json
+uv run python scripts/benchmark_v7.py --profile installed-first-party --samples 3 --output benchmark-installed-first-party.json
+```
+
+The second artifact represents the actual installed first-party workspace, not
+a hand-maintained package list. Compare only artifacts whose profile and
+resolved `extension_manifest` match. The profile artifacts are evidence for
+manual review; they are not automatic CI performance gates. This document does
+not define the later 72-hour soak or the full-workspace theoretical benchmark.

@@ -311,6 +311,13 @@ def _log_task_failure(logger: LoggerLike, name: str, error: BaseException) -> No
     logger.error("task {} failed: {}", name, error)
 
 
+class ExtensionCoexistence(StrEnum):
+    """Whether the same extension identity may run in both plugin hosts."""
+
+    EXCLUSIVE = "exclusive"
+    INFRASTRUCTURE = "infrastructure"
+
+
 class PluginManifest(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", arbitrary_types_allowed=True)
 
@@ -318,6 +325,7 @@ class PluginManifest(BaseModel):
     name: str
     version: str
     api_version: Literal[1] = 1
+    coexistence: ExtensionCoexistence = ExtensionCoexistence.EXCLUSIVE
     provides: tuple[ServiceKey, ...] = ()
     requires: tuple[ServiceRequirement, ...] = ()
     storage: Literal["none", "private"] = "none"
@@ -327,13 +335,7 @@ class PluginManifest(BaseModel):
     @field_validator("id")
     @classmethod
     def validate_id(cls, value: str) -> str:
-        if (
-            not value
-            or value.strip("abcdefghijklmnopqrstuvwxyz0123456789-_.")
-            or any(not part for part in value.split("."))
-        ):
-            raise ValueError("plugin id must use lowercase ASCII letters, digits, '-', '_' or '.'")
-        return value
+        return _validate_extension_id(value)
 
     @field_validator("name", "version")
     @classmethod
@@ -341,6 +343,29 @@ class PluginManifest(BaseModel):
         if not value.strip():
             raise ValueError("plugin manifest metadata must not be blank")
         return value
+
+
+@dataclass(frozen=True, slots=True)
+class ExtensionIdentity:
+    """Host-neutral extension identity exposed during startup topology resolution."""
+
+    id: str
+    coexistence: ExtensionCoexistence = ExtensionCoexistence.EXCLUSIVE
+
+    def __post_init__(self) -> None:
+        _validate_extension_id(self.id)
+        if not isinstance(self.coexistence, ExtensionCoexistence):
+            raise TypeError("extension coexistence must be ExtensionCoexistence")
+
+
+def _validate_extension_id(value: str) -> str:
+    if (
+        not value
+        or value.strip("abcdefghijklmnopqrstuvwxyz0123456789-_.")
+        or any(not part for part in value.split("."))
+    ):
+        raise ValueError("plugin id must use lowercase ASCII letters, digits, '-', '_' or '.'")
+    return value
 
 
 PluginCallback = Callable[[], Awaitable[None]]
@@ -391,6 +416,10 @@ class PluginDefinition:
     manifest: PluginManifest
     setup: PluginSetup
     init_spec: PluginInitSpec | None = None
+
+    @property
+    def identity(self) -> ExtensionIdentity:
+        return ExtensionIdentity(self.manifest.id, self.manifest.coexistence)
 
 
 @dataclass(frozen=True, slots=True)
@@ -645,6 +674,12 @@ class PluginManager:
     def resolve_order(self, definitions: Mapping[str, PluginDefinition]) -> tuple[str, ...]:
         provided_services = {registration.key: registration.provider for registration in self.services.snapshot()}
         return self.resolve_definitions(definitions, provided_services)
+
+    @staticmethod
+    def identities(definitions: Mapping[str, PluginDefinition]) -> tuple[ExtensionIdentity, ...]:
+        """Return native extension identities for cross-host topology validation."""
+
+        return tuple(definitions[plugin_id].identity for plugin_id in sorted(definitions))
 
     @staticmethod
     def resolve_definitions(

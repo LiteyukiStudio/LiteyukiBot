@@ -2,7 +2,8 @@
 
 `liteyukibot-v7-runtime-nonebot` hosts a NoneBot2 bridge for the standalone
 Liteyuki broker. It is discovered through the `liteyukibot.bridges` entry-point
-group and launched with `liteyuki bridge run <bridge-id>`.
+group as a `stable` bridge definition and launched with `liteyuki bridge run
+<bridge-id>`.
 
 Install the base host and one adapter family:
 
@@ -10,13 +11,17 @@ Install the base host and one adapter family:
 uv add "liteyukibot-v7-runtime-nonebot[onebot]"
 ```
 
-The B5 bridge publishes normalized NoneBot messages as `message.created` and
+The B7 bridge publishes normalized NoneBot messages as `message.created` and
 owns only the portable `message.send` action. Its action resource keys are
 bridge-scoped (`bot:<bridge-id>:<bot-id>`). NoneBot plugins, adapters, drivers,
 and Bot objects remain local to the bridge process. Bridge-local NoneBot
 initialization is configured under `broker.bridges.<id>.options` with
 `config`, `adapters`, `plugins`, and `plugin_dirs`; generic `CallApi` and
 message editing are not part of this bridge contract.
+
+The `stable` grade is package metadata on the bridge definition, not a promise
+that the broker wire protocol accepts framework-specific actions. NoneBot SDK
+objects and credentials remain in this package; the kernel never imports them.
 
 ## Development
 

@@ -20,7 +20,7 @@ const catalog = { operations: [
 
 const messages = {
   "webui.app.name": "Liteyuki",
-  "webui.nav.overview": "Overview", "webui.nav.events": "Events", "webui.nav.topology": "Topology", "webui.nav.runtimes": "Runtimes", "webui.nav.plugins": "Plugins", "webui.nav.configuration": "Configuration",
+  "webui.nav.overview": "Overview", "webui.nav.events": "Event deliveries", "webui.nav.topology": "Topology", "webui.nav.runtimes": "Runtimes", "webui.nav.plugins": "Plugins", "webui.nav.configuration": "Configuration",
   "webui.header.language": "Language", "webui.header.theme": "Theme", "webui.header.accent": "Accent color", "webui.header.open_navigation": "Open navigation",
   "webui.theme.system": "System", "webui.theme.light": "Light", "webui.theme.dark": "Dark", "webui.theme.blue": "Blue", "webui.theme.lavender": "Lavender", "webui.theme.cyan": "Cyan",
   "webui.status.ready": "Ready", "webui.status.runtimes": "{active} / {total} runtimes", "webui.action.refresh": "Refresh",
@@ -31,11 +31,12 @@ const messages = {
   "webui.topology.kernel": "Kernel", "webui.topology.runtimes": "Runtimes", "webui.topology.plugins": "Plugins", "webui.topology.audit": "Audit", "webui.topology.records": "{count} records", "webui.state.retained": "retained", "webui.state.ready": "Ready", "webui.state.healthy": "Healthy", "webui.state.started": "Started",
   "webui.configuration.title": "Instance configuration", "webui.configuration.instance": "Instance", "webui.configuration.kernel": "Kernel", "webui.configuration.transport": "WebUI transport", "webui.configuration.loopback": "loopback only", "webui.configuration.owner": "Operation owner", "webui.configuration.daemon": "instance daemon",
   "webui.error.unavailable": "Local service unavailable", "webui.error.unavailable_detail": "The WebUI could not read the running daemon.", "webui.action.retry": "Retry", "webui.operation.queued": "Operation queued", "webui.operation.queued_failed": "Operation could not be queued", "webui.operation.description": "Operation input is schema-validated and recorded by the daemon before the worker can execute it.", "webui.operation.confirm_hint": "High-impact operations require the exact target confirmation.", "webui.operation.confirm_target": "Confirm target", "webui.operation.confirm_placeholder": "Type the exact target identifier", "webui.action.cancel": "Cancel", "webui.operation.queue": "Queue operation", "webui.operation.queueing": "Queueing", "webui.operation.enter": "Enter {field}",
+  "webui.event_delivery.active": "Active deliveries", "webui.event_delivery.terminal": "Retained terminal", "webui.event_delivery.broker_state": "Broker state", "webui.event_delivery.bridges": "Bridge sessions", "webui.event_delivery.title": "Event deliveries", "webui.event_delivery.retention": "Only bounded, redacted diagnostic records are retained.", "webui.event_delivery.filter.state": "State", "webui.event_delivery.filter.topic": "Topic", "webui.event_delivery.filter.source": "Source", "webui.event_delivery.filter.target": "Target", "webui.event_delivery.filter.failure": "Failure", "webui.event_delivery.filter.any": "Any", "webui.event_delivery.filter.apply": "Filter", "webui.event_delivery.filter.clear": "Clear filters", "webui.event_delivery.error": "Event delivery diagnostics could not be read.", "webui.event_delivery.bridges_empty": "No bridge session is registered.", "webui.event_delivery.table.topic": "Topic", "webui.event_delivery.table.source": "Source", "webui.event_delivery.table.status": "Status", "webui.event_delivery.table.targets": "Targets", "webui.event_delivery.table.observed": "Observed", "webui.event_delivery.loading": "Loading event deliveries", "webui.event_delivery.empty": "No retained event deliveries match these filters.", "webui.event_delivery.next_page": "Next page", "webui.event_delivery.detail.title": "Event delivery detail", "webui.event_delivery.detail.redacted": "Redacted diagnostic record", "webui.event_delivery.detail.error": "The selected event delivery is unavailable.", "webui.event_delivery.detail.deliveries": "Deliveries", "webui.event_delivery.detail.deliveries_empty": "No delivery attempts were retained.", "webui.event_delivery.detail.timeline": "Timeline", "webui.event_delivery.detail.timeline_empty": "No diagnostic transitions were retained.",
 };
 
 const zhMessages = {
   ...messages,
-  "webui.nav.overview": "概览", "webui.nav.events": "事件", "webui.nav.topology": "拓扑", "webui.nav.runtimes": "运行时", "webui.nav.plugins": "插件", "webui.nav.configuration": "配置",
+  "webui.nav.overview": "概览", "webui.nav.events": "事件投递", "webui.nav.topology": "拓扑", "webui.nav.runtimes": "运行时", "webui.nav.plugins": "插件", "webui.nav.configuration": "配置",
   "webui.header.language": "语言", "webui.header.theme": "主题", "webui.header.accent": "强调色", "webui.header.open_navigation": "打开导航",
   "webui.theme.system": "跟随系统", "webui.theme.light": "浅色", "webui.theme.dark": "深色", "webui.theme.blue": "蓝色", "webui.theme.lavender": "薰衣草", "webui.theme.cyan": "青色",
   "webui.status.ready": "就绪", "webui.status.runtimes": "{active} / {total} 个运行时", "webui.action.refresh": "刷新",
@@ -46,6 +47,19 @@ const zhMessages = {
   "webui.topology.kernel": "内核", "webui.topology.runtimes": "运行时", "webui.topology.plugins": "插件", "webui.topology.audit": "审计", "webui.topology.records": "{count} 条记录", "webui.state.retained": "已保留", "webui.state.ready": "就绪", "webui.state.healthy": "健康", "webui.state.started": "已启动",
   "webui.configuration.title": "实例配置", "webui.configuration.instance": "实例", "webui.configuration.kernel": "内核", "webui.configuration.transport": "WebUI 传输", "webui.configuration.loopback": "仅回环", "webui.configuration.owner": "操作所有者", "webui.configuration.daemon": "实例 daemon",
   "webui.error.unavailable": "本地服务不可用", "webui.error.unavailable_detail": "WebUI 无法读取正在运行的 daemon。", "webui.action.retry": "重试", "webui.operation.queued": "操作已加入队列", "webui.operation.queued_failed": "操作无法加入队列", "webui.operation.description": "daemon 执行前会校验操作输入并记录到本地账本。", "webui.operation.confirm_hint": "高影响操作需要准确确认目标。", "webui.operation.confirm_target": "确认目标", "webui.operation.confirm_placeholder": "输入准确的目标标识", "webui.action.cancel": "取消", "webui.operation.queue": "加入操作队列", "webui.operation.queueing": "正在加入队列", "webui.operation.enter": "输入{field}",
+  "webui.event_delivery.active": "活动投递", "webui.event_delivery.terminal": "保留的终态记录", "webui.event_delivery.broker_state": "Broker 状态", "webui.event_delivery.bridges": "Bridge 会话", "webui.event_delivery.title": "事件投递", "webui.event_delivery.retention": "仅保留有界且已脱敏的诊断记录。", "webui.event_delivery.filter.state": "状态", "webui.event_delivery.filter.topic": "主题", "webui.event_delivery.filter.source": "来源", "webui.event_delivery.filter.target": "目标", "webui.event_delivery.filter.failure": "失败", "webui.event_delivery.filter.any": "任意", "webui.event_delivery.filter.apply": "筛选", "webui.event_delivery.filter.clear": "清除筛选", "webui.event_delivery.error": "无法读取事件投递诊断信息。", "webui.event_delivery.bridges_empty": "没有已注册的 bridge 会话。", "webui.event_delivery.table.topic": "主题", "webui.event_delivery.table.source": "来源", "webui.event_delivery.table.status": "状态", "webui.event_delivery.table.targets": "目标", "webui.event_delivery.table.observed": "观测时间", "webui.event_delivery.loading": "正在加载事件投递", "webui.event_delivery.empty": "没有符合筛选条件的保留事件投递。", "webui.event_delivery.next_page": "下一页", "webui.event_delivery.detail.title": "事件投递详情", "webui.event_delivery.detail.redacted": "已脱敏诊断记录", "webui.event_delivery.detail.error": "所选事件投递不可用。", "webui.event_delivery.detail.deliveries": "投递", "webui.event_delivery.detail.deliveries_empty": "没有保留的投递尝试。", "webui.event_delivery.detail.timeline": "时间线", "webui.event_delivery.detail.timeline_empty": "没有保留的诊断转换。",
+};
+
+const eventDeliveries = {
+  broker: { state: "ready", generation: 7, active: 1, active_capacity: 32, terminal: 2, terminal_capacity: 128, bridges: [{ id: "nonebot", state: "connected", session_state: "ready" }] },
+  items: [{ id: "delivery-1", topic: "message.created", source: "source:a1b2", status: "delivered", target_count: 1, failed_count: 0, observed_at: "2026-08-15T03:00:00Z" }],
+  next_cursor: null,
+};
+
+const eventDeliveryDetail = {
+  ...eventDeliveries.items[0],
+  deliveries: [{ id: "attempt-1", target: "nonebot", state: "delivered", attempt: 1, updated_at: "2026-08-15T03:00:01Z" }],
+  timeline: [{ at: "2026-08-15T03:00:00Z", phase: "admission", state: "admitted" }, { at: "2026-08-15T03:00:01Z", phase: "delivery", state: "delivered", target: "nonebot" }],
 };
 
 async function mockDaemon(page: Page, onSubmit?: (body: unknown) => void, ledgerItems?: unknown[]) {
@@ -61,6 +75,8 @@ async function mockDaemon(page: Page, onSubmit?: (body: unknown) => void, ledger
     if (path.endsWith("/operations/catalog")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(catalog) });
     if (path.endsWith("/ledger")) return route.fulfill({ contentType: "application/json", body: JSON.stringify({ items: ledgerItems ?? [{ id: "op-1", at: "2026-08-15T03:00:00Z", title: "management.runtime.restart", source: "redacted", status: "healthy", detail: "ok" }] }) });
     if (path.endsWith("/audit")) return route.fulfill({ contentType: "application/json", body: JSON.stringify({ items: [] }) });
+    if (path.endsWith("/event-deliveries/delivery-1")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(eventDeliveryDetail) });
+    if (path.endsWith("/event-deliveries")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(eventDeliveries) });
     if (path.endsWith("/events")) return route.fulfill({ contentType: "text/event-stream", body: "event: heartbeat\ndata: {}\n\n" });
     if (path.endsWith("/operations") && route.request().method() === "POST") { onSubmit?.(route.request().postDataJSON()); return route.fulfill({ contentType: "application/json", body: JSON.stringify({ id: "op-2", state: "queued" }) }); }
     return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: { code: "missing" } }) });
@@ -97,8 +113,8 @@ for (const [name, viewport] of [["desktop", { width: 1440, height: 960 }], ["mob
 test("workspaces project live ledger, topology, runtimes, and plugins", async ({ page }) => {
   await mockDaemon(page);
   await page.goto("/#/events");
-  await expect(page.getByRole("heading", { name: "Events" })).toBeVisible();
-  await expect(page.getByText("management.runtime.restart")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Event deliveries" })).toBeVisible();
+  await expect(page.getByText("message.created")).toBeVisible();
   await page.goto("/#/topology");
   await expect(page.getByText("onebot-primary")).toBeVisible();
   await page.goto("/#/plugins");
@@ -109,13 +125,24 @@ test("ledger virtualizes large retained record lists", async ({ page }) => {
   const firstRecordAt = new Date("2026-08-15T03:00:00Z");
   const records = Array.from({ length: 300 }, (_, index) => ({ id: `op-${index}`, at: new Date(firstRecordAt.getTime() + index * 60_000).toISOString(), title: `operation-${index}`, source: "redacted", status: "healthy", detail: "ok" }));
   await mockDaemon(page, undefined, records);
-  await page.goto("/#/events");
+  await page.goto("/#/overview");
   const viewport = page.locator('[data-slot="ledger-viewport"]');
   await expect(viewport).toBeVisible();
   await expect(page.getByText("operation-0")).toBeVisible();
   expect(await page.locator("tr[data-virtual-index]").count()).toBeLessThan(32);
   await viewport.evaluate((element) => { element.scrollTop = element.scrollHeight; element.dispatchEvent(new Event("scroll")); });
   await expect(page.getByText("operation-299")).toBeVisible();
+});
+
+test("event deliveries use redacted typed diagnostics and open a delivery timeline", async ({ page }) => {
+  await mockDaemon(page);
+  await page.goto("/#/events");
+  await page.getByLabel("Topic").fill("message.created");
+  await page.getByRole("button", { name: "Filter", exact: true }).click();
+  await expect(page.getByText("source:a1b2")).toBeVisible();
+  await page.getByText("message.created").first().click();
+  await expect(page.getByRole("heading", { name: "Event delivery detail" })).toBeVisible();
+  await expect(page.getByText("admission · admitted")).toBeVisible();
 });
 
 test("brand returns to overview only from another workspace", async ({ page }) => {

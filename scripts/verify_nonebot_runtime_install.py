@@ -22,8 +22,15 @@ def verify(expected_version: str | None = None) -> None:
     bridge = next((entry for entry in entry_points if entry.name == "nonebot"), None)
     if bridge is None:
         raise RuntimeError("NoneBot bridge entry point was not discovered")
-    if bridge.value != "liteyukibot_runtime_nonebot:launch":
+    if bridge.value != "liteyukibot_runtime_nonebot:bridge_definition":
         raise RuntimeError(f"unexpected NoneBot bridge entry point: {bridge.value}")
+    definition = bridge.load()()
+    if (
+        definition.kind != "nonebot"
+        or definition.grade != "stable"
+        or definition.distribution != "liteyukibot-v7-runtime-nonebot"
+    ):
+        raise RuntimeError(f"unexpected NoneBot bridge definition: {definition!r}")
     legacy = [
         entry for entry in importlib.metadata.entry_points(group="liteyukibot.runtimes") if entry.name == "nonebot"
     ]

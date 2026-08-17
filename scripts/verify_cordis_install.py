@@ -31,7 +31,7 @@ def verify() -> None:
     if len(matches) != 1:
         raise RuntimeError(f"expected one Cordis host entry point, found {len(matches)}")
     factory = matches[0].load()
-    host = factory(events=EventBus(), actions=_Actions(), settings=CordisSettings(enabled=("verify",)), logger=None)
+    host = factory(events=EventBus(), actions=_Actions(), settings=CordisSettings(), logger=None)
     if not callable(getattr(host, "start", None)) or not callable(getattr(host, "aclose", None)):
         raise RuntimeError("Cordis host entry point returned an invalid host")
 

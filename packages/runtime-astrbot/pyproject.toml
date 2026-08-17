@@ -1,7 +1,7 @@
 [project]
 name = "liteyukibot-v7-runtime-astrbot"
 version = "0.1.0a7"
-description = "Headless AstrBot agent runtime for LiteyukiBot v7."
+description = "AstrBot platform gateway for the LiteyukiBot v7 broker."
 readme = "README.md"
 requires-python = ">=3.14"
 license = "AGPL-3.0-or-later"
@@ -13,8 +13,8 @@ dependencies = [
     "AstrBot==4.27.2",
 ]
 
-[project.entry-points."liteyukibot.runtimes"]
-astrbot = "liteyukibot_runtime_astrbot:runtime_plugin"
+[project.entry-points."liteyukibot.bridges"]
+astrbot = "liteyukibot_runtime_astrbot:bridge_definition"
 
 [build-system]
 requires = ["uv_build>=0.11.32,<0.12"]

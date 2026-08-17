@@ -22,6 +22,7 @@ from .business import (
     decode_business_message,
     encode_business_message,
 )
+from .diagnostics import BrokerDiagnosticsClient, BrokerDiagnosticsError
 from .host import ActionOutcome, BrokerBridgeRunner, BrokerDelivery
 from .kernel import KernelBridgeError, KernelBrokerPeer, configured_kernel_bridge
 from .peer import (
@@ -61,7 +62,14 @@ from .routing import (
     EventSnapshot,
     RoutedAction,
 )
-from .service import BridgeCatalog, BridgeLauncher, BrokerService, bridge_token_from_vault
+from .service import (
+    BridgeCatalog,
+    BridgeDefinition,
+    BridgeLauncher,
+    BridgeSupportGrade,
+    BrokerService,
+    bridge_token_from_vault,
+)
 
 __all__ = [
     "BROKER_PROTOCOL_VERSION",
@@ -79,6 +87,8 @@ __all__ = [
     "BridgeAccess",
     "BridgeClient",
     "BrokerBridgeRunner",
+    "BrokerDiagnosticsClient",
+    "BrokerDiagnosticsError",
     "BrokerDelivery",
     "KernelBridgeError",
     "KernelBrokerPeer",
@@ -100,7 +110,9 @@ __all__ = [
     "BrokerWireError",
     "BrokerService",
     "BridgeCatalog",
+    "BridgeDefinition",
     "BridgeLauncher",
+    "BridgeSupportGrade",
     "DeliverySnapshot",
     "DeliveryState",
     "EventIngress",

@@ -1,4 +1,12 @@
-import type { JsonObject, WebUiOperation, WebUiOperationRecord, WebUiPresentation } from "@/models/api";
+import type {
+  EventDeliveryDetail,
+  EventDeliveryFilters,
+  EventDeliveryPage,
+  JsonObject,
+  WebUiOperation,
+  WebUiOperationRecord,
+  WebUiPresentation,
+} from "@/models/api";
 
 export class WebUiApi {
   private csrfToken: string | null = null;
@@ -28,6 +36,13 @@ export class WebUiApi {
   catalog() { return this.request<{ operations: WebUiOperation[] }>("/operations/catalog"); }
   ledger() { return this.request<{ items: JsonObject[] }>("/ledger?limit=100"); }
   audit() { return this.request<{ items: WebUiOperationRecord[] }>("/audit?limit=100"); }
+  eventDeliveries(filters: EventDeliveryFilters = {}, cursor: string | null = null, limit = 100) {
+    const query = new URLSearchParams({ limit: String(limit) });
+    if (cursor) query.set("cursor", cursor);
+    for (const [name, value] of Object.entries(filters)) if (value) query.set(name, value);
+    return this.request<EventDeliveryPage>(`/event-deliveries?${query}`);
+  }
+  eventDelivery(eventId: string) { return this.request<EventDeliveryDetail>(`/event-deliveries/${encodeURIComponent(eventId)}`); }
 
   async submit(operation: WebUiOperation, target: string, input: JsonObject, confirmed: boolean) {
     return this.request<WebUiOperationRecord>("/operations", {
@@ -39,7 +54,7 @@ export class WebUiApi {
 
   events(onEvent: (type: string, data: JsonObject) => void, onError: () => void): EventSource {
     const source = new EventSource("/api/v1/events", { withCredentials: true });
-    for (const type of ["snapshot", "ledger_append", "operation", "heartbeat", "reset"]) {
+    for (const type of ["snapshot", "ledger_append", "operation", "event_delivery", "heartbeat", "reset"]) {
       source.addEventListener(type, (event) => {
         try { onEvent(type, JSON.parse((event as MessageEvent<string>).data) as JsonObject); } catch { onError(); }
       });

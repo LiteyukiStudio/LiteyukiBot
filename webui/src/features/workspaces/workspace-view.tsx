@@ -9,10 +9,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { SurfaceCard } from "@/components/surface-card";
 import { useLocale } from "@/i18n/locale";
 import { cn } from "@/lib/utils";
-import type { WebUiOperation } from "@/models/api";
+import type { EventDeliveryPage, WebUiOperation } from "@/models/api";
 import type { Dashboard, LedgerView } from "@/models/dashboard";
 import type { Workspace } from "@/models/workspace";
 import type { WebUiApi } from "@/services/webui-api";
+
+const EventDeliveriesView = lazy(() =>
+  import("@/features/event-deliveries/event-deliveries-view").then(({ EventDeliveriesView: View }) => ({ default: View })),
+);
 
 const OperationDialog = lazy(() =>
   import("@/features/operations/operation-dialog").then(({ OperationDialog: Dialog }) => ({ default: Dialog })),
@@ -24,17 +28,19 @@ const WARNING_STATES = new Set(["attention", "recovering", "queued", "running"])
 type WorkspaceViewProps = {
   workspace: Workspace;
   dashboard: Dashboard;
+  eventDeliveries: EventDeliveryPage;
   api: WebUiApi;
   reload: () => Promise<void>;
+  reloadEventDeliveries: () => Promise<void>;
 };
 
-export const WorkspaceView = memo(function WorkspaceView({ workspace, dashboard, api, reload }: WorkspaceViewProps) {
+export const WorkspaceView = memo(function WorkspaceView({ workspace, dashboard, eventDeliveries, api, reload, reloadEventDeliveries }: WorkspaceViewProps) {
   const [operation, setOperation] = useState<WebUiOperation | null>(null);
   const openOperation = useCallback((next: WebUiOperation) => setOperation(next), []);
   const closeOperation = useCallback(() => setOperation(null), []);
 
   const content = workspace === "overview" ? <Overview dashboard={dashboard} openOperation={openOperation} />
-    : workspace === "events" ? <Ledger dashboard={dashboard} />
+    : workspace === "events" ? <Suspense fallback={<div className="min-h-[382px]" />}><EventDeliveriesView initial={eventDeliveries} api={api} reloadInitial={reloadEventDeliveries} /></Suspense>
       : workspace === "topology" ? <Topology dashboard={dashboard} />
         : workspace === "runtimes" ? <Runtimes dashboard={dashboard} openOperation={openOperation} />
           : workspace === "plugins" ? <Plugins dashboard={dashboard} />

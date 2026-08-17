@@ -5,16 +5,29 @@ from types import ModuleType
 from typing import Any, cast
 
 import pytest
-from liteyukibot_cordis import host_factory
+from liteyukibot_cordis import CordisPluginDefinition, host_factory
 from liteyukibot_cordis.host import PLUGIN_ENTRY_POINT_GROUP
 from liteyukibot_cordis.scope import Scope
 
 from liteyukibot.app import LiteyukiApp
 from liteyukibot.config import AppSettings, ConfigWorkspace, CordisSettings, CoreSettings, PluginSettings, load_settings
-from liteyukibot.cordis_host import CORDIS_HOST_ENTRY_POINT_GROUP, ActionServiceLike, discover_cordis_host
+from liteyukibot.cordis_host import (
+    CORDIS_HOST_ENTRY_POINT_GROUP,
+    ActionServiceLike,
+    discover_cordis_host,
+    validate_extension_topology,
+)
 from liteyukibot.events import EventBus
+from liteyukibot.exceptions import PluginError
 from liteyukibot.logging import Logger
-from liteyukibot.plugins import PluginContext, PluginDefinition, PluginHandle, PluginManifest
+from liteyukibot.plugins import (
+    ExtensionCoexistence,
+    ExtensionIdentity,
+    PluginContext,
+    PluginDefinition,
+    PluginHandle,
+    PluginManifest,
+)
 
 
 class _EntryPoint:
@@ -31,6 +44,10 @@ class _Host:
         self._events = events
         self._calls = calls
         self._fail_start = fail_start
+
+    @property
+    def plugin_identities(self) -> tuple[ExtensionIdentity, ...]:
+        return ()
 
     async def start(self) -> None:
         self._calls.append("cordis.start")
@@ -75,6 +92,31 @@ def test_cordis_settings_reject_duplicate_or_untrimmed_plugin_ids() -> None:
     for value in (float("nan"), float("inf"), float("-inf")):
         with pytest.raises(ValueError, match="NaN or infinity"):
             CordisSettings(config={"invalid": value})
+
+
+def test_extension_topology_rejects_duplicate_hosts_by_default() -> None:
+    native = (ExtensionIdentity("example.plugin"),)
+    cordis = (ExtensionIdentity("example.plugin"),)
+
+    with pytest.raises(PluginError, match="both Native and Cordis"):
+        validate_extension_topology(native, cordis)
+
+
+def test_extension_topology_allows_only_declared_infrastructure() -> None:
+    infrastructure = ExtensionIdentity("liteyukibot.audit", ExtensionCoexistence.INFRASTRUCTURE)
+
+    validate_extension_topology((infrastructure,), (infrastructure,))
+
+    with pytest.raises(PluginError, match="infrastructure"):
+        validate_extension_topology(
+            (infrastructure,),
+            (ExtensionIdentity("liteyukibot.audit"),),
+        )
+
+
+def test_extension_identity_rejects_untyped_coexistence_mode() -> None:
+    with pytest.raises(TypeError, match="ExtensionCoexistence"):
+        ExtensionIdentity("example.plugin", "infrastructure")  # type: ignore[arg-type]
 
 
 def test_disabled_cordis_does_not_discover_entry_points(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -198,7 +240,7 @@ async def test_app_starts_the_discovered_cordis_package_and_plugin(
         activated.append(dict(scope.config))
 
     host_entry = _EntryPoint("python", host_factory)
-    plugin_entry = _EntryPoint("example.plugin", plugin)
+    plugin_entry = _EntryPoint("example.plugin", CordisPluginDefinition("example.plugin", plugin))
 
     def entry_points(*, group: str) -> tuple[_EntryPoint, ...]:
         if group == CORDIS_HOST_ENTRY_POINT_GROUP:

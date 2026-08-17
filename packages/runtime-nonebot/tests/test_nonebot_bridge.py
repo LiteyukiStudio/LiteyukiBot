@@ -5,10 +5,19 @@ from types import ModuleType, SimpleNamespace
 from typing import Any, cast
 
 import pytest
+from liteyukibot_runtime_nonebot import bridge_definition
 from liteyukibot_runtime_nonebot.host import MESSAGE_CREATED_TOPIC, NoneBotHost, _broker_endpoints
 
 from liteyukibot.events import ConversationRef, EventEnvelope, Message, Segment
 from liteyukibot.lyip import LyipLane
+
+
+def test_nonebot_bridge_declares_stable_package_metadata() -> None:
+    definition = bridge_definition()
+
+    assert definition.kind == "nonebot"
+    assert definition.grade == "stable"
+    assert definition.distribution == "liteyukibot-v7-runtime-nonebot"
 
 
 def test_nonebot_ingress_is_json_safe_and_ordered_by_conversation() -> None:

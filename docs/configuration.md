@@ -16,6 +16,11 @@ config = { "example.plugin" = { mode = "safe" } }
 comes from `liteyukibot.cordis_hosts`; missing or duplicate hosts are startup
 errors only when Cordis is enabled. The kernel does not import the package when
 the list is empty. `config` must be JSON-safe and cannot load local modules.
+Cordis and Native Plugin v1 remain separate hosts. The same extension ID is
+exclusive by default; it may be enabled in both hosts only when both
+declarations explicitly use `coexistence = "infrastructure"`. This permits
+first-party infrastructure composition but does not guarantee third-party
+cross-host compatibility.
 
 Outside Docker, every configuration-consuming command requires a project-root
 liteyuki.toml. Create it with:
@@ -217,8 +222,11 @@ uv run liteyuki vault rotate
 
 Local commands use hidden password prompts. Docker requires
 `LITEYUKI_VAULT_PASSWORD`. The broker decrypts only the token IDs referenced by
-configured `broker.bridges`; resolved tokens are passed to the bridge launcher
-and never enter broker business payloads or configuration diagnostics.
+configured `broker.bridges` and, when configured, the distinct
+`broker.diagnostics_token_secret`. Bridge tokens are passed only to the owning
+bridge launcher. The diagnostics token authenticates read-only control-plane
+queries and must not reuse any bridge token. Resolved tokens never enter broker
+business payloads or configuration diagnostics.
 
 The native agent runtime uses LITEYUKI_AGENT_API_KEY by default. Existing
 api_key_env configuration remains an explicit compatibility override.
@@ -256,6 +264,7 @@ The broker uses a local loopback endpoint by default and treats each
 ```toml
 [broker]
 endpoint = "tcp://127.0.0.1:20217"
+diagnostics_token_secret = "broker.diagnostics.token"
 
 [broker.bridges.kernel]
 kind = "kernel"
@@ -275,6 +284,16 @@ config = { driver = "~fastapi+~httpx", host = "127.0.0.1", port = 8080 }
 adapters = ["nonebot.adapters.onebot.v11:Adapter"]
 plugins = ["plugins"]
 plugin_dirs = []
+
+[broker.bridges.astrbot]
+kind = "astrbot"
+token_secret = "broker.astrbot.token"
+access = "limited"
+subscriptions = ["message.created"]
+action_resources = [{ kind = "message.send", resource_prefix = "bot:astrbot:" }]
+
+[broker.bridges.astrbot.options]
+workspace = "./astrbot"
 ```
 
 Except for the reserved `kernel` kind, `kind` must be provided by an installed
@@ -283,5 +302,27 @@ access, declares subscriptions, and cannot declare action-resource ownership;
 the app registers it during `liteyuki run`, while `liteyuki broker run` remains
 separate. Registration is rejected when a bridge manifest differs from this
 table. `full` bridges receive every topic; `limited` bridges receive only their
-configured subscriptions. The B5-4 NoneBot bridge currently publishes
-`message.created` and owns the portable `message.send` action only.
+configured subscriptions. Installed bridge definitions declare an owning
+distribution, launcher, and support grade: NoneBot is `stable`; AstrBot is
+`experimental`. Both publish `message.created` and own the portable
+`message.send` action only. AstrBot keeps its adapters, local plugins, and
+native pipeline in its gateway workspace; it is not configured as a legacy
+runtime child.
+
+### Broker delivery diagnostics
+
+Set `broker.diagnostics_token_secret` to a dedicated vault secret to enable
+local, read-only delivery inspection:
+
+```bash
+liteyuki vault set broker.diagnostics.token
+liteyuki broker inspect status
+liteyuki broker inspect events --state settled --limit 100
+liteyuki broker inspect event <kernel-event-id>
+```
+
+Diagnostics use the LYIP control lane only. They expose bounded retained event
+status and a redacted transition timeline; payloads, credentials, raw action
+data, and raw source event IDs are not returned. The WebUI Event Deliveries
+view uses this same service and receives `event_delivery` SSE refresh signals.
+Diagnostics do not add persistence, replay, retry, or mutation operations.

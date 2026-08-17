@@ -1,14 +1,74 @@
 # Releasing v7 Packages
 
-v7 uses PyPI Trusted Publishing and immutable, package-specific tags. Release
-from a clean `main` commit only after the full CI matrix passes.
+This document preserves the historical B7 package procedure and records the
+boundary for the planned Alpha release process. It is not evidence that a
+future Alpha, RC, or stable release is ready. The forward-looking sequence is
+defined in [the v7 Alpha roadmap](../roadmap/v7-alpha-roadmap.md).
+
+## Planned Alpha boundary
+
+The next version line starts at `7.0.0a1`; Beta1-Beta7 are architecture
+validation history. Before RC1, do not publish the kernel or its lockstep
+runtime components to PyPI. An Alpha may publish only an immutable GitHub
+Release asset containing a signed release manifest and SHA-256 digests.
+
+[Alpha 1 baseline](../roadmap/v7-alpha-1-baseline.md) fixes the first planned
+tag as `v7.0.0a1`, defines its seven-component bundle, reserves DevCLI without
+shipping it, and requires a tag-bound first-party Sigstore proof for the
+aggregate manifest. The existing workflows below must be changed before that
+release so that they reject every Alpha version and cannot call `uv publish`.
+
+[Alpha 2](../roadmap/v7-alpha-2-plugin-permission-tools.md) retains that
+release mechanism at `v7.0.0a2` and adds only the independent Permissions v2
+asset to the signed bundle. It does not authorize a PyPI plugin release.
+
+[Alpha 3](../roadmap/v7-alpha-3-business-plugin-migration.md) adds the planned
+first-party business assets and frozen Functions compatibility rebuild to the
+signed `v7.0.0a3` bundle. It does not change the PyPI boundary.
+
+[Alpha 4](../roadmap/v7-alpha-4-adapter-bridge.md) adds the independent OneBot
+and Satori driver assets to the signed `v7.0.0a4` bundle. From this point, every
+Alpha rebuilds every independent first-party package against that Alpha's exact
+kernel version. It does not authorize PyPI publication or turn bridge lifecycle
+ownership into broker supervision.
+
+[Alpha 5](../roadmap/v7-alpha-5-compatibility-bridges.md) and
+[Alpha 6](../roadmap/v7-alpha-6-agent-bridge.md) retain the same full-bundle
+release rule while adding compatibility and Agent bridge assets.
+
+[Alpha 7](../roadmap/v7-alpha-7-lyf-dsl.md) and
+[Alpha 8](../roadmap/v7-alpha-8-devcli-updates.md) retain that signed bundle
+rule while adding the DSL, DevCLI, and updater surfaces.
+
+Kernel, IPC, WebUI, DevCLI, Cordis, and broker-bridge components use the
+lockstep Alpha version. Business plugins and independently distributed PyPI
+packages retain their own versions and must declare the compatible kernel
+Alpha. No Alpha stage is a release commitment: it becomes eligible only after
+its roadmap exit criteria and the complete repository validation gate pass.
+
+## Historical B7 procedure
+
+The sections below describe the B7 package artifacts and trusted-publisher
+setup. They are historical evidence only and must not be reused to publish a
+pre-RC Alpha to PyPI.
+
+### B7 qualification boundary
+
+B7 changes the bridge and extension contracts but does not authorize a stable
+release. Before any B7 tag, release qualification must include the normal CI
+and package install verifiers, the schema-2 `bare` and
+`installed-first-party` benchmark artifacts with their resolved manifests, and
+the separately planned long-running soak. Do not claim that the 72-hour soak or
+full-workspace theoretical benchmark has completed until their retained
+artifacts are reviewed. Bridge support grades are package metadata: NoneBot is
+`stable`; AstrBot remains `experimental` until a later release decision.
 
 `liteyukibot-v7-runtime-cordis` was a rejected Rust/PyO3 design spike and has
 no publisher, identity, tag, or release-order entry. Beta6 introduces the
 independent Python `liteyukibot-v7-cordis` package; it receives release
 metadata only after its host/plugin entry points and install verifier exist.
 
-## Trusted Publishers
+## Historical Trusted Publishers
 
 The PyPI publisher settings use:
 
@@ -46,7 +106,7 @@ from the PyPI JSON endpoint is expected before the first trusted upload; an
 existing project owned elsewhere is a release blocker, not a reason to rename a
 distribution inside the workflow.
 
-## Identities
+## Historical Identities
 
 | Package | Source | Tag |
 | --- | --- | --- |
@@ -70,7 +130,7 @@ distribution inside the workflow.
 `scripts/check_release.py` owns this mapping. Both publish workflows reject a
 tag that does not exactly match the selected source version and distribution.
 
-## Order
+## Historical Order
 
 Push and wait for each release before creating the next tag:
 

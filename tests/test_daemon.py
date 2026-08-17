@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -230,6 +231,112 @@ async def test_daemon_webui_bridge_owns_tickets_and_operation_ledger(tmp_path: P
     finally:
         await daemon.operations.close()
         await worker.stop()
+
+
+@pytest.mark.asyncio
+async def test_daemon_projects_broker_diagnostics_without_exposing_broker_wire_fields(tmp_path: Path) -> None:
+    paths = InstancePaths.from_workspace(ConfigWorkspace(tmp_path), "broker-ui")
+    daemon = InstanceDaemon(paths, DaemonSettings(), (sys.executable, "-c", "pass"), {})
+
+    class Diagnostics:
+        async def status(self) -> object:
+            return SimpleNamespace(
+                generation=3,
+                active_events=1,
+                active_capacity=16,
+                terminal_events=2,
+                terminal_capacity=64,
+                sessions=("astrbot",),
+            )
+
+        async def list_events(self, **_kwargs: object) -> object:
+            return SimpleNamespace(
+                events=(
+                    SimpleNamespace(
+                        event_id="event-1",
+                        topic="message.created",
+                        source_bridge_id="astrbot",
+                        ordering_key="hmac:order",
+                        status="active",
+                        delivery_count=1,
+                        failure_count=0,
+                        failure_codes=(),
+                    ),
+                ),
+                next_cursor=None,
+            )
+
+        async def detail(self, _event_id: str) -> object:
+            return SimpleNamespace(
+                event=SimpleNamespace(
+                    event_id="event-1",
+                    topic="message.created",
+                    source_bridge_id="astrbot",
+                    ordering_key="hmac:order",
+                    status="settled",
+                    delivery_count=1,
+                    failure_count=1,
+                    failure_codes=("bridge_failed",),
+                    targets=("nonebot",),
+                ),
+                transitions=(
+                    SimpleNamespace(
+                        elapsed_ms=5,
+                        kind="delivery.completed",
+                        state="failed",
+                        success=False,
+                        target_bridge_id="nonebot",
+                        failure_code="bridge_failed",
+                    ),
+                ),
+            )
+
+    daemon._broker_diagnostics = Diagnostics()  # type: ignore[assignment]
+    page = await daemon.event_deliveries(None, {"topic": "message.created"}, None, 20)
+    detail = await daemon.event_delivery(None, "event-1")
+
+    assert page["broker"] == {
+        "state": "ready",
+        "generation": 3,
+        "active": 1,
+        "active_capacity": 16,
+        "terminal": 2,
+        "terminal_capacity": 64,
+        "bridges": [{"id": "astrbot", "state": "connected", "session_state": "registered"}],
+    }
+    assert page["items"] == [
+        {
+            "id": "event-1",
+            "topic": "message.created",
+            "source": "astrbot",
+            "ordering_key": "hmac:order",
+            "status": "active",
+            "target_count": 1,
+            "failed_count": 0,
+            "failure_code": None,
+        }
+    ]
+    assert detail == {
+        "id": "event-1",
+        "topic": "message.created",
+        "source": "astrbot",
+        "ordering_key": "hmac:order",
+        "status": "settled",
+        "target_count": 1,
+        "failed_count": 1,
+        "failure_code": "bridge_failed",
+        "deliveries": [{"target": "nonebot", "state": "settled"}],
+        "timeline": [
+            {
+                "at": "5ms",
+                "phase": "delivery.completed",
+                "state": "failed",
+                "target": "nonebot",
+                "code": "bridge_failed",
+            }
+        ],
+    }
+    await daemon.operations.close()
 
 
 @pytest.mark.asyncio

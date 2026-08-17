@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
+from enum import StrEnum
 from importlib import metadata
 from inspect import isawaitable, iscoroutinefunction
 from typing import Protocol, cast
@@ -30,27 +32,68 @@ class BridgeLauncher(Protocol):
     def __call__(self, settings: AppSettings, bridge_id: str, token: str) -> Awaitable[None] | None: ...
 
 
+class BridgeSupportGrade(StrEnum):
+    """Release qualification declared by an installed bridge distribution."""
+
+    EXPERIMENTAL = "experimental"
+    STABLE = "stable"
+
+
 @dataclass(frozen=True, slots=True)
-class InstalledBridge:
+class BridgeDefinition:
+    """Package-owned metadata and launcher for one bridge kind."""
+
     kind: str
+    grade: BridgeSupportGrade
+    distribution: str
     launch: BridgeLauncher
 
 
 class BridgeCatalog:
-    """Discover bridge launchers without importing framework packages eagerly."""
+    """Discover validated bridge definitions without importing framework packages eagerly."""
 
     ENTRY_POINT_GROUP = "liteyukibot.bridges"
 
-    def discover(self) -> Mapping[str, InstalledBridge]:
-        installed: dict[str, InstalledBridge] = {}
+    def discover(self) -> Mapping[str, BridgeDefinition]:
+        installed: dict[str, BridgeDefinition] = {}
         for entry in metadata.entry_points(group=self.ENTRY_POINT_GROUP):
             loaded = entry.load()
             if not callable(loaded):
-                raise RuntimeError(f"bridge entry point {entry.name!r} is not callable")
-            if entry.name in installed:
+                raise RuntimeError(f"bridge entry point {entry.name!r} must be a definition factory")
+            definition = loaded()
+            if not isinstance(definition, BridgeDefinition):
+                raise RuntimeError(f"bridge entry point {entry.name!r} did not return BridgeDefinition")
+            self._validate_definition(entry.name, definition, entry_distribution_name(entry))
+            if definition.kind in installed:
                 raise RuntimeError(f"bridge entry point {entry.name!r} is duplicated")
-            installed[entry.name] = InstalledBridge(kind=entry.name, launch=loaded)
+            installed[definition.kind] = definition
         return installed
+
+    @staticmethod
+    def _validate_definition(
+        entry_name: str, definition: BridgeDefinition, entry_distribution: str | None
+    ) -> None:
+        if not definition.kind or definition.kind != definition.kind.strip():
+            raise RuntimeError(f"bridge entry point {entry_name!r} has an invalid kind")
+        if definition.kind != entry_name:
+            raise RuntimeError(
+                f"bridge entry point {entry_name!r} returned the mismatched bridge kind {definition.kind!r}"
+            )
+        if not definition.distribution or definition.distribution != definition.distribution.strip():
+            raise RuntimeError(f"bridge entry point {entry_name!r} has an invalid distribution")
+        declared_distribution = _canonical_distribution_name(definition.distribution)
+        installed_distribution = (
+            _canonical_distribution_name(entry_distribution) if entry_distribution is not None else None
+        )
+        if installed_distribution is not None and declared_distribution != installed_distribution:
+            raise RuntimeError(
+                f"bridge entry point {entry_name!r} declares distribution {definition.distribution!r}, "
+                f"but is installed by {entry_distribution!r}"
+            )
+        if not isinstance(definition.grade, BridgeSupportGrade):
+            raise RuntimeError(f"bridge entry point {entry_name!r} has an invalid support grade")
+        if not callable(definition.launch):
+            raise RuntimeError(f"bridge entry point {entry_name!r} has a non-callable launcher")
 
     async def launch(self, settings: AppSettings, bridge_id: str, token: str) -> None:
         bridge = settings.broker.bridges.get(bridge_id)
@@ -73,6 +116,20 @@ class BridgeCatalog:
             await thread_result
 
 
+def entry_distribution_name(entry: metadata.EntryPoint) -> str | None:
+    """Return an entry point's owning distribution when metadata exposes it."""
+
+    distribution = getattr(entry, "dist", None)
+    if distribution is None:
+        return None
+    name = distribution.metadata.get("Name")
+    return name if isinstance(name, str) and name else None
+
+
+def _canonical_distribution_name(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
 class _AuthoritativePeerService(BrokerPeerService):
     def __init__(
         self,
@@ -84,6 +141,7 @@ class _AuthoritativePeerService(BrokerPeerService):
         terminal_capacity: int,
         terminal_ttl_seconds: float,
         delivery_timeout_seconds: float,
+        diagnostics_token: str | None = None,
     ) -> None:
         super().__init__(
             instance_tokens=instance_tokens,
@@ -92,6 +150,7 @@ class _AuthoritativePeerService(BrokerPeerService):
             terminal_capacity=terminal_capacity,
             terminal_ttl_seconds=terminal_ttl_seconds,
             delivery_timeout_seconds=delivery_timeout_seconds,
+            diagnostics_token=diagnostics_token,
         )
         self._manifests = dict(manifests)
 
@@ -109,7 +168,13 @@ class _AuthoritativePeerService(BrokerPeerService):
 class BrokerService:
     """Run the local broker without owning bridge process lifecycles."""
 
-    def __init__(self, settings: AppSettings, instance_tokens: Mapping[str, str]) -> None:
+    def __init__(
+        self,
+        settings: AppSettings,
+        instance_tokens: Mapping[str, str],
+        *,
+        diagnostics_token: str | None = None,
+    ) -> None:
         if set(instance_tokens) != set(settings.broker.bridges):
             raise ValueError("broker tokens must resolve every configured bridge exactly once")
         manifests = {
@@ -134,6 +199,7 @@ class BrokerService:
             terminal_capacity=settings.broker.terminal_capacity,
             terminal_ttl_seconds=settings.broker.terminal_ttl_seconds,
             delivery_timeout_seconds=settings.broker.delivery_timeout_seconds,
+            diagnostics_token=diagnostics_token,
         )
         self.server.service = _AuthoritativePeerService(
             manifests=manifests,
@@ -143,6 +209,7 @@ class BrokerService:
             terminal_capacity=settings.broker.terminal_capacity,
             terminal_ttl_seconds=settings.broker.terminal_ttl_seconds,
             delivery_timeout_seconds=settings.broker.delivery_timeout_seconds,
+            diagnostics_token=diagnostics_token,
         )
 
     @classmethod
@@ -156,7 +223,12 @@ class BrokerService:
                     f"configured broker bridge {bridge_id!r} references a secret that is absent from the vault"
                 )
             tokens[bridge_id] = token
-        return cls(settings, tokens)
+        diagnostics_token = None
+        if (secret_name := settings.broker.diagnostics_token_secret) is not None:
+            diagnostics_token = values.get(secret_name)
+            if diagnostics_token is None:
+                raise BridgeRegistrationError("broker diagnostics references a secret that is absent from the vault")
+        return cls(settings, tokens, diagnostics_token=diagnostics_token)
 
     async def run_until_cancelled(self) -> None:
         control = asyncio.create_task(self._serve_control(), name="liteyuki-broker-control")
@@ -198,4 +270,11 @@ def bridge_token_from_vault(
     return bridge, token
 
 
-__all__ = ["BridgeCatalog", "BridgeLauncher", "BrokerService", "bridge_token_from_vault"]
+__all__ = [
+    "BridgeCatalog",
+    "BridgeDefinition",
+    "BridgeLauncher",
+    "BridgeSupportGrade",
+    "BrokerService",
+    "bridge_token_from_vault",
+]

@@ -251,6 +251,29 @@ class EventSnapshot:
     failure_reasons: tuple[str, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class LedgerTransition:
+    """Internal bounded lifecycle evidence consumed only by diagnostics projection."""
+
+    order: int
+    elapsed_ms: int
+    kind: str
+    target_bridge_id: str | None = None
+    state: DeliveryState | None = None
+    success: bool | None = None
+    failure_reason: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class LedgerDiagnosticSnapshot:
+    """Retained raw ledger state for the broker-local redaction projection."""
+
+    event: BrokerEvent
+    status: Literal["active", "settled"]
+    deliveries: tuple[DeliverySnapshot, ...]
+    transitions: tuple[LedgerTransition, ...]
+
+
 @dataclass(slots=True)
 class _Delivery:
     delivery_id: str
@@ -273,8 +296,10 @@ class _Action:
 @dataclass(slots=True)
 class _EventRecord:
     event: BrokerEvent
+    admitted_at: float
     deliveries: dict[str, _Delivery] = field(default_factory=dict)
     actions: dict[tuple[str, str], _Action] = field(default_factory=dict)
+    transitions: list[LedgerTransition] = field(default_factory=list)
     terminal_at: float | None = None
 
 
@@ -330,6 +355,23 @@ class BrokerLedger:
         self.expire()
         return len(self._delivery_index), len(self._lanes)
 
+    def diagnostic_snapshots(self) -> tuple[LedgerDiagnosticSnapshot, ...]:
+        """Return currently retained raw records for broker-local diagnostics only."""
+
+        self.expire()
+        event_ids = tuple(reversed(self._active_order)) + tuple(reversed(self._terminal_order))
+        records = tuple((self._active.get(event_id) or self._terminal.get(event_id)) for event_id in event_ids)
+        return tuple(
+            LedgerDiagnosticSnapshot(
+                event=record.event,
+                status="settled" if record.terminal_at is not None else "active",
+                deliveries=tuple(self._snapshot_delivery(delivery) for delivery in record.deliveries.values()),
+                transitions=tuple(record.transitions),
+            )
+            for record in records
+            if record is not None
+        )
+
     def admit_event(
         self,
         session: BridgeSession,
@@ -347,7 +389,8 @@ class BrokerLedger:
             ordering_key=ingress.ordering_key,
             payload=ingress.payload,
         )
-        record = _EventRecord(event=event)
+        record = _EventRecord(event=event, admitted_at=self._monotonic())
+        self._record_transition(record, "event.admitted")
         self._active[event.kernel_event_id] = record
         self._active_order.append(event.kernel_event_id)
         for target in self.event_subscribers(event, sessions):
@@ -355,6 +398,12 @@ class BrokerLedger:
             lane = (session.bridge_id, ingress.ordering_key, target.bridge_id)
             delivery = _Delivery(delivery_id, event.kernel_event_id, target.bridge_id, lane)
             record.deliveries[delivery_id] = delivery
+            self._record_transition(
+                record,
+                "delivery.pending",
+                target_bridge_id=target.bridge_id,
+                state=DeliveryState.PENDING,
+            )
             self._delivery_index[delivery_id] = record
             self._lanes.setdefault(lane, deque()).append(delivery_id)
         if not record.deliveries:
@@ -389,11 +438,13 @@ class BrokerLedger:
     def accept_delivery(self, session: BridgeSession, delivery_id: str, lease_id: str) -> DeliverySnapshot:
         delivery = self._require_delivery(session, delivery_id, lease_id, DeliveryState.OFFERED)
         delivery.state = DeliveryState.ACCEPTED
+        self._record_delivery_transition(delivery, "delivery.accepted")
         return self._snapshot_delivery(delivery)
 
     def activate_delivery(self, session: BridgeSession, delivery_id: str, lease_id: str) -> DeliverySnapshot:
         delivery = self._require_delivery(session, delivery_id, lease_id, DeliveryState.ACCEPTED)
         delivery.state = DeliveryState.ACTIVE
+        self._record_delivery_transition(delivery, "delivery.active")
         return self._snapshot_delivery(delivery)
 
     def complete_delivery(
@@ -431,6 +482,7 @@ class BrokerLedger:
         else:
             delivery.state = DeliveryState.FAILED
             delivery.failure_reason = failure_reason or "bridge_failed"
+        self._record_delivery_transition(delivery, "delivery.completed", success=success)
         next_delivery = self._terminalize_delivery(delivery)
         next_offer = None
         if next_delivery is not None:
@@ -468,6 +520,7 @@ class BrokerLedger:
         routed = RoutedAction(str(uuid4()), record.event.kernel_event_id, request, target, session)
         record.actions[key] = _Action(routed=routed, canonical_request=canonical)
         self._action_index[routed.action_id] = record.actions[key]
+        self._record_transition(record, "action.routed", target_bridge_id=target.bridge_id)
         return routed
 
     def complete_action(
@@ -491,6 +544,13 @@ class BrokerLedger:
                 correlation_id=action.routed.request.correlation_id,
                 success=success,
                 payload=payload,
+            )
+            record = self._record_for_action(action)
+            self._record_transition(
+                record,
+                "action.completed",
+                target_bridge_id=session.bridge_id,
+                success=success,
             )
         elif (
             action.result.success != success
@@ -533,6 +593,7 @@ class BrokerLedger:
                 if delivery.target_bridge_id == bridge_id and delivery.state not in _TERMINAL_STATES:
                     delivery.state = DeliveryState.FAILED
                     delivery.failure_reason = "bridge_disconnected"
+                    self._record_delivery_transition(delivery, "delivery.disconnected")
                     self._terminalize_delivery(delivery)
 
     def expire(self) -> None:
@@ -546,6 +607,7 @@ class BrokerLedger:
                 ):
                     delivery.state = DeliveryState.EXPIRED
                     delivery.failure_reason = "lease_expired"
+                    self._record_delivery_transition(delivery, "delivery.expired")
                     self._terminalize_delivery(delivery)
         self._expire_terminal_records(now)
 
@@ -579,6 +641,7 @@ class BrokerLedger:
         delivery.state = DeliveryState.OFFERED
         delivery.lease_id = secrets.token_urlsafe(24)
         delivery.lease_deadline = self._monotonic() + self.delivery_timeout_seconds
+        self._record_delivery_transition(delivery, "delivery.offered")
         return delivery
 
     def _require_delivery(
@@ -639,6 +702,7 @@ class BrokerLedger:
         if record.terminal_at is not None:
             return
         record.terminal_at = self._monotonic()
+        self._record_transition(record, "event.settled")
         event_id = record.event.kernel_event_id
         self._active.pop(event_id, None)
         self._active_order.remove(event_id)
@@ -667,4 +731,51 @@ class BrokerLedger:
             lease_id=delivery.lease_id,
             lease_ttl_ms=remaining,
             failure_reason=delivery.failure_reason,
+        )
+
+    def _record_for_action(self, action: _Action) -> _EventRecord:
+        record = self._active.get(action.routed.event_id) or self._terminal.get(action.routed.event_id)
+        if record is None:
+            raise BrokerAdmissionError("unknown_action", "broker action is not retained")
+        return record
+
+    def _record_delivery_transition(
+        self,
+        delivery: _Delivery,
+        kind: str,
+        *,
+        success: bool | None = None,
+    ) -> None:
+        record = self._delivery_index.get(delivery.delivery_id)
+        if record is None:
+            raise BrokerAdmissionError("unknown_delivery", "delivery is no longer active")
+        self._record_transition(
+            record,
+            kind,
+            target_bridge_id=delivery.target_bridge_id,
+            state=delivery.state,
+            success=success,
+            failure_reason=delivery.failure_reason,
+        )
+
+    def _record_transition(
+        self,
+        record: _EventRecord,
+        kind: str,
+        *,
+        target_bridge_id: str | None = None,
+        state: DeliveryState | None = None,
+        success: bool | None = None,
+        failure_reason: str | None = None,
+    ) -> None:
+        record.transitions.append(
+            LedgerTransition(
+                order=len(record.transitions),
+                elapsed_ms=max(0, int((self._monotonic() - record.admitted_at) * 1_000)),
+                kind=kind,
+                target_bridge_id=target_bridge_id,
+                state=state,
+                success=success,
+                failure_reason=failure_reason,
+            )
         )

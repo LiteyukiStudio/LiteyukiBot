@@ -6,12 +6,14 @@ in independently distributed packages discovered through entry-point metadata.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from importlib import metadata
 from typing import TYPE_CHECKING, Protocol, cast
 
 from .config.models import CordisSettings
 from .events import EventBus
+from .exceptions import PluginError
+from .plugins import ExtensionCoexistence, ExtensionIdentity
 
 if TYPE_CHECKING:
     from .events import ActionEnvelope, ActionResult, EventEnvelope
@@ -28,12 +30,47 @@ class CordisHost(Protocol):
 
     async def aclose(self) -> None: ...
 
+    @property
+    def plugin_identities(self) -> tuple[ExtensionIdentity, ...]: ...
+
 
 class ActionServiceLike(Protocol):
     async def execute(self, action: ActionEnvelope, *, event: EventEnvelope | None = None) -> ActionResult: ...
 
 
 CordisHostFactory = Callable[..., CordisHost]
+
+
+def validate_extension_topology(
+    native: Iterable[ExtensionIdentity], cordis: Iterable[ExtensionIdentity]
+) -> None:
+    """Reject duplicate host activation unless both declarations are infrastructure.
+
+    This validates only startup ownership. Third-party plugins remain responsible
+    for their own semantic compatibility with either host.
+    """
+
+    native_by_id = _index_identities(native, host="Native")
+    cordis_by_id = _index_identities(cordis, host="Cordis")
+    for extension_id in sorted(native_by_id.keys() & cordis_by_id.keys()):
+        if (
+            native_by_id[extension_id].coexistence is ExtensionCoexistence.INFRASTRUCTURE
+            and cordis_by_id[extension_id].coexistence is ExtensionCoexistence.INFRASTRUCTURE
+        ):
+            continue
+        raise PluginError(
+            f"extension {extension_id!r} is enabled in both Native and Cordis hosts; "
+            "both definitions must declare coexistence='infrastructure'"
+        )
+
+
+def _index_identities(identities: Iterable[ExtensionIdentity], *, host: str) -> dict[str, ExtensionIdentity]:
+    values: dict[str, ExtensionIdentity] = {}
+    for identity in identities:
+        if identity.id in values:
+            raise PluginError(f"duplicate {host} extension identity: {identity.id}")
+        values[identity.id] = identity
+    return values
 
 
 def discover_cordis_host(
@@ -72,6 +109,9 @@ def discover_cordis_host(
         raise RuntimeError(f"Cordis host entry point {entry_point.name!r} could not be created") from error
     if not callable(getattr(host, "start", None)) or not callable(getattr(host, "aclose", None)):
         raise RuntimeError(f"Cordis host entry point {entry_point.name!r} returned an invalid host")
+    identities = getattr(host, "plugin_identities", None)
+    if not isinstance(identities, tuple) or not all(isinstance(item, ExtensionIdentity) for item in identities):
+        raise RuntimeError(f"Cordis host entry point {entry_point.name!r} returned an invalid plugin topology")
     return host
 
 
@@ -81,4 +121,5 @@ __all__ = [
     "CordisHost",
     "CordisHostFactory",
     "discover_cordis_host",
+    "validate_extension_topology",
 ]

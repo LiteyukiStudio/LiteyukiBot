@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib.metadata
 import json
 import subprocess
 from pathlib import Path
@@ -10,9 +11,17 @@ import pytest
 from scripts import benchmark_v7
 
 
-def _sample(*, startup_ms: float = 1.0, throughput: float = 100.0) -> dict[str, Any]:
+def _sample(
+    *,
+    startup_ms: float = 1.0,
+    throughput: float = 100.0,
+    profile: str = "bare",
+    extension_manifest: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     return {
         "schema": 2,
+        "profile": profile,
+        "extension_manifest": extension_manifest or [],
         "platform": "test-platform",
         "python": "3.14.0",
         "event_count": 100,
@@ -119,6 +128,95 @@ def test_aggregate_samples_retains_raw_samples_and_distribution() -> None:
     }
 
 
+def test_installed_first_party_manifest_is_stable_and_does_not_import_hosts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class EntryPoint:
+        def __init__(self, group: str, name: str) -> None:
+            self.group = group
+            self.name = name
+
+    class Distribution:
+        def __init__(self, name: str, version: str, entry_points: list[EntryPoint]) -> None:
+            self.metadata = {"Name": name}
+            self.version = version
+            self.entry_points = entry_points
+
+    installed = [
+        Distribution(
+            "liteyukibot-v7-commands",
+            "0.2.0",
+            [EntryPoint("liteyukibot.plugins", "liteyuki.commands")],
+        ),
+        Distribution(
+            "liteyukibot-v7-cordis",
+            "0.1.0",
+            [EntryPoint("liteyukibot.cordis_hosts", "python")],
+        ),
+        Distribution(
+            "liteyukibot-v7-ext",
+            "1.0.0",
+            [EntryPoint("liteyukibot.cordis_plugins", "cordis.example")],
+        ),
+        Distribution("unrelated", "9.9.9", [EntryPoint("liteyukibot.plugins", "ignored")]),
+    ]
+    monkeypatch.setattr(importlib.metadata, "distributions", lambda: installed)
+
+    manifest = benchmark_v7.discover_installed_first_party_manifest()
+
+    assert [item["distribution"] for item in manifest] == [
+        "liteyukibot-v7-commands",
+        "liteyukibot-v7-cordis",
+        "liteyukibot-v7-ext",
+    ]
+    assert manifest[0]["extensions"] == [{"host": "native", "id": "liteyuki.commands", "enabled": True}]
+    assert manifest[2]["extensions"] == [{"host": "cordis", "id": "cordis.example", "enabled": True}]
+    assert benchmark_v7._serialize_extension_manifest(manifest) == benchmark_v7._serialize_extension_manifest(
+        benchmark_v7._parse_extension_manifest(benchmark_v7._serialize_extension_manifest(manifest))
+    )
+
+
+def test_installed_first_party_manifest_marks_cordis_unavailable_without_host(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class EntryPoint:
+        def __init__(self, group: str, name: str) -> None:
+            self.group = group
+            self.name = name
+
+    class Distribution:
+        def __init__(self, name: str, entry_points: list[EntryPoint]) -> None:
+            self.metadata = {"Name": name}
+            self.version = "1.0.0"
+            self.entry_points = entry_points
+
+    monkeypatch.setattr(
+        importlib.metadata,
+        "distributions",
+        lambda: [Distribution("liteyukibot-v7-ext", [EntryPoint("liteyukibot.cordis_plugins", "cordis.example")])],
+    )
+
+    manifest = benchmark_v7.discover_installed_first_party_manifest()
+    assert manifest[0]["extensions"] == [{"host": "cordis", "id": "cordis.example", "enabled": False}]
+
+
+def test_profile_settings_enable_only_snapshot_extensions(tmp_path: Path) -> None:
+    manifest = [
+        {
+            "distribution": "liteyukibot-v7-ext",
+            "version": "1.0.0",
+            "extensions": [
+                {"host": "native", "id": "native.example", "enabled": True},
+                {"host": "cordis", "id": "cordis.example", "enabled": False},
+            ],
+        }
+    ]
+
+    settings = benchmark_v7._settings_for_profile(tmp_path, "installed-first-party", manifest)
+    assert settings.plugins.enabled == ("native.example",)
+    assert settings.cordis.enabled == ()
+
+
 @pytest.mark.parametrize(
     "mutate",
     [
@@ -137,11 +235,26 @@ def test_aggregate_samples_rejects_incompatible_samples(mutate: Any) -> None:
         benchmark_v7.aggregate_samples([first, second])
 
 
+@pytest.mark.parametrize(
+    "field",
+    ["profile", "extension_manifest"],
+)
+def test_aggregate_samples_rejects_profile_mismatch(field: str) -> None:
+    first = _sample()
+    second = _sample()
+    second[field] = "installed-first-party" if field == "profile" else [{"distribution": "x"}]
+
+    with pytest.raises(ValueError, match="benchmark samples disagree"):
+        benchmark_v7.aggregate_samples([first, second])
+
+
 def test_run_samples_uses_one_child_process_per_sample(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[list[str]] = []
 
     def fake_run(command: list[str], **_kwargs: Any) -> subprocess.CompletedProcess[str]:
         calls.append(command)
+        assert command[command.index("--profile") + 1] == "bare"
+        assert json.loads(command[command.index("--extension-manifest") + 1]) == []
         return subprocess.CompletedProcess(command, 0, stdout=json.dumps(_sample()))
 
     monkeypatch.setattr("scripts.benchmark_v7.subprocess.run", fake_run)
@@ -157,6 +270,44 @@ def test_run_samples_uses_one_child_process_per_sample(monkeypatch: pytest.Monke
     assert len(calls) == 3
     assert all("--sample" in command for command in calls)
     assert result["sample_count"] == 3
+
+
+def test_run_samples_passes_one_installed_manifest_snapshot_to_every_child(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = [
+        {
+            "distribution": "liteyukibot-v7-ext",
+            "version": "1.0.0",
+            "extensions": [{"host": "native", "id": "native.example", "enabled": True}],
+        }
+    ]
+    monkeypatch.setattr(benchmark_v7, "discover_installed_first_party_manifest", lambda: tuple(manifest))
+    commands: list[list[str]] = []
+
+    def fake_run(command: list[str], **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        commands.append(command)
+        assert command[command.index("--profile") + 1] == "installed-first-party"
+        snapshot = json.loads(command[command.index("--extension-manifest") + 1])
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=json.dumps(_sample(profile="installed-first-party", extension_manifest=snapshot)),
+        )
+
+    monkeypatch.setattr("scripts.benchmark_v7.subprocess.run", fake_run)
+    result = benchmark_v7.run_samples(
+        samples=2,
+        event_count=100,
+        function_packs=1,
+        functions_per_pack=1,
+        function_calls=0,
+        profile="installed-first-party",
+    )
+
+    assert len(commands) == 2
+    assert result["profile"] == "installed-first-party"
+    assert result["extension_manifest"] == manifest
 
 
 def test_main_writes_aggregated_output(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -175,6 +326,7 @@ def test_main_writes_aggregated_output(monkeypatch: pytest.MonkeyPatch, tmp_path
         (["--events", "99"], "--events must be at least 100"),
         (["--samples", "0"], "--samples must be at least 1"),
         (["--function-calls", "-1"], "function benchmark counts"),
+        (["--profile", "unknown"], "invalid choice"),
     ],
 )
 def test_main_rejects_invalid_arguments(arguments: list[str], message: str, capsys: pytest.CaptureFixture[str]) -> None:

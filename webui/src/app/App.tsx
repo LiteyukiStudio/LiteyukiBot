@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Skeleton } from "@/components/ui/skeleton";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useLocale, useLocaleActions } from "@/i18n/locale";
+import type { EventDeliveryPage } from "@/models/api";
 import { projectDashboard, type Dashboard } from "@/models/dashboard";
 import { isWorkspace, type Workspace } from "@/models/workspace";
 import { WebUiApi } from "@/services/webui-api";
@@ -25,6 +26,7 @@ export function App() {
   const api = useMemo(() => new WebUiApi(), []);
   const [workspace, setWorkspace] = useState<Workspace>(currentWorkspace);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  const [eventDeliveries, setEventDeliveries] = useState<EventDeliveryPage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -35,19 +37,29 @@ export function App() {
     reloadSequence.current = requestId;
     try {
       await api.initialize();
-      const [bootstrap, ledger, catalog, audit, resolvedPresentation] = await Promise.all([api.bootstrap(), api.ledger(), api.catalog(), api.audit(), api.presentation(requestedLocale ?? getLocale())]);
+      const [bootstrap, ledger, catalog, audit, resolvedPresentation, deliveries] = await Promise.all([api.bootstrap(), api.ledger(), api.catalog(), api.audit(), api.presentation(requestedLocale ?? getLocale()), api.eventDeliveries()]);
       if (requestId !== reloadSequence.current) return;
       setError(null);
       setSessionReady(true);
       applyPresentation(resolvedPresentation);
       setDashboard(projectDashboard(bootstrap, ledger, catalog.operations, audit.items));
+      setEventDeliveries(deliveries);
     } catch (cause) {
       if (requestId !== reloadSequence.current) return;
       setDashboard(null);
+      setEventDeliveries(null);
       setSessionReady(false);
       setError(cause instanceof Error ? cause.message : "webui.request_failed");
     }
   }, [api, applyPresentation, getLocale]);
+
+  const reloadEventDeliveries = useCallback(async () => {
+    try {
+      setEventDeliveries(await api.eventDeliveries());
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "webui.event_deliveries_unavailable");
+    }
+  }, [api]);
 
   useEffect(() => {
     const onHash = () => setWorkspace(currentWorkspace());
@@ -56,14 +68,17 @@ export function App() {
   }, []);
   useEffect(() => {
     if (!sessionReady) return;
-    const source = api.events((type) => { if (type !== "heartbeat") void reload(); }, () => undefined);
+    const source = api.events((type) => {
+      if (type === "event_delivery") void reloadEventDeliveries();
+      else if (type !== "heartbeat") void reload();
+    }, () => undefined);
     return () => source.close();
-  }, [api, reload, sessionReady]);
+  }, [api, reload, reloadEventDeliveries, sessionReady]);
 
   const navigate = useCallback((next: Workspace) => { window.location.hash = `#/${next}`; setWorkspace(next); setMenuOpen(false); }, []);
   const openNavigation = useCallback(() => setMenuOpen(true), []);
   const refresh = useCallback(() => void reload(), [reload]);
-  return <><PresentationSynchronizer reload={reload} />{error ? <Unavailable error={error} retry={reload} /> : !dashboard ? <Loading /> : <TooltipProvider><div className="grid min-h-screen bg-background lg:grid-cols-[236px_minmax(0,1fr)]"><Sidebar active={workspace} dashboard={dashboard} navigate={navigate} /><Sheet open={menuOpen} onOpenChange={setMenuOpen}><SheetContent side="left" className="w-72 p-0"><SheetHeader className="sr-only"><SheetTitle>Navigation</SheetTitle></SheetHeader><Sidebar active={workspace} dashboard={dashboard} drawer navigate={navigate} /></SheetContent></Sheet><div className="min-w-0"><TopStatusBar dashboard={dashboard} workspace={workspace} openNavigation={openNavigation} refresh={refresh} /><main className="px-4 py-6 sm:px-7 sm:py-7 lg:px-10 lg:pb-6 lg:pt-0"><section className="webui-workspace-base mx-auto max-w-[1120px]"><Suspense fallback={<Skeleton className="h-[382px] w-full" />}><WorkspaceView workspace={workspace} dashboard={dashboard} api={api} reload={reload} /></Suspense></section></main></div></div></TooltipProvider>}</>;
+  return <><PresentationSynchronizer reload={reload} />{error ? <Unavailable error={error} retry={reload} /> : !dashboard || !eventDeliveries ? <Loading /> : <TooltipProvider><div className="grid min-h-screen bg-background lg:grid-cols-[236px_minmax(0,1fr)]"><Sidebar active={workspace} dashboard={dashboard} navigate={navigate} /><Sheet open={menuOpen} onOpenChange={setMenuOpen}><SheetContent side="left" className="w-72 p-0"><SheetHeader className="sr-only"><SheetTitle>Navigation</SheetTitle></SheetHeader><Sidebar active={workspace} dashboard={dashboard} drawer navigate={navigate} /></SheetContent></Sheet><div className="min-w-0"><TopStatusBar dashboard={dashboard} workspace={workspace} openNavigation={openNavigation} refresh={refresh} /><main className="px-4 py-6 sm:px-7 sm:py-7 lg:px-10 lg:pb-6 lg:pt-0"><section className="webui-workspace-base mx-auto max-w-[1120px]"><Suspense fallback={<Skeleton className="h-[382px] w-full" />}><WorkspaceView workspace={workspace} dashboard={dashboard} eventDeliveries={eventDeliveries} api={api} reload={reload} reloadEventDeliveries={reloadEventDeliveries} /></Suspense></section></main></div></div></TooltipProvider>}</>;
 }
 
 function PresentationSynchronizer({ reload }: { reload: (locale: string) => Promise<void> }) {
