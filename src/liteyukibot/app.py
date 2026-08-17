@@ -23,6 +23,7 @@ from .broker import KernelBrokerPeer, configured_kernel_bridge
 from .capabilities import ADAPTER_CALL_API, AGENT_HISTORY_CLEAR, PERMISSION_SERVICE_MAJOR, PERMISSION_SERVICE_NAME
 from .config import AppSettings, RuntimeEventRoute
 from .control import ControlServer
+from .cordis_host import CordisHost, discover_cordis_host
 from .events import ActionEnvelope, ActionResult, CallApi, EventBus, EventEnvelope
 from .functions import FUNCTION_DISPATCH_SERVICE, FunctionDispatcher
 from .http import HttpServer
@@ -164,6 +165,7 @@ class LiteyukiApp:
             logger=self.logger,
         )
         self._kernel_broker_peer: KernelBrokerPeer | None = None
+        self._cordis_host: CordisHost | None = None
         self._configured_kernel_bridge = configured_kernel_bridge(settings)
         self._runtime_secrets = dict(runtime_secrets or {})
         self.plugins = PluginManager(
@@ -458,6 +460,14 @@ class LiteyukiApp:
             await self.runtimes.start()
             self._runtimes_started = True
             await self.plugins.start()
+            self._cordis_host = discover_cordis_host(
+                self.settings.cordis,
+                events=self.events,
+                actions=self.actions,
+                logger=self.logger,
+            )
+            if self._cordis_host is not None:
+                await self._cordis_host.start()
             if self._configured_kernel_bridge is not None:
                 _bridge_id, bridge = self._configured_kernel_bridge
                 token = self._runtime_secrets.get(bridge.token_secret)
@@ -634,6 +644,12 @@ class LiteyukiApp:
             except BaseException as error:
                 errors.append(error)
             self._kernel_broker_started = False
+        if self._cordis_host is not None:
+            try:
+                await self._cordis_host.aclose()
+            except BaseException as error:
+                errors.append(error)
+            self._cordis_host = None
         try:
             await self.events.aclose()
         except BaseException as error:

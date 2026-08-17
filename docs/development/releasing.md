@@ -3,6 +3,11 @@
 v7 uses PyPI Trusted Publishing and immutable, package-specific tags. Release
 from a clean `main` commit only after the full CI matrix passes.
 
+`liteyukibot-v7-runtime-cordis` was a rejected Rust/PyO3 design spike and has
+no publisher, identity, tag, or release-order entry. Beta6 introduces the
+independent Python `liteyukibot-v7-cordis` package; it receives release
+metadata only after its host/plugin entry points and install verifier exist.
+
 ## Trusted Publishers
 
 The PyPI publisher settings use:

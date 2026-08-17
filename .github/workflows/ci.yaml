@@ -70,6 +70,7 @@ jobs:
           uv run python -m scripts.run_permissions_install
           uv run python -m scripts.run_commands_install
           uv run python -m scripts.run_functions_install
+          uv run python -m scripts.run_cordis_install
           uv run python -m scripts.run_essentials_install
           uv run python -m scripts.run_nonebot_runtime_install
           uv run python -m scripts.run_adapter_runtime_install

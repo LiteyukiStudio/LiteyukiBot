@@ -31,6 +31,22 @@ def _thaw(value: Any) -> Any:
     return value
 
 
+def _validate_json(value: Any, path: str = "value") -> None:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise ValueError(f"{path} must use string object keys")
+            _validate_json(item, f"{path}.{key}")
+        return
+    if isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            _validate_json(item, f"{path}[{index}]")
+        return
+    raise ValueError(f"{path} contains non-JSON value {type(value).__name__}")
+
+
 class FrozenSettingsModel(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", validate_default=True, allow_inf_nan=False)
 
@@ -103,6 +119,32 @@ class PluginSettings(FrozenSettingsModel):
     @field_validator("config", mode="after")
     @classmethod
     def freeze_config(cls, value: Mapping[str, Any]) -> Mapping[str, Any]:
+        return cast(Mapping[str, Any], _freeze(value))
+
+    @field_serializer("config")
+    def serialize_config(self, value: Mapping[str, Any]) -> dict[str, Any]:
+        return cast(dict[str, Any], _thaw(value))
+
+
+class CordisSettings(FrozenSettingsModel):
+    """Configuration owned by the optional Cordis host boundary."""
+
+    enabled: tuple[str, ...] = ()
+    config: Mapping[str, Any] = Field(default_factory=dict)
+
+    @field_validator("enabled")
+    @classmethod
+    def validate_unique_names(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not item.strip() or item != item.strip() for item in value):
+            raise ValueError("Cordis plugin names must be non-empty and must not contain surrounding whitespace")
+        if len(set(value)) != len(value):
+            raise ValueError("Cordis plugin names must not contain duplicates")
+        return value
+
+    @field_validator("config", mode="after")
+    @classmethod
+    def freeze_config(cls, value: Mapping[str, Any]) -> Mapping[str, Any]:
+        _validate_json(value, "cordis.config")
         return cast(Mapping[str, Any], _freeze(value))
 
     @field_serializer("config")
@@ -569,6 +611,7 @@ class AppSettings(FrozenSettingsModel):
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     i18n: I18nSettings = Field(default_factory=I18nSettings)
     plugins: PluginSettings = Field(default_factory=PluginSettings)
+    cordis: CordisSettings = Field(default_factory=CordisSettings)
     agent: AgentSettings = Field(default_factory=AgentSettings)
     broker: BrokerSettings = Field(default_factory=BrokerSettings)
     http: HttpSettings = Field(default_factory=HttpSettings)

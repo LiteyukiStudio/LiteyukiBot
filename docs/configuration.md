@@ -2,6 +2,21 @@
 
 ## Project Configuration
 
+### Cordis Plugin v1
+
+Cordis is optional and configured independently from Native Plugin v1:
+
+~~~toml
+[cordis]
+enabled = ["example.plugin"]
+config = { example = { mode = "safe" } }
+~~~
+
+`enabled` selects `liteyukibot.cordis_plugins` entry points. The unique host
+comes from `liteyukibot.cordis_hosts`; missing or duplicate hosts are startup
+errors only when Cordis is enabled. The kernel does not import the package when
+the list is empty. `config` must be JSON-safe and cannot load local modules.
+
 Outside Docker, every configuration-consuming command requires a project-root
 liteyuki.toml. Create it with:
 
