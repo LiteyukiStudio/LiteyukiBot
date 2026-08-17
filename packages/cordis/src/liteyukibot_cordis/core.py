@@ -45,20 +45,20 @@ class CordisSession:
     _action_results: list[ActionResult] = field(default_factory=list)
 
     def emit(self, action: ActionEnvelope) -> None:
-        if action.event_id not in (None, self.event.envelope.id):
-            raise ValueError("Cordis action event_id must match the wrapped event")
-        if action.event_id is None:
-            action = action.model_copy(update={"event_id": self.event.envelope.id})
-        self._emitted.append(action)
+        self._emitted.append(self._bind(action))
 
     async def execute(self, action: ActionEnvelope) -> ActionResult:
-        if action.event_id not in (None, self.event.envelope.id):
-            raise ValueError("Cordis action event_id must match the wrapped event")
-        if action.event_id is None:
-            action = action.model_copy(update={"event_id": self.event.envelope.id})
+        action = self._bind(action)
         result = await self.actions.execute(action, event=self.event.envelope)
         self._action_results.append(result)
         return result
+
+    def _bind(self, action: ActionEnvelope) -> ActionEnvelope:
+        if action.event_id not in (None, self.event.envelope.id):
+            raise ValueError("Cordis action event_id must match the wrapped event")
+        if action.event_id is None:
+            return action.model_copy(update={"event_id": self.event.envelope.id})
+        return action
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,15 +138,19 @@ class CordisManager(RegistrationSink):
         self._sequence += 1
         self._registrations.append(registration)
         if kind == "scheduler":
-            tasks: set[asyncio.Task[None]] = set()
-            if scope not in self._scheduler_tasks:
+            tasks = self._scheduler_tasks.get(scope)
+            if tasks is None:
+                tasks = set()
                 self._scheduler_tasks[scope] = tasks
                 scope.own(_task_set_disposer(tasks))
 
         def dispose() -> None:
             with contextlib.suppress(ValueError):
                 self._registrations.remove(registration)
-            self._scheduler_tasks.pop(scope, None)
+            if kind == "scheduler" and not any(
+                item.scope is scope and item.kind == "scheduler" for item in self._registrations
+            ):
+                self._scheduler_tasks.pop(scope, None)
 
         return dispose
 
@@ -269,11 +273,12 @@ class CordisManager(RegistrationSink):
     def _schedule_custom(self, event: CordisEvent, registrations: tuple[_Registration, ...]) -> None:
         work = tuple(item.value for item in registrations if item.kind != "scheduler")
         for item in (item for item in registrations if item.kind == "scheduler"):
+            tasks = self._scheduler_tasks.setdefault(item.scope, set())
             task = asyncio.create_task(
                 self._run_scheduler(item, event, work), name=f"cordis-scheduler-{item.scope.plugin_id}"
             )
-            self._scheduler_tasks[item.scope].add(task)
-            task.add_done_callback(self._scheduler_tasks[item.scope].discard)
+            tasks.add(task)
+            task.add_done_callback(tasks.discard)
 
     async def _run_scheduler(self, item: _Registration, event: CordisEvent, work: tuple[object, ...]) -> None:
         scheduler = cast(Scheduler, item.value)

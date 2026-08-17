@@ -72,6 +72,9 @@ def test_cordis_settings_reject_duplicate_or_untrimmed_plugin_ids() -> None:
         CordisSettings(enabled=(" example",))
     with pytest.raises(ValueError, match="non-JSON"):
         CordisSettings(config={"invalid": object()})
+    for value in (float("nan"), float("inf"), float("-inf")):
+        with pytest.raises(ValueError, match="NaN or infinity"):
+            CordisSettings(config={"invalid": value})
 
 
 def test_disabled_cordis_does_not_discover_entry_points(monkeypatch: pytest.MonkeyPatch) -> None:

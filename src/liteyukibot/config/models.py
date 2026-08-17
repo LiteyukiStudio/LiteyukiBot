@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from importlib import import_module, metadata
 from ipaddress import ip_address
@@ -32,7 +33,11 @@ def _thaw(value: Any) -> Any:
 
 
 def _validate_json(value: Any, path: str = "value") -> None:
-    if value is None or isinstance(value, (str, int, float, bool)):
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError(f"{path} must not contain NaN or infinity")
+        return
+    if value is None or isinstance(value, (str, int, bool)):
         return
     if isinstance(value, Mapping):
         for key, item in value.items():

@@ -9,7 +9,7 @@ Cordis is optional and configured independently from Native Plugin v1:
 ~~~toml
 [cordis]
 enabled = ["example.plugin"]
-config = { example = { mode = "safe" } }
+config = { "example.plugin" = { mode = "safe" } }
 ~~~
 
 `enabled` selects `liteyukibot.cordis_plugins` entry points. The unique host

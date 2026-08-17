@@ -79,6 +79,7 @@ async def test_scope_lazily_resolves_ancestor_provider_and_closes_in_reverse_ord
 
     assert closed == ["resource", "root"]
     assert child.closed
+    assert root._children == []  # pyright: ignore[reportPrivateUsage]
 
 
 @pytest.mark.asyncio
@@ -220,3 +221,32 @@ async def test_session_execute_is_not_returned_for_event_bus_reexecution() -> No
     assert len(result.action_results) == 1
     assert len(actions.calls) == 1
     await manager.aclose()
+
+
+@pytest.mark.asyncio
+async def test_scheduler_is_cancelled_when_its_plugin_scope_closes() -> None:
+    source = event()
+    manager = CordisManager(EventBus(), RecordingActions())
+    started = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    async def factory(scope: Scope) -> None:
+        async def scheduler(_event: object, work: tuple[object, ...]) -> None:
+            assert work
+            started.set()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                cancelled.set()
+                raise
+
+        scope.on(lambda _session: None)
+        scope.schedule(scheduler)
+
+    await manager.activate("example.plugin", factory)
+    await manager.dispatch(source)
+    await asyncio.wait_for(started.wait(), timeout=1)
+    await manager.aclose()
+
+    assert cancelled.is_set()
+    assert manager.scope._children == []  # pyright: ignore[reportPrivateUsage]

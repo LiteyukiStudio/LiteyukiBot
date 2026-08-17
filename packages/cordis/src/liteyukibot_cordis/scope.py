@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import inspect
 from collections.abc import Awaitable, Callable, Hashable, Mapping
 from dataclasses import dataclass
@@ -156,7 +157,9 @@ class Scope:
             return
         self._closed = True
         errors: list[BaseException] = []
-        for child in reversed(self._children):
+        children = tuple(self._children)
+        self._children.clear()
+        for child in reversed(children):
             try:
                 await child.aclose()
             except BaseException as error:
@@ -171,6 +174,9 @@ class Scope:
         self._instances.clear()
         self._providers.clear()
         self._disposers.clear()
+        if self.parent is not None:
+            with contextlib.suppress(ValueError):
+                self.parent._children.remove(self)
         if errors:
             raise BaseExceptionGroup("Cordis scope cleanup failed", errors)
 

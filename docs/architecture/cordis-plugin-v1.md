@@ -22,7 +22,7 @@ Cordis is optional. Its root configuration is:
 ```toml
 [cordis]
 enabled = ["example.plugin"]
-config = { example = { mode = "safe" } }
+config = { "example.plugin" = { mode = "safe" } }
 ```
 
 `enabled` contains plugin IDs and `config` is JSON-safe package configuration.
