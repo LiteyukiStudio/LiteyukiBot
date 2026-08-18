@@ -72,11 +72,13 @@ async def test_help_tool_filters_commands_by_authorization_context(tmp_path: Pat
             return None
 
         commands.register(CommandSpec("restricted", permission="tests.restricted.read"), hidden_command, owner="tests")
+        commands.register(CommandSpec("public"), hidden_command, owner="tests")
         help_tool = app.plugins.tool_handlers["liteyukibot.essentials.help"][2]
         result = await help_tool(_authorization(), {})
         assert isinstance(result, dict)
         commands_result = result.get("commands")
         assert isinstance(commands_result, list)
+        assert any(item.get("path") == ["public"] for item in commands_result if isinstance(item, dict))
         assert all(item.get("path") != ["restricted"] for item in commands_result if isinstance(item, dict))
     finally:
         await app.stop()

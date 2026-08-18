@@ -1117,7 +1117,7 @@ def _json_safe_tool_value(value: object) -> EventJsonValue:
             raise ValueError("Tool result contains a non-finite number")
         return value
     if isinstance(value, list):
-        return tuple(_json_safe_tool_value(item) for item in value)
+        return cast(EventJsonValue, [_json_safe_tool_value(item) for item in value])
     if isinstance(value, dict):
         if not all(isinstance(key, str) for key in value):
             raise TypeError("Tool result object keys must be strings")
