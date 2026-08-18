@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import os
 from collections.abc import Awaitable, Callable, Mapping
 from enum import StrEnum
@@ -509,7 +510,7 @@ class LiteyukiApp:
                     ) -> ToolOutcome:
                         try:
                             Draft202012Validator(dict(declaration.input_schema)).validate(dict(request.arguments))
-                        except (TypeError, ValidationError):
+                        except (TypeError, ValueError, ValidationError):
                             return ToolOutcome(success=False, error_code="TOOL_SCHEMA_INVALID")
                         context = AuthorizationContext(
                             event_id=request.authorization.event_id,
@@ -528,11 +529,11 @@ class LiteyukiApp:
                         ):
                             return ToolOutcome(success=False, error_code="TOOL_PERMISSION_DENIED")
                         try:
-                            result = cast(
-                                EventJsonValue, await callback(context, cast(Mapping[str, Any], request.arguments))
+                            result = _json_safe_tool_value(
+                                await callback(context, cast(Mapping[str, Any], request.arguments))
                             )
                             Draft202012Validator(dict(declaration.output_schema)).validate(result)
-                        except (TypeError, ValidationError):
+                        except (TypeError, ValueError, ValidationError):
                             return ToolOutcome(success=False, error_code="TOOL_SCHEMA_INVALID")
                         return ToolOutcome(success=True, result=result)
 
@@ -1106,3 +1107,19 @@ class LiteyukiApp:
 
 
 __all__ = ["ActionService", "AppState", "LiteyukiApp"]
+
+
+def _json_safe_tool_value(value: object) -> EventJsonValue:
+    if value is None or isinstance(value, (bool, int, str)):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError("Tool result contains a non-finite number")
+        return value
+    if isinstance(value, list):
+        return tuple(_json_safe_tool_value(item) for item in value)
+    if isinstance(value, dict):
+        if not all(isinstance(key, str) for key in value):
+            raise TypeError("Tool result object keys must be strings")
+        return {key: _json_safe_tool_value(item) for key, item in value.items()}
+    raise TypeError("Tool result is not JSON-safe")

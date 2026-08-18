@@ -22,7 +22,7 @@ from liteyukibot.plugins import (
     ToolDeclaration,
     _PluginCleanup,
 )
-from liteyukibot.services import ServiceRegistry
+from liteyukibot.services import ServiceKey, ServiceRegistry
 from liteyukibot.tasks import ManagedTasks
 
 from .audit import CordisAuditService
@@ -81,6 +81,7 @@ class CordisHost:
             logger=logger,
             data_dir=data_dir,
             cache_dir=cache_dir,
+            access=settings.access,
         )
         self.manager.scope.provide("liteyukibot.native_adapter", lambda: self._native_adapter)
 
@@ -108,7 +109,8 @@ class CordisHost:
         return tuple(definition.identity for definition in self._definitions.values())
 
     async def start(self) -> None:
-        for plugin_id, definition in self._definitions.items():
+        for plugin_id in self._activation_order():
+            definition = self._definitions[plugin_id]
             config = self.settings.config.get(plugin_id, {})
             await self.manager.activate(
                 plugin_id,
@@ -116,6 +118,37 @@ class CordisHost:
                 declared_tools=definition.tool_ids,
             )
         await self.manager.start()
+
+    def _activation_order(self) -> tuple[str, ...]:
+        providers: dict[ServiceKey, str] = {}
+        for plugin_id, definition in self._definitions.items():
+            for key in definition.manifest.provides if definition.manifest is not None else ():
+                current = providers.get(key)
+                if current is not None and current != plugin_id:
+                    raise RuntimeError(f"Cordis service {key} has multiple providers: {current}, {plugin_id}")
+                providers[key] = plugin_id
+
+        dependencies: dict[str, set[str]] = {plugin_id: set() for plugin_id in self._definitions}
+        for plugin_id, definition in self._definitions.items():
+            if definition.manifest is None:
+                continue
+            for requirement in definition.manifest.requires:
+                provider = providers.get(requirement.key)
+                if provider is not None and provider != plugin_id:
+                    dependencies[plugin_id].add(provider)
+
+        ordered: list[str] = []
+        pending = {plugin_id: set(required) for plugin_id, required in dependencies.items()}
+        while pending:
+            ready = sorted(plugin_id for plugin_id, required in pending.items() if not required)
+            if not ready:
+                raise RuntimeError(f"Cordis plugin service dependency cycle: {', '.join(sorted(pending))}")
+            for plugin_id in ready:
+                ordered.append(plugin_id)
+                del pending[plugin_id]
+                for required in pending.values():
+                    required.discard(plugin_id)
+        return tuple(ordered)
 
     async def aclose(self) -> None:
         await self.manager.aclose()
@@ -153,6 +186,7 @@ class _NativeAdapter:
         logger: Any,
         data_dir: Any,
         cache_dir: Any,
+        access: Mapping[str, str],
     ) -> None:
         self.events = events
         self.actions = actions
@@ -160,6 +194,7 @@ class _NativeAdapter:
         self.logger = logger
         self.data_dir = data_dir
         self.cache_dir = cache_dir
+        self.access = access
 
     async def activate(self, scope: Scope, plugin_id: str) -> None:
         if self.services is None:
@@ -176,6 +211,16 @@ class _NativeAdapter:
             raise TypeError(f"Native entry point {plugin_id!r} is not a PluginDefinition")
         definition = candidate
         manifest = definition.manifest
+        if manifest.id != plugin_id:
+            raise RuntimeError(f"Native plugin manifest ID {manifest.id!r} does not match {plugin_id!r}")
+        full_access = plugin_id not in self.access
+        if not full_access and manifest.capabilities:
+            authorizer = services.get(ServiceKey("liteyukibot.permissions", 2))
+            activation_allowed = getattr(authorizer, "activation_allowed", None)
+            if not callable(activation_allowed) or not activation_allowed(
+                manifest.id, frozenset(manifest.capabilities)
+            ):
+                raise RuntimeError(f"extension {manifest.id} requested capabilities outside its configured ceiling")
         plugin_logger = self.logger.bind(plugin=plugin_id, component="cordis-plugin")
         tasks = ManagedTasks(plugin_id)
         paths = None
@@ -212,11 +257,17 @@ class _NativeAdapter:
             if handle.start is not None:
                 await handle.start()
         except BaseException:
-            if handle.stop is not None:
-                await handle.stop()
-            await cleanup.close()
-            await tasks.stop()
-            services.remove_provider(plugin_id)
+            try:
+                if handle.stop is not None:
+                    await handle.stop()
+            finally:
+                try:
+                    await cleanup.close()
+                finally:
+                    try:
+                        await tasks.stop()
+                    finally:
+                        services.remove_provider(plugin_id)
             raise
 
         async def close() -> None:

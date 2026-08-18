@@ -174,7 +174,7 @@ tool arguments, or secrets.
 ## Commands
 
 The first-party `liteyukibot-v7-commands` package provides
-`liteyukibot.commands@1`. A consumer declares `COMMAND_SERVICE`, resolves a
+`liteyukibot.commands@2`. A consumer declares `COMMAND_SERVICE`, resolves a
 `CommandService`, and registers `CommandSpec` plus a synchronous or asynchronous
 handler. The handler receives `CommandInvocation` and returns the kernel's
 `HandlerResult`; `invocation.reply()` builds a correlated `SendMessage` result.

@@ -72,7 +72,7 @@ def create_plugin(version: str) -> PluginDefinition:
                     id="liteyukibot.resources.inspect",
                     description="Inspect the current caller's structured resource values.",
                     input_schema=cast(Mapping[str, JsonValue], _INSPECT_SCHEMA),
-                    output_schema={"type": "object", "additionalProperties": True},
+                    output_schema=cast(Mapping[str, JsonValue], _INSPECT_OUTPUT_SCHEMA),
                 ),
                 ToolDeclaration(
                     id="liteyukibot.resources.set",
@@ -132,6 +132,25 @@ _SET_SCHEMA: dict[str, object] = {
     },
     "required": ["path", "field", "value"],
     "additionalProperties": False,
+}
+_INSPECT_OUTPUT_SCHEMA: dict[str, object] = {
+    "type": "object",
+    "additionalProperties": {"$ref": "#/$defs/jsonValue"},
+    "$defs": {
+        "jsonValue": {
+            "anyOf": [
+                {"type": "null"},
+                {"type": "boolean"},
+                {"type": "number"},
+                {"type": "string"},
+                {"type": "array", "items": {"$ref": "#/$defs/jsonValue"}},
+                {
+                    "type": "object",
+                    "additionalProperties": {"$ref": "#/$defs/jsonValue"},
+                },
+            ]
+        }
+    },
 }
 
 

@@ -140,14 +140,14 @@ async def setup(context: PluginContext) -> None:
     command_service.register_many(bindings, owner=context.id)
     context.defer_cleanup(lambda: command_service.unregister_owner(context.id))
 
-    async def help_tool(_authorization: AuthorizationContext, _arguments: Mapping[str, Any]) -> dict[str, object]:
+    async def help_tool(authorization: AuthorizationContext, _arguments: Mapping[str, Any]) -> dict[str, object]:
         return {
             "commands": [
                 {
                     "path": list(registration.spec.command_path),
                     "summary": registration.spec.summary,
                 }
-                for registration in command_service.snapshot()
+                for registration in command_service.visible_context(authorization)
             ]
         }
 
@@ -208,7 +208,26 @@ def create_plugin(version: str) -> PluginDefinition:
                     id="liteyukibot.essentials.status",
                     description="Read bounded kernel status for the current invocation context.",
                     input_schema={"type": "object", "additionalProperties": False},
-                    output_schema={"type": "object", "additionalProperties": True},
+                    output_schema={
+                        "type": "object",
+                        "properties": {
+                            "version": {"type": "string"},
+                            "state": {"type": "string"},
+                            "uptime_seconds": {"type": "number", "minimum": 0},
+                            "plugins": {"type": "object", "additionalProperties": {"type": "string"}},
+                            "runtimes": {"type": "object", "additionalProperties": {"type": "string"}},
+                            "events_outstanding": {"type": "integer", "minimum": 0},
+                        },
+                        "required": [
+                            "version",
+                            "state",
+                            "uptime_seconds",
+                            "plugins",
+                            "runtimes",
+                            "events_outstanding",
+                        ],
+                        "additionalProperties": False,
+                    },
                     capabilities=(_STATUS_READ_CAPABILITY,),
                 ),
             ),

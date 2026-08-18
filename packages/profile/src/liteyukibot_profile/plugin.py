@@ -143,10 +143,26 @@ _FIELD_SCHEMA: dict[str, object] = {
     "additionalProperties": False,
 }
 _SET_SCHEMA: dict[str, object] = {
-    "type": "object",
-    "properties": {"field": {"enum": ["nickname", "language"]}, "value": {"type": "string"}},
-    "required": ["field", "value"],
-    "additionalProperties": False,
+    "oneOf": [
+        {
+            "type": "object",
+            "properties": {
+                "field": {"const": "nickname"},
+                "value": {"type": "string", "minLength": 1, "maxLength": 32, "pattern": r".*\S.*"},
+            },
+            "required": ["field", "value"],
+            "additionalProperties": False,
+        },
+        {
+            "type": "object",
+            "properties": {
+                "field": {"const": "language"},
+                "value": {"enum": ["zh-CN", "en"]},
+            },
+            "required": ["field", "value"],
+            "additionalProperties": False,
+        },
+    ],
 }
 _UPDATED_SCHEMA: dict[str, object] = {
     "type": "object",

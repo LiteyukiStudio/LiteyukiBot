@@ -52,7 +52,12 @@ class SQLiteProfileService(ProfileService, ResourceProvider):
         self._connection = sqlite3.connect(database)
         self._lock = asyncio.Lock()
         self._closed = False
-        self._initialize()
+        try:
+            self._initialize()
+        except BaseException:
+            self._connection.close()
+            self._closed = True
+            raise
 
     def _initialize(self) -> None:
         with self._connection:

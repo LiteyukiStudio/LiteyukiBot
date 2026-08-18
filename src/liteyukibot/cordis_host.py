@@ -126,8 +126,15 @@ def discover_cordis_host(
             parameters: Mapping[str, inspect.Parameter] = inspect.signature(factory).parameters
         except (TypeError, ValueError):
             parameters = {}
-        if not any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()):
-            factory_kwargs = {name: value for name, value in factory_kwargs.items() if name in parameters}
+            factory_kwargs = {
+                "events": events,
+                "actions": actions,
+                "settings": settings,
+                "logger": logger,
+            }
+        else:
+            if not any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()):
+                factory_kwargs = {name: value for name, value in factory_kwargs.items() if name in parameters}
         host = factory(**factory_kwargs)
     except Exception as error:
         raise RuntimeError(f"Cordis host entry point {entry_point.name!r} could not be created") from error
