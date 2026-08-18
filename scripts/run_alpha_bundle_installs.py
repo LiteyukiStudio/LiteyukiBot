@@ -1,4 +1,4 @@
-"""Exercise every Alpha 1 lockstep wheel from a staged bundle."""
+"""Exercise every current Alpha lockstep wheel from a staged bundle."""
 
 from __future__ import annotations
 
@@ -34,6 +34,9 @@ VERIFICATIONS: tuple[InstallVerification, ...] = (
         ("liteyukibot-v7",),
         "scripts/verify_published_install.py",
         ("--expected-version", ALPHA_VERSION),
+    ),
+    InstallVerification(
+        "permissions", ("liteyukibot-v7", "liteyukibot-v7-permissions"), "scripts/verify_permissions_install.py"
     ),
     InstallVerification("cordis", ("liteyukibot-v7", "liteyukibot-v7-cordis"), "scripts/verify_cordis_install.py"),
     InstallVerification(

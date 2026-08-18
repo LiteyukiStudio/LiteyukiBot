@@ -7,7 +7,16 @@ from typing import Annotated, Final
 from pydantic import Field, TypeAdapter
 
 from ..lyip import LyipError, LyipFrame, LyipLane
-from .routing import ActionRequest, ActionResult, EventAccepted, EventCompleted, EventIngress, EventMessage
+from .routing import (
+    ActionRequest,
+    ActionResult,
+    EventAccepted,
+    EventCompleted,
+    EventIngress,
+    EventMessage,
+    ToolInvoke,
+    ToolResult,
+)
 
 BROKER_EVENT_INGRESS_TYPE_ID: Final = 610
 BROKER_EVENT_MESSAGE_TYPE_ID: Final = 611
@@ -15,6 +24,8 @@ BROKER_EVENT_ACCEPTED_TYPE_ID: Final = 612
 BROKER_EVENT_COMPLETED_TYPE_ID: Final = 613
 BROKER_ACTION_REQUEST_TYPE_ID: Final = 614
 BROKER_ACTION_RESULT_TYPE_ID: Final = 615
+BROKER_TOOL_INVOKE_TYPE_ID: Final = 616
+BROKER_TOOL_RESULT_TYPE_ID: Final = 617
 
 
 class BrokerBusinessWireError(LyipError):
@@ -22,7 +33,14 @@ class BrokerBusinessWireError(LyipError):
 
 
 type BrokerBusinessMessage = Annotated[
-    EventIngress | EventMessage | EventAccepted | EventCompleted | ActionRequest | ActionResult,
+    EventIngress
+    | EventMessage
+    | EventAccepted
+    | EventCompleted
+    | ActionRequest
+    | ActionResult
+    | ToolInvoke
+    | ToolResult,
     Field(discriminator="type"),
 ]
 BROKER_BUSINESS_ADAPTER: Final[TypeAdapter[BrokerBusinessMessage]] = TypeAdapter(BrokerBusinessMessage)
@@ -34,6 +52,8 @@ _TYPE_IDS: Final[dict[type[object], int]] = {
     EventCompleted: BROKER_EVENT_COMPLETED_TYPE_ID,
     ActionRequest: BROKER_ACTION_REQUEST_TYPE_ID,
     ActionResult: BROKER_ACTION_RESULT_TYPE_ID,
+    ToolInvoke: BROKER_TOOL_INVOKE_TYPE_ID,
+    ToolResult: BROKER_TOOL_RESULT_TYPE_ID,
 }
 _MESSAGE_TYPES: Final[dict[int, type[object]]] = {type_id: model for model, type_id in _TYPE_IDS.items()}
 

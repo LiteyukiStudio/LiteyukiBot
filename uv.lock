@@ -1340,7 +1340,7 @@ wheels = [
 
 [[package]]
 name = "liteyukibot-v7"
-version = "7.0.0a1"
+version = "7.0.0a2"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
@@ -1497,7 +1497,7 @@ requires-dist = [
 
 [[package]]
 name = "liteyukibot-v7-cordis"
-version = "7.0.0a1"
+version = "7.0.0a2"
 source = { editable = "packages/cordis" }
 dependencies = [
     { name = "liteyukibot-v7" },
@@ -1534,12 +1534,12 @@ requires-dist = [{ name = "liteyukibot-v7", editable = "." }]
 
 [[package]]
 name = "liteyukibot-v7-ipc-native"
-version = "7.0.0a1"
+version = "7.0.0a2"
 source = { editable = "packages/ipc-native" }
 
 [[package]]
 name = "liteyukibot-v7-permissions"
-version = "0.2.0a2"
+version = "0.3.0a1"
 source = { editable = "packages/permissions" }
 dependencies = [
     { name = "liteyukibot-v7" },
@@ -1582,7 +1582,7 @@ requires-dist = [
 
 [[package]]
 name = "liteyukibot-v7-runtime-adapter"
-version = "7.0.0a1"
+version = "7.0.0a2"
 source = { editable = "packages/runtime-adapter" }
 dependencies = [
     { name = "liteyukibot-v7" },
@@ -1593,7 +1593,7 @@ requires-dist = [{ name = "liteyukibot-v7", editable = "." }]
 
 [[package]]
 name = "liteyukibot-v7-runtime-astrbot"
-version = "7.0.0a1"
+version = "7.0.0a2"
 source = { editable = "packages/runtime-astrbot" }
 dependencies = [
     { name = "astrbot" },
@@ -1619,7 +1619,7 @@ requires-dist = [{ name = "liteyukibot-v7", editable = "." }]
 
 [[package]]
 name = "liteyukibot-v7-runtime-nonebot"
-version = "7.0.0a1"
+version = "7.0.0a2"
 source = { editable = "packages/runtime-nonebot" }
 dependencies = [
     { name = "liteyukibot-v7" },
@@ -1656,7 +1656,7 @@ requires-dist = [{ name = "liteyukibot-v7", editable = "." }]
 
 [[package]]
 name = "liteyukibot-v7-webui"
-version = "7.0.0a1"
+version = "7.0.0a2"
 source = { editable = "packages/webui" }
 
 [package.optional-dependencies]

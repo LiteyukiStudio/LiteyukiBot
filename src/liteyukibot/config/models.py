@@ -136,6 +136,7 @@ class CordisSettings(FrozenSettingsModel):
 
     enabled: tuple[str, ...] = ()
     config: Mapping[str, Any] = Field(default_factory=dict)
+    access: Mapping[str, Literal["limited"]] = Field(default_factory=dict)
 
     @field_validator("enabled")
     @classmethod
@@ -155,6 +156,20 @@ class CordisSettings(FrozenSettingsModel):
     @field_serializer("config")
     def serialize_config(self, value: Mapping[str, Any]) -> dict[str, Any]:
         return cast(dict[str, Any], _thaw(value))
+
+    @field_validator("access", mode="after")
+    @classmethod
+    def validate_access(cls, value: Mapping[str, Literal["limited"]]) -> Mapping[str, Literal["limited"]]:
+        if any(not plugin_id.strip() or plugin_id != plugin_id.strip() for plugin_id in value):
+            raise ValueError("Cordis access plugin IDs must be non-empty and trimmed")
+        return dict(value)
+
+    @model_validator(mode="after")
+    def validate_access_targets(self) -> CordisSettings:
+        unknown = set(self.access) - set(self.enabled)
+        if unknown:
+            raise ValueError(f"Cordis access targets must be enabled: {', '.join(sorted(unknown))}")
+        return self
 
 
 class AgentSettings(FrozenSettingsModel):

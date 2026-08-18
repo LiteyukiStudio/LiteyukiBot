@@ -7,12 +7,15 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from liteyukibot import AuthorizationContext
 from liteyukibot.events import EventEnvelope
 from liteyukibot.management import ManagementCaller
 from liteyukibot.services import ServiceKey
 
 PUBLIC = "public"
-PERMISSION_SERVICE = ServiceKey("liteyukibot.permissions", 1)
+PERMISSION_SERVICE = ServiceKey("liteyukibot.permissions", 2)
+
+type AuthorizationInput = AuthorizationContext | EventEnvelope
 
 
 def _validate_token(kind: str, value: object) -> str:
@@ -75,6 +78,19 @@ class PermissionDecision:
     reason: str
 
 
+def authorization_context(value: AuthorizationInput) -> AuthorizationContext:
+    """Convert legacy event callers without retaining event payload data."""
+
+    if isinstance(value, AuthorizationContext):
+        return value
+    return AuthorizationContext(
+        event_id=value.id,
+        runtime_id=value.runtime_id,
+        bot_id=value.bot_id,
+        actor_id=None if value.actor is None else value.actor.id,
+    )
+
+
 class PermissionService(Protocol):
     def principal(self, event: EventEnvelope) -> Principal | None: ...
 
@@ -83,12 +99,42 @@ class PermissionService(Protocol):
     def allows(self, event: EventEnvelope, capability: str) -> bool: ...
 
 
+class PermissionV2Service(Protocol):
+    """Host-facing v2 authorization surface with no EventEnvelope payload."""
+
+    def resolve(self, context: AuthorizationContext) -> PermissionSnapshot: ...
+
+    def allows(self, context: AuthorizationContext, capability: str) -> bool: ...
+
+    def activation_allowed(self, extension_id: str, capabilities: frozenset[str]) -> bool: ...
+
+    def allows_extension(
+        self,
+        context: AuthorizationContext,
+        extension_id: str,
+        capability: str,
+        *,
+        full: bool,
+    ) -> bool: ...
+
+
 class ManagementPermissionService(Protocol):
     def allows_management(self, caller: ManagementCaller, capability: str) -> bool: ...
 
 
 class PermissionAuditService(PermissionService, Protocol):
     def decide(self, event: EventEnvelope, capability: str, *, component: str) -> bool: ...
+
+    def activation_allowed(self, extension_id: str, capabilities: frozenset[str]) -> bool: ...
+
+    def allows_extension(
+        self,
+        context: AuthorizationContext,
+        extension_id: str,
+        capability: str,
+        *,
+        full: bool,
+    ) -> bool: ...
 
     def audit(self, *, limit: int | None = None) -> tuple[PermissionDecision, ...]: ...
 
@@ -106,26 +152,29 @@ class _ConfiguredPermissionService:
         self,
         snapshots: Mapping[Principal, PermissionSnapshot],
         management_grants: Mapping[str, PermissionSnapshot],
+        plugin_capabilities: Mapping[str, frozenset[str]],
         *,
         logger: PermissionLogger | None = None,
     ) -> None:
         self._snapshots = dict(snapshots)
         self._management_grants = dict(management_grants)
+        self._plugin_capabilities = dict(plugin_capabilities)
         self._anonymous = PermissionSnapshot(None, frozenset(), frozenset({PUBLIC}))
         self._logger = logger
         self._audit: deque[PermissionDecision] = deque(maxlen=self.AUDIT_CAPACITY)
 
-    def principal(self, event: EventEnvelope) -> Principal | None:
-        if event.actor is None:
+    def principal(self, context: AuthorizationInput) -> Principal | None:
+        normalized = authorization_context(context)
+        if normalized.actor_id is None:
             return None
         return Principal(
-            runtime_id=event.runtime_id,
-            bot_id=event.bot_id,
-            actor_id=event.actor.id,
+            runtime_id=normalized.runtime_id,
+            bot_id=normalized.bot_id,
+            actor_id=normalized.actor_id,
         )
 
-    def resolve(self, event: EventEnvelope) -> PermissionSnapshot:
-        principal = self.principal(event)
+    def resolve(self, context: AuthorizationInput) -> PermissionSnapshot:
+        principal = self.principal(context)
         if principal is None:
             return self._anonymous
         return self._snapshots.get(
@@ -133,36 +182,40 @@ class _ConfiguredPermissionService:
             PermissionSnapshot(principal, frozenset(), frozenset({PUBLIC})),
         )
 
-    def allows(self, event: EventEnvelope, capability: str) -> bool:
+    def allows(self, context: AuthorizationInput, capability: str) -> bool:
         if not isinstance(capability, str):
             return False
         if not capability or capability != capability.strip() or any(character.isspace() for character in capability):
             return False
-        return self.resolve(event).allows(capability)
+        return self.resolve(context).allows(capability)
 
     def allows_management(self, caller: ManagementCaller, capability: str) -> bool:
         if not isinstance(capability, str) or not capability or capability != capability.strip():
             return False
         return self._management_grants.get(caller.id, self._anonymous).allows(capability)
 
-    def decide(self, event: EventEnvelope, capability: str, *, component: str) -> bool:
+    def decide(self, context: AuthorizationInput, capability: str, *, component: str) -> bool:
         """Evaluate and retain a redacted audit record for a privileged boundary."""
 
         component = _validate_token("decision component", component)
-        principal = self.principal(event)
-        if not isinstance(capability, str) or not capability or capability != capability.strip() or any(
-            character.isspace() for character in capability
+        normalized = authorization_context(context)
+        principal = self.principal(normalized)
+        if (
+            not isinstance(capability, str)
+            or not capability
+            or capability != capability.strip()
+            or any(character.isspace() for character in capability)
         ):
             allowed = False
             reason = "invalid_capability"
         else:
-            allowed = self.resolve(event).allows(capability)
+            allowed = self.resolve(normalized).allows(capability)
             reason = "granted" if allowed else "not_granted"
         decision = PermissionDecision(
             capability=capability if isinstance(capability, str) else repr(capability),
             principal=principal,
             component=component,
-            event_id=event.id,
+            event_id=normalized.event_id,
             allowed=allowed,
             reason=reason,
         )
@@ -171,7 +224,7 @@ class _ConfiguredPermissionService:
             fields: dict[str, object] = {
                 "permission_component": component,
                 "capability": decision.capability,
-                "event_id": event.id,
+                "event_id": normalized.event_id,
                 "allowed": allowed,
                 "reason": reason,
             }
@@ -182,6 +235,39 @@ class _ConfiguredPermissionService:
                     actor_id=principal.actor_id,
                 )
             self._logger.bind(**fields).info("permission decision {}", "granted" if allowed else "denied")
+        return allowed
+
+    def activation_allowed(self, extension_id: str, capabilities: frozenset[str]) -> bool:
+        """Fail closed unless every Native/downscoped capability is explicitly granted."""
+
+        extension_id = _validate_token("extension id", extension_id)
+        requested = frozenset(_validate_token("requested capability", capability) for capability in capabilities)
+        ceiling = self._plugin_capabilities.get(extension_id)
+        return ceiling is not None and requested <= ceiling
+
+    def allows_extension(
+        self,
+        context: AuthorizationContext,
+        extension_id: str,
+        capability: str,
+        *,
+        full: bool,
+    ) -> bool:
+        """Authorize one host privilege while retaining only redacted context fields."""
+
+        extension_id = _validate_token("extension id", extension_id)
+        allowed = full or (
+            self.activation_allowed(extension_id, frozenset({capability})) and self.allows(context, capability)
+        )
+        decision = PermissionDecision(
+            capability=capability,
+            principal=self.principal(context),
+            component=extension_id,
+            event_id=context.event_id,
+            allowed=allowed,
+            reason="full_host" if full else "granted" if allowed else "not_granted",
+        )
+        self._audit.append(decision)
         return allowed
 
     def audit(self, *, limit: int | None = None) -> tuple[PermissionDecision, ...]:
@@ -327,28 +413,46 @@ def _parse_management_grants(value: object, roles: Mapping[str, frozenset[str]])
     return grants
 
 
+def _parse_plugin_capabilities(value: object) -> dict[str, frozenset[str]]:
+    if not isinstance(value, Mapping):
+        raise TypeError("permission plugin_capabilities must be an object")
+    parsed: dict[str, frozenset[str]] = {}
+    for raw_id, raw_capabilities in value.items():
+        extension_id = _validate_token("plugin_capabilities extension id", raw_id)
+        if extension_id in parsed:
+            raise ValueError(f"permission plugin_capabilities duplicates {extension_id}")
+        parsed[extension_id] = frozenset(
+            _parse_token_sequence(raw_capabilities, location=f"plugin_capabilities.{extension_id}", kind="capability")
+        )
+    return parsed
+
+
 def create_permission_service(
     config: Mapping[str, Any], *, logger: PermissionLogger | None = None
 ) -> PermissionAuditService:
     if not all(isinstance(key, str) for key in config):
         raise TypeError("permission config keys must be strings")
-    unknown = set(config) - {"roles", "grants", "management_grants"}
+    unknown = set(config) - {"roles", "grants", "management_grants", "plugin_capabilities"}
     if unknown:
         raise ValueError(f"unknown permission config keys: {', '.join(sorted(unknown))}")
     roles = _parse_roles(config.get("roles", {}))
     snapshots = _parse_grants(config.get("grants", ()), roles)
     management_grants = _parse_management_grants(config.get("management_grants", ()), roles)
-    return _ConfiguredPermissionService(snapshots, management_grants, logger=logger)
+    plugin_capabilities = _parse_plugin_capabilities(config.get("plugin_capabilities", {}))
+    return _ConfiguredPermissionService(snapshots, management_grants, plugin_capabilities, logger=logger)
 
 
 __all__ = [
     "PERMISSION_SERVICE",
     "PUBLIC",
+    "AuthorizationInput",
     "PermissionDecision",
     "PermissionAuditService",
     "PermissionLogger",
     "ManagementPermissionService",
     "PermissionService",
+    "PermissionV2Service",
     "PermissionSnapshot",
     "Principal",
+    "authorization_context",
 ]

@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7-permissions"
-version = "0.2.0a2"
+version = "0.3.0a1"
 description = "Versioned access policy service for LiteyukiBot v7 native plugins."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -10,7 +10,7 @@ authors = [
     { name = "LiteyukiStudio" },
 ]
 dependencies = [
-    "liteyukibot-v7>=7.0.0a1,<8",
+    "liteyukibot-v7==7.0.0a2",
 ]
 
 [project.entry-points."liteyukibot.plugins"]

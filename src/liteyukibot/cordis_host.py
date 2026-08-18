@@ -6,14 +6,14 @@ in independently distributed packages discovered through entry-point metadata.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from importlib import metadata
 from typing import TYPE_CHECKING, Protocol, cast
 
 from .config.models import CordisSettings
 from .events import EventBus
 from .exceptions import PluginError
-from .plugins import ExtensionCoexistence, ExtensionIdentity
+from .plugins import ExtensionCoexistence, ExtensionIdentity, ToolCallback, ToolDeclaration
 
 if TYPE_CHECKING:
     from .events import ActionEnvelope, ActionResult, EventEnvelope
@@ -33,6 +33,15 @@ class CordisHost(Protocol):
     @property
     def plugin_identities(self) -> tuple[ExtensionIdentity, ...]: ...
 
+    @property
+    def plugin_access(self) -> Mapping[str, str]: ...
+
+    @property
+    def tool_declarations(self) -> tuple[ToolDeclaration, ...]: ...
+
+    @property
+    def tool_handlers(self) -> Mapping[str, ToolCallback]: ...
+
 
 class ActionServiceLike(Protocol):
     async def execute(self, action: ActionEnvelope, *, event: EventEnvelope | None = None) -> ActionResult: ...
@@ -41,9 +50,7 @@ class ActionServiceLike(Protocol):
 CordisHostFactory = Callable[..., CordisHost]
 
 
-def validate_extension_topology(
-    native: Iterable[ExtensionIdentity], cordis: Iterable[ExtensionIdentity]
-) -> None:
+def validate_extension_topology(native: Iterable[ExtensionIdentity], cordis: Iterable[ExtensionIdentity]) -> None:
     """Reject duplicate host activation unless both declarations are infrastructure.
 
     This validates only startup ownership. Third-party plugins remain responsible
@@ -87,9 +94,7 @@ def discover_cordis_host(
 
     entry_points = tuple(metadata.entry_points(group=CORDIS_HOST_ENTRY_POINT_GROUP))
     if not entry_points:
-        raise RuntimeError(
-            "Cordis plugins are enabled but no liteyukibot.cordis_hosts implementation is installed"
-        )
+        raise RuntimeError("Cordis plugins are enabled but no liteyukibot.cordis_hosts implementation is installed")
     if len(entry_points) != 1:
         names = ", ".join(sorted(entry.name for entry in entry_points))
         raise RuntimeError(f"Cordis plugins require exactly one host implementation; found: {names}")

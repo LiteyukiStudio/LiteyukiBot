@@ -6,10 +6,16 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from importlib import metadata
 from inspect import isawaitable
-from typing import Any
+from typing import Any, cast
 
 from liteyukibot.events import EventBus
-from liteyukibot.plugins import ExtensionCoexistence, ExtensionIdentity
+from liteyukibot.plugins import (
+    ExtensionCoexistence,
+    ExtensionIdentity,
+    ExtensionManifest,
+    ToolCallback,
+    ToolDeclaration,
+)
 
 from .audit import CordisAuditService
 from .core import ActionServiceLike, CordisManager, PluginFactory
@@ -25,15 +31,23 @@ class CordisPluginDefinition:
     id: str
     factory: PluginFactory
     coexistence: ExtensionCoexistence = ExtensionCoexistence.EXCLUSIVE
+    manifest: ExtensionManifest | None = None
 
     def __post_init__(self) -> None:
         ExtensionIdentity(self.id, self.coexistence)
         if not callable(self.factory):
             raise TypeError(f"Cordis plugin {self.id!r} factory must be callable")
+        if self.manifest is not None and self.manifest.id != self.id:
+            raise ValueError("Cordis manifest ID must match its entry-point ID")
 
     @property
     def identity(self) -> ExtensionIdentity:
-        return ExtensionIdentity(self.id, self.coexistence)
+        coexistence = self.manifest.coexistence if self.manifest is not None else self.coexistence
+        return ExtensionIdentity(self.id, coexistence)
+
+    @property
+    def tool_ids(self) -> tuple[str, ...]:
+        return () if self.manifest is None else tuple(tool.id for tool in self.manifest.tools)
 
 
 class CordisHost:
@@ -41,6 +55,26 @@ class CordisHost:
         self.manager = CordisManager(events, actions, audit=CordisAuditService(logger=logger))
         self.settings = settings
         self._definitions = discover_cordis_plugins(settings.enabled)
+        self._tool_handlers: dict[str, ToolCallback] = {}
+
+    @property
+    def plugin_access(self) -> Mapping[str, str]:
+        return {
+            plugin_id: "limited" if plugin_id in self.settings.access else "full" for plugin_id in self._definitions
+        }
+
+    @property
+    def tool_declarations(self) -> tuple[ToolDeclaration, ...]:
+        return tuple(
+            tool
+            for definition in self._definitions.values()
+            if definition.manifest
+            for tool in definition.manifest.tools
+        )
+
+    @property
+    def tool_handlers(self) -> Mapping[str, ToolCallback]:
+        return {tool_id: cast(ToolCallback, handler) for tool_id, handler in self.manager.tool_handlers.items()}
 
     @property
     def plugin_identities(self) -> tuple[ExtensionIdentity, ...]:
@@ -49,7 +83,11 @@ class CordisHost:
     async def start(self) -> None:
         for plugin_id, definition in self._definitions.items():
             config = self.settings.config.get(plugin_id, {})
-            await self.manager.activate(plugin_id, _configured_factory(definition.factory, config))
+            await self.manager.activate(
+                plugin_id,
+                _configured_factory(definition.factory, config),
+                declared_tools=definition.tool_ids,
+            )
         await self.manager.start()
 
     async def aclose(self) -> None:

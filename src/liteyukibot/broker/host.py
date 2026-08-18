@@ -9,7 +9,16 @@ from typing import TYPE_CHECKING
 
 from ..events.models import JsonValue
 from .peer import BridgeClient, BridgeRegistrationError
-from .routing import ActionRequest, ActionResult, EventAccepted, EventCompleted, EventMessage
+from .protocol import AuthorizationContextWire
+from .routing import (
+    ActionRequest,
+    ActionResult,
+    EventAccepted,
+    EventCompleted,
+    EventMessage,
+    ToolInvoke,
+    ToolResult,
+)
 
 if TYPE_CHECKING:
     from .business import BrokerBusinessMessage
@@ -23,8 +32,19 @@ class ActionOutcome:
     payload: JsonValue = None
 
 
+@dataclass(frozen=True, slots=True)
+class ToolOutcome:
+    """One stable Tool result; exception text never crosses the broker wire."""
+
+    success: bool
+    result: JsonValue = None
+    error_code: str | None = None
+    error_details: Mapping[str, JsonValue] | None = None
+
+
 type EventHandler = Callable[[BrokerDelivery], Awaitable[None]]
 type ActionHandler = Callable[[ActionRequest], Awaitable[ActionOutcome]]
+type ToolHandler = Callable[[ToolInvoke], Awaitable[ToolOutcome]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +74,27 @@ class BrokerDelivery:
             timeout_seconds=self.message.lease_ttl_ms / 1_000,
         )
 
+    async def request_tool(
+        self,
+        *,
+        correlation_id: str,
+        tool_id: str,
+        arguments: Mapping[str, JsonValue] | None,
+        authorization: AuthorizationContextWire,
+        timeout_seconds: float | None = None,
+    ) -> ToolResult:
+        """Invoke a declared Tool through the active delivery lease."""
+
+        return await self._runner.request_tool(
+            delivery_id=self.message.delivery_id,
+            lease_id=self.message.lease_id,
+            correlation_id=correlation_id,
+            tool_id=tool_id,
+            arguments=arguments,
+            authorization=authorization,
+            timeout_seconds=timeout_seconds or self.message.lease_ttl_ms / 1_000,
+        )
+
 
 class BrokerBridgeRunner:
     """Coordinate a bridge host over one registered :class:`BridgeClient`.
@@ -69,11 +110,14 @@ class BrokerBridgeRunner:
         *,
         event_handler: EventHandler | None = None,
         action_handlers: Mapping[str, ActionHandler] | None = None,
+        tool_handlers: Mapping[str, ToolHandler] | None = None,
     ) -> None:
         self.client = client
         self._event_handler = event_handler
         self._action_handlers = dict(action_handlers or {})
+        self._tool_handlers = dict(tool_handlers or {})
         self._pending_results: dict[str, asyncio.Future[ActionResult]] = {}
+        self._pending_tool_results: dict[str, asyncio.Future[ToolResult]] = {}
         self._background: set[asyncio.Task[None]] = set()
         self._closing = False
 
@@ -99,6 +143,10 @@ class BrokerBridgeRunner:
             if not future.done():
                 future.set_exception(BridgeRegistrationError("bridge runner stopped before action result"))
         self._pending_results.clear()
+        for tool_future in self._pending_tool_results.values():
+            if not tool_future.done():
+                tool_future.set_exception(BridgeRegistrationError("bridge runner stopped before Tool result"))
+        self._pending_tool_results.clear()
         if self.client.session_id is not None:
             await self.client.unregister()
 
@@ -124,6 +172,12 @@ class BrokerBridgeRunner:
             if message.action_id is None:
                 raise BridgeRegistrationError("broker action request is missing its action ID")
             self._spawn(self._handle_action(message))
+        elif isinstance(message, ToolInvoke):
+            if message.invocation_id is None:
+                raise BridgeRegistrationError("broker sent a Tool invocation without an invocation ID")
+            self._spawn(self._handle_tool(message))
+        elif isinstance(message, ToolResult):
+            self._resolve_tool_result(message)
         elif isinstance(message, ActionResult):
             self._resolve_action_result(message)
         else:
@@ -172,6 +226,45 @@ class BrokerBridgeRunner:
             if self._pending_results.get(normalized_correlation) is future:
                 self._pending_results.pop(normalized_correlation, None)
 
+    async def request_tool(
+        self,
+        *,
+        delivery_id: str,
+        lease_id: str,
+        correlation_id: str,
+        tool_id: str,
+        arguments: Mapping[str, JsonValue] | None,
+        authorization: AuthorizationContextWire,
+        timeout_seconds: float | None = None,
+    ) -> ToolResult:
+        normalized_correlation = correlation_id.strip()
+        if not normalized_correlation:
+            raise ValueError("Tool correlation ID must be non-empty")
+        if normalized_correlation in self._pending_tool_results:
+            raise BridgeRegistrationError("a Tool result is already pending for this correlation ID")
+        if timeout_seconds is not None and timeout_seconds <= 0:
+            raise ValueError("Tool timeout must be positive")
+        future: asyncio.Future[ToolResult] = asyncio.get_running_loop().create_future()
+        self._pending_tool_results[normalized_correlation] = future
+        try:
+            await self.client.send_tool_invoke(
+                ToolInvoke(
+                    delivery_id=delivery_id,
+                    lease_id=lease_id,
+                    correlation_id=normalized_correlation,
+                    tool_id=tool_id,
+                    arguments=arguments or {},
+                    authorization=authorization,
+                )
+            )
+            result = await asyncio.wait_for(future, timeout=timeout_seconds) if timeout_seconds else await future
+            if not isinstance(result, ToolResult):
+                raise BridgeRegistrationError("received an action result for a pending Tool invocation")
+            return result
+        finally:
+            if self._pending_tool_results.get(normalized_correlation) is future:
+                self._pending_tool_results.pop(normalized_correlation, None)
+
     async def _handle_delivery(self, message: EventMessage) -> None:
         await self.client.send_event_accepted(EventAccepted(delivery_id=message.delivery_id, lease_id=message.lease_id))
         try:
@@ -208,10 +301,36 @@ class BrokerBridgeRunner:
             ActionResult(action_id=request.action_id or "", success=outcome.success, payload=outcome.payload)
         )
 
+    async def _handle_tool(self, request: ToolInvoke) -> None:
+        handler = self._tool_handlers.get(request.tool_id)
+        if handler is None:
+            outcome = ToolOutcome(success=False, error_code="TOOL_NOT_REGISTERED")
+        else:
+            try:
+                outcome = await handler(request)
+            except Exception:
+                outcome = ToolOutcome(success=False, error_code="TOOL_HANDLER_FAILED")
+        await self.client.send_tool_result(
+            ToolResult(
+                invocation_id=request.invocation_id or "",
+                success=outcome.success,
+                result=outcome.result,
+                error_code=outcome.error_code,
+                error_details=outcome.error_details,
+            )
+        )
+
     def _resolve_action_result(self, result: ActionResult) -> None:
         if result.correlation_id is None:
             raise BridgeRegistrationError("broker action result is missing its correlation ID")
         future = self._pending_results.get(result.correlation_id)
+        if future is not None and not future.done():
+            future.set_result(result)
+
+    def _resolve_tool_result(self, result: ToolResult) -> None:
+        if result.correlation_id is None:
+            raise BridgeRegistrationError("Tool result is missing its correlation ID")
+        future = self._pending_tool_results.get(result.correlation_id)
         if future is not None and not future.done():
             future.set_result(result)
 

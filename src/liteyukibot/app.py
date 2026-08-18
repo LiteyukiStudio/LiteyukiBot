@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import os
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from enum import StrEnum
 from pathlib import Path
 from time import monotonic
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from ._version import __version__
@@ -19,12 +19,14 @@ from .agents import (
     AgentToolResult,
     EventAgentToolCatalog,
 )
-from .broker import KernelBrokerPeer, configured_kernel_bridge
+from .authorization import AuthorizationContext
+from .broker import BrokerToolDeclaration, KernelBrokerPeer, ToolInvoke, ToolOutcome, configured_kernel_bridge
 from .capabilities import ADAPTER_CALL_API, AGENT_HISTORY_CLEAR, PERMISSION_SERVICE_MAJOR, PERMISSION_SERVICE_NAME
 from .config import AppSettings, RuntimeEventRoute
 from .control import ControlServer
 from .cordis_host import CordisHost, discover_cordis_host, validate_extension_topology
 from .events import ActionEnvelope, ActionResult, CallApi, EventBus, EventEnvelope
+from .events.models import JsonValue as EventJsonValue
 from .functions import FUNCTION_DISPATCH_SERVICE, FunctionDispatcher
 from .http import HttpServer
 from .i18n import I18N_SERVICE, SUPPORTED_LOCALES, Translator, normalize_locale
@@ -40,7 +42,7 @@ from .management import (
 )
 from .operations import ManagementPrincipal, OperationRequest, PrincipalKind
 from .plugin_store import RuntimeGenerationStore
-from .plugins import PluginManager
+from .plugins import PluginManager, ToolCallback, ToolDeclaration
 from .resource_packs import RESOURCE_CATALOG_SERVICE, ResourceCatalog
 from .runtime import (
     ActionProvenance,
@@ -111,6 +113,13 @@ class ActionService:
 
 
 _PERMISSION_SERVICE = ServiceKey(PERMISSION_SERVICE_NAME, PERMISSION_SERVICE_MAJOR)
+_LEGACY_PERMISSION_SERVICE = ServiceKey(PERMISSION_SERVICE_NAME, 1)
+
+
+def _permission_service(services: ServiceRegistry) -> object | None:
+    """Use v2 for new hosts; retain v1 only for legacy runtime action paths."""
+
+    return cast(object | None, services.get(_PERMISSION_SERVICE) or services.get(_LEGACY_PERMISSION_SERVICE))
 
 
 class _AppStatusProvider:
@@ -402,10 +411,7 @@ class LiteyukiApp:
             {"plugin_id": plugin_id, "surface": surface.model_dump(mode="json")}
             for plugin_id, surface in self.plugins.webui_surfaces()
         ]
-        diagnostics = [
-            {"plugin_id": item.plugin_id, "code": item.code}
-            for item in self.plugins.webui_diagnostics
-        ]
+        diagnostics = [{"plugin_id": item.plugin_id, "code": item.code} for item in self.plugins.webui_diagnostics]
         return {"generation": self.plugins.webui_generation, "surfaces": surfaces, "diagnostics": diagnostics}
 
     async def start(self) -> None:
@@ -441,9 +447,7 @@ class LiteyukiApp:
                 self._cordis_host.plugin_identities if self._cordis_host is not None else (),
             )
             declarations = tuple(
-                declaration
-                for definition in definitions.values()
-                for declaration in definition.manifest.resource_packs
+                declaration for definition in definitions.values() for declaration in definition.manifest.resource_packs
             )
             self.resources = ResourceCatalog.load(self.resource_workspace, plugin_packs=declarations)
             self.translator, _warning = Translator.from_resources(self.resources, self.settings.i18n.locale)
@@ -454,7 +458,7 @@ class LiteyukiApp:
             plugin_configs = self._plugin_configs(self.settings.plugins.config)
             self._plugins_setup = True
             await self.plugins.setup(definitions, plugin_configs)
-            permissions = self.services.get(ServiceKey(PERMISSION_SERVICE_NAME, PERMISSION_SERVICE_MAJOR))
+            permissions = self.services.get(_PERMISSION_SERVICE)
             allows_management = getattr(permissions, "allows_management", None)
             if callable(allows_management):
                 self.management.registry.set_authorizer(allows_management)
@@ -477,8 +481,79 @@ class LiteyukiApp:
                 token = self._runtime_secrets.get(bridge.token_secret)
                 if token is None:
                     raise RuntimeError("kernel broker bridge token is unavailable")
+                tool_bindings = dict(self.plugins.tool_handlers)
+                cordis_access = self._cordis_host.plugin_access if self._cordis_host is not None else {}
+                cordis_declarations = self._cordis_host.tool_declarations if self._cordis_host is not None else ()
+                for tool_id, callback in (
+                    self._cordis_host.tool_handlers.items() if self._cordis_host is not None else {}
+                ):
+                    declared_tool = next((item for item in cordis_declarations if item.id == tool_id), None)
+                    if declared_tool is None:
+                        raise RuntimeError(f"Cordis Tool handler {tool_id!r} has no declaration")
+                    extension_id = tool_id.rsplit(".", 1)[0]
+                    tool_bindings[tool_id] = (extension_id, declared_tool, callback)
+                tool_handlers: dict[str, Callable[[ToolInvoke], Awaitable[ToolOutcome]]] = {}
+                for tool_id, (extension_id, declaration, callback) in tool_bindings.items():
+
+                    async def handle_tool(
+                        request: ToolInvoke,
+                        *,
+                        extension_id: str = extension_id,
+                        declaration: ToolDeclaration = declaration,
+                        callback: ToolCallback = callback,
+                    ) -> ToolOutcome:
+                        context = AuthorizationContext(
+                            event_id=request.authorization.event_id,
+                            runtime_id=request.authorization.runtime_id,
+                            bot_id=request.authorization.bot_id,
+                            actor_id=request.authorization.actor_id,
+                        )
+                        permissions = self.services.get(_PERMISSION_SERVICE)
+                        allows_extension = getattr(permissions, "allows_extension", None)
+                        capabilities = getattr(declaration, "capabilities", ())
+                        full_access = cordis_access.get(extension_id) == "full"
+                        if any(
+                            not callable(allows_extension)
+                            or not allows_extension(context, extension_id, capability, full=full_access)
+                            for capability in capabilities
+                        ):
+                            return ToolOutcome(success=False, error_code="TOOL_PERMISSION_DENIED")
+                        return ToolOutcome(
+                            success=True,
+                            result=cast(
+                                EventJsonValue, await callback(context, cast(Mapping[str, Any], request.arguments))
+                            ),
+                        )
+
+                    tool_handlers[tool_id] = handle_tool
                 self._kernel_broker_peer = KernelBrokerPeer.from_settings(
-                    self.settings, token=token, events=self.events
+                    self.settings,
+                    token=token,
+                    events=self.events,
+                    tools=tuple(
+                        [
+                            BrokerToolDeclaration(
+                                id=tool.id,
+                                description=tool.description,
+                                input_schema=tool.input_schema,
+                                output_schema=tool.output_schema,
+                                capabilities=tool.capabilities,
+                            )
+                            for definition in definitions.values()
+                            for tool in definition.manifest.tools
+                        ]
+                        + [
+                            BrokerToolDeclaration(
+                                id=tool.id,
+                                description=tool.description,
+                                input_schema=tool.input_schema,
+                                output_schema=tool.output_schema,
+                                capabilities=tool.capabilities,
+                            )
+                            for tool in cordis_declarations
+                        ]
+                    ),
+                    tool_handlers=tool_handlers,
                 )
                 await self._kernel_broker_peer.start()
                 self._kernel_broker_started = True
@@ -563,10 +638,7 @@ class LiteyukiApp:
         return {
             "schema_version": 1,
             "kernel": {"version": __version__, "state": self.state.value},
-            "services": [
-                {"key": str(item.key), "provider": item.provider}
-                for item in self.services.snapshot()
-            ],
+            "services": [{"key": str(item.key), "provider": item.provider} for item in self.services.snapshot()],
             "plugins": [
                 {
                     "id": definition.manifest.id,
@@ -583,8 +655,7 @@ class LiteyukiApp:
                         for requirement in definition.manifest.requires
                     ],
                     "resource_packs": [
-                        {"package": pack.package, "root": pack.root}
-                        for pack in definition.manifest.resource_packs
+                        {"package": pack.package, "root": pack.root} for pack in definition.manifest.resource_packs
                     ],
                 }
                 for plugin_id, definition in sorted(definitions.items())
@@ -800,7 +871,7 @@ class LiteyukiApp:
                 error_code="ACTION_PERMISSION_DENIED",
                 error_message="adapter API action does not match its source event",
             )
-        permissions = self.services.get(_PERMISSION_SERVICE)
+        permissions = _permission_service(self.services)
         decide = getattr(permissions, "decide", None)
         allows = getattr(permissions, "allows", None)
         allowed = (
@@ -833,7 +904,7 @@ class LiteyukiApp:
         return await self.actions.execute(action, event=event)
 
     async def _clear_agent_history(self, event: EventEnvelope) -> int:
-        permissions = self.services.get(_PERMISSION_SERVICE)
+        permissions = _permission_service(self.services)
         decide = getattr(permissions, "decide", None)
         allows = getattr(permissions, "allows", None)
         allowed = (
@@ -853,9 +924,7 @@ class LiteyukiApp:
             raise PermissionError("agent history clear permission is denied")
 
         targets = tuple(
-            runtime_id
-            for runtime_id, record in self.runtimes.records.items()
-            if record.spec.agent_harness == "native"
+            runtime_id for runtime_id, record in self.runtimes.records.items() if record.spec.agent_harness == "native"
         )
         if len(targets) != 1:
             raise RuntimeError("native agent history control requires exactly one native agent runtime")

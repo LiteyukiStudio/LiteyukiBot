@@ -68,6 +68,7 @@ def test_cordis_settings_are_frozen_and_workspace_template_round_trips(tmp_path:
     assert settings.model_dump(mode="json") == {
         "enabled": ["example.plugin"],
         "config": {"example": {"nested": ["value"]}},
+        "access": {},
     }
     with pytest.raises(TypeError):
         settings.config["other"] = {}  # type: ignore[index]
@@ -125,12 +126,15 @@ def test_disabled_cordis_does_not_discover_entry_points(monkeypatch: pytest.Monk
 
     monkeypatch.setattr("liteyukibot.cordis_host.metadata.entry_points", entry_points)
 
-    assert discover_cordis_host(
-        CordisSettings(),
-        events=EventBus(),
-        actions=cast(ActionServiceLike, object()),
-        logger=cast(Logger, object()),
-    ) is None
+    assert (
+        discover_cordis_host(
+            CordisSettings(),
+            events=EventBus(),
+            actions=cast(ActionServiceLike, object()),
+            logger=cast(Logger, object()),
+        )
+        is None
+    )
 
 
 @pytest.mark.parametrize(

@@ -11,6 +11,7 @@ from liteyukibot.broker import (
     ActionRequest,
     ActionResourceDeclaration,
     ActionResult,
+    AuthorizationContextWire,
     BridgeAccess,
     BridgeClient,
     BridgeManifest,
@@ -20,10 +21,14 @@ from liteyukibot.broker import (
     BrokerEvent,
     BrokerPeerServer,
     BrokerPeerService,
+    BrokerToolDeclaration,
+    BusinessDispatch,
     EventAccepted,
     EventCompleted,
     EventIngress,
     EventMessage,
+    ToolInvoke,
+    ToolResult,
     decode_business_message,
     encode_business_message,
 )
@@ -36,12 +41,14 @@ def _manifest(
     *,
     subscriptions: tuple[str, ...] = (),
     resources: tuple[ActionResourceDeclaration, ...] = (),
+    tools: tuple[BrokerToolDeclaration, ...] = (),
 ) -> BridgeManifest:
     return BridgeManifest(
         bridge_id=bridge_id,
         access=BridgeAccess.LIMITED,
         subscriptions=subscriptions,
         action_resources=resources,
+        tools=tools,
     )
 
 
@@ -71,6 +78,14 @@ def _event() -> BrokerEvent:
             resource_key="bot:1",
         ),
         ActionResult(action_id="action-1", success=True, payload={"message_id": "1"}),
+        ToolInvoke(
+            delivery_id="delivery-1",
+            lease_id="lease-1",
+            correlation_id="tool-call-1",
+            tool_id="owner.echo",
+            authorization=AuthorizationContextWire(event_id="event-1", runtime_id="source", bot_id="bot-1"),
+        ),
+        ToolResult(invocation_id="invocation-1", success=False, error_code="DENIED"),
     ),
 )
 def test_business_catalog_round_trips_all_messages_without_absolute_deadlines(message: BrokerBusinessMessage) -> None:
@@ -134,6 +149,14 @@ def test_business_catalog_rejects_wrong_lane_and_type_id() -> None:
             resource_key="bot:1",
         ),
         ActionResult(action_id="action-1", success=True),
+        ToolInvoke(
+            delivery_id="delivery-1",
+            lease_id="lease-1",
+            correlation_id="tool-call-1",
+            tool_id="owner.echo",
+            authorization=AuthorizationContextWire(event_id="event-1", runtime_id="source", bot_id="bot-1"),
+        ),
+        ToolResult(invocation_id="invocation-1", success=False, error_code="DENIED"),
     ),
 )
 def test_business_models_emit_protocol_six_and_reject_protocol_five(message: BrokerBusinessMessage) -> None:
@@ -334,6 +357,77 @@ async def test_zmq_event_lifecycle_action_result_and_stale_lease_validation() ->
         source.close()
         server.close()
         context.term()
+
+
+def test_tool_invoke_routes_to_declared_owner_and_replays_retained_result() -> None:
+    service = BrokerPeerService(
+        instance_tokens={"source": "source-token", "caller": "caller-token", "owner": "owner-token"},
+        generation=1,
+    )
+    source = BridgeSession("source", "source-session", _manifest("source"), b"source")
+    caller = BridgeSession(
+        "caller", "caller-session", _manifest("caller", subscriptions=("message.created",)), b"caller"
+    )
+    owner = BridgeSession(
+        "owner",
+        "owner-session",
+        _manifest(
+            "owner",
+            tools=(
+                BrokerToolDeclaration(
+                    id="owner.echo",
+                    description="Echo",
+                    input_schema={"type": "object"},
+                    output_schema={"type": "object"},
+                ),
+            ),
+        ),
+        b"owner",
+    )
+    for session in (source, caller, owner):
+        service._sessions_by_bridge[session.bridge_id] = session
+        service._sessions_by_identity[session.peer_identity] = session
+    event = service.admit_event(
+        source.peer_identity,
+        EventIngress(source_event_id="platform-1", topic="message.created", ordering_key="chat:1"),
+    )
+    offer = service.ledger.offered_deliveries(event.kernel_event_id)[0]
+    service.ledger.accept_delivery(caller, offer.delivery_id, offer.lease_id)
+    service.ledger.activate_delivery(caller, offer.delivery_id, offer.lease_id)
+    request = ToolInvoke(
+        delivery_id=offer.delivery_id,
+        lease_id=offer.lease_id,
+        correlation_id="tool-call-1",
+        tool_id="owner.echo",
+        arguments={"message": "hello"},
+        authorization=AuthorizationContextWire(event_id=event.kernel_event_id, runtime_id="source", bot_id="bot-1"),
+    )
+    frame = encode_business_message(
+        request,
+        generation=1,
+        stream_id="bridge:caller:caller-session:tool",
+        sequence=0,
+        lease_id=offer.lease_id,
+    )
+    first = service.handle_business(caller.peer_identity, frame)
+    assert len(first) == 1
+    invocation = first[0].message
+    assert isinstance(invocation, ToolInvoke)
+    assert invocation.invocation_id is not None
+    assert first[0].target is owner
+
+    result = ToolResult(invocation_id=invocation.invocation_id, success=False, error_code="DENIED")
+    result_frame = encode_business_message(
+        result,
+        generation=1,
+        stream_id="bridge:owner:owner-session:tool",
+        sequence=0,
+        lease_id="bridge-business",
+    )
+    completed = service.handle_business(owner.peer_identity, result_frame)
+    expected = result.model_copy(update={"correlation_id": "tool-call-1"})
+    assert completed == (BusinessDispatch(target=caller, message=expected),)
+    assert service.handle_business(caller.peer_identity, frame) == (BusinessDispatch(target=caller, message=expected),)
 
 
 @pytest.mark.asyncio

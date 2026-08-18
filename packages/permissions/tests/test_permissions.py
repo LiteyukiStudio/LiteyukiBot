@@ -308,5 +308,5 @@ def test_management_grants_reject_duplicate_and_public_capability(config: dict[s
 
 def test_permission_plugin_manifest_publishes_versioned_service() -> None:
     assert plugin.manifest.id == "liteyukibot.permissions"
-    assert plugin.manifest.version == "0.2.0a2"
+    assert plugin.manifest.version == "0.3.0a1"
     assert plugin.manifest.provides == (PERMISSION_SERVICE,)

@@ -2,6 +2,7 @@
 
 from ._version import __version__
 from .app import LiteyukiApp
+from .authorization import AuthorizationContext
 from .functions import FUNCTION_DISPATCH_SERVICE, FunctionCall, FunctionDispatcher
 from .i18n import I18N_SERVICE, Translator
 from .init_specs import InitFieldKind, InitFieldSpec, PluginInitSpec, RuntimeInitSpec
@@ -19,12 +20,15 @@ from .operations import (
 from .plugins import (
     WEBUI_API_VERSION,
     WEBUI_SCHEMA_DRAFT_2020_12,
+    ExtensionDefinition,
+    ExtensionManifest,
     PluginContext,
     PluginDefinition,
     PluginHandle,
     PluginManifest,
     PluginPaths,
     PluginServices,
+    ToolDeclaration,
     WebUiComponent,
     WebUiContributionManifest,
     WebUiDiagnostic,
@@ -39,6 +43,7 @@ from .status import KERNEL_STATUS_SERVICE, KernelStatusProvider, KernelStatusSna
 
 __all__ = [
     "LiteyukiApp",
+    "AuthorizationContext",
     "KERNEL_STATUS_SERVICE",
     "KernelStatusProvider",
     "KernelStatusSnapshot",
@@ -46,11 +51,14 @@ __all__ = [
     "InitFieldSpec",
     "PluginContext",
     "PluginDefinition",
+    "ExtensionDefinition",
     "PluginHandle",
     "PluginManifest",
+    "ExtensionManifest",
     "PluginInitSpec",
     "PluginPaths",
     "PluginServices",
+    "ToolDeclaration",
     "WEBUI_API_VERSION",
     "WEBUI_SCHEMA_DRAFT_2020_12",
     "WebUiComponent",

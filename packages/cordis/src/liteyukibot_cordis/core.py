@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import inspect
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from time import monotonic
 from typing import Protocol, cast
@@ -93,7 +93,17 @@ class CordisManager(RegistrationSink):
         self._subscription: Subscription | None = None
         self._closed = False
 
-    async def activate(self, plugin_id: str, factory: PluginFactory) -> Scope:
+    @property
+    def tool_handlers(self) -> Mapping[str, object]:
+        handlers: dict[str, object] = {}
+        for registration in self._registrations:
+            if registration.kind != "tool":
+                continue
+            tool_id, handler = cast(tuple[str, object], registration.value)
+            handlers[tool_id] = handler
+        return handlers
+
+    async def activate(self, plugin_id: str, factory: PluginFactory, *, declared_tools: tuple[str, ...] = ()) -> Scope:
         if plugin_id in self._plugin_scopes:
             raise ValueError(f"Cordis plugin {plugin_id!r} is already activated")
         scope = self.scope.child(plugin_id=plugin_id)
@@ -102,6 +112,13 @@ class CordisManager(RegistrationSink):
             result = factory(scope)
             if inspect.isawaitable(result):
                 await result
+            registered_tools = tuple(
+                cast(tuple[str, object], item.value)[0]
+                for item in self._registrations
+                if item.scope is scope and item.kind == "tool"
+            )
+            if set(registered_tools) != set(declared_tools) or len(registered_tools) != len(declared_tools):
+                raise ValueError(f"Cordis plugin {plugin_id!r} must register exactly one handler per declared Tool")
         except BaseException as error:
             await scope.aclose()
             self.audit.record(
@@ -187,9 +204,7 @@ class CordisManager(RegistrationSink):
             def invoke(handler: OrderedHandler = handler) -> Awaitable[None] | None:
                 return handler(session)
 
-            if not await self._invoke(
-                item, "ordered", session.event.envelope.id, invoke, failures
-            ):
+            if not await self._invoke(item, "ordered", session.event.envelope.id, invoke, failures):
                 return
 
     async def _run_parallel(
@@ -259,6 +274,7 @@ class CordisManager(RegistrationSink):
                 self._record_failure(item, f"route:{name}:predicate", session.event.envelope.id, failures, error)
                 continue
             if matched:
+
                 def invoke(handler: OrderedHandler = handler) -> Awaitable[None] | None:
                     return handler(session)
 

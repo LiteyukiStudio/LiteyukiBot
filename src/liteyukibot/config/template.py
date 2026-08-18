@@ -53,6 +53,7 @@ def render_config_template(
         "cordis": {
             "enabled": list(cordis_plugins),
             "config": cordis_config or {},
+            "access": {},
         },
         "http": {"enabled": False, "host": "127.0.0.1", "port": 20216},
         "daemon": {

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 ADAPTER_CALL_API = "liteyukibot.adapter.call_api"
 AGENT_HISTORY_CLEAR = "liteyukibot.agent.history.clear"
 PERMISSION_SERVICE_NAME = "liteyukibot.permissions"
-PERMISSION_SERVICE_MAJOR = 1
+PERMISSION_SERVICE_MAJOR = 2
 
 
 @dataclass(frozen=True, slots=True)
