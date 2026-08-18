@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7-permissions"
-version = "0.3.0a1"
+version = "0.3.0a2"
 description = "Versioned access policy service for LiteyukiBot v7 native plugins."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -10,11 +10,17 @@ authors = [
     { name = "LiteyukiStudio" },
 ]
 dependencies = [
-    "liteyukibot-v7==7.0.0a2",
+    "liteyukibot-v7==7.0.0a3",
 ]
 
 [project.entry-points."liteyukibot.plugins"]
 "liteyukibot.permissions" = "liteyukibot_permissions:plugin"
+
+[project.entry-points."liteyukibot.cordis_plugins"]
+"liteyukibot.permissions" = "liteyukibot_permissions.cordis:cordis_plugin"
+
+[project.optional-dependencies]
+cordis = ["liteyukibot-v7-cordis==7.0.0a3"]
 
 [build-system]
 requires = ["uv_build>=0.11.32,<0.12"]
@@ -22,6 +28,7 @@ build-backend = "uv_build"
 
 [tool.uv.sources]
 liteyukibot-v7 = { workspace = true }
+liteyukibot-v7-cordis = { workspace = true }
 
 [tool.uv.build-backend]
 module-root = "src"

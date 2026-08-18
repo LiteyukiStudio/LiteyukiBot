@@ -5,10 +5,11 @@ from __future__ import annotations
 import inspect
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
-from liteyukibot_permissions import PermissionService
+from liteyukibot_permissions import PermissionService, PermissionV2Service
 
+from liteyukibot.authorization import AuthorizationContext
 from liteyukibot.events import EventEnvelope, HandlerResult
 from liteyukibot.services import ServiceKey
 
@@ -20,7 +21,7 @@ from .models import (
     CommandSpec,
 )
 
-COMMAND_SERVICE = ServiceKey("liteyukibot.commands", 1)
+COMMAND_SERVICE = ServiceKey("liteyukibot.commands", 2)
 
 
 class _Logger(Protocol):
@@ -54,6 +55,8 @@ class CommandService(Protocol):
     def snapshot(self) -> tuple[CommandRegistration, ...]: ...
 
     def visible(self, event: EventEnvelope) -> tuple[CommandRegistration, ...]: ...
+
+    def visible_context(self, context: AuthorizationContext) -> tuple[CommandRegistration, ...]: ...
 
     def resolve(self, event: EventEnvelope, path: Sequence[str]) -> CommandRegistration | None: ...
 
@@ -171,6 +174,13 @@ class _CommandService:
             if self._allows(event, registration.spec)
         )
 
+    def visible_context(self, context: AuthorizationContext) -> tuple[CommandRegistration, ...]:
+        return tuple(
+            registration
+            for registration in self.snapshot()
+            if self._allows_context(context, registration.spec)
+        )
+
     def resolve(self, event: EventEnvelope, path: Sequence[str]) -> CommandRegistration | None:
         tokens = tuple(item.casefold() for item in path)
         registration_id = self._paths.get(tokens)
@@ -230,6 +240,17 @@ class _CommandService:
                 "permission check for command {} failed",
                 spec.name,
                 event_id=event.id,
+            )
+            return False
+
+    def _allows_context(self, context: AuthorizationContext, spec: CommandSpec) -> bool:
+        try:
+            return cast(PermissionV2Service, self._permissions).allows(context, spec.permission)
+        except Exception:
+            self._logger.exception(
+                "permission check for command {} failed",
+                spec.name,
+                event_id=context.event_id,
             )
             return False
 

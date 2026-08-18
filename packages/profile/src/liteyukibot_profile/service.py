@@ -13,10 +13,14 @@ from liteyukibot_resources import ResourceField, ResourceProvider
 
 from liteyukibot.services import ServiceKey
 
-_SCHEMA_VERSION: Final = 1
+_SCHEMA_VERSION: Final = 2
 _DEFAULT_LANGUAGE: Final = "zh-CN"
 _VALID_LANGUAGES: Final = frozenset({"zh-CN", "en"})
-PROFILE_SERVICE = ServiceKey("liteyukibot.profile", 1)
+PROFILE_SERVICE = ServiceKey("liteyukibot.profile", 2)
+
+
+class ProfileMigrationRequiredError(RuntimeError):
+    """Raised without touching a legacy Profile database."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,7 +52,12 @@ class SQLiteProfileService(ProfileService, ResourceProvider):
         self._connection = sqlite3.connect(database)
         self._lock = asyncio.Lock()
         self._closed = False
-        self._initialize()
+        try:
+            self._initialize()
+        except BaseException:
+            self._connection.close()
+            self._closed = True
+            raise
 
     def _initialize(self) -> None:
         with self._connection:
@@ -56,6 +65,8 @@ class SQLiteProfileService(ProfileService, ResourceProvider):
             if version is None:
                 raise RuntimeError("profile database did not report a schema version")
             current = int(version[0])
+            if current == 1:
+                raise ProfileMigrationRequiredError("migration_required")
             if current > _SCHEMA_VERSION:
                 raise RuntimeError(f"profile database schema {current} is newer than supported {_SCHEMA_VERSION}")
             if current == 0:
@@ -157,6 +168,7 @@ class SQLiteProfileService(ProfileService, ResourceProvider):
 
 __all__ = [
     "PROFILE_SERVICE",
+    "ProfileMigrationRequiredError",
     "ProfileService",
     "ProfileSnapshot",
     "SQLiteProfileService",

@@ -18,9 +18,9 @@ shipping it, and requires a tag-bound first-party Sigstore proof for the
 aggregate manifest. The existing workflows below must be changed before that
 release so that they reject every Alpha version and cannot call `uv publish`.
 
-[Alpha 2](../roadmap/v7-alpha-2-plugin-permission-tools.md) retains that
-release mechanism at `v7.0.0a2` and adds only the independent Permissions v2
-asset to the signed bundle. It does not authorize a PyPI plugin release.
+[Alpha 2](../roadmap/v7-alpha-2-plugin-permission-tools.md) retained that
+release mechanism at `v7.0.0a2` and added only the independent Permissions
+asset to the signed bundle. It did not authorize a PyPI plugin release.
 
 [Alpha 3](../roadmap/v7-alpha-3-business-plugin-migration.md) adds the planned
 first-party business assets and frozen Functions compatibility rebuild to the

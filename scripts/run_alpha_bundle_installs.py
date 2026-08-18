@@ -38,6 +38,39 @@ VERIFICATIONS: tuple[InstallVerification, ...] = (
     InstallVerification(
         "permissions", ("liteyukibot-v7", "liteyukibot-v7-permissions"), "scripts/verify_permissions_install.py"
     ),
+    InstallVerification(
+        "commands", ("liteyukibot-v7", "liteyukibot-v7-permissions", "liteyukibot-v7-commands"),
+        "scripts/verify_commands_install.py",
+    ),
+    InstallVerification(
+        "resources",
+        ("liteyukibot-v7", "liteyukibot-v7-permissions", "liteyukibot-v7-commands", "liteyukibot-v7-resources"),
+        "scripts/verify_resources_install.py",
+    ),
+    InstallVerification(
+        "profile",
+        (
+            "liteyukibot-v7",
+            "liteyukibot-v7-permissions",
+            "liteyukibot-v7-commands",
+            "liteyukibot-v7-resources",
+            "liteyukibot-v7-profile",
+        ),
+        "scripts/verify_profile_install.py",
+    ),
+    InstallVerification(
+        "essentials",
+        ("liteyukibot-v7", "liteyukibot-v7-permissions", "liteyukibot-v7-commands", "liteyukibot-v7-essentials"),
+        "scripts/verify_essentials_install.py",
+    ),
+    InstallVerification(
+        "agent-resolver",
+        ("liteyukibot-v7", "liteyukibot-v7-agent-resolver"),
+        "scripts/verify_agent_resolver_install.py",
+    ),
+    InstallVerification(
+        "functions", ("liteyukibot-v7", "liteyukibot-v7-functions"), "scripts/verify_functions_install.py"
+    ),
     InstallVerification("cordis", ("liteyukibot-v7", "liteyukibot-v7-cordis"), "scripts/verify_cordis_install.py"),
     InstallVerification(
         "nonebot-bridge",

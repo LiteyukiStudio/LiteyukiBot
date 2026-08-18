@@ -1,6 +1,6 @@
 # LiteyukiBot v7 Commands
 
-`liteyukibot-v7-commands` provides the versioned `liteyukibot.commands@1`
+`liteyukibot-v7-commands` provides the versioned `liteyukibot.commands@2`
 service and a protocol-neutral EventBus command router.
 
 The parser recognizes configurable non-empty prefixes, command names, aliases,

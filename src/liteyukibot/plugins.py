@@ -893,7 +893,8 @@ class PluginManager:
                             await tasks.stop()
                         finally:
                             self.services.remove_provider(plugin_id)
-                raise PluginError(f"plugin {plugin_id} setup failed") from exc
+                detail = ": migration_required" if str(exc) == "migration_required" else ""
+                raise PluginError(f"plugin {plugin_id} setup failed{detail}") from exc
             self.loaded[plugin_id] = LoadedPlugin(definition, context, handle)
 
     async def start(self) -> None:

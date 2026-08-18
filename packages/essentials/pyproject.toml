@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7-essentials"
-version = "0.2.0a3"
+version = "0.3.0a1"
 description = "Essential help and status commands for LiteyukiBot v7."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -10,12 +10,15 @@ authors = [
     { name = "LiteyukiStudio" },
 ]
 dependencies = [
-    "liteyukibot-v7>=7.0.0a1,<8",
-    "liteyukibot-v7-commands>=0.2.0a2,<0.3",
+    "liteyukibot-v7==7.0.0a3",
+    "liteyukibot-v7-commands==0.3.0a1",
 ]
 
 [project.entry-points."liteyukibot.plugins"]
 "liteyukibot.essentials" = "liteyukibot_essentials:plugin"
+
+[project.entry-points."liteyukibot.cordis_plugins"]
+"liteyukibot.essentials" = "liteyukibot_essentials.cordis:cordis_plugin"
 
 [build-system]
 requires = ["uv_build>=0.11.32,<0.12"]
@@ -24,6 +27,7 @@ build-backend = "uv_build"
 [tool.uv.sources]
 liteyukibot-v7 = { workspace = true }
 liteyukibot-v7-commands = { workspace = true }
+liteyukibot-v7-cordis = { workspace = true }
 
 [tool.uv.build-backend]
 module-root = "src"

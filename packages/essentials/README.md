@@ -3,10 +3,13 @@
 `liteyukibot-v7-essentials` provides the first-party `help` and `status`
 commands for native LiteyukiBot v7 deployments.
 
-The plugin adds no service. It consumes `liteyukibot.commands@1` and the
+The plugin adds no service. It consumes `liteyukibot.commands@2` and the
 kernel's `liteyukibot.kernel.status@1` snapshot service. Help only lists
 commands visible to the current actor; status requires the
 `liteyukibot.status.read` capability.
+
+Alpha 3 also exposes bounded `help` and `status` Tools; their schemas reject
+extra fields and status remains capability-protected.
 
 ```toml
 [plugins]

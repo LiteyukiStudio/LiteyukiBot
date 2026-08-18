@@ -20,7 +20,7 @@ from .service import (
 try:
     __version__ = version("liteyukibot-v7-permissions")
 except PackageNotFoundError:
-    __version__ = "0.3.0a1"
+    __version__ = "0.3.0a2"
 
 plugin = create_plugin(__version__)
 

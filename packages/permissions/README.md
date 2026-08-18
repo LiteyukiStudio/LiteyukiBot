@@ -24,8 +24,9 @@ capabilities = ["example.echo.use"]
 
 Limited hosts declare requested capabilities and are activated only when every
 request is inside the configured `plugin_capabilities` ceiling. The v2 host
-surface accepts `AuthorizationContext`; the old EventEnvelope call shape is a
-temporary explicit adapter for packages awaiting Alpha 3 migration.
+surface accepts `AuthorizationContext`; EventEnvelope remains only for the
+command/resource event path. The `permissions.check` Tool evaluates the
+current invocation context and never accepts a caller-supplied principal.
 
 Privileged v2 boundaries call `decide(context, capability, component=...)`.
 The legacy adapter may accept an event only while a package is awaiting Alpha 3

@@ -37,7 +37,7 @@ class AlphaComponent:
         return self.version or ALPHA_VERSION
 
 
-ALPHA_VERSION = "7.0.0a2"
+ALPHA_VERSION = "7.0.0a3"
 ALPHA_TAG = f"v{ALPHA_VERSION}"
 MANIFEST_NAME = "artifacts.manifest.json"
 SBOM_NAME = "sbom.cdx.json"
@@ -60,7 +60,13 @@ LOCKSTEP_COMPONENTS: tuple[AlphaComponent, ...] = (
     AlphaComponent("webui", "packages/webui", "liteyukibot-v7-webui"),
 )
 INDEPENDENT_COMPONENTS: tuple[AlphaComponent, ...] = (
-    AlphaComponent("permissions", "packages/permissions", "liteyukibot-v7-permissions", version="0.3.0a1"),
+    AlphaComponent("permissions", "packages/permissions", "liteyukibot-v7-permissions", version="0.3.0a2"),
+    AlphaComponent("commands", "packages/commands", "liteyukibot-v7-commands", version="0.3.0a1"),
+    AlphaComponent("resources", "packages/resources", "liteyukibot-v7-resources", version="0.2.0a1"),
+    AlphaComponent("profile", "packages/profile", "liteyukibot-v7-profile", version="0.2.0a1"),
+    AlphaComponent("essentials", "packages/essentials", "liteyukibot-v7-essentials", version="0.3.0a1"),
+    AlphaComponent("agent-resolver", "packages/agent-resolver", "liteyukibot-v7-agent-resolver", version="0.2.0a1"),
+    AlphaComponent("functions", "packages/functions", "liteyukibot-v7-functions", version="0.1.0a3"),
 )
 RELEASE_COMPONENTS = LOCKSTEP_COMPONENTS + INDEPENDENT_COMPONENTS
 

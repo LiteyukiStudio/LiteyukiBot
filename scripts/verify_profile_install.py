@@ -20,7 +20,7 @@ from liteyukibot_resources import RESOURCE_SERVICE, ResourceService
 from liteyukibot_resources.service import create_resource_service
 
 import liteyukibot
-from liteyukibot import PluginDefinition
+from liteyukibot import AuthorizationContext, PluginDefinition
 from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope
 from liteyukibot.i18n import I18N_SERVICE, Translator
 from liteyukibot.logging import get_logger
@@ -99,6 +99,17 @@ async def verify(expected_version: str | None = None) -> None:
             await resource_service.set(_event(), ("profile",), "nickname", "Alice")
             if await profile.get(user) != ProfileSnapshot(user, nickname="Alice"):
                 raise RuntimeError("installed profile service did not persist a resource update")
+            handlers = harness.context._tool_handlers
+            authorization = AuthorizationContext(
+                event_id="tool-event",
+                runtime_id="runtime",
+                bot_id="bot",
+                actor_id="user",
+            )
+            inspect_tool = handlers["liteyukibot.profile.inspect"]
+            result = await inspect_tool(authorization, {})
+            if result != {"nickname": "Alice", "language": "zh-CN"}:
+                raise RuntimeError("installed profile inspect Tool returned an unexpected value")
 
     observed = {
         name: importlib.metadata.version(name)

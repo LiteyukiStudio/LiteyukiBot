@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7-webui"
-version = "7.0.0a2"
+version = "7.0.0a3"
 description = "Local WebUI distribution wrapper for LiteyukiBot v7."
 requires-python = ">=3.14"
 license = "LicenseRef-LSO"

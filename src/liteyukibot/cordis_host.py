@@ -6,6 +6,7 @@ in independently distributed packages discovered through entry-point metadata.
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable, Iterable, Mapping
 from importlib import metadata
 from typing import TYPE_CHECKING, Protocol, cast
@@ -14,6 +15,7 @@ from .config.models import CordisSettings
 from .events import EventBus
 from .exceptions import PluginError
 from .plugins import ExtensionCoexistence, ExtensionIdentity, ToolCallback, ToolDeclaration
+from .services import ServiceRegistry
 
 if TYPE_CHECKING:
     from .events import ActionEnvelope, ActionResult, EventEnvelope
@@ -86,6 +88,9 @@ def discover_cordis_host(
     events: EventBus,
     actions: ActionServiceLike,
     logger: Logger,
+    services: ServiceRegistry | None = None,
+    data_dir: object | None = None,
+    cache_dir: object | None = None,
 ) -> CordisHost | None:
     """Resolve the one configured host without importing optional packages eagerly."""
 
@@ -109,7 +114,28 @@ def discover_cordis_host(
 
     factory = cast(CordisHostFactory, candidate)
     try:
-        host = factory(events=events, actions=actions, settings=settings, logger=logger)
+        factory_kwargs: dict[str, object] = {
+            "events": events,
+            "actions": actions,
+            "settings": settings,
+            "logger": logger,
+        }
+        if services is not None:
+            factory_kwargs.update(services=services, data_dir=data_dir, cache_dir=cache_dir)
+        try:
+            parameters: Mapping[str, inspect.Parameter] = inspect.signature(factory).parameters
+        except (TypeError, ValueError):
+            parameters = {}
+            factory_kwargs = {
+                "events": events,
+                "actions": actions,
+                "settings": settings,
+                "logger": logger,
+            }
+        else:
+            if not any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()):
+                factory_kwargs = {name: value for name, value in factory_kwargs.items() if name in parameters}
+        host = factory(**factory_kwargs)
     except Exception as error:
         raise RuntimeError(f"Cordis host entry point {entry_point.name!r} could not be created") from error
     if not callable(getattr(host, "start", None)) or not callable(getattr(host, "aclose", None)):
