@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_valid
 
 from ..events.models import JsonValue
 from .peer import BridgeRegistrationError, BridgeSession
-from .protocol import BROKER_PROTOCOL_VERSION, BridgeAccess
+from .protocol import BROKER_PROTOCOL_VERSION, AuthorizationContextWire, BridgeAccess
 
 
 def _validate_json(value: Any, path: str = "payload") -> None:
@@ -221,6 +221,59 @@ class ActionResult(BrokerModel):
         return _thaw(value)
 
 
+class ToolInvoke(BrokerModel):
+    """A lease-bound Tool invocation sent by a caller bridge."""
+
+    type: Literal["tool.invoke"] = "tool.invoke"
+    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    delivery_id: str = Field(min_length=1)
+    lease_id: str = Field(min_length=1)
+    correlation_id: str = Field(min_length=1)
+    tool_id: str = Field(min_length=1)
+    arguments: Mapping[str, JsonValue] = Field(default_factory=dict)
+    authorization: AuthorizationContextWire
+    invocation_id: str | None = Field(default=None, min_length=1)
+
+    @field_validator("arguments", mode="before")
+    @classmethod
+    def validate_arguments(cls, value: Any) -> Any:
+        _validate_json(value, "tool arguments")
+        return value
+
+    @field_validator("arguments", mode="after")
+    @classmethod
+    def freeze_arguments(cls, value: Mapping[str, JsonValue]) -> Mapping[str, JsonValue]:
+        return MappingProxyType({key: _freeze(item) for key, item in value.items()})
+
+    @field_serializer("arguments")
+    def serialize_arguments(self, value: Mapping[str, JsonValue]) -> dict[str, Any]:
+        return {key: _thaw(item) for key, item in value.items()}
+
+
+class ToolResult(BrokerModel):
+    """Stable, redacted result returned by a Tool provider."""
+
+    type: Literal["tool.result"] = "tool.result"
+    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    invocation_id: str = Field(min_length=1)
+    correlation_id: str | None = Field(default=None, min_length=1)
+    success: bool
+    result: JsonValue = None
+    error_code: str | None = Field(default=None, min_length=1)
+    error_details: Mapping[str, JsonValue] | None = None
+
+    @model_validator(mode="after")
+    def validate_result(self) -> ToolResult:
+        if self.success and self.error_code is not None:
+            raise ValueError("successful Tool results cannot contain an error code")
+        if not self.success and self.error_code is None:
+            raise ValueError("failed Tool results require a stable error code")
+        _validate_json(self.result, "tool result")
+        if self.error_details is not None:
+            _validate_json(self.error_details, "tool error details")
+        return self
+
+
 @dataclass(frozen=True, slots=True)
 class RoutedAction:
     action_id: str
@@ -294,11 +347,29 @@ class _Action:
 
 
 @dataclass(slots=True)
+class _Tool:
+    routed: RoutedTool
+    canonical_request: str
+    result: ToolResult | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RoutedTool:
+    invocation_id: str
+    event_id: str
+    request: ToolInvoke
+    target: BridgeSession
+    origin: BridgeSession
+    replayed: bool = False
+
+
+@dataclass(slots=True)
 class _EventRecord:
     event: BrokerEvent
     admitted_at: float
     deliveries: dict[str, _Delivery] = field(default_factory=dict)
     actions: dict[tuple[str, str], _Action] = field(default_factory=dict)
+    tools: dict[tuple[str, str], _Tool] = field(default_factory=dict)
     transitions: list[LedgerTransition] = field(default_factory=list)
     terminal_at: float | None = None
 
@@ -338,6 +409,7 @@ class BrokerLedger:
         self._terminal_order: deque[str] = deque()
         self._delivery_index: dict[str, _EventRecord] = {}
         self._action_index: dict[str, _Action] = {}
+        self._tool_index: dict[str, _Tool] = {}
         self._lanes: dict[tuple[str, str, str], deque[str]] = {}
 
     @property
@@ -419,9 +491,7 @@ class BrokerLedger:
         if record is None:
             raise BrokerAdmissionError("unknown_event", "broker event is not retained")
         failures = tuple(
-            delivery.failure_reason
-            for delivery in record.deliveries.values()
-            if delivery.failure_reason is not None
+            delivery.failure_reason for delivery in record.deliveries.values() if delivery.failure_reason is not None
         )
         return EventSnapshot(
             event=record.event,
@@ -523,6 +593,89 @@ class BrokerLedger:
         self._record_transition(record, "action.routed", target_bridge_id=target.bridge_id)
         return routed
 
+    def route_tool(
+        self, session: BridgeSession, request: ToolInvoke, sessions: tuple[BridgeSession, ...]
+    ) -> RoutedTool:
+        delivery = self._require_delivery(session, request.delivery_id, request.lease_id, DeliveryState.ACTIVE)
+        record = self._delivery_index[delivery.delivery_id]
+        canonical = json.dumps(
+            request.model_dump(mode="json", exclude_none=True), sort_keys=True, separators=(",", ":")
+        )
+        key = (session.session_id, request.correlation_id)
+        previous = record.tools.get(key)
+        if previous is not None:
+            if previous.canonical_request != canonical:
+                raise BrokerAdmissionError(
+                    "tool_conflict", "correlation ID was already used with different Tool content"
+                )
+            return RoutedTool(
+                invocation_id=previous.routed.invocation_id,
+                event_id=previous.routed.event_id,
+                request=previous.routed.request,
+                target=previous.routed.target,
+                origin=previous.routed.origin,
+                replayed=True,
+            )
+        owners = tuple(
+            session for session in sessions if any(tool.id == request.tool_id for tool in session.manifest.tools)
+        )
+        if len(owners) != 1:
+            raise BrokerAdmissionError(
+                "tool_owner_conflict" if owners else "unknown_tool", "Tool ownership is not unique"
+            )
+        routed = RoutedTool(str(uuid4()), record.event.kernel_event_id, request, owners[0], session)
+        record.tools[key] = _Tool(routed=routed, canonical_request=canonical)
+        self._tool_index[routed.invocation_id] = record.tools[key]
+        self._record_transition(record, "tool.routed", target_bridge_id=owners[0].bridge_id)
+        return routed
+
+    def complete_tool(
+        self,
+        session: BridgeSession,
+        invocation_id: str,
+        *,
+        success: bool,
+        result: JsonValue = None,
+        error_code: str | None = None,
+        error_details: Mapping[str, JsonValue] | None = None,
+    ) -> ToolResult:
+        self.expire()
+        tool = self._tool_index.get(invocation_id)
+        if tool is None:
+            raise BrokerAdmissionError("unknown_tool_invocation", "Tool invocation is not retained")
+        if tool.routed.target.session_id != session.session_id:
+            raise BrokerAdmissionError("tool_owner_mismatch", "Tool result owner does not match route")
+        response = ToolResult(
+            invocation_id=invocation_id,
+            correlation_id=tool.routed.request.correlation_id,
+            success=success,
+            result=result,
+            error_code=error_code,
+            error_details=error_details,
+        )
+        if tool.result is None:
+            tool.result = response
+            record = self._record_for_tool(tool)
+            self._record_transition(record, "tool.completed", target_bridge_id=session.bridge_id, success=success)
+        elif tool.result != response:
+            raise BrokerAdmissionError("tool_result_conflict", "Tool result conflicts with retained result")
+        return tool.result
+
+    def tool_route(self, invocation_id: str) -> RoutedTool:
+        self.expire()
+        tool = self._tool_index.get(invocation_id)
+        if tool is None:
+            raise BrokerAdmissionError("unknown_tool_invocation", "Tool invocation is not retained")
+        return tool.routed
+
+    def tool_result(self, invocation_id: str, session: BridgeSession) -> ToolResult | None:
+        tool = self._tool_index.get(invocation_id)
+        if tool is None:
+            raise BrokerAdmissionError("unknown_tool_invocation", "Tool invocation is not retained")
+        if tool.routed.origin.session_id != session.session_id:
+            raise BrokerAdmissionError("tool_origin_mismatch", "Tool result replay origin does not match route")
+        return tool.result
+
     def complete_action(
         self,
         session: BridgeSession,
@@ -552,9 +705,8 @@ class BrokerLedger:
                 target_bridge_id=session.bridge_id,
                 success=success,
             )
-        elif (
-            action.result.success != success
-            or self._canonical_json(action.result.payload) != self._canonical_json(payload)
+        elif action.result.success != success or self._canonical_json(action.result.payload) != self._canonical_json(
+            payload
         ):
             raise BrokerAdmissionError(
                 "action_result_conflict",
@@ -737,6 +889,12 @@ class BrokerLedger:
         record = self._active.get(action.routed.event_id) or self._terminal.get(action.routed.event_id)
         if record is None:
             raise BrokerAdmissionError("unknown_action", "broker action is not retained")
+        return record
+
+    def _record_for_tool(self, tool: _Tool) -> _EventRecord:
+        record = self._active.get(tool.routed.event_id) or self._terminal.get(tool.routed.event_id)
+        if record is None:
+            raise BrokerAdmissionError("unknown_tool_invocation", "Tool invocation event is not retained")
         return record
 
     def _record_delivery_transition(

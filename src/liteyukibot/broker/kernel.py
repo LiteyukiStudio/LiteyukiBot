@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -13,9 +13,10 @@ from ..config.models import AppSettings, BrokerBridgeSettings, configured_kernel
 from ..events import ActionEnvelope, ActionResult, EventBus, EventEnvelope, SendMessage
 from ..lyip import LyipLane
 from .actions import MessageSendPayload, make_message_send_request
-from .host import BrokerBridgeRunner, BrokerDelivery
+from .host import BrokerBridgeRunner, BrokerDelivery, ToolOutcome
 from .peer import BridgeClient, BridgeRegistrationError
-from .protocol import BridgeAccess, BridgeManifest
+from .protocol import BridgeAccess, BridgeManifest, BrokerToolDeclaration
+from .routing import ToolInvoke
 
 
 class KernelBridgeError(RuntimeError):
@@ -39,15 +40,34 @@ class KernelBrokerPeer:
     lease-scoped even though EventBus runs its FIFO worker in a separate task.
     """
 
-    def __init__(self, bridge_id: str, client: BridgeClient, events: EventBus) -> None:
+    def __init__(
+        self,
+        bridge_id: str,
+        client: BridgeClient,
+        events: EventBus,
+        *,
+        tool_handlers: Mapping[str, Callable[[ToolInvoke], Awaitable[ToolOutcome]]] | None = None,
+    ) -> None:
         self.bridge_id = bridge_id
         self._events = events
         self._active_deliveries: dict[str, BrokerDelivery] = {}
-        self._runner = BrokerBridgeRunner(client, event_handler=self._handle_delivery)
+        self._runner = BrokerBridgeRunner(
+            client,
+            event_handler=self._handle_delivery,
+            tool_handlers=tool_handlers,
+        )
         self._serve_task: asyncio.Task[None] | None = None
 
     @classmethod
-    def from_settings(cls, settings: AppSettings, *, token: str, events: EventBus) -> KernelBrokerPeer:
+    def from_settings(
+        cls,
+        settings: AppSettings,
+        *,
+        token: str,
+        events: EventBus,
+        tools: tuple[BrokerToolDeclaration, ...] = (),
+        tool_handlers: Mapping[str, Callable[[ToolInvoke], Awaitable[ToolOutcome]]] | None = None,
+    ) -> KernelBrokerPeer:
         configured = configured_kernel_bridge(settings)
         if configured is None:
             raise KernelBridgeError("kernel bridge is not configured")
@@ -64,10 +84,11 @@ class KernelBrokerPeer:
                 bridge_id=bridge_id,
                 access=BridgeAccess.FULL,
                 subscriptions=bridge.subscriptions,
+                tools=tools,
             ),
             instance_token=normalized_token,
         )
-        return cls(bridge_id, client, events)
+        return cls(bridge_id, client, events, tool_handlers=tool_handlers)
 
     async def start(self) -> None:
         if self._serve_task is not None:

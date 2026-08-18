@@ -117,7 +117,7 @@ class Scope:
     def _call_provider(self, provider: Provider) -> object:
         try:
             parameters = inspect.signature(provider).parameters
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return provider()  # type: ignore[call-arg]
         return provider(self) if parameters else provider()  # type: ignore[call-arg]
 
@@ -151,6 +151,15 @@ class Scope:
 
     def schedule(self, scheduler: object) -> None:
         self._register("scheduler", scheduler)
+
+    def tool(self, tool_id: str, handler: object) -> None:
+        """Register exactly one handler for a declared Extension API v2 Tool."""
+
+        if not isinstance(tool_id, str) or not tool_id.strip():
+            raise ValueError("Tool ID must be non-empty")
+        if not callable(handler):
+            raise TypeError("Tool handler must be callable")
+        self._register("tool", (tool_id, handler))
 
     async def aclose(self) -> None:
         if self._closed:

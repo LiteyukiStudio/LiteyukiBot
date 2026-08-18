@@ -40,6 +40,9 @@ if TYPE_CHECKING:
         EventIngress,
         EventMessage,
         RoutedAction,
+        RoutedTool,
+        ToolInvoke,
+        ToolResult,
     )
 
 
@@ -236,6 +239,12 @@ class BrokerPeerService:
             raise BridgeRegistrationError("broker rejected action from an unregistered peer")
         return self.ledger.route_action(session, action, self.sessions)
 
+    def route_tool(self, peer_identity: bytes, request: ToolInvoke) -> RoutedTool:
+        session = self._sessions_by_identity.get(peer_identity)
+        if session is None:
+            raise BridgeRegistrationError("broker rejected Tool invocation from an unregistered peer")
+        return self.ledger.route_tool(session, request, self.sessions)
+
     def handle_business(self, peer_identity: bytes, frame: LyipFrame) -> tuple[BusinessDispatch, ...]:
         """Apply one authenticated business message and return its direct deliveries."""
 
@@ -248,6 +257,8 @@ class BrokerPeerService:
             EventCompleted,
             EventIngress,
             EventMessage,
+            ToolInvoke,
+            ToolResult,
         )
 
         session = self.require_business_peer(peer_identity, frame)
@@ -321,6 +332,33 @@ class BrokerPeerService:
                 payload=message.payload,
             )
             return (BusinessDispatch(target=routed.origin, message=result),)
+        if isinstance(message, ToolInvoke):
+            if message.invocation_id is not None:
+                raise BrokerAdmissionError("unexpected_tool_invocation_id", "bridges must not assign invocation IDs")
+            self._require_frame_lease(frame, message.lease_id)
+            tool_routed = self.ledger.route_tool(session, message, self.sessions)
+            if tool_routed.replayed:
+                tool_result = self.ledger.tool_result(tool_routed.invocation_id, session)
+                if tool_result is None:
+                    return ()
+                return (BusinessDispatch(target=tool_routed.origin, message=tool_result),)
+            return (
+                BusinessDispatch(
+                    target=tool_routed.target,
+                    message=message.model_copy(update={"invocation_id": tool_routed.invocation_id}),
+                ),
+            )
+        if isinstance(message, ToolResult):
+            tool_routed = self.ledger.tool_route(message.invocation_id)
+            tool_result = self.ledger.complete_tool(
+                session,
+                message.invocation_id,
+                success=message.success,
+                result=message.result,
+                error_code=message.error_code,
+                error_details=message.error_details,
+            )
+            return (BusinessDispatch(target=tool_routed.origin, message=tool_result),)
         if isinstance(message, EventMessage):
             raise BrokerAdmissionError("unexpected_message", "bridges must not send broker event deliveries")
         raise BrokerAdmissionError("unexpected_message", "broker does not accept this business message from a bridge")
@@ -368,6 +406,14 @@ class BrokerPeerService:
                 BridgeRejected(code="identity_bound", message="peer identity already belongs to another bridge"),
             )
         for current in self._sessions_by_bridge.values():
+            current_tools = {tool.id for tool in current.manifest.tools}
+            requested_tools = {tool.id for tool in message.manifest.tools}
+            if current_tools & requested_tools:
+                return self._reply(
+                    peer_identity,
+                    frame,
+                    BridgeRejected(code="tool_conflict", message="a live bridge already owns this Tool ID"),
+                )
             if current.manifest.access is not message.manifest.access:
                 continue
             current_resources = {
@@ -494,7 +540,7 @@ class BrokerPeerServer:
             session = self.service.require_business_peer(peer_identity, frame)
             message = decode_business_message(frame)
             dispatches = self.service.handle_business(peer_identity, frame)
-        except (BrokerBusinessWireError, BrokerAdmissionError):
+        except BrokerBusinessWireError, BrokerAdmissionError:
             return None
         for dispatch in dispatches:
             await self.send_business(dispatch.target, dispatch.message)
@@ -624,6 +670,13 @@ class BridgeClient:
     async def send_action_result(self, message: ActionResult) -> None:
         await self._send_business(message, suffix="action", lease_id="bridge-business")
 
+    async def send_tool_invoke(self, message: ToolInvoke) -> None:
+        self._require_delivery_lease(message.delivery_id, message.lease_id)
+        await self._send_business(message, suffix="tool", lease_id=message.lease_id)
+
+    async def send_tool_result(self, message: ToolResult) -> None:
+        await self._send_business(message, suffix="tool", lease_id="bridge-business")
+
     async def receive_business(self) -> BrokerBusinessMessage:
         """Receive one broker business message and bind offered leases to this live session."""
 
@@ -665,6 +718,22 @@ class BridgeClient:
         message = await self.receive_business()
         if not isinstance(message, ActionResult):
             raise BridgeRegistrationError("broker sent a non-action result while an action result was expected")
+        return message
+
+    async def receive_tool_invoke(self) -> ToolInvoke:
+        from .routing import ToolInvoke
+
+        message = await self.receive_business()
+        if not isinstance(message, ToolInvoke) or message.invocation_id is None:
+            raise BridgeRegistrationError("broker sent a non-Tool invocation while one was expected")
+        return message
+
+    async def receive_tool_result(self) -> ToolResult:
+        from .routing import ToolResult
+
+        message = await self.receive_business()
+        if not isinstance(message, ToolResult):
+            raise BridgeRegistrationError("broker sent a non-Tool result while one was expected")
         return message
 
     async def _send_business(self, message: BrokerBusinessMessage, *, suffix: str, lease_id: str) -> None:

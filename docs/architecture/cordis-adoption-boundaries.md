@@ -7,8 +7,8 @@ framework. It does not embed or claim compatibility with the JavaScript Cordis
 or Koishi plugin ecosystems. Koishi compatibility belongs to a separately
 owned Classic runtime bridge.
 
-Cordis Plugin v1 and Native Plugin v1 intentionally coexist. Native Plugin v1
-is the small, explicit stable surface. Cordis Plugin v1 is the full-access
+Cordis and Native Extension API v2 intentionally coexist. Native is the small,
+limited explicit surface. Cordis is the full-access
 composition surface for authors who need scopes, dynamic dependency activation,
 fiber-owned cleanup, and richer event composition.
 
@@ -42,10 +42,11 @@ event identity or bypass an action-owning bridge.
 ## Access And Governance
 
 `full` and `limited` describe technical access, not event priority or plugin
-quality. In-process Python plugins are full. `limited` is enforceable only for
-an isolated runtime/bridge: its instance token is bound to manifest-declared
-subscriptions and portable actions. A full bridge may access all instance event
-chains. Liteyuki does not add a per-plugin permission matrix.
+quality. Native extensions are limited by Permissions v2 capability ceilings;
+Cordis is full by default and may only be administratively downscoped through
+`[cordis.access]`. This is an in-process host boundary, not a malicious-Python
+sandbox. Limited is also enforceable for isolated runtime/bridge peers through
+their authenticated manifests.
 
 `stable-first` is independent governance. First-party packages and paths marked
 stable are release gates. Third-party packages may state their own stability,

@@ -39,13 +39,14 @@ configured PyPI Trusted Publisher environment. SBOMs, checksum manifests, and
 other release evidence are retained as workflow artifacts rather than uploaded
 as distributions.
 
-## Alpha Bundle
+## Alpha 2 Bundle
 
-The source Alpha 1 contract uses the exact `7.0.0a1` version for the kernel,
+The source Alpha 2 contract uses the exact `7.0.0a2` version for the kernel,
 Native IPC, Cordis, NoneBot bridge, AstrBot bridge, generic adapter bridge, and
 WebUI. The DevCLI identifier is reserved in the bundle inventory but has no
-artifact in Alpha 1. Independent business packages do not join this lockstep
-set.
+artifact in Alpha 2. Independent business packages do not join this lockstep
+set. `liteyukibot-v7-permissions==0.3.0a1` is the one independent plugin asset
+added to this signed bundle and requires exactly `liteyukibot-v7==7.0.0a2`.
 
 `scripts/alpha_release.py` validates source metadata, writes canonical UTF-8
 `artifacts.manifest.json`, and writes the deterministic CycloneDX 1.5

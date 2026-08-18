@@ -6,7 +6,7 @@ import asyncio
 import inspect
 import json
 import re
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, MutableMapping, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -19,6 +19,7 @@ from typing import Any, Literal, Protocol, cast
 from jsonschema import Draft202012Validator, SchemaError, ValidationError
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from .authorization import AuthorizationContext
 from .events import ActionEnvelope, ActionResult, EventBus, EventEnvelope
 from .exceptions import PluginError, ServiceError
 from .init_specs import PluginInitSpec
@@ -27,6 +28,7 @@ from .services import ServiceKey, ServiceRegistry, ServiceRequirement
 from .tasks import ManagedTasks
 
 type JsonValue = str | int | float | bool | None | list[JsonValue] | dict[str, JsonValue]
+type ToolCallback = Callable[[AuthorizationContext, Mapping[str, JsonValue]], Awaitable[JsonValue]]
 
 WEBUI_API_VERSION = 1
 WEBUI_SCHEMA_DRAFT_2020_12 = "https://json-schema.org/draft/2020-12/schema"
@@ -318,18 +320,59 @@ class ExtensionCoexistence(StrEnum):
     INFRASTRUCTURE = "infrastructure"
 
 
-class PluginManifest(BaseModel):
+class ToolDeclaration(BaseModel):
+    """One immutable, schema-validated Tool exposed by an Extension API v2 host."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: str
+    description: str
+    input_schema: Mapping[str, JsonValue]
+    output_schema: Mapping[str, JsonValue]
+    capabilities: tuple[str, ...] = ()
+
+    @field_validator("id", "description")
+    @classmethod
+    def validate_required_text(cls, value: str) -> str:
+        if not value or value != value.strip():
+            raise ValueError("tool metadata must be non-empty and trimmed")
+        return value
+
+    @field_validator("input_schema", "output_schema")
+    @classmethod
+    def validate_schema(cls, value: Mapping[str, JsonValue]) -> Mapping[str, JsonValue]:
+        try:
+            Draft202012Validator.check_schema(dict(value))
+        except SchemaError as error:
+            raise ValueError("tool schema must be Draft 2020-12 compatible") from error
+        return MappingProxyType(dict(value))
+
+    @field_validator("capabilities")
+    @classmethod
+    def validate_capabilities(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if len(set(value)) != len(value):
+            raise ValueError("tool capabilities must not contain duplicates")
+        for capability in value:
+            _validate_capability(capability)
+        return value
+
+
+class ExtensionManifest(BaseModel):
+    """Shared Native/Cordis Extension API v2 declaration."""
+
     model_config = ConfigDict(frozen=True, extra="forbid", arbitrary_types_allowed=True)
 
     id: str
     name: str
     version: str
-    api_version: Literal[1] = 1
+    api_version: Literal[2] = 2
     coexistence: ExtensionCoexistence = ExtensionCoexistence.EXCLUSIVE
     provides: tuple[ServiceKey, ...] = ()
     requires: tuple[ServiceRequirement, ...] = ()
     storage: Literal["none", "private"] = "none"
     resource_packs: tuple[ResourcePackDeclaration, ...] = ()
+    capabilities: tuple[str, ...] = ()
+    tools: tuple[ToolDeclaration, ...] = ()
     webui: WebUiContributionManifest | None = None
 
     @field_validator("id")
@@ -343,6 +386,33 @@ class PluginManifest(BaseModel):
         if not value.strip():
             raise ValueError("plugin manifest metadata must not be blank")
         return value
+
+    @field_validator("capabilities")
+    @classmethod
+    def validate_capabilities(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if len(set(value)) != len(value):
+            raise ValueError("extension capabilities must not contain duplicates")
+        for capability in value:
+            _validate_capability(capability)
+        return value
+
+    @field_validator("tools")
+    @classmethod
+    def validate_tools(cls, value: tuple[ToolDeclaration, ...], info: Any) -> tuple[ToolDeclaration, ...]:
+        extension_id = info.data.get("id")
+        if not isinstance(extension_id, str):
+            return value
+        if len({tool.id for tool in value}) != len(value):
+            raise ValueError("extension tools must not contain duplicate IDs")
+        prefix = f"{extension_id}."
+        if any(not tool.id.startswith(prefix) for tool in value):
+            raise ValueError("tool IDs must be prefixed by their extension ID")
+        return value
+
+
+# Deprecated source alias. It constructs Extension API v2 values, while an
+# explicit api_version=1 is rejected by the v2 literal above.
+PluginManifest = ExtensionManifest
 
 
 @dataclass(frozen=True, slots=True)
@@ -365,6 +435,17 @@ def _validate_extension_id(value: str) -> str:
         or any(not part for part in value.split("."))
     ):
         raise ValueError("plugin id must use lowercase ASCII letters, digits, '-', '_' or '.'")
+    return value
+
+
+def _validate_capability(value: str) -> str:
+    if (
+        not isinstance(value, str)
+        or not value
+        or value != value.strip()
+        or any(character.isspace() for character in value)
+    ):
+        raise ValueError("capability must be a non-empty token without whitespace")
     return value
 
 
@@ -412,14 +493,18 @@ PluginSetup = Callable[["PluginContext"], Awaitable[PluginHandle | None]]
 
 
 @dataclass(frozen=True, slots=True)
-class PluginDefinition:
-    manifest: PluginManifest
+class ExtensionDefinition:
+    manifest: ExtensionManifest
     setup: PluginSetup
     init_spec: PluginInitSpec | None = None
 
     @property
     def identity(self) -> ExtensionIdentity:
         return ExtensionIdentity(self.manifest.id, self.manifest.coexistence)
+
+
+# Deprecated source alias for ExtensionDefinition.
+PluginDefinition = ExtensionDefinition
 
 
 @dataclass(frozen=True, slots=True)
@@ -469,12 +554,27 @@ class PluginContext:
     events: EventBus
     actions: ActionServiceLike
     paths: PluginPaths | None
+    _manifest: ExtensionManifest = field(repr=False, compare=False)
     _cleanup: _PluginCleanup = field(repr=False, compare=False)
+    _tool_handlers: MutableMapping[str, ToolCallback] = field(default_factory=dict, repr=False, compare=False)
 
     def defer_cleanup(self, callback: CleanupCallback) -> None:
         """Run a synchronous or asynchronous callback during plugin cleanup."""
 
         self._cleanup.defer(callback)
+
+    def register_tool(self, tool_id: str, handler: ToolCallback) -> None:
+        """Register exactly one handler for a Tool declared by this extension."""
+
+        if not isinstance(tool_id, str) or not tool_id.strip():
+            raise ValueError("Tool ID must be non-empty")
+        declaration = next((tool for tool in self._manifest.tools if tool.id == tool_id), None)
+        if declaration is None:
+            raise PluginError(f"extension {self.id} did not declare Tool {tool_id!r}")
+        del declaration
+        if tool_id in self._tool_handlers:
+            raise PluginError(f"extension {self.id} registered Tool {tool_id!r} more than once")
+        self._tool_handlers[tool_id] = handler
 
 
 class PluginState(StrEnum):
@@ -516,6 +616,11 @@ class PluginManager:
         self._webui_providers: dict[str, WebUiProvider] = {}
         self._webui_diagnostics: dict[str, WebUiDiagnostic] = {}
         self._webui_generation = 0
+        self._tool_handlers: dict[str, tuple[str, ToolDeclaration, ToolCallback]] = {}
+
+    @property
+    def tool_handlers(self) -> Mapping[str, tuple[str, ToolDeclaration, ToolCallback]]:
+        return dict(self._tool_handlers)
 
     @property
     def webui_generation(self) -> int:
@@ -570,7 +675,7 @@ class PluginManager:
                 return WebUiSnapshot(plugin_id, surface_id, WebUiSnapshotState.UNAVAILABLE, code="table_row_limit")
         except TimeoutError:
             return WebUiSnapshot(plugin_id, surface_id, WebUiSnapshotState.UNAVAILABLE, code="snapshot_timeout")
-        except (TypeError, ValueError, ValidationError):
+        except TypeError, ValueError, ValidationError:
             return WebUiSnapshot(plugin_id, surface_id, WebUiSnapshotState.UNAVAILABLE, code="invalid_snapshot")
         except Exception:
             return WebUiSnapshot(plugin_id, surface_id, WebUiSnapshotState.UNAVAILABLE, code="provider_failed")
@@ -730,6 +835,13 @@ class PluginManager:
         for plugin_id in self.resolve_order(definitions):
             definition = definitions[plugin_id]
             manifest = definition.manifest
+            authorizer = self.services.get(ServiceKey("liteyukibot.permissions", 2))
+            activation_allowed = getattr(authorizer, "activation_allowed", None)
+            if manifest.capabilities and (
+                not callable(activation_allowed)
+                or not activation_allowed(manifest.id, frozenset(manifest.capabilities))
+            ):
+                raise PluginError(f"extension {manifest.id} requested capabilities outside its configured ceiling")
             logger = self.logger.bind(plugin=plugin_id, component="plugin")
             tasks = ManagedTasks(
                 plugin_id,
@@ -738,6 +850,7 @@ class PluginManager:
             paths = self._create_paths(plugin_id) if manifest.storage == "private" else None
             plugin_services = PluginServices(manifest, self.services)
             cleanup = _PluginCleanup()
+            tool_handlers: dict[str, ToolCallback] = {}
             context = PluginContext(
                 id=plugin_id,
                 config=MappingProxyType(dict(configs.get(plugin_id, {}))),
@@ -747,12 +860,23 @@ class PluginManager:
                 events=self.events,
                 actions=self.actions,
                 paths=paths,
+                _manifest=manifest,
                 _cleanup=cleanup,
+                _tool_handlers=tool_handlers,
             )
             handle = PluginHandle()
             try:
                 handle = await definition.setup(context) or handle
                 plugin_services.validate_provided()
+                declared_tools = {tool.id: tool for tool in manifest.tools}
+                if set(tool_handlers) != set(declared_tools):
+                    raise PluginError(
+                        f"extension {manifest.id} must register exactly one handler for each declared Tool"
+                    )
+                self._tool_handlers.update(
+                    (tool_id, (manifest.id, declared_tools[tool_id], callback))
+                    for tool_id, callback in tool_handlers.items()
+                )
             except Exception as exc:
                 try:
                     if handle.stop is not None:

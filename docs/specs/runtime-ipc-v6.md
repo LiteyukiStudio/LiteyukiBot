@@ -99,6 +99,8 @@ lane, and must agree with its fixed LYIP type ID.
 | 613 | bridge to broker | `event.completed` |
 | 614 | bridge to broker, then broker to owner | `action.request` |
 | 615 | action owner to broker, then broker to caller | `action.result` |
+| 616 | bridge to broker, then broker to owner | `tool.invoke` |
+| 617 | Tool owner to broker, then broker to caller | `tool.result` |
 
 `EventIngress` contains `source_event_id`, `topic`, `ordering_key`, and a
 JSON-safe payload. It has no kernel event ID and cannot select recipients. The
@@ -172,6 +174,18 @@ The first portable action is `message.send`. Its resource key is
 `Message` plus either a conversation reference or a reply token. Generic
 `CallApi`, message editing, and decorator-based function APIs are outside this
 version of the contract.
+
+### Alpha 2 Tool RPC
+
+`tool.invoke` binds an active delivery and lease to a correlation ID, namespaced
+Tool ID, JSON arguments, and `AuthorizationContext`. The broker assigns the
+invocation ID. The declared Tool owner alone may return `tool.result`; results
+contain JSON data or a stable error code with optional redacted JSON details.
+Exception classes, messages, tracebacks, event payloads, and raw adapter data
+never cross the wire. Reusing a correlation ID with different canonical JSON is
+rejected; a completed result is retained and replayed without invoking the
+owner again. Broker routing validates declaration shape and ownership, while
+the caller and provider hosts validate their Draft 2020-12 schemas.
 
 ### B7 kernel peer dispatch
 

@@ -81,7 +81,7 @@ jobs:
           uv sync --locked --all-packages --extra onebot --extra satori --extra webui
       - name: Validate Alpha source registry
         run: |
-          test "$RELEASE_TAG" = "v7.0.0a1"
+          test "$RELEASE_TAG" = "v7.0.0a2"
           uv run --group release python scripts/alpha_release.py check-source
       - name: Build lockstep Python artifacts
         run: |
@@ -89,6 +89,7 @@ jobs:
           pnpm --dir webui build
           uv run python scripts/stage_webui_assets.py
           uv build --out-dir dist/alpha
+          uv build --project packages/permissions --out-dir dist/alpha
           uv build --project packages/cordis --out-dir dist/alpha
           uv build --project packages/runtime-nonebot --out-dir dist/alpha
           uv build --project packages/runtime-astrbot --out-dir dist/alpha

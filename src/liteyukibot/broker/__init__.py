@@ -18,12 +18,14 @@ from .business import (
     BROKER_EVENT_COMPLETED_TYPE_ID,
     BROKER_EVENT_INGRESS_TYPE_ID,
     BROKER_EVENT_MESSAGE_TYPE_ID,
+    BROKER_TOOL_INVOKE_TYPE_ID,
+    BROKER_TOOL_RESULT_TYPE_ID,
     BrokerBusinessWireError,
     decode_business_message,
     encode_business_message,
 )
 from .diagnostics import BrokerDiagnosticsClient, BrokerDiagnosticsError
-from .host import ActionOutcome, BrokerBridgeRunner, BrokerDelivery
+from .host import ActionOutcome, BrokerBridgeRunner, BrokerDelivery, ToolOutcome
 from .kernel import KernelBridgeError, KernelBrokerPeer, configured_kernel_bridge
 from .peer import (
     BridgeClient,
@@ -36,6 +38,7 @@ from .peer import (
 from .protocol import (
     BROKER_PROTOCOL_VERSION,
     ActionResourceDeclaration,
+    AuthorizationContextWire,
     BridgeAccess,
     BridgeManifest,
     BridgeRegister,
@@ -43,6 +46,7 @@ from .protocol import (
     BridgeRejected,
     BridgeUnregister,
     BridgeUnregistered,
+    BrokerToolDeclaration,
     BrokerWireError,
     decode_broker_message,
     encode_broker_message,
@@ -61,6 +65,9 @@ from .routing import (
     EventMessage,
     EventSnapshot,
     RoutedAction,
+    RoutedTool,
+    ToolInvoke,
+    ToolResult,
 )
 from .service import (
     BridgeCatalog,
@@ -76,14 +83,21 @@ __all__ = [
     "MESSAGE_SEND_KIND",
     "BROKER_ACTION_REQUEST_TYPE_ID",
     "BROKER_ACTION_RESULT_TYPE_ID",
+    "BROKER_TOOL_INVOKE_TYPE_ID",
+    "BROKER_TOOL_RESULT_TYPE_ID",
     "BROKER_EVENT_ACCEPTED_TYPE_ID",
     "BROKER_EVENT_COMPLETED_TYPE_ID",
     "BROKER_EVENT_INGRESS_TYPE_ID",
     "BROKER_EVENT_MESSAGE_TYPE_ID",
     "ActionRequest",
     "ActionOutcome",
+    "ToolOutcome",
     "ActionResourceDeclaration",
+    "AuthorizationContextWire",
     "ActionResult",
+    "ToolInvoke",
+    "ToolResult",
+    "BrokerToolDeclaration",
     "BridgeAccess",
     "BridgeClient",
     "BrokerBridgeRunner",
@@ -122,6 +136,7 @@ __all__ = [
     "EventSnapshot",
     "MessageSendPayload",
     "RoutedAction",
+    "RoutedTool",
     "decode_broker_message",
     "decode_business_message",
     "encode_business_message",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from enum import StrEnum
 from typing import Annotated, Final, Literal
 
@@ -57,6 +58,51 @@ class ActionResourceDeclaration(BrokerWireModel):
         return _non_blank_identifier(value)
 
 
+class BrokerToolDeclaration(BrokerWireModel):
+    """Immutable Tool declaration projected by the authenticated kernel bridge."""
+
+    id: str
+    description: str
+    input_schema: Mapping[str, object]
+    output_schema: Mapping[str, object]
+    capabilities: tuple[str, ...] = ()
+
+    @field_validator("id", "description", mode="before")
+    @classmethod
+    def validate_text(cls, value: object) -> str:
+        if not isinstance(value, str):
+            raise TypeError("tool declaration fields must be strings")
+        return _non_blank_identifier(value)
+
+    @field_validator("capabilities", mode="before")
+    @classmethod
+    def validate_capabilities(cls, value: object) -> tuple[str, ...]:
+        if not isinstance(value, (list, tuple)):
+            raise TypeError("tool capabilities must be an array")
+        result = tuple(_non_blank_identifier(item) for item in value if isinstance(item, str))
+        if len(result) != len(value) or len(result) != len(set(result)):
+            raise ValueError("tool capabilities must be unique strings")
+        return result
+
+
+class AuthorizationContextWire(BrokerWireModel):
+    """Only event identity and principal fields may cross the Tool wire."""
+
+    event_id: str
+    runtime_id: str
+    bot_id: str
+    actor_id: str | None = None
+
+    @field_validator("event_id", "runtime_id", "bot_id", "actor_id", mode="before")
+    @classmethod
+    def validate_context_text(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise TypeError("authorization context fields must be strings")
+        return _non_blank_identifier(value)
+
+
 class BridgeManifest(BrokerWireModel):
     """Static declarations authenticated during one bridge registration."""
 
@@ -64,6 +110,7 @@ class BridgeManifest(BrokerWireModel):
     access: BridgeAccess
     subscriptions: tuple[str, ...] = ()
     action_resources: tuple[ActionResourceDeclaration, ...] = ()
+    tools: tuple[BrokerToolDeclaration, ...] = ()
 
     @field_validator("bridge_id", mode="before")
     @classmethod
@@ -91,6 +138,9 @@ class BridgeManifest(BrokerWireModel):
         keys = {(resource.kind, resource.resource_prefix) for resource in self.action_resources}
         if len(keys) != len(self.action_resources):
             raise ValueError("action resources must not contain duplicates")
+        tool_ids = tuple(tool.id for tool in self.tools)
+        if len(tool_ids) != len(set(tool_ids)):
+            raise ValueError("tool declarations must not contain duplicate IDs")
         return self
 
 

@@ -10,8 +10,8 @@ import pytest
 from scripts.alpha_release import (
     ALPHA_TAG,
     ALPHA_VERSION,
-    LOCKSTEP_COMPONENTS,
     MANIFEST_NAME,
+    RELEASE_COMPONENTS,
     SIGNATURE_NAME,
     AlphaReleaseError,
     create_manifest,
@@ -24,23 +24,23 @@ from scripts.run_alpha_bundle_installs import VERIFICATIONS, command_for, wheels
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _metadata(distribution: str) -> bytes:
-    return f"Metadata-Version: 2.3\nName: {distribution}\nVersion: {ALPHA_VERSION}\n".encode()
+def _metadata(distribution: str, version: str) -> bytes:
+    return f"Metadata-Version: 2.3\nName: {distribution}\nVersion: {version}\n".encode()
 
 
-def _wheel(dist: Path, distribution: str) -> None:
-    filename = f"{distribution.replace('-', '_')}-{ALPHA_VERSION}-py3-none-any.whl"
+def _wheel(dist: Path, distribution: str, version: str) -> None:
+    filename = f"{distribution.replace('-', '_')}-{version}-py3-none-any.whl"
     with zipfile.ZipFile(dist / filename, "w") as archive:
         archive.writestr(
-            f"{distribution.replace('-', '_')}-{ALPHA_VERSION}.dist-info/METADATA", _metadata(distribution)
+            f"{distribution.replace('-', '_')}-{version}.dist-info/METADATA", _metadata(distribution, version)
         )
 
 
-def _sdist(dist: Path, distribution: str) -> None:
-    filename = dist / f"{distribution}-{ALPHA_VERSION}.tar.gz"
-    payload = _metadata(distribution)
+def _sdist(dist: Path, distribution: str, version: str) -> None:
+    filename = dist / f"{distribution}-{version}.tar.gz"
+    payload = _metadata(distribution, version)
     with tarfile.open(filename, "w:gz") as archive:
-        info = tarfile.TarInfo(f"{distribution}-{ALPHA_VERSION}/PKG-INFO")
+        info = tarfile.TarInfo(f"{distribution}-{version}/PKG-INFO")
         info.size = len(payload)
         archive.addfile(info, io.BytesIO(payload))
 
@@ -48,10 +48,10 @@ def _sdist(dist: Path, distribution: str) -> None:
 def _bundle(tmp_path: Path) -> Path:
     dist = tmp_path / "bundle"
     dist.mkdir(parents=True)
-    for component in LOCKSTEP_COMPONENTS:
-        _wheel(dist, component.distribution)
+    for component in RELEASE_COMPONENTS:
+        _wheel(dist, component.distribution, component.release_version)
         if component.requires_sdist:
-            _sdist(dist, component.distribution)
+            _sdist(dist, component.distribution, component.release_version)
     create_manifest(ROOT, dist)
     create_sbom(dist)
     (dist / SIGNATURE_NAME).write_text("{}", encoding="utf-8")
@@ -73,6 +73,7 @@ def test_bundle_manifest_is_canonical_and_verifies_artifact_metadata(tmp_path: P
         "id": "devcli",
         "reserved": True,
         "version": ALPHA_VERSION,
+        "independent": False,
     }
     assert b"\n" not in (bundle / MANIFEST_NAME).read_bytes()
 
@@ -92,7 +93,7 @@ def test_bundle_verifier_rejects_tampered_artifacts_and_wrong_tag(tmp_path: Path
     with pytest.raises(AlphaReleaseError, match="integrity"):
         verify_bundle(bundle, signature_verifier=lambda _signature, _manifest, _tag: None)
     with pytest.raises(AlphaReleaseError, match="tag"):
-        verify_bundle(bundle, tag="v7.0.0a2", signature_verifier=lambda _signature, _manifest, _tag: None)
+        verify_bundle(bundle, tag="v7.0.0a3", signature_verifier=lambda _signature, _manifest, _tag: None)
 
 
 def test_bundle_verifier_requires_signature_and_canonical_manifest(tmp_path: Path) -> None:
@@ -127,9 +128,11 @@ def test_bundle_verifier_rejects_component_drift_and_path_escape(tmp_path: Path)
 
 def test_bundle_install_commands_use_only_staged_wheels(tmp_path: Path) -> None:
     bundle = _bundle(tmp_path)
-    command = command_for(bundle, VERIFICATIONS[1], "uv")
+    command = command_for(bundle, next(item for item in VERIFICATIONS if item.name == "cordis"), "uv")
 
     assert command[:4] == ["uv", "run", "--no-project", "--python"]
-    assert str(bundle / "liteyukibot_v7-7.0.0a1-py3-none-any.whl") in command
-    assert str(bundle / "liteyukibot_v7_cordis-7.0.0a1-py3-none-any.whl") in command
-    assert wheels_for(bundle, "liteyukibot-v7-webui") == (bundle / "liteyukibot_v7_webui-7.0.0a1-py3-none-any.whl",)
+    assert str(bundle / f"liteyukibot_v7-{ALPHA_VERSION}-py3-none-any.whl") in command
+    assert str(bundle / f"liteyukibot_v7_cordis-{ALPHA_VERSION}-py3-none-any.whl") in command
+    assert wheels_for(bundle, "liteyukibot-v7-webui") == (
+        bundle / f"liteyukibot_v7_webui-{ALPHA_VERSION}-py3-none-any.whl",
+    )
