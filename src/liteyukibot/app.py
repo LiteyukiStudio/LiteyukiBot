@@ -11,6 +11,8 @@ from time import monotonic
 from typing import Any, cast
 from uuid import uuid4
 
+from jsonschema import Draft202012Validator, ValidationError
+
 from ._version import __version__
 from .agents import (
     AGENT_HISTORY_SERVICE,
@@ -441,6 +443,9 @@ class LiteyukiApp:
                 events=self.events,
                 actions=self.actions,
                 logger=self.logger,
+                services=self.services,
+                data_dir=self.settings.core.data_dir,
+                cache_dir=self.settings.core.cache_dir,
             )
             validate_extension_topology(
                 self.plugins.identities(definitions),
@@ -502,6 +507,10 @@ class LiteyukiApp:
                         declaration: ToolDeclaration = declaration,
                         callback: ToolCallback = callback,
                     ) -> ToolOutcome:
+                        try:
+                            Draft202012Validator(dict(declaration.input_schema)).validate(dict(request.arguments))
+                        except (TypeError, ValidationError):
+                            return ToolOutcome(success=False, error_code="TOOL_SCHEMA_INVALID")
                         context = AuthorizationContext(
                             event_id=request.authorization.event_id,
                             runtime_id=request.authorization.runtime_id,
@@ -518,12 +527,14 @@ class LiteyukiApp:
                             for capability in capabilities
                         ):
                             return ToolOutcome(success=False, error_code="TOOL_PERMISSION_DENIED")
-                        return ToolOutcome(
-                            success=True,
-                            result=cast(
+                        try:
+                            result = cast(
                                 EventJsonValue, await callback(context, cast(Mapping[str, Any], request.arguments))
-                            ),
-                        )
+                            )
+                            Draft202012Validator(dict(declaration.output_schema)).validate(result)
+                        except (TypeError, ValidationError):
+                            return ToolOutcome(success=False, error_code="TOOL_SCHEMA_INVALID")
+                        return ToolOutcome(success=True, result=result)
 
                     tool_handlers[tool_id] = handle_tool
                 self._kernel_broker_peer = KernelBrokerPeer.from_settings(

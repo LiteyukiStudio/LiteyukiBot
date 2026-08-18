@@ -7,6 +7,7 @@ from .resolver import (
     Resolution,
     ResolutionError,
     Resolver,
+    ToolCatalog,
     ToolTreeNode,
 )
 
@@ -17,5 +18,6 @@ __all__ = [
     "Resolution",
     "ResolutionError",
     "Resolver",
+    "ToolCatalog",
     "ToolTreeNode",
 ]

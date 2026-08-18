@@ -115,7 +115,7 @@ class CordisManager(RegistrationSink):
             registered_tools = tuple(
                 cast(tuple[str, object], item.value)[0]
                 for item in self._registrations
-                if item.scope is scope and item.kind == "tool"
+                if _scope_belongs_to(item.scope, scope) and item.kind == "tool"
             )
             if set(registered_tools) != set(declared_tools) or len(registered_tools) != len(declared_tools):
                 raise ValueError(f"Cordis plugin {plugin_id!r} must register exactly one handler per declared Tool")
@@ -380,3 +380,12 @@ def _task_set_disposer(tasks: set[asyncio.Task[None]]) -> Disposer:
         await asyncio.gather(*(_cancel_task(task) for task in tuple(tasks)), return_exceptions=True)
 
     return dispose
+
+
+def _scope_belongs_to(scope: Scope, parent: Scope) -> bool:
+    current: Scope | None = scope
+    while current is not None:
+        if current is parent:
+            return True
+        current = current.parent
+    return False

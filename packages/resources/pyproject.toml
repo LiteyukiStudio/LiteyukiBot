@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7-resources"
-version = "0.1.0a2"
+version = "0.2.0a1"
 description = "Declarative resource management contracts for LiteyukiBot v7 plugins."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -10,13 +10,16 @@ authors = [
     { name = "LiteyukiStudio" },
 ]
 dependencies = [
-    "liteyukibot-v7>=7.0.0a1,<8",
-    "liteyukibot-v7-commands>=0.2.0a2,<0.3",
-    "liteyukibot-v7-permissions>=0.3.0a1,<0.4",
+    "liteyukibot-v7==7.0.0a3",
+    "liteyukibot-v7-commands==0.3.0a1",
+    "liteyukibot-v7-permissions==0.3.0a2",
 ]
 
 [project.entry-points."liteyukibot.plugins"]
 "liteyukibot.resources" = "liteyukibot_resources:plugin"
+
+[project.entry-points."liteyukibot.cordis_plugins"]
+"liteyukibot.resources" = "liteyukibot_resources.cordis:cordis_plugin"
 
 [build-system]
 requires = ["uv_build>=0.11.32,<0.12"]
@@ -26,6 +29,7 @@ build-backend = "uv_build"
 liteyukibot-v7 = { workspace = true }
 liteyukibot-v7-commands = { workspace = true }
 liteyukibot-v7-permissions = { workspace = true }
+liteyukibot-v7-cordis = { workspace = true }
 
 [tool.uv.build-backend]
 module-root = "src"

@@ -20,7 +20,7 @@ from .models import (
     CommandSpec,
 )
 
-COMMAND_SERVICE = ServiceKey("liteyukibot.commands", 1)
+COMMAND_SERVICE = ServiceKey("liteyukibot.commands", 2)
 
 
 class _Logger(Protocol):

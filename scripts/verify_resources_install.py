@@ -18,7 +18,7 @@ from liteyukibot_resources import RESOURCE_SERVICE, ResourceField, ResourceProvi
 from liteyukibot_resources.service import ResourceService
 
 import liteyukibot
-from liteyukibot import PluginDefinition
+from liteyukibot import AuthorizationContext, PluginDefinition
 from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope
 from liteyukibot.i18n import I18N_SERVICE, Translator
 from liteyukibot.logging import get_logger
@@ -102,6 +102,17 @@ async def verify(expected_version: str | None = None) -> None:
             )
             if await service.inspect(event, ("verify",)) != {"value": "ok"}:
                 raise RuntimeError("installed resources service returned an unexpected value")
+            authorization = AuthorizationContext(
+                event_id="tool-event",
+                runtime_id="runtime",
+                bot_id="bot",
+                actor_id="user",
+            )
+            handlers = harness.context._tool_handlers
+            inspect_tool = handlers["liteyukibot.resources.inspect"]
+            result = await inspect_tool(authorization, {"path": ["verify"]})
+            if result != {"value": "ok"}:
+                raise RuntimeError("installed resources inspect Tool returned an unexpected value")
 
     observed = {
         "liteyukibot-v7": importlib.metadata.version("liteyukibot-v7"),

@@ -93,7 +93,7 @@ def test_bundle_verifier_rejects_tampered_artifacts_and_wrong_tag(tmp_path: Path
     with pytest.raises(AlphaReleaseError, match="integrity"):
         verify_bundle(bundle, signature_verifier=lambda _signature, _manifest, _tag: None)
     with pytest.raises(AlphaReleaseError, match="tag"):
-        verify_bundle(bundle, tag="v7.0.0a3", signature_verifier=lambda _signature, _manifest, _tag: None)
+        verify_bundle(bundle, tag="v7.0.0a2", signature_verifier=lambda _signature, _manifest, _tag: None)
 
 
 def test_bundle_verifier_requires_signature_and_canonical_manifest(tmp_path: Path) -> None:

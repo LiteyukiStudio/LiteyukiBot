@@ -17,9 +17,19 @@ from liteyukibot_commands import (
 )
 from liteyukibot_permissions import Principal
 
-from liteyukibot import InitFieldKind, InitFieldSpec, PluginContext, PluginDefinition, PluginInitSpec, PluginManifest
+from liteyukibot import (
+    AuthorizationContext,
+    InitFieldKind,
+    InitFieldSpec,
+    PluginContext,
+    PluginDefinition,
+    PluginInitSpec,
+    PluginManifest,
+    ToolDeclaration,
+)
 from liteyukibot.events import HandlerResult
 from liteyukibot.i18n import I18N_SERVICE, Translator
+from liteyukibot.plugins import ToolCallback
 from liteyukibot.resource_packs import ResourcePackDeclaration
 from liteyukibot.services import ServiceKey, ServiceRequirement
 from liteyukibot.status import KERNEL_STATUS_SERVICE, KernelStatusProvider
@@ -28,7 +38,7 @@ from .render import Language, messages, render_help, render_parse_error, render_
 
 _PUBLIC_PERMISSION = "public"
 _STATUS_READ_CAPABILITY = "liteyukibot.status.read"
-_PROFILE_SERVICE = ServiceKey("liteyukibot.profile", 1)
+_PROFILE_SERVICE = ServiceKey("liteyukibot.profile", 2)
 
 
 class _ProfileSnapshot(Protocol):
@@ -50,6 +60,8 @@ def _language(config: Mapping[str, Any]) -> Language:
 
 
 async def setup(context: PluginContext) -> None:
+    if any(context.config.get(key) == 1 for key in ("api_version", "schema_version", "version")):
+        raise RuntimeError("migration_required")
     language = _language(context.config)
     command_service = cast(CommandService, context.services.require(COMMAND_SERVICE))
     status_provider = cast(KernelStatusProvider, context.services.require(KERNEL_STATUS_SERVICE))
@@ -128,6 +140,31 @@ async def setup(context: PluginContext) -> None:
     command_service.register_many(bindings, owner=context.id)
     context.defer_cleanup(lambda: command_service.unregister_owner(context.id))
 
+    async def help_tool(_authorization: AuthorizationContext, _arguments: Mapping[str, Any]) -> dict[str, object]:
+        return {
+            "commands": [
+                {
+                    "path": list(registration.spec.command_path),
+                    "summary": registration.spec.summary,
+                }
+                for registration in command_service.snapshot()
+            ]
+        }
+
+    async def status_tool(_authorization: AuthorizationContext, _arguments: Mapping[str, Any]) -> dict[str, object]:
+        snapshot = status_provider.snapshot()
+        return {
+            "version": snapshot.version,
+            "state": snapshot.state,
+            "uptime_seconds": snapshot.uptime_seconds,
+            "plugins": dict(snapshot.plugins),
+            "runtimes": dict(snapshot.runtimes),
+            "events_outstanding": snapshot.events_outstanding,
+        }
+
+    context.register_tool("liteyukibot.essentials.help", cast(ToolCallback, help_tool))
+    context.register_tool("liteyukibot.essentials.status", cast(ToolCallback, status_tool))
+
 
 def create_plugin(version: str) -> PluginDefinition:
     return PluginDefinition(
@@ -141,6 +178,39 @@ def create_plugin(version: str) -> PluginDefinition:
                 ServiceRequirement(KERNEL_STATUS_SERVICE),
                 ServiceRequirement(_PROFILE_SERVICE, optional=True),
                 ServiceRequirement(I18N_SERVICE),
+            ),
+            tools=(
+                ToolDeclaration(
+                    id="liteyukibot.essentials.help",
+                    description="List currently registered commands.",
+                    input_schema={"type": "object", "additionalProperties": False},
+                    output_schema={
+                        "type": "object",
+                        "properties": {
+                            "commands": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "path": {"type": "array", "items": {"type": "string"}},
+                                        "summary": {"type": "string"},
+                                    },
+                                    "required": ["path", "summary"],
+                                    "additionalProperties": False,
+                                },
+                            }
+                        },
+                        "required": ["commands"],
+                        "additionalProperties": False,
+                    },
+                ),
+                ToolDeclaration(
+                    id="liteyukibot.essentials.status",
+                    description="Read bounded kernel status for the current invocation context.",
+                    input_schema={"type": "object", "additionalProperties": False},
+                    output_schema={"type": "object", "additionalProperties": True},
+                    capabilities=(_STATUS_READ_CAPABILITY,),
+                ),
             ),
         ),
         setup=setup,

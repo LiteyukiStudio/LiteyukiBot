@@ -13,9 +13,17 @@ from liteyukibot.plugins import (
     ExtensionCoexistence,
     ExtensionIdentity,
     ExtensionManifest,
+    PluginContext,
+    PluginDefinition,
+    PluginHandle,
+    PluginPaths,
+    PluginServices,
     ToolCallback,
     ToolDeclaration,
+    _PluginCleanup,
 )
+from liteyukibot.services import ServiceRegistry
+from liteyukibot.tasks import ManagedTasks
 
 from .audit import CordisAuditService
 from .core import ActionServiceLike, CordisManager, PluginFactory
@@ -51,11 +59,30 @@ class CordisPluginDefinition:
 
 
 class CordisHost:
-    def __init__(self, events: EventBus, actions: ActionServiceLike, *, settings: Any, logger: Any) -> None:
+    def __init__(
+        self,
+        events: EventBus,
+        actions: ActionServiceLike,
+        *,
+        settings: Any,
+        logger: Any,
+        services: ServiceRegistry | None = None,
+        data_dir: Any = None,
+        cache_dir: Any = None,
+    ) -> None:
         self.manager = CordisManager(events, actions, audit=CordisAuditService(logger=logger))
         self.settings = settings
         self._definitions = discover_cordis_plugins(settings.enabled)
         self._tool_handlers: dict[str, ToolCallback] = {}
+        self._native_adapter = _NativeAdapter(
+            events,
+            actions,
+            services=services,
+            logger=logger,
+            data_dir=data_dir,
+            cache_dir=cache_dir,
+        )
+        self.manager.scope.provide("liteyukibot.native_adapter", lambda: self._native_adapter)
 
     @property
     def plugin_access(self) -> Mapping[str, str]:
@@ -95,9 +122,115 @@ class CordisHost:
 
 
 def host_factory(
-    events: EventBus, actions: ActionServiceLike, *, settings: Any, logger: Any, **_kwargs: Any
+    events: EventBus,
+    actions: ActionServiceLike,
+    *,
+    settings: Any,
+    logger: Any,
+    services: ServiceRegistry | None = None,
+    data_dir: Any = None,
+    cache_dir: Any = None,
+    **_kwargs: Any,
 ) -> CordisHost:
-    return CordisHost(events, actions, settings=settings, logger=logger)
+    return CordisHost(
+        events,
+        actions,
+        settings=settings,
+        logger=logger,
+        services=services,
+        data_dir=data_dir,
+        cache_dir=cache_dir,
+    )
+
+
+class _NativeAdapter:
+    def __init__(
+        self,
+        events: EventBus,
+        actions: ActionServiceLike,
+        *,
+        services: ServiceRegistry | None,
+        logger: Any,
+        data_dir: Any,
+        cache_dir: Any,
+    ) -> None:
+        self.events = events
+        self.actions = actions
+        self.services = services
+        self.logger = logger
+        self.data_dir = data_dir
+        self.cache_dir = cache_dir
+
+    async def activate(self, scope: Scope, plugin_id: str) -> None:
+        if self.services is None:
+            raise RuntimeError("Cordis business plugins require the application service registry")
+        services = self.services
+        entry = next(
+            (item for item in metadata.entry_points(group="liteyukibot.plugins") if item.name == plugin_id),
+            None,
+        )
+        if entry is None:
+            raise RuntimeError(f"Cordis business plugin {plugin_id!r} has no Native definition")
+        candidate = entry.load()
+        if not isinstance(candidate, PluginDefinition):
+            raise TypeError(f"Native entry point {plugin_id!r} is not a PluginDefinition")
+        definition = candidate
+        manifest = definition.manifest
+        plugin_logger = self.logger.bind(plugin=plugin_id, component="cordis-plugin")
+        tasks = ManagedTasks(plugin_id)
+        paths = None
+        if manifest.storage == "private":
+            if self.data_dir is None or self.cache_dir is None:
+                raise RuntimeError("Cordis private plugin storage is unavailable")
+            paths = PluginPaths(self.data_dir / "plugins" / plugin_id, self.cache_dir / "plugins" / plugin_id)
+            paths.data.mkdir(parents=True, exist_ok=True)
+            paths.cache.mkdir(parents=True, exist_ok=True)
+        cleanup = _PluginCleanup()
+        tool_handlers: dict[str, ToolCallback] = {}
+        context = PluginContext(
+            id=plugin_id,
+            config=scope.config,
+            logger=plugin_logger,
+            services=PluginServices(manifest, services),
+            tasks=tasks,
+            events=self.events,
+            actions=self.actions,
+            paths=paths,
+            _manifest=manifest,
+            _cleanup=cleanup,
+            _tool_handlers=tool_handlers,
+        )
+        handle: PluginHandle = PluginHandle()
+        try:
+            handle = await definition.setup(context) or handle
+            context.services.validate_provided()
+            declared = {tool.id for tool in manifest.tools}
+            if set(tool_handlers) != declared:
+                raise RuntimeError(f"Cordis plugin {plugin_id!r} must register every declared Tool")
+            for tool_id, handler in tool_handlers.items():
+                scope.tool(tool_id, handler)
+            if handle.start is not None:
+                await handle.start()
+        except BaseException:
+            if handle.stop is not None:
+                await handle.stop()
+            await cleanup.close()
+            await tasks.stop()
+            services.remove_provider(plugin_id)
+            raise
+
+        async def close() -> None:
+            try:
+                if handle.stop is not None:
+                    await handle.stop()
+            finally:
+                try:
+                    await cleanup.close()
+                finally:
+                    await tasks.stop()
+                    services.remove_provider(plugin_id)
+
+        scope.own(close)
 
 
 def discover_cordis_plugins(enabled: tuple[str, ...]) -> dict[str, CordisPluginDefinition]:

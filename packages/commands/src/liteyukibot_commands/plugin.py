@@ -21,6 +21,8 @@ from .service import COMMAND_SERVICE, create_command_service
 
 
 async def setup(context: PluginContext) -> None:
+    if any(context.config.get(key) == 1 for key in ("api_version", "schema_version", "version")):
+        raise RuntimeError("migration_required")
     permissions = cast(PermissionService, context.services.require(PERMISSION_SERVICE))
     service = create_command_service(context.config, permissions, context.logger)
     context.services.provide(COMMAND_SERVICE, service)

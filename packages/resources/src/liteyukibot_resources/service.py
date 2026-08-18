@@ -20,13 +20,14 @@ from liteyukibot_commands import (
 )
 from liteyukibot_permissions import PermissionService, Principal
 
+from liteyukibot.authorization import AuthorizationContext
 from liteyukibot.events import EventEnvelope, HandlerResult
 from liteyukibot.i18n import Translator
 from liteyukibot.services import ServiceKey
 
 from .models import ResourceField, ResourceOperation, ResourceProvider, ResourceRegistration, ResourceSpec
 
-RESOURCE_SERVICE = ServiceKey("liteyukibot.resources", 1)
+RESOURCE_SERVICE = ServiceKey("liteyukibot.resources", 2)
 
 
 class ResourceError(ValueError):
@@ -80,6 +81,27 @@ class ResourceService(Protocol):
         field: str,
         *,
         actor_id: str | None = None,
+    ) -> None: ...
+
+    async def inspect_context(
+        self,
+        context: AuthorizationContext,
+        path: Sequence[str],
+    ) -> Mapping[str, object]: ...
+
+    async def set_context(
+        self,
+        context: AuthorizationContext,
+        path: Sequence[str],
+        field: str,
+        value: str,
+    ) -> None: ...
+
+    async def delete_context(
+        self,
+        context: AuthorizationContext,
+        path: Sequence[str],
+        field: str,
     ) -> None: ...
 
 
@@ -189,6 +211,19 @@ class _ResourceService:
             result[field.name] = await _await_provider(registered.provider.inspect(principal, field))
         return result
 
+    async def inspect_context(
+        self,
+        context: AuthorizationContext,
+        path: Sequence[str],
+    ) -> Mapping[str, object]:
+        registered, principal = self._current_target(context, path)
+        result: dict[str, object] = {}
+        for field in registered.registration.spec.fields:
+            if not field.readable:
+                continue
+            result[field.name] = await _await_provider(registered.provider.inspect(principal, field))
+        return result
+
     async def set(
         self,
         event: EventEnvelope,
@@ -203,6 +238,23 @@ class _ResourceService:
         if not selected.settable:
             raise ResourceError(f"resource field is not settable: {field}")
         self._authorize(event, principal, selected, "set")
+        try:
+            converted = selected.converter(value)
+        except Exception as error:
+            raise ResourceError(f"invalid value for resource field: {field}") from error
+        await _await_provider(registered.provider.set(principal, selected, converted))
+
+    async def set_context(
+        self,
+        context: AuthorizationContext,
+        path: Sequence[str],
+        field: str,
+        value: str,
+    ) -> None:
+        registered, principal = self._current_target(context, path)
+        selected = self._field(registered.registration.spec, field)
+        if not selected.settable:
+            raise ResourceError(f"resource field is not settable: {field}")
         try:
             converted = selected.converter(value)
         except Exception as error:
@@ -224,6 +276,18 @@ class _ResourceService:
         self._authorize(event, principal, selected, "delete")
         await _await_provider(registered.provider.delete(principal, selected))
 
+    async def delete_context(
+        self,
+        context: AuthorizationContext,
+        path: Sequence[str],
+        field: str,
+    ) -> None:
+        registered, principal = self._current_target(context, path)
+        selected = self._field(registered.registration.spec, field)
+        if not selected.deletable:
+            raise ResourceError(f"resource field is not deletable: {field}")
+        await _await_provider(registered.provider.delete(principal, selected))
+
     def _target(
         self,
         event: EventEnvelope,
@@ -238,6 +302,18 @@ class _ResourceService:
         current = Principal(event.runtime_id, event.bot_id, event.actor.id)
         target = current if actor_id is None else Principal(event.runtime_id, event.bot_id, actor_id)
         return self._resources[resource_id], target
+
+    def _current_target(
+        self,
+        context: AuthorizationContext,
+        path: Sequence[str],
+    ) -> tuple[_RegisteredResource, Principal]:
+        resource_id = self._paths.get(tuple(segment.casefold() for segment in path))
+        if resource_id is None:
+            raise ResourceError(f"resource not found: {' '.join(path)}")
+        if context.actor_id is None:
+            raise ResourceError("resource operations require an actor")
+        return self._resources[resource_id], Principal(context.runtime_id, context.bot_id, context.actor_id)
 
     def _authorize(
         self,

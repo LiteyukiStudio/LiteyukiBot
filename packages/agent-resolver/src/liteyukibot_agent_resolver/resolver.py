@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from typing import cast
+
+from liteyukibot import ToolDeclaration
+from liteyukibot.plugins import JsonValue
 
 
 class ResolutionError(ValueError):
@@ -67,6 +71,17 @@ class AgentToolDescriptor:
             self,
             "required_capabilities",
             _identifiers(self.required_capabilities, field="tool required capabilities"),
+        )
+
+    def declaration(self) -> ToolDeclaration:
+        """Return immutable Kernel Tool metadata without binding an executor."""
+
+        return ToolDeclaration(
+            id=self.id,
+            description=self.description,
+            input_schema=cast(Mapping[str, JsonValue], dict(self.input_schema)),
+            output_schema={"type": "object"},
+            capabilities=self.required_capabilities,
         )
 
 
@@ -198,6 +213,9 @@ class Resolver:
             tools=enabled_tools,
             tool_tree=_tool_tree(enabled_tools),
         )
+
+
+ToolCatalog = Resolver
 
 
 def _tool_tree(tools: tuple[AgentToolDescriptor, ...]) -> AgentToolTree:
