@@ -1,7 +1,7 @@
 [project]
 name = "liteyukibot-v7-functions"
 version = "0.1.0a3"
-description = "V6 Liteyuki resource-function executor for LiteyukiBot v7."
+description = "Alpha 7 LYF parser and bounded runtime for LiteyukiBot v7."
 readme = "README.md"
 requires-python = ">=3.14"
 license = "LicenseRef-LSO"
@@ -10,11 +10,16 @@ authors = [
     { name = "LiteyukiStudio" },
 ]
 dependencies = [
+    "jsonschema>=4.26,<5",
+    "lark>=1.3,<2",
     "liteyukibot-v7==7.0.0a3",
 ]
 
 [project.entry-points."liteyukibot.function_executors"]
 v6 = "liteyukibot_functions:V6FunctionExecutor"
+
+[project.entry-points."liteyukibot.function_hosts"]
+lyf = "liteyukibot_functions:Alpha7FunctionHostProvider"
 
 [build-system]
 requires = ["uv_build>=0.11.32,<0.12"]

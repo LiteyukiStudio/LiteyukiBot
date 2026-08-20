@@ -144,6 +144,7 @@ class _AuthoritativePeerService(BrokerPeerService):
         terminal_ttl_seconds: float,
         delivery_timeout_seconds: float,
         diagnostics_token: str | None = None,
+        dynamic_manifest_bridge_ids: frozenset[str] = frozenset(),
     ) -> None:
         super().__init__(
             instance_tokens=instance_tokens,
@@ -155,9 +156,14 @@ class _AuthoritativePeerService(BrokerPeerService):
             diagnostics_token=diagnostics_token,
         )
         self._manifests = dict(manifests)
+        self._dynamic_manifest_bridge_ids = dynamic_manifest_bridge_ids
 
     def _register(self, peer_identity: bytes, frame: LyipFrame, message: BridgeRegister) -> LyipFrame:
         expected = self._manifests.get(message.bridge_id)
+        if message.bridge_id in self._dynamic_manifest_bridge_ids and expected is not None:
+            expected = expected.model_copy(
+                update={"tools": message.manifest.tools, "controls": message.manifest.controls}
+            )
         if expected is not None and message.manifest != expected:
             return self._reply(
                 peer_identity,
@@ -206,6 +212,9 @@ class BrokerService:
             )
             for bridge_id, bridge in settings.broker.bridges.items()
         }
+        dynamic_manifest_bridge_ids = frozenset(
+            bridge_id for bridge_id, bridge in settings.broker.bridges.items() if bridge.kind == "kernel"
+        )
         self._context = zmq.asyncio.Context.instance()
         self.server = BrokerPeerServer(
             context=self._context,
@@ -227,6 +236,7 @@ class BrokerService:
             terminal_ttl_seconds=settings.broker.terminal_ttl_seconds,
             delivery_timeout_seconds=settings.broker.delivery_timeout_seconds,
             diagnostics_token=diagnostics_token,
+            dynamic_manifest_bridge_ids=dynamic_manifest_bridge_ids,
         )
 
     @classmethod

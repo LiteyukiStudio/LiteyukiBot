@@ -14,7 +14,9 @@ from typing import TYPE_CHECKING, Protocol, cast
 from .config.models import CordisSettings
 from .events import EventBus
 from .exceptions import PluginError
+from .functions import FunctionHost
 from .plugins import ExtensionCoexistence, ExtensionIdentity, ToolCallback, ToolDeclaration
+from .resource_packs import ResourcePackDeclaration
 from .services import ServiceRegistry
 
 if TYPE_CHECKING:
@@ -43,6 +45,11 @@ class CordisHost(Protocol):
 
     @property
     def tool_handlers(self) -> Mapping[str, ToolCallback]: ...
+
+    def bind_function_hosts(self, hosts: Mapping[str, FunctionHost]) -> None: ...
+
+    @property
+    def function_resource_packs(self) -> Mapping[str, tuple[ResourcePackDeclaration, ...]]: ...
 
 
 class ActionServiceLike(Protocol):

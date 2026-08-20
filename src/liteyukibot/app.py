@@ -9,6 +9,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from enum import StrEnum
 from pathlib import Path
 from time import monotonic
+from types import MappingProxyType
 from typing import Any, cast
 from uuid import uuid4
 
@@ -19,7 +20,9 @@ from .agents import AGENT_HISTORY_SERVICE
 from .authorization import AuthorizationContext
 from .broker import (
     AuthorizationContextWire,
+    BridgeControlInvoke,
     BrokerToolDeclaration,
+    ControlOutcome,
     KernelBrokerPeer,
     ToolInvoke,
     ToolOutcome,
@@ -29,9 +32,23 @@ from .capabilities import ADAPTER_CALL_API, AGENT_HISTORY_CLEAR, PERMISSION_SERV
 from .config import AppSettings, RuntimeEventRoute
 from .control import ControlServer
 from .cordis_host import CordisHost, discover_cordis_host, validate_extension_topology
-from .events import ActionEnvelope, ActionResult, CallApi, EventBus, EventEnvelope
+from .events import ActionEnvelope, ActionResult, CallApi, EventBus, EventEnvelope, HandlerResult, Subscription
 from .events.models import JsonValue as EventJsonValue
-from .functions import FUNCTION_DISPATCH_SERVICE, FunctionDispatcher
+from .functions import (
+    AGENT_FUNCTION_CATALOG,
+    AGENT_PROMPT_CATALOG,
+    AGENT_PROMPT_SELECT,
+    FUNCTION_DISPATCH_SERVICE,
+    FunctionDispatcher,
+    FunctionEventContribution,
+    FunctionHost,
+    FunctionHostBindings,
+    FunctionHostProvider,
+    FunctionPackSource,
+    FunctionPreflight,
+    FunctionPromptPreset,
+    discover_function_host_provider,
+)
 from .http import HttpServer
 from .i18n import I18N_SERVICE, SUPPORTED_LOCALES, Translator, normalize_locale
 from .instance_daemon import INSTANCE_DAEMON_SERVICE, InstanceDaemonService
@@ -46,8 +63,8 @@ from .management import (
 )
 from .operations import ManagementPrincipal, OperationRequest, PrincipalKind
 from .plugin_store import RuntimeGenerationStore
-from .plugins import PluginManager, ToolCallback, ToolDeclaration
-from .resource_packs import RESOURCE_CATALOG_SERVICE, ResourceCatalog
+from .plugins import PluginDefinition, PluginManager, ToolCallback, ToolDeclaration
+from .resource_packs import RESOURCE_CATALOG_SERVICE, ResourceCatalog, ResourcePackDeclaration
 from .runtime import (
     ActionProvenance,
     ActionSinkResult,
@@ -225,6 +242,16 @@ class LiteyukiApp:
         self.resources: ResourceCatalog | None = None
         self.translator: Translator | None = None
         self.functions: FunctionDispatcher | None = None
+        self._function_host_provider: FunctionHostProvider | None = None
+        self._function_preflights: dict[str, FunctionPreflight] = {}
+        self._function_hosts: dict[str, FunctionHost] = {}
+        self._function_host_tasks: dict[str, ManagedTasks] = {}
+        self._function_tool_callbacks: dict[str, ToolCallback] = {}
+        self._function_event_callbacks: dict[
+            tuple[str, str], Callable[[EventEnvelope], Awaitable[HandlerResult | None]]
+        ] = {}
+        self._function_subscriptions: list[Subscription] = []
+        self._function_prompts: dict[str, FunctionPromptPreset] = {}
         self._function_tasks = ManagedTasks("functions", on_failure=self._function_task_failed)
         runtime_plugins = RuntimeCatalog().discover()
         generation_store = RuntimeGenerationStore(self.resource_workspace)
@@ -415,6 +442,243 @@ class LiteyukiApp:
         diagnostics = [{"plugin_id": item.plugin_id, "code": item.code} for item in self.plugins.webui_diagnostics]
         return {"generation": self.plugins.webui_generation, "surfaces": surfaces, "diagnostics": diagnostics}
 
+    def _function_sources(
+        self,
+        extension_id: str,
+        declarations: tuple[ResourcePackDeclaration, ...],
+    ) -> tuple[FunctionPackSource, ...]:
+        if self.resources is None:
+            raise RuntimeError("Function resources are unavailable before ResourceCatalog startup")
+        sources: list[FunctionPackSource] = []
+        for declaration in declarations:
+            pack = self.resources.pack_for_declaration(declaration)
+            files = {
+                resource.path.removeprefix("functions/"): resource.read_bytes()
+                for resource in self.resources.pack_files(pack.metadata.id, "functions")
+                if resource.path.startswith("functions/")
+            }
+            if files:
+                sources.append(FunctionPackSource(extension_id, pack.metadata.id, files))
+        return tuple(sources)
+
+    def _preflight_functions(self, definitions: Mapping[str, PluginDefinition]) -> None:
+        source_map: dict[str, tuple[FunctionPackSource, ...]] = {
+            extension_id: self._function_sources(
+                extension_id,
+                tuple(definition.manifest.resource_packs),
+            )
+            for extension_id, definition in definitions.items()
+        }
+        if self._cordis_host is not None:
+            function_resource_packs = getattr(self._cordis_host, "function_resource_packs", {})
+            for extension_id, declarations in function_resource_packs.items():
+                source_map[extension_id] = self._function_sources(extension_id, declarations)
+
+        provider = self._function_host_provider
+        if provider is None:
+            if any(source_map.values()):
+                raise RuntimeError("Function resources are installed but no Alpha 7 Function Host is available")
+            return
+
+        seen_tools: set[str] = set()
+        seen_prompts: set[str] = set()
+        for extension_id, sources in sorted(source_map.items()):
+            if not sources:
+                continue
+            preflight = provider.preflight(sources)
+            if not isinstance(preflight, FunctionPreflight) or preflight.extension_id != extension_id:
+                raise RuntimeError(f"Function Host returned an invalid preflight for extension {extension_id!r}")
+            for declaration in preflight.tool_declarations:
+                if declaration.id in seen_tools:
+                    raise RuntimeError(f"duplicate LYF Tool declaration: {declaration.id}")
+                seen_tools.add(declaration.id)
+            for prompt in preflight.prompts:
+                if prompt.id in seen_prompts:
+                    raise RuntimeError(f"duplicate LYF prompt preset: {prompt.id}")
+                seen_prompts.add(prompt.id)
+            if len(preflight.prompts) > 64 or len(preflight.events) > 128:
+                raise RuntimeError(f"extension {extension_id!r} exceeds Alpha 7 Function contribution limits")
+            self._function_preflights[extension_id] = preflight
+            self._function_prompts.update({prompt.id: prompt for prompt in preflight.prompts})
+
+    def _create_function_hosts(self, configs: Mapping[str, Mapping[str, Any]]) -> None:
+        provider = self._function_host_provider
+        if provider is None:
+            return
+        for extension_id, preflight in sorted(self._function_preflights.items()):
+            tasks = ManagedTasks(f"functions:{extension_id}", on_failure=self._function_task_failed)
+            registered_tools: dict[str, ToolCallback] = {}
+            registered_events: dict[str, Callable[[EventEnvelope], Awaitable[HandlerResult | None]]] = {}
+
+            def register_tool(
+                declaration: ToolDeclaration,
+                callback: ToolCallback,
+                *,
+                extension_id: str = extension_id,
+                preflight: FunctionPreflight = preflight,
+                registered_tools: dict[str, ToolCallback] = registered_tools,
+            ) -> None:
+                expected = {item.id for item in preflight.tool_declarations}
+                if declaration.id not in expected or not declaration.id.startswith(f"{extension_id}.lyf."):
+                    raise RuntimeError(f"Function Host registered an undeclared Tool: {declaration.id}")
+                if declaration.id in registered_tools:
+                    raise RuntimeError(f"Function Host registered Tool more than once: {declaration.id}")
+                registered_tools[declaration.id] = callback
+
+            def register_event(
+                contribution: FunctionEventContribution,
+                callback: Callable[[EventEnvelope], Awaitable[HandlerResult | None]],
+                *,
+                extension_id: str = extension_id,
+                preflight: FunctionPreflight = preflight,
+                registered_events: dict[
+                    str, Callable[[EventEnvelope], Awaitable[HandlerResult | None]]
+                ] = registered_events,
+            ) -> None:
+                expected = {item.function_id for item in preflight.events}
+                if contribution.extension_id != extension_id or contribution.function_id not in expected:
+                    raise RuntimeError(f"Function Host registered an undeclared event: {contribution.function_id}")
+                if contribution.function_id in registered_events:
+                    raise RuntimeError(f"Function Host registered event more than once: {contribution.function_id}")
+                registered_events[contribution.function_id] = callback
+
+            def emit_log(message: str, *, extension_id: str = extension_id) -> None:
+                self.logger.bind(extension=extension_id, component="functions").info("{}", message)
+
+            bindings = FunctionHostBindings(
+                extension_id=extension_id,
+                config=MappingProxyType(dict(configs.get(extension_id, {}))),
+                events=self.events,
+                services=self.services,
+                tasks=tasks,
+                logger=self.logger.bind(extension=extension_id, component="functions"),
+                register_tool=register_tool,
+                register_event=register_event,
+                emit_log=emit_log,
+                select_prompt=self._select_function_prompt,
+                resolve_event=(
+                    lambda event_id: self._kernel_broker_peer.active_event(event_id)
+                    if self._kernel_broker_peer is not None
+                    else None
+                ),
+            )
+            host = provider.create_host(preflight, bindings)
+            if not callable(getattr(host, "invoke", None)) or not callable(getattr(host, "aclose", None)):
+                raise RuntimeError(f"Function Host for extension {extension_id!r} has an invalid runtime contract")
+            self._function_tool_callbacks.update(registered_tools)
+            self._function_host_tasks[extension_id] = tasks
+            self._function_hosts[extension_id] = host
+            for contribution in preflight.events:
+                callback = registered_events.get(contribution.function_id)
+
+                async def handle_event(
+                    event: EventEnvelope,
+                    *,
+                    contribution: FunctionEventContribution = contribution,
+                    callback: Callable[[EventEnvelope], Awaitable[HandlerResult | None]] | None = callback,
+                    host: FunctionHost = host,
+                ) -> HandlerResult | None:
+                    if not self._function_event_matches(event, contribution):
+                        return None
+                    result = await callback(event) if callback is not None else await host.invoke(
+                        contribution.function_id,
+                        event=event,
+                    )
+                    return result if isinstance(result, HandlerResult) else None
+
+                self._function_subscriptions.append(
+                    self.events.subscribe(
+                        handle_event,
+                        name=f"function:{extension_id}:{contribution.function_id}",
+                    )
+                )
+
+    @staticmethod
+    def _function_event_matches(event: EventEnvelope, contribution: FunctionEventContribution) -> bool:
+        if contribution.topics and not any(
+            topic == event.type or topic == "*" or topic.endswith(".*") and event.type.startswith(topic[:-1])
+            for topic in contribution.topics
+        ):
+            return False
+        projection: object = event.model_dump(mode="json")
+        for path, expected in contribution.filters.items():
+            value = projection
+            for part in path.split("."):
+                if not isinstance(value, Mapping) or part not in value:
+                    return False
+                value = value[part]
+            if value != expected:
+                return False
+        return True
+
+    async def _select_function_prompt(self, event: EventEnvelope, preset_id: str) -> Any:
+        if preset_id not in self._function_prompts:
+            raise ValueError("unknown prompt preset")
+        peer = self._kernel_broker_peer
+        if peer is None:
+            raise ConnectionError("Agent bridge is unavailable")
+        authorization = AuthorizationContextWire(
+            event_id=event.id,
+            runtime_id=event.runtime_id,
+            bot_id=event.bot_id,
+            actor_id=event.actor.id if event.actor is not None else None,
+        )
+        response = await peer.request_control(
+            event,
+            correlation_id=f"function-prompt:{event.id}:{uuid4()}",
+            command=AGENT_PROMPT_SELECT,
+            authorization=authorization,
+            payload={"preset_id": preset_id},
+            timeout_seconds=self.settings.broker.delivery_timeout_seconds,
+        )
+        if response is None or not response.success:
+            raise RuntimeError(response.error_code if response is not None else "prompt selection unavailable")
+        return response.result
+
+    async def _handle_prompt_catalog(self, request: BridgeControlInvoke) -> ControlOutcome:
+        peer = self._kernel_broker_peer
+        if peer is None or peer.active_event(request.authorization.event_id) is None:
+            return ControlOutcome(success=False, error_code="CONTROL_STALE_DELIVERY")
+        if request.payload:
+            return ControlOutcome(success=False, error_code="CONTROL_INVALID_PAYLOAD")
+        prompts = self._function_prompt_catalog()
+        return ControlOutcome(success=True, result=cast(EventJsonValue, {"prompts": prompts}))
+
+    async def _handle_function_catalog(self, request: BridgeControlInvoke) -> ControlOutcome:
+        peer = self._kernel_broker_peer
+        if peer is None or peer.active_event(request.authorization.event_id) is None:
+            return ControlOutcome(success=False, error_code="CONTROL_STALE_DELIVERY")
+        if request.payload:
+            return ControlOutcome(success=False, error_code="CONTROL_INVALID_PAYLOAD")
+        tools = [
+            {
+                "id": declaration.id,
+                "title": declaration.id.rsplit(".", 1)[-1],
+                "module_id": extension_id,
+                "description": declaration.description,
+                "input_schema": dict(declaration.input_schema),
+                "required_capabilities": list(declaration.capabilities),
+            }
+            for extension_id, preflight in sorted(self._function_preflights.items())
+            for declaration in preflight.tool_declarations
+        ]
+        return ControlOutcome(
+            success=True,
+            result=cast(EventJsonValue, {"tools": tools, "prompts": self._function_prompt_catalog()}),
+        )
+
+    def _function_prompt_catalog(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "id": item.id,
+                "name": item.name,
+                "description": item.description,
+                "prompt": item.prompt,
+                "examples": [dict(example) for example in item.examples],
+            }
+            for item in sorted(self._function_prompts.values(), key=lambda value: value.id)
+        ]
+
     async def start(self) -> None:
         if self.state is not AppState.CREATED:
             raise RuntimeError(f"application cannot start from state {self.state}")
@@ -453,6 +717,12 @@ class LiteyukiApp:
             declarations = tuple(
                 declaration for definition in definitions.values() for declaration in definition.manifest.resource_packs
             )
+            if self._cordis_host is not None:
+                function_resource_packs = getattr(self._cordis_host, "function_resource_packs", {})
+                declarations = (
+                    *declarations,
+                    *(declaration for pack_list in function_resource_packs.values() for declaration in pack_list),
+                )
             self.resources = ResourceCatalog.load(self.resource_workspace, plugin_packs=declarations)
             self.translator, _warning = Translator.from_resources(self.resources, self.settings.i18n.locale)
             self.functions = FunctionDispatcher(self.resources, task_owner=self._function_tasks)
@@ -460,8 +730,15 @@ class LiteyukiApp:
             self.services.provide(I18N_SERVICE, self.translator, provider="liteyukibot.kernel")
             self.services.provide(FUNCTION_DISPATCH_SERVICE, self.functions, provider="liteyukibot.kernel")
             plugin_configs = self._plugin_configs(self.settings.plugins.config)
+            self._function_host_provider = discover_function_host_provider()
+            self._preflight_functions(definitions)
+            self._create_function_hosts(plugin_configs)
+            if self._cordis_host is not None:
+                bind_hosts = getattr(self._cordis_host, "bind_function_hosts", None)
+                if callable(bind_hosts):
+                    bind_hosts(self._function_hosts)
             self._plugins_setup = True
-            await self.plugins.setup(definitions, plugin_configs)
+            await self.plugins.setup(definitions, plugin_configs, function_hosts=self._function_hosts)
             permissions = self.services.get(_PERMISSION_SERVICE)
             allows_management = getattr(permissions, "allows_management", None)
             if callable(allows_management):
@@ -490,6 +767,29 @@ class LiteyukiApp:
                         raise RuntimeError(f"Cordis Tool handler {tool_id!r} has no declaration")
                     extension_id = tool_id.rsplit(".", 1)[0]
                     tool_bindings[tool_id] = (extension_id, declared_tool, callback)
+                function_tool_declarations: list[BrokerToolDeclaration] = []
+                for extension_id, preflight in sorted(self._function_preflights.items()):
+                    for declaration in preflight.tool_declarations:
+                        if declaration.id in tool_bindings:
+                            raise RuntimeError(f"LYF Tool collides with an installed Tool: {declaration.id}")
+                        function_callback = self._function_tool_callbacks.get(declaration.id)
+                        if function_callback is None:
+                            raise RuntimeError(f"LYF Tool has no registered callback: {declaration.id}")
+
+                        tool_bindings[declaration.id] = (
+                            extension_id,
+                            declaration,
+                            function_callback,
+                        )
+                        function_tool_declarations.append(
+                            BrokerToolDeclaration(
+                                id=declaration.id,
+                                description=declaration.description,
+                                input_schema=declaration.input_schema,
+                                output_schema=declaration.output_schema,
+                                capabilities=declaration.capabilities,
+                            )
+                        )
                 tool_handlers: dict[str, Callable[[ToolInvoke], Awaitable[ToolOutcome]]] = {}
                 for tool_id, (extension_id, declaration, callback) in tool_bindings.items():
 
@@ -556,8 +856,18 @@ class LiteyukiApp:
                             )
                             for tool in cordis_declarations
                         ]
+                        + function_tool_declarations
                     ),
                     tool_handlers=tool_handlers,
+                    controls=(AGENT_FUNCTION_CATALOG, AGENT_PROMPT_CATALOG) if self._function_preflights else (),
+                    control_handlers=(
+                        {
+                            AGENT_FUNCTION_CATALOG: self._handle_function_catalog,
+                            AGENT_PROMPT_CATALOG: self._handle_prompt_catalog,
+                        }
+                        if self._function_preflights
+                        else {}
+                    ),
                 )
                 await self._kernel_broker_peer.start()
                 self._kernel_broker_started = True
@@ -727,6 +1037,10 @@ class LiteyukiApp:
                 errors.append(error)
             self._cordis_host = None
         try:
+            await self._close_function_hosts()
+        except BaseException as error:
+            errors.append(error)
+        try:
             await self.events.aclose()
         except BaseException as error:
             errors.append(error)
@@ -755,6 +1069,30 @@ class LiteyukiApp:
             self._logging_started = False
         if errors:
             raise BaseExceptionGroup("application cleanup failed", errors)
+
+    async def _close_function_hosts(self) -> None:
+        for subscription in reversed(self._function_subscriptions):
+            self.events.unsubscribe(subscription)
+        self._function_subscriptions.clear()
+        errors: list[BaseException] = []
+        for extension_id, host in reversed(tuple(self._function_hosts.items())):
+            try:
+                await host.aclose()
+            except BaseException as error:
+                errors.append(error)
+            self._function_hosts.pop(extension_id, None)
+        for extension_id, tasks in reversed(tuple(self._function_host_tasks.items())):
+            try:
+                await tasks.stop()
+            except BaseException as error:
+                errors.append(error)
+            self._function_host_tasks.pop(extension_id, None)
+        self._function_preflights.clear()
+        self._function_prompts.clear()
+        self._function_tool_callbacks.clear()
+        self._function_event_callbacks.clear()
+        if errors:
+            raise BaseExceptionGroup("Function Host cleanup failed", errors)
 
     def _function_task_failed(self, name: str, error: BaseException) -> None:
         self.logger.bind(component="functions").error("function task {} failed: {}", name, error)

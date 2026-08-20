@@ -7,13 +7,23 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field, replace
 from importlib import metadata
 from pathlib import PurePosixPath
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from .resource_packs import ResourceCatalog, ResourceFile
 from .services import ServiceKey
 from .tasks import ManagedTasks
 
+if TYPE_CHECKING:
+    from .events import EventBus, EventEnvelope, HandlerResult
+    from .plugins import ToolCallback, ToolDeclaration
+    from .services import ServiceRegistry
+
 FUNCTION_DISPATCH_SERVICE = ServiceKey("liteyukibot.functions", 1)
+FUNCTION_HOST_ENTRY_POINT_GROUP = "liteyukibot.function_hosts"
+FUNCTION_LIBRARY_ENTRY_POINT_GROUP = "liteyukibot.function_libraries"
+AGENT_FUNCTION_CATALOG = "agent.function.catalog"
+AGENT_PROMPT_CATALOG = "agent.prompt.catalog"
+AGENT_PROMPT_SELECT = "agent.prompt.select"
 
 
 class FunctionError(RuntimeError):
@@ -52,6 +62,113 @@ class FunctionCall:
 
 
 type FunctionInvoker = Callable[[FunctionCall], Awaitable[object]]
+
+
+@dataclass(frozen=True, slots=True)
+class FunctionPackSource:
+    """One extension-owned resource-pack view supplied to a Function Host."""
+
+    extension_id: str
+    pack_id: str
+    files: Mapping[str, bytes]
+
+
+@dataclass(frozen=True, slots=True)
+class FunctionPromptPreset:
+    """A preflighted, bounded prompt preset contributed by one extension."""
+
+    extension_id: str
+    id: str
+    name: str
+    description: str
+    prompt: str
+    examples: tuple[Mapping[str, Any], ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class FunctionEventContribution:
+    """Static event metadata collected before host lifecycle binding."""
+
+    extension_id: str
+    function_id: str
+    topics: tuple[str, ...]
+    filters: Mapping[str, Any]
+    parameters: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class FunctionPreflight:
+    """Static output of parsing and validating one extension's Function packs."""
+
+    extension_id: str
+    function_ids: tuple[str, ...] = ()
+    tool_declarations: tuple[ToolDeclaration, ...] = ()
+    tool_function_ids: Mapping[str, str] = field(default_factory=dict)
+    prompts: tuple[FunctionPromptPreset, ...] = ()
+    events: tuple[FunctionEventContribution, ...] = ()
+
+
+class FunctionHost(Protocol):
+    """Host-bound execution surface shared by Native and Cordis adapters."""
+
+    preflight: FunctionPreflight
+
+    async def invoke(
+        self,
+        function_id: str,
+        arguments: Mapping[str, Any] | None = None,
+        *,
+        event: EventEnvelope | None = None,
+    ) -> Any: ...
+
+    async def aclose(self) -> None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class FunctionHostBindings:
+    """Host-owned capabilities supplied to a Function runtime implementation."""
+
+    extension_id: str
+    config: Mapping[str, Any]
+    events: EventBus
+    services: ServiceRegistry
+    tasks: ManagedTasks
+    logger: Any
+    register_tool: Callable[[ToolDeclaration, ToolCallback], None]
+    register_event: Callable[
+        [FunctionEventContribution, Callable[[EventEnvelope], Awaitable[HandlerResult | None]]], Any
+    ]
+    emit_log: Callable[[str], Any] | None = None
+    select_prompt: Callable[[EventEnvelope, str], Awaitable[Any]] | None = None
+    resolve_event: Callable[[str], EventEnvelope | None] | None = None
+
+
+class FunctionHostProvider(Protocol):
+    """Entry-point contract for the installed LYF implementation."""
+
+    def preflight(self, sources: tuple[FunctionPackSource, ...]) -> FunctionPreflight: ...
+
+    def create_host(self, preflight: FunctionPreflight, bindings: FunctionHostBindings) -> FunctionHost: ...
+
+
+def discover_function_host_provider() -> FunctionHostProvider | None:
+    """Discover the one installed Alpha7 Function Host provider, if present."""
+
+    entry_points = tuple(metadata.entry_points(group=FUNCTION_HOST_ENTRY_POINT_GROUP))
+    if not entry_points:
+        return None
+    if len(entry_points) != 1:
+        names = ", ".join(sorted(entry.name for entry in entry_points))
+        raise FunctionError(f"Function Host requires exactly one implementation; found: {names}")
+    entry_point = entry_points[0]
+    try:
+        candidate = entry_point.load()
+    except Exception as error:
+        raise FunctionError(f"Function Host entry point {entry_point.name!r} could not be imported") from error
+    provider = candidate() if inspect.isclass(candidate) else candidate
+    if not callable(getattr(provider, "preflight", None)) or not callable(getattr(provider, "create_host", None)):
+        raise FunctionError(f"Function Host entry point {entry_point.name!r} has an invalid contract")
+    return cast(FunctionHostProvider, provider)
 
 
 class FunctionExecutor(Protocol):
@@ -162,7 +279,12 @@ class FunctionDispatcher:
 
 
 __all__ = [
+    "AGENT_FUNCTION_CATALOG",
+    "AGENT_PROMPT_CATALOG",
+    "AGENT_PROMPT_SELECT",
     "FUNCTION_DISPATCH_SERVICE",
+    "FUNCTION_HOST_ENTRY_POINT_GROUP",
+    "FUNCTION_LIBRARY_ENTRY_POINT_GROUP",
     "FunctionCall",
     "FunctionCatalog",
     "FunctionDispatcher",
@@ -170,6 +292,14 @@ __all__ = [
     "FunctionError",
     "FunctionExecutor",
     "FunctionExecutorUnavailableError",
+    "FunctionEventContribution",
+    "FunctionHost",
+    "FunctionHostBindings",
+    "FunctionHostProvider",
     "FunctionNotFoundError",
+    "FunctionPackSource",
+    "FunctionPreflight",
+    "FunctionPromptPreset",
     "FunctionRecursionError",
+    "discover_function_host_provider",
 ]

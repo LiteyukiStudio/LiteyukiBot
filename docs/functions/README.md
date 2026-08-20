@@ -1,7 +1,7 @@
 # Liteyuki Function Language
 
-> Alpha 7 planned specification. The language runtime is not implemented or
-> released yet.
+> Alpha 7 implementation contract. The runtime is under validation and is not
+> released as a stable compatibility promise yet.
 
 Liteyuki Function Language (LYF) is a small resource-pack language for short
 glue code. A LYF file belongs to the Native or Cordis extension that owns its

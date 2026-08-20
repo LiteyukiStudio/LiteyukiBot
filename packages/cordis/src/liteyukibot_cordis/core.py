@@ -103,6 +103,12 @@ class CordisManager(RegistrationSink):
             handlers[tool_id] = handler
         return handlers
 
+    @property
+    def active_plugin_ids(self) -> tuple[str, ...]:
+        """Return activated plugin IDs without exposing the internal scope map."""
+
+        return tuple(self._plugin_scopes)
+
     async def activate(self, plugin_id: str, factory: PluginFactory, *, declared_tools: tuple[str, ...] = ()) -> Scope:
         if plugin_id in self._plugin_scopes:
             raise ValueError(f"Cordis plugin {plugin_id!r} is already activated")

@@ -55,12 +55,16 @@ Broker wire.
 The Kernel preflights prompt presets and owns the verified catalog projection.
 The Agent bridge uses the existing control message family:
 
-- `agent.prompt.catalog`: Agent requests the bounded catalog during an active
-  event delivery.
+- `agent.function.catalog`: Agent requests the bounded LYF Tool and prompt
+  catalog during an active event delivery.
+- `agent.prompt.catalog`: compatibility control that returns only the prompt
+  subset of the same verified catalog.
 - `agent.prompt.select`: the Kernel requests a preset switch from the Agent
   bridge through the active Tool delivery.
 
-Only registered preset IDs and verified preset content cross the boundary.
+The Agent bridge may declare `agent.prompt.select` alongside its existing
+`agent.history.clear` control to enable prompt switching. Only registered Tool
+IDs, preset IDs and verified preset content cross the boundary.
 Unknown IDs, raw prompt text, stale leases, wrong principals and replayed
 conflicting requests fail closed.
 

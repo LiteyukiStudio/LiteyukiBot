@@ -1532,11 +1532,17 @@ name = "liteyukibot-v7-functions"
 version = "0.1.0a3"
 source = { editable = "packages/functions" }
 dependencies = [
+    { name = "jsonschema" },
+    { name = "lark" },
     { name = "liteyukibot-v7" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "liteyukibot-v7", editable = "." }]
+requires-dist = [
+    { name = "jsonschema", specifier = ">=4.26,<5" },
+    { name = "lark", specifier = ">=1.3,<2" },
+    { name = "liteyukibot-v7", editable = "." },
+]
 
 [[package]]
 name = "liteyukibot-v7-ipc-native"

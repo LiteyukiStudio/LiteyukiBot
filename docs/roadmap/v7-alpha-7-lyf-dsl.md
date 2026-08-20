@@ -1,9 +1,9 @@
 # v7 Alpha 7: Liteyuki Function DSL
 
-> **Planned implementation contract.** The detailed syntax and host design is
-> documented under [`docs/functions`](../functions/README.md). This document
-> does not claim that the LYF language or its runtime has been implemented or
-> released.
+> **Implementation contract under validation.** The detailed syntax and host
+> design is documented under [`docs/functions`](../functions/README.md). The
+> current branch contains the first executable implementation; Alpha 7 release
+> qualification is still pending.
 
 Alpha 7 replaces the historical line-oriented v6 function executor with a
 restricted, resource-pack-only DSL shared by Native and Cordis hosts.

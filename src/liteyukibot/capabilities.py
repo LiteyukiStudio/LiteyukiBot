@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 ADAPTER_CALL_API = "liteyukibot.adapter.call_api"
 AGENT_HISTORY_CLEAR = "liteyukibot.agent.history.clear"
+AGENT_PROMPT_SELECT = "liteyukibot.agent.prompt.select"
 PERMISSION_SERVICE_NAME = "liteyukibot.permissions"
 PERMISSION_SERVICE_MAJOR = 2
 
@@ -30,6 +31,11 @@ KERNEL_CAPABILITIES = (
         owner="kernel",
         summary="Allows clearing the caller's native agent conversation history.",
     ),
+    CapabilityDefinition(
+        id=AGENT_PROMPT_SELECT,
+        owner="kernel",
+        summary="Allows an LYF Tool to select a verified Agent prompt preset.",
+    ),
 )
 
 _BY_ID = {capability.id: capability for capability in KERNEL_CAPABILITIES}
@@ -44,6 +50,7 @@ def capability_definition(capability: str) -> CapabilityDefinition | None:
 __all__ = [
     "ADAPTER_CALL_API",
     "AGENT_HISTORY_CLEAR",
+    "AGENT_PROMPT_SELECT",
     "CapabilityDefinition",
     "KERNEL_CAPABILITIES",
     "PERMISSION_SERVICE_MAJOR",
