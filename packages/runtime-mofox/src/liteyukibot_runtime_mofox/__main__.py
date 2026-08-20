@@ -1,7 +1,6 @@
-from __future__ import annotations
+"""Reject the removed legacy child-runtime launch path."""
 
-import asyncio
-
-from .host import run
-
-asyncio.run(run())
+raise SystemExit(
+    "migration_required: liteyukibot-v7-runtime-mofox is a broker bridge; "
+    "configure it under broker.bridges and use 'liteyuki bridge run'"
+)

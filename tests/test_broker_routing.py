@@ -17,6 +17,7 @@ from liteyukibot.broker import (
     EventCompleted,
     EventIngress,
 )
+from liteyukibot.topic_patterns import topic_pattern_matches
 
 
 @dataclass
@@ -63,6 +64,44 @@ def _active_delivery(ledger: BrokerLedger, source: BridgeSession, target: Bridge
     ledger.accept_delivery(target, target_delivery.delivery_id, target_delivery.lease_id)
     ledger.activate_delivery(target, target_delivery.delivery_id, target_delivery.lease_id)
     return event.kernel_event_id, target_delivery.delivery_id, target_delivery.lease_id
+
+
+@pytest.mark.parametrize(
+    ("pattern", "topic", "matches"),
+    [
+        ("onebot.*.message.*", "onebot.v11.message.group", True),
+        ("satori.message.*", "satori.message.channel", True),
+        ("onebot.*.message.*", "onebot.v11.message.group.extra", False),
+        ("onebot.*.message.*", "onebot.v11.notice.group", False),
+        ("onebot.*.message.*", "onebot.v11.message", False),
+    ],
+)
+def test_topic_patterns_match_complete_dot_segments_only(pattern: str, topic: str, matches: bool) -> None:
+    assert topic_pattern_matches(pattern, topic) is matches
+
+
+@pytest.mark.parametrize("pattern", ["onebot.**.message.*", "onebot.v*.message.*", "onebot..message.*"])
+def test_topic_patterns_reject_recursive_partial_or_empty_segments(pattern: str) -> None:
+    with pytest.raises((TypeError, ValueError)):
+        BridgeManifest(bridge_id="bridge", access=BridgeAccess.LIMITED, subscriptions=(pattern,))
+
+
+def test_broker_routes_limited_bridge_by_topic_pattern() -> None:
+    ledger = BrokerLedger()
+    source = _session("source", subscriptions=())
+    target = _session("v6", subscriptions=("onebot.*.message.*",))
+    event = ledger.admit_event(
+        source,
+        EventIngress(
+            source_event_id="source-1",
+            topic="onebot.v11.message.group",
+            ordering_key="bot:group",
+            payload={},
+        ),
+        (source, target),
+    )
+
+    assert ledger.offered_deliveries(event.kernel_event_id)[0].target_bridge_id == "v6"
 
 
 def test_broker_generates_identity_and_uses_authenticated_session_provenance() -> None:

@@ -1,75 +1,69 @@
 # LiteyukiBot v6 Plugin Compatibility
 
-v6 plugins run only inside a `kind = "v6"` child runtime. Install
-`liteyukibot-v7-runtime-v6` to provide the `liteyuki` compatibility namespace;
-new plugins should import `liteyukibot`.
+`liteyukibot-v7-runtime-v6` is an experimental, limited Broker bridge. It is
+not a child runtime and is never configured under `[runtimes.*]`. The bridge
+owns the `liteyuki` compatibility namespace inside its own process and sees
+only broker-delivered, JSON-safe event envelopes.
 
-## Supported
+## Configure the bridge
 
-- `PluginMetadata`, `PluginType`, and loaded-plugin metadata;
-- Loguru-compatible `liteyuki.logger`, including `opt()`;
-- `get_bot`, `get_config`, and `get_config_with_compat`;
-- explicit `load_plugin` and non-recursive `load_plugins`;
-- before/after startup and shutdown lifecycle decorators;
-- process restart requests for the compatibility runtime;
-- `MessageEvent`, session identity models, composable rules, matcher decorators,
-  stable priority dispatch, and synchronous reply-intent collection;
-- supervised delivery of normalized message events and ordered string or
-  mapping replies through protocol-neutral Actions.
-- separately installed execution of legacy resource functions with `.lyf`,
-  `.lyfunction`, and `.mcfunction` extensions.
-
-## Unsupported
-
-- constructing a nested `LiteyukiBot`;
-- `Channel`, shared memory, and the v6 process-manager APIs;
-- session `receive_channel` and implicit cross-process object sharing;
-- development hot reload and runtime package installation.
-
-Unsupported host construction raises `LegacyUnsupportedError`. Missing legacy
-modules are not recreated as inert stubs: plugin import fails so the migration
-gap remains visible. Compatibility also requires every plugin dependency to
-support CPython 3.14.
-
-Session matchers are process-local. `event.reply()` records an ordered reply
-intent; it does not send through a v6 Channel. The v6 runtime translates each
-intent after matcher dispatch and waits for its Action result before submitting
-the next reply. Handler, reply validation, and Action failures are isolated from
-later replies.
-
-Only events with normalized message content are forwarded by the application
-bridge. `MessageEvent.data` is a deep JSON copy of the adapter event's raw
-payload; no adapter object or synthetic `Session` crosses into the plugin.
-
-Supported matcher constructors are `on_message`, `on_keywords`,
-`on_startswith`, `on_endswith`, and `on_fullmatch`. Larger numeric priorities
-run first as in v6; a matching blocking matcher stops lower priorities after all
-matchers at its own priority have run.
-
-Configure modules and directories explicitly:
+Install the bridge package and register a vault token for one bridge entry:
 
 ```toml
-[runtimes.legacy]
+[broker.bridges.v6]
 kind = "v6"
+token_secret = "broker.v6.token"
+access = "limited"
+subscriptions = ["onebot.*.message.*", "satori.message.*"]
 
-[runtimes.legacy.options]
-plugins = ["my_legacy_plugin"]
-plugin_dirs = ["plugins"]
+[broker.bridges.v6.options]
+v6_plugins = ["my-v6-plugin"]
 max_concurrent_events = 32
-action_timeout_seconds = 10.0
-
-[runtimes.legacy.options.config]
-nickname = ["Liteyuki"]
 ```
 
-## Resource Functions
+The `v6_plugins` values are entry-point names, not import paths or filesystem
+paths. A plugin distribution must declare the selected module in the
+`liteyukibot.v6_plugins` group:
 
-Install `liteyukibot-v7-functions` only for v6 resource packs that use the
-legacy function language. It supports `var`, `api`, `function`, `sleep`,
-`nohup`, `await`, `end`, and `cmd`, including the legacy placeholder forms.
+```toml
+[project.entry-points."liteyukibot.v6_plugins"]
+my-v6-plugin = "my_package.plugin"
+```
 
-The historical implementation evaluated values with Python `eval` and executed
-`cmd` through the process shell. The v7 executor parses literals safely and
-requires the caller to explicitly provide both API and command capabilities.
-No capability is installed by default, so a resource pack alone cannot invoke
-an adapter API or execute a local command.
+Only explicitly selected entry points are imported. `plugins`, `plugin_dirs`,
+managed generations, and historical runtime `config` options fail with a
+`migration_required` diagnostic. The bridge does not load arbitrary modules,
+plugin directories, or Liteyuki-managed projections.
+
+## Retained surface
+
+- `PluginMetadata`, `PluginType`, and the `liteyuki` logger;
+- `get_bot`, empty `get_config`, and lifecycle callbacks;
+- `MessageEvent`, `Session`, rules, matcher decorators, priority ordering,
+  blocking, and ordered `event.reply()` collection;
+- conversion of each reply into the source bridge's ordered `message.send`
+  action, using the broker delivery lease and exact `bot:<bridge>:<bot>` owner.
+
+The matcher registry, session objects, and lifecycle callbacks are process
+local. A reply action failure is recorded and does not discard later replies.
+The broker remains the owner of delivery identity, ordering, leases, and
+action routing.
+
+## Removed surface
+
+The bridge does not restore `Channel`, shared memory, adapter objects, object
+transport, process-manager APIs, hot reload, `CallApi`, `EditMessage`, or the
+old `ActionEnvelope` route. Constructing a nested `LiteyukiBot` and accessing
+unsupported `liteyuki` modules raises `LegacyUnsupportedError`.
+
+Calling `python -m liteyukibot_runtime_v6` is also rejected. A restart request
+runs the bounded lifecycle cleanup callbacks, unregisters the bridge, and exits
+with a restart failure for an external process manager to handle. The broker
+does not supervise or restart this bridge.
+
+## Resource functions
+
+Install `liteyukibot-v7-functions` separately for v6 resource packs that use
+the legacy `.lyf`, `.lyfunction`, or `.mcfunction` language. The executor
+requires explicit API and command capabilities; a resource pack alone cannot
+invoke an adapter API or execute a local command.

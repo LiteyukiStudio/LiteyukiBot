@@ -1,40 +1,26 @@
-"""Headless Neo-MoFox agent runtime for LiteyukiBot v7."""
+"""Headless Neo-MoFox compatibility bridge for LiteyukiBot v7."""
 
 from __future__ import annotations
 
-import sys
+from collections.abc import Awaitable
 
-from liteyukibot.resource_packs import ResourcePackDeclaration
-from liteyukibot.runtime import InitFieldKind, InitFieldSpec, RuntimeInitSpec, RuntimePlugin
-
-from .facets import MoFoxFacetInstaller
+from liteyukibot.broker import BridgeDefinition, BridgeSupportGrade
+from liteyukibot.config import AppSettings
 
 
-def runtime_plugin() -> RuntimePlugin:
-    return RuntimePlugin(
+def bridge_definition() -> BridgeDefinition:
+    return BridgeDefinition(
         kind="mofox",
-        command=(sys.executable, "-m", "liteyukibot_runtime_mofox"),
-        agent_harness="mofox",
+        grade=BridgeSupportGrade.EXPERIMENTAL,
         distribution="liteyukibot-v7-runtime-mofox",
-        resource_packs=(ResourcePackDeclaration("liteyukibot_runtime_mofox"),),
-        facet_installer=MoFoxFacetInstaller(),
-        init_spec=RuntimeInitSpec(
-            default_id="mofox",
-            description="Headless Neo-MoFox agent host with managed plugin projections.",
-            default_options={"projection_mode": "copy"},
-            fields=(
-                InitFieldSpec(
-                    "projection_mode",
-                    "Managed plugin projection mode",
-                    InitFieldKind.STRING,
-                    label_key="runtime.mofox.init.projection_mode",
-                    default="copy",
-                    choices=("copy", "symlink"),
-                    description="copy works without link privileges; symlink requires platform support.",
-                ),
-            ),
-        ),
+        launch=_launch,
     )
 
 
-__all__ = ["runtime_plugin"]
+def _launch(settings: AppSettings, bridge_id: str, token: str) -> Awaitable[None]:
+    from .host import launch
+
+    return launch(settings, bridge_id, token)
+
+
+__all__ = ["bridge_definition"]

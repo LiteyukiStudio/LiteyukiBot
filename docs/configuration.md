@@ -328,13 +328,42 @@ Except for the reserved `kernel` kind, `kind` must be provided by an installed
 access, declares subscriptions, and cannot declare action-resource ownership;
 the app registers it during `liteyuki run`, while `liteyuki broker run` remains
 separate. Registration is rejected when a bridge manifest differs from this
-table. `full` bridges receive every topic; `limited` bridges receive only their
-configured subscriptions. Installed bridge definitions declare an owning
-distribution, launcher, and support grade: NoneBot is `stable`; AstrBot is
-`experimental`. Both publish `message.created` and own the portable
-`message.send` action only. AstrBot keeps its adapters, local plugins, and
-native pipeline in its gateway workspace; it is not configured as a legacy
-runtime child.
+table. `full` bridges receive every topic; `limited` bridges receive topics
+matching their configured dot-segment patterns. A `*` matches exactly one
+complete segment, with no regex, partial wildcard, or recursive wildcard
+semantics. Installed bridge definitions declare an owning distribution,
+launcher, and support grade: NoneBot is `stable`; AstrBot, v6, and MoFox are
+`experimental`.
+
+The compatibility bridges are configured as limited subscribers and do not
+own platform action resources. They request `message.send` back to the source
+bridge through the active delivery lease:
+
+```toml
+[broker.bridges.v6]
+kind = "v6"
+token_secret = "broker.v6.token"
+access = "limited"
+subscriptions = ["onebot.*.message.*", "satori.message.*"]
+
+[broker.bridges.v6.options]
+v6_plugins = ["my-v6-plugin"]
+max_concurrent_events = 32
+
+[broker.bridges.mofox]
+kind = "mofox"
+token_secret = "broker.mofox.token"
+access = "limited"
+subscriptions = ["onebot.*.message.*"]
+
+[broker.bridges.mofox.options]
+workspace = "./data/bridges/mofox/workspace"
+```
+
+The v6 package imports only selected `liteyukibot.v6_plugins` entry points;
+module paths, plugin directories, and managed generations are migration
+errors. MoFox loads only its isolated workspace and its fixed upstream
+prerequisite; Liteyuki plugin projection, copying, and symlinking are removed.
 
 ### Broker delivery diagnostics
 

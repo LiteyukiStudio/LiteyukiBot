@@ -1,8 +1,8 @@
 # LiteyukiBot Neo-MoFox Runtime
 
-This AGPL-3.0-or-later package runs Neo-MoFox as an agent-only headless
-runtime. It owns a Neo-MoFox workspace below its assigned runtime state
-directory and does not load a Liteyuki platform adapter.
+This AGPL-3.0-or-later package runs Neo-MoFox as an experimental limited
+headless Broker bridge. It owns one explicitly configured isolated Neo-MoFox
+workspace and does not load a Liteyuki platform adapter.
 
 Neo-MoFox is not published on PyPI. PyPI distributions cannot declare a VCS
 dependency, so install the pinned upstream runtime into the same environment
@@ -21,7 +21,8 @@ uv tool install --with "neo-mofox @ git+https://github.com/MoFox-Studio/Neo-MoFo
 
 ## Development
 
-Keep Neo-MoFox APIs and projected plugin loading inside this child host. The
-fixed upstream requirement is an explicit verifier prerequisite, not published
-wheel metadata. Run `uv run pytest packages/runtime-mofox/tests` and
+Keep Neo-MoFox APIs and workspace plugin loading inside this bridge process.
+Liteyuki managed plugin projection, copying, and symlinking are not supported.
+The fixed upstream requirement is an explicit verifier prerequisite, not
+published wheel metadata. Run `uv run pytest packages/runtime-mofox/tests` and
 `uv run python -m scripts.run_mofox_runtime_install` after changes.

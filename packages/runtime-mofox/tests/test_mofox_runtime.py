@@ -1,22 +1,25 @@
 from __future__ import annotations
 
-import asyncio
 import importlib.metadata
 from collections.abc import Awaitable, Callable
 from importlib.metadata import PackageNotFoundError
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 from liteyukibot_runtime_mofox.host import (
+    MoFoxBridgeHost,
     MoFoxHeadlessEngine,
-    MoFoxRuntimeHost,
     _enforce_headless_config,
     _install_upstream_namespace,
+    _validate_bridge_settings,
+    _workspace_path,
 )
-from liteyukibot_runtime_mofox.translate import to_mofox_envelope, to_mofox_event_input, to_send_action
+from liteyukibot_runtime_mofox.translate import to_mofox_envelope, to_mofox_event_input
 
-from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope, Message, Segment, SendMessage
-from liteyukibot.runtime.protocol import ActionResponse, EventAccepted, EventCompleted, EventMessage
+from liteyukibot.broker import ActionResult, BrokerBridgeRunner, BrokerDelivery, BrokerEvent, EventMessage
+from liteyukibot.config import AppSettings
+from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope, Message, Segment
 
 
 def _has_upstream_runtime() -> bool:
@@ -41,20 +44,35 @@ def _event() -> EventEnvelope:
     )
 
 
+def _delivery(runner: Any, event: EventEnvelope) -> BrokerDelivery:
+    broker_event = BrokerEvent(
+        kernel_event_id="kernel-event-1",
+        source_bridge_id=event.runtime_id,
+        source_event_id=event.id,
+        topic="onebot.v11.message.group",
+        ordering_key="bot-1:group:group-1",
+        payload=event.model_dump(mode="json"),
+    )
+    return BrokerDelivery(
+        cast(BrokerBridgeRunner, runner),
+        EventMessage(
+            delivery_id="delivery-1",
+            lease_id="lease-1",
+            lease_ttl_ms=5_000,
+            event=broker_event,
+        ),
+    )
+
+
 def test_mofox_translation_preserves_source_identity_and_wire_route() -> None:
     event = _event()
-
     translated = to_mofox_event_input(event)
     envelope = to_mofox_envelope(translated)
-    action = to_send_action(event, "response")
 
     assert translated.runtime_id == "nonebot"
     assert envelope["message_info"]["group_info"]["group_id"] == "group-1"
     assert envelope["message_segment"] == [{"type": "text", "data": "hello"}]
-    assert action.runtime_id == "nonebot"
-    assert action.event_id == "event-1"
-    assert isinstance(action.action, SendMessage)
-    assert action.action.reply_token == "reply-1"
+    assert envelope["raw_message"]["liteyuki_runtime"] == "nonebot"
 
 
 def test_mofox_translation_preserves_non_text_segments_and_raw_source() -> None:
@@ -105,24 +123,30 @@ def test_mofox_reports_the_pinned_upstream_requirement_when_missing(monkeypatch:
         raise PackageNotFoundError
 
     monkeypatch.setattr(importlib.metadata, "distribution", missing_distribution)
-
     with pytest.raises(RuntimeError, match="e2ee2ff73b494428bbdfd983c7569c6f074a9c76"):
         _install_upstream_namespace()
+
+
+def test_mofox_workspace_is_explicit_and_projection_options_are_rejected(tmp_path: Path) -> None:
+    settings = AppSettings(core={"data_dir": tmp_path / "data"})  # type: ignore[arg-type]
+    workspace = _workspace_path(settings, "mofox", {"workspace": str(tmp_path / "isolated")})
+    assert workspace == (tmp_path / "isolated").resolve()
+    assert workspace != settings.core.data_dir.resolve()
+    with pytest.raises(RuntimeError, match="migration_required"):
+        _validate_bridge_settings("limited", ("onebot.*.message.*",), (), {"projection_mode": "copy"})
 
 
 def test_mofox_engine_restores_working_directory() -> None:
     engine = MoFoxHeadlessEngine(Path("state"), {})
     original = Path.cwd()
     engine._previous_cwd = original
-
     engine._restore_working_directory()
-
     assert Path.cwd() == original
     assert engine._previous_cwd is None
 
 
 def _write_bridge_plugin(root: Path) -> None:
-    plugin = root / "mofox" / "plugins" / "liteyuki_bridge_probe"
+    plugin = root / "plugins" / "liteyuki_bridge_probe"
     plugin.mkdir(parents=True)
     (plugin / "manifest.json").write_text(
         """{
@@ -168,9 +192,7 @@ def _write_bridge_plugin(root: Path) -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.skipif(not _has_upstream_runtime(), reason="requires the pinned Neo-MoFox upstream runtime")
-async def test_mofox_upstream_receiver_routes_a_managed_plugin_reply(tmp_path: Path) -> None:
-    """Exercise the pinned Neo-MoFox receiver and plugin loader."""
-
+async def test_mofox_upstream_receiver_routes_workspace_plugin_reply(tmp_path: Path) -> None:
     _write_bridge_plugin(tmp_path)
     engine = MoFoxHeadlessEngine(tmp_path, {})
     sent: list[Message] = []
@@ -190,48 +212,43 @@ async def test_mofox_upstream_receiver_routes_a_managed_plugin_reply(tmp_path: P
     assert sent == [Message(segments=(Segment(type="text", data={"text": "mofox bridge reply"}),))]
 
 
-class FakeClient:
-    def __init__(self) -> None:
-        self.sent: list[object] = []
+class _FakeRunner:
+    def __init__(self, success: bool) -> None:
+        self.success = success
         self.actions: list[dict[str, object]] = []
 
-    async def send(self, message: object) -> None:
-        self.sent.append(message)
-
-    async def execute_action(
-        self,
-        _correlation_id: str,
-        payload: dict[str, object],
-        *,
-        delivery_correlation_id: str | None = None,
-    ) -> ActionResponse:
-        assert delivery_correlation_id == "delivery-1"
-        self.actions.append(payload)
-        return ActionResponse(correlation_id="action", ok=True)
+    async def request_action(self, **request: object) -> ActionResult:
+        self.actions.append(request)
+        return ActionResult(
+            action_id="action-1",
+            success=self.success,
+            payload=None if self.success else {"error": "failed"},
+        )
 
 
-class FakeEngine:
+class _FakeEngine:
     async def process(self, event: EventEnvelope, sink: Callable[[Message], Awaitable[None]]) -> None:
         assert event.id == "event-1"
         await sink(Message(segments=(Segment(type="text", data={"text": "MoFox response"}),)))
 
-    async def close(self) -> None:
-        return None
+
+@pytest.mark.asyncio
+async def test_mofox_bridge_returns_ordered_output_to_source_action() -> None:
+    runner = _FakeRunner(True)
+    host = MoFoxBridgeHost(_FakeEngine(), max_concurrent_events=1)  # type: ignore[arg-type]
+
+    await host.handle_delivery(_delivery(runner, _event()))
+
+    assert len(runner.actions) == 1
+    assert runner.actions[0]["kind"] == "message.send"
+    assert runner.actions[0]["resource_key"] == "bot:nonebot:bot-1"
+    assert runner.actions[0]["payload"]["message"]["segments"][0]["data"]["text"] == "MoFox response"  # type: ignore[index]
 
 
 @pytest.mark.asyncio
-async def test_mofox_host_returns_chatter_output_to_the_source_runtime() -> None:
-    client = FakeClient()
-    host = MoFoxRuntimeHost(client, FakeEngine(), max_concurrent_events=1)  # type: ignore[arg-type]
-    event = _event()
+async def test_mofox_bridge_propagates_source_action_failure() -> None:
+    runner = _FakeRunner(False)
+    host = MoFoxBridgeHost(_FakeEngine(), max_concurrent_events=1)  # type: ignore[arg-type]
 
-    await host._accept_event(EventMessage(correlation_id="delivery-1", payload=event.model_dump(mode="json")))
-    await asyncio.gather(*host._tasks)
-    await host.close()
-
-    assert client.sent == [
-        EventAccepted(correlation_id="delivery-1", status="accepted"),
-        EventCompleted(correlation_id="delivery-1", status="completed"),
-    ]
-    assert client.actions[0]["runtime_id"] == "nonebot"
-    assert client.actions[0]["event_id"] == "event-1"
+    with pytest.raises(RuntimeError, match="source bridge rejected"):
+        await host.handle_delivery(_delivery(runner, _event()))

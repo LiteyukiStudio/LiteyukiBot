@@ -16,6 +16,7 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator, model_validator
 
 from ..events.models import JsonValue
+from ..topic_patterns import topic_pattern_matches
 from .peer import BridgeRegistrationError, BridgeSession
 from .protocol import BROKER_PROTOCOL_VERSION, AuthorizationContextWire, BridgeAccess
 
@@ -780,7 +781,8 @@ class BrokerLedger:
         return tuple(
             session
             for session in sessions
-            if session.manifest.access is BridgeAccess.FULL or event.topic in session.manifest.subscriptions
+            if session.manifest.access is BridgeAccess.FULL
+            or any(topic_pattern_matches(pattern, event.topic) for pattern in session.manifest.subscriptions)
         )
 
     def _offer_next(self, lane: tuple[str, str, str]) -> _Delivery | None:

@@ -1,7 +1,8 @@
 # v7 Alpha 5: v6 and MoFox Compatibility Bridges
 
-> **Planned implementation contract.** This document records the agreed Alpha 5
-> boundary. It does not claim that either bridge has been migrated or released.
+> **Implementation contract.** The Alpha 5 bridge migration is implemented on
+> `feat/alpha5-compatibility-bridges`. The release boundary remains planned:
+> package versions and the signed Alpha bundle are intentionally unchanged.
 
 Alpha 5 removes the remaining legacy child-runtime boundary while retaining the
 narrow v6 migration surface and an experimental MoFox integration.

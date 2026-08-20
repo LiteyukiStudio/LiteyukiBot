@@ -13,7 +13,7 @@ import liteyukibot_runtime_mofox
 from liteyukibot_runtime_mofox.host import MoFoxHeadlessEngine
 
 import liteyukibot
-from liteyukibot.runtime import RuntimeCatalog
+from liteyukibot.broker import BridgeCatalog, BridgeSupportGrade
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 NEO_MOFOX_COMMIT = "e2ee2ff73b494428bbdfd983c7569c6f074a9c76"
@@ -50,9 +50,11 @@ def verify(expected_version: str | None = None) -> None:
     imported = (Path(liteyukibot.__file__).resolve(), Path(liteyukibot_runtime_mofox.__file__).resolve())
     if any(path.is_relative_to(SOURCE_ROOT) for path in imported):
         raise RuntimeError(f"workspace source import detected: {imported}")
-    plugin = RuntimeCatalog().discover().get("mofox")
-    if plugin is None or plugin.agent_harness != "mofox":
-        raise RuntimeError("MoFox runtime entry point was not discovered")
+    bridge = BridgeCatalog().discover().get("mofox")
+    if bridge is None or bridge.grade is not BridgeSupportGrade.EXPERIMENTAL:
+        raise RuntimeError("MoFox bridge entry point was not discovered")
+    if any(entry.name == "mofox" for entry in importlib.metadata.entry_points(group="liteyukibot.runtimes")):
+        raise RuntimeError("MoFox package must not publish a legacy runtime entry point")
     observed = {name: importlib.metadata.version(name) for name in ("liteyukibot-v7", "liteyukibot-v7-runtime-mofox")}
     observed["neo-mofox"] = _verify_locked_upstream()
     if expected_version is not None and observed["liteyukibot-v7-runtime-mofox"] != expected_version:

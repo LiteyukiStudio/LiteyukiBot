@@ -10,8 +10,9 @@ its configured bridge ID and vault-resolved token from its launcher, constructs
 `BridgeClient`, and registers a `BridgeManifest` using the protocol-6 control
 and business catalogs described by [Broker Peer IPC v6](../specs/runtime-ipc-v6.md).
 
-Registration declares `full` or `limited` access, exact topic subscriptions,
-and action `(kind, resource)` or `(kind, resource_prefix)` namespaces the bridge can own. The
+Registration declares `full` or `limited` access, literal or single-segment
+dot-separated topic subscriptions, and action `(kind, resource)` or
+`(kind, resource_prefix)` namespaces the bridge can own. The
 broker assigns the session ID and kernel event ID. A bridge must not create
 either value, select event recipients, set an absolute monotonic deadline, or
 connect directly to another bridge.
@@ -51,6 +52,12 @@ by bridge `bridge-id` is `bot:bridge-id:<bot-id>`. The kernel peer may issue
 that action only while dispatching the matching active broker delivery. `CallApi`,
 message editing, and a generic function/decorator DSL are deferred to later
 version planning.
+
+The v6 and MoFox compatibility packages are limited bridge examples. v6 keeps
+its matcher/session compatibility process-local and loads only configured
+`liteyukibot.v6_plugins` entry points. MoFox loads only a configured isolated
+Neo-MoFox workspace. Neither package is a legacy runtime entry point, owns a
+platform action, or uses managed plugin projection.
 
 ## Legacy supervised child runtimes (historical)
 
