@@ -12,6 +12,7 @@ import liteyukibot_runtime_adapter
 from liteyukibot_runtime_adapter.host import discover_adapter_plugins
 
 import liteyukibot
+from liteyukibot.broker import BridgeSupportGrade
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 
@@ -26,6 +27,8 @@ def verify(expected_version: str | None = None) -> None:
     plugins = discover_adapter_plugins()
     if tuple(plugins) != ("satori",):
         raise RuntimeError(f"Satori adapter entry point was not discovered: {plugins}")
+    if plugins["satori"].grade is not BridgeSupportGrade.EXPERIMENTAL:
+        raise RuntimeError("Satori adapter must be experimental")
     observed = {
         name: importlib.metadata.version(name)
         for name in (

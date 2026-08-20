@@ -168,7 +168,11 @@ def _run_nonebot(settings: AppSettings, bridge_id: str, token: str) -> None:
         access=BridgeAccess(bridge.access),
         subscriptions=bridge.subscriptions,
         action_resources=tuple(
-            ActionResourceDeclaration(kind=item.kind, resource_prefix=item.resource_prefix)
+            ActionResourceDeclaration(
+                kind=item.kind,
+                resource=item.resource,
+                resource_prefix=item.resource_prefix,
+            )
             for item in bridge.action_resources
         ),
     )

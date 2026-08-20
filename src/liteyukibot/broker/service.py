@@ -13,7 +13,7 @@ from typing import Protocol, cast
 
 import zmq.asyncio
 
-from ..config.models import AppSettings, BrokerBridgeSettings
+from ..config.models import AppSettings, BrokerBridgeSettings, JsonValue
 from ..config.vault import SecretVault
 from ..lyip import LyipFrame
 from .peer import BridgeRegistrationError, BrokerPeerServer, BrokerPeerService
@@ -37,6 +37,7 @@ class BridgeSupportGrade(StrEnum):
 
     EXPERIMENTAL = "experimental"
     STABLE = "stable"
+    MIXED = "mixed"
 
 
 @dataclass(frozen=True, slots=True)
@@ -183,7 +184,11 @@ class BrokerService:
                 access=BridgeAccess(bridge.access),
                 subscriptions=bridge.subscriptions,
                 action_resources=tuple(
-                    ActionResourceDeclaration(kind=item.kind, resource_prefix=item.resource_prefix)
+                    ActionResourceDeclaration(
+                        kind=item.kind,
+                        resource=item.resource,
+                        resource_prefix=item.resource_prefix,
+                    )
                     for item in bridge.action_resources
                 ),
             )
@@ -270,6 +275,33 @@ def bridge_token_from_vault(
     return bridge, token
 
 
+def resolve_secret_references(
+    value: JsonValue, secrets: Mapping[str, str], *, path: str = "bridge.options"
+) -> JsonValue:
+    """Resolve structured vault references without changing persisted settings."""
+
+    if isinstance(value, Mapping):
+        if "secret_ref" in value:
+            if set(value) != {"secret_ref"}:
+                raise BridgeRegistrationError(f"{path} secret_ref objects cannot contain other fields")
+            reference = value["secret_ref"]
+            if not isinstance(reference, str) or not reference or reference != reference.strip():
+                raise BridgeRegistrationError(f"{path} secret_ref must be a non-empty trimmed name")
+            secret = secrets.get(reference)
+            if secret is None:
+                raise BridgeRegistrationError(f"{path} references a secret that is absent from the vault")
+            return secret
+        return {
+            key: resolve_secret_references(child, secrets, path=f"{path}.{key}")
+            for key, child in value.items()
+        }
+    if isinstance(value, tuple):
+        return tuple(
+            resolve_secret_references(item, secrets, path=f"{path}[{index}]") for index, item in enumerate(value)
+        )
+    return value
+
+
 __all__ = [
     "BridgeCatalog",
     "BridgeDefinition",
@@ -277,4 +309,5 @@ __all__ = [
     "BridgeSupportGrade",
     "BrokerService",
     "bridge_token_from_vault",
+    "resolve_secret_references",
 ]

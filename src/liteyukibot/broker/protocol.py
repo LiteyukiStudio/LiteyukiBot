@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from enum import StrEnum
 from typing import Annotated, Final, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_serializer, model_validator
 
 from ..lyip import LyipError, LyipFrame, LyipLane
 
@@ -45,17 +45,47 @@ def _non_blank_identifier(value: str) -> str:
 
 
 class ActionResourceDeclaration(BrokerWireModel):
-    """An action kind and resource namespace owned by one bridge."""
+    """An action kind and exact or prefix resource owned by one bridge."""
 
     kind: str
-    resource_prefix: str
+    resource: str | None = None
+    resource_prefix: str | None = None
 
-    @field_validator("kind", "resource_prefix", mode="before")
+    @field_validator("kind", "resource", "resource_prefix", mode="before")
     @classmethod
-    def validate_identifier(cls, value: object) -> str:
+    def validate_identifier(cls, value: object) -> str | None:
+        if value is None:
+            return None
         if not isinstance(value, str):
             raise TypeError("action resource fields must be strings")
         return _non_blank_identifier(value)
+
+    @model_validator(mode="after")
+    def validate_match_mode(self) -> ActionResourceDeclaration:
+        if (self.resource is None) == (self.resource_prefix is None):
+            raise ValueError("action resource declarations must define exactly one of resource or resource_prefix")
+        return self
+
+    @model_serializer
+    def serialize(self) -> dict[str, str]:
+        result = {"kind": self.kind}
+        if self.resource is not None:
+            result["resource"] = self.resource
+        if self.resource_prefix is not None:
+            result["resource_prefix"] = self.resource_prefix
+        return result
+
+    def matches(self, resource_key: str) -> bool:
+        """Return whether this declaration owns the supplied resource key."""
+
+        if self.resource is not None:
+            return resource_key == self.resource
+        assert self.resource_prefix is not None
+        return resource_key.startswith(self.resource_prefix)
+
+    @property
+    def is_exact(self) -> bool:
+        return self.resource is not None
 
 
 class BrokerToolDeclaration(BrokerWireModel):
@@ -135,8 +165,10 @@ class BridgeManifest(BrokerWireModel):
 
     @model_validator(mode="after")
     def validate_action_resources(self) -> BridgeManifest:
-        keys = {(resource.kind, resource.resource_prefix) for resource in self.action_resources}
-        if len(keys) != len(self.action_resources):
+        keys = tuple(
+            (resource.kind, resource.resource, resource.resource_prefix) for resource in self.action_resources
+        )
+        if len(set(keys)) != len(self.action_resources):
             raise ValueError("action resources must not contain duplicates")
         tool_ids = tuple(tool.id for tool in self.tools)
         if len(tool_ids) != len(set(tool_ids)):

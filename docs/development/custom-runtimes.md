@@ -11,7 +11,7 @@ its configured bridge ID and vault-resolved token from its launcher, constructs
 and business catalogs described by [Broker Peer IPC v6](../specs/runtime-ipc-v6.md).
 
 Registration declares `full` or `limited` access, exact topic subscriptions,
-and the action `(kind, resource_prefix)` namespaces the bridge can own. The
+and action `(kind, resource)` or `(kind, resource_prefix)` namespaces the bridge can own. The
 broker assigns the session ID and kernel event ID. A bridge must not create
 either value, select event recipients, set an absolute monotonic deadline, or
 connect directly to another bridge.

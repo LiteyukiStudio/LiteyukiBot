@@ -1,26 +1,21 @@
-"""LiteyukiBot's separately distributed Python platform adapter host."""
+"""LiteyukiBot's separately distributed Python adapter Broker bridge."""
 
 from __future__ import annotations
 
-import sys
+from liteyukibot.broker import BridgeDefinition, BridgeSupportGrade
 
-from liteyukibot.runtime import RuntimeInitSpec, RuntimePlugin
-
-from .facets import AdapterFacetInstaller
+from .host import launch
 
 
-def runtime_plugin() -> RuntimePlugin:
-    return RuntimePlugin(
+def bridge_definition() -> BridgeDefinition:
+    """Describe the mixed-grade adapter bridge without importing drivers eagerly."""
+
+    return BridgeDefinition(
         kind="adapter",
-        command=(sys.executable, "-m", "liteyukibot_runtime_adapter"),
+        grade=BridgeSupportGrade.MIXED,
         distribution="liteyukibot-v7-runtime-adapter",
-        facet_installer=AdapterFacetInstaller(),
-        init_spec=RuntimeInitSpec(
-            default_id="platform",
-            description="Python platform adapter host. Configure adapter instances in runtime options.",
-            default_options={"adapters": {}},
-        ),
+        launch=launch,
     )
 
 
-__all__ = ["runtime_plugin"]
+__all__ = ["bridge_definition", "launch"]

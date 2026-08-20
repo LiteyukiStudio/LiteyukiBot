@@ -25,8 +25,8 @@ from tomli_w import dumps as dump_toml
 
 from . import __version__
 from .app import LiteyukiApp
-from .broker import BrokerDiagnosticsClient, configured_kernel_bridge
-from .broker.service import BridgeCatalog, BrokerService, bridge_token_from_vault
+from .broker import BridgeRegistrationError, BrokerDiagnosticsClient, configured_kernel_bridge
+from .broker.service import BridgeCatalog, BrokerService, resolve_secret_references
 from .config import (
     AppSettings,
     ConfigInspection,
@@ -706,13 +706,21 @@ async def _bridge_command(settings: AppSettings, workspace: ConfigWorkspace, bri
     configured = settings.broker.bridges.get(bridge_id)
     if configured is not None and configured.kind == "kernel":
         raise RuntimeError("the reserved kernel bridge starts with liteyuki run, not liteyuki bridge run")
-    _bridge, token = bridge_token_from_vault(
-        settings,
-        bridge_id,
-        SecretVault(workspace.management_directory),
-        _vault_password(workspace),
-    )
-    await BridgeCatalog().launch(settings, bridge_id, token)
+    if configured is None:
+        raise RuntimeError(f"broker bridge {bridge_id!r} is not configured")
+    secrets = SecretVault(workspace.management_directory).read(_vault_password(workspace))
+    token = secrets.get(configured.token_secret)
+    if token is None:
+        raise BridgeRegistrationError(
+            f"configured broker bridge {bridge_id!r} references a secret that is absent from the vault"
+        )
+    resolved_options = resolve_secret_references(configured.options, secrets)
+    resolved_bridge = configured.model_copy(update={"options": resolved_options})
+    bridges = dict(settings.broker.bridges)
+    bridges[bridge_id] = resolved_bridge
+    resolved_broker = settings.broker.model_copy(update={"bridges": bridges})
+    resolved_settings = settings.model_copy(update={"broker": resolved_broker})
+    await BridgeCatalog().launch(resolved_settings, bridge_id, token)
     return 0
 
 

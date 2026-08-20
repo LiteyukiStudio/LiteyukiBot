@@ -379,6 +379,14 @@ def test_v5_rejects_legacy_runtime_configuration() -> None:
         )
 
 
+def test_loader_rejects_legacy_adapter_runtime_with_migration_diagnostic(tmp_path: Path) -> None:
+    config = tmp_path / "liteyuki.toml"
+    config.write_text('config_version = 5\n\n[runtimes.adapter]\nkind = "adapter"\n', encoding="utf-8")
+
+    with pytest.raises(ConfigurationError, match="migration_required"):
+        load_settings(config, environ={})
+
+
 def test_nested_includes_merge_in_declared_order(tmp_path: Path) -> None:
     nested = tmp_path / "nested"
     nested.mkdir()

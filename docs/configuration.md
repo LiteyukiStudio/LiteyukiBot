@@ -94,17 +94,44 @@ closed. Runtime IPC can invoke only an existing, capability-authorized kernel
 management command. It cannot execute a shell command or install a remote
 handler.
 
-## Native Adapter Runtimes
+## Generic Adapter Bridge
 
-Install `liteyukibot-v7-runtime-adapter` with the required protocol package.
-`onebot-v11` and `onebot-v12` support `transport = "http_post"` (the default),
-`forward_websocket` with `ws_url`, and `reverse_websocket` with `ws_host`,
-`ws_port`, and `ws_path`. Non-loopback OneBot listeners require `access_token`.
+Install `liteyukibot-v7-runtime-adapter` and the driver distributions required
+by the configured instances. The bridge is launched separately with
+`liteyuki bridge run <bridge-id>` and loads instances from
+`broker.bridges.<bridge-id>.options.adapters`. Each bot owns one exact
+`message.send` resource and the bridge must use limited access without event
+subscriptions:
 
-The `satori` adapter is an external Satori v1 gateway client, not a Node or
-embedded gateway server. Configure an absolute `gateway_url`, `api_root`, and
-an optional vault-backed `access_token`. Each account must be configured under
-only one ingress adapter, including when an AstrBot or MoFox runtime is enabled.
+```toml
+[broker.bridges.adapter]
+kind = "adapter"
+token_secret = "broker.adapter.token"
+access = "limited"
+action_resources = [{ kind = "message.send", resource = "bot:adapter:123456" }]
+
+[broker.bridges.adapter.options.adapters.qq-main]
+kind = "onebot-v11"
+bot_id = "123456"
+
+[broker.bridges.adapter.options.adapters.qq-main.config]
+event_host = "127.0.0.1"
+event_port = 5700
+api_root = "http://127.0.0.1:5701"
+access_token = { secret_ref = "onebot-token" }
+```
+
+`onebot-v11` and `onebot-v12` support `transport = "http_post"` (the
+default), `forward_websocket` with `ws_url`, and `reverse_websocket` with
+`ws_host`, `ws_port`, and `ws_path`. Non-loopback OneBot listeners require
+`access_token`. The `satori` driver is an external Satori v1 gateway client,
+not a Node or embedded gateway server; configure an absolute `gateway_url`,
+`api_root`, and an optional vault-backed `access_token`.
+
+Structured `secret_ref` values are resolved only into the launcher process's
+temporary settings copy. Persisted settings, broker manifests, diagnostics,
+and configuration output retain the reference or a redacted value. The old
+`[runtimes.*] kind = "adapter"` form is rejected with `migration_required`.
 
 ## Resource Packs
 

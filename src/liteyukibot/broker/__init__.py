@@ -76,6 +76,7 @@ from .service import (
     BridgeSupportGrade,
     BrokerService,
     bridge_token_from_vault,
+    resolve_secret_references,
 )
 
 __all__ = [
@@ -142,6 +143,7 @@ __all__ = [
     "encode_business_message",
     "encode_broker_message",
     "bridge_token_from_vault",
+    "resolve_secret_references",
     "configured_kernel_bridge",
     "make_message_send_request",
     "message_send_resource_key",

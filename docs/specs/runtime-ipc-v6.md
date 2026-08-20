@@ -38,7 +38,8 @@ LYIP v2 provides isolated directed `control` and `business` lanes. A bridge
 uses the control lane to send `bridge.register` with its configured bridge ID,
 instance token, and immutable manifest. The manifest declares an access class
 (`full` or `limited`), event-topic subscriptions, and action-resource
-declarations `(kind, resource_prefix)`.
+declarations `(kind, resource)` or `(kind, resource_prefix)`. A declaration
+must select exactly one matching mode.
 
 The broker authenticates the token, binds the ZMQ peer identity, and returns a
 broker-generated session ID in `bridge.registered`. Unknown bridges, invalid
@@ -160,12 +161,14 @@ selected owner alone may send the retained `action.result`. The broker copies
 the request `correlation_id` into the result; an action owner does not choose
 or rewrite it.
 
-An action owner is resolved from matching `(kind, resource_prefix)` manifest
-declarations. A `full` bridge class always takes priority over `limited`; within
-the selected class the longest matching resource prefix wins. Ties at the same
-class and prefix length are rejected as ambiguous. Registration also rejects
-an exact resource declaration already owned by a live bridge in the same access
-class. There is no fallback to a lower access class after a same-class conflict.
+An action owner is resolved from matching exact or prefix manifest
+declarations. Exact declarations are checked before prefix declarations. Among
+matching exact declarations, a `full` bridge class takes priority over
+`limited`; among matching prefixes, the same access ordering is applied before
+the longest prefix wins. Ties at the same class and match mode are rejected as
+ambiguous. Registration rejects duplicate declarations owned by live bridges
+in the same access class. There is no fallback to a lower access class after a
+same-class conflict.
 
 ### B7 portable action
 

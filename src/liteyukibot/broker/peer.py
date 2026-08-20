@@ -417,10 +417,12 @@ class BrokerPeerService:
             if current.manifest.access is not message.manifest.access:
                 continue
             current_resources = {
-                (resource.kind, resource.resource_prefix) for resource in current.manifest.action_resources
+                (resource.kind, resource.resource, resource.resource_prefix)
+                for resource in current.manifest.action_resources
             }
             requested_resources = {
-                (resource.kind, resource.resource_prefix) for resource in message.manifest.action_resources
+                (resource.kind, resource.resource, resource.resource_prefix)
+                for resource in message.manifest.action_resources
             }
             if current_resources & requested_resources:
                 return self._reply(

@@ -17,16 +17,13 @@ from uuid import uuid4
 
 from liteyukibot_runtime_adapter.contracts import AdapterConnection, AdapterContext, EventEmitter
 
+from liteyukibot.broker import MessageSendPayload
 from liteyukibot.events import (
-    ActionEnvelope,
     ActorRef,
-    CallApi,
     ConversationRef,
-    EditMessage,
     EventEnvelope,
     Message,
     Segment,
-    SendMessage,
 )
 from liteyukibot.runtime.protocol import JsonValue, json_value
 
@@ -63,10 +60,14 @@ class OneBotV11Connection(AdapterConnection):
         self._reply_routes: OrderedDict[str, ConversationRef] = OrderedDict()
         self._request_slots = asyncio.BoundedSemaphore(_MAX_CONCURRENT_REQUESTS)
         self._websocket: OneBotWebSocketTransport | None = None
+        self._failure_event = asyncio.Event()
+        self._failure: BaseException | None = None
 
     async def start(self, emit: EventEmitter) -> None:
         if self._server is not None or self._websocket is not None:
             raise RuntimeError("OneBot v11 connection is already started")
+        self._failure_event.clear()
+        self._failure = None
         self._emit = emit
         if self._transport_mode != "http_post":
             websocket = OneBotWebSocketTransport(
@@ -77,20 +78,15 @@ class OneBotV11Connection(AdapterConnection):
                 path=_config_path(self.context.config, "ws_path", "/onebot/v11/ws"),
                 access_token=self._access_token,
                 handle_event=self._handle_websocket_event,
+                on_failure=self._transport_failed,
             )
             await websocket.start()
             self._websocket = websocket
             return
         self._server = await asyncio.start_server(self._handle_request, self._event_host, self._event_port)
 
-    async def execute(self, action: ActionEnvelope) -> JsonValue:
-        if isinstance(action.action, SendMessage):
-            return await self._send_message(action.action)
-        if isinstance(action.action, CallApi):
-            return await self._call_api(action.action.api, action.action.params)
-        if isinstance(action.action, EditMessage):
-            raise OneBotV11Error("OneBot v11 does not support edit_message")
-        raise OneBotV11Error(f"unsupported OneBot v11 action {action.action.type!r}")
+    async def send_message(self, payload: MessageSendPayload) -> JsonValue:
+        return await self._send_message(payload)
 
     async def close(self) -> None:
         websocket, self._websocket = self._websocket, None
@@ -102,6 +98,17 @@ class OneBotV11Connection(AdapterConnection):
             self._server = None
         self._emit = None
         self._reply_routes.clear()
+
+    async def wait_failure(self) -> None:
+        await self._failure_event.wait()
+        if self._failure is not None:
+            raise self._failure
+        raise RuntimeError("OneBot v11 connection failed without a diagnostic")
+
+    async def _transport_failed(self, error: BaseException) -> None:
+        if not self._failure_event.is_set():
+            self._failure = error
+            self._failure_event.set()
 
     async def _handle_websocket_event(self, payload: Mapping[str, Any]) -> None:
         _validate_self_id(payload, {}, self.context.bot_id)
@@ -157,16 +164,16 @@ class OneBotV11Connection(AdapterConnection):
         while len(self._reply_routes) > _MAX_REPLY_ROUTES:
             self._reply_routes.popitem(last=False)
 
-    async def _send_message(self, action: SendMessage) -> JsonValue:
-        conversation = action.conversation
+    async def _send_message(self, payload: MessageSendPayload) -> JsonValue:
+        conversation = payload.conversation
         if conversation is None:
-            if action.reply_token is None:
-                raise OneBotV11Error("send_message requires a conversation or known reply_token")
+            if payload.reply_token is None:
+                raise OneBotV11Error("message.send requires a conversation or known reply_token")
             try:
-                conversation = self._reply_routes[action.reply_token]
+                conversation = self._reply_routes[payload.reply_token]
             except KeyError as error:
                 raise OneBotV11Error("reply_token is unknown or expired") from error
-        message = _to_onebot_message(action.message)
+        message = _to_onebot_message(payload.message)
         target = _positive_integer_id(conversation.id)
         if conversation.type == "private":
             return await self._call_api("send_private_msg", {"user_id": target, "message": message})
@@ -263,7 +270,7 @@ def _normalize_event(context: AdapterContext, payload: Mapping[str, Any]) -> Eve
         display_name = _optional_string(sender, "card") or _optional_string(sender, "nickname")
     timestamp = payload.get("time")
     values: dict[str, Any] = {
-        "runtime_id": context.runtime_id,
+        "runtime_id": context.bridge_id,
         "adapter": "onebot-v11",
         "bot_id": context.bot_id,
         "type": f"message.{conversation_type}.{sub_type}",

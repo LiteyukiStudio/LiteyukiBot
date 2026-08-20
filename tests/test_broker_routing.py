@@ -293,6 +293,36 @@ def test_action_owner_resolution_prefers_full_then_longest_and_disconnect_remove
     assert ledger.route_action(caller, alternate, (source, caller, limited)).target.bridge_id == "limited"
 
 
+def test_exact_action_owner_precedes_legacy_prefix_owner() -> None:
+    ledger = BrokerLedger()
+    source = _session("source", subscriptions=())
+    caller = _session("caller")
+    exact = _session(
+        "exact",
+        resources=(ActionResourceDeclaration(kind="message.send", resource="bot:adapter:42"),),
+    )
+    prefix = _session(
+        "prefix",
+        access=BridgeAccess.FULL,
+        resources=(ActionResourceDeclaration(kind="message.send", resource_prefix="bot:adapter:"),),
+    )
+    _, delivery_id, lease_id = _active_delivery(ledger, source, caller)
+
+    routed = ledger.route_action(
+        caller,
+        ActionRequest(
+            delivery_id=delivery_id,
+            lease_id=lease_id,
+            correlation_id="exact-owner",
+            kind="message.send",
+            resource_key="bot:adapter:42",
+        ),
+        (source, caller, exact, prefix),
+    )
+
+    assert routed.target.bridge_id == "exact"
+
+
 def test_action_owner_ties_are_rejected() -> None:
     ledger = BrokerLedger()
     source = _session("source", subscriptions=())

@@ -10,7 +10,7 @@ from pathlib import Path
 import liteyukibot_runtime_adapter
 
 import liteyukibot
-from liteyukibot.runtime import RuntimeCatalog
+from liteyukibot.broker import BridgeCatalog, BridgeSupportGrade
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 
@@ -19,9 +19,9 @@ def verify(expected_version: str | None = None) -> None:
     imported = (Path(liteyukibot.__file__).resolve(), Path(liteyukibot_runtime_adapter.__file__).resolve())
     if any(path.is_relative_to(SOURCE_ROOT) for path in imported):
         raise RuntimeError(f"workspace source import detected: {imported}")
-    plugin = RuntimeCatalog().discover().get("adapter")
-    if plugin is None or plugin.command[2:] != ("liteyukibot_runtime_adapter",):
-        raise RuntimeError(f"adapter runtime entry point was not discovered: {plugin}")
+    definition = BridgeCatalog().discover().get("adapter")
+    if definition is None or definition.grade is not BridgeSupportGrade.MIXED:
+        raise RuntimeError(f"adapter Broker bridge entry point was not discovered: {definition}")
     observed = {
         name: importlib.metadata.version(name)
         for name in ("liteyukibot-v7", "liteyukibot-v7-runtime-adapter")
