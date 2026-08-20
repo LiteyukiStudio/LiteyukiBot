@@ -8,13 +8,14 @@ import webbrowser
 from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 import pytest
 from filelock import Timeout
 
 import liteyukibot.cli as cli_module
-from liteyukibot.config import AppSettings, ConfigWorkspace
+from liteyukibot.broker.service import BridgeCatalog
+from liteyukibot.config import AppSettings, ConfigWorkspace, redact_config
 from liteyukibot.config.vault import SecretVault
 from liteyukibot.init_wizard import InitWizardResult
 from liteyukibot.plugin_store import PlatformTarget, RuntimeGeneration, RuntimeGenerationStore
@@ -102,13 +103,66 @@ async def test_bridge_command_rejects_reserved_kernel_before_reading_vault(
         }
     )
     monkeypatch.setattr(
-        cli_module,
-        "bridge_token_from_vault",
+        SecretVault,
+        "read",
         lambda *_args: pytest.fail("kernel bridge must not read the vault through bridge run"),
     )
 
     with pytest.raises(RuntimeError, match="reserved kernel bridge"):
         await cli_module._bridge_command(settings, ConfigWorkspace(tmp_path), "kernel")
+
+
+@pytest.mark.asyncio
+async def test_bridge_command_resolves_secret_refs_in_launcher_only_settings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = ConfigWorkspace(tmp_path)
+    settings = AppSettings.model_validate(
+        {
+            "config_version": 5,
+            "broker": {
+                "bridges": {
+                    "adapter": {
+                        "kind": "adapter",
+                        "token_secret": "bridge.token",
+                        "action_resources": [
+                            {"kind": "message.send", "resource": "bot:adapter:bot"},
+                        ],
+                        "options": {
+                            "adapters": {
+                                "main": {
+                                    "kind": "onebot-v11",
+                                    "bot_id": "bot",
+                                    "config": {"access_token": {"secret_ref": "onebot-token"}},
+                                }
+                            }
+                        },
+                    }
+                }
+            },
+        }
+    )
+    SecretVault(workspace.management_directory).initialize(
+        "password", {"bridge.token": "bridge-token", "onebot-token": "adapter-secret"}
+    )
+    monkeypatch.setattr(cli_module, "_vault_password", lambda _workspace: "password")
+    captured: dict[str, Any] = {}
+
+    async def launch(_self: Any, resolved: AppSettings, resolved_id: str, token: str) -> None:
+        captured.update(settings=resolved, bridge_id=resolved_id, token=token)
+
+    monkeypatch.setattr(BridgeCatalog, "launch", launch)
+
+    await cli_module._bridge_command(settings, workspace, "adapter")
+
+    resolved = cast(AppSettings, captured["settings"])
+    assert captured["bridge_id"] == "adapter"
+    assert captured["token"] == "bridge-token"
+    resolved_options = cast(Any, resolved.broker.bridges["adapter"].options)
+    original_options = cast(Any, settings.broker.bridges["adapter"].options)
+    assert resolved_options["adapters"]["main"]["config"]["access_token"] == "adapter-secret"
+    assert original_options["adapters"]["main"]["config"]["access_token"] == {"secret_ref": "onebot-token"}
+    assert "adapter-secret" not in str(redact_config(settings.model_dump(mode="json")))
 
 
 @pytest.mark.asyncio

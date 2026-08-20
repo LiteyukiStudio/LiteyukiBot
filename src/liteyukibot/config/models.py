@@ -9,7 +9,7 @@ from platform import platform
 from types import MappingProxyType
 from typing import Any, Literal, cast
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator, model_serializer, model_validator
 
 type JsonValue = str | int | float | bool | None | tuple[JsonValue, ...] | Mapping[str, JsonValue]
 
@@ -494,14 +494,32 @@ class DevelopmentSettings(FrozenSettingsModel):
 
 class BrokerActionResourceSettings(FrozenSettingsModel):
     kind: str
-    resource_prefix: str
+    resource: str | None = None
+    resource_prefix: str | None = None
 
-    @field_validator("kind", "resource_prefix")
+    @field_validator("kind", "resource", "resource_prefix")
     @classmethod
-    def require_trimmed_identifier(cls, value: str) -> str:
+    def require_trimmed_identifier(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         if not value.strip() or value != value.strip():
             raise ValueError("broker action resource identifiers must be non-empty and trimmed")
         return value
+
+    @model_validator(mode="after")
+    def validate_match_mode(self) -> BrokerActionResourceSettings:
+        if (self.resource is None) == (self.resource_prefix is None):
+            raise ValueError("broker action resources must define exactly one of resource or resource_prefix")
+        return self
+
+    @model_serializer
+    def serialize(self) -> dict[str, str]:
+        result = {"kind": self.kind}
+        if self.resource is not None:
+            result["resource"] = self.resource
+        if self.resource_prefix is not None:
+            result["resource_prefix"] = self.resource_prefix
+        return result
 
 
 class BrokerBridgeSettings(FrozenSettingsModel):
@@ -535,7 +553,7 @@ class BrokerBridgeSettings(FrozenSettingsModel):
     def reject_duplicate_action_resources(
         cls, value: tuple[BrokerActionResourceSettings, ...]
     ) -> tuple[BrokerActionResourceSettings, ...]:
-        keys = {(resource.kind, resource.resource_prefix) for resource in value}
+        keys = {(resource.kind, resource.resource, resource.resource_prefix) for resource in value}
         if len(keys) != len(value):
             raise ValueError("broker action resources must not contain duplicates")
         return value
@@ -620,15 +638,16 @@ class BrokerSettings(FrozenSettingsModel):
 
     @model_validator(mode="after")
     def validate_bridge_contracts(self) -> BrokerSettings:
-        owners: dict[tuple[str, str, str], str] = {}
+        owners: dict[tuple[str, str, str | None, str | None], str] = {}
         configured_kernel_bridge_settings(self.bridges)
         for bridge_id, bridge in self.bridges.items():
             for resource in bridge.action_resources:
-                key = (bridge.access, resource.kind, resource.resource_prefix)
+                key = (bridge.access, resource.kind, resource.resource, resource.resource_prefix)
                 existing = owners.get(key)
                 if existing is not None:
+                    name = resource.resource if resource.resource is not None else resource.resource_prefix
                     raise ValueError(
-                        f"broker action resource {resource.kind!r}/{resource.resource_prefix!r} "
+                        f"broker action resource {resource.kind!r}/{name!r} "
                         f"has duplicate {bridge.access!r} ownership in {existing!r} and {bridge_id!r}"
                     )
                 owners[key] = bridge_id

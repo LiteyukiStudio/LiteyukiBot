@@ -27,6 +27,7 @@ from liteyukibot.broker.service import (
     BridgeSupportGrade,
     BrokerService,
     _AuthoritativePeerService,
+    resolve_secret_references,
 )
 from liteyukibot.config import AppSettings
 from liteyukibot.lyip import LyipLane, ZmqLyipRouter
@@ -129,6 +130,19 @@ def test_broker_settings_are_v5_only_and_authoritative() -> None:
                 },
             }
         )
+
+
+def test_secret_references_resolve_recursively_without_accepting_ambiguous_objects() -> None:
+    resolved = resolve_secret_references(
+        {"token": {"secret_ref": "adapter-token"}, "nested": ({"secret_ref": "other"},)},
+        {"adapter-token": "secret-value", "other": "other-value"},
+    )
+
+    assert resolved == {"token": "secret-value", "nested": ("other-value",)}
+    with pytest.raises(BridgeRegistrationError, match="absent from the vault"):
+        resolve_secret_references({"token": {"secret_ref": "missing"}}, {})
+    with pytest.raises(BridgeRegistrationError, match="cannot contain other fields"):
+        resolve_secret_references({"token": {"secret_ref": "adapter-token", "format": "raw"}}, {})
 
 
 def test_authoritative_service_rejects_token_matched_manifest_mismatch() -> None:

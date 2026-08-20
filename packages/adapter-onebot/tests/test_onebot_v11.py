@@ -14,7 +14,8 @@ from liteyukibot_runtime_adapter.contracts import AdapterContext
 from websockets.asyncio.client import connect
 from websockets.asyncio.server import ServerConnection, serve
 
-from liteyukibot.events import ActionEnvelope, ConversationRef, EventEnvelope, Message, Segment, SendMessage
+from liteyukibot.broker import MessageSendPayload
+from liteyukibot.events import ConversationRef, EventEnvelope, Message, Segment
 from liteyukibot.runtime.protocol import JsonValue
 
 
@@ -169,14 +170,11 @@ async def test_v11_http_event_and_reply_action_round_trip() -> None:
         assert event.message == Message(segments=(Segment(type="text", data={"text": "/help"}),))
         assert event.conversation == ConversationRef(id="2002", type="group")
 
-        response = await connection.execute(
-            ActionEnvelope(
-                runtime_id="platform",
+        response = await connection.send_message(
+            MessageSendPayload(
                 bot_id="42",
-                action=SendMessage(
-                    reply_token=event.reply_token,
-                    message=Message(segments=(Segment(type="text", data={"text": "hello"}),)),
-                ),
+                reply_token=event.reply_token,
+                message=Message(segments=(Segment(type="text", data={"text": "hello"}),)),
             )
         )
         request = await asyncio.wait_for(api.requests.get(), timeout=1)
@@ -243,14 +241,11 @@ async def test_v11_maps_api_failures_to_stable_errors(
     connection = OneBotV11Connection(_context(_unused_port(), api.url))
     try:
         with pytest.raises(OneBotV11Error, match=message):
-            await connection.execute(
-                ActionEnvelope(
-                    runtime_id="platform",
+            await connection.send_message(
+                MessageSendPayload(
                     bot_id="42",
-                    action=SendMessage(
-                        conversation=ConversationRef(id="2002", type="group"),
-                        message=Message(segments=(Segment(type="text", data={"text": "hello"}),)),
-                    ),
+                    conversation=ConversationRef(id="2002", type="group"),
+                    message=Message(segments=(Segment(type="text", data={"text": "hello"}),)),
                 )
             )
         assert (await asyncio.wait_for(api.requests.get(), timeout=1)).path == "/send_group_msg"
@@ -287,14 +282,11 @@ async def test_v11_listener_restarts_without_retaining_reply_routes() -> None:
     async def emit(event: EventEnvelope) -> None:
         events.append(event)
 
-    def reply_action(reply_token: str) -> ActionEnvelope:
-        return ActionEnvelope(
-            runtime_id="platform",
+    def reply_action(reply_token: str) -> MessageSendPayload:
+        return MessageSendPayload(
             bot_id="42",
-            action=SendMessage(
-                reply_token=reply_token,
-                message=Message(segments=(Segment(type="text", data={"text": "hello"}),)),
-            ),
+            reply_token=reply_token,
+            message=Message(segments=(Segment(type="text", data={"text": "hello"}),)),
         )
 
     try:
@@ -306,11 +298,11 @@ async def test_v11_listener_restarts_without_retaining_reply_routes() -> None:
 
         await connection.start(emit)
         with pytest.raises(OneBotV11Error, match="unknown or expired"):
-            await connection.execute(reply_action(first_token))
+            await connection.send_message(reply_action(first_token))
         assert await _post_event(port, _event("after restart")) == 204
         assert events[-1].message == Message(segments=(Segment(type="text", data={"text": "after restart"}),))
         assert events[-1].reply_token is not None
-        assert await connection.execute(reply_action(events[-1].reply_token)) == {"message_id": 123}
+        assert await connection.send_message(reply_action(events[-1].reply_token)) == {"message_id": 123}
         assert (await asyncio.wait_for(api.requests.get(), timeout=1)).path == "/send_group_msg"
     finally:
         await connection.close()
@@ -368,14 +360,11 @@ async def test_v12_http_event_and_group_action_round_trip() -> None:
         assert await _post_event(port, payload, path="/onebot/v12/http") == 204
         assert events[0].adapter == "onebot-v12"
         assert events[0].conversation == ConversationRef(id="2002", type="group")
-        assert await connection.execute(
-            ActionEnvelope(
-                runtime_id="platform",
+        assert await connection.send_message(
+            MessageSendPayload(
                 bot_id="42",
-                action=SendMessage(
-                    conversation=ConversationRef(id="2002", type="group"),
-                    message=Message(segments=(Segment(type="text", data={"text": "reply"}),)),
-                ),
+                conversation=ConversationRef(id="2002", type="group"),
+                message=Message(segments=(Segment(type="text", data={"text": "reply"}),)),
             )
         ) == {"message_id": "v12-1"}
         request = await asyncio.wait_for(api.requests.get(), timeout=1)
@@ -403,7 +392,7 @@ async def test_v11_forward_websocket_event_and_action_round_trip() -> None:
     url = f"ws://127.0.0.1:{next(iter(server.sockets)).getsockname()[1]}/onebot"
     context = _context(_unused_port(), "http://127.0.0.1:5701")
     context = AdapterContext(
-        context.runtime_id,
+        context.bridge_id,
         context.instance_id,
         context.kind,
         context.bot_id,
@@ -422,14 +411,11 @@ async def test_v11_forward_websocket_event_and_action_round_trip() -> None:
                 break
             await asyncio.sleep(0.01)
         assert events[0].message == Message(segments=(Segment(type="text", data={"text": "from websocket"}),))
-        assert await connection.execute(
-            ActionEnvelope(
-                runtime_id="platform",
+        assert await connection.send_message(
+            MessageSendPayload(
                 bot_id="42",
-                action=SendMessage(
-                    conversation=ConversationRef(id="2002", type="group"),
-                    message=Message(segments=(Segment(type="text", data={"text": "reply"}),)),
-                ),
+                conversation=ConversationRef(id="2002", type="group"),
+                message=Message(segments=(Segment(type="text", data={"text": "reply"}),)),
             )
         ) == {"message_id": 99}
         assert (await asyncio.wait_for(incoming.get(), timeout=1))["action"] == "send_group_msg"
@@ -488,18 +474,15 @@ async def test_v12_reverse_websocket_event_and_action_round_trip() -> None:
             assert events[0].message is not None
             assert events[0].message.plain_text == "reverse websocket"
             action = asyncio.create_task(
-                connection.execute(
-                    ActionEnvelope(
-                        runtime_id="platform",
+                connection.send_message(
+                    MessageSendPayload(
                         bot_id="42",
-                        action=SendMessage(
-                            conversation=ConversationRef(id="2002", type="group"),
-                            message=Message(
-                                segments=(
-                                    Segment(type="mention", data={"user_id": "1001"}),
-                                    Segment(type="text", data={"text": "reply"}),
-                                )
-                            ),
+                        conversation=ConversationRef(id="2002", type="group"),
+                        message=Message(
+                            segments=(
+                                Segment(type="mention", data={"user_id": "1001"}),
+                                Segment(type="text", data={"text": "reply"}),
+                            )
                         ),
                     )
                 )

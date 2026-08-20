@@ -430,6 +430,7 @@ def _load_settings(
     if tracker is not None:
         tracker.apply(command_line_values, ConfigSource("command_line", "--set"))
     merged = _deep_merge(merged, _resolve_declared_paths(command_line_values, Path.cwd()))
+    _reject_legacy_adapter_runtimes(merged, issues)
 
     try:
         settings = AppSettings.model_validate(merged)
@@ -449,6 +450,21 @@ def _load_settings(
     if settings is None:  # Kept explicit for type checkers; validation errors are handled above.
         raise RuntimeError("configuration validation failed without an issue")
     return settings, None if tracker is None else tracker.freeze()
+
+
+def _reject_legacy_adapter_runtimes(merged: Mapping[str, Any], issues: list[ConfigIssue]) -> None:
+    runtimes = merged.get("runtimes")
+    if not isinstance(runtimes, Mapping):
+        return
+    for runtime_id, runtime in runtimes.items():
+        if isinstance(runtime, Mapping) and runtime.get("kind") == "adapter":
+            issues.append(
+                ConfigIssue(
+                    "merged configuration",
+                    "migration_required: adapter runtimes must be configured under broker.bridges",
+                    ("runtimes", str(runtime_id), "kind"),
+                )
+            )
 
 
 def _validate_instance_overlay(overlay: Mapping[str, Any], path: Path) -> None:

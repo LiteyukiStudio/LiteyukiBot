@@ -18,7 +18,8 @@ packages directly.
   removed.
 - `cordis` is the independent Python in-process composition package introduced
   by Beta6; the root kernel discovers it through host entry points.
-- `adapter-onebot` is a platform adapter loaded by `runtime-adapter`.
+- `adapter-onebot` is a platform driver loaded by the shared `runtime-adapter`
+  Broker bridge.
 - `agent` and `agent-resolver` provide the native agent runtime and its
   declarative resolver.
 

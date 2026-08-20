@@ -12,6 +12,7 @@ import liteyukibot_runtime_adapter
 from liteyukibot_runtime_adapter.host import discover_adapter_plugins
 
 import liteyukibot
+from liteyukibot.broker import BridgeSupportGrade
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 
@@ -26,6 +27,10 @@ def verify(expected_version: str | None = None) -> None:
     plugins = discover_adapter_plugins()
     if tuple(plugins) != ("onebot-v11", "onebot-v12"):
         raise RuntimeError(f"OneBot adapter entry point was not discovered: {plugins}")
+    if plugins["onebot-v11"].grade is not BridgeSupportGrade.STABLE:
+        raise RuntimeError("OneBot v11 adapter must be stable")
+    if plugins["onebot-v12"].grade is not BridgeSupportGrade.EXPERIMENTAL:
+        raise RuntimeError("OneBot v12 adapter must be experimental")
     observed = {
         name: importlib.metadata.version(name)
         for name in (

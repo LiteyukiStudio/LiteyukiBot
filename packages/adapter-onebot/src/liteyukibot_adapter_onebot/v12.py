@@ -11,16 +11,13 @@ from uuid import uuid4
 
 from liteyukibot_runtime_adapter.contracts import AdapterConnection, AdapterContext, EventEmitter
 
+from liteyukibot.broker import MessageSendPayload
 from liteyukibot.events import (
-    ActionEnvelope,
     ActorRef,
-    CallApi,
     ConversationRef,
-    EditMessage,
     EventEnvelope,
     Message,
     Segment,
-    SendMessage,
 )
 from liteyukibot.runtime.protocol import JsonValue, json_value
 
@@ -67,10 +64,14 @@ class OneBotV12Connection(AdapterConnection):
         self._websocket: OneBotWebSocketTransport | None = None
         self._emit: EventEmitter | None = None
         self._reply_routes: OrderedDict[str, ConversationRef] = OrderedDict()
+        self._failure_event = asyncio.Event()
+        self._failure: BaseException | None = None
 
     async def start(self, emit: EventEmitter) -> None:
         if self._server is not None or self._websocket is not None:
             raise RuntimeError("OneBot v12 connection is already started")
+        self._failure_event.clear()
+        self._failure = None
         self._emit = emit
         if self._transport_mode == "http_post":
             self._server = await asyncio.start_server(self._handle_http, self._event_host, self._event_port)
@@ -83,18 +84,13 @@ class OneBotV12Connection(AdapterConnection):
             path=_config_path(self.context.config, "ws_path", "/onebot/v12/ws"),
             access_token=self._access_token,
             handle_event=self._handle_payload,
+            on_failure=self._transport_failed,
         )
         await websocket.start()
         self._websocket = websocket
 
-    async def execute(self, action: ActionEnvelope) -> JsonValue:
-        if isinstance(action.action, SendMessage):
-            return await self._send_message(action.action)
-        if isinstance(action.action, CallApi):
-            return await self._call_api(action.action.api, action.action.params)
-        if isinstance(action.action, EditMessage):
-            raise OneBotV12Error("OneBot v12 does not support edit_message")
-        raise OneBotV12Error(f"unsupported OneBot v12 action {action.action.type!r}")
+    async def send_message(self, payload: MessageSendPayload) -> JsonValue:
+        return await self._send_message(payload)
 
     async def close(self) -> None:
         websocket, self._websocket = self._websocket, None
@@ -106,6 +102,17 @@ class OneBotV12Connection(AdapterConnection):
             await server.wait_closed()
         self._emit = None
         self._reply_routes.clear()
+
+    async def wait_failure(self) -> None:
+        await self._failure_event.wait()
+        if self._failure is not None:
+            raise self._failure
+        raise RuntimeError("OneBot v12 connection failed without a diagnostic")
+
+    async def _transport_failed(self, error: BaseException) -> None:
+        if not self._failure_event.is_set():
+            self._failure = error
+            self._failure_event.set()
 
     async def _handle_http(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         try:
@@ -144,13 +151,13 @@ class OneBotV12Connection(AdapterConnection):
             raise RuntimeError("OneBot v12 connection has no event emitter")
         await self._emit(event)
 
-    async def _send_message(self, action: SendMessage) -> JsonValue:
-        conversation = action.conversation
+    async def _send_message(self, payload: MessageSendPayload) -> JsonValue:
+        conversation = payload.conversation
         if conversation is None:
-            if action.reply_token is None or action.reply_token not in self._reply_routes:
-                raise OneBotV12Error("send_message requires a conversation or known reply_token")
-            conversation = self._reply_routes[action.reply_token]
-        params: dict[str, Any] = {"detail_type": conversation.type, "message": _to_onebot_message(action.message)}
+            if payload.reply_token is None or payload.reply_token not in self._reply_routes:
+                raise OneBotV12Error("message.send requires a conversation or known reply_token")
+            conversation = self._reply_routes[payload.reply_token]
+        params: dict[str, Any] = {"detail_type": conversation.type, "message": _to_onebot_message(payload.message)}
         if conversation.type == "private":
             params["user_id"] = conversation.id
         elif conversation.type == "group":
@@ -228,7 +235,7 @@ def _normalize_event(context: AdapterContext, payload: Mapping[str, Any]) -> Eve
             )
     actor_id = str(payload.get("user_id", ""))
     values: dict[str, Any] = {
-        "runtime_id": context.runtime_id,
+        "runtime_id": context.bridge_id,
         "adapter": "onebot-v12",
         "bot_id": context.bot_id,
         "type": f"message.{detail_type}",

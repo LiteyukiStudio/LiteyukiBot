@@ -11,14 +11,12 @@ from liteyukibot_adapter_satori.connection import SatoriConnection
 from liteyukibot_runtime_adapter.contracts import AdapterContext
 from websockets.asyncio.server import Server, ServerConnection, serve
 
+from liteyukibot.broker import MessageSendPayload
 from liteyukibot.events import (
-    ActionEnvelope,
     ConversationRef,
-    EditMessage,
     EventEnvelope,
     Message,
     Segment,
-    SendMessage,
 )
 
 
@@ -112,7 +110,7 @@ class SatoriStub:
 
 
 @pytest.mark.asyncio
-async def test_satori_gateway_event_send_and_edit_round_trip() -> None:
+async def test_satori_gateway_event_and_send_round_trip() -> None:
     stub = SatoriStub()
     await stub.start()
     connection = SatoriConnection(
@@ -148,26 +146,11 @@ async def test_satori_gateway_event_send_and_edit_round_trip() -> None:
         assert event.message.plain_text == "hello "
 
         message = Message(segments=(Segment(type="text", data={"text": "reply"}),))
-        assert await connection.execute(
-            ActionEnvelope(
-                runtime_id="platform",
-                bot_id="discord:bot",
-                action=SendMessage(conversation=event.conversation, message=message),
-            )
+        assert await connection.send_message(
+            MessageSendPayload(bot_id="discord:bot", conversation=event.conversation, message=message)
         ) == {"id": "sent-1"}
         assert (await asyncio.wait_for(stub.requests.get(), timeout=1)) == ApiRequest(
             "/v1/message.create", {"channel_id": "channel-1", "content": "reply"}
-        )
-
-        assert await connection.execute(
-            ActionEnvelope(
-                runtime_id="platform",
-                bot_id="discord:bot",
-                action=EditMessage(message_id="sent-1", conversation=event.conversation, message=message),
-            )
-        ) == {"id": "sent-1"}
-        assert (await asyncio.wait_for(stub.requests.get(), timeout=1)) == ApiRequest(
-            "/v1/message.update", {"channel_id": "channel-1", "message_id": "sent-1", "content": "reply"}
         )
     finally:
         await connection.close()

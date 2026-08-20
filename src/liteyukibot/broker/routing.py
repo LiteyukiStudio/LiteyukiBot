@@ -817,13 +817,24 @@ class BrokerLedger:
         return delivery
 
     def _resolve_owner(self, kind: str, resource_key: str, sessions: tuple[BridgeSession, ...]) -> BridgeSession:
-        candidates: list[tuple[int, BridgeSession]] = []
+        exact_candidates: list[BridgeSession] = []
+        prefix_candidates: list[tuple[int, BridgeSession]] = []
         for session in sessions:
             for declaration in session.manifest.action_resources:
-                if declaration.kind == kind and resource_key.startswith(declaration.resource_prefix):
-                    candidates.append((len(declaration.resource_prefix), session))
+                if declaration.kind != kind or not declaration.matches(resource_key):
+                    continue
+                if declaration.is_exact:
+                    exact_candidates.append(session)
+                else:
+                    assert declaration.resource_prefix is not None
+                    prefix_candidates.append((len(declaration.resource_prefix), session))
+
+        exact_owner = self._select_owner(exact_candidates)
+        if exact_owner is not None:
+            return exact_owner
+
         for access in (BridgeAccess.FULL, BridgeAccess.LIMITED):
-            selected = [(length, session) for length, session in candidates if session.manifest.access is access]
+            selected = [(length, session) for length, session in prefix_candidates if session.manifest.access is access]
             if not selected:
                 continue
             longest = max(length for length, _ in selected)
@@ -832,6 +843,21 @@ class BrokerLedger:
                 raise BrokerAdmissionError("ambiguous_owner", "multiple resource owners match the action")
             return matches[0]
         raise BrokerAdmissionError("unknown_action_owner", "no registered bridge owns the requested action resource")
+
+    @staticmethod
+    def _select_owner(candidates: list[BridgeSession]) -> BridgeSession | None:
+        if not candidates:
+            return None
+        for access in (BridgeAccess.FULL, BridgeAccess.LIMITED):
+            matches = tuple(session for session in candidates if session.manifest.access is access)
+            if not matches:
+                continue
+            if len(matches) != 1:
+                raise BrokerAdmissionError(
+                    "ambiguous_owner", "multiple resource owners match the exact action resource"
+                )
+            return matches[0]
+        return None
 
     def _terminalize_delivery(self, delivery: _Delivery) -> _Delivery | None:
         record = self._delivery_index[delivery.delivery_id]

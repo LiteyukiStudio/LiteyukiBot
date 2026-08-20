@@ -17,16 +17,13 @@ from xml.etree import ElementTree
 from liteyukibot_runtime_adapter.contracts import AdapterConnection, AdapterContext, EventEmitter
 from websockets.asyncio.client import connect
 
+from liteyukibot.broker import MessageSendPayload
 from liteyukibot.events import (
-    ActionEnvelope,
     ActorRef,
-    CallApi,
     ConversationRef,
-    EditMessage,
     EventEnvelope,
     Message,
     Segment,
-    SendMessage,
 )
 from liteyukibot.runtime.protocol import JsonValue, json_value
 
@@ -38,6 +35,8 @@ _READY = 4
 _MAX_BODY_BYTES = 1024 * 1024
 _HTTP_TIMEOUT_SECONDS = 15
 _ELEMENT_NAME = re.compile(r"[A-Za-z][A-Za-z0-9_-]*\\Z")
+_MAX_REPLY_ROUTES = 2048
+_RETRY_DELAYS = (1, 2, 4)
 
 
 class SatoriError(ValueError):
@@ -57,40 +56,44 @@ class SatoriConnection(AdapterConnection):
         self._ready = asyncio.Event()
         self._closed = False
         self._sequence: int | None = None
+        self._reply_routes: dict[str, ConversationRef] = {}
+        self._failure_event = asyncio.Event()
+        self._failure: BaseException | None = None
 
     async def start(self, emit: EventEmitter) -> None:
+        self._closed = False
+        self._sequence = None
+        self._reply_routes.clear()
+        self._failure_event.clear()
+        self._failure = None
         self._emit = emit
         self._task = asyncio.create_task(self._gateway_loop(), name="satori-gateway")
-        try:
-            await asyncio.wait_for(self._ready.wait(), timeout=10)
-        except TimeoutError as error:
-            await self.close()
-            raise SatoriError("Satori gateway did not send READY") from error
+        ready = asyncio.create_task(self._ready.wait(), name="satori-gateway-ready")
+        task = self._task
+        done, pending = await asyncio.wait({ready, task}, timeout=10, return_when=asyncio.FIRST_COMPLETED)
+        if ready in pending:
+            ready.cancel()
+            await asyncio.gather(ready, return_exceptions=True)
+        if ready in done and ready.result():
+            return
+        failure = task.exception() if task in done and not task.cancelled() else None
+        await self.close()
+        if isinstance(failure, SatoriError):
+            raise failure
+        raise SatoriError("Satori gateway did not send READY")
 
-    async def execute(self, action: ActionEnvelope) -> JsonValue:
-        if isinstance(action.action, SendMessage):
-            conversation = action.action.conversation
+    async def send_message(self, payload: MessageSendPayload) -> JsonValue:
+        conversation = payload.conversation
+        if conversation is None:
+            if payload.reply_token is None:
+                raise SatoriError("message.send requires a conversation or known reply_token")
+            conversation = self._reply_routes.get(payload.reply_token)
             if conversation is None:
-                raise SatoriError("Satori send_message requires a conversation")
-            return await self._call_api(
-                "message.create",
-                {"channel_id": conversation.id, "content": _to_satori_content(action.action.message)},
-            )
-        if isinstance(action.action, EditMessage):
-            conversation = action.action.conversation
-            if conversation is None:
-                raise SatoriError("Satori edit_message requires a conversation")
-            return await self._call_api(
-                "message.update",
-                {
-                    "channel_id": conversation.id,
-                    "message_id": action.action.message_id,
-                    "content": _to_satori_content(action.action.message),
-                },
-            )
-        if isinstance(action.action, CallApi):
-            return await self._call_api(action.action.api.replace("_", "."), action.action.params)
-        raise SatoriError(f"unsupported Satori action {action.action.type!r}")
+                raise SatoriError("reply_token is unknown or expired")
+        return await self._call_api(
+            "message.create",
+            {"channel_id": conversation.id, "content": _to_satori_content(payload.message)},
+        )
 
     async def close(self) -> None:
         self._closed = True
@@ -100,9 +103,17 @@ class SatoriConnection(AdapterConnection):
             await asyncio.gather(task, return_exceptions=True)
         self._ready.clear()
         self._emit = None
+        self._reply_routes.clear()
+
+    async def wait_failure(self) -> None:
+        await self._failure_event.wait()
+        if self._failure is not None:
+            raise self._failure
+        raise RuntimeError("Satori connection failed without a diagnostic")
 
     async def _gateway_loop(self) -> None:
         headers = {"Authorization": f"Bearer {self._access_token}"} if self._access_token else None
+        retry_index = 0
         while not self._closed:
             try:
                 async with connect(
@@ -122,12 +133,20 @@ class SatoriConnection(AdapterConnection):
                             await websocket.send(json.dumps({"op": _PONG, "body": {}}))
                         elif opcode == _EVENT:
                             await self._handle_event(payload.get("body"))
+                    if not self._closed:
+                        raise SatoriError("Satori gateway disconnected")
             except asyncio.CancelledError:
                 raise
-            except Exception:
+            except Exception as error:
                 self._ready.clear()
                 if not self._closed:
-                    await asyncio.sleep(1)
+                    if retry_index >= len(_RETRY_DELAYS):
+                        failure = SatoriError("Satori gateway retries exhausted")
+                        self._failure = failure
+                        self._failure_event.set()
+                        raise failure from error
+                    await asyncio.sleep(_RETRY_DELAYS[retry_index])
+                    retry_index += 1
 
     async def _handle_event(self, body: object) -> None:
         if not isinstance(body, Mapping):
@@ -137,6 +156,10 @@ class SatoriConnection(AdapterConnection):
             self._sequence = sequence
         event = _normalize_event(self.context, body)
         if event is not None:
+            if event.reply_token is not None:
+                self._reply_routes[event.reply_token] = event.conversation
+                while len(self._reply_routes) > _MAX_REPLY_ROUTES:
+                    self._reply_routes.pop(next(iter(self._reply_routes)))
             if self._emit is None:
                 raise RuntimeError("Satori connection has no event emitter")
             await self._emit(event)
@@ -175,7 +198,7 @@ def _normalize_event(context: AdapterContext, value: Mapping[str, Any]) -> Event
         raise SatoriError("Satori message content must be a string")
     timestamp = value.get("timestamp")
     values: dict[str, Any] = {
-        "runtime_id": context.runtime_id,
+        "runtime_id": context.bridge_id,
         "adapter": "satori",
         "bot_id": context.bot_id,
         "type": "message.private" if conversation_type == "private" else "message.channel",

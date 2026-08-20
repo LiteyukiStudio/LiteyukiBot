@@ -13,10 +13,12 @@ from websockets.asyncio.client import connect
 from websockets.asyncio.server import Server, ServerConnection, serve
 
 JsonHandler = Callable[[Mapping[str, Any]], Awaitable[None]]
+FailureHandler = Callable[[BaseException], Awaitable[None]]
 
 _MAX_MESSAGE_BYTES = 1024 * 1024
 _CONNECT_TIMEOUT = 10
 _REQUEST_TIMEOUT = 15
+_RETRY_DELAYS = (1, 2, 4)
 
 
 class OneBotWebSocketError(ValueError):
@@ -36,6 +38,7 @@ class OneBotWebSocketTransport:
         path: str,
         access_token: str | None,
         handle_event: JsonHandler,
+        on_failure: FailureHandler | None = None,
     ) -> None:
         if mode not in {"forward_websocket", "reverse_websocket"}:
             raise OneBotWebSocketError("WebSocket mode must be forward_websocket or reverse_websocket")
@@ -46,24 +49,38 @@ class OneBotWebSocketTransport:
         self.path = path
         self.access_token = access_token
         self.handle_event = handle_event
+        self.on_failure = on_failure
         self._connection: Any | None = None
         self._server: Server | None = None
         self._task: asyncio.Task[None] | None = None
         self._connected = asyncio.Event()
         self._pending: dict[str, asyncio.Future[dict[str, Any]]] = {}
         self._closed = False
+        self._failure_notified = False
 
     async def start(self) -> None:
+        self._closed = False
+        self._failure_notified = False
+        self._connected.clear()
         if self.mode == "forward_websocket":
             if self.url is None:
                 raise OneBotWebSocketError("forward_websocket requires config.ws_url")
             self._task = asyncio.create_task(self._forward_loop(), name="onebot-forward-websocket")
-            try:
-                await asyncio.wait_for(self._connected.wait(), timeout=_CONNECT_TIMEOUT)
-            except TimeoutError as error:
-                await self.close()
-                raise OneBotWebSocketError("OneBot forward WebSocket did not connect") from error
-            return
+            ready = asyncio.create_task(self._connected.wait(), name="onebot-forward-websocket-ready")
+            task = self._task
+            done, pending = await asyncio.wait(
+                {ready, task}, timeout=_CONNECT_TIMEOUT, return_when=asyncio.FIRST_COMPLETED
+            )
+            if ready in pending:
+                ready.cancel()
+                await asyncio.gather(ready, return_exceptions=True)
+            if ready in done and ready.result():
+                return
+            failure = task.exception() if task in done and not task.cancelled() else None
+            await self.close()
+            if isinstance(failure, OneBotWebSocketError):
+                raise failure
+            raise OneBotWebSocketError("OneBot forward WebSocket did not connect")
         if self.host is None or self.port is None:
             raise OneBotWebSocketError("reverse_websocket requires config.ws_host and config.ws_port")
         self._server = await serve(self._accept, self.host, self.port, max_size=_MAX_MESSAGE_BYTES)
@@ -105,16 +122,26 @@ class OneBotWebSocketTransport:
     async def _forward_loop(self) -> None:
         assert self.url is not None
         headers = {"Authorization": f"Bearer {self.access_token}"} if self.access_token else None
+        retry_index = 0
         while not self._closed:
             try:
                 async with connect(self.url, additional_headers=headers, max_size=_MAX_MESSAGE_BYTES) as connection:
                     await self._run_connection(connection)
+                    if not self._closed:
+                        raise OneBotWebSocketError("OneBot forward WebSocket disconnected")
             except asyncio.CancelledError:
                 raise
-            except Exception:
+            except Exception as error:
                 self._connected.clear()
                 if not self._closed:
-                    await asyncio.sleep(1)
+                    if retry_index >= len(_RETRY_DELAYS):
+                        failure = OneBotWebSocketError("OneBot forward WebSocket retries exhausted")
+                        if self.on_failure is not None and not self._failure_notified:
+                            self._failure_notified = True
+                            await self.on_failure(failure)
+                        raise failure from error
+                    await asyncio.sleep(_RETRY_DELAYS[retry_index])
+                    retry_index += 1
 
     async def _accept(self, connection: ServerConnection) -> None:
         request = connection.request

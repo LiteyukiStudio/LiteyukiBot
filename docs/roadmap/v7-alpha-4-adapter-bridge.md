@@ -1,12 +1,12 @@
 # v7 Alpha 4: Generic Adapter Broker Bridge
 
-> **Planned implementation contract.** This document records the agreed Alpha 4
-> boundary. It does not claim that the adapter bridge, driver packages, or
-> release assets are implemented.
+> **Implementation status.** The Alpha 4 bridge and driver migration is
+> implemented in the current worktree. Version bumping, signed release assets,
+> and the release bundle remain a separate follow-up.
 
 Alpha 4 migrates the generic Python adapter host and the OneBot/Satori drivers
 from the historical runtime child boundary to an independently launched broker
-bridge. It starts only after Alpha 3 is merged.
+bridge after the Alpha 3 business migration.
 
 ## Release boundary
 
@@ -80,9 +80,10 @@ IDs, manifest mismatch, platform topic normalization, identity binding, reply
 and proactive sends, unsupported action rejection, lease/result replay,
 disconnect, restart, and bounded retry exhaustion.
 
-The complete quality gate, workspace build, adapter/driver isolated verifiers,
-and signed Alpha bundle verifier must pass. Legacy v6 runtime migration, Agent,
-Function DSL, and broker process supervision remain outside Alpha 4.
+The implementation gate is the focused broker, adapter, configuration, and
+isolated-verifier coverage. The full workspace quality gate and release bundle
+verification are still release acceptance work. Legacy v6 runtime migration,
+Agent, Function DSL, and broker process supervision remain outside Alpha 4.
 
 ## Alpha 5 handoff
 
