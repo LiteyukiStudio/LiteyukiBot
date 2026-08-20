@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from time import time
 from typing import Any
 
-from liteyukibot.events import ActionEnvelope, EventEnvelope, Message, Segment, SendMessage
+from liteyukibot.events import EventEnvelope, Message, Segment
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,22 +90,3 @@ def _to_mofox_segment(segment: Segment) -> dict[str, Any]:
     if segment.type == "text":
         return {"type": "text", "data": data["text"]}
     return {"type": segment.type, "data": data}
-
-
-def to_send_action(event: EventEnvelope, message: Message | str) -> ActionEnvelope:
-    if isinstance(message, str):
-        if not message:
-            raise ValueError("MoFox output text must not be empty")
-        message = Message(segments=(Segment(type="text", data={"text": message}),))
-    if not message.segments:
-        raise ValueError("MoFox output message must not be empty")
-    return ActionEnvelope(
-        event_id=event.id,
-        runtime_id=event.runtime_id,
-        bot_id=event.bot_id,
-        action=SendMessage(
-            message=message,
-            conversation=event.conversation,
-            reply_token=event.reply_token,
-        ),
-    )

@@ -4,6 +4,7 @@ This is the v6 broker migration entry point. It is intentionally not
 interoperable with the legacy runtime child protocol.
 """
 
+from ..topic_patterns import topic_pattern_matches, validate_topic_pattern
 from .actions import (
     MESSAGE_SEND_KIND,
     MessageSendPayload,
@@ -144,6 +145,8 @@ __all__ = [
     "encode_broker_message",
     "bridge_token_from_vault",
     "resolve_secret_references",
+    "topic_pattern_matches",
+    "validate_topic_pattern",
     "configured_kernel_bridge",
     "make_message_send_request",
     "message_send_resource_key",

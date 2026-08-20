@@ -9,6 +9,7 @@ from typing import Annotated, Final, Literal
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_serializer, model_validator
 
 from ..lyip import LyipError, LyipFrame, LyipLane
+from ..topic_patterns import validate_topic_pattern
 
 BROKER_PROTOCOL_VERSION: Final = 6
 BROKER_REGISTER_TYPE_ID: Final = 600
@@ -156,9 +157,7 @@ class BridgeManifest(BrokerWireModel):
             raise TypeError("bridge declarations must be a JSON array")
         declarations: list[str] = []
         for declaration in value:
-            if not isinstance(declaration, str):
-                raise TypeError("bridge declaration must be a string")
-            declarations.append(_non_blank_identifier(declaration))
+            declarations.append(validate_topic_pattern(declaration, subject="bridge declaration"))
         if len(declarations) != len(set(declarations)):
             raise ValueError("bridge declarations must not contain duplicates")
         return tuple(declarations)

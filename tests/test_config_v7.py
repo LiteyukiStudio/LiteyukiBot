@@ -387,6 +387,25 @@ def test_loader_rejects_legacy_adapter_runtime_with_migration_diagnostic(tmp_pat
         load_settings(config, environ={})
 
 
+@pytest.mark.parametrize(
+    ("kind", "message"),
+    [
+        ("v6", "v6 compatibility must be configured under broker.bridges"),
+        ("mofox", "MoFox compatibility must be configured under broker.bridges"),
+    ],
+)
+def test_loader_rejects_legacy_compatibility_runtimes_with_migration_diagnostic(
+    tmp_path: Path,
+    kind: str,
+    message: str,
+) -> None:
+    config = tmp_path / "liteyuki.toml"
+    config.write_text(f'config_version = 5\n\n[runtimes.legacy]\nkind = "{kind}"\n', encoding="utf-8")
+
+    with pytest.raises(ConfigurationError, match=message):
+        load_settings(config, environ={})
+
+
 def test_nested_includes_merge_in_declared_order(tmp_path: Path) -> None:
     nested = tmp_path / "nested"
     nested.mkdir()

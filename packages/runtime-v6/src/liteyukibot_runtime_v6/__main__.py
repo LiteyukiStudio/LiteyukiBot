@@ -1,14 +1,13 @@
-"""Run the LiteyukiBot v6 compatibility host under the supervisor."""
+"""Reject the removed legacy child-runtime launch path."""
 
 from __future__ import annotations
 
-import asyncio
-
-from .host import run
-
 
 def main() -> None:
-    asyncio.run(run())
+    raise SystemExit(
+        "migration_required: liteyukibot-v7-runtime-v6 is a broker bridge; "
+        "configure it under broker.bridges and use 'liteyuki bridge run'"
+    )
 
 
 if __name__ == "__main__":

@@ -12,8 +12,8 @@ dependencies = [
     "liteyukibot-v7>=7.0.0a1,<8",
 ]
 
-[project.entry-points."liteyukibot.runtimes"]
-mofox = "liteyukibot_runtime_mofox:runtime_plugin"
+[project.entry-points."liteyukibot.bridges"]
+mofox = "liteyukibot_runtime_mofox:bridge_definition"
 
 [build-system]
 requires = ["uv_build>=0.11.32,<0.12"]

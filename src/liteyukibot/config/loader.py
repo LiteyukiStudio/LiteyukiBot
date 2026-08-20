@@ -430,7 +430,7 @@ def _load_settings(
     if tracker is not None:
         tracker.apply(command_line_values, ConfigSource("command_line", "--set"))
     merged = _deep_merge(merged, _resolve_declared_paths(command_line_values, Path.cwd()))
-    _reject_legacy_adapter_runtimes(merged, issues)
+    _reject_legacy_runtime_config(merged, issues)
 
     try:
         settings = AppSettings.model_validate(merged)
@@ -452,16 +452,35 @@ def _load_settings(
     return settings, None if tracker is None else tracker.freeze()
 
 
-def _reject_legacy_adapter_runtimes(merged: Mapping[str, Any], issues: list[ConfigIssue]) -> None:
+def _reject_legacy_runtime_config(merged: Mapping[str, Any], issues: list[ConfigIssue]) -> None:
     runtimes = merged.get("runtimes")
     if not isinstance(runtimes, Mapping):
         return
     for runtime_id, runtime in runtimes.items():
-        if isinstance(runtime, Mapping) and runtime.get("kind") == "adapter":
+        if not isinstance(runtime, Mapping):
+            continue
+        kind = runtime.get("kind")
+        if kind == "adapter":
             issues.append(
                 ConfigIssue(
                     "merged configuration",
                     "migration_required: adapter runtimes must be configured under broker.bridges",
+                    ("runtimes", str(runtime_id), "kind"),
+                )
+            )
+        elif kind == "v6":
+            issues.append(
+                ConfigIssue(
+                    "merged configuration",
+                    "migration_required: v6 compatibility must be configured under broker.bridges",
+                    ("runtimes", str(runtime_id), "kind"),
+                )
+            )
+        elif kind == "mofox":
+            issues.append(
+                ConfigIssue(
+                    "merged configuration",
+                    "migration_required: MoFox compatibility must be configured under broker.bridges",
                     ("runtimes", str(runtime_id), "kind"),
                 )
             )

@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 
+from liteyukibot.broker import BridgeCatalog, BridgeSupportGrade
 from liteyukibot.config import LoggingSettings, LyipLinkSettings, LyipSettings
 from liteyukibot.lyip import LyipLane, LyipOfferResult, ZmqLyipDealer
 from liteyukibot.runtime import RuntimeCatalog, RuntimeSpec, RuntimeState, RuntimeSupervisor
@@ -1264,12 +1265,11 @@ def test_runtime_catalog_does_not_expose_nonebot_bridge_as_legacy_runtime() -> N
     importlib.util.find_spec("liteyukibot_runtime_v6") is None,
     reason="v6 runtime package is not installed",
 )
-def test_runtime_catalog_discovers_v6_compatibility_host() -> None:
-    plugin = RuntimeCatalog().discover().get("v6")
+def test_bridge_catalog_discovers_v6_compatibility_bridge() -> None:
+    bridge = BridgeCatalog().discover().get("v6")
 
-    assert plugin is not None
-    assert plugin.command[1:] == ("-m", "liteyukibot_runtime_v6")
-    assert plugin.default_event_route_messages_only
+    assert bridge is not None
+    assert bridge.grade is BridgeSupportGrade.EXPERIMENTAL
 
 
 @pytest.mark.asyncio

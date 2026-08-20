@@ -11,6 +11,8 @@ from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator, model_serializer, model_validator
 
+from ..topic_patterns import validate_topic_pattern
+
 type JsonValue = str | int | float | bool | None | tuple[JsonValue, ...] | Mapping[str, JsonValue]
 
 
@@ -542,11 +544,10 @@ class BrokerBridgeSettings(FrozenSettingsModel):
     @field_validator("subscriptions")
     @classmethod
     def validate_subscriptions(cls, value: tuple[str, ...]) -> tuple[str, ...]:
-        if any(not topic.strip() or topic != topic.strip() for topic in value):
-            raise ValueError("broker subscriptions must be non-empty and trimmed")
-        if len(value) != len(set(value)):
+        normalized = tuple(validate_topic_pattern(topic, subject="broker subscription") for topic in value)
+        if len(normalized) != len(set(normalized)):
             raise ValueError("broker subscriptions must not contain duplicates")
-        return value
+        return normalized
 
     @field_validator("action_resources")
     @classmethod

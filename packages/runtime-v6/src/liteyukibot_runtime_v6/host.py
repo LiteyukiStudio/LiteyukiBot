@@ -1,311 +1,266 @@
-"""LiteyukiBot v6 plugin compatibility child runtime."""
+"""Broker bridge host for the retained LiteyukiBot v6 compatibility surface."""
 
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 from collections.abc import Mapping, Sequence
-from pathlib import Path, PurePath
+from importlib import metadata
 from typing import Any
+from urllib.parse import urlparse
+from uuid import uuid4
 
+import zmq.asyncio
 from liteyuki.bot import _emit_lifecycle, _install_runtime, _reset_runtime
-from liteyuki.plugin import load_plugin, load_plugins
 from liteyuki.session.on import _dispatch_matchers
 
-from liteyukibot.events import EventEnvelope
-from liteyukibot.logging import configure_runtime_child_logging, get_logger
-from liteyukibot.runtime import RuntimeClient
-from liteyukibot.runtime.protocol import (
-    ActionRequest,
-    ActionResponse,
-    EventAccepted,
-    EventCompleted,
-    EventMessage,
-    Shutdown,
+from liteyukibot.broker import (
+    MESSAGE_SEND_KIND,
+    BridgeAccess,
+    BridgeClient,
+    BridgeManifest,
+    BrokerBridgeRunner,
+    BrokerDelivery,
+    MessageSendPayload,
+    message_send_resource_key,
 )
+from liteyukibot.config import AppSettings
+from liteyukibot.events import EventEnvelope
+from liteyukibot.logging import get_logger
+from liteyukibot.lyip import LyipLane
 
-from .events import reply_to_action, to_legacy_message_event
+from .events import reply_to_message, to_legacy_message_event
+
+V6_PLUGIN_ENTRY_POINT_GROUP = "liteyukibot.v6_plugins"
+_LEGACY_OPTION_KEYS = frozenset({"plugins", "plugin_dirs", "config", "action_timeout_seconds"})
+_ALLOWED_BRIDGE_OPTION_KEYS = frozenset({"v6_plugins", "max_concurrent_events"})
 
 
-class _V6RuntimeHost:
+class _V6BridgeHost:
     def __init__(
         self,
-        client: RuntimeClient,
+        runner: BrokerBridgeRunner,
+        bridge_id: str,
         logger: Any,
         *,
         max_concurrent_events: int,
-        action_timeout_seconds: float,
+        restart_requested: asyncio.Event,
     ) -> None:
-        self.client = client
+        self.runner = runner
+        self.bridge_id = bridge_id
         self.logger = logger
-        self.max_concurrent_events = max_concurrent_events
-        self.action_timeout_seconds = action_timeout_seconds
-        self._event_tasks: set[asyncio.Task[None]] = set()
+        self._capacity = asyncio.Semaphore(max_concurrent_events)
+        self._restart_requested = restart_requested
 
-    async def serve(self, restart_requested: asyncio.Event) -> str:
-        while True:
-            incoming = asyncio.create_task(self.client.receive(), name="v6-runtime-receive")
-            restart = asyncio.create_task(
-                restart_requested.wait(),
-                name="v6-runtime-restart",
-            )
-            done, pending = await asyncio.wait(
-                (incoming, restart),
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-            for task in pending:
-                task.cancel()
-            await asyncio.gather(*pending, return_exceptions=True)
-            if restart in done and restart.result():
-                return "restart"
-
-            message = incoming.result()
-            if isinstance(message, Shutdown):
-                return "shutdown"
-            if isinstance(message, ActionRequest):
-                await self.client.send(
-                    ActionResponse(
-                        correlation_id=message.correlation_id,
-                        ok=False,
-                        error="v6 compatibility plugins do not expose a protocol adapter",
-                    )
-                )
-            elif isinstance(message, EventMessage):
-                await self._accept_event(message)
-            elif isinstance(message, ActionResponse):
-                self.logger.warning(
-                    "ignored unmatched v6 Action response {}",
-                    message.correlation_id,
-                )
-
-    async def close(self) -> None:
-        tasks = tuple(self._event_tasks)
-        self._event_tasks.clear()
-        for task in tasks:
+    async def serve(self) -> str:
+        serving = asyncio.create_task(self.runner.serve_forever(), name=f"v6-bridge:{self.bridge_id}")
+        restart = asyncio.create_task(self._restart_requested.wait(), name=f"v6-restart:{self.bridge_id}")
+        done, pending = await asyncio.wait((serving, restart), return_when=asyncio.FIRST_COMPLETED)
+        for task in pending:
             task.cancel()
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+        await asyncio.gather(*pending, return_exceptions=True)
+        if restart in done and restart.result():
+            return "restart"
+        serving.result()
+        return "shutdown"
 
-    async def _accept_event(self, message: EventMessage) -> None:
-        if len(self._event_tasks) >= self.max_concurrent_events:
-            await self.client.send(
-                EventAccepted(
-                    correlation_id=message.correlation_id,
-                    status="overloaded",
-                    detail="v6 runtime event capacity is exhausted",
-                )
-            )
-            return
-        task = asyncio.create_task(
-            self._process_event(message),
-            name=f"v6-event:{message.correlation_id}",
-        )
-        self._event_tasks.add(task)
-        task.add_done_callback(self._event_finished)
-
-    def _event_finished(self, task: asyncio.Task[None]) -> None:
-        self._event_tasks.discard(task)
-        if task.cancelled():
-            return
-        error = task.exception()
-        if error is not None:
-            self.logger.error("v6 event task failed: {}", error)
-
-    async def _process_event(self, message: EventMessage) -> None:
-        try:
-            envelope = EventEnvelope.model_validate(message.payload)
-        except ValueError as error:
-            self.logger.warning("v6 runtime rejected invalid EventEnvelope: {}", error)
-            await self.client.send(
-                EventAccepted(
-                    correlation_id=message.correlation_id,
-                    status="invalid",
-                    detail="invalid EventEnvelope",
-                )
-            )
-            return
-
-        event = to_legacy_message_event(envelope)
-        if event is not None:
+    async def handle_delivery(self, delivery: BrokerDelivery) -> None:
+        async with self._capacity:
+            broker_event = delivery.message.event
+            event = EventEnvelope.model_validate(broker_event.payload)
+            if event.runtime_id != broker_event.source_bridge_id:
+                raise ValueError("v6 event runtime_id does not match its broker source bridge")
+            legacy_event = to_legacy_message_event(event)
+            if legacy_event is None:
+                return
             try:
-                result = await _dispatch_matchers(event)
+                result = await _dispatch_matchers(legacy_event)
                 if result.failures:
                     self.logger.warning(
                         "v6 event {} completed with {} matcher failure(s)",
-                        envelope.id,
+                        event.id,
                         len(result.failures),
                     )
             except Exception as error:
-                self.logger.exception("v6 matcher dispatch failed for {}: {}", envelope.id, error)
-            for reply in event._drain_replies():
+                self.logger.exception("v6 matcher dispatch failed for {}: {}", event.id, error)
+
+            for index, reply in enumerate(legacy_event._drain_replies()):
                 try:
-                    action = reply_to_action(reply, envelope)
-                    response = await self.client.execute_action(
-                        action.action_id,
-                        action.model_dump(mode="json"),
-                        timeout_seconds=self.action_timeout_seconds,
+                    message = reply_to_message(reply)
+                    payload = MessageSendPayload(
+                        bot_id=event.bot_id,
+                        message=message,
+                        conversation=event.conversation,
+                        reply_token=event.reply_token,
                     )
-                    if not response.ok:
+                    action = await delivery.request_action(
+                        correlation_id=f"v6:{event.id}:{index}:{uuid4()}",
+                        kind=MESSAGE_SEND_KIND,
+                        resource_key=message_send_resource_key(event.runtime_id, event.bot_id),
+                        payload=payload.model_dump(mode="json", exclude_none=True),
+                    )
+                    if not action.success:
                         self.logger.warning(
-                            "v6 reply Action {} failed: {}",
-                            action.action_id,
-                            response.error or "runtime rejected the Action",
+                            "v6 reply action failed for event {}: {}",
+                            event.id,
+                            action.payload,
                         )
                 except Exception as error:
-                    self.logger.exception("v6 reply failed for event {}: {}", envelope.id, error)
-
-        await self.client.send(
-            EventAccepted(
-                correlation_id=message.correlation_id,
-                status="accepted",
-            )
-        )
-        await self.client.send(
-            EventCompleted(
-                correlation_id=message.correlation_id,
-                status="completed",
-            )
-        )
+                    self.logger.exception("v6 reply failed for event {}: {}", event.id, error)
 
 
-async def run() -> None:
-    configure_runtime_child_logging()
-    logger = get_logger(component="legacy", runtime=os.environ.get("LITEYUKI_RUNTIME_ID", "v6"))
-    runtime_id = os.environ["LITEYUKI_RUNTIME_ID"]
-    client = RuntimeClient.from_environment("v6")
-    runtime_installed = False
+def load_configured_v6_plugins(names: Sequence[str]) -> tuple[str, ...]:
+    """Import only the selected v6 plugin entry points."""
+
+    configured = _normalized_plugin_names(names)
+    entries: dict[str, Any] = {}
+    for entry in metadata.entry_points(group=V6_PLUGIN_ENTRY_POINT_GROUP):
+        if entry.name not in configured:
+            continue
+        if entry.name in entries:
+            raise RuntimeError(f"v6 plugin entry point {entry.name!r} is duplicated")
+        entries[entry.name] = entry
+    missing = tuple(name for name in configured if name not in entries)
+    if missing:
+        raise RuntimeError("configured v6 plugin entry point(s) are not installed: " + ", ".join(missing))
+    for name in configured:
+        try:
+            entries[name].load()
+        except Exception as error:
+            raise RuntimeError(f"failed to load v6 plugin entry point {name!r}") from error
+    return configured
+
+
+async def launch(settings: AppSettings, bridge_id: str, token: str) -> None:
+    """Launch one limited v6 bridge through the standalone Broker."""
+
+    bridge = settings.broker.bridges.get(bridge_id)
+    if bridge is None:
+        raise RuntimeError(f"broker bridge {bridge_id!r} is not configured")
+    if bridge.kind != "v6":
+        raise RuntimeError(f"broker bridge {bridge_id!r} is not a v6 bridge")
+    _validate_bridge_settings(bridge.access, bridge.subscriptions, bridge.action_resources, bridge.options)
+    _load_configured_plugins(bridge.options)
+
+    manifest = BridgeManifest(
+        bridge_id=bridge_id,
+        access=BridgeAccess.LIMITED,
+        subscriptions=bridge.subscriptions,
+    )
+    client = BridgeClient(
+        context=zmq.asyncio.Context.instance(),
+        endpoints=_broker_endpoints(settings.broker.endpoint),
+        generation=settings.broker.generation,
+        identity=f"v6:{bridge_id}:{uuid4()}".encode("ascii"),
+        manifest=manifest,
+        instance_token=token,
+    )
+    restart_requested = asyncio.Event()
+    loop = asyncio.get_running_loop()
+
+    def request_restart(_name: str | None) -> None:
+        loop.call_soon_threadsafe(restart_requested.set)
+
+    _install_runtime({}, request_restart)
+    runtime_installed = True
+    runner = BrokerBridgeRunner(client)
+    logger = get_logger(component="v6", runtime=bridge_id)
+    host = _V6BridgeHost(
+        runner,
+        bridge_id,
+        logger,
+        max_concurrent_events=_positive_int_option(bridge.options, "max_concurrent_events", 32),
+        restart_requested=restart_requested,
+    )
     restarting = False
-    host: _V6RuntimeHost | None = None
     try:
-        logger.info("starting v6 compatibility runtime")
-        options = await client.connect()
-        legacy_config = _mapping_option(options, "config")
-        restart_requested = asyncio.Event()
-        loop = asyncio.get_running_loop()
-
-        def request_restart(_name: str | None) -> None:
-            loop.call_soon_threadsafe(restart_requested.set)
-
-        _install_runtime(legacy_config, request_restart)
-        runtime_installed = True
-        _load_configured_plugins(options)
+        await runner.start()
         await _emit_lifecycle("before_start")
         await _emit_lifecycle("after_start")
-        if int(os.environ.get("LITEYUKI_RUNTIME_RESTART_COUNT", "0")) > 0:
-            await _emit_lifecycle("after_restart")
-        host = _V6RuntimeHost(
-            client,
-            logger,
-            max_concurrent_events=_positive_int_option(options, "max_concurrent_events", 32),
-            action_timeout_seconds=_positive_float_option(
-                options,
-                "action_timeout_seconds",
-                10.0,
-            ),
-        )
-        await client.ready(
-            (
-                "v6.plugins",
-                "v6.lifecycle",
-                "runtime.events.receive",
-                "runtime.events.complete",
-                "runtime.actions.send",
-            )
-        )
-        logger.info("v6 compatibility runtime is ready")
-        outcome = await host.serve(restart_requested)
-        await host.close()
+        if restart_requested.is_set():
+            outcome = "restart"
+        else:
+            outcome = await host.serve()
         if outcome == "restart":
             restarting = True
-            await _emit_lifecycle("before_process_restart", runtime_id)
+            await _emit_lifecycle("before_process_restart", bridge_id)
         else:
-            await _emit_lifecycle("before_process_shutdown", runtime_id)
+            await _emit_lifecycle("before_process_shutdown", bridge_id)
         await _emit_lifecycle("after_shutdown")
     finally:
-        if host is not None:
-            await host.close()
-        if runtime_installed:
-            _reset_runtime()
-        await client.close()
-        logger.info("v6 compatibility runtime stopped")
+        try:
+            await runner.stop()
+        finally:
+            runner.close()
+            if runtime_installed:
+                _reset_runtime()
     if restarting:
-        logger.info("v6 compatibility runtime requested restart")
-        raise RuntimeError("v6 compatibility runtime requested restart")
+        raise RuntimeError("v6 compatibility bridge requested restart")
 
 
-def _mapping_option(options: Mapping[str, Any], key: str) -> Mapping[str, Any]:
-    value = options.get(key, {})
-    if not isinstance(value, Mapping):
-        raise ValueError(f"v6 runtime option {key!r} must be an object")
-    return value
+def _load_configured_plugins(options: Mapping[str, Any]) -> tuple[str, ...]:
+    _reject_legacy_options(options)
+    return load_configured_v6_plugins(_string_list_option(options, "v6_plugins"))
+
+
+def _reject_legacy_options(options: Mapping[str, Any]) -> None:
+    legacy = sorted(_LEGACY_OPTION_KEYS.intersection(options))
+    if legacy:
+        raise RuntimeError("migration_required: v6 bridge does not accept legacy options: " + ", ".join(legacy))
+    unsupported = sorted(set(options).difference(_ALLOWED_BRIDGE_OPTION_KEYS))
+    if unsupported:
+        raise RuntimeError("migration_required: unsupported v6 bridge options: " + ", ".join(unsupported))
+    if os.environ.get("LITEYUKI_RUNTIME_GENERATION_DIR"):
+        raise RuntimeError("migration_required: managed v6 generations are not supported by the bridge")
+
+
+def _validate_bridge_settings(
+    access: str,
+    subscriptions: Sequence[str],
+    action_resources: Sequence[Any],
+    options: Mapping[str, Any],
+) -> None:
+    if access != BridgeAccess.LIMITED.value:
+        raise RuntimeError("v6 compatibility bridge must use limited access")
+    if not subscriptions:
+        raise RuntimeError("v6 compatibility bridge must declare at least one subscription")
+    if action_resources:
+        raise RuntimeError("v6 compatibility bridge must not own platform actions")
+    _reject_legacy_options(options)
+
+
+def _normalized_plugin_names(value: Sequence[str]) -> tuple[str, ...]:
+    names = tuple(value)
+    if any(not isinstance(name, str) or not name or name != name.strip() for name in names):
+        raise ValueError("v6_plugins must contain non-empty trimmed entry point names")
+    if len(names) != len(set(names)):
+        raise ValueError("v6_plugins must not contain duplicates")
+    return names
 
 
 def _string_list_option(options: Mapping[str, Any], key: str) -> tuple[str, ...]:
-    value = options.get(key, [])
+    value = options.get(key, ())
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
-        raise ValueError(f"v6 runtime option {key!r} must be an array of strings")
-    if any(not isinstance(item, str) or not item for item in value):
-        raise ValueError(f"v6 runtime option {key!r} must contain non-empty strings")
-    return tuple(value)
-
-
-def _load_configured_plugins(options: Mapping[str, Any]) -> None:
-    managed = _managed_plugin_options()
-    configured_modules = _string_list_option(options, "plugins")
-    configured_directories = _string_list_option(options, "plugin_dirs")
-    if managed is not None and (configured_modules or configured_directories):
-        raise RuntimeError("managed v6 generation cannot combine plugins or plugin_dirs runtime options")
-    modules, directories = managed if managed is not None else (configured_modules, configured_directories)
-    failed = [name for name in modules if load_plugin(name) is None]
-    loaded_from_directories = load_plugins(*directories, ignore_warning=False)
-    if failed:
-        raise RuntimeError(f"failed to load v6 plugins: {', '.join(failed)}")
-    if directories and not loaded_from_directories:
-        raise RuntimeError("configured v6 plugin directories did not load any plugins")
-
-
-def _managed_plugin_options() -> tuple[tuple[str, ...], tuple[str, ...]] | None:
-    raw_generation = os.environ.get("LITEYUKI_RUNTIME_GENERATION_DIR")
-    if raw_generation is None:
-        return None
-    generation = Path(raw_generation).resolve(strict=True)
-    plan_path = generation / "load-plan.json"
-    try:
-        document = json.loads(plan_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError, json.JSONDecodeError) as error:
-        raise RuntimeError("managed v6 generation has an invalid load plan") from error
-    if not isinstance(document, Mapping):
-        raise RuntimeError("managed v6 generation load plan must be an object")
-    modules = _string_list_option(document, "modules")
-    raw_directories = _string_list_option(document, "directories")
-    payload = (generation / "payload").resolve()
-    directories: list[str] = []
-    for raw_directory in raw_directories:
-        relative = PurePath(raw_directory)
-        if relative.is_absolute() or any(part in {"", ".", ".."} for part in relative.parts):
-            raise RuntimeError("managed v6 generation directory must be a safe payload-relative path")
-        directory = (payload / relative).resolve()
-        try:
-            directory.relative_to(payload)
-        except ValueError as error:
-            raise RuntimeError("managed v6 generation directory escapes payload") from error
-        directories.append(str(directory))
-    return modules, tuple(directories)
+        raise ValueError(f"v6 bridge option {key!r} must be an array of strings")
+    return _normalized_plugin_names(value)
 
 
 def _positive_int_option(options: Mapping[str, Any], key: str, default: int) -> int:
     value = options.get(key, default)
     if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
-        raise ValueError(f"v6 runtime option {key!r} must be a positive integer")
+        raise ValueError(f"v6 bridge option {key!r} must be a positive integer")
     return value
 
 
-def _positive_float_option(options: Mapping[str, Any], key: str, default: float) -> float:
-    value = options.get(key, default)
-    if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
-        raise ValueError(f"v6 runtime option {key!r} must be a positive number")
-    return float(value)
+def _broker_endpoints(endpoint: str) -> dict[LyipLane, str]:
+    parsed = urlparse(endpoint)
+    if parsed.scheme != "tcp" or parsed.hostname is None or parsed.port is None:
+        raise ValueError("broker endpoint must be a valid tcp URL")
+    host = f"[{parsed.hostname}]" if ":" in parsed.hostname else parsed.hostname
+    return {
+        LyipLane.CONTROL: f"tcp://{host}:{parsed.port}",
+        LyipLane.BUSINESS: f"tcp://{host}:{parsed.port + 1}",
+    }
 
 
-__all__ = ["run"]
+__all__ = ["V6_PLUGIN_ENTRY_POINT_GROUP", "launch", "load_configured_v6_plugins"]

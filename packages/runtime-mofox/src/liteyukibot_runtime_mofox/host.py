@@ -1,4 +1,4 @@
-"""Headless Neo-MoFox host that bridges its input and output boundaries."""
+"""Headless Neo-MoFox host behind a limited Liteyuki Broker bridge."""
 
 from __future__ import annotations
 
@@ -7,40 +7,45 @@ import importlib.metadata
 import os
 import re
 import sys
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextvars import ContextVar, Token
 from importlib import import_module
 from importlib.machinery import ModuleSpec
 from pathlib import Path
 from types import ModuleType
 from typing import Any
+from urllib.parse import urlparse
+from uuid import uuid4
 
-from liteyukibot.events import EventEnvelope, Message, Segment
-from liteyukibot.logging import configure_runtime_child_logging, get_logger
-from liteyukibot.runtime import RuntimeClient
-from liteyukibot.runtime.projection import project_managed_plugins
-from liteyukibot.runtime.protocol import (
-    ActionRequest,
-    ActionResponse,
-    EventAccepted,
-    EventCompleted,
-    EventMessage,
-    EventTrace,
-    Shutdown,
+import zmq.asyncio
+
+from liteyukibot.broker import (
+    MESSAGE_SEND_KIND,
+    BridgeAccess,
+    BridgeClient,
+    BridgeManifest,
+    BrokerBridgeRunner,
+    BrokerDelivery,
+    MessageSendPayload,
+    message_send_resource_key,
 )
+from liteyukibot.config import AppSettings
+from liteyukibot.events import EventEnvelope, Message, Segment
+from liteyukibot.logging import get_logger
+from liteyukibot.lyip import LyipLane
 
-from .translate import to_mofox_envelope, to_mofox_event_input, to_send_action
+from .translate import to_mofox_envelope, to_mofox_event_input
 
 type MessageSink = Callable[[Message], Awaitable[None]]
 
 NEO_MOFOX_REQUIREMENT = (
-    "neo-mofox @ git+https://github.com/MoFox-Studio/Neo-MoFox.git@"
-    "e2ee2ff73b494428bbdfd983c7569c6f074a9c76"
+    "neo-mofox @ git+https://github.com/MoFox-Studio/Neo-MoFox.git@e2ee2ff73b494428bbdfd983c7569c6f074a9c76"
 )
+_ALLOWED_BRIDGE_OPTION_KEYS = frozenset({"workspace", "max_concurrent_events"})
 
 
 class _HeadlessMessageSender:
-    """MoFox sender replacement that forwards output to the active Liteyuki event."""
+    """Forward upstream output to the active source bridge delivery."""
 
     def __init__(self, sink: ContextVar[MessageSink | None]) -> None:
         self._sink = sink
@@ -87,23 +92,26 @@ def _portable_message_from_mofox(message: Any) -> Message | None:
 
 
 class MoFoxHeadlessEngine:
-    """Own a private Neo-MoFox lifecycle without any source platform adapter."""
+    """Own one isolated Neo-MoFox workspace without managed projections."""
 
-    def __init__(self, state_directory: Path, options: Mapping[str, object]) -> None:
-        self.state_directory = state_directory
+    def __init__(self, workspace: Path, options: Mapping[str, object]) -> None:
+        self.workspace = workspace
         self.options = options
         self._bot: Any | None = None
         self._previous_cwd: Path | None = None
         self._sink: ContextVar[MessageSink | None] = ContextVar("liteyuki_mofox_sink", default=None)
+        self._previous_src: ModuleType | None = None
+        self._had_src_module = False
 
     async def start(self) -> None:
-        root = self.state_directory / "mofox"
+        root = self.workspace.resolve()
         root.mkdir(parents=True, exist_ok=True)
         self._previous_cwd = Path.cwd()
+        self._had_src_module = "src" in sys.modules
+        self._previous_src = sys.modules.get("src")
         try:
             os.chdir(root)
             _enforce_headless_config(root / "config" / "core.toml")
-            _prepare_managed_plugins(root, self.options)
             _install_upstream_namespace()
             bot_type = import_module("src.app.runtime.bot").Bot
             bot = bot_type(config_path="config/core.toml", plugins_dir="plugins", log_dir="logs")
@@ -116,6 +124,7 @@ class MoFoxHeadlessEngine:
             sender_module.set_message_sender(_HeadlessMessageSender(self._sink))
             self._bot = bot
         except BaseException:
+            self._restore_upstream_namespace()
             self._restore_working_directory()
             raise
 
@@ -139,6 +148,7 @@ class MoFoxHeadlessEngine:
             if bot is not None:
                 await bot.shutdown()
         finally:
+            self._restore_upstream_namespace()
             self._restore_working_directory()
 
     def _restore_working_directory(self) -> None:
@@ -146,164 +156,144 @@ class MoFoxHeadlessEngine:
         if previous is not None:
             os.chdir(previous)
 
+    def _restore_upstream_namespace(self) -> None:
+        if self._previous_cwd is None and not self._had_src_module:
+            return
+        if self._had_src_module:
+            if self._previous_src is not None:
+                sys.modules["src"] = self._previous_src
+        else:
+            sys.modules.pop("src", None)
+        self._previous_src = None
+        self._had_src_module = False
 
-class MoFoxRuntimeHost:
-    def __init__(self, client: RuntimeClient, engine: MoFoxHeadlessEngine, *, max_concurrent_events: int) -> None:
-        self.client = client
+
+class MoFoxBridgeHost:
+    def __init__(self, engine: MoFoxHeadlessEngine, *, max_concurrent_events: int) -> None:
         self.engine = engine
-        self.max_concurrent_events = max_concurrent_events
-        self.logger = get_logger(component="mofox", runtime=os.environ.get("LITEYUKI_RUNTIME_ID", "mofox"))
-        self._tasks: set[asyncio.Task[None]] = set()
+        self._capacity = asyncio.Semaphore(max_concurrent_events)
 
-    async def serve(self) -> None:
-        while True:
-            message = await self.client.receive()
-            if isinstance(message, Shutdown):
-                return
-            if isinstance(message, ActionRequest):
-                await self.client.send(
-                    ActionResponse(
-                        correlation_id=message.correlation_id,
-                        ok=False,
-                        error="MoFox agent runtime does not own a platform action adapter",
-                    )
-                )
-            elif isinstance(message, EventMessage):
-                await self._accept_event(message)
-
-    async def close(self) -> None:
-        tasks = tuple(self._tasks)
-        self._tasks.clear()
-        for task in tasks:
-            task.cancel()
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
-        await self.engine.close()
-
-    async def _accept_event(self, message: EventMessage) -> None:
-        try:
-            event = EventEnvelope.model_validate(message.payload)
+    async def handle_delivery(self, delivery: BrokerDelivery) -> None:
+        async with self._capacity:
+            broker_event = delivery.message.event
+            event = EventEnvelope.model_validate(broker_event.payload)
+            if event.runtime_id != broker_event.source_bridge_id:
+                raise ValueError("MoFox event runtime_id does not match its broker source bridge")
             to_mofox_event_input(event)
-        except ValueError:
-            await self.client.send(
-                EventAccepted(
-                    correlation_id=message.correlation_id,
-                    status="invalid",
-                    detail="MoFox agent runtime requires a valid message EventEnvelope",
+
+            async def emit(message: Message) -> None:
+                payload = MessageSendPayload(
+                    bot_id=event.bot_id,
+                    message=message,
+                    conversation=event.conversation,
+                    reply_token=event.reply_token,
                 )
-            )
-            return
-        if len(self._tasks) >= self.max_concurrent_events:
-            await self.client.send(
-                EventAccepted(
-                    correlation_id=message.correlation_id,
-                    status="overloaded",
-                    detail="MoFox agent runtime event capacity is exhausted",
+                result = await delivery.request_action(
+                    correlation_id=f"mofox:{event.id}:{uuid4()}",
+                    kind=MESSAGE_SEND_KIND,
+                    resource_key=message_send_resource_key(event.runtime_id, event.bot_id),
+                    payload=payload.model_dump(mode="json", exclude_none=True),
                 )
-            )
-            return
-        await self.client.send(EventAccepted(correlation_id=message.correlation_id, status="accepted"))
-        task = asyncio.create_task(
-            self._process_event(message.correlation_id, event, message.trace),
-            name=f"mofox-event:{message.correlation_id}",
-        )
-        self._tasks.add(task)
-        task.add_done_callback(self._event_finished)
+                if not result.success:
+                    raise RuntimeError(f"source bridge rejected message.send: {result.payload}")
 
-    def _event_finished(self, task: asyncio.Task[None]) -> None:
-        self._tasks.discard(task)
-        if task.cancelled():
-            return
-        error = task.exception()
-        if error is not None:
-            self.logger.error("MoFox event task failed: {}", error)
-
-    async def _process_event(
-        self,
-        correlation_id: str,
-        event: EventEnvelope,
-        trace: EventTrace | None,
-    ) -> None:
-        async def emit(message: Message) -> None:
-            action = to_send_action(event, message)
-            result = await self.client.execute_action(
-                action.action_id,
-                action.model_dump(mode="json"),
-                delivery_correlation_id=correlation_id,
-            )
-            if not result.ok:
-                raise RuntimeError(result.error or "source runtime rejected MoFox output")
-
-        try:
             await self.engine.process(event, emit)
-        except Exception as error:
-            self.logger.bind(
-                correlation_id=correlation_id,
-                trace_id=trace.trace_id if trace is not None else None,
-            ).error("MoFox event failed: {}", error)
-            await self.client.send(
-                EventCompleted(
-                    correlation_id=correlation_id,
-                    status="failed",
-                    detail=f"{type(error).__name__}: {error}",
-                )
-            )
-            raise
-        await self.client.send(EventCompleted(correlation_id=correlation_id, status="completed"))
 
 
-async def run() -> None:
-    configure_runtime_child_logging()
-    logger = get_logger(component="mofox", runtime=os.environ.get("LITEYUKI_RUNTIME_ID", "mofox"))
-    client = RuntimeClient.from_environment("mofox")
-    host: MoFoxRuntimeHost | None = None
+async def launch(settings: AppSettings, bridge_id: str, token: str) -> None:
+    """Launch one limited MoFox bridge through the standalone Broker."""
+
+    bridge = settings.broker.bridges.get(bridge_id)
+    if bridge is None:
+        raise RuntimeError(f"broker bridge {bridge_id!r} is not configured")
+    if bridge.kind != "mofox":
+        raise RuntimeError(f"broker bridge {bridge_id!r} is not a MoFox bridge")
+    _validate_bridge_settings(bridge.access, bridge.subscriptions, bridge.action_resources, bridge.options)
+
+    manifest = BridgeManifest(
+        bridge_id=bridge_id,
+        access=BridgeAccess.LIMITED,
+        subscriptions=bridge.subscriptions,
+    )
+    client = BridgeClient(
+        context=zmq.asyncio.Context.instance(),
+        endpoints=_broker_endpoints(settings.broker.endpoint),
+        generation=settings.broker.generation,
+        identity=f"mofox:{bridge_id}:{uuid4()}".encode("ascii"),
+        manifest=manifest,
+        instance_token=token,
+    )
+    engine = MoFoxHeadlessEngine(_workspace_path(settings, bridge_id, bridge.options), bridge.options)
+    host = MoFoxBridgeHost(
+        engine,
+        max_concurrent_events=_positive_int(bridge.options, "max_concurrent_events", 8),
+    )
+    runner = BrokerBridgeRunner(client, event_handler=host.handle_delivery)
+    logger = get_logger(component="mofox", runtime=bridge_id)
     try:
-        logger.info("starting MoFox headless runtime")
-        options = await client.connect()
-        state_directory = Path(os.environ["LITEYUKI_RUNTIME_STATE_DIR"])
-        engine = MoFoxHeadlessEngine(state_directory, options)
+        await runner.start()
         await engine.start()
-        host = MoFoxRuntimeHost(
-            client,
-            engine,
-            max_concurrent_events=_positive_int(options, "max_concurrent_events", 8),
-        )
-        await client.ready(
-            ("runtime.events.receive", "runtime.events.complete", "runtime.actions.send", "mofox.chatter")
-        )
-        logger.info("MoFox headless runtime is ready")
-        await host.serve()
-    except Exception as error:
-        logger.error("MoFox headless runtime failed: {}", error)
-        raise
+        logger.info("MoFox compatibility bridge {} is ready", bridge_id)
+        await runner.serve_forever()
     finally:
-        if host is not None:
-            await host.close()
-        elif "engine" in locals():
+        try:
             await engine.close()
-        await client.close()
-        logger.info("MoFox headless runtime stopped")
+        finally:
+            try:
+                await runner.stop()
+            finally:
+                runner.close()
+
+
+def _validate_bridge_settings(
+    access: str,
+    subscriptions: Sequence[str],
+    action_resources: Sequence[Any],
+    options: Mapping[str, Any],
+) -> None:
+    if access != BridgeAccess.LIMITED.value:
+        raise RuntimeError("MoFox compatibility bridge must use limited access")
+    if not subscriptions:
+        raise RuntimeError("MoFox compatibility bridge must declare at least one subscription")
+    if action_resources:
+        raise RuntimeError("MoFox compatibility bridge must not own platform actions")
+    unsupported = sorted(set(options).difference(_ALLOWED_BRIDGE_OPTION_KEYS))
+    if unsupported:
+        raise RuntimeError(
+            "migration_required: MoFox managed projection options are removed: " + ", ".join(unsupported)
+        )
+    if os.environ.get("LITEYUKI_RUNTIME_GENERATION_DIR"):
+        raise RuntimeError("migration_required: managed MoFox generations are not supported by the bridge")
+
+
+def _workspace_path(settings: AppSettings, bridge_id: str, options: Mapping[str, object]) -> Path:
+    configured = options.get("workspace")
+    if configured is None:
+        path = settings.core.data_dir / "bridges" / bridge_id / "mofox"
+    elif isinstance(configured, str) and configured.strip():
+        path = Path(configured).expanduser()
+    else:
+        raise ValueError("MoFox bridge option 'workspace' must be a non-empty string")
+    resolved = path.resolve()
+    if resolved == settings.core.data_dir.resolve():
+        raise ValueError("MoFox workspace must be isolated below its own directory")
+    return resolved
 
 
 def _positive_int(options: Mapping[str, object], key: str, default: int) -> int:
     value = options.get(key, default)
     if not isinstance(value, int) or isinstance(value, bool) or value < 1:
-        raise ValueError(f"MoFox runtime option {key!r} must be a positive integer")
+        raise ValueError(f"MoFox bridge option {key!r} must be a positive integer")
     return value
 
 
 def _install_upstream_namespace() -> None:
-    """Restore Neo-MoFox's ``src.*`` imports from its installed wheel layout.
+    """Restore Neo-MoFox's ``src.*`` imports from its installed wheel layout."""
 
-    Neo-MoFox publishes ``app``, ``core``, and ``kernel`` as top-level wheel
-    directories while its source retains absolute ``src.*`` imports. The bridge
-    exists only in the isolated child runtime process and points solely at the
-    installed ``neo-mofox`` distribution root.
-    """
     try:
         distribution = importlib.metadata.distribution("neo-mofox")
     except importlib.metadata.PackageNotFoundError as error:
-        raise RuntimeError(f"Neo-MoFox must be installed before this runtime: {NEO_MOFOX_REQUIREMENT}") from error
+        raise RuntimeError(f"Neo-MoFox must be installed before this bridge: {NEO_MOFOX_REQUIREMENT}") from error
     distribution_root = Path(str(distribution.locate_file("")))
     if not all((distribution_root / name).is_dir() for name in ("app", "core", "kernel")):
         raise RuntimeError(f"neo-mofox installation is missing its runtime modules: {distribution_root}")
@@ -316,6 +306,7 @@ def _install_upstream_namespace() -> None:
 
 def _enforce_headless_config(path: Path) -> None:
     """Keep Neo-MoFox's private lifecycle non-interactive and non-listening."""
+
     document = path.read_text(encoding="utf-8") if path.is_file() else ""
     for section, key in (
         ("bot", "llm_preflight_check"),
@@ -329,27 +320,11 @@ def _enforce_headless_config(path: Path) -> None:
     path.write_text(document, encoding="utf-8")
 
 
-def _prepare_managed_plugins(root: Path, options: Mapping[str, object]) -> None:
-    generation = os.environ.get("LITEYUKI_RUNTIME_GENERATION_DIR")
-    if generation is None:
-        return
-    mode = options.get("projection_mode", "copy")
-    if not isinstance(mode, str):
-        raise ValueError("MoFox runtime option 'projection_mode' must be a string")
-    project_managed_plugins(
-        generation,
-        root / "plugins",
-        root / "managed-plugin-backups",
-        mode=mode,
-    )
-
-
 def _set_toml_boolean(document: str, section: str, key: str, value: bool) -> str:
     """Replace one simple TOML boolean while preserving unrelated user settings."""
+
     rendered = "true" if value else "false"
-    section_pattern = re.compile(
-        rf"(?ms)(^\[{re.escape(section)}\]\r?\n)(.*?)(?=^\[|\Z)",
-    )
+    section_pattern = re.compile(rf"(?ms)(^\[{re.escape(section)}\]\r?\n)(.*?)(?=^\[|\Z)")
     section_match = section_pattern.search(document)
     if section_match is None:
         separator = "" if not document or document.endswith("\n") else "\n"
@@ -360,4 +335,26 @@ def _set_toml_boolean(document: str, section: str, key: str, value: bool) -> str
         replacement_body = key_pattern.sub(f"{key} = {rendered}", body, count=1)
     else:
         replacement_body = f"{body}{key} = {rendered}\n"
-    return f"{document[:section_match.start(2)]}{replacement_body}{document[section_match.end(2):]}"
+    return f"{document[: section_match.start(2)]}{replacement_body}{document[section_match.end(2) :]}"
+
+
+def _broker_endpoints(endpoint: str) -> dict[LyipLane, str]:
+    parsed = urlparse(endpoint)
+    if parsed.scheme != "tcp" or parsed.hostname is None or parsed.port is None:
+        raise ValueError("broker endpoint must be a valid tcp URL")
+    host = f"[{parsed.hostname}]" if ":" in parsed.hostname else parsed.hostname
+    return {
+        LyipLane.CONTROL: f"tcp://{host}:{parsed.port}",
+        LyipLane.BUSINESS: f"tcp://{host}:{parsed.port + 1}",
+    }
+
+
+__all__ = [
+    "NEO_MOFOX_REQUIREMENT",
+    "MoFoxBridgeHost",
+    "MoFoxHeadlessEngine",
+    "_enforce_headless_config",
+    "_install_upstream_namespace",
+    "_workspace_path",
+    "launch",
+]

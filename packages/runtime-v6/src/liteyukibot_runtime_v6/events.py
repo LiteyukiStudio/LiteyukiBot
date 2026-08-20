@@ -7,7 +7,7 @@ from typing import Any
 
 from liteyuki.session import MessageEvent, ReplyPayload
 
-from liteyukibot.events import ActionEnvelope, EventEnvelope, Message, Segment, SendMessage
+from liteyukibot.events import EventEnvelope, Message, Segment
 
 _PORTABLE_SEGMENT_TYPES = frozenset({"text", "media", "mention", "reply", "adapter"})
 
@@ -34,18 +34,10 @@ def to_legacy_message_event(envelope: EventEnvelope) -> MessageEvent | None:
     )
 
 
-def reply_to_action(reply: ReplyPayload, envelope: EventEnvelope) -> ActionEnvelope:
-    message = _reply_message(reply)
-    return ActionEnvelope(
-        event_id=envelope.id,
-        runtime_id=envelope.runtime_id,
-        bot_id=envelope.bot_id,
-        action=SendMessage(
-            message=message,
-            conversation=envelope.conversation,
-            reply_token=envelope.reply_token,
-        ),
-    )
+def reply_to_message(reply: ReplyPayload) -> Message:
+    """Convert one v6 reply intent into the portable broker message body."""
+
+    return _reply_message(reply)
 
 
 def _reply_message(reply: ReplyPayload) -> Message:
@@ -81,4 +73,4 @@ def _json_value(value: Any) -> Any:
     return value
 
 
-__all__ = ["reply_to_action", "to_legacy_message_event"]
+__all__ = ["reply_to_message", "to_legacy_message_event"]

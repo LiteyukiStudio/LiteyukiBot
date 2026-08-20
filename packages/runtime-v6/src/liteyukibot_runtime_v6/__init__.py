@@ -1,27 +1,26 @@
-"""LiteyukiBot's separately distributed v6 compatibility runtime."""
+"""LiteyukiBot's separately distributed v6 compatibility bridge."""
 
 from __future__ import annotations
 
-import sys
+from collections.abc import Awaitable
 
-from liteyukibot.runtime import RuntimeInitSpec, RuntimePlugin
+from liteyukibot.broker import BridgeDefinition, BridgeSupportGrade
+from liteyukibot.config import AppSettings
 
-from .facets import V6FacetInstaller
 
-
-def runtime_plugin() -> RuntimePlugin:
-    return RuntimePlugin(
+def bridge_definition() -> BridgeDefinition:
+    return BridgeDefinition(
         kind="v6",
-        command=(sys.executable, "-m", "liteyukibot_runtime_v6"),
-        default_event_route_messages_only=True,
+        grade=BridgeSupportGrade.EXPERIMENTAL,
         distribution="liteyukibot-v7-runtime-v6",
-        facet_installer=V6FacetInstaller(),
-        init_spec=RuntimeInitSpec(
-            default_id="legacy",
-            description="Bounded LiteyukiBot v6 compatibility host.",
-            default_options={"plugins": (), "plugin_dirs": ("plugins",), "config": {"nickname": ("Liteyuki",)}},
-        ),
+        launch=_launch,
     )
 
 
-__all__ = ["runtime_plugin"]
+def _launch(settings: AppSettings, bridge_id: str, token: str) -> Awaitable[None]:
+    from .host import launch
+
+    return launch(settings, bridge_id, token)
+
+
+__all__ = ["bridge_definition"]
