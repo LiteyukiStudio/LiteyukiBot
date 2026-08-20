@@ -35,9 +35,11 @@ RAG chunks, provider secrets, or complete provider transcripts.
 
 `agent-sandbox` starts a fresh native subprocess for every invocation. It
 provides read/write, HTTPS, and command primitives governed by configured file
-roots, command allowlists, CPU/memory/wall/output limits, cancellation, and
-crash handling. HTTPS is permitted by default; loopback, private ranges,
-nonstandard ports, and non-HTTPS traffic require explicit policy.
+roots, command allowlists, wall/output limits, cancellation, and crash
+handling. CPU/memory hard limits remain platform-dependent and are not a
+hostile-code containment claim. HTTPS is permitted by default; loopback,
+private ranges, nonstandard ports, and non-HTTPS traffic require explicit
+policy.
 
 Third-party sandbox tools may be discovered by worker entry point. Native
 subprocess execution is not a hostile-code security boundary: policy constrains

@@ -1,7 +1,7 @@
 [project]
 name = "liteyukibot-v7-agent"
 version = "0.1.0a9"
-description = "Native OpenAI-compatible agent harness for LiteyukiBot v7."
+description = "Experimental Agent and sandbox bridges for LiteyukiBot v7."
 readme = "README.md"
 requires-python = ">=3.14"
 license = "LicenseRef-LSO"
@@ -10,16 +10,14 @@ authors = [
 ]
 dependencies = [
     "liteyukibot-v7>=7.0.0a1,<8",
-    "liteyukibot-v7-commands==0.3.0a1",
     "liteyukibot-v7-agent-resolver==0.2.0a1",
+    "liteyukibot-v7-permissions==0.3.0a2",
     "openai>=2,<3",
 ]
 
-[project.entry-points."liteyukibot.runtimes"]
-agent = "liteyukibot_agent:runtime_plugin"
-
-[project.entry-points."liteyukibot.plugins"]
-"liteyukibot.agent" = "liteyukibot_agent:plugin"
+[project.entry-points."liteyukibot.bridges"]
+agent = "liteyukibot_agent:bridge_definition"
+"agent-sandbox" = "liteyukibot_agent:sandbox_bridge_definition"
 
 [build-system]
 requires = ["uv_build>=0.11.32,<0.12"]
@@ -27,8 +25,8 @@ build-backend = "uv_build"
 
 [tool.uv.sources]
 liteyukibot-v7 = { workspace = true }
-liteyukibot-v7-commands = { workspace = true }
 liteyukibot-v7-agent-resolver = { workspace = true }
+liteyukibot-v7-permissions = { workspace = true }
 
 [tool.uv.build-backend]
 module-root = "src"

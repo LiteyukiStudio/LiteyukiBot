@@ -146,12 +146,13 @@ on core-to-child Events. A v4 child may opt into terminal delivery outcomes with
 second response to `dispatch_event()`. Capability names and protocol versions
 are negotiated exactly rather than inferred.
 
-Protocol v5 additionally permits the kernel to send an explicitly defined
-control request to a child declaring `runtime.controls.execute`. It is not a
-generic RPC surface. The protocol is pre-stable: v5 is the current development
-target and may change without backwards-compatibility shims before the stable
-v7 release. No pre-stable version will exceed v5. Pin the LiteyukiBot version
-used to build and test an external runtime.
+The historical v5 protocol once permitted one explicitly defined kernel
+control request to a child declaring `runtime.controls.execute`. Alpha6 removes
+the Agent-specific Runtime IPC Tool and control models; new Agent controls use
+the Broker Peer IPC v6 `bridge.control.invoke` contract instead. The child
+protocol remains historical and must not be used for a new Agent integration.
+Pin the LiteyukiBot version used to build and test any remaining legacy
+runtime.
 
 ## Legacy testing
 

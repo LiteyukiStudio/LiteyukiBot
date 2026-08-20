@@ -1,1 +1,5 @@
 commands.init.prefixes=Command prefixes
+agent.command.forget.summary=Clear your Agent conversation history
+agent.command.forget.complete=Cleared {count} saved Agent message(s).
+agent.command.forget.denied=You are not allowed to clear this Agent history.
+agent.command.forget.unavailable=The Agent history service is unavailable.

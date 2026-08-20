@@ -1463,7 +1463,7 @@ source = { editable = "packages/agent" }
 dependencies = [
     { name = "liteyukibot-v7" },
     { name = "liteyukibot-v7-agent-resolver" },
-    { name = "liteyukibot-v7-commands" },
+    { name = "liteyukibot-v7-permissions" },
     { name = "openai" },
 ]
 
@@ -1471,7 +1471,7 @@ dependencies = [
 requires-dist = [
     { name = "liteyukibot-v7", editable = "." },
     { name = "liteyukibot-v7-agent-resolver", editable = "packages/agent-resolver" },
-    { name = "liteyukibot-v7-commands", editable = "packages/commands" },
+    { name = "liteyukibot-v7-permissions", editable = "packages/permissions" },
     { name = "openai", specifier = ">=2,<3" },
 ]
 

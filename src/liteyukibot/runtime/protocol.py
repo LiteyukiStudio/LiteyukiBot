@@ -72,7 +72,6 @@ class EventMessage(WireModel):
     correlation_id: str
     payload: dict[str, JsonValue]
     trace: EventTrace | None = None
-    agent_tool_catalog: dict[str, JsonValue] | None = None
 
 
 class EventAccepted(WireModel):
@@ -101,41 +100,6 @@ class ActionRequest(WireModel):
 class ActionResponse(WireModel):
     type: Literal["action_result"] = "action_result"
     correlation_id: str
-    ok: bool
-    data: JsonValue = None
-    error: str | None = None
-
-
-class AgentToolRequest(WireModel):
-    """A capability-gated request bound to an active kernel event delivery."""
-
-    type: Literal["agent_tool"] = "agent_tool"
-    correlation_id: str = Field(min_length=1)
-    delivery_correlation_id: str = Field(min_length=1)
-    tool_id: str = Field(min_length=1)
-    arguments: dict[str, JsonValue] = Field(default_factory=dict)
-
-
-class AgentToolResponse(WireModel):
-    type: Literal["agent_tool_result"] = "agent_tool_result"
-    correlation_id: str = Field(min_length=1)
-    ok: bool
-    data: JsonValue = None
-    error: str | None = None
-
-
-class ControlRequest(WireModel):
-    """A kernel-originated, capability-gated control operation for one child."""
-
-    type: Literal["control"] = "control"
-    correlation_id: str = Field(min_length=1)
-    command: Literal["agent.history.clear"]
-    payload: dict[str, JsonValue] = Field(default_factory=dict)
-
-
-class ControlResponse(WireModel):
-    type: Literal["control_result"] = "control_result"
-    correlation_id: str = Field(min_length=1)
     ok: bool
     data: JsonValue = None
     error: str | None = None
@@ -177,10 +141,6 @@ type WireMessage = Annotated[
     | EventCompleted
     | ActionRequest
     | ActionResponse
-    | AgentToolRequest
-    | AgentToolResponse
-    | ControlRequest
-    | ControlResponse
     | ManagementRequest
     | ManagementResponse
     | ErrorMessage,

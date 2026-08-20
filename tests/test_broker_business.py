@@ -14,9 +14,12 @@ from liteyukibot.broker import (
     AuthorizationContextWire,
     BridgeAccess,
     BridgeClient,
+    BridgeControlInvoke,
+    BridgeControlResult,
     BridgeManifest,
     BridgeRegistrationError,
     BridgeSession,
+    BrokerAdmissionError,
     BrokerBusinessWireError,
     BrokerEvent,
     BrokerPeerServer,
@@ -42,6 +45,7 @@ def _manifest(
     subscriptions: tuple[str, ...] = (),
     resources: tuple[ActionResourceDeclaration, ...] = (),
     tools: tuple[BrokerToolDeclaration, ...] = (),
+    controls: tuple[str, ...] = (),
 ) -> BridgeManifest:
     return BridgeManifest(
         bridge_id=bridge_id,
@@ -49,6 +53,7 @@ def _manifest(
         subscriptions=subscriptions,
         action_resources=resources,
         tools=tools,
+        controls=controls,
     )
 
 
@@ -86,6 +91,15 @@ def _event() -> BrokerEvent:
             authorization=AuthorizationContextWire(event_id="event-1", runtime_id="source", bot_id="bot-1"),
         ),
         ToolResult(invocation_id="invocation-1", success=False, error_code="DENIED"),
+        BridgeControlInvoke(
+            delivery_id="delivery-1",
+            lease_id="lease-1",
+            correlation_id="control-call-1",
+            command="agent.history.clear",
+            authorization=AuthorizationContextWire(event_id="event-1", runtime_id="source", bot_id="bot-1"),
+            payload={"conversation_id": "chat:1"},
+        ),
+        BridgeControlResult(invocation_id="control-invocation-1", success=True, result={"cleared": 2}),
     ),
 )
 def test_business_catalog_round_trips_all_messages_without_absolute_deadlines(message: BrokerBusinessMessage) -> None:
@@ -157,6 +171,14 @@ def test_business_catalog_rejects_wrong_lane_and_type_id() -> None:
             authorization=AuthorizationContextWire(event_id="event-1", runtime_id="source", bot_id="bot-1"),
         ),
         ToolResult(invocation_id="invocation-1", success=False, error_code="DENIED"),
+        BridgeControlInvoke(
+            delivery_id="delivery-1",
+            lease_id="lease-1",
+            correlation_id="control-call-1",
+            command="agent.history.clear",
+            authorization=AuthorizationContextWire(event_id="event-1", runtime_id="source", bot_id="bot-1"),
+        ),
+        BridgeControlResult(invocation_id="control-invocation-1", success=False, error_code="DENIED"),
     ),
 )
 def test_business_models_emit_protocol_six_and_reject_protocol_five(message: BrokerBusinessMessage) -> None:
@@ -233,6 +255,99 @@ def test_duplicate_action_request_does_not_redispatch_owner_and_replays_retained
         success=True,
         payload={"message_id": "7"},
     )
+
+
+def test_control_request_routes_to_declared_owner_and_replays_retained_result() -> None:
+    service = BrokerPeerService(
+        instance_tokens={"source": "source-token", "caller": "caller-token", "agent": "agent-token"},
+        generation=1,
+    )
+    source = BridgeSession("source", "source-session", _manifest("source"), b"source")
+    caller = BridgeSession(
+        "caller",
+        "caller-session",
+        _manifest("caller", subscriptions=("message.created",)),
+        b"caller",
+    )
+    agent = BridgeSession(
+        "agent",
+        "agent-session",
+        _manifest("agent", controls=("agent.history.clear",)),
+        b"agent",
+    )
+    for session in (source, caller, agent):
+        service._sessions_by_bridge[session.bridge_id] = session
+        service._sessions_by_identity[session.peer_identity] = session
+    event = service.admit_event(
+        source.peer_identity,
+        EventIngress(source_event_id="platform-1", topic="message.created", ordering_key="chat:1"),
+    )
+    offer = service.ledger.offered_deliveries(event.kernel_event_id)[0]
+    service.ledger.accept_delivery(caller, offer.delivery_id, offer.lease_id)
+    service.ledger.activate_delivery(caller, offer.delivery_id, offer.lease_id)
+    request = BridgeControlInvoke(
+        delivery_id=offer.delivery_id,
+        lease_id=offer.lease_id,
+        correlation_id="control-call-1",
+        command="agent.history.clear",
+        authorization=AuthorizationContextWire(
+            event_id=event.kernel_event_id,
+            runtime_id="source",
+            bot_id="bot-1",
+            actor_id="user-1",
+        ),
+        payload={"conversation_id": "chat:1"},
+    )
+    request_frame = encode_business_message(
+        request,
+        generation=1,
+        stream_id="bridge:caller:caller-session:control",
+        sequence=0,
+        lease_id=offer.lease_id,
+    )
+    first = service.handle_business(caller.peer_identity, request_frame)
+    assert len(first) == 1
+    dispatched = first[0].message
+    assert isinstance(dispatched, BridgeControlInvoke)
+    assert dispatched.invocation_id is not None
+    assert first[0].target == agent
+
+    result_frame = encode_business_message(
+        BridgeControlResult(
+            invocation_id=dispatched.invocation_id,
+            success=True,
+            result={"cleared": 2},
+        ),
+        generation=1,
+        stream_id="bridge:agent:agent-session:control",
+        sequence=0,
+        lease_id="bridge-business",
+    )
+    result_dispatch = service.handle_business(agent.peer_identity, result_frame)
+    assert result_dispatch == (
+        BusinessDispatch(
+            target=caller,
+            message=BridgeControlResult(
+                invocation_id=dispatched.invocation_id,
+                correlation_id="control-call-1",
+                success=True,
+                result={"cleared": 2},
+            ),
+        ),
+    )
+    replay = service.handle_business(caller.peer_identity, request_frame)
+    assert replay == result_dispatch
+
+    conflict = request.model_copy(update={"payload": {"conversation_id": "other"}})
+    conflict_frame = encode_business_message(
+        conflict,
+        generation=1,
+        stream_id="bridge:caller:caller-session:control",
+        sequence=1,
+        lease_id=offer.lease_id,
+    )
+    with pytest.raises(BrokerAdmissionError, match="different control content"):
+        service.handle_business(caller.peer_identity, conflict_frame)
 
 
 async def _register(server: BrokerPeerServer, client: BridgeClient) -> None:

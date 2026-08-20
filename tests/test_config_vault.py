@@ -12,23 +12,23 @@ from liteyukibot.config.vault import SecretVault, VaultError
 
 def test_vault_round_trip_rotation_and_secret_free_errors(tmp_path: Path) -> None:
     vault = SecretVault(tmp_path / ".liteyuki")
-    vault.initialize("correct horse", {"runtime.agent.api_key_secret": "api-value"})
+    vault.initialize("correct horse", {"agent.provider.api_key": "api-value"})
 
     raw = vault.path.read_text(encoding="utf-8")
     assert "api-value" not in raw
-    assert vault.list_names("correct horse") == ("runtime.agent.api_key_secret",)
+    assert vault.list_names("correct horse") == ("agent.provider.api_key",)
 
     with pytest.raises(VaultError) as captured:
         vault.read("wrong password")
     assert "api-value" not in str(captured.value)
 
     vault.rotate("correct horse", "new password")
-    assert vault.read("new password") == {"runtime.agent.api_key_secret": "api-value"}
+    assert vault.read("new password") == {"agent.provider.api_key": "api-value"}
 
 
 def test_vault_rejects_tampered_kdf_before_decryption(tmp_path: Path) -> None:
     vault = SecretVault(tmp_path / ".liteyuki")
-    vault.initialize("password", {"runtime.agent.api_key_secret": "api-value"})
+    vault.initialize("password", {"agent.provider.api_key": "api-value"})
     document = json.loads(vault.path.read_text(encoding="utf-8"))
     document["kdf"]["n"] = 3
     vault.path.write_text(json.dumps(document), encoding="utf-8")
@@ -54,10 +54,10 @@ def test_cli_vault_commands_never_print_values(
     responses = iter(("password", "password", "api-value", "password"))
     monkeypatch.setattr(getpass, "getpass", lambda _prompt: next(responses))
 
-    assert cli_module.main(["vault", "set", "runtime.agent.api_key_secret"]) == 0
+    assert cli_module.main(["vault", "set", "agent.provider.api_key"]) == 0
     capsys.readouterr()
     assert cli_module.main(["vault", "list"]) == 0
     output = capsys.readouterr().out
 
-    assert "runtime.agent.api_key_secret" in output
+    assert "agent.provider.api_key" in output
     assert "api-value" not in output

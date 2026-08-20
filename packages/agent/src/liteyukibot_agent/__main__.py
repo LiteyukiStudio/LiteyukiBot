@@ -1,7 +1,3 @@
-from __future__ import annotations
+"""The former child-runtime entry point is intentionally unavailable."""
 
-import asyncio
-
-from .host import run
-
-asyncio.run(run())
+raise SystemExit("migration_required: Agent must be launched as a Broker bridge")

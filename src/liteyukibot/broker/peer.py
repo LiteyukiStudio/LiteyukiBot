@@ -33,6 +33,8 @@ if TYPE_CHECKING:
     from .routing import (
         ActionRequest,
         ActionResult,
+        BridgeControlInvoke,
+        BridgeControlResult,
         BrokerEvent,
         BrokerLedger,
         EventAccepted,
@@ -252,6 +254,8 @@ class BrokerPeerService:
         from .routing import (
             ActionRequest,
             ActionResult,
+            BridgeControlInvoke,
+            BridgeControlResult,
             BrokerAdmissionError,
             EventAccepted,
             EventCompleted,
@@ -348,6 +352,24 @@ class BrokerPeerService:
                     message=message.model_copy(update={"invocation_id": tool_routed.invocation_id}),
                 ),
             )
+        if isinstance(message, BridgeControlInvoke):
+            if message.invocation_id is not None:
+                raise BrokerAdmissionError(
+                    "unexpected_control_invocation_id", "bridges must not assign control invocation IDs"
+                )
+            self._require_frame_lease(frame, message.lease_id)
+            control_routed = self.ledger.route_control(session, message, self.sessions)
+            if control_routed.replayed:
+                control_result = self.ledger.control_result(control_routed.invocation_id, session)
+                if control_result is None:
+                    return ()
+                return (BusinessDispatch(target=control_routed.origin, message=control_result),)
+            return (
+                BusinessDispatch(
+                    target=control_routed.target,
+                    message=message.model_copy(update={"invocation_id": control_routed.invocation_id}),
+                ),
+            )
         if isinstance(message, ToolResult):
             tool_routed = self.ledger.tool_route(message.invocation_id)
             tool_result = self.ledger.complete_tool(
@@ -359,6 +381,17 @@ class BrokerPeerService:
                 error_details=message.error_details,
             )
             return (BusinessDispatch(target=tool_routed.origin, message=tool_result),)
+        if isinstance(message, BridgeControlResult):
+            control_routed = self.ledger.control_route(message.invocation_id)
+            control_result = self.ledger.complete_control(
+                session,
+                message.invocation_id,
+                success=message.success,
+                result=message.result,
+                error_code=message.error_code,
+                error_details=message.error_details,
+            )
+            return (BusinessDispatch(target=control_routed.origin, message=control_result),)
         if isinstance(message, EventMessage):
             raise BrokerAdmissionError("unexpected_message", "bridges must not send broker event deliveries")
         raise BrokerAdmissionError("unexpected_message", "broker does not accept this business message from a bridge")
@@ -413,6 +446,12 @@ class BrokerPeerService:
                     peer_identity,
                     frame,
                     BridgeRejected(code="tool_conflict", message="a live bridge already owns this Tool ID"),
+                )
+            if set(current.manifest.controls) & set(message.manifest.controls):
+                return self._reply(
+                    peer_identity,
+                    frame,
+                    BridgeRejected(code="control_conflict", message="a live bridge already owns this control"),
                 )
             if current.manifest.access is not message.manifest.access:
                 continue
@@ -552,9 +591,16 @@ class BrokerPeerServer:
         """Send one catalog message on a target's registered session-bound business stream."""
 
         from .business import encode_business_message
-        from .routing import EventMessage
+        from .routing import BridgeControlInvoke, BridgeControlResult, EventMessage, ToolInvoke, ToolResult
 
-        suffix = "delivery" if isinstance(message, EventMessage) else "action"
+        if isinstance(message, EventMessage):
+            suffix = "delivery"
+        elif isinstance(message, (ToolInvoke, ToolResult)):
+            suffix = "tool"
+        elif isinstance(message, (BridgeControlInvoke, BridgeControlResult)):
+            suffix = "control"
+        else:
+            suffix = "action"
         stream_id = f"bridge:{target.bridge_id}:{target.session_id}:{suffix}"
         sequence_key = (target.peer_identity, stream_id)
         sequence = self._business_sequences.get(sequence_key, 0)
@@ -679,6 +725,13 @@ class BridgeClient:
     async def send_tool_result(self, message: ToolResult) -> None:
         await self._send_business(message, suffix="tool", lease_id="bridge-business")
 
+    async def send_control_invoke(self, message: BridgeControlInvoke) -> None:
+        self._require_delivery_lease(message.delivery_id, message.lease_id)
+        await self._send_business(message, suffix="control", lease_id=message.lease_id)
+
+    async def send_control_result(self, message: BridgeControlResult) -> None:
+        await self._send_business(message, suffix="control", lease_id="bridge-business")
+
     async def receive_business(self) -> BrokerBusinessMessage:
         """Receive one broker business message and bind offered leases to this live session."""
 
@@ -736,6 +789,22 @@ class BridgeClient:
         message = await self.receive_business()
         if not isinstance(message, ToolResult):
             raise BridgeRegistrationError("broker sent a non-Tool result while one was expected")
+        return message
+
+    async def receive_control_invoke(self) -> BridgeControlInvoke:
+        from .routing import BridgeControlInvoke
+
+        message = await self.receive_business()
+        if not isinstance(message, BridgeControlInvoke) or message.invocation_id is None:
+            raise BridgeRegistrationError("broker sent a non-control invocation while one was expected")
+        return message
+
+    async def receive_control_result(self) -> BridgeControlResult:
+        from .routing import BridgeControlResult
+
+        message = await self.receive_business()
+        if not isinstance(message, BridgeControlResult):
+            raise BridgeRegistrationError("broker sent a non-control result while one was expected")
         return message
 
     async def _send_business(self, message: BrokerBusinessMessage, *, suffix: str, lease_id: str) -> None:

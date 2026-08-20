@@ -21,8 +21,9 @@ packages directly.
   by Beta6; the root kernel discovers it through host entry points.
 - `adapter-onebot` is a platform driver loaded by the shared `runtime-adapter`
   Broker bridge.
-- `agent` and `agent-resolver` provide the native agent runtime and its
-  declarative resolver.
+- `agent` and `agent-resolver` provide the experimental Agent Broker bridges,
+  bounded catalog, and declarative Tool resolver. They do not publish a child
+  runtime or native Agent plugin.
 
 ## Development Rules
 

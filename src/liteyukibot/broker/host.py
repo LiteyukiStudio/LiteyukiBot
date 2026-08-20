@@ -13,6 +13,8 @@ from .protocol import AuthorizationContextWire
 from .routing import (
     ActionRequest,
     ActionResult,
+    BridgeControlInvoke,
+    BridgeControlResult,
     EventAccepted,
     EventCompleted,
     EventMessage,
@@ -42,9 +44,20 @@ class ToolOutcome:
     error_details: Mapping[str, JsonValue] | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class ControlOutcome:
+    """One stable control result; exception text never crosses the broker wire."""
+
+    success: bool
+    result: JsonValue = None
+    error_code: str | None = None
+    error_details: Mapping[str, JsonValue] | None = None
+
+
 type EventHandler = Callable[[BrokerDelivery], Awaitable[None]]
 type ActionHandler = Callable[[ActionRequest], Awaitable[ActionOutcome]]
 type ToolHandler = Callable[[ToolInvoke], Awaitable[ToolOutcome]]
+type ControlHandler = Callable[[BridgeControlInvoke], Awaitable[ControlOutcome]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +108,27 @@ class BrokerDelivery:
             timeout_seconds=timeout_seconds or self.message.lease_ttl_ms / 1_000,
         )
 
+    async def request_control(
+        self,
+        *,
+        correlation_id: str,
+        command: str,
+        authorization: AuthorizationContextWire,
+        payload: Mapping[str, JsonValue] | None = None,
+        timeout_seconds: float | None = None,
+    ) -> BridgeControlResult:
+        """Invoke a declared bridge control through the active delivery lease."""
+
+        return await self._runner.request_control(
+            delivery_id=self.message.delivery_id,
+            lease_id=self.message.lease_id,
+            correlation_id=correlation_id,
+            command=command,
+            authorization=authorization,
+            payload=payload,
+            timeout_seconds=timeout_seconds or self.message.lease_ttl_ms / 1_000,
+        )
+
 
 class BrokerBridgeRunner:
     """Coordinate a bridge host over one registered :class:`BridgeClient`.
@@ -111,13 +145,16 @@ class BrokerBridgeRunner:
         event_handler: EventHandler | None = None,
         action_handlers: Mapping[str, ActionHandler] | None = None,
         tool_handlers: Mapping[str, ToolHandler] | None = None,
+        control_handlers: Mapping[str, ControlHandler] | None = None,
     ) -> None:
         self.client = client
         self._event_handler = event_handler
         self._action_handlers = dict(action_handlers or {})
         self._tool_handlers = dict(tool_handlers or {})
+        self._control_handlers = dict(control_handlers or {})
         self._pending_results: dict[str, asyncio.Future[ActionResult]] = {}
         self._pending_tool_results: dict[str, asyncio.Future[ToolResult]] = {}
+        self._pending_control_results: dict[str, asyncio.Future[BridgeControlResult]] = {}
         self._background: set[asyncio.Task[None]] = set()
         self._closing = False
 
@@ -147,6 +184,10 @@ class BrokerBridgeRunner:
             if not tool_future.done():
                 tool_future.set_exception(BridgeRegistrationError("bridge runner stopped before Tool result"))
         self._pending_tool_results.clear()
+        for control_future in self._pending_control_results.values():
+            if not control_future.done():
+                control_future.set_exception(BridgeRegistrationError("bridge runner stopped before control result"))
+        self._pending_control_results.clear()
         if self.client.session_id is not None:
             await self.client.unregister()
 
@@ -176,8 +217,14 @@ class BrokerBridgeRunner:
             if message.invocation_id is None:
                 raise BridgeRegistrationError("broker sent a Tool invocation without an invocation ID")
             self._spawn(self._handle_tool(message))
+        elif isinstance(message, BridgeControlInvoke):
+            if message.invocation_id is None:
+                raise BridgeRegistrationError("broker sent a control invocation without an invocation ID")
+            self._spawn(self._handle_control(message))
         elif isinstance(message, ToolResult):
             self._resolve_tool_result(message)
+        elif isinstance(message, BridgeControlResult):
+            self._resolve_control_result(message)
         elif isinstance(message, ActionResult):
             self._resolve_action_result(message)
         else:
@@ -265,6 +312,45 @@ class BrokerBridgeRunner:
             if self._pending_tool_results.get(normalized_correlation) is future:
                 self._pending_tool_results.pop(normalized_correlation, None)
 
+    async def request_control(
+        self,
+        *,
+        delivery_id: str,
+        lease_id: str,
+        correlation_id: str,
+        command: str,
+        authorization: AuthorizationContextWire,
+        payload: Mapping[str, JsonValue] | None = None,
+        timeout_seconds: float | None = None,
+    ) -> BridgeControlResult:
+        normalized_correlation = correlation_id.strip()
+        if not normalized_correlation:
+            raise ValueError("control correlation ID must be non-empty")
+        if normalized_correlation in self._pending_control_results:
+            raise BridgeRegistrationError("a control result is already pending for this correlation ID")
+        if timeout_seconds is not None and timeout_seconds <= 0:
+            raise ValueError("control timeout must be positive")
+        future: asyncio.Future[BridgeControlResult] = asyncio.get_running_loop().create_future()
+        self._pending_control_results[normalized_correlation] = future
+        try:
+            await self.client.send_control_invoke(
+                BridgeControlInvoke(
+                    delivery_id=delivery_id,
+                    lease_id=lease_id,
+                    correlation_id=normalized_correlation,
+                    command=command,
+                    authorization=authorization,
+                    payload=payload or {},
+                )
+            )
+            result = await asyncio.wait_for(future, timeout=timeout_seconds) if timeout_seconds else await future
+            if not isinstance(result, BridgeControlResult):
+                raise BridgeRegistrationError("received an unexpected result for a pending bridge control")
+            return result
+        finally:
+            if self._pending_control_results.get(normalized_correlation) is future:
+                self._pending_control_results.pop(normalized_correlation, None)
+
     async def _handle_delivery(self, message: EventMessage) -> None:
         await self.client.send_event_accepted(EventAccepted(delivery_id=message.delivery_id, lease_id=message.lease_id))
         try:
@@ -320,6 +406,25 @@ class BrokerBridgeRunner:
             )
         )
 
+    async def _handle_control(self, request: BridgeControlInvoke) -> None:
+        handler = self._control_handlers.get(request.command)
+        if handler is None:
+            outcome = ControlOutcome(success=False, error_code="CONTROL_NOT_REGISTERED")
+        else:
+            try:
+                outcome = await handler(request)
+            except Exception:
+                outcome = ControlOutcome(success=False, error_code="CONTROL_HANDLER_FAILED")
+        await self.client.send_control_result(
+            BridgeControlResult(
+                invocation_id=request.invocation_id or "",
+                success=outcome.success,
+                result=outcome.result,
+                error_code=outcome.error_code,
+                error_details=outcome.error_details,
+            )
+        )
+
     def _resolve_action_result(self, result: ActionResult) -> None:
         if result.correlation_id is None:
             raise BridgeRegistrationError("broker action result is missing its correlation ID")
@@ -331,6 +436,13 @@ class BrokerBridgeRunner:
         if result.correlation_id is None:
             raise BridgeRegistrationError("Tool result is missing its correlation ID")
         future = self._pending_tool_results.get(result.correlation_id)
+        if future is not None and not future.done():
+            future.set_result(result)
+
+    def _resolve_control_result(self, result: BridgeControlResult) -> None:
+        if result.correlation_id is None:
+            raise BridgeRegistrationError("bridge control result is missing its correlation ID")
+        future = self._pending_control_results.get(result.correlation_id)
         if future is not None and not future.done():
             future.set_result(result)
 

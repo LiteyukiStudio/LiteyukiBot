@@ -241,9 +241,9 @@ stored only in .liteyuki/secrets.v1.json. The vault derives its encryption key
 with scrypt and encrypts the complete mapping with AES-256-GCM.
 
 ~~~bash
-uv run liteyuki vault set runtime.agent.api_key_secret
+uv run liteyuki vault set agent.provider.api_key
 uv run liteyuki vault list
-uv run liteyuki vault delete runtime.agent.api_key_secret
+uv run liteyuki vault delete agent.provider.api_key
 uv run liteyuki vault rotate
 ~~~
 
@@ -255,14 +255,21 @@ bridge launcher. The diagnostics token authenticates read-only control-plane
 queries and must not reuse any bridge token. Resolved tokens never enter broker
 business payloads or configuration diagnostics.
 
-The native agent runtime uses LITEYUKI_AGENT_API_KEY by default. Existing
-api_key_env configuration remains an explicit compatibility override.
+The Agent bridge reads provider credentials from its resolved bridge options.
+Use an option such as `api_key = { secret_ref = "agent.provider.api_key" }`;
+the secret value is resolved only when that bridge is launched. The former
+`LITEYUKI_AGENT_API_KEY` runtime environment and `api_key_env` settings are not
+accepted by Alpha6.
 
 ## Upgrade Material
 
 `config_version = 5` is the current v7 pre-release schema. This is a hard cut:
 the root configuration must declare version 5, and the former `runtimes` and
 `runtime_event_routes` sections are not accepted as broker configuration. A
+legacy `[agent]` section, `runtimes.* kind = "agent"`, and the
+`liteyukibot.agent` native plugin are also rejected with `migration_required`;
+configure an Alpha6 Agent bridge under `broker.bridges.<id>` instead. The
+former Runtime IPC Agent Tool and control messages are removed.
 root configuration with a missing version or a version below 5 is preserved
 and blocks startup after generating:
 
@@ -278,7 +285,7 @@ uv run liteyuki config upgrade --refresh
 ~~~
 
 Configurations from a newer schema are rejected without creating backups.
-The saved configuration is usable only with the matching older beta binary;
+The saved configuration is usable only with the matching older alpha binary;
 there is no in-place rollback command because the old root was not mutated.
 Broker defaults and bridge manifest fields are defined by the v5 settings model
 and the [Broker Peer IPC v6 specification](specs/runtime-ipc-v6.md).
@@ -321,6 +328,37 @@ action_resources = [{ kind = "message.send", resource_prefix = "bot:astrbot:" }]
 
 [broker.bridges.astrbot.options]
 workspace = "./astrbot"
+
+[broker.bridges.agent]
+kind = "agent"
+token_secret = "broker.agent.token"
+access = "limited"
+subscriptions = ["message.created"]
+controls = ["agent.history.clear"]
+
+[broker.bridges.agent.options]
+api_key = { secret_ref = "agent.provider.api_key" }
+model = "gpt-4o-mini"
+history_limit = 40
+max_tool_rounds = 4
+rag_paths = ["./data/agent-docs"]
+rag_citations = false
+
+[broker.bridges.agent-sandbox]
+kind = "agent-sandbox"
+token_secret = "broker.agent-sandbox.token"
+access = "limited"
+tools = [
+  { id = "agent.sandbox.file.read", description = "Read UTF-8 text from a configured sandbox file root.", input_schema = { type = "object", properties = { path = { type = "string", minLength = 1 } }, required = ["path"], additionalProperties = false } },
+]
+
+[broker.bridges.agent-sandbox.options]
+file_roots = ["./data/agent-sandbox"]
+command_allowlist = []
+allowed_ports = [443]
+wall_timeout_seconds = 15
+max_output_bytes = 32768
+max_file_bytes = 262144
 ```
 
 Except for the reserved `kernel` kind, `kind` must be provided by an installed
@@ -334,6 +372,23 @@ complete segment, with no regex, partial wildcard, or recursive wildcard
 semantics. Installed bridge definitions declare an owning distribution,
 launcher, and support grade: NoneBot is `stable`; AstrBot, v6, and MoFox are
 `experimental`.
+
+The Alpha6 Agent package publishes the experimental `agent` and
+`agent-sandbox` kinds. The Agent bridge owns no platform action resource; it
+requests the source bridge's `message.send` resource through the active event
+delivery. The sandbox bridge subscribes to no events and owns no actions or
+controls. Its `tools` entries are configuration-authoritative declarations and
+must exactly match the installed built-in or
+`liteyukibot.agent_sandbox_tools` declarations. Every invocation runs in a
+fresh worker with the configured file, network, command, wall-clock, and output
+limits. Permission checks still apply to the original Broker authorization
+context.
+
+Agent RAG is enabled only when `rag_paths` is non-empty. It incrementally
+indexes UTF-8 files in SQLite and uses the same provider credentials by
+default; `rag_embedding_api_key`, `rag_embedding_base_url`, and the chunk,
+top-k, context, timeout, and citation options can override those defaults.
+Citation output is disabled unless `rag_citations = true`.
 
 The compatibility bridges are configured as limited subscribers and do not
 own platform action resources. They request `message.send` back to the source

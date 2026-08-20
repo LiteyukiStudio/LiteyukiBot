@@ -16,7 +16,6 @@ import liteyukibot.app as app_module
 from liteyukibot import __version__
 from liteyukibot.app import AppState, LiteyukiApp
 from liteyukibot.config import (
-    AgentSettings,
     AppSettings,
     CoreSettings,
     HttpSettings,
@@ -248,7 +247,6 @@ def test_topology_reports_redacted_runtime_edges_and_health(tmp_path: Path) -> N
             "id": "source",
             "kind": "noop",
             "enabled": True,
-            "agent_harness": None,
             "health": {
                 "kind": "noop",
                 "state": "stopped",
@@ -260,10 +258,8 @@ def test_topology_reports_redacted_runtime_edges_and_health(tmp_path: Path) -> N
                 "failures_in_window": 0,
                 "pending_actions": 0,
                 "pending_events": 0,
-                "pending_controls": 0,
                 "inbound_actions": 0,
                 "inbound_events": 0,
-                "inbound_agent_tools": 0,
                 "inbound_management": 0,
                 "active_deliveries": 0,
             },
@@ -272,7 +268,6 @@ def test_topology_reports_redacted_runtime_edges_and_health(tmp_path: Path) -> N
             "id": "target",
             "kind": "noop",
             "enabled": True,
-            "agent_harness": None,
             "health": {
                 "kind": "noop",
                 "state": "stopped",
@@ -284,10 +279,8 @@ def test_topology_reports_redacted_runtime_edges_and_health(tmp_path: Path) -> N
                 "failures_in_window": 0,
                 "pending_actions": 0,
                 "pending_events": 0,
-                "pending_controls": 0,
                 "inbound_actions": 0,
                 "inbound_events": 0,
-                "inbound_agent_tools": 0,
                 "inbound_management": 0,
                 "active_deliveries": 0,
             },
@@ -734,25 +727,6 @@ async def test_app_creates_a_private_runtime_state_directory(tmp_path: Path) -> 
         )
     finally:
         await app.stop()
-
-
-@pytest.mark.skip(reason="legacy runtime route generation is not part of config v5")
-def test_agent_harness_generates_a_messages_only_route(tmp_path: Path) -> None:
-    settings = AppSettings(  # type: ignore[call-arg]  # historical child-supervisor configuration
-        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"),
-        agent=AgentSettings(enabled=True, agent_harness="native"),
-        runtimes={
-            "source": RuntimeSettings(kind="noop"),
-            "native": RuntimeSettings(kind="agent"),
-        },
-    )
-
-    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
-
-    assert app._runtime_event_routes == (
-        RuntimeEventRoute(sources=("source",), target="native", messages_only=True),
-    )
-    assert app.runtimes.records["native"].spec.agent_harness == "native"
 
 
 @pytest.mark.asyncio

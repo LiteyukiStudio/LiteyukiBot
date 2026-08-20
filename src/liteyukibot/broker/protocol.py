@@ -142,6 +142,7 @@ class BridgeManifest(BrokerWireModel):
     subscriptions: tuple[str, ...] = ()
     action_resources: tuple[ActionResourceDeclaration, ...] = ()
     tools: tuple[BrokerToolDeclaration, ...] = ()
+    controls: tuple[str, ...] = ()
 
     @field_validator("bridge_id", mode="before")
     @classmethod
@@ -161,6 +162,16 @@ class BridgeManifest(BrokerWireModel):
         if len(declarations) != len(set(declarations)):
             raise ValueError("bridge declarations must not contain duplicates")
         return tuple(declarations)
+
+    @field_validator("controls", mode="before")
+    @classmethod
+    def validate_controls(cls, value: object) -> tuple[str, ...]:
+        if not isinstance(value, (list, tuple)):
+            raise TypeError("bridge controls must be a JSON array")
+        controls = tuple(_non_blank_identifier(item) for item in value if isinstance(item, str))
+        if len(controls) != len(value) or len(controls) != len(set(controls)):
+            raise ValueError("bridge controls must be unique strings")
+        return controls
 
     @model_validator(mode="after")
     def validate_action_resources(self) -> BridgeManifest:

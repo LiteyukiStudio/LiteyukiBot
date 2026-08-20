@@ -20,6 +20,7 @@ from liteyukibot_commands.service import create_command_service
 from liteyukibot_permissions import PERMISSION_SERVICE, PUBLIC, PermissionSnapshot, Principal
 
 from liteyukibot import LiteyukiApp, PluginContext, PluginDefinition, PluginManifest
+from liteyukibot.agents import AGENT_HISTORY_SERVICE
 from liteyukibot.config import AppSettings, CoreSettings, PluginSettings
 from liteyukibot.events import (
     ActorRef,
@@ -31,6 +32,7 @@ from liteyukibot.events import (
     SendMessage,
 )
 from liteyukibot.exceptions import PluginError, ServiceError
+from liteyukibot.i18n import I18N_SERVICE
 from liteyukibot.logging import get_logger
 from liteyukibot.services import ServiceRequirement
 from liteyukibot.testing import PluginTestHarness
@@ -382,7 +384,11 @@ def test_command_plugin_manifest_declares_permission_dependency() -> None:
     assert plugin.manifest.id == "liteyukibot.commands"
     assert plugin.manifest.version == "0.3.0a1"
     assert plugin.manifest.provides == (COMMAND_SERVICE,)
-    assert tuple(item.key for item in plugin.manifest.requires) == (PERMISSION_SERVICE,)
+    assert tuple(item.key for item in plugin.manifest.requires) == (
+        PERMISSION_SERVICE,
+        AGENT_HISTORY_SERVICE,
+        I18N_SERVICE,
+    )
 
 
 @pytest.mark.asyncio

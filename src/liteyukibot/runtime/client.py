@@ -18,10 +18,7 @@ from .protocol import (
     SUPPORTED_PROTOCOL_VERSIONS,
     ActionRequest,
     ActionResponse,
-    AgentToolRequest,
-    AgentToolResponse,
     ConfigMessage,
-    ControlResponse,
     Heartbeat,
     Hello,
     JsonValue,
@@ -99,8 +96,6 @@ class RuntimeClient:
         self._heartbeat_task: asyncio.Task[None] | None = None
         self._capabilities: frozenset[str] = frozenset()
         self._pending_actions: dict[str, asyncio.Future[ActionResponse]] = {}
-        self._pending_agent_tools: dict[str, asyncio.Future[AgentToolResponse]] = {}
-        self._pending_controls: dict[str, asyncio.Future[ControlResponse]] = {}
         self._pending_management: dict[str, asyncio.Future[ManagementResponse]] = {}
         self._closed = False
 
@@ -208,16 +203,6 @@ class RuntimeClient:
                     if future is not None and not future.done():
                         future.set_result(message)
                         continue
-                if isinstance(message, AgentToolResponse):
-                    agent_tool_future = self._pending_agent_tools.pop(message.correlation_id, None)
-                    if agent_tool_future is not None and not agent_tool_future.done():
-                        agent_tool_future.set_result(message)
-                        continue
-                if isinstance(message, ControlResponse):
-                    control_future = self._pending_controls.pop(message.correlation_id, None)
-                    if control_future is not None and not control_future.done():
-                        control_future.set_result(message)
-                        continue
                 if isinstance(message, ManagementResponse):
                     management_future = self._pending_management.pop(message.correlation_id, None)
                     if management_future is not None and not management_future.done():
@@ -261,42 +246,6 @@ class RuntimeClient:
                 return await future
         finally:
             self._pending_actions.pop(correlation_id, None)
-
-    async def execute_agent_tool(
-        self,
-        correlation_id: str,
-        delivery_correlation_id: str,
-        tool_id: str,
-        arguments: Mapping[str, Any],
-        timeout_seconds: float = 30.0,
-    ) -> AgentToolResponse:
-        if timeout_seconds <= 0:
-            raise ValueError("agent tool timeout must be positive")
-        if not delivery_correlation_id or not tool_id:
-            raise ValueError("agent tool delivery correlation id and tool id must not be empty")
-        if self.negotiated_protocol not in (3, 4, 5):
-            raise RuntimeError("agent tools require runtime protocol v3, v4, or v5")
-        if self._heartbeat_task is None:
-            raise RuntimeError("runtime client is not ready")
-        if "agent.tools.execute" not in self._capabilities:
-            raise RuntimeError("runtime client did not declare agent.tools.execute")
-        if correlation_id in self._pending_agent_tools:
-            raise ValueError(f"duplicate agent tool correlation id: {correlation_id}")
-
-        request = AgentToolRequest(
-            correlation_id=correlation_id,
-            delivery_correlation_id=delivery_correlation_id,
-            tool_id=tool_id,
-            arguments=json_mapping(arguments),
-        )
-        future: asyncio.Future[AgentToolResponse] = asyncio.get_running_loop().create_future()
-        self._pending_agent_tools[correlation_id] = future
-        try:
-            await self.send(request)
-            async with asyncio.timeout(timeout_seconds):
-                return await future
-        finally:
-            self._pending_agent_tools.pop(correlation_id, None)
 
     async def send(self, message: WireMessage) -> None:
         dealer = self._dealer
@@ -402,8 +351,6 @@ class RuntimeClient:
     def _fail_pending(self, error: BaseException) -> None:
         for pending in (
             self._pending_actions,
-            self._pending_agent_tools,
-            self._pending_controls,
             self._pending_management,
         ):
             for future in pending.values():

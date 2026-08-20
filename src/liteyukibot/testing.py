@@ -31,7 +31,7 @@ from .runtime import (
     RuntimeSupervisor,
 )
 from .runtime.protocol import EventCompleted, JsonValue, json_mapping
-from .runtime.supervisor import ActionProvenance, ActionSinkResult, AgentToolSink, AgentToolSinkResult, EventSink
+from .runtime.supervisor import ActionProvenance, ActionSinkResult, EventSink
 from .services import ServiceKey, ServiceRegistry
 
 
@@ -168,7 +168,6 @@ class RuntimeTestHarness:
         *,
         event_sink: EventSink | None = None,
         action_sink: Callable[[str, dict[str, JsonValue]], Awaitable[ActionSinkResult]] | None = None,
-        agent_tool_sink: AgentToolSink | None = None,
     ) -> None:
         if spec.command is None or not spec.command:
             raise ValueError("runtime test harness requires an explicit child command")
@@ -179,7 +178,6 @@ class RuntimeTestHarness:
         )
         self._event_sink = event_sink
         self._action_sink = action_sink
-        self._agent_tool_sink = agent_tool_sink
         self._child_events: list[tuple[str, dict[str, JsonValue]]] = []
         self._child_actions: list[tuple[str, dict[str, JsonValue]]] = []
         self._child_output: deque[tuple[str, str]] = deque(maxlen=100)
@@ -189,7 +187,6 @@ class RuntimeTestHarness:
             logger=get_logger(component="runtime-test"),
             event_sink=self._record_event,
             action_sink=self._record_action,
-            agent_tool_sink=self._record_agent_tool,
             output_sink=self._record_output,
             delivery_completion_sink=self._record_delivery_completion,
         )
@@ -260,7 +257,6 @@ class RuntimeTestHarness:
         *,
         correlation_id: str | None = None,
         timeout_seconds: float = 5.0,
-        agent_tool_catalog: Mapping[str, Any] | None = None,
     ) -> EventAccepted:
         if not self._started:
             raise RuntimeError("runtime test harness is not started")
@@ -269,7 +265,6 @@ class RuntimeTestHarness:
             correlation_id or str(uuid4()),
             payload,
             timeout_seconds,
-            agent_tool_catalog=agent_tool_catalog,
         )
 
     async def execute_action(
@@ -320,18 +315,6 @@ class RuntimeTestHarness:
         if self._action_sink is None:
             return ActionSinkResult(ok=True, data={"recorded": True})
         return await self._action_sink(runtime_id, payload)
-
-    async def _record_agent_tool(
-        self,
-        runtime_id: str,
-        delivery_correlation_id: str,
-        payload: dict[str, JsonValue],
-        tool_id: str,
-        arguments: dict[str, JsonValue],
-    ) -> AgentToolSinkResult:
-        if self._agent_tool_sink is None:
-            return AgentToolSinkResult(ok=False, error="agent tool sink is not configured")
-        return await self._agent_tool_sink(runtime_id, delivery_correlation_id, payload, tool_id, arguments)
 
     def _record_output(self, _runtime_id: str, channel: str, line: str) -> None:
         self._child_output.append((channel, line))

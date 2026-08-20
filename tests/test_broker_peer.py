@@ -57,10 +57,11 @@ def test_manifest_is_immutable_json_safe_and_rejects_invalid_declarations() -> N
     assert manifest.model_dump(mode="json") == {
         "bridge_id": "astrbot",
         "access": "limited",
-            "subscriptions": ["message.created"],
-            "action_resources": [{"kind": "message.send", "resource_prefix": "bot:"}],
-            "tools": [],
-        }
+        "subscriptions": ["message.created"],
+        "action_resources": [{"kind": "message.send", "resource_prefix": "bot:"}],
+        "tools": [],
+        "controls": [],
+    }
     with pytest.raises(ValidationError, match="duplicates"):
         BridgeManifest(
             bridge_id="astrbot",

@@ -18,7 +18,6 @@ class RuntimePlugin:
     kind: str
     command: tuple[str, ...]
     default_event_route_messages_only: bool = False
-    agent_harness: str | None = None
     init_spec: RuntimeInitSpec | None = None
     facet_installer: RuntimeFacetInstaller | None = None
     distribution: str | None = None
@@ -29,10 +28,6 @@ class RuntimePlugin:
             raise ValueError("runtime plugin kind must be a non-empty trimmed string")
         if not self.command or any(not argument for argument in self.command):
             raise ValueError("runtime plugin command must contain non-empty arguments")
-        if self.agent_harness is not None and (
-            not self.agent_harness or self.agent_harness != self.agent_harness.strip()
-        ):
-            raise ValueError("runtime plugin agent_harness must be a non-empty trimmed string")
         if self.distribution is not None and (
             not self.distribution or self.distribution != self.distribution.strip()
         ):
