@@ -162,9 +162,25 @@ async def test_agent_history_control_checks_context_and_clears_one_conversation(
             bot_id="bot-1",
             actor_id="user-1",
         ),
-        payload={"conversation_id": "group:group-1"},
+        payload={
+            "runtime_id": "nonebot",
+            "bot_id": "bot-1",
+            "conversation_id": "group:group-1",
+        },
     )
     try:
+        invalid = request.model_copy(
+            update={
+                "payload": {
+                    "runtime_id": "other-runtime",
+                    "bot_id": "bot-1",
+                    "conversation_id": "group:group-1",
+                }
+            }
+        )
+        invalid_result = await host.clear_history(invalid)
+        assert invalid_result.success is False
+        assert invalid_result.error_code == "CONTROL_INVALID_PAYLOAD"
         result = await host.clear_history(request)
         assert result.success is True
         assert result.result == {"cleared": 1}

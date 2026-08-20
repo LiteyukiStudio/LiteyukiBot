@@ -707,6 +707,33 @@ class BrokerLedger:
     ) -> RoutedControl:
         delivery = self._require_delivery(session, request.delivery_id, request.lease_id, DeliveryState.ACTIVE)
         record = self._delivery_index[delivery.delivery_id]
+        authorization = request.authorization
+        if authorization.event_id != record.event.kernel_event_id:
+            raise BrokerAdmissionError(
+                "control_authorization_mismatch",
+                "control authorization does not match the routed event",
+            )
+        if authorization.runtime_id != record.event.source_bridge_id:
+            raise BrokerAdmissionError(
+                "control_authorization_mismatch",
+                "control authorization runtime does not match the routed event",
+            )
+        event_payload = record.event.payload
+        if isinstance(event_payload, Mapping):
+            event_bot_id = event_payload.get("bot_id")
+            if isinstance(event_bot_id, str) and authorization.bot_id != event_bot_id:
+                raise BrokerAdmissionError(
+                    "control_authorization_mismatch",
+                    "control authorization bot does not match the routed event",
+                )
+            event_actor = event_payload.get("actor")
+            if isinstance(event_actor, Mapping):
+                event_actor_id = event_actor.get("id")
+                if isinstance(event_actor_id, str) and authorization.actor_id != event_actor_id:
+                    raise BrokerAdmissionError(
+                        "control_authorization_mismatch",
+                        "control authorization actor does not match the routed event",
+                    )
         canonical = json.dumps(
             request.model_dump(mode="json", exclude_none=True), sort_keys=True, separators=(",", ":")
         )

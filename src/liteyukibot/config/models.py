@@ -648,6 +648,10 @@ def configured_kernel_bridge_settings(
         raise ValueError("kernel bridge must declare at least one subscription")
     if bridge.action_resources:
         raise ValueError("kernel bridge must not declare action ownership")
+    if bridge.tools:
+        raise ValueError("kernel bridge must not declare Tools")
+    if bridge.controls:
+        raise ValueError("kernel bridge must not declare controls")
     return bridge_id, bridge
 
 

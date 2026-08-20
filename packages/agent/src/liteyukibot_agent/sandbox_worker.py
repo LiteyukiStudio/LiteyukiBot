@@ -50,7 +50,19 @@ def main() -> int:
             "success": False,
             "error_code": "SANDBOX_PROTOCOL_INVALID",
         }
-    sys.stdout.write(json.dumps(cast(object, response), ensure_ascii=True, separators=(",", ":")) + "\n")
+    try:
+        encoded = json.dumps(cast(object, response), ensure_ascii=True, separators=(",", ":"), allow_nan=False)
+    except (TypeError, ValueError):
+        encoded = json.dumps(
+            {
+                "correlation_id": response.get("correlation_id", ""),
+                "success": False,
+                "error_code": "SANDBOX_PROTOCOL_INVALID",
+            },
+            ensure_ascii=True,
+            separators=(",", ":"),
+        )
+    sys.stdout.write(encoded + "\n")
     sys.stdout.flush()
     return 0
 

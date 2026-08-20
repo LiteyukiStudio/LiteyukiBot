@@ -146,10 +146,19 @@ class AgentBridgeHost:
         if not _allows(self.permissions, authorization, AGENT_HISTORY_CLEAR):
             return ControlOutcome(success=False, error_code="CONTROL_PERMISSION_DENIED")
         payload = request.payload
-        if set(payload) != {"conversation_id"}:
+        if set(payload) != {"runtime_id", "bot_id", "conversation_id"}:
             return ControlOutcome(success=False, error_code="CONTROL_INVALID_PAYLOAD")
+        runtime_id = payload.get("runtime_id")
+        bot_id = payload.get("bot_id")
         conversation_id = payload.get("conversation_id")
-        if not isinstance(conversation_id, str) or not conversation_id.strip():
+        if (
+            not isinstance(runtime_id, str)
+            or not isinstance(bot_id, str)
+            or runtime_id != authorization.runtime_id
+            or bot_id != authorization.bot_id
+            or not isinstance(conversation_id, str)
+            or not conversation_id.strip()
+        ):
             return ControlOutcome(success=False, error_code="CONTROL_INVALID_PAYLOAD")
         cleared = self.store.clear(authorization.runtime_id, authorization.bot_id, conversation_id)
         return ControlOutcome(success=True, result={"cleared": cleared})
@@ -190,7 +199,7 @@ class AgentBridgeHost:
                 if selected is not None:
                     active.update(selected)
                     if len(active) > ACTIVE_TOOL_LIMIT - 1:
-                        active = dict(tuple(active.items())[: ACTIVE_TOOL_LIMIT - 1])
+                        active = dict(tuple(active.items())[-(ACTIVE_TOOL_LIMIT - 1) :])
             reply = await self._complete(messages, _tool_schemas(active.values()))
         if reply.tool_calls:
             raise RuntimeError("agent exceeded maximum tool-call rounds")

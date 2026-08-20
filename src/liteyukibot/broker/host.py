@@ -105,7 +105,9 @@ class BrokerDelivery:
             tool_id=tool_id,
             arguments=arguments,
             authorization=authorization,
-            timeout_seconds=timeout_seconds or self.message.lease_ttl_ms / 1_000,
+            timeout_seconds=(
+                self.message.lease_ttl_ms / 1_000 if timeout_seconds is None else timeout_seconds
+            ),
         )
 
     async def request_control(
@@ -126,7 +128,9 @@ class BrokerDelivery:
             command=command,
             authorization=authorization,
             payload=payload,
-            timeout_seconds=timeout_seconds or self.message.lease_ttl_ms / 1_000,
+            timeout_seconds=(
+                self.message.lease_ttl_ms / 1_000 if timeout_seconds is None else timeout_seconds
+            ),
         )
 
 

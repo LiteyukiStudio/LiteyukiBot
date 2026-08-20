@@ -132,6 +132,36 @@ def test_broker_settings_are_v5_only_and_authoritative() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        (
+            "tools",
+            [{"id": "kernel.tool", "description": "Tool", "input_schema": {"type": "object"}}],
+        ),
+        ("controls", ["kernel.control"]),
+    ),
+)
+def test_kernel_bridge_rejects_tool_and_control_ownership(field: str, value: object) -> None:
+    with pytest.raises(ValidationError, match="kernel bridge must not declare"):
+        AppSettings.model_validate(
+            {
+                "config_version": 5,
+                "broker": {
+                    "bridges": {
+                        "kernel": {
+                            "kind": "kernel",
+                            "token_secret": "broker.kernel.token",
+                            "access": "full",
+                            "subscriptions": ["message.created"],
+                            field: value,
+                        }
+                    }
+                },
+            }
+        )
+
+
 def test_secret_references_resolve_recursively_without_accepting_ambiguous_objects() -> None:
     resolved = resolve_secret_references(
         {"token": {"secret_ref": "adapter-token"}, "nested": ({"secret_ref": "other"},)},

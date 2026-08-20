@@ -7,6 +7,7 @@ import hashlib
 import json
 import math
 import sqlite3
+import threading
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -134,7 +135,8 @@ class RagIndex:
         self.settings = settings
         self.provider = provider
         self.reranker = reranker or IdentityReranker()
-        self._connection = sqlite3.connect(settings.index_path)
+        self._connection = sqlite3.connect(settings.index_path, check_same_thread=False)
+        self._connection_lock = threading.RLock()
         self._connection.execute(
             """
             CREATE TABLE IF NOT EXISTS documents (
@@ -180,9 +182,10 @@ class RagIndex:
                     diagnostics.append(source_id)
                     continue
                 content_hash = hashlib.sha256(raw).hexdigest()
-                existing = self._connection.execute(
-                    "SELECT content_hash FROM documents WHERE source_id = ?", (source_id,)
-                ).fetchone()
+                with self._connection_lock:
+                    existing = self._connection.execute(
+                        "SELECT content_hash FROM documents WHERE source_id = ?", (source_id,)
+                    ).fetchone()
                 if existing is not None and existing[0] == content_hash:
                     continue
                 chunks = _chunks(text, self.settings.chunk_size, self.settings.chunk_overlap)
@@ -196,23 +199,25 @@ class RagIndex:
                 except (TimeoutError, ValueError, RuntimeError):
                     diagnostics.append(source_id)
                     continue
+                with self._connection_lock:
+                    self._connection.execute("DELETE FROM chunks WHERE source_id = ?", (source_id,))
+                    self._connection.execute(
+                        "INSERT OR REPLACE INTO documents(source_id, content_hash) VALUES (?, ?)",
+                        (source_id, content_hash),
+                    )
+                    self._connection.executemany(
+                        "INSERT INTO chunks(source_id, chunk_id, text, embedding) VALUES (?, ?, ?, ?)",
+                        (
+                            (source_id, index, chunk, json.dumps(vector, separators=(",", ":")))
+                            for index, (chunk, vector) in enumerate(zip(chunks, vectors, strict=True))
+                        ),
+                    )
+        with self._connection_lock:
+            current = tuple(row[0] for row in self._connection.execute("SELECT source_id FROM documents"))
+            for source_id in set(current) - seen:
                 self._connection.execute("DELETE FROM chunks WHERE source_id = ?", (source_id,))
-                self._connection.execute(
-                    "INSERT OR REPLACE INTO documents(source_id, content_hash) VALUES (?, ?)",
-                    (source_id, content_hash),
-                )
-                self._connection.executemany(
-                    "INSERT INTO chunks(source_id, chunk_id, text, embedding) VALUES (?, ?, ?, ?)",
-                    (
-                        (source_id, index, chunk, json.dumps(vector, separators=(",", ":")))
-                        for index, (chunk, vector) in enumerate(zip(chunks, vectors, strict=True))
-                    ),
-                )
-        current = tuple(row[0] for row in self._connection.execute("SELECT source_id FROM documents"))
-        for source_id in set(current) - seen:
-            self._connection.execute("DELETE FROM chunks WHERE source_id = ?", (source_id,))
-            self._connection.execute("DELETE FROM documents WHERE source_id = ?", (source_id,))
-        self._connection.commit()
+                self._connection.execute("DELETE FROM documents WHERE source_id = ?", (source_id,))
+            self._connection.commit()
         return tuple(sorted(diagnostics))
 
     async def retrieve(self, query: str) -> RagContext:
@@ -220,21 +225,8 @@ class RagIndex:
             return RagContext("")
         embeddings = await asyncio.wait_for(self.provider.embed((query,)), timeout=self.settings.timeout_seconds)
         query_vector = _validate_embeddings(embeddings, 1)[0]
-        candidates: list[RetrievedChunk] = []
-        for source_id, chunk_id, text, raw_embedding in self._connection.execute(
-            "SELECT source_id, chunk_id, text, embedding FROM chunks"
-        ):
-            vector = tuple(float(item) for item in json.loads(raw_embedding))
-            candidates.append(
-                RetrievedChunk(
-                    source_id=str(source_id),
-                    chunk_id=int(chunk_id),
-                    text=str(text),
-                    score=_cosine(query_vector, vector),
-                )
-            )
-        candidates.sort(key=lambda item: (-item.score, item.source_id, item.chunk_id))
-        ranked = tuple(self.reranker.rerank(query, candidates[: self.settings.top_k]))[: self.settings.top_k]
+        candidates = await asyncio.to_thread(self._score_candidates, query_vector)
+        ranked = tuple(self.reranker.rerank(query, candidates[: self.settings.top_k * 4]))[: self.settings.top_k]
         selected: list[RetrievedChunk] = []
         remaining = self.settings.context_chars
         for candidate in ranked:
@@ -248,7 +240,23 @@ class RagIndex:
         return RagContext(text=text, citations=citations)
 
     def close(self) -> None:
-        self._connection.close()
+        with self._connection_lock:
+            self._connection.close()
+
+    def _score_candidates(self, query_vector: Sequence[float]) -> tuple[RetrievedChunk, ...]:
+        with self._connection_lock:
+            rows = tuple(self._connection.execute("SELECT source_id, chunk_id, text, embedding FROM chunks"))
+        candidates = [
+            RetrievedChunk(
+                source_id=str(source_id),
+                chunk_id=int(chunk_id),
+                text=str(text),
+                score=_cosine(query_vector, tuple(float(item) for item in json.loads(raw_embedding))),
+            )
+            for source_id, chunk_id, text, raw_embedding in rows
+        ]
+        candidates.sort(key=lambda item: (-item.score, item.source_id, item.chunk_id))
+        return tuple(candidates)
 
 
 def _chunks(text: str, size: int, overlap: int) -> tuple[str, ...]:

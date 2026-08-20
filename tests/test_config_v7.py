@@ -388,14 +388,14 @@ def test_loader_rejects_legacy_adapter_runtime_with_migration_diagnostic(tmp_pat
 
 
 def test_loader_rejects_legacy_agent_configuration_with_migration_diagnostic(tmp_path: Path) -> None:
-    config = tmp_path / "liteyuki.toml"
-    config.write_text(
-        'config_version = 5\n\n[agent]\nenabled = true\n\n[runtimes.agent]\nkind = "agent"\n',
-        encoding="utf-8",
-    )
-
-    with pytest.raises(ConfigurationError, match="migration_required"):
-        load_settings(config, environ={})
+    for name, section in (
+        ("agent.toml", "[agent]\nenabled = true\n"),
+        ("runtime-agent.toml", '[runtimes.agent]\nkind = "agent"\n'),
+    ):
+        config = tmp_path / name
+        config.write_text(f"config_version = 5\n\n{section}", encoding="utf-8")
+        with pytest.raises(ConfigurationError, match="migration_required"):
+            load_settings(config, environ={})
 
 
 @pytest.mark.parametrize(

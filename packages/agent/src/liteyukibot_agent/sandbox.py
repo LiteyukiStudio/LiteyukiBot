@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import http.client
 import importlib
 import inspect
 import ipaddress
 import json
 import os
 import socket
+import ssl
 import subprocess
 import sys
-import urllib.error
-import urllib.request
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +38,23 @@ _BUILTIN_COMMAND_EXEC = "builtin:command_exec"
 _DEFAULT_MAX_FILE_BYTES = 256 * 1024
 _DEFAULT_MAX_OUTPUT_BYTES = 32 * 1024
 _DEFAULT_WALL_TIMEOUT_SECONDS = 15.0
+
+
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    """Connect to one already-validated address while retaining hostname SNI."""
+
+    def __init__(self, hostname: str, port: int, address: str, *, timeout: float) -> None:
+        self._ssl_context = ssl.create_default_context()
+        super().__init__(hostname, port, timeout=timeout, context=self._ssl_context)
+        self._address = address
+
+    def connect(self) -> None:
+        raw_socket = socket.create_connection((self._address, self.port), self.timeout)
+        try:
+            self.sock = self._ssl_context.wrap_socket(raw_socket, server_hostname=self.host)
+        except BaseException:
+            raw_socket.close()
+            raise
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +110,7 @@ class SandboxPolicy:
             "allowed_hosts": self.allowed_hosts,
             "allowed_ports": self.allowed_ports,
             "allow_private_network": self.allow_private_network,
+            "wall_timeout_seconds": self.wall_timeout_seconds,
             "max_output_bytes": self.max_output_bytes,
             "max_file_bytes": self.max_file_bytes,
             "work_directory": str(self.work_directory),
@@ -312,7 +330,12 @@ def builtin_http_fetch(arguments: Mapping[str, object], policy: Mapping[str, obj
         return None, "SANDBOX_INVALID_ARGUMENTS"
     parsed = urlparse(raw_url)
     hostname = parsed.hostname.casefold() if parsed.hostname else None
-    if parsed.scheme.casefold() != "https" or hostname is None:
+    if (
+        parsed.scheme.casefold() != "https"
+        or hostname is None
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
         return None, "SANDBOX_NETWORK_DENIED"
     allowed_hosts = tuple(item.casefold() for item in _sequence_strings(policy.get("allowed_hosts")))
     if allowed_hosts and hostname not in allowed_hosts:
@@ -323,21 +346,47 @@ def builtin_http_fetch(arguments: Mapping[str, object], policy: Mapping[str, obj
         return None, "SANDBOX_NETWORK_DENIED"
     if port not in _policy_ports(policy):
         return None, "SANDBOX_NETWORK_DENIED"
-    if not _public_hostname(hostname, allow_private=_policy_bool(policy, "allow_private_network", False)):
+    address = _resolve_network_address(
+        hostname,
+        port,
+        allow_private=_policy_bool(policy, "allow_private_network", False),
+    )
+    if address is None:
         return None, "SANDBOX_NETWORK_DENIED"
+    target = parsed.path or "/"
+    if parsed.params:
+        target += ";" + parsed.params
+    if parsed.query:
+        target += "?" + parsed.query
+    host_header = hostname
+    if port != 443:
+        host_header = f"[{hostname}]" if ":" in hostname else hostname
+        host_header += f":{port}"
+    connection = _PinnedHTTPSConnection(
+        hostname,
+        port,
+        address,
+        timeout=_policy_float(policy, "wall_timeout_seconds", _DEFAULT_WALL_TIMEOUT_SECONDS),
+    )
     try:
-        request = urllib.request.Request(raw_url, headers={"User-Agent": "LiteyukiBot-Agent-Sandbox/1"})
-        with urllib.request.urlopen(request, timeout=_policy_float(policy, "wall_timeout_seconds", 15.0)) as response:
-            body = response.read(_policy_int(policy, "max_output_bytes", _DEFAULT_MAX_OUTPUT_BYTES) + 1)
-            if len(body) > _policy_int(policy, "max_output_bytes", _DEFAULT_MAX_OUTPUT_BYTES):
-                return None, "SANDBOX_OUTPUT_LIMIT"
-            return {
-                "url": raw_url,
-                "status": int(response.status),
-                "content": body.decode("utf-8", errors="replace"),
-            }, None
-    except (urllib.error.URLError, TimeoutError, OSError):
+        connection.request(
+            "GET",
+            target,
+            headers={"Host": host_header, "User-Agent": "LiteyukiBot-Agent-Sandbox/1"},
+        )
+        response = connection.getresponse()
+        body = response.read(_policy_int(policy, "max_output_bytes", _DEFAULT_MAX_OUTPUT_BYTES) + 1)
+        if len(body) > _policy_int(policy, "max_output_bytes", _DEFAULT_MAX_OUTPUT_BYTES):
+            return None, "SANDBOX_OUTPUT_LIMIT"
+        return {
+            "url": raw_url,
+            "status": int(response.status),
+            "content": body.decode("utf-8", errors="replace"),
+        }, None
+    except (http.client.HTTPException, TimeoutError, OSError):
         return None, "SANDBOX_NETWORK_FAILED"
+    finally:
+        connection.close()
 
 
 def builtin_command_exec(arguments: Mapping[str, object], policy: Mapping[str, object]) -> tuple[JsonValue, str | None]:
@@ -502,17 +551,24 @@ def _relative_source(path: Path, policy: Mapping[str, object]) -> str:
     return "sandbox/unknown"
 
 
-def _public_hostname(hostname: str, *, allow_private: bool) -> bool:
-    if allow_private:
-        return True
+def _resolve_network_address(hostname: str, port: int, *, allow_private: bool) -> str | None:
     try:
-        addresses = {
-            ipaddress.ip_address(item[4][0])
-            for item in socket.getaddrinfo(hostname, None, type=socket.SOCK_STREAM)
-        }
+        raw_addresses = tuple(
+            address for item in socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
+            if isinstance((address := item[4][0]), str)
+        )
     except socket.gaierror:
-        return False
-    return bool(addresses) and all(address.is_global for address in addresses)
+        return None
+    addresses = tuple(dict.fromkeys(raw_addresses))
+    if not addresses:
+        return None
+    if not allow_private:
+        try:
+            if any(not ipaddress.ip_address(address.split("%", 1)[0]).is_global for address in addresses):
+                return None
+        except ValueError:
+            return None
+    return addresses[0]
 
 
 def _policy_int(policy: Mapping[str, object], key: str, default: int) -> int:

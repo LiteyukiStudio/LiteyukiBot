@@ -11,6 +11,7 @@ from liteyukibot_agent.rag import RagIndex, RagSettings, RetrievedChunk
 from liteyukibot_agent.sandbox import (
     SANDBOX_COMMAND_EXEC,
     SANDBOX_FILE_READ,
+    SANDBOX_FILE_WRITE,
     SandboxPolicy,
     builtin_command_exec,
     builtin_file_read,
@@ -183,7 +184,7 @@ async def test_sandbox_uses_fresh_worker_and_maps_timeout_and_crash(tmp_path: Pa
     )
     file_tool = next(tool for tool in builtin_sandbox_tools() if tool.descriptor.id == SANDBOX_FILE_READ)
     write_result = await execute_in_fresh_worker(
-        next(tool for tool in builtin_sandbox_tools() if tool.descriptor.id == "agent.sandbox.file.write"),
+        next(tool for tool in builtin_sandbox_tools() if tool.descriptor.id == SANDBOX_FILE_WRITE),
         {"path": "worker.txt", "content": "worker"},
         policy,
     )
@@ -207,7 +208,7 @@ async def test_sandbox_uses_fresh_worker_and_maps_timeout_and_crash(tmp_path: Pa
         policy,
     )
     assert crashed.success is False
-    assert crashed.error_code == "SANDBOX_CRASH"
+    assert crashed.error_code == "SANDBOX_PROTOCOL_INVALID"
 
     cancelled_task = asyncio.create_task(
         execute_in_fresh_worker(
@@ -220,3 +221,30 @@ async def test_sandbox_uses_fresh_worker_and_maps_timeout_and_crash(tmp_path: Pa
     cancelled_task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await cancelled_task
+
+
+@pytest.mark.asyncio
+async def test_sandbox_maps_worker_nonzero_exit_to_crash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class CrashedProcess:
+        returncode = 17
+
+        async def communicate(self, _request: bytes) -> tuple[bytes, bytes]:
+            return b"", b""
+
+        async def wait(self) -> None:
+            return None
+
+        def kill(self) -> None:
+            return None
+
+    async def fake_create_process(*_args: object, **_kwargs: object) -> CrashedProcess:
+        return CrashedProcess()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_process)
+    policy = SandboxPolicy.from_options({"file_roots": [str(tmp_path)]}, default_root=tmp_path)
+    tool = next(tool for tool in builtin_sandbox_tools() if tool.descriptor.id == SANDBOX_FILE_READ)
+    result = await execute_in_fresh_worker(tool, {"path": "missing.txt"}, policy)
+    assert result.success is False
+    assert result.error_code == "SANDBOX_CRASH"

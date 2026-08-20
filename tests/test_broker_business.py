@@ -349,6 +349,22 @@ def test_control_request_routes_to_declared_owner_and_replays_retained_result() 
     with pytest.raises(BrokerAdmissionError, match="different control content"):
         service.handle_business(caller.peer_identity, conflict_frame)
 
+    authorization_mismatch = request.model_copy(
+        update={
+            "correlation_id": "control-call-runtime-mismatch",
+            "authorization": request.authorization.model_copy(update={"runtime_id": "other"}),
+        }
+    )
+    authorization_frame = encode_business_message(
+        authorization_mismatch,
+        generation=1,
+        stream_id="bridge:caller:caller-session:control",
+        sequence=2,
+        lease_id=offer.lease_id,
+    )
+    with pytest.raises(BrokerAdmissionError, match="authorization"):
+        service.handle_business(caller.peer_identity, authorization_frame)
+
 
 async def _register(server: BrokerPeerServer, client: BridgeClient) -> None:
     task = asyncio.create_task(client.register())
