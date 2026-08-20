@@ -14,7 +14,7 @@ from functools import partial
 from importlib import import_module, metadata
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Literal, Protocol, cast
+from typing import TYPE_CHECKING, Any, Literal, Protocol, cast
 
 from jsonschema import Draft202012Validator, SchemaError, ValidationError
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -26,6 +26,9 @@ from .init_specs import PluginInitSpec
 from .resource_packs import ResourcePackDeclaration
 from .services import ServiceKey, ServiceRegistry, ServiceRequirement
 from .tasks import ManagedTasks
+
+if TYPE_CHECKING:
+    from .functions import FunctionHost
 
 type JsonValue = str | int | float | bool | None | list[JsonValue] | dict[str, JsonValue]
 type ToolCallback = Callable[[AuthorizationContext, Mapping[str, JsonValue]], Awaitable[JsonValue]]
@@ -554,6 +557,7 @@ class PluginContext:
     events: EventBus
     actions: ActionServiceLike
     paths: PluginPaths | None
+    function_host: FunctionHost | None
     _manifest: ExtensionManifest = field(repr=False, compare=False)
     _cleanup: _PluginCleanup = field(repr=False, compare=False)
     _tool_handlers: MutableMapping[str, ToolCallback] = field(default_factory=dict, repr=False, compare=False)
@@ -831,6 +835,8 @@ class PluginManager:
         self,
         definitions: Mapping[str, PluginDefinition],
         configs: Mapping[str, Mapping[str, Any]],
+        *,
+        function_hosts: Mapping[str, FunctionHost] | None = None,
     ) -> None:
         for plugin_id in self.resolve_order(definitions):
             definition = definitions[plugin_id]
@@ -860,6 +866,7 @@ class PluginManager:
                 events=self.events,
                 actions=self.actions,
                 paths=paths,
+                function_host=None if function_hosts is None else function_hosts.get(manifest.id),
                 _manifest=manifest,
                 _cleanup=cleanup,
                 _tool_handlers=tool_handlers,

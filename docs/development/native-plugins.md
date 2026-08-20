@@ -75,6 +75,12 @@ executor and supports only the v6 `.lyf`, `.lyfunction`, and `.mcfunction`
 language. The kernel intentionally provides no function language or
 command-execution capability; an unavailable executor raises an explicit error.
 
+This is the current pre-Alpha7 behavior. The planned LYF language is documented
+under [`docs/functions`](../functions/README.md): it will make functions
+resources owned by their parent Native/Cordis extension and replace the global
+Dispatcher with a host-bound runtime. The planned documentation does not change
+the current v6 implementation until the Alpha7 implementation and tests land.
+
 The v6 `api` and `cmd` instructions remain capability-gated. A caller must
 explicitly supply the adapter API or command runner it intends to authorize;
 resource packs never gain API access, Python evaluation, or shell execution

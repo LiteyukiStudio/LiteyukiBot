@@ -14,7 +14,7 @@ from ..events import ActionEnvelope, ActionResult, EventBus, EventEnvelope, Send
 from ..events.models import JsonValue
 from ..lyip import LyipLane
 from .actions import MessageSendPayload, make_message_send_request
-from .host import BrokerBridgeRunner, BrokerDelivery, ToolOutcome
+from .host import BrokerBridgeRunner, BrokerDelivery, ControlHandler, ToolOutcome
 from .peer import BridgeClient, BridgeRegistrationError
 from .protocol import AuthorizationContextWire, BridgeAccess, BridgeManifest, BrokerToolDeclaration
 from .routing import BridgeControlResult, ToolInvoke
@@ -48,14 +48,20 @@ class KernelBrokerPeer:
         events: EventBus,
         *,
         tool_handlers: Mapping[str, Callable[[ToolInvoke], Awaitable[ToolOutcome]]] | None = None,
+        controls: tuple[str, ...] = (),
+        control_handlers: Mapping[str, ControlHandler] | None = None,
     ) -> None:
         self.bridge_id = bridge_id
         self._events = events
         self._active_deliveries: dict[str, BrokerDelivery] = {}
+        self._active_events: dict[str, EventEnvelope] = {}
+        if controls and client.manifest.controls != controls:
+            client.manifest = client.manifest.model_copy(update={"controls": controls})
         self._runner = BrokerBridgeRunner(
             client,
             event_handler=self._handle_delivery,
             tool_handlers=tool_handlers,
+            control_handlers=control_handlers,
         )
         self._serve_task: asyncio.Task[None] | None = None
 
@@ -68,6 +74,8 @@ class KernelBrokerPeer:
         events: EventBus,
         tools: tuple[BrokerToolDeclaration, ...] = (),
         tool_handlers: Mapping[str, Callable[[ToolInvoke], Awaitable[ToolOutcome]]] | None = None,
+        controls: tuple[str, ...] = (),
+        control_handlers: Mapping[str, ControlHandler] | None = None,
     ) -> KernelBrokerPeer:
         configured = configured_kernel_bridge(settings)
         if configured is None:
@@ -86,10 +94,18 @@ class KernelBrokerPeer:
                 access=BridgeAccess.FULL,
                 subscriptions=bridge.subscriptions,
                 tools=tools,
+                controls=controls,
             ),
             instance_token=normalized_token,
         )
-        return cls(bridge_id, client, events, tool_handlers=tool_handlers)
+        return cls(
+            bridge_id,
+            client,
+            events,
+            tool_handlers=tool_handlers,
+            controls=controls,
+            control_handlers=control_handlers,
+        )
 
     async def start(self) -> None:
         if self._serve_task is not None:
@@ -151,6 +167,11 @@ class KernelBrokerPeer:
             return ActionResult(action_id=action.action_id, success=True, data=result.payload)
         return _action_error(action.action_id, "BROKER_ACTION_FAILED", "bridge action owner rejected the request")
 
+    def active_event(self, event_id: str) -> EventEnvelope | None:
+        """Return the EventEnvelope currently being dispatched by the kernel peer."""
+
+        return self._active_events.get(event_id)
+
     async def request_control(
         self,
         event: EventEnvelope,
@@ -176,6 +197,29 @@ class KernelBrokerPeer:
             timeout_seconds=timeout_seconds,
         )
 
+    async def request_control_for_tool(
+        self,
+        request: ToolInvoke,
+        *,
+        correlation_id: str,
+        command: str,
+        payload: Mapping[str, JsonValue] | None = None,
+        timeout_seconds: float | None = None,
+    ) -> BridgeControlResult | None:
+        """Invoke a control through the active delivery for a Tool authorization event."""
+
+        event = self.active_event(request.authorization.event_id)
+        if event is None:
+            return None
+        return await self.request_control(
+            event,
+            correlation_id=correlation_id,
+            command=command,
+            authorization=request.authorization,
+            payload=payload,
+            timeout_seconds=timeout_seconds,
+        )
+
     async def _handle_delivery(self, delivery: BrokerDelivery) -> None:
         broker_event = delivery.message.event
         try:
@@ -190,10 +234,12 @@ class KernelBrokerPeer:
             update={"id": broker_event.kernel_event_id, "runtime_id": broker_event.source_bridge_id}
         )
         self._active_deliveries[event.id] = delivery
+        self._active_events[event.id] = event
         try:
             result = await self._events.publish(event)
         finally:
             self._active_deliveries.pop(event.id, None)
+            self._active_events.pop(event.id, None)
         if result.status != "processed":
             raise KernelBridgeError(f"native EventBus returned {result.status!r} for broker delivery")
 

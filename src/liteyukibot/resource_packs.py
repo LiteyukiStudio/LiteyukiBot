@@ -157,6 +157,28 @@ class ResourceCatalog:
                 return pack.metadata
         raise ResourcePackError(f"resource pack does not exist: {pack_id}")
 
+    def pack_for_declaration(self, declaration: ResourcePackDeclaration) -> ResourcePack:
+        """Return the installed package pack owned by one extension declaration."""
+
+        origin = f"package:{declaration.package}:{declaration.root}"
+        matches = tuple(pack for pack in self._packs if pack.metadata.origin == origin)
+        if len(matches) != 1:
+            raise ResourcePackError(
+                f"resource declaration does not resolve to exactly one installed pack: {origin}"
+            )
+        return matches[0]
+
+    def pack_files(self, pack_id: str, prefix: str = "") -> tuple[ResourceFile, ...]:
+        """Return files from one pack without applying the catalog overlay."""
+
+        for pack in self._packs:
+            if pack.metadata.id == pack_id:
+                normalized = "" if not prefix else _relative_path(prefix).rstrip("/") + "/"
+                return tuple(
+                    resource for path, resource in sorted(pack.files.items()) if path.startswith(normalized)
+                )
+        raise ResourcePackError(f"resource pack does not exist: {pack_id}")
+
     def icon(self, pack_id: str) -> ResourceFile | None:
         """Return a validated package icon for a future local presentation client."""
 

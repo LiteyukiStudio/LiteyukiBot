@@ -16,6 +16,7 @@ from liteyukibot.broker.protocol import (
     BridgeAccess,
     BridgeManifest,
     BridgeRegister,
+    BridgeRegistered,
     BridgeRejected,
     decode_broker_message,
     encode_broker_message,
@@ -208,6 +209,40 @@ def test_authoritative_service_rejects_token_matched_manifest_mismatch() -> None
 
     assert isinstance(reply, BridgeRejected)
     assert reply.code == "manifest_mismatch"
+
+
+def test_authoritative_service_allows_only_dynamic_kernel_tool_and_control_fields() -> None:
+    configured = BridgeManifest(
+        bridge_id="kernel",
+        access=BridgeAccess.FULL,
+        subscriptions=("message.created",),
+    )
+    service = _AuthoritativePeerService(
+        manifests={"kernel": configured},
+        instance_tokens={"kernel": "secret"},
+        generation=1,
+        active_capacity=1024,
+        terminal_capacity=16384,
+        terminal_ttl_seconds=3600,
+        delivery_timeout_seconds=30,
+        dynamic_manifest_bridge_ids=frozenset({"kernel"}),
+    )
+    request = BridgeRegister(
+        bridge_id="kernel",
+        instance_token="secret",
+        manifest=configured.model_copy(update={"controls": ("agent.function.catalog",)}),
+    )
+    frame = encode_broker_message(
+        request,
+        generation=1,
+        stream_id="bridge:kernel:control",
+        sequence=0,
+        lease_id="registration",
+    )
+
+    reply = decode_broker_message(service.handle_control(b"kernel-peer", frame))
+
+    assert isinstance(reply, BridgeRegistered)
 
 
 def test_broker_service_projects_configured_tool_declarations_into_authoritative_manifest() -> None:

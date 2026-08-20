@@ -12,6 +12,7 @@ from uuid import uuid4
 
 import zmq.asyncio
 from jsonschema import Draft202012Validator, ValidationError
+from liteyukibot_agent_resolver import AgentToolDescriptor
 from liteyukibot_permissions.service import create_permission_service
 
 from liteyukibot import AuthorizationContext
@@ -32,9 +33,12 @@ from liteyukibot.broker import (
     message_send_resource_key,
 )
 from liteyukibot.broker.protocol import AuthorizationContextWire
+from liteyukibot.capabilities import AGENT_HISTORY_CLEAR as AGENT_HISTORY_CLEAR_CAPABILITY
+from liteyukibot.capabilities import AGENT_PROMPT_SELECT as AGENT_PROMPT_SELECT_CAPABILITY
 from liteyukibot.config import AppSettings
 from liteyukibot.events import EventEnvelope, Message, Segment
 from liteyukibot.events.models import JsonValue
+from liteyukibot.functions import AGENT_FUNCTION_CATALOG, AGENT_PROMPT_SELECT
 from liteyukibot.lyip import LyipLane
 
 from .catalog import (
@@ -126,6 +130,7 @@ class AgentBridgeHost:
         self.max_tool_rounds = max_tool_rounds
         self.rag = rag
         self._capacity = asyncio.Semaphore(max_concurrent_events)
+        self._active_prompt_catalogs: dict[str, Mapping[str, Mapping[str, Any]]] = {}
 
     async def handle_delivery(self, delivery: BrokerDelivery) -> None:
         async with self._capacity:
@@ -143,7 +148,7 @@ class AgentBridgeHost:
 
     async def clear_history(self, request: BridgeControlInvoke) -> ControlOutcome:
         authorization = _authorization_context(request)
-        if not _allows(self.permissions, authorization, AGENT_HISTORY_CLEAR):
+        if not _allows(self.permissions, authorization, AGENT_HISTORY_CLEAR_CAPABILITY):
             return ControlOutcome(success=False, error_code="CONTROL_PERMISSION_DENIED")
         payload = request.payload
         if set(payload) != {"runtime_id", "bot_id", "conversation_id"}:
@@ -163,7 +168,43 @@ class AgentBridgeHost:
         cleared = self.store.clear(authorization.runtime_id, authorization.bot_id, conversation_id)
         return ControlOutcome(success=True, result={"cleared": cleared})
 
+    async def select_prompt(self, request: BridgeControlInvoke) -> ControlOutcome:
+        authorization = _authorization_context(request)
+        if not _allows(self.permissions, authorization, AGENT_PROMPT_SELECT_CAPABILITY):
+            return ControlOutcome(success=False, error_code="CONTROL_PERMISSION_DENIED")
+        if set(request.payload) != {"preset_id"}:
+            return ControlOutcome(success=False, error_code="CONTROL_INVALID_PAYLOAD")
+        preset_id = request.payload.get("preset_id")
+        if not isinstance(preset_id, str) or not preset_id.strip():
+            return ControlOutcome(success=False, error_code="CONTROL_INVALID_PAYLOAD")
+        presets = self._active_prompt_catalogs.get(authorization.event_id)
+        if presets is None:
+            return ControlOutcome(success=False, error_code="CONTROL_STALE_DELIVERY")
+        if preset_id not in presets:
+            return ControlOutcome(success=False, error_code="CONTROL_NOT_FOUND")
+        return ControlOutcome(success=True, result={"preset_id": preset_id})
+
     async def _process_event(self, delivery: BrokerDelivery, event: EventEnvelope) -> None:
+        authorization = AuthorizationContext(
+            event_id=event.id,
+            runtime_id=event.runtime_id,
+            bot_id=event.bot_id,
+            actor_id=None if event.actor is None else event.actor.id,
+        )
+        event_catalog, prompts = await self._request_function_catalog(delivery, event, authorization)
+        self._active_prompt_catalogs[event.id] = prompts
+        try:
+            await self._process_event_with_catalog(delivery, event, event_catalog, prompts)
+        finally:
+            self._active_prompt_catalogs.pop(event.id, None)
+
+    async def _process_event_with_catalog(
+        self,
+        delivery: BrokerDelivery,
+        event: EventEnvelope,
+        event_catalog: AgentCatalog,
+        prompts: Mapping[str, Mapping[str, Any]],
+    ) -> None:
         key = (event.runtime_id, event.bot_id, event.conversation.ordering_key)
         user_text = event.message.plain_text if event.message is not None else ""
         self.store.append(*key, "user", user_text, retain=self.history_limit)
@@ -173,7 +214,7 @@ class AgentBridgeHost:
         rag_context = await self._retrieve_rag(user_text)
         if rag_context.text:
             messages.insert(0, {"role": "system", "content": "Relevant local documents:\n" + rag_context.text})
-        active = {tool.id: tool for tool in self.catalog.initial()}
+        active = {tool.id: tool for tool in event_catalog.initial()}
         messages_tools = _tool_schemas(active.values())
         authorization = AuthorizationContext(
             event_id=event.id,
@@ -187,15 +228,21 @@ class AgentBridgeHost:
                 break
             messages.append(_assistant_tool_message(reply))
             for call in reply.tool_calls:
-                content, history_summary, selected = await self._execute_tool(
+                content, history_summary, selected, prompt_id = await self._execute_tool(
                     delivery,
                     event,
                     authorization,
                     call,
                     active,
+                    event_catalog,
                 )
                 messages.append({"role": "tool", "tool_call_id": call.id, "content": content})
                 self.store.append(*key, "tool", history_summary, retain=self.history_limit)
+                if prompt_id is not None:
+                    prompt = prompts.get(prompt_id)
+                    if prompt is None:
+                        raise RuntimeError("Kernel selected an unadvertised prompt preset")
+                    messages.append({"role": "system", "content": _prompt_message(prompt)})
                 if selected is not None:
                     active.update(selected)
                     if len(active) > ACTIVE_TOOL_LIMIT - 1:
@@ -230,6 +277,40 @@ class AgentBridgeHost:
         except (RuntimeError, TimeoutError, ValueError):
             return RagContext("")
 
+    async def _request_function_catalog(
+        self,
+        delivery: BrokerDelivery,
+        event: EventEnvelope,
+        authorization: AuthorizationContext,
+    ) -> tuple[AgentCatalog, Mapping[str, Mapping[str, Any]]]:
+        try:
+            result = await delivery.request_control(
+                correlation_id=f"agent-function-catalog:{event.id}",
+                command=AGENT_FUNCTION_CATALOG,
+                authorization=AuthorizationContextWire(
+                    event_id=authorization.event_id,
+                    runtime_id=authorization.runtime_id,
+                    bot_id=authorization.bot_id,
+                    actor_id=authorization.actor_id,
+                ),
+                payload={},
+            )
+        except Exception:
+            return self.catalog, {}
+        if not result.success:
+            return self.catalog, {}
+        payload = result.result
+        if not isinstance(payload, Mapping):
+            raise RuntimeError("Agent function catalog result must be an object")
+        tools = _parse_remote_tools(payload.get("tools", ()))
+        prompts = _parse_remote_prompts(payload.get("prompts", ()))
+        if not tools:
+            return self.catalog, prompts
+        try:
+            return AgentCatalog((*self.catalog.tools, *tools)), prompts
+        except ValueError as error:
+            raise RuntimeError("Agent function catalog contains conflicting Tool IDs") from error
+
     async def _execute_tool(
         self,
         delivery: BrokerDelivery,
@@ -237,7 +318,8 @@ class AgentBridgeHost:
         authorization: AuthorizationContext,
         call: ToolCall,
         active: Mapping[str, Any],
-    ) -> tuple[JsonObject, JsonObject, Mapping[str, Any] | None]:
+        catalog: AgentCatalog,
+    ) -> tuple[JsonObject, JsonObject, Mapping[str, Any] | None, str | None]:
         if call.tool_id == CATALOG_SEARCH_ID:
             query = call.arguments.get("query")
             if not isinstance(query, str) or not query.strip():
@@ -245,8 +327,9 @@ class AgentBridgeHost:
                     {"error_code": "TOOL_INVALID_ARGUMENTS"},
                     {"tool_id": call.tool_id, "error_code": "TOOL_INVALID_ARGUMENTS"},
                     None,
+                    None,
                 )
-            search_result = self.catalog.search(query)
+            search_result = catalog.search(query)
             selected = {tool.id: tool for tool in search_result.tools}
             content: JsonObject = {
                 "tools": [
@@ -260,13 +343,14 @@ class AgentBridgeHost:
                     for tool in search_result.tools
                 ]
             }
-            return content, {"tool_id": call.tool_id, "result": _truncate_json(content)}, selected
+            return content, {"tool_id": call.tool_id, "result": _truncate_json(content)}, selected, None
 
         descriptor = active.get(call.tool_id)
         if descriptor is None:
             return (
                 {"error_code": "TOOL_NOT_ACTIVATED"},
                 {"tool_id": call.tool_id, "error_code": "TOOL_NOT_ACTIVATED"},
+                None,
                 None,
             )
         if any(
@@ -276,6 +360,7 @@ class AgentBridgeHost:
             return (
                 {"error_code": "TOOL_PERMISSION_DENIED"},
                 {"tool_id": call.tool_id, "error_code": "TOOL_PERMISSION_DENIED"},
+                None,
                 None,
             )
         try:
@@ -295,8 +380,10 @@ class AgentBridgeHost:
                 {"error_code": "TOOL_UNAVAILABLE"},
                 {"tool_id": call.tool_id, "error_code": "TOOL_UNAVAILABLE"},
                 None,
+                None,
             )
-        return _tool_result_content(call.tool_id, tool_result)
+        content, history, _ = _tool_result_content(call.tool_id, tool_result)
+        return content, history, None, _selected_prompt_id(tool_result)
 
     async def _complete(
         self,
@@ -351,7 +438,7 @@ async def launch(settings: AppSettings, bridge_id: str, token: str) -> None:
         bridge_id=bridge_id,
         access=BridgeAccess.LIMITED,
         subscriptions=bridge.subscriptions,
-        controls=(AGENT_HISTORY_CLEAR,),
+        controls=tuple(bridge.controls),
     )
     client = BridgeClient(
         context=zmq.asyncio.Context.instance(),
@@ -371,12 +458,16 @@ async def launch(settings: AppSettings, bridge_id: str, token: str) -> None:
     async def handle_control(request: BridgeControlInvoke) -> ControlOutcome:
         if host is None:
             raise RuntimeError("Agent bridge received a control before host initialization")
-        return await host.clear_history(request)
+        if request.command == AGENT_HISTORY_CLEAR:
+            return await host.clear_history(request)
+        if request.command == AGENT_PROMPT_SELECT:
+            return await host.select_prompt(request)
+        return ControlOutcome(success=False, error_code="CONTROL_NOT_FOUND")
 
     runner = BrokerBridgeRunner(
         client,
         event_handler=handle_delivery,
-        control_handlers={AGENT_HISTORY_CLEAR: handle_control},
+        control_handlers={control: handle_control for control in bridge.controls},
     )
     host = AgentBridgeHost(
         runner,
@@ -547,6 +638,100 @@ def _tool_result_content(tool_id: str, result: ToolResult) -> tuple[JsonObject, 
     return content, {"tool_id": tool_id, "ok": False, "error_code": result.error_code or "TOOL_FAILED"}, None
 
 
+def _selected_prompt_id(result: ToolResult) -> str | None:
+    if not result.success or not isinstance(result.result, Mapping):
+        return None
+    preset_id = result.result.get("preset_id")
+    return preset_id if isinstance(preset_id, str) and preset_id.strip() else None
+
+
+def _parse_remote_tools(value: object) -> tuple[AgentToolDescriptor, ...]:
+    if not isinstance(value, (list, tuple)):
+        raise RuntimeError("Agent function catalog tools must be an array")
+    if len(value) > 128:
+        raise RuntimeError("Agent function catalog exceeds the Tool limit")
+    tools: list[AgentToolDescriptor] = []
+    for item in value:
+        if not isinstance(item, Mapping):
+            raise RuntimeError("Agent function catalog contains an invalid Tool")
+        identifier = item.get("id")
+        module_id = item.get("module_id")
+        title = item.get("title")
+        description = item.get("description")
+        input_schema = item.get("input_schema")
+        capabilities = item.get("required_capabilities", ())
+        if (
+            not isinstance(identifier, str)
+            or not isinstance(module_id, str)
+            or not isinstance(title, str)
+            or not isinstance(description, str)
+            or not isinstance(input_schema, Mapping)
+            or not isinstance(capabilities, (list, tuple))
+            or not all(isinstance(capability, str) for capability in capabilities)
+        ):
+            raise RuntimeError("Agent function catalog contains an invalid Tool declaration")
+        try:
+            tools.append(
+                AgentToolDescriptor(
+                    id=identifier,
+                    module_id=module_id,
+                    title=title,
+                    description=description,
+                    input_schema=cast(Mapping[str, object], dict(input_schema)),
+                    required_capabilities=tuple(capabilities),
+                )
+            )
+        except ValueError as error:
+            raise RuntimeError("Agent function catalog contains an invalid Tool declaration") from error
+    return tuple(tools)
+
+
+def _parse_remote_prompts(value: object) -> Mapping[str, Mapping[str, Any]]:
+    if not isinstance(value, (list, tuple)):
+        raise RuntimeError("Agent function catalog prompts must be an array")
+    if len(value) > 64:
+        raise RuntimeError("Agent function catalog exceeds the prompt limit")
+    prompts: dict[str, Mapping[str, Any]] = {}
+    for item in value:
+        if not isinstance(item, Mapping):
+            raise RuntimeError("Agent function catalog contains an invalid prompt preset")
+        preset_id = item.get("id")
+        name = item.get("name")
+        description = item.get("description")
+        prompt = item.get("prompt")
+        examples = item.get("examples", ())
+        if (
+            not isinstance(preset_id, str)
+            or not isinstance(name, str)
+            or not isinstance(description, str)
+            or not isinstance(prompt, str)
+            or not isinstance(examples, (list, tuple))
+            or not all(isinstance(example, Mapping) for example in examples)
+            or len(prompt) > 16 * 1024
+        ):
+            raise RuntimeError("Agent function catalog contains an invalid prompt preset")
+        normalized_examples = tuple(dict(example) for example in examples)
+        if len(json.dumps(normalized_examples, ensure_ascii=True, separators=(",", ":"))) > 64 * 1024:
+            raise RuntimeError("Agent function catalog prompt examples exceed the size limit")
+        if preset_id in prompts:
+            raise RuntimeError("Agent function catalog contains duplicate prompt IDs")
+        prompts[preset_id] = {
+            "name": name,
+            "description": description,
+            "prompt": prompt,
+            "examples": normalized_examples,
+        }
+    return prompts
+
+
+def _prompt_message(preset: Mapping[str, Any]) -> str:
+    prompt = cast(str, preset["prompt"])
+    examples = preset.get("examples", ())
+    if not examples:
+        return prompt
+    return f"{prompt}\n\nExamples:\n{json.dumps(examples, ensure_ascii=False, separators=(',', ':'))}"
+
+
 def _append_citations(text: str, context: RagContext) -> str:
     if not text or not context.citations:
         return text
@@ -574,8 +759,10 @@ def _validate_agent_bridge(
         raise RuntimeError("Agent bridge must not own platform actions")
     if tools:
         raise RuntimeError("Agent bridge must not own Tools; configure them on agent-sandbox bridges")
-    if tuple(controls) != (AGENT_HISTORY_CLEAR,):
-        raise RuntimeError("Agent bridge controls must declare agent.history.clear exactly once")
+    if tuple(controls) not in ((AGENT_HISTORY_CLEAR,), (AGENT_HISTORY_CLEAR, AGENT_PROMPT_SELECT)):
+        raise RuntimeError(
+            "Agent bridge controls must declare agent.history.clear, optionally followed by agent.prompt.select"
+        )
     unsupported = sorted(set(options).difference(_ALLOWED_AGENT_OPTIONS))
     if unsupported:
         raise RuntimeError("migration_required: unsupported Agent bridge options: " + ", ".join(unsupported))
@@ -722,4 +909,11 @@ def _broker_endpoints(endpoint: str) -> dict[LyipLane, str]:
     }
 
 
-__all__ = ["AgentBridgeHost", "AGENT_HISTORY_CLEAR", "launch", "launch_sandbox"]
+__all__ = [
+    "AGENT_FUNCTION_CATALOG",
+    "AGENT_HISTORY_CLEAR",
+    "AGENT_PROMPT_SELECT",
+    "AgentBridgeHost",
+    "launch",
+    "launch_sandbox",
+]

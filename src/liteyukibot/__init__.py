@@ -3,7 +3,24 @@
 from ._version import __version__
 from .app import LiteyukiApp
 from .authorization import AuthorizationContext
-from .functions import FUNCTION_DISPATCH_SERVICE, FunctionCall, FunctionDispatcher
+from .functions import (
+    AGENT_FUNCTION_CATALOG,
+    AGENT_PROMPT_CATALOG,
+    AGENT_PROMPT_SELECT,
+    FUNCTION_DISPATCH_SERVICE,
+    FUNCTION_HOST_ENTRY_POINT_GROUP,
+    FUNCTION_LIBRARY_ENTRY_POINT_GROUP,
+    FunctionCall,
+    FunctionDispatcher,
+    FunctionEventContribution,
+    FunctionHost,
+    FunctionHostBindings,
+    FunctionHostProvider,
+    FunctionPackSource,
+    FunctionPreflight,
+    FunctionPromptPreset,
+    discover_function_host_provider,
+)
 from .i18n import I18N_SERVICE, Translator
 from .init_specs import InitFieldKind, InitFieldSpec, PluginInitSpec, RuntimeInitSpec
 from .management import MANAGEMENT_SERVICE, ManagementCommand, ManagementRegistry
@@ -72,9 +89,22 @@ __all__ = [
     "ServiceRegistry",
     "ServiceRequirement",
     "RuntimeInitSpec",
+    "AGENT_FUNCTION_CATALOG",
+    "AGENT_PROMPT_CATALOG",
+    "AGENT_PROMPT_SELECT",
     "FUNCTION_DISPATCH_SERVICE",
+    "FUNCTION_HOST_ENTRY_POINT_GROUP",
+    "FUNCTION_LIBRARY_ENTRY_POINT_GROUP",
     "FunctionCall",
     "FunctionDispatcher",
+    "FunctionEventContribution",
+    "FunctionHost",
+    "FunctionHostBindings",
+    "FunctionHostProvider",
+    "FunctionPackSource",
+    "FunctionPreflight",
+    "FunctionPromptPreset",
+    "discover_function_host_provider",
     "I18N_SERVICE",
     "MANAGEMENT_SERVICE",
     "ManagementCommand",

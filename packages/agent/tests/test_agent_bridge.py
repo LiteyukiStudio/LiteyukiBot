@@ -7,7 +7,7 @@ from typing import Any, cast
 import pytest
 from liteyukibot_agent.catalog import AgentCatalog
 from liteyukibot_agent.engine import AgentEngine, ModelReply, ToolCall
-from liteyukibot_agent.host import AGENT_HISTORY_CLEAR, AgentBridgeHost
+from liteyukibot_agent.host import AGENT_HISTORY_CLEAR, AGENT_PROMPT_SELECT, AgentBridgeHost
 from liteyukibot_agent.store import ConversationStore
 from liteyukibot_agent_resolver import AgentToolDescriptor
 
@@ -15,6 +15,7 @@ from liteyukibot.broker import (
     ActionResult,
     AuthorizationContextWire,
     BridgeControlInvoke,
+    BridgeControlResult,
     BrokerBridgeRunner,
     BrokerDelivery,
     BrokerEvent,
@@ -50,6 +51,8 @@ class FakeRunner:
     def __init__(self) -> None:
         self.actions: list[Mapping[str, object]] = []
         self.tools: list[tuple[str, Mapping[str, object]]] = []
+        self.control_result: BridgeControlResult | None = None
+        self.tool_result: ToolResult | None = None
 
     async def request_action(self, **kwargs: Any) -> ActionResult:
         self.actions.append(cast(Mapping[str, object], kwargs["payload"]))
@@ -57,7 +60,12 @@ class FakeRunner:
 
     async def request_tool(self, **kwargs: Any) -> ToolResult:
         self.tools.append((str(kwargs["tool_id"]), cast(Mapping[str, object], kwargs["arguments"])))
-        return ToolResult(invocation_id="invocation-1", success=True, result={"answer": "ok"})
+        return self.tool_result or ToolResult(invocation_id="invocation-1", success=True, result={"answer": "ok"})
+
+    async def request_control(self, **_kwargs: Any) -> BridgeControlResult:
+        return self.control_result or BridgeControlResult(
+            invocation_id="control-1", success=False, error_code="CONTROL_NO_OWNER"
+        )
 
 
 def _event() -> EventEnvelope:
@@ -243,4 +251,105 @@ async def test_agent_bridge_adds_rag_context_and_optional_citations(tmp_path: Pa
         assert data["text"] == "answer\n\nSources: root-0/facts.txt#0"
     finally:
         rag.close()
+        store.close()
+
+
+@pytest.mark.asyncio
+async def test_agent_bridge_activates_kernel_functions_and_applies_selected_prompt(tmp_path: Path) -> None:
+    runner = FakeRunner()
+    runner.control_result = BridgeControlResult(
+        invocation_id="catalog-1",
+        success=True,
+        result=cast(Any, {
+            "tools": [
+                {
+                    "id": "example.lyf.say",
+                    "module_id": "example",
+                    "title": "say",
+                    "description": "Say a greeting.",
+                    "input_schema": {"type": "object", "properties": {"name": {"type": "string"}}},
+                    "required_capabilities": [],
+                }
+            ],
+            "prompts": [
+                {
+                    "id": "friendly",
+                    "name": "Friendly",
+                    "description": "Friendly voice.",
+                    "prompt": "Answer in a friendly voice.",
+                    "examples": [],
+                }
+            ],
+        }),
+    )
+    runner.tool_result = ToolResult(invocation_id="invocation-1", success=True, result={"preset_id": "friendly"})
+    engine = FakeEngine(
+        (
+            ModelReply(tool_calls=(ToolCall("call-1", "example.lyf.say", {"name": "world"}),)),
+            ModelReply(text="hello"),
+        )
+    )
+    store = ConversationStore(tmp_path / "history.sqlite3")
+    host = AgentBridgeHost(
+        cast(BrokerBridgeRunner, runner),
+        engine,
+        store,
+        AgentCatalog(),
+        FakePermissions(),
+        max_concurrent_events=1,
+        history_limit=10,
+        model_timeout_seconds=1,
+        event_timeout_seconds=2,
+        max_tool_rounds=2,
+    )
+    event = _event()
+    delivery = BrokerDelivery(cast(BrokerBridgeRunner, runner), _delivery(event).message)
+    try:
+        await host.handle_delivery(delivery)
+        assert runner.tools == [("example.lyf.say", {"name": "world"})]
+        assert any(
+            item.get("role") == "system" and item.get("content") == "Answer in a friendly voice."
+            for item in engine.messages[1]
+        )
+    finally:
+        store.close()
+
+
+@pytest.mark.asyncio
+async def test_agent_prompt_control_accepts_only_active_verified_preset(tmp_path: Path) -> None:
+    store = ConversationStore(tmp_path / "history.sqlite3")
+    host = AgentBridgeHost(
+        cast(BrokerBridgeRunner, FakeRunner()),
+        FakeEngine((ModelReply(text="unused"),)),
+        store,
+        AgentCatalog(),
+        FakePermissions(),
+        max_concurrent_events=1,
+        history_limit=10,
+        model_timeout_seconds=1,
+        event_timeout_seconds=2,
+        max_tool_rounds=1,
+    )
+    host._active_prompt_catalogs["kernel-event-1"] = {"friendly": {"prompt": "safe", "examples": ()}}
+    request = BridgeControlInvoke(
+        delivery_id="delivery-1",
+        lease_id="lease-1",
+        correlation_id="prompt-1",
+        command=AGENT_PROMPT_SELECT,
+        authorization=AuthorizationContextWire(
+            event_id="kernel-event-1",
+            runtime_id="nonebot",
+            bot_id="bot-1",
+            actor_id="user-1",
+        ),
+        payload={"preset_id": "friendly"},
+    )
+    try:
+        result = await host.select_prompt(request)
+        assert result.success is True
+        assert result.result == {"preset_id": "friendly"}
+        invalid = await host.select_prompt(request.model_copy(update={"payload": {"preset_id": "unknown"}}))
+        assert invalid.success is False
+        assert invalid.error_code == "CONTROL_NOT_FOUND"
+    finally:
         store.close()

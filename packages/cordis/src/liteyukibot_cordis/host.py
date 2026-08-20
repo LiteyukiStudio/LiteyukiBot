@@ -9,6 +9,7 @@ from inspect import isawaitable
 from typing import Any, cast
 
 from liteyukibot.events import EventBus
+from liteyukibot.functions import FunctionHost
 from liteyukibot.plugins import (
     ExtensionCoexistence,
     ExtensionIdentity,
@@ -22,6 +23,7 @@ from liteyukibot.plugins import (
     ToolDeclaration,
     _PluginCleanup,
 )
+from liteyukibot.resource_packs import ResourcePackDeclaration
 from liteyukibot.services import ServiceKey, ServiceRegistry
 from liteyukibot.tasks import ManagedTasks
 
@@ -74,6 +76,7 @@ class CordisHost:
         self.settings = settings
         self._definitions = discover_cordis_plugins(settings.enabled)
         self._tool_handlers: dict[str, ToolCallback] = {}
+        self._function_hosts: dict[str, FunctionHost] = {}
         self._native_adapter = _NativeAdapter(
             events,
             actions,
@@ -82,6 +85,7 @@ class CordisHost:
             data_dir=data_dir,
             cache_dir=cache_dir,
             access=settings.access,
+            function_hosts=self._function_hosts,
         )
         self.manager.scope.provide("liteyukibot.native_adapter", lambda: self._native_adapter)
 
@@ -105,6 +109,20 @@ class CordisHost:
         return {tool_id: cast(ToolCallback, handler) for tool_id, handler in self.manager.tool_handlers.items()}
 
     @property
+    def function_resource_packs(self) -> Mapping[str, tuple[ResourcePackDeclaration, ...]]:
+        return {
+            plugin_id: definition.manifest.resource_packs
+            for plugin_id, definition in self._definitions.items()
+            if definition.manifest is not None and definition.manifest.resource_packs
+        }
+
+    def bind_function_hosts(self, hosts: Mapping[str, FunctionHost]) -> None:
+        if self.manager.active_plugin_ids:
+            raise RuntimeError("Cordis Function Hosts must be bound before host start")
+        self._function_hosts = dict(hosts)
+        self._native_adapter.function_hosts = self._function_hosts
+
+    @property
     def plugin_identities(self) -> tuple[ExtensionIdentity, ...]:
         return tuple(definition.identity for definition in self._definitions.values())
 
@@ -114,7 +132,7 @@ class CordisHost:
             config = self.settings.config.get(plugin_id, {})
             await self.manager.activate(
                 plugin_id,
-                _configured_factory(definition.factory, config),
+                _configured_factory(definition.factory, config, self._function_hosts.get(plugin_id)),
                 declared_tools=definition.tool_ids,
             )
         await self.manager.start()
@@ -187,6 +205,7 @@ class _NativeAdapter:
         data_dir: Any,
         cache_dir: Any,
         access: Mapping[str, str],
+        function_hosts: Mapping[str, FunctionHost] | None = None,
     ) -> None:
         self.events = events
         self.actions = actions
@@ -195,6 +214,7 @@ class _NativeAdapter:
         self.data_dir = data_dir
         self.cache_dir = cache_dir
         self.access = access
+        self.function_hosts = dict(function_hosts or {})
 
     async def activate(self, scope: Scope, plugin_id: str) -> None:
         if self.services is None:
@@ -241,6 +261,7 @@ class _NativeAdapter:
             events=self.events,
             actions=self.actions,
             paths=paths,
+            function_host=self.function_hosts.get(plugin_id),
             _manifest=manifest,
             _cleanup=cleanup,
             _tool_handlers=tool_handlers,
@@ -316,9 +337,15 @@ def _coerce_definition(candidate: object) -> CordisPluginDefinition:
     return candidate
 
 
-def _configured_factory(factory: PluginFactory, config: Mapping[str, object]) -> PluginFactory:
+def _configured_factory(
+    factory: PluginFactory,
+    config: Mapping[str, object],
+    function_host: FunctionHost | None = None,
+) -> PluginFactory:
     async def activate(scope: Scope) -> None:
         configured = scope.child(config=config)
+        if function_host is not None:
+            configured.provide("liteyukibot.function_host", lambda: function_host)
         try:
             result = factory(configured)
             if isawaitable(result):

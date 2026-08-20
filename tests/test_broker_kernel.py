@@ -3,7 +3,8 @@ from __future__ import annotations
 import asyncio
 import socket
 from pathlib import Path
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 import zmq.asyncio
@@ -15,13 +16,16 @@ from liteyukibot.broker import (
     ActionOutcome,
     ActionRequest,
     ActionResourceDeclaration,
+    AuthorizationContextWire,
     BridgeAccess,
     BridgeClient,
+    BridgeControlResult,
     BridgeManifest,
     BrokerBridgeRunner,
     BrokerPeerServer,
     EventIngress,
     KernelBrokerPeer,
+    ToolInvoke,
     configured_kernel_bridge,
     parse_message_send_request,
 )
@@ -178,6 +182,84 @@ def test_app_defers_kernel_peer_creation_until_start() -> None:
 
 
 @pytest.mark.asyncio
+async def test_kernel_peer_forwards_controls_and_control_handlers() -> None:
+    event_bus = EventBus()
+
+    async def select_prompt(_request: Any) -> Any:
+        return None
+
+    peer = KernelBrokerPeer.from_settings(
+        _kernel_settings(),
+        token="kernel-token",
+        events=event_bus,
+        controls=("agent.prompt.select",),
+        control_handlers={"agent.prompt.select": select_prompt},
+    )
+    try:
+        assert peer._runner.client.manifest.controls == ("agent.prompt.select",)
+        assert peer._runner._control_handlers == {"agent.prompt.select": select_prompt}
+    finally:
+        await peer.stop()
+        await event_bus.aclose()
+
+
+@pytest.mark.asyncio
+async def test_kernel_peer_request_control_for_tool_reuses_active_delivery_lease_and_authorization() -> None:
+    event = _source_event().model_copy(update={"id": "kernel-event-1"})
+    authorization = AuthorizationContextWire(
+        event_id=event.id,
+        runtime_id=event.runtime_id,
+        bot_id=event.bot_id,
+        actor_id=event.actor.id if event.actor is not None else None,
+    )
+    request = ToolInvoke(
+        delivery_id="agent-delivery-1",
+        lease_id="agent-lease-1",
+        correlation_id="tool-correlation-1",
+        tool_id="tool-1",
+        authorization=authorization,
+    )
+    expected = BridgeControlResult(invocation_id="control-1", success=True, result={"accepted": True})
+
+    class RecordingDelivery:
+        message = SimpleNamespace(delivery_id="kernel-delivery-1", lease_id="kernel-lease-1")
+
+        def __init__(self) -> None:
+            self.request: dict[str, Any] | None = None
+
+        async def request_control(self, **kwargs: Any) -> BridgeControlResult:
+            self.request = kwargs
+            return expected
+
+    delivery = RecordingDelivery()
+    peer = object.__new__(KernelBrokerPeer)
+    peer._active_deliveries = cast(Any, {event.id: delivery})
+    peer._active_events = {event.id: event}
+
+    result = await peer.request_control_for_tool(
+        request,
+        correlation_id="control-correlation-1",
+        command="agent.prompt.select",
+        payload={"prompt_id": "prompt-1"},
+    )
+
+    assert result is expected
+    assert delivery.request is not None
+    assert delivery.request["authorization"] is authorization
+    assert delivery.request["correlation_id"] == "control-correlation-1"
+    assert delivery.request["command"] == "agent.prompt.select"
+    assert delivery.request["payload"] == {"prompt_id": "prompt-1"}
+    assert peer.active_event(event.id) is event
+
+    missing = request.model_copy(
+        update={
+            "authorization": authorization.model_copy(update={"event_id": "inactive-event"}),
+        }
+    )
+    assert await peer.request_control_for_tool(missing, correlation_id="unused", command="unused") is None
+
+
+@pytest.mark.asyncio
 async def test_kernel_peer_dispatches_native_event_and_routes_send_message_to_source_owner() -> None:
     context = zmq.asyncio.Context()
     server = BrokerPeerServer(
@@ -245,6 +327,8 @@ async def test_kernel_peer_dispatches_native_event_and_routes_send_message_to_so
 
         async def native_plugin(event: EventEnvelope) -> HandlerResult:
             seen.append(event)
+            assert peer is not None
+            assert peer.active_event(event.id) is event
             return HandlerResult(
                 actions=(
                     ActionEnvelope(
@@ -284,6 +368,7 @@ async def test_kernel_peer_dispatches_native_event_and_routes_send_message_to_so
         assert seen[0].id != event.id
         assert seen[0].runtime_id == "nonebot"
         assert [request.kind for request in sent] == [MESSAGE_SEND_KIND]
+        assert peer.active_event(seen[0].id) is None
     finally:
         if peer is not None:
             await peer.stop()

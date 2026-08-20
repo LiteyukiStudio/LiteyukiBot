@@ -1,21 +1,38 @@
 # LiteyukiBot v7 Functions
 
-`liteyukibot-v7-functions` is the v6 Liteyuki resource-function executor for
-LiteyukiBot v7. It registers the `.lyf`, `.lyfunction`, and `.mcfunction`
-extensions through the kernel `liteyukibot.function_executors` entry-point
-group.
+This package contains the Alpha 7 Liteyuki Function Language (LYF) parser,
+immutable AST, diagnostics, static preflight and bounded evaluator. It is a
+host-neutral library: Native and Cordis hosts may create a
+`FunctionRuntime` without importing the old Kernel Function Dispatcher.
 
-It preserves the v6 resource language: `var`, `api`, `function`, `sleep`,
-`nohup`, `await`, `end`, and `cmd`. API and command instructions require a
-caller-supplied capability; installing this package never grants resource files
-access to adapter APIs or the local operating-system shell.
+The new `.lyf` language is deliberately small. It supports `@version`,
+`use`, JSON-safe values, strict bindings, function calls, `return`, `await`,
+and static `@agent`/`@events` contributions. Loops, `terminal.exec`, `sync
+fn`, v6 line instructions and arbitrary Python or shell access are represented
+as diagnostics and never executed.
 
-The old v6 `eval` parsing is intentionally replaced by literal parsing. Values
-that are not literals remain strings, matching normal legacy variable lookup.
+The previous v6 executor remains in `executor.py` as a separately maintained
+compatibility asset. New code uses:
+
+```python
+from liteyukibot_functions import FunctionRuntime, parse, preflight
+
+parsed = parse(source, source_id="pack:functions/main.lyf")
+checked = preflight(parsed, extension_id="example")
+runtime = FunctionRuntime(checked)
+result = await runtime.invoke("greet", {"name": "Liteyuki"})
+```
+
+Function Libraries are explicit `LibraryDefinition` values selected by
+`use namespace@provider`; they never expose arbitrary Python modules. Tool,
+prompt and event metadata is collected by preflight before a host accepts
+events.
 
 ## Development
 
-Preserve the explicit caller-supplied capability boundary; function files must
-not gain implicit shell or adapter access. Run
+Preserve the explicit Library capability boundary; function files must not
+gain implicit shell or adapter access. Run
 `uv run pytest packages/functions/tests` and
-`uv run python -m scripts.run_functions_install` after changes.
+`uv run ruff check packages/functions` after changes. The old installation
+verifier remains useful for the compatibility executor, but Alpha 7 parser
+tests are intentionally independent of Kernel integration.
