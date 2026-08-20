@@ -1,7 +1,9 @@
 # v7 Alpha 7: Liteyuki Function DSL
 
-> **Planned implementation contract.** This document does not claim that the
-> new LYF language or its runtime has been implemented or released.
+> **Planned implementation contract.** The detailed syntax and host design is
+> documented under [`docs/functions`](../functions/README.md). This document
+> does not claim that the LYF language or its runtime has been implemented or
+> released.
 
 Alpha 7 replaces the historical line-oriented v6 function executor with a
 restricted, resource-pack-only DSL shared by Native and Cordis hosts.
@@ -29,7 +31,8 @@ No arbitrary Python import or filesystem script execution is available.
 declared by metadata. Libraries behave like explicit Python-like namespaces but
 cannot import arbitrary modules. Native and Cordis hosts inject the same
 Function Host service and own lifecycle, Tool registration, prompts, and event
-subscriptions.
+subscriptions. Function files are resources owned by their parent extension,
+not independent plugins or bridges.
 
 `@agent(tool)` exports a DSL Tool. `@agent(prompt, name=...)` creates an
 immutable named prompt preset; Agent configuration selects a default and an

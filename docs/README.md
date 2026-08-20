@@ -28,6 +28,9 @@ boundaries.
   release-maintainer guidance.
 - `roadmap/` contains forward-looking release plans. Its documents must label
   planned behavior explicitly and must not redefine current contracts.
+- `functions/` contains the planned Alpha7 LYF language specification, split by
+  lexical, module, binding, function, decorator, Library, host and diagnostic
+  concerns.
 - `archive/` holds completed historical records that remain useful for design
   or release archaeology.
 - top-level documents cover configuration, compatibility, and performance; the

@@ -22,9 +22,10 @@ or any listed/unlisted file-set mismatch before exposing a catalog.
 requested. `liteyuki resource verify <directory>` verifies one directory pack.
 Workspace configuration and startup never create or update manifests.
 
-The current resource API and Function behavior are separate from the planned
-new Function development tooling and any future DSL. New syntax is not part of
-this specification.
+The current resource API and v6 Function behavior are separate from the planned
+Alpha7 [LYF language specification](../functions/README.md). New syntax is not
+part of this resource specification until the Alpha7 implementation and focused
+tests land.
 
 ## Evidence
 
