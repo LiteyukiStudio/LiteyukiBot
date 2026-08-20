@@ -21,16 +21,15 @@ it never exposes payloads, child credentials, environment values, or secrets.
 ## Delivery And Controls
 
 Core-to-child Events receive an accepted/overloaded/invalid response and have
-bounded completion. v4+ deliveries carry immutable trace provenance. v5 adds
-narrow, capability-gated kernel controls and child-originated requests for one
-registered kernel management command. Neither direction is a generic RPC,
-shell, or arbitrary command channel.
+bounded completion. v4+ deliveries carry immutable trace provenance. Alpha6
+removes the former Agent Tool request/response and Agent history control models
+from the executable v5 catalog. Agent functionality now uses the Broker Peer
+IPC v6 bridge Tool and control messages.
 
 Actions remain kernel-to-child and are correlated with their original Event
-delivery. Control and management results are structured and redacted. The
-exact Pydantic wire models, discriminators, and frame validation live in
-`src/liteyukibot/runtime/protocol.py`; that source and its protocol tests are
-the executable shape of this pre-stable specification.
+delivery. Management results are structured and redacted. This document
+remains a record of the superseded child-runtime wire format; it must not be
+used to implement a new Agent integration.
 
 ## Evidence
 

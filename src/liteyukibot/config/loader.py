@@ -431,6 +431,7 @@ def _load_settings(
         tracker.apply(command_line_values, ConfigSource("command_line", "--set"))
     merged = _deep_merge(merged, _resolve_declared_paths(command_line_values, Path.cwd()))
     _reject_legacy_runtime_config(merged, issues)
+    _reject_legacy_agent_config(merged, issues)
 
     try:
         settings = AppSettings.model_validate(merged)
@@ -460,7 +461,15 @@ def _reject_legacy_runtime_config(merged: Mapping[str, Any], issues: list[Config
         if not isinstance(runtime, Mapping):
             continue
         kind = runtime.get("kind")
-        if kind == "adapter":
+        if kind == "agent":
+            issues.append(
+                ConfigIssue(
+                    "merged configuration",
+                    "migration_required: the Agent runtime was replaced by broker.bridges.<id>",
+                    ("runtimes", str(runtime_id), "kind"),
+                )
+            )
+        elif kind == "adapter":
             issues.append(
                 ConfigIssue(
                     "merged configuration",
@@ -484,6 +493,38 @@ def _reject_legacy_runtime_config(merged: Mapping[str, Any], issues: list[Config
                     ("runtimes", str(runtime_id), "kind"),
                 )
             )
+
+
+def _reject_legacy_agent_config(merged: Mapping[str, Any], issues: list[ConfigIssue]) -> None:
+    if "agent" in merged:
+        issues.append(
+            ConfigIssue(
+                "merged configuration",
+                "migration_required: [agent] was replaced by broker.bridges.<id>",
+                ("agent",),
+            )
+        )
+    plugins = merged.get("plugins")
+    if not isinstance(plugins, Mapping):
+        return
+    enabled = plugins.get("enabled")
+    if isinstance(enabled, (list, tuple)) and "liteyukibot.agent" in enabled:
+        issues.append(
+            ConfigIssue(
+                "merged configuration",
+                "migration_required: liteyukibot.agent is no longer a plugin",
+                ("plugins", "enabled"),
+            )
+        )
+    config = plugins.get("config")
+    if isinstance(config, Mapping) and "liteyukibot.agent" in config:
+        issues.append(
+            ConfigIssue(
+                "merged configuration",
+                "migration_required: liteyukibot.agent configuration was removed",
+                ("plugins", "config", "liteyukibot.agent"),
+            )
+        )
 
 
 def _validate_instance_overlay(overlay: Mapping[str, Any], path: Path) -> None:

@@ -1,4 +1,4 @@
-"""Bounded SQLite conversation history owned by the native agent runtime."""
+"""Bounded SQLite conversation history owned by the Agent bridge."""
 
 from __future__ import annotations
 

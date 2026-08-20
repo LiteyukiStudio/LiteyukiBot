@@ -10,6 +10,8 @@ from ..lyip import LyipError, LyipFrame, LyipLane
 from .routing import (
     ActionRequest,
     ActionResult,
+    BridgeControlInvoke,
+    BridgeControlResult,
     EventAccepted,
     EventCompleted,
     EventIngress,
@@ -26,6 +28,8 @@ BROKER_ACTION_REQUEST_TYPE_ID: Final = 614
 BROKER_ACTION_RESULT_TYPE_ID: Final = 615
 BROKER_TOOL_INVOKE_TYPE_ID: Final = 616
 BROKER_TOOL_RESULT_TYPE_ID: Final = 617
+BROKER_CONTROL_INVOKE_TYPE_ID: Final = 618
+BROKER_CONTROL_RESULT_TYPE_ID: Final = 619
 
 
 class BrokerBusinessWireError(LyipError):
@@ -40,7 +44,9 @@ type BrokerBusinessMessage = Annotated[
     | ActionRequest
     | ActionResult
     | ToolInvoke
-    | ToolResult,
+    | ToolResult
+    | BridgeControlInvoke
+    | BridgeControlResult,
     Field(discriminator="type"),
 ]
 BROKER_BUSINESS_ADAPTER: Final[TypeAdapter[BrokerBusinessMessage]] = TypeAdapter(BrokerBusinessMessage)
@@ -54,6 +60,8 @@ _TYPE_IDS: Final[dict[type[object], int]] = {
     ActionResult: BROKER_ACTION_RESULT_TYPE_ID,
     ToolInvoke: BROKER_TOOL_INVOKE_TYPE_ID,
     ToolResult: BROKER_TOOL_RESULT_TYPE_ID,
+    BridgeControlInvoke: BROKER_CONTROL_INVOKE_TYPE_ID,
+    BridgeControlResult: BROKER_CONTROL_RESULT_TYPE_ID,
 }
 _MESSAGE_TYPES: Final[dict[int, type[object]]] = {type_id: model for model, type_id in _TYPE_IDS.items()}
 

@@ -144,12 +144,13 @@ nested = { primary = true }
 
 def test_runtime_secret_environment_is_immutable_and_serialized() -> None:
     settings = RuntimeSettings(
-        kind="agent",
-        secret_env={"LITEYUKI_AGENT_API_KEY": "runtime.agent.api_key_secret"},
+        kind="custom",
+        command=("custom",),
+        secret_env={"LITEYUKI_CUSTOM_API_KEY": "runtime.custom.api_key_secret"},
     )
 
     assert settings.model_dump(mode="json")["secret_env"] == {
-        "LITEYUKI_AGENT_API_KEY": "runtime.agent.api_key_secret"
+        "LITEYUKI_CUSTOM_API_KEY": "runtime.custom.api_key_secret"
     }
     with pytest.raises(TypeError):
         settings.secret_env["OTHER"] = "secret"  # type: ignore[index]
@@ -175,10 +176,9 @@ def test_runtime_accepts_external_kind_with_an_explicit_command() -> None:
     assert settings.kind == "astrbot"
 
 
-def test_agent_harness_must_be_a_trimmed_nonempty_identifier() -> None:
-    assert AgentSettings(agent_harness="native").agent_harness == "native"
-    with pytest.raises(ValidationError, match="agent_harness"):
-        AgentSettings(agent_harness=" native ")
+def test_legacy_agent_settings_require_migration() -> None:
+    with pytest.raises(ValidationError, match="migration_required"):
+        AppSettings(agent=AgentSettings(enabled=True, agent_harness="native"))
 
 
 def test_v5_lyip_webui_and_development_settings_are_typed_and_serialized() -> None:
@@ -385,6 +385,17 @@ def test_loader_rejects_legacy_adapter_runtime_with_migration_diagnostic(tmp_pat
 
     with pytest.raises(ConfigurationError, match="migration_required"):
         load_settings(config, environ={})
+
+
+def test_loader_rejects_legacy_agent_configuration_with_migration_diagnostic(tmp_path: Path) -> None:
+    for name, section in (
+        ("agent.toml", "[agent]\nenabled = true\n"),
+        ("runtime-agent.toml", '[runtimes.agent]\nkind = "agent"\n'),
+    ):
+        config = tmp_path / name
+        config.write_text(f"config_version = 5\n\n{section}", encoding="utf-8")
+        with pytest.raises(ConfigurationError, match="migration_required"):
+            load_settings(config, environ={})
 
 
 @pytest.mark.parametrize(

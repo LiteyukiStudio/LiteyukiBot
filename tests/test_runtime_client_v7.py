@@ -15,7 +15,6 @@ from liteyukibot.runtime.protocol import (
     ActionRequest,
     ActionResponse,
     ConfigMessage,
-    ControlRequest,
     ErrorMessage,
     EventMessage,
     Heartbeat,
@@ -268,11 +267,11 @@ async def test_runtime_client_routes_business_response_without_stealing_control(
         await fixture.peer.send(identity, EventMessage(correlation_id="event-1", payload={"value": 2}))
         await fixture.peer.send(identity, response)
         await fixture.peer.send(identity, EventMessage(correlation_id="after-action", payload={}))
-        await fixture.peer.send(identity, ControlRequest(correlation_id="control-1", command="agent.history.clear"))
+        await fixture.peer.send(identity, ManagementRequest(correlation_id="management-1", command="status"))
         await fixture.peer.send(identity, Shutdown())
         received = [await fixture.client.receive() for _ in range(4)]
         expected = (
-            ControlRequest(correlation_id="control-1", command="agent.history.clear"),
+            ManagementRequest(correlation_id="management-1", command="status"),
             EventMessage(correlation_id="event-1", payload={"value": 2}),
             EventMessage(correlation_id="after-action", payload={}),
             Shutdown(),

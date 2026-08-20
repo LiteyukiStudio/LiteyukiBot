@@ -100,8 +100,6 @@ def build_initialization_plan(
         secret_prompt=secret_prompt,
         translator=translator,
     )
-    routes = _collect_agent_routes(runtimes, runtime_plugins, prompt=prompt, translator=translator)
-
     return InitializationPlan(
         data_dir=data_dir,
         cache_dir=cache_dir,
@@ -113,7 +111,7 @@ def build_initialization_plan(
         plugins=selected_plugins,
         plugin_config=plugin_config,
         runtimes=runtimes,
-        runtime_event_routes=routes,
+        runtime_event_routes=(),
         secrets=secrets,
         diagnostics=diagnostics,
     )
@@ -305,36 +303,6 @@ def _select_runtimes(
             "secret_env": secret_env,
         }
     return runtimes, secrets
-
-
-def _collect_agent_routes(
-    runtimes: Mapping[str, Mapping[str, Any]],
-    plugins: Mapping[str, RuntimePlugin],
-    *,
-    prompt: Prompt,
-    translator: Translator,
-) -> tuple[dict[str, Any], ...]:
-    routes: list[dict[str, Any]] = []
-    sources = tuple(
-        runtime_id for runtime_id, config in runtimes.items() if plugins[str(config["kind"])].agent_harness is None
-    )
-    for runtime_id, config in runtimes.items():
-        plugin = plugins[str(config["kind"])]
-        if plugin.agent_harness is None:
-            continue
-        for source in sources:
-            if _confirm(
-                prompt,
-                translator.text(
-                    "init.route_agent",
-                    "Route messages from {source} to agent runtime {target}",
-                    source=source,
-                    target=runtime_id,
-                ),
-                default=False,
-            ):
-                routes.append({"sources": [source], "target": runtime_id, "messages_only": True})
-    return tuple(routes)
 
 
 def _collect_fields(

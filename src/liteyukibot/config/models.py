@@ -9,6 +9,7 @@ from platform import platform
 from types import MappingProxyType
 from typing import Any, Literal, cast
 
+from jsonschema import Draft202012Validator, SchemaError
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator, model_serializer, model_validator
 
 from ..topic_patterns import validate_topic_pattern
@@ -175,7 +176,7 @@ class CordisSettings(FrozenSettingsModel):
 
 
 class AgentSettings(FrozenSettingsModel):
-    """Select the single v1 agent harness that processes routed events."""
+    """Legacy v1 Agent settings retained only to produce a migration error."""
 
     enabled: bool = False
     agent_harness: str = "native"
@@ -524,6 +525,48 @@ class BrokerActionResourceSettings(FrozenSettingsModel):
         return result
 
 
+class BrokerToolSettings(FrozenSettingsModel):
+    """Configuration-authoritative declaration for one bridge-owned Tool."""
+
+    id: str
+    description: str
+    input_schema: Mapping[str, JsonValue]
+    output_schema: Mapping[str, JsonValue] = Field(default_factory=lambda: {"type": "object"})
+    capabilities: tuple[str, ...] = ()
+
+    @field_validator("id", "description")
+    @classmethod
+    def require_text(cls, value: str) -> str:
+        if not value.strip() or value != value.strip():
+            raise ValueError("broker Tool identifiers and descriptions must be non-empty and trimmed")
+        return value
+
+    @field_validator("input_schema", "output_schema", mode="after")
+    @classmethod
+    def validate_schema(cls, value: Mapping[str, JsonValue]) -> Mapping[str, JsonValue]:
+        _validate_json(value, "broker Tool schema")
+        if value.get("type") != "object":
+            raise ValueError("broker Tool schemas must describe JSON objects")
+        try:
+            Draft202012Validator.check_schema(dict(value))
+        except SchemaError as error:
+            raise ValueError("broker Tool schema is not valid Draft 2020-12") from error
+        return cast(Mapping[str, JsonValue], _freeze(value))
+
+    @field_validator("capabilities")
+    @classmethod
+    def validate_capabilities(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not capability.strip() or capability != capability.strip() for capability in value):
+            raise ValueError("broker Tool capabilities must be non-empty and trimmed")
+        if len(set(value)) != len(value):
+            raise ValueError("broker Tool capabilities must not contain duplicates")
+        return value
+
+    @field_serializer("input_schema", "output_schema")
+    def serialize_schema(self, value: Mapping[str, JsonValue]) -> dict[str, Any]:
+        return cast(dict[str, Any], _thaw(value))
+
+
 class BrokerBridgeSettings(FrozenSettingsModel):
     """One configuration-authoritative bridge manifest and token reference."""
 
@@ -532,6 +575,8 @@ class BrokerBridgeSettings(FrozenSettingsModel):
     access: Literal["full", "limited"] = "limited"
     subscriptions: tuple[str, ...] = ()
     action_resources: tuple[BrokerActionResourceSettings, ...] = ()
+    tools: tuple[BrokerToolSettings, ...] = ()
+    controls: tuple[str, ...] = ()
     options: Mapping[str, JsonValue] = Field(default_factory=dict)
 
     @field_validator("kind", "token_secret")
@@ -557,6 +602,23 @@ class BrokerBridgeSettings(FrozenSettingsModel):
         keys = {(resource.kind, resource.resource, resource.resource_prefix) for resource in value}
         if len(keys) != len(value):
             raise ValueError("broker action resources must not contain duplicates")
+        return value
+
+    @field_validator("tools")
+    @classmethod
+    def reject_duplicate_tools(cls, value: tuple[BrokerToolSettings, ...]) -> tuple[BrokerToolSettings, ...]:
+        ids = tuple(tool.id for tool in value)
+        if len(ids) != len(set(ids)):
+            raise ValueError("broker Tool IDs must not contain duplicates")
+        return value
+
+    @field_validator("controls")
+    @classmethod
+    def reject_duplicate_controls(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not control.strip() or control != control.strip() for control in value):
+            raise ValueError("broker controls must be non-empty and trimmed")
+        if len(set(value)) != len(value):
+            raise ValueError("broker controls must not contain duplicates")
         return value
 
     @field_validator("options", mode="after")
@@ -586,6 +648,10 @@ def configured_kernel_bridge_settings(
         raise ValueError("kernel bridge must declare at least one subscription")
     if bridge.action_resources:
         raise ValueError("kernel bridge must not declare action ownership")
+    if bridge.tools:
+        raise ValueError("kernel bridge must not declare Tools")
+    if bridge.controls:
+        raise ValueError("kernel bridge must not declare controls")
     return bridge_id, bridge
 
 
@@ -640,6 +706,8 @@ class BrokerSettings(FrozenSettingsModel):
     @model_validator(mode="after")
     def validate_bridge_contracts(self) -> BrokerSettings:
         owners: dict[tuple[str, str, str | None, str | None], str] = {}
+        tool_owners: dict[str, str] = {}
+        control_owners: dict[str, str] = {}
         configured_kernel_bridge_settings(self.bridges)
         for bridge_id, bridge in self.bridges.items():
             for resource in bridge.action_resources:
@@ -652,6 +720,20 @@ class BrokerSettings(FrozenSettingsModel):
                         f"has duplicate {bridge.access!r} ownership in {existing!r} and {bridge_id!r}"
                     )
                 owners[key] = bridge_id
+            for tool in bridge.tools:
+                existing = tool_owners.get(tool.id)
+                if existing is not None:
+                    raise ValueError(
+                        f"broker Tool {tool.id!r} has duplicate ownership in {existing!r} and {bridge_id!r}"
+                    )
+                tool_owners[tool.id] = bridge_id
+            for control in bridge.controls:
+                existing = control_owners.get(control)
+                if existing is not None:
+                    raise ValueError(
+                        f"broker control {control!r} has duplicate ownership in {existing!r} and {bridge_id!r}"
+                    )
+                control_owners[control] = bridge_id
         return self
 
 
@@ -662,7 +744,7 @@ class AppSettings(FrozenSettingsModel):
     i18n: I18nSettings = Field(default_factory=I18nSettings)
     plugins: PluginSettings = Field(default_factory=PluginSettings)
     cordis: CordisSettings = Field(default_factory=CordisSettings)
-    agent: AgentSettings = Field(default_factory=AgentSettings)
+    agent: AgentSettings | None = None
     broker: BrokerSettings = Field(default_factory=BrokerSettings)
     http: HttpSettings = Field(default_factory=HttpSettings)
     daemon: DaemonSettings = Field(default_factory=DaemonSettings)
@@ -691,6 +773,8 @@ class AppSettings(FrozenSettingsModel):
 
     @model_validator(mode="after")
     def validate_cross_section_policy(self) -> AppSettings:
+        if self.agent is not None:
+            raise ValueError("migration_required: [agent] was removed; configure a Broker Agent bridge instead")
         if self.development.allow_drills and not self.development.enabled:
             raise ValueError("development.allow_drills requires development.enabled")
         if self.development.watch_auto_restart and not self.development.enabled:

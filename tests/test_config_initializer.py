@@ -68,7 +68,6 @@ def test_initializer_selects_dependencies_and_runtime_routes(tmp_path: Path, mon
         "agent": RuntimePlugin(
             kind="agent",
             command=("agent",),
-            agent_harness="native",
             init_spec=RuntimeInitSpec(default_id="agent"),
         ),
         "secure": RuntimePlugin(
@@ -191,23 +190,23 @@ def test_initializer_collects_runtime_secrets_without_storing_plaintext(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     runtime = RuntimePlugin(
-        kind="agent",
-        command=("agent",),
+        kind="custom",
+        command=("custom",),
         init_spec=RuntimeInitSpec(
-            default_id="agent",
+            default_id="custom",
             fields=(
                 InitFieldSpec(
                     key="api_key_secret",
                     label="API key",
                     kind=InitFieldKind.SECRET,
                     required=True,
-                    secret_environment="LITEYUKI_AGENT_API_KEY",
+                    secret_environment="LITEYUKI_CUSTOM_API_KEY",
                 ),
             ),
         ),
     )
     monkeypatch.setattr(PluginManager, "discover_installed", classmethod(lambda _cls: ({}, ())))
-    monkeypatch.setattr(RuntimeCatalog, "discover_installed", lambda _self: ({"agent": runtime}, ()))
+    monkeypatch.setattr(RuntimeCatalog, "discover_installed", lambda _self: ({"custom": runtime}, ()))
 
     plan = build_initialization_plan(
         prompt=lambda label, default: "y" if label.startswith("Enable runtime") else default,
@@ -215,8 +214,8 @@ def test_initializer_collects_runtime_secrets_without_storing_plaintext(
         secret_prompt=lambda _label: "api-value",
     )
 
-    assert plan.secrets == {"runtime.agent.api_key_secret": "api-value"}
-    assert plan.runtimes["agent"]["options"]["api_key_secret"] == "runtime.agent.api_key_secret"
-    assert plan.runtimes["agent"]["secret_env"] == {
-        "LITEYUKI_AGENT_API_KEY": "runtime.agent.api_key_secret"
+    assert plan.secrets == {"runtime.custom.api_key_secret": "api-value"}
+    assert plan.runtimes["custom"]["options"]["api_key_secret"] == "runtime.custom.api_key_secret"
+    assert plan.runtimes["custom"]["secret_env"] == {
+        "LITEYUKI_CUSTOM_API_KEY": "runtime.custom.api_key_secret"
     }

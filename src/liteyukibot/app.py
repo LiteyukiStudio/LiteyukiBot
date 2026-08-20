@@ -15,15 +15,16 @@ from uuid import uuid4
 from jsonschema import Draft202012Validator, ValidationError
 
 from ._version import __version__
-from .agents import (
-    AGENT_HISTORY_SERVICE,
-    AGENT_TOOL_BROKER_SERVICE,
-    AgentToolBroker,
-    AgentToolResult,
-    EventAgentToolCatalog,
-)
+from .agents import AGENT_HISTORY_SERVICE
 from .authorization import AuthorizationContext
-from .broker import BrokerToolDeclaration, KernelBrokerPeer, ToolInvoke, ToolOutcome, configured_kernel_bridge
+from .broker import (
+    AuthorizationContextWire,
+    BrokerToolDeclaration,
+    KernelBrokerPeer,
+    ToolInvoke,
+    ToolOutcome,
+    configured_kernel_bridge,
+)
 from .capabilities import ADAPTER_CALL_API, AGENT_HISTORY_CLEAR, PERMISSION_SERVICE_MAJOR, PERMISSION_SERVICE_NAME
 from .config import AppSettings, RuntimeEventRoute
 from .control import ControlServer
@@ -50,7 +51,6 @@ from .resource_packs import RESOURCE_CATALOG_SERVICE, ResourceCatalog
 from .runtime import (
     ActionProvenance,
     ActionSinkResult,
-    AgentToolSinkResult,
     JsonValue,
     RuntimeCatalog,
     RuntimeSpec,
@@ -276,9 +276,6 @@ class LiteyukiApp:
                     heartbeat_interval=runtime.heartbeat_interval_seconds,
                     stale_after=runtime.stale_after_seconds,
                     max_inbound_events=runtime.max_inbound_events,
-                    agent_harness=(
-                        runtime_plugins[runtime.kind].agent_harness if runtime.kind in runtime_plugins else None
-                    ),
                 )
             )
         self._runtime_event_routes = self._event_routes(settings)
@@ -292,11 +289,12 @@ class LiteyukiApp:
             _AppStatusProvider(self),
             provider="liteyukibot.kernel",
         )
-        self.services.provide(
-            AGENT_HISTORY_SERVICE,
-            _AgentHistoryProvider(self),
-            provider="liteyukibot.kernel",
-        )
+        if any(bridge.kind == "agent" for bridge in settings.broker.bridges.values()):
+            self.services.provide(
+                AGENT_HISTORY_SERVICE,
+                _AgentHistoryProvider(self),
+                provider="liteyukibot.kernel",
+            )
         self.services.provide(MANAGEMENT_SERVICE, self.management, provider="liteyukibot.kernel")
         if (instance_daemon := InstanceDaemonService.from_environment()) is not None:
             self.services.provide(
@@ -471,12 +469,6 @@ class LiteyukiApp:
             if os.environ.get("LITEYUKI_DAEMON_WORKER") != "1":
                 await self.management.start_operations(self.settings.core.data_dir)
                 self._management_started = True
-            broker = self.services.get(AGENT_TOOL_BROKER_SERVICE)
-            if broker is not None:
-                if not isinstance(broker, AgentToolBroker):
-                    raise RuntimeError("agent tool broker service has an invalid implementation")
-                self.runtimes.set_agent_tool_sink(self._execute_agent_tool)
-
             await self.runtimes.start()
             self._runtimes_started = True
             await self.plugins.start()
@@ -677,9 +669,6 @@ class LiteyukiApp:
                     "id": runtime_id,
                     "kind": runtime.kind,
                     "enabled": runtime.enabled,
-                    "agent_harness": self.runtimes.records[runtime_id].spec.agent_harness
-                    if runtime_id in self.runtimes.records
-                    else None,
                     "health": runtime_health.get(runtime_id),
                 }
                 for runtime_id, runtime in sorted(self.settings.runtimes.items())
@@ -935,26 +924,35 @@ class LiteyukiApp:
         if not allowed:
             raise PermissionError("agent history clear permission is denied")
 
-        targets = tuple(
-            runtime_id for runtime_id, record in self.runtimes.records.items() if record.spec.agent_harness == "native"
+        if self._kernel_broker_peer is None:
+            raise ConnectionError("Agent bridge is unavailable")
+        authorization = AuthorizationContextWire(
+            event_id=event.id,
+            runtime_id=event.runtime_id,
+            bot_id=event.bot_id,
+            actor_id=event.actor.id if event.actor is not None else None,
         )
-        if len(targets) != 1:
-            raise RuntimeError("native agent history control requires exactly one native agent runtime")
-        response = await self.runtimes.execute_control(
-            targets[0],
-            str(uuid4()),
-            "agent.history.clear",
-            {
+        response = await self._kernel_broker_peer.request_control(
+            event,
+            correlation_id=str(uuid4()),
+            command="agent.history.clear",
+            authorization=authorization,
+            payload={
                 "runtime_id": event.runtime_id,
                 "bot_id": event.bot_id,
                 "conversation_id": event.conversation.ordering_key,
             },
+            timeout_seconds=self.settings.broker.delivery_timeout_seconds,
         )
-        if not response.ok or not isinstance(response.data, dict):
-            raise RuntimeError("native agent history clear failed")
-        cleared = response.data.get("cleared")
+        if response is None:
+            raise ConnectionError("Agent bridge delivery is unavailable")
+        if not response.success:
+            raise RuntimeError(response.error_code or "Agent history clear failed")
+        if not isinstance(response.result, Mapping):
+            raise RuntimeError("Agent bridge returned an invalid history clear response")
+        cleared = response.result.get("cleared")
         if not isinstance(cleared, int) or isinstance(cleared, bool) or cleared < 0:
-            raise RuntimeError("native agent returned an invalid history clear response")
+            raise RuntimeError("Agent bridge returned an invalid history clear response")
         return cleared
 
     def _event_routes(self, settings: AppSettings) -> tuple[RuntimeEventRoute, ...]:
@@ -980,67 +978,7 @@ class LiteyukiApp:
                         messages_only=True,
                     )
                 )
-        if settings.agent.enabled:
-            agent_targets = tuple(
-                runtime_id
-                for runtime_id, runtime in settings.runtimes.items()
-                if runtime.enabled
-                and (plugin := runtime_plugins.get(runtime.kind)) is not None
-                and plugin.agent_harness == settings.agent.agent_harness
-            )
-            if not agent_targets:
-                raise RuntimeError(
-                    f"agent harness {settings.agent.agent_harness!r} is enabled but no matching runtime is installed"
-                )
-            if len(agent_targets) > 1:
-                raise RuntimeError(
-                    f"agent harness {settings.agent.agent_harness!r} is ambiguous: {', '.join(agent_targets)}"
-                )
-            target = agent_targets[0]
-            if target not in configured_targets:
-                sources = tuple(
-                    runtime_id
-                    for runtime_id, runtime in settings.runtimes.items()
-                    if runtime.enabled
-                    and runtime_id != target
-                    and (
-                        (source_plugin := runtime_plugins.get(runtime.kind)) is None
-                        or source_plugin.agent_harness is None
-                    )
-                )
-                if sources:
-                    routes.append(
-                        RuntimeEventRoute(
-                            sources=sources,
-                            target=target,
-                            messages_only=True,
-                        )
-                    )
         return tuple(routes)
-
-    async def _execute_agent_tool(
-        self,
-        _agent_runtime_id: str,
-        _delivery_correlation_id: str,
-        event_payload: dict[str, Any],
-        tool_id: str,
-        arguments: dict[str, Any],
-    ) -> AgentToolSinkResult:
-        broker = self.services.get(AGENT_TOOL_BROKER_SERVICE)
-        if broker is None or not isinstance(broker, AgentToolBroker):
-            return AgentToolSinkResult(ok=False, error="agent tool broker is unavailable")
-        try:
-            event = EventEnvelope.model_validate(event_payload)
-        except ValueError:
-            return AgentToolSinkResult(ok=False, error="agent tool delivery has an invalid EventEnvelope")
-        try:
-            result = await broker.execute(event, tool_id, arguments)
-        except Exception as error:
-            self.logger.bind(component="agent").error("agent tool {} failed: {}", tool_id, error)
-            return AgentToolSinkResult(ok=False, error="agent tool broker failed")
-        if not isinstance(result, AgentToolResult):
-            return AgentToolSinkResult(ok=False, error="agent tool broker returned an invalid result")
-        return AgentToolSinkResult(ok=result.ok, data=json_value(result.data), error=result.error)
 
     async def _forward_runtime_event(self, event: EventEnvelope) -> None:
         targets = tuple(
@@ -1071,27 +1009,11 @@ class LiteyukiApp:
             raise ExceptionGroup("runtime event delivery failed", errors)
 
     async def _deliver_runtime_event(self, runtime_id: str, event: EventEnvelope) -> None:
-        catalog: Mapping[str, Any] | None = None
-        record = self.runtimes.records[runtime_id]
-        if record.spec.agent_harness is not None:
-            broker = self.services.get(AGENT_TOOL_BROKER_SERVICE)
-            if broker is not None:
-                if not isinstance(broker, EventAgentToolCatalog):
-                    raise RuntimeError("agent tool broker cannot produce event-scoped catalogs")
-                catalog = broker.catalog_for(event)
-        if catalog is None:
-            result = await self.runtimes.dispatch_event(
-                runtime_id,
-                event.id,
-                event.model_dump(mode="json"),
-            )
-        else:
-            result = await self.runtimes.dispatch_event(
-                runtime_id,
-                event.id,
-                event.model_dump(mode="json"),
-                agent_tool_catalog=catalog,
-            )
+        result = await self.runtimes.dispatch_event(
+            runtime_id,
+            event.id,
+            event.model_dump(mode="json"),
+        )
         if result.status != "accepted":
             detail = f": {result.detail}" if result.detail else ""
             raise RuntimeError(f"runtime {runtime_id} rejected event {event.id} as {result.status}{detail}")

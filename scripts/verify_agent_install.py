@@ -1,184 +1,64 @@
-"""Verify the native agent wheel without workspace sources."""
+"""Verify the installed Agent bridge wheel without workspace sources."""
 
 from __future__ import annotations
 
 import argparse
-import asyncio
 import importlib.metadata
 import json
 import tempfile
-from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import liteyukibot_agent
-from liteyukibot_agent.broker import ToolBroker
-from liteyukibot_agent.engine import AgentEngine, ModelReply, ToolCall
-from liteyukibot_agent.host import NativeAgentHost
+from liteyukibot_agent.catalog import AgentCatalog
 from liteyukibot_agent.store import ConversationStore
+from liteyukibot_agent_resolver import AgentToolDescriptor
 
 import liteyukibot
-from liteyukibot.agents import AgentTool, AgentToolResult
-from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope, Message, Segment
+from liteyukibot.broker import BridgeCatalog, BridgeSupportGrade
 from liteyukibot.runtime import RuntimeCatalog
-from liteyukibot.runtime.protocol import (
-    ActionResponse,
-    AgentToolResponse,
-    ControlRequest,
-    ControlResponse,
-    EventAccepted,
-    EventCompleted,
-    EventMessage,
-    json_mapping,
-)
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 
 
-class _Permissions:
-    def __init__(self, allowed: set[str]) -> None:
-        self._allowed = allowed
+def _verify_bridge_contract() -> None:
+    bridges = BridgeCatalog().discover()
+    for kind in ("agent", "agent-sandbox"):
+        definition = bridges.get(kind)
+        if definition is None:
+            raise RuntimeError(f"bridge entry point {kind!r} was not discovered")
+        if definition.grade is not BridgeSupportGrade.EXPERIMENTAL:
+            raise RuntimeError(f"bridge {kind!r} must remain experimental in Alpha6")
+        if definition.distribution != "liteyukibot-v7-agent":
+            raise RuntimeError(f"bridge {kind!r} declared an unexpected distribution")
 
-    def allows(self, _event: EventEnvelope, capability: str) -> bool:
-        return capability in self._allowed
-
-
-class _Client:
-    def __init__(self) -> None:
-        self.sent: list[object] = []
-        self.actions: list[Mapping[str, object]] = []
-        self.tool_calls: list[tuple[str, str, Mapping[str, object]]] = []
-
-    async def send(self, message: object) -> None:
-        self.sent.append(message)
-
-    async def execute_action(
-        self,
-        _correlation_id: str,
-        payload: Mapping[str, object],
-        *,
-        delivery_correlation_id: str | None = None,
-    ) -> ActionResponse:
-        if delivery_correlation_id != "delivery-1":
-            raise RuntimeError("agent action was not bound to its source delivery")
-        self.actions.append(payload)
-        return ActionResponse(correlation_id="action", ok=True)
-
-    async def execute_agent_tool(
-        self,
-        _correlation_id: str,
-        delivery_correlation_id: str,
-        tool_id: str,
-        arguments: Mapping[str, object],
-    ) -> AgentToolResponse:
-        self.tool_calls.append((delivery_correlation_id, tool_id, arguments))
-        return AgentToolResponse(correlation_id="tool", ok=True, data={"result": "found"})
+    if "agent" in RuntimeCatalog().discover():
+        raise RuntimeError("legacy Agent runtime entry point is still installed")
+    if any(
+        entry.name == "liteyuki.agent" or entry.name == "liteyukibot.agent"
+        for entry in importlib.metadata.entry_points(group="liteyukibot.plugins")
+    ):
+        raise RuntimeError("legacy liteyukibot.agent plugin entry point is still installed")
 
 
-class _Engine(AgentEngine):
-    def __init__(self) -> None:
-        self.calls = 0
-        self.tools: list[Sequence[Mapping[str, object]]] = []
-
-    async def complete(
-        self,
-        _messages: Sequence[Mapping[str, object]],
-        *,
-        tools: Sequence[Mapping[str, object]] = (),
-    ) -> ModelReply:
-        self.tools.append(tools)
-        self.calls += 1
-        if self.calls == 1:
-            return ModelReply(tool_calls=(ToolCall("call-1", "docs.search", {"query": "liteyuki"}),))
-        return ModelReply(text="found it")
-
-
-def _event() -> EventEnvelope:
-    return EventEnvelope(
-        id="event-1",
-        runtime_id="nonebot",
-        adapter="onebot.v11",
-        bot_id="bot-1",
-        type="message",
-        conversation=ConversationRef(id="group-1", type="group"),
-        actor=ActorRef(id="user-1"),
-        message=Message(segments=(Segment(type="text", data={"text": "search docs"}),)),
-    )
-
-
-async def _verify_agent_contract() -> None:
-    calls: list[Mapping[str, object]] = []
-
-    async def search(event: EventEnvelope, arguments: Mapping[str, object]) -> AgentToolResult:
-        if event.id != "event-1" or arguments != {"query": "liteyuki"}:
-            raise RuntimeError("agent tool handler received an unexpected source event")
-        calls.append(arguments)
-        return AgentToolResult(ok=True, data={"result": "found"})
-
-    tool = AgentTool(
-        id="docs.search",
-        module_id="docs",
-        title="Search docs",
-        description="Search installed documentation.",
-        input_schema={"type": "object", "properties": {"query": {"type": "string"}}},
-        handler=search,
-        required_capabilities=frozenset({"docs.search"}),
-    )
-    event = _event()
-    denied = ToolBroker({tool.id: tool}, _Permissions(set()))
-    if denied.catalog_for(event)["tools"] != []:
-        raise RuntimeError("permissioned agent tool leaked into a denied event catalog")
-    if (await denied.execute(event, tool.id, {"query": "liteyuki"})).error != "agent tool permission is denied":
-        raise RuntimeError("permissioned agent tool execution was not denied")
-
-    broker = ToolBroker({tool.id: tool}, _Permissions({"docs.search"}))
-    catalog = broker.catalog_for(event)
-    result = await broker.execute(event, tool.id, {"query": "liteyuki"})
-    if result != AgentToolResult(ok=True, data={"result": "found"}) or calls != [{"query": "liteyuki"}]:
-        raise RuntimeError("authorized agent tool did not execute through the broker")
-
-    client = _Client()
-    engine = _Engine()
-    with tempfile.TemporaryDirectory() as directory:
-        host = NativeAgentHost(
-            client,  # type: ignore[arg-type]
-            engine,
-            ConversationStore(Path(directory) / "history.sqlite3"),
-            history_limit=10,
-            message_chunk_size=100,
-            max_concurrent_events=1,
+def _verify_catalog_bounds() -> None:
+    tools = tuple(
+        AgentToolDescriptor(
+            id=f"docs.item-{index}",
+            module_id="docs",
+            title=f"Documentation item {index}",
+            description="Searchable documentation item.",
+            input_schema={"type": "object"},
         )
-        await host._accept_event(
-            EventMessage(
-                correlation_id="delivery-1",
-                payload=event.model_dump(mode="json"),
-                agent_tool_catalog=json_mapping(catalog),
-            )
-        )
-        await asyncio.gather(*host._tasks)
-        await host.close()
-
-    expected_schema = {
-        "type": "function",
-        "function": {
-            "name": "docs.search",
-            "description": "Search installed documentation.",
-            "parameters": {"type": "object", "properties": {"query": {"type": "string"}}},
-        },
-    }
-    if engine.tools != [(expected_schema,), (expected_schema,)]:
-        raise RuntimeError("agent harness did not pass the event-specific catalog to every model turn")
-    if client.tool_calls != [("delivery-1", "docs.search", {"query": "liteyuki"})]:
-        raise RuntimeError("agent tool request was not bound to its source delivery")
-    if client.sent != [
-        EventAccepted(correlation_id="delivery-1", status="accepted"),
-        EventCompleted(correlation_id="delivery-1", status="completed"),
-    ]:
-        raise RuntimeError("agent event did not reach the expected terminal protocol state")
-    if len(client.actions) != 1 or client.actions[0].get("runtime_id") != "nonebot":
-        raise RuntimeError("agent reply was not routed through the source runtime")
+        for index in range(40)
+    )
+    catalog = AgentCatalog(tools)
+    if len(catalog.initial()) != 7:
+        raise RuntimeError("Agent initial Tool catalog bound is incorrect")
+    if len(catalog.search("documentation").tools) != 8:
+        raise RuntimeError("Agent catalog search bound is incorrect")
 
 
-def _verify_history_retention() -> None:
+def _verify_history_store() -> None:
     with tempfile.TemporaryDirectory() as directory:
         store = ConversationStore(Path(directory) / "history.sqlite3")
         try:
@@ -189,39 +69,13 @@ def _verify_history_retention() -> None:
                 {"role": "user", "content": "second"},
                 {"role": "user", "content": "third"},
             ]:
-                raise RuntimeError("agent history retention did not bound one conversation")
+                raise RuntimeError("Agent history retention did not bound one conversation")
             if store.clear("nonebot", "bot-1", "group:one") != 2:
-                raise RuntimeError("agent history clear did not report removed messages")
+                raise RuntimeError("Agent history clear did not report removed messages")
             if store.messages("nonebot", "bot-1", "group:two", limit=10) != [
                 {"role": "user", "content": "unrelated"}
             ]:
-                raise RuntimeError("agent history clear crossed source conversation boundaries")
-        finally:
-            store.close()
-
-
-def _verify_history_control() -> None:
-    with tempfile.TemporaryDirectory() as directory:
-        store = ConversationStore(Path(directory) / "history.sqlite3")
-        try:
-            store.append("nonebot", "bot-1", "group:one", "user", "first", retain=10)
-            host = NativeAgentHost(
-                _Client(),  # type: ignore[arg-type]
-                _Engine(),
-                store,
-                history_limit=10,
-                message_chunk_size=100,
-                max_concurrent_events=1,
-            )
-            response = host._execute_control(
-                ControlRequest(
-                    correlation_id="clear-1",
-                    command="agent.history.clear",
-                    payload={"runtime_id": "nonebot", "bot_id": "bot-1", "conversation_id": "group:one"},
-                )
-            )
-            if response != ControlResponse(correlation_id="clear-1", ok=True, data={"cleared": 1}):
-                raise RuntimeError("agent v5 history control did not clear the exact source conversation")
+                raise RuntimeError("Agent history clear crossed source conversation boundaries")
         finally:
             store.close()
 
@@ -230,9 +84,7 @@ def verify(expected_version: str | None = None) -> None:
     imported = (Path(liteyukibot.__file__).resolve(), Path(liteyukibot_agent.__file__).resolve())
     if any(path.is_relative_to(SOURCE_ROOT) for path in imported):
         raise RuntimeError(f"workspace source import detected: {imported}")
-    plugin = RuntimeCatalog().discover().get("agent")
-    if plugin is None or plugin.agent_harness != "native":
-        raise RuntimeError("native agent runtime entry point was not discovered")
+
     observed = {
         name: importlib.metadata.version(name)
         for name in (
@@ -245,9 +97,9 @@ def verify(expected_version: str | None = None) -> None:
     }
     if expected_version is not None and observed["liteyukibot-v7-agent"] != expected_version:
         raise RuntimeError(f"expected liteyukibot-v7-agent {expected_version}; observed {observed}")
-    asyncio.run(_verify_agent_contract())
-    _verify_history_retention()
-    _verify_history_control()
+    _verify_bridge_contract()
+    _verify_catalog_bounds()
+    _verify_history_store()
     print(json.dumps(observed, sort_keys=True))
 
 

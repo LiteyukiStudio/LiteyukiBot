@@ -15,6 +15,8 @@ from .actions import (
 from .business import (
     BROKER_ACTION_REQUEST_TYPE_ID,
     BROKER_ACTION_RESULT_TYPE_ID,
+    BROKER_CONTROL_INVOKE_TYPE_ID,
+    BROKER_CONTROL_RESULT_TYPE_ID,
     BROKER_EVENT_ACCEPTED_TYPE_ID,
     BROKER_EVENT_COMPLETED_TYPE_ID,
     BROKER_EVENT_INGRESS_TYPE_ID,
@@ -26,7 +28,7 @@ from .business import (
     encode_business_message,
 )
 from .diagnostics import BrokerDiagnosticsClient, BrokerDiagnosticsError
-from .host import ActionOutcome, BrokerBridgeRunner, BrokerDelivery, ToolOutcome
+from .host import ActionOutcome, BrokerBridgeRunner, BrokerDelivery, ControlOutcome, ToolOutcome
 from .kernel import KernelBridgeError, KernelBrokerPeer, configured_kernel_bridge
 from .peer import (
     BridgeClient,
@@ -55,6 +57,8 @@ from .protocol import (
 from .routing import (
     ActionRequest,
     ActionResult,
+    BridgeControlInvoke,
+    BridgeControlResult,
     BrokerAdmissionError,
     BrokerEvent,
     BrokerLedger,
@@ -66,6 +70,7 @@ from .routing import (
     EventMessage,
     EventSnapshot,
     RoutedAction,
+    RoutedControl,
     RoutedTool,
     ToolInvoke,
     ToolResult,
@@ -91,14 +96,19 @@ __all__ = [
     "BROKER_EVENT_COMPLETED_TYPE_ID",
     "BROKER_EVENT_INGRESS_TYPE_ID",
     "BROKER_EVENT_MESSAGE_TYPE_ID",
+    "BROKER_CONTROL_INVOKE_TYPE_ID",
+    "BROKER_CONTROL_RESULT_TYPE_ID",
     "ActionRequest",
     "ActionOutcome",
     "ToolOutcome",
+    "ControlOutcome",
     "ActionResourceDeclaration",
     "AuthorizationContextWire",
     "ActionResult",
     "ToolInvoke",
     "ToolResult",
+    "BridgeControlInvoke",
+    "BridgeControlResult",
     "BrokerToolDeclaration",
     "BridgeAccess",
     "BridgeClient",
@@ -138,6 +148,7 @@ __all__ = [
     "EventSnapshot",
     "MessageSendPayload",
     "RoutedAction",
+    "RoutedControl",
     "RoutedTool",
     "decode_broker_message",
     "decode_business_message",

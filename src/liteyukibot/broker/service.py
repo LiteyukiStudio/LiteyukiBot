@@ -23,6 +23,7 @@ from .protocol import (
     BridgeManifest,
     BridgeRegister,
     BridgeRejected,
+    BrokerToolDeclaration,
 )
 
 
@@ -183,6 +184,17 @@ class BrokerService:
                 bridge_id=bridge_id,
                 access=BridgeAccess(bridge.access),
                 subscriptions=bridge.subscriptions,
+                controls=bridge.controls,
+                tools=tuple(
+                    BrokerToolDeclaration(
+                        id=tool.id,
+                        description=tool.description,
+                        input_schema=tool.input_schema,
+                        output_schema=tool.output_schema,
+                        capabilities=tool.capabilities,
+                    )
+                    for tool in bridge.tools
+                ),
                 action_resources=tuple(
                     ActionResourceDeclaration(
                         kind=item.kind,

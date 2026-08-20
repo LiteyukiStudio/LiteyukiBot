@@ -29,7 +29,7 @@ from liteyukibot.broker.service import (
     _AuthoritativePeerService,
     resolve_secret_references,
 )
-from liteyukibot.config import AppSettings
+from liteyukibot.config import AppSettings, BrokerToolSettings
 from liteyukibot.lyip import LyipLane, ZmqLyipRouter
 
 
@@ -132,6 +132,36 @@ def test_broker_settings_are_v5_only_and_authoritative() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        (
+            "tools",
+            [{"id": "kernel.tool", "description": "Tool", "input_schema": {"type": "object"}}],
+        ),
+        ("controls", ["kernel.control"]),
+    ),
+)
+def test_kernel_bridge_rejects_tool_and_control_ownership(field: str, value: object) -> None:
+    with pytest.raises(ValidationError, match="kernel bridge must not declare"):
+        AppSettings.model_validate(
+            {
+                "config_version": 5,
+                "broker": {
+                    "bridges": {
+                        "kernel": {
+                            "kind": "kernel",
+                            "token_secret": "broker.kernel.token",
+                            "access": "full",
+                            "subscriptions": ["message.created"],
+                            field: value,
+                        }
+                    }
+                },
+            }
+        )
+
+
 def test_secret_references_resolve_recursively_without_accepting_ambiguous_objects() -> None:
     resolved = resolve_secret_references(
         {"token": {"secret_ref": "adapter-token"}, "nested": ({"secret_ref": "other"},)},
@@ -178,6 +208,41 @@ def test_authoritative_service_rejects_token_matched_manifest_mismatch() -> None
 
     assert isinstance(reply, BridgeRejected)
     assert reply.code == "manifest_mismatch"
+
+
+def test_broker_service_projects_configured_tool_declarations_into_authoritative_manifest() -> None:
+    tool = {
+        "id": "agent.sandbox.file.read",
+        "description": "Read a file",
+        "input_schema": {"type": "object", "properties": {"path": {"type": "string"}}},
+        "capabilities": ["fs.read"],
+    }
+    settings = AppSettings.model_validate(
+        {
+            "config_version": 5,
+            "broker": {
+                "bridges": {
+                    "sandbox": {
+                        "kind": "agent-sandbox",
+                        "token_secret": "broker.sandbox.token",
+                        "tools": [tool],
+                    }
+                }
+            },
+        }
+    )
+    assert settings.broker.bridges["sandbox"].tools == (
+        BrokerToolSettings.model_validate(tool),
+    )
+    service = BrokerService(settings, {"sandbox": "secret"})
+    try:
+        authoritative = cast(_AuthoritativePeerService, service.server.service)
+        manifest = authoritative._manifests["sandbox"]
+        assert manifest.tools[0].id == tool["id"]
+        assert manifest.tools[0].capabilities == ("fs.read",)
+        assert manifest.tools[0].input_schema == tool["input_schema"]
+    finally:
+        service.server.close()
 
 
 def test_broker_service_resolves_every_configured_vault_token() -> None:

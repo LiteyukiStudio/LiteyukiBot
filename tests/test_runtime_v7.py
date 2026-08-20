@@ -17,11 +17,7 @@ from liteyukibot.runtime.lyip import decode_runtime_message, encode_runtime_mess
 from liteyukibot.runtime.protocol import (
     ActionRequest,
     ActionResponse,
-    AgentToolRequest,
-    AgentToolResponse,
     ConfigMessage,
-    ControlRequest,
-    ControlResponse,
     EventAccepted,
     EventCompleted,
     EventMessage,
@@ -35,7 +31,6 @@ from liteyukibot.runtime.protocol import (
 from liteyukibot.runtime.supervisor import (
     ActionProvenance,
     ActionSinkResult,
-    AgentToolSinkResult,
     RuntimeRecord,
 )
 
@@ -448,67 +443,6 @@ async def test_v3_child_action_reaches_core_sink_with_correlation() -> None:
 
 
 @pytest.mark.asyncio
-async def test_agent_tool_request_requires_an_agent_harness_and_active_delivery() -> None:
-    outbound: list[object] = []
-    observed: list[tuple[str, str, dict[str, object], str, dict[str, object]]] = []
-
-    async def broker(
-        runtime_id: str,
-        delivery_id: str,
-        payload: dict[str, object],
-        tool_id: str,
-        arguments: dict[str, object],
-    ) -> AgentToolSinkResult:
-        observed.append((runtime_id, delivery_id, payload, tool_id, arguments))
-        return AgentToolSinkResult(ok=True, data={"ok": True})
-
-    supervisor = RuntimeSupervisor(logger=FakeLogger(), agent_tool_sink=broker)  # type: ignore[arg-type]
-    record = RuntimeRecord(
-        spec=RuntimeSpec(id="agent", kind="custom", agent_harness="native"),
-        token="token",
-        state=RuntimeState.READY,
-        protocol_version=3,
-        capabilities=frozenset({"agent.tools.execute"}),
-    )
-    supervisor.records["agent"] = record
-
-    async def capture(_record: RuntimeRecord, message: object) -> None:
-        outbound.append(message)
-
-    monkeypatch = pytest.MonkeyPatch()
-    monkeypatch.setattr(supervisor, "_send", capture)
-    try:
-        request = AgentToolRequest(
-            correlation_id="tool-1",
-            delivery_correlation_id="missing",
-            tool_id="docs.search",
-            arguments={"query": "runtime"},
-        )
-        await supervisor._accept_agent_tool_request(record, request)
-        assert outbound == [
-            AgentToolResponse(
-                correlation_id="tool-1",
-                ok=False,
-                error="agent tool request is not bound to an active event delivery",
-            )
-        ]
-
-        record.active_delivery_contexts["delivery-1"] = (float("inf"), {"event": "payload"}, None)
-        accepted = request.model_copy(
-            update={"correlation_id": "tool-2", "delivery_correlation_id": "delivery-1"}
-        )
-        await supervisor._accept_agent_tool_request(record, accepted)
-        await asyncio.gather(*record.inbound_agent_tools.values())
-    finally:
-        monkeypatch.undo()
-
-    assert observed == [
-        ("agent", "delivery-1", {"event": "payload"}, "docs.search", {"query": "runtime"})
-    ]
-    assert outbound[-1] == AgentToolResponse(correlation_id="tool-2", ok=True, data={"ok": True})
-
-
-@pytest.mark.asyncio
 async def test_child_event_does_not_block_action_response_reader(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -724,7 +658,7 @@ async def test_v4_child_action_requires_active_delivery_and_forwards_provenance(
 
     supervisor = RuntimeSupervisor(logger=FakeLogger(), action_sink=sink)
     record = RuntimeRecord(
-        spec=RuntimeSpec(id="agent", kind="custom", agent_harness="native"),
+        spec=RuntimeSpec(id="runtime", kind="custom"),
         token="token",
         state=RuntimeState.READY,
         protocol_version=4,
@@ -740,18 +674,6 @@ async def test_v4_child_action_requires_active_delivery_and_forwards_provenance(
         responses.append(message)
 
     monkeypatch.setattr(supervisor, "_send", capture)
-    await supervisor._handle_message(
-        record,
-        ActionRequest(correlation_id="action-unbound", payload={}),
-    )
-    assert responses == [
-        ActionResponse(
-            correlation_id="action-unbound",
-            ok=False,
-            error="agent runtime actions require a v4 or v5 delivery correlation id",
-        )
-    ]
-
     await supervisor._handle_message(
         record,
         ActionRequest(correlation_id="action-1", delivery_correlation_id="delivery-1", payload={}),
@@ -777,54 +699,6 @@ async def test_v4_child_action_requires_active_delivery_and_forwards_provenance(
         ok=False,
         error="action request is not bound to an active event delivery",
     )
-
-
-@pytest.mark.asyncio
-async def test_v5_kernel_control_requires_capability_and_correlates_response(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    supervisor = RuntimeSupervisor(logger=FakeLogger())
-    record = RuntimeRecord(
-        spec=RuntimeSpec(id="agent", kind="custom", agent_harness="native"),
-        token="token",
-        state=RuntimeState.READY,
-        protocol_version=5,
-        capabilities=frozenset({"runtime.controls.execute"}),
-    )
-    supervisor.records[record.spec.id] = record
-    requests: list[ControlRequest] = []
-
-    async def capture(_record: RuntimeRecord, message: Any) -> None:
-        assert isinstance(message, ControlRequest)
-        requests.append(message)
-
-    monkeypatch.setattr(supervisor, "_send", capture)
-    pending = asyncio.create_task(
-        supervisor.execute_control(
-            "agent",
-            "clear-1",
-            "agent.history.clear",
-            {"runtime_id": "onebot", "bot_id": "42", "conversation_id": "group:2002"},
-        )
-    )
-    await asyncio.sleep(0)
-    assert requests == [
-        ControlRequest(
-            correlation_id="clear-1",
-            command="agent.history.clear",
-            payload={"runtime_id": "onebot", "bot_id": "42", "conversation_id": "group:2002"},
-        )
-    ]
-    await supervisor._handle_message(
-        record,
-        ControlResponse(correlation_id="clear-1", ok=True, data={"cleared": 2}),
-    )
-    assert await pending == ControlResponse(correlation_id="clear-1", ok=True, data={"cleared": 2})
-    assert supervisor.health()["agent"]["pending_controls"] == 0
-
-    record.protocol_version = 4
-    with pytest.raises(RuntimeError, match="protocol v5 controls"):
-        await supervisor.execute_control("agent", "clear-2", "agent.history.clear", {})
 
 
 @pytest.mark.asyncio
@@ -1068,15 +942,6 @@ async def test_v4_event_delivery_carries_trace_and_records_terminal_outcome(
         "agent",
         "delivery-1",
         {"id": "event-1", "runtime_id": "nonebot", "message": "hello"},
-        agent_tool_catalog={
-            "tools": [
-                {
-                    "id": "docs.search",
-                    "description": "Search the docs.",
-                    "input_schema": {"type": "object"},
-                }
-            ]
-        },
     )
 
     assert result.status == "accepted"
@@ -1089,15 +954,6 @@ async def test_v4_event_delivery_carries_trace_and_records_terminal_outcome(
                 source_runtime_id="nonebot",
                 source_event_id="event-1",
             ),
-            agent_tool_catalog={
-                "tools": [
-                    {
-                        "id": "docs.search",
-                        "description": "Search the docs.",
-                        "input_schema": {"type": "object"},
-                    }
-                ]
-            },
         )
     ]
     assert "delivery-1" in record.active_delivery_contexts
@@ -1137,15 +993,6 @@ async def test_v3_event_delivery_does_not_serialize_v4_trace(monkeypatch: pytest
     await supervisor.dispatch_event("legacy", "delivery-1", {"id": "event-1", "runtime_id": "nonebot"})
 
     assert outbound[0].trace is None
-    with pytest.raises(RuntimeError, match="must negotiate protocol v4 or v5"):
-        await supervisor.dispatch_event(
-            "legacy",
-            "delivery-2",
-            {"id": "event-2", "runtime_id": "nonebot"},
-            agent_tool_catalog={"tools": []},
-        )
-
-
 @pytest.mark.asyncio
 async def test_duplicate_event_delivery_and_disconnect_are_deterministic(
     monkeypatch: pytest.MonkeyPatch,

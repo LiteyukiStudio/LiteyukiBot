@@ -11,12 +11,13 @@ import zmq.asyncio
 
 from ..config.models import AppSettings, BrokerBridgeSettings, configured_kernel_bridge_settings
 from ..events import ActionEnvelope, ActionResult, EventBus, EventEnvelope, SendMessage
+from ..events.models import JsonValue
 from ..lyip import LyipLane
 from .actions import MessageSendPayload, make_message_send_request
 from .host import BrokerBridgeRunner, BrokerDelivery, ToolOutcome
 from .peer import BridgeClient, BridgeRegistrationError
-from .protocol import BridgeAccess, BridgeManifest, BrokerToolDeclaration
-from .routing import ToolInvoke
+from .protocol import AuthorizationContextWire, BridgeAccess, BridgeManifest, BrokerToolDeclaration
+from .routing import BridgeControlResult, ToolInvoke
 
 
 class KernelBridgeError(RuntimeError):
@@ -149,6 +150,31 @@ class KernelBrokerPeer:
         if result.success:
             return ActionResult(action_id=action.action_id, success=True, data=result.payload)
         return _action_error(action.action_id, "BROKER_ACTION_FAILED", "bridge action owner rejected the request")
+
+    async def request_control(
+        self,
+        event: EventEnvelope,
+        *,
+        correlation_id: str,
+        command: str,
+        authorization: AuthorizationContextWire,
+        payload: Mapping[str, JsonValue] | None = None,
+        timeout_seconds: float | None = None,
+    ) -> BridgeControlResult | None:
+        """Invoke a bridge control while the native event owns a broker delivery."""
+
+        delivery = self._active_deliveries.get(event.id)
+        if delivery is None:
+            return None
+        if authorization.event_id != event.id:
+            raise KernelBridgeError("bridge control authorization does not match the active event")
+        return await delivery.request_control(
+            correlation_id=correlation_id,
+            command=command,
+            authorization=authorization,
+            payload=payload,
+            timeout_seconds=timeout_seconds,
+        )
 
     async def _handle_delivery(self, delivery: BrokerDelivery) -> None:
         broker_event = delivery.message.event

@@ -24,11 +24,7 @@ from .lyip import decode_runtime_message, encode_runtime_message
 from .protocol import (
     ActionRequest,
     ActionResponse,
-    AgentToolRequest,
-    AgentToolResponse,
     ConfigMessage,
-    ControlRequest,
-    ControlResponse,
     ErrorMessage,
     EventAccepted,
     EventCompleted,
@@ -71,17 +67,6 @@ class ActionProvenance:
 ActionSink = Callable[[str, dict[str, JsonValue], ActionProvenance | None], Awaitable[ActionSinkResult]]
 
 
-@dataclass(frozen=True, slots=True)
-class AgentToolSinkResult:
-    ok: bool
-    data: JsonValue = None
-    error: str | None = None
-
-
-AgentToolSink = Callable[
-    [str, str, dict[str, JsonValue], str, dict[str, JsonValue]],
-    Awaitable[AgentToolSinkResult],
-]
 ManagementSink = Callable[[str, str], Awaitable[tuple[bool, str, JsonValue, str | None]]]
 
 
@@ -110,7 +95,6 @@ class RuntimeSpec:
     stale_after: float = 30.0
     shutdown_timeout: float = 10.0
     max_inbound_events: int = 100
-    agent_harness: str | None = None
 
     def __post_init__(self) -> None:
         if not self.id or not self.kind:
@@ -125,10 +109,6 @@ class RuntimeSpec:
             raise ValueError("runtime max_inbound_events must be at least 1")
         if self.command is not None and (not self.command or any(not part for part in self.command)):
             raise ValueError("runtime command arguments must not be empty")
-        if self.agent_harness is not None and (
-            not self.agent_harness or self.agent_harness != self.agent_harness.strip()
-        ):
-            raise ValueError("runtime agent_harness must be a non-empty trimmed string")
 
 
 @dataclass(slots=True)
@@ -155,10 +135,8 @@ class RuntimeRecord:
     pending_events: dict[str, asyncio.Future[EventAccepted]] = field(default_factory=dict)
     pending_event_payloads: dict[str, dict[str, JsonValue]] = field(default_factory=dict)
     pending_event_traces: dict[str, EventTrace] = field(default_factory=dict)
-    pending_controls: dict[str, asyncio.Future[ControlResponse]] = field(default_factory=dict)
     inbound_actions: dict[str, asyncio.Task[None]] = field(default_factory=dict)
     inbound_events: dict[str, asyncio.Task[None]] = field(default_factory=dict)
-    inbound_agent_tools: dict[str, asyncio.Task[None]] = field(default_factory=dict)
     inbound_management: dict[str, asyncio.Task[None]] = field(default_factory=dict)
     active_delivery_contexts: dict[str, tuple[float, dict[str, JsonValue], EventTrace | None]] = field(
         default_factory=dict
@@ -179,7 +157,6 @@ class RuntimeSupervisor:
         logger: Any,
         event_sink: EventSink | None = None,
         action_sink: ActionSink | None = None,
-        agent_tool_sink: AgentToolSink | None = None,
         management_sink: ManagementSink | None = None,
         output_sink: RuntimeOutputSink | None = None,
         delivery_completion_sink: DeliveryCompletionSink | None = None,
@@ -189,7 +166,6 @@ class RuntimeSupervisor:
         self.logger = logger
         self.event_sink = event_sink
         self.action_sink = action_sink
-        self.agent_tool_sink = agent_tool_sink
         self.management_sink = management_sink
         self.output_sink = output_sink
         self.delivery_completion_sink = delivery_completion_sink
@@ -206,11 +182,6 @@ class RuntimeSupervisor:
         if spec.id in self.records:
             raise ValueError(f"duplicate runtime id: {spec.id}")
         self.records[spec.id] = RuntimeRecord(spec=spec, token=secrets.token_urlsafe(32))
-
-    def set_agent_tool_sink(self, sink: AgentToolSink | None) -> None:
-        if self._transport_started:
-            raise RuntimeError("agent tool sink cannot change after runtime startup")
-        self.agent_tool_sink = sink
 
     def set_management_sink(self, sink: ManagementSink | None) -> None:
         if self._transport_started:
@@ -248,10 +219,8 @@ class RuntimeSupervisor:
                 "failures_in_window": failures,
                 "pending_actions": len(record.pending_actions),
                 "pending_events": len(record.pending_events),
-                "pending_controls": len(record.pending_controls),
                 "inbound_actions": len(record.inbound_actions),
                 "inbound_events": len(record.inbound_events),
-                "inbound_agent_tools": len(record.inbound_agent_tools),
                 "inbound_management": len(record.inbound_management),
                 "active_deliveries": len(record.active_delivery_contexts),
             }
@@ -537,12 +506,6 @@ class RuntimeSupervisor:
             action_future = record.pending_actions.pop(message.correlation_id, None)
             if action_future is not None and not action_future.done():
                 action_future.set_result(message)
-        elif isinstance(message, AgentToolRequest):
-            await self._accept_agent_tool_request(record, message)
-        elif isinstance(message, ControlResponse):
-            control_future = record.pending_controls.pop(message.correlation_id, None)
-            if control_future is not None and not control_future.done():
-                control_future.set_result(message)
         elif isinstance(message, ManagementRequest):
             await self._accept_management_request(record, message)
         elif isinstance(message, ErrorMessage):
@@ -648,17 +611,6 @@ class RuntimeSupervisor:
                 record,
                 request,
                 "child runtime did not declare runtime.actions.send",
-            )
-            return
-        if (
-            record.protocol_version in (4, 5)
-            and record.spec.agent_harness is not None
-            and request.delivery_correlation_id is None
-        ):
-            await self._reject_child_action(
-                record,
-                request,
-                "agent runtime actions require a v4 or v5 delivery correlation id",
             )
             return
         provenance: ActionProvenance | None = None
@@ -767,85 +719,6 @@ class RuntimeSupervisor:
             ),
         )
 
-    async def _accept_agent_tool_request(self, record: RuntimeRecord, request: AgentToolRequest) -> None:
-        self._clear_expired_delivery_contexts(record)
-        if record.protocol_version not in (3, 4, 5):
-            await self._reject_agent_tool_request(
-                record, request, "agent tools require runtime protocol v3, v4, or v5"
-            )
-            return
-        if record.spec.agent_harness is None:
-            await self._reject_agent_tool_request(record, request, "runtime is not an agent harness")
-            return
-        if "agent.tools.execute" not in record.capabilities:
-            await self._reject_agent_tool_request(record, request, "child runtime did not declare agent.tools.execute")
-            return
-        delivery_context = record.active_delivery_contexts.get(request.delivery_correlation_id)
-        if delivery_context is None:
-            await self._reject_agent_tool_request(
-                record, request, "agent tool request is not bound to an active event delivery"
-            )
-            return
-        if self.agent_tool_sink is None:
-            await self._reject_agent_tool_request(record, request, "agent tool broker is unavailable")
-            return
-        if request.correlation_id in record.inbound_agent_tools:
-            await self._reject_agent_tool_request(
-                record, request, f"duplicate agent tool correlation id: {request.correlation_id}"
-            )
-            return
-        task = asyncio.create_task(
-            self._execute_agent_tool_request(record, request),
-            name=f"runtime-agent-tool:{record.spec.id}:{request.correlation_id}",
-        )
-        record.inbound_agent_tools[request.correlation_id] = task
-
-    async def _execute_agent_tool_request(self, record: RuntimeRecord, request: AgentToolRequest) -> None:
-        try:
-            assert self.agent_tool_sink is not None
-            _deadline, payload, _trace = record.active_delivery_contexts[request.delivery_correlation_id]
-            result = await self.agent_tool_sink(
-                record.spec.id,
-                request.delivery_correlation_id,
-                payload,
-                request.tool_id,
-                request.arguments,
-            )
-            response = AgentToolResponse(
-                correlation_id=request.correlation_id,
-                ok=result.ok,
-                data=result.data,
-                error=result.error,
-            )
-        except Exception as error:
-            self.logger.error("runtime {} agent tool {} failed: {}", record.spec.id, request.tool_id, error)
-            response = AgentToolResponse(
-                correlation_id=request.correlation_id,
-                ok=False,
-                error="agent tool broker failed",
-            )
-        try:
-            await self._send(record, response)
-        except ConnectionError, RuntimeError:
-            pass
-        finally:
-            record.inbound_agent_tools.pop(request.correlation_id, None)
-
-    async def _reject_agent_tool_request(
-        self,
-        record: RuntimeRecord,
-        request: AgentToolRequest,
-        error: str,
-    ) -> None:
-        await self._send(
-            record,
-            AgentToolResponse(
-                correlation_id=request.correlation_id,
-                ok=False,
-                error=error,
-            ),
-        )
-
     async def _accept_management_request(self, record: RuntimeRecord, request: ManagementRequest) -> None:
         if record.protocol_version != 5 or "runtime.management.execute" not in record.capabilities:
             await self._reject_management_request(record, request, "runtime management is unavailable")
@@ -934,8 +807,6 @@ class RuntimeSupervisor:
         correlation_id: str,
         payload: Mapping[str, Any],
         timeout_seconds: float = 30.0,
-        *,
-        agent_tool_catalog: Mapping[str, Any] | None = None,
     ) -> EventAccepted:
         if timeout_seconds <= 0:
             raise ValueError("runtime event timeout must be positive")
@@ -944,8 +815,6 @@ class RuntimeSupervisor:
             raise RuntimeError(f"runtime {runtime_id} is not ready")
         if record.protocol_version not in (2, 3, 4, 5):
             raise RuntimeError(f"runtime {runtime_id} did not negotiate protocol v2, v3, v4, or v5")
-        if agent_tool_catalog is not None and record.protocol_version not in (4, 5):
-            raise RuntimeError(f"runtime {runtime_id} must negotiate protocol v4 or v5 for an agent tool catalog")
         if "runtime.events.receive" not in record.capabilities:
             raise RuntimeError(f"runtime {runtime_id} does not accept core events")
         if correlation_id in record.pending_events:
@@ -964,7 +833,6 @@ class RuntimeSupervisor:
                     correlation_id=correlation_id,
                     payload=record.pending_event_payloads[correlation_id],
                     trace=trace if record.protocol_version in (4, 5) else None,
-                    agent_tool_catalog=json_mapping(agent_tool_catalog) if agent_tool_catalog is not None else None,
                 ),
             )
             async with asyncio.timeout(timeout_seconds):
@@ -981,37 +849,6 @@ class RuntimeSupervisor:
             record.pending_events.pop(correlation_id, None)
             record.pending_event_payloads.pop(correlation_id, None)
             record.pending_event_traces.pop(correlation_id, None)
-
-    async def execute_control(
-        self,
-        runtime_id: str,
-        correlation_id: str,
-        command: Literal["agent.history.clear"],
-        payload: Mapping[str, Any],
-        timeout_seconds: float = 30.0,
-    ) -> ControlResponse:
-        if timeout_seconds <= 0:
-            raise ValueError("runtime control timeout must be positive")
-        record = self.records[runtime_id]
-        if record.state is not RuntimeState.READY:
-            raise RuntimeError(f"runtime {runtime_id} is not ready")
-        if record.protocol_version != 5 or "runtime.controls.execute" not in record.capabilities:
-            raise RuntimeError(f"runtime {runtime_id} does not accept protocol v5 controls")
-        if correlation_id in record.pending_controls:
-            raise ValueError(f"duplicate control correlation id: {correlation_id}")
-        request = ControlRequest(
-            correlation_id=correlation_id,
-            command=command,
-            payload=json_mapping(payload),
-        )
-        future: asyncio.Future[ControlResponse] = asyncio.get_running_loop().create_future()
-        record.pending_controls[correlation_id] = future
-        try:
-            await self._send(record, request)
-            async with asyncio.timeout(timeout_seconds):
-                return await future
-        finally:
-            record.pending_controls.pop(correlation_id, None)
 
     async def restart(self, runtime_id: str) -> None:
         record = self.records[runtime_id]
@@ -1120,8 +957,6 @@ class RuntimeSupervisor:
                 "ready",
                 "heartbeat",
                 "shutdown",
-                "control",
-                "control_result",
                 "management",
                 "management_result",
                 "error",
@@ -1175,10 +1010,6 @@ class RuntimeSupervisor:
         record.pending_events.clear()
         record.pending_event_payloads.clear()
         record.pending_event_traces.clear()
-        for control_future in record.pending_controls.values():
-            if not control_future.done():
-                control_future.set_exception(ConnectionError(f"runtime {record.spec.id} disconnected"))
-        record.pending_controls.clear()
         inbound_actions = tuple(record.inbound_actions.values())
         record.inbound_actions.clear()
         for task in inbound_actions:
@@ -1191,12 +1022,6 @@ class RuntimeSupervisor:
             task.cancel()
         if inbound_events:
             await asyncio.gather(*inbound_events, return_exceptions=True)
-        inbound_agent_tools = tuple(record.inbound_agent_tools.values())
-        record.inbound_agent_tools.clear()
-        for task in inbound_agent_tools:
-            task.cancel()
-        if inbound_agent_tools:
-            await asyncio.gather(*inbound_agent_tools, return_exceptions=True)
         inbound_management = tuple(record.inbound_management.values())
         record.inbound_management.clear()
         for task in inbound_management:

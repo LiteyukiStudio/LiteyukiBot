@@ -163,8 +163,8 @@ uses its existing event/runtime/bot routing checks.
 The kernel registry currently declares the ownership and stable purpose of
 `liteyukibot.adapter.call_api` and `liteyukibot.agent.history.clear`;
 third-party packages retain their own capability names. The latter is checked
-by the kernel before it asks the native Agent child to delete the caller's
-exact conversation partition. Privileged boundaries use
+by the kernel before it asks the configured Agent bridge to delete the caller's
+exact conversation partition through Broker control. Privileged boundaries use
 `decide(event, capability, component=...)`
 when available. The first-party policy service retains a bounded redacted audit
 record with capability, principal tuple, component, event ID, outcome, and

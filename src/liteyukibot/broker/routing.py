@@ -275,11 +275,74 @@ class ToolResult(BrokerModel):
         return self
 
 
+class BridgeControlInvoke(BrokerModel):
+    """A lease-bound control invocation sent by a caller bridge."""
+
+    type: Literal["bridge.control.invoke"] = "bridge.control.invoke"
+    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    delivery_id: str = Field(min_length=1)
+    lease_id: str = Field(min_length=1)
+    correlation_id: str = Field(min_length=1)
+    command: str = Field(min_length=1)
+    authorization: AuthorizationContextWire
+    payload: Mapping[str, JsonValue] = Field(default_factory=dict)
+    invocation_id: str | None = Field(default=None, min_length=1)
+
+    @field_validator("payload", mode="before")
+    @classmethod
+    def validate_payload(cls, value: Any) -> Any:
+        _validate_json(value, "control payload")
+        return value
+
+    @field_validator("payload", mode="after")
+    @classmethod
+    def freeze_payload(cls, value: Mapping[str, JsonValue]) -> Mapping[str, JsonValue]:
+        return MappingProxyType({key: _freeze(item) for key, item in value.items()})
+
+    @field_serializer("payload")
+    def serialize_payload(self, value: Mapping[str, JsonValue]) -> dict[str, Any]:
+        return {key: _thaw(item) for key, item in value.items()}
+
+
+class BridgeControlResult(BrokerModel):
+    """Stable result returned by a bridge control owner."""
+
+    type: Literal["bridge.control.result"] = "bridge.control.result"
+    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    invocation_id: str = Field(min_length=1)
+    correlation_id: str | None = Field(default=None, min_length=1)
+    success: bool
+    result: JsonValue = None
+    error_code: str | None = Field(default=None, min_length=1)
+    error_details: Mapping[str, JsonValue] | None = None
+
+    @model_validator(mode="after")
+    def validate_result(self) -> BridgeControlResult:
+        if self.success and self.error_code is not None:
+            raise ValueError("successful bridge control results cannot contain an error code")
+        if not self.success and self.error_code is None:
+            raise ValueError("failed bridge control results require a stable error code")
+        _validate_json(self.result, "control result")
+        if self.error_details is not None:
+            _validate_json(self.error_details, "control error details")
+        return self
+
+
 @dataclass(frozen=True, slots=True)
 class RoutedAction:
     action_id: str
     event_id: str
     request: ActionRequest
+    target: BridgeSession
+    origin: BridgeSession
+    replayed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class RoutedControl:
+    invocation_id: str
+    event_id: str
+    request: BridgeControlInvoke
     target: BridgeSession
     origin: BridgeSession
     replayed: bool = False
@@ -354,6 +417,13 @@ class _Tool:
     result: ToolResult | None = None
 
 
+@dataclass(slots=True)
+class _Control:
+    routed: RoutedControl
+    canonical_request: str
+    result: BridgeControlResult | None = None
+
+
 @dataclass(frozen=True, slots=True)
 class RoutedTool:
     invocation_id: str
@@ -371,6 +441,7 @@ class _EventRecord:
     deliveries: dict[str, _Delivery] = field(default_factory=dict)
     actions: dict[tuple[str, str], _Action] = field(default_factory=dict)
     tools: dict[tuple[str, str], _Tool] = field(default_factory=dict)
+    controls: dict[tuple[str, str], _Control] = field(default_factory=dict)
     transitions: list[LedgerTransition] = field(default_factory=list)
     terminal_at: float | None = None
 
@@ -411,6 +482,7 @@ class BrokerLedger:
         self._delivery_index: dict[str, _EventRecord] = {}
         self._action_index: dict[str, _Action] = {}
         self._tool_index: dict[str, _Tool] = {}
+        self._control_index: dict[str, _Control] = {}
         self._lanes: dict[tuple[str, str, str], deque[str]] = {}
 
     @property
@@ -630,6 +702,67 @@ class BrokerLedger:
         self._record_transition(record, "tool.routed", target_bridge_id=owners[0].bridge_id)
         return routed
 
+    def route_control(
+        self, session: BridgeSession, request: BridgeControlInvoke, sessions: tuple[BridgeSession, ...]
+    ) -> RoutedControl:
+        delivery = self._require_delivery(session, request.delivery_id, request.lease_id, DeliveryState.ACTIVE)
+        record = self._delivery_index[delivery.delivery_id]
+        authorization = request.authorization
+        if authorization.event_id != record.event.kernel_event_id:
+            raise BrokerAdmissionError(
+                "control_authorization_mismatch",
+                "control authorization does not match the routed event",
+            )
+        if authorization.runtime_id != record.event.source_bridge_id:
+            raise BrokerAdmissionError(
+                "control_authorization_mismatch",
+                "control authorization runtime does not match the routed event",
+            )
+        event_payload = record.event.payload
+        if isinstance(event_payload, Mapping):
+            event_bot_id = event_payload.get("bot_id")
+            if isinstance(event_bot_id, str) and authorization.bot_id != event_bot_id:
+                raise BrokerAdmissionError(
+                    "control_authorization_mismatch",
+                    "control authorization bot does not match the routed event",
+                )
+            event_actor = event_payload.get("actor")
+            if isinstance(event_actor, Mapping):
+                event_actor_id = event_actor.get("id")
+                if isinstance(event_actor_id, str) and authorization.actor_id != event_actor_id:
+                    raise BrokerAdmissionError(
+                        "control_authorization_mismatch",
+                        "control authorization actor does not match the routed event",
+                    )
+        canonical = json.dumps(
+            request.model_dump(mode="json", exclude_none=True), sort_keys=True, separators=(",", ":")
+        )
+        key = (session.session_id, request.correlation_id)
+        previous = record.controls.get(key)
+        if previous is not None:
+            if previous.canonical_request != canonical:
+                raise BrokerAdmissionError(
+                    "control_conflict", "correlation ID was already used with different control content"
+                )
+            return RoutedControl(
+                invocation_id=previous.routed.invocation_id,
+                event_id=previous.routed.event_id,
+                request=previous.routed.request,
+                target=previous.routed.target,
+                origin=previous.routed.origin,
+                replayed=True,
+            )
+        owners = tuple(session for session in sessions if request.command in session.manifest.controls)
+        if len(owners) != 1:
+            raise BrokerAdmissionError(
+                "control_owner_conflict" if owners else "unknown_control", "control ownership is not unique"
+            )
+        routed = RoutedControl(str(uuid4()), record.event.kernel_event_id, request, owners[0], session)
+        record.controls[key] = _Control(routed=routed, canonical_request=canonical)
+        self._control_index[routed.invocation_id] = record.controls[key]
+        self._record_transition(record, "control.routed", target_bridge_id=owners[0].bridge_id)
+        return routed
+
     def complete_tool(
         self,
         session: BridgeSession,
@@ -662,6 +795,38 @@ class BrokerLedger:
             raise BrokerAdmissionError("tool_result_conflict", "Tool result conflicts with retained result")
         return tool.result
 
+    def complete_control(
+        self,
+        session: BridgeSession,
+        invocation_id: str,
+        *,
+        success: bool,
+        result: JsonValue = None,
+        error_code: str | None = None,
+        error_details: Mapping[str, JsonValue] | None = None,
+    ) -> BridgeControlResult:
+        self.expire()
+        control = self._control_index.get(invocation_id)
+        if control is None:
+            raise BrokerAdmissionError("unknown_control_invocation", "control invocation is not retained")
+        if control.routed.target.session_id != session.session_id:
+            raise BrokerAdmissionError("control_owner_mismatch", "control result owner does not match route")
+        response = BridgeControlResult(
+            invocation_id=invocation_id,
+            correlation_id=control.routed.request.correlation_id,
+            success=success,
+            result=result,
+            error_code=error_code,
+            error_details=error_details,
+        )
+        if control.result is None:
+            control.result = response
+            record = self._record_for_control(control)
+            self._record_transition(record, "control.completed", target_bridge_id=session.bridge_id, success=success)
+        elif control.result != response:
+            raise BrokerAdmissionError("control_result_conflict", "control result conflicts with retained result")
+        return control.result
+
     def tool_route(self, invocation_id: str) -> RoutedTool:
         self.expire()
         tool = self._tool_index.get(invocation_id)
@@ -676,6 +841,21 @@ class BrokerLedger:
         if tool.routed.origin.session_id != session.session_id:
             raise BrokerAdmissionError("tool_origin_mismatch", "Tool result replay origin does not match route")
         return tool.result
+
+    def control_route(self, invocation_id: str) -> RoutedControl:
+        self.expire()
+        control = self._control_index.get(invocation_id)
+        if control is None:
+            raise BrokerAdmissionError("unknown_control_invocation", "control invocation is not retained")
+        return control.routed
+
+    def control_result(self, invocation_id: str, session: BridgeSession) -> BridgeControlResult | None:
+        control = self._control_index.get(invocation_id)
+        if control is None:
+            raise BrokerAdmissionError("unknown_control_invocation", "control invocation is not retained")
+        if control.routed.origin.session_id != session.session_id:
+            raise BrokerAdmissionError("control_origin_mismatch", "control replay origin does not match route")
+        return control.result
 
     def complete_action(
         self,
@@ -775,6 +955,10 @@ class BrokerLedger:
             self._terminal.pop(event_id, None)
             for action_id in tuple(action.routed.action_id for action in record.actions.values()):
                 self._action_index.pop(action_id, None)
+            for invocation_id in tuple(tool.routed.invocation_id for tool in record.tools.values()):
+                self._tool_index.pop(invocation_id, None)
+            for invocation_id in tuple(control.routed.invocation_id for control in record.controls.values()):
+                self._control_index.pop(invocation_id, None)
 
     @staticmethod
     def event_subscribers(event: BrokerEvent, sessions: tuple[BridgeSession, ...]) -> tuple[BridgeSession, ...]:
@@ -923,6 +1107,12 @@ class BrokerLedger:
         record = self._active.get(tool.routed.event_id) or self._terminal.get(tool.routed.event_id)
         if record is None:
             raise BrokerAdmissionError("unknown_tool_invocation", "Tool invocation event is not retained")
+        return record
+
+    def _record_for_control(self, control: _Control) -> _EventRecord:
+        record = self._active.get(control.routed.event_id) or self._terminal.get(control.routed.event_id)
+        if record is None:
+            raise BrokerAdmissionError("unknown_control_invocation", "control invocation event is not retained")
         return record
 
     def _record_delivery_transition(
