@@ -1,13 +1,13 @@
 [project]
 name = "liteyukibot-v7-cordis"
-version = "7.0.0a8"
+version = "7.0.0a9"
 description = "Python-first Cordis Plugin v1 host for LiteyukiBot v7."
 readme = "README.md"
 requires-python = ">=3.14"
 license = "LicenseRef-LSO"
 license-files = ["LICENSE"]
 authors = [{ name = "LiteyukiStudio" }]
-dependencies = ["liteyukibot-v7==7.0.0a8"]
+dependencies = ["liteyukibot-v7==7.0.0a9"]
 
 [project.entry-points."liteyukibot.cordis_hosts"]
 python = "liteyukibot_cordis:host_factory"

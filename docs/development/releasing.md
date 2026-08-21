@@ -36,12 +36,14 @@ ownership into broker supervision.
 [Alpha 6](../roadmap/v7-alpha-6-agent-bridge.md) retain the same full-bundle
 release rule while adding compatibility and Agent bridge assets.
 
-[Alpha 7](../roadmap/v7-alpha-7-lyf-dsl.md) and
-[Alpha 8](../roadmap/v7-alpha-8-devcli-updates.md) retain that signed bundle
-rule while adding the DSL, DevCLI, and updater surfaces. The Alpha8b source
-identity is `v7.0.0a8`; its bundle includes the resolved offline dependency
-lock, DevCLI wheel, read-only LYF VSIX, and daemon graph lifecycle evidence.
-It remains a GitHub Release artifact and is not a PyPI publication.
+[Alpha 7](../roadmap/v7-alpha-7-lyf-dsl.md), [Alpha 8]
+(../roadmap/v7-alpha-8-devcli-updates.md), and [Alpha 9]
+(../roadmap/v7-alpha-9-runtime-ecosystem.md) retain that signed bundle rule
+while adding the DSL, DevCLI, updater, and bounded runtime facade surfaces. The
+Alpha9 source identity is `v7.0.0a9`; its bundle includes the resolved offline
+dependency lock, DevCLI wheel, read-only LYF VSIX, daemon graph lifecycle
+evidence, and the typed AstrBot/NoneBot runtime API packages. It remains a
+GitHub Release artifact and is not a PyPI publication.
 
 Kernel, IPC, WebUI, DevCLI, Cordis, and broker-bridge components use the
 lockstep Alpha version. Business plugins and independently distributed PyPI

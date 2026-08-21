@@ -22,6 +22,9 @@ remaining compatibility and Agent boundaries. [Alpha 7 LYF DSL]
 (roadmap/v7-alpha-8-devcli-updates.md) record the language and operations
 boundaries. Alpha8b implements the signed offline bundle, daemon update graph,
 read-only editor artifacts, and WebUI resource diagnostics.
+The [Alpha 9 runtime ecosystem plan](roadmap/v7-alpha-9-runtime-ecosystem.md)
+extends the runtime proof with a bounded portable facade and an additional
+provider facet.
 
 - `specs/` contains the versioned, normative public contracts.
 - `architecture/` describes the current system boundary and lifecycle.

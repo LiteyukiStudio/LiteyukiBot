@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7-runtime-astrbot"
-version = "7.0.0a8"
+version = "7.0.0a9"
 description = "AstrBot platform gateway for the LiteyukiBot v7 broker."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -9,7 +9,8 @@ authors = [
     { name = "LiteyukiStudio" },
 ]
 dependencies = [
-    "liteyukibot-v7==7.0.0a8",
+    "liteyukibot-v7==7.0.0a9",
+    "liteyukibot-v7-runtime-astrbot-api==7.0.0a9",
     "AstrBot==4.27.2",
 ]
 
@@ -22,6 +23,7 @@ build-backend = "uv_build"
 
 [tool.uv.sources]
 liteyukibot-v7 = { workspace = true }
+liteyukibot-v7-runtime-astrbot-api = { workspace = true }
 
 [tool.uv.build-backend]
 module-root = "src"

@@ -19,6 +19,11 @@ initialization is configured under `broker.bridges.<id>.options` with
 `config`, `adapters`, `plugins`, and `plugin_dirs`; generic `CallApi` and
 message editing are not part of this bridge contract.
 
+With the separately installed `liteyukibot-v7-runtime-nonebot-api` package, the
+bridge publishes the Alpha9 v1.1 `event.snapshot`, `event.send`,
+`bot.snapshot`, and `bot.send` runtime APIs. Only portable JSON DTOs cross the
+Broker boundary; NoneBot and adapter objects remain local to this process.
+
 The `stable` grade is package metadata on the bridge definition, not a promise
 that the broker wire protocol accepts framework-specific actions. NoneBot SDK
 objects and credentials remain in this package; the kernel never imports them.

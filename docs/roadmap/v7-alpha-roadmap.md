@@ -153,6 +153,24 @@ can observe a half-updated instance. Both gates pass before `v7.0.0a8`.
 If Alpha 8 is not sufficient, continue with `7.0.0aN` releases. Do not enter
 Beta or RC solely because the numbered list is complete.
 
+### Alpha 9: Runtime ecosystem facades and adapter facets
+
+**Goal:** turn the Alpha8 runtime proof into a bounded compatibility surface
+that can be maintained for third-party plugins across more than one framework.
+
+**Work:** implement the [Alpha 9 runtime ecosystem plan]
+(v7-alpha-9-runtime-ecosystem.md): publish the backward-compatible Runtime API
+v1.1 portable facade catalog, expand the AstrBot typed facade, and provide the
+same catalog boundary for an additional stable framework bridge such as
+NoneBot. Keep framework objects, arbitrary API passthrough, streaming, and
+unbounded SDK mirroring outside the wire contract.
+
+**Exit criteria:** Alpha8 v1 callers remain compatible; every v1.1 operation
+has schemas, capabilities, bounded errors, and active-lease enforcement;
+AstrBot and the additional provider pass Native/Cordis proxy, installation,
+disconnect, exact-owner, and framework-object containment tests; and the full
+repository gates pass from built artifacts.
+
 ## Shared release gates
 
 Every Alpha must pass the complete repository pytest suite, Ruff, Mypy,

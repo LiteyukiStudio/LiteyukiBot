@@ -1,7 +1,7 @@
 [project]
-name = "liteyukibot-v7-runtime-astrbot-api"
+name = "liteyukibot-v7-runtime-nonebot-api"
 version = "7.0.0a9"
-description = "Framework-neutral typed Alpha9 AstrBot runtime API facade."
+description = "Framework-neutral typed NoneBot runtime API facade."
 readme = "README.md"
 requires-python = ">=3.14"
 license = "LicenseRef-LSO"
@@ -11,8 +11,8 @@ dependencies = [
 ]
 
 [project.entry-points."liteyukibot.runtime_api_proxies"]
-"astrbot.event" = "liteyukibot_runtime_astrbot_api:proxy_factory"
-"astrbot.bot" = "liteyukibot_runtime_astrbot_api:bot_proxy_factory"
+"nonebot.event" = "liteyukibot_runtime_nonebot_api:event_proxy_factory"
+"nonebot.bot" = "liteyukibot_runtime_nonebot_api:bot_proxy_factory"
 
 [build-system]
 requires = ["uv_build>=0.11.32,<0.12"]
@@ -23,4 +23,4 @@ liteyukibot-v7 = { workspace = true }
 
 [tool.uv.build-backend]
 module-root = "src"
-module-name = "liteyukibot_runtime_astrbot_api"
+module-name = "liteyukibot_runtime_nonebot_api"

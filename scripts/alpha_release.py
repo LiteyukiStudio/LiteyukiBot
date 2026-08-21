@@ -66,6 +66,7 @@ LOCKSTEP_COMPONENTS: tuple[AlphaComponent, ...] = (
     AlphaComponent("ipc-native", "packages/ipc-native", "liteyukibot-v7-ipc-native"),
     AlphaComponent("cordis", "packages/cordis", "liteyukibot-v7-cordis"),
     AlphaComponent("nonebot-bridge", "packages/runtime-nonebot", "liteyukibot-v7-runtime-nonebot"),
+    AlphaComponent("nonebot-api", "packages/runtime-nonebot-api", "liteyukibot-v7-runtime-nonebot-api"),
     AlphaComponent("astrbot-bridge", "packages/runtime-astrbot", "liteyukibot-v7-runtime-astrbot"),
     AlphaComponent("astrbot-api", "packages/runtime-astrbot-api", "liteyukibot-v7-runtime-astrbot-api"),
     AlphaComponent("adapter-bridge", "packages/runtime-adapter", "liteyukibot-v7-runtime-adapter"),
