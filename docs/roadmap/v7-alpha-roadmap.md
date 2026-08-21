@@ -131,19 +131,24 @@ behavior is consistent across Native and Cordis hosts; library/decorator
 boundaries are enforced; unsupported control flow has stable location-aware
 diagnostics rather than silent interpretation.
 
-### Alpha 8: Developer and update tooling
+### Alpha 8: Third-party ecosystem and developer tooling
 
-**Goal:** make the planned ecosystem usable and recoverable by developers and
-operators.
+**Goal:** make the planned ecosystem usable by third-party developers and
+recoverable by operators.
 
-**Work:** implement the [Alpha 8 DevCLI and updates]
-(v7-alpha-8-devcli-updates.md): ship the separate Python scaffold and npm
+**Work:** deliver two gates. Alpha 8a implements the [Runtime API v1]
+(../specs/runtime-api-v1.md) contract: Broker v7 API catalog/RPC, Native and
+Cordis runtime requirements and decorators, an independent AstrBot API SDK,
+and the AstrBot feasibility proof. Alpha 8b implements the [DevCLI and
+updates](v7-alpha-8-devcli-updates.md): the separate Python scaffold and npm
 launcher, verified GitHub/local bundle staging, daemon-managed full-instance
 atomic updates, and read-only LYF editor integration.
 
-**Exit criteria:** signature, digest, and lock failures are rejected; drain
-timeout, rollback, restart, and interrupted-update recovery are tested; no
-managed bridge or WebUI path can observe a half-updated instance.
+**Exit criteria:** Alpha 8a passes runtime API catalog, lease, schema,
+permission, disconnect, Native/Cordis parity, and AstrBot proof tests. Alpha
+8b rejects signature, digest, and lock failures; tests drain timeout, rollback,
+restart, and interrupted-update recovery; and no managed bridge or WebUI path
+can observe a half-updated instance. Both gates pass before `v7.0.0a8`.
 
 If Alpha 8 is not sufficient, continue with `7.0.0aN` releases. Do not enter
 Beta or RC solely because the numbered list is complete.

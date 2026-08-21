@@ -7,9 +7,11 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from jsonschema import Draft202012Validator, ValidationError
+
 from ..events.models import JsonValue
 from .peer import BridgeClient, BridgeRegistrationError
-from .protocol import AuthorizationContextWire
+from .protocol import AuthorizationContextWire, runtime_version_matches
 from .routing import (
     ActionRequest,
     ActionResult,
@@ -18,6 +20,8 @@ from .routing import (
     EventAccepted,
     EventCompleted,
     EventMessage,
+    RuntimeApiInvoke,
+    RuntimeApiResult,
     ToolInvoke,
     ToolResult,
 )
@@ -54,10 +58,21 @@ class ControlOutcome:
     error_details: Mapping[str, JsonValue] | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class RuntimeApiOutcome:
+    """One stable runtime API result; provider exceptions stay on the bridge."""
+
+    success: bool
+    result: JsonValue = None
+    error_code: str | None = None
+    error_details: Mapping[str, JsonValue] | None = None
+
+
 type EventHandler = Callable[[BrokerDelivery], Awaitable[None]]
 type ActionHandler = Callable[[ActionRequest], Awaitable[ActionOutcome]]
 type ToolHandler = Callable[[ToolInvoke], Awaitable[ToolOutcome]]
 type ControlHandler = Callable[[BridgeControlInvoke], Awaitable[ControlOutcome]]
+type RuntimeApiHandler = Callable[[RuntimeApiInvoke], Awaitable[RuntimeApiOutcome]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,6 +148,36 @@ class BrokerDelivery:
             ),
         )
 
+    async def request_runtime_api(
+        self,
+        *,
+        correlation_id: str,
+        runtime_kind: str,
+        version: str,
+        api_id: str,
+        caller_extension_id: str,
+        authorization: AuthorizationContextWire,
+        arguments: Mapping[str, JsonValue] | None = None,
+        bridge_id: str | None = None,
+        timeout_seconds: float | None = None,
+    ) -> RuntimeApiResult:
+        """Invoke one declared runtime API through the active delivery lease."""
+
+        return await self._runner.request_runtime_api(
+            delivery_id=self.message.delivery_id,
+            lease_id=self.message.lease_id,
+            source_event_id=self.message.event.source_event_id,
+            correlation_id=correlation_id,
+            runtime_kind=runtime_kind,
+            version=version,
+            bridge_id=bridge_id,
+            api_id=api_id,
+            caller_extension_id=caller_extension_id,
+            authorization=authorization,
+            arguments=arguments,
+            timeout_seconds=self.message.lease_ttl_ms / 1_000 if timeout_seconds is None else timeout_seconds,
+        )
+
 
 class BrokerBridgeRunner:
     """Coordinate a bridge host over one registered :class:`BridgeClient`.
@@ -150,15 +195,18 @@ class BrokerBridgeRunner:
         action_handlers: Mapping[str, ActionHandler] | None = None,
         tool_handlers: Mapping[str, ToolHandler] | None = None,
         control_handlers: Mapping[str, ControlHandler] | None = None,
+        runtime_api_handlers: Mapping[str, RuntimeApiHandler] | None = None,
     ) -> None:
         self.client = client
         self._event_handler = event_handler
         self._action_handlers = dict(action_handlers or {})
         self._tool_handlers = dict(tool_handlers or {})
         self._control_handlers = dict(control_handlers or {})
+        self._runtime_api_handlers = dict(runtime_api_handlers or {})
         self._pending_results: dict[str, asyncio.Future[ActionResult]] = {}
         self._pending_tool_results: dict[str, asyncio.Future[ToolResult]] = {}
         self._pending_control_results: dict[str, asyncio.Future[BridgeControlResult]] = {}
+        self._pending_runtime_api_results: dict[str, asyncio.Future[RuntimeApiResult]] = {}
         self._background: set[asyncio.Task[None]] = set()
         self._closing = False
 
@@ -192,6 +240,12 @@ class BrokerBridgeRunner:
             if not control_future.done():
                 control_future.set_exception(BridgeRegistrationError("bridge runner stopped before control result"))
         self._pending_control_results.clear()
+        for runtime_api_future in self._pending_runtime_api_results.values():
+            if not runtime_api_future.done():
+                runtime_api_future.set_exception(
+                    BridgeRegistrationError("bridge runner stopped before runtime API result")
+                )
+        self._pending_runtime_api_results.clear()
         if self.client.session_id is not None:
             await self.client.unregister()
 
@@ -225,10 +279,16 @@ class BrokerBridgeRunner:
             if message.invocation_id is None:
                 raise BridgeRegistrationError("broker sent a control invocation without an invocation ID")
             self._spawn(self._handle_control(message))
+        elif isinstance(message, RuntimeApiInvoke):
+            if message.invocation_id is None:
+                raise BridgeRegistrationError("broker sent a runtime API invocation without an invocation ID")
+            self._spawn(self._handle_runtime_api(message))
         elif isinstance(message, ToolResult):
             self._resolve_tool_result(message)
         elif isinstance(message, BridgeControlResult):
             self._resolve_control_result(message)
+        elif isinstance(message, RuntimeApiResult):
+            self._resolve_runtime_api_result(message)
         elif isinstance(message, ActionResult):
             self._resolve_action_result(message)
         else:
@@ -355,6 +415,55 @@ class BrokerBridgeRunner:
             if self._pending_control_results.get(normalized_correlation) is future:
                 self._pending_control_results.pop(normalized_correlation, None)
 
+    async def request_runtime_api(
+        self,
+        *,
+        delivery_id: str,
+        lease_id: str,
+        source_event_id: str,
+        correlation_id: str,
+        runtime_kind: str,
+        version: str,
+        api_id: str,
+        caller_extension_id: str,
+        authorization: AuthorizationContextWire,
+        arguments: Mapping[str, JsonValue] | None = None,
+        bridge_id: str | None = None,
+        timeout_seconds: float | None = None,
+    ) -> RuntimeApiResult:
+        normalized_correlation = correlation_id.strip()
+        if not normalized_correlation:
+            raise ValueError("runtime API correlation ID must be non-empty")
+        if normalized_correlation in self._pending_runtime_api_results:
+            raise BridgeRegistrationError("a runtime API result is already pending for this correlation ID")
+        if timeout_seconds is not None and timeout_seconds <= 0:
+            raise ValueError("runtime API timeout must be positive")
+        future: asyncio.Future[RuntimeApiResult] = asyncio.get_running_loop().create_future()
+        self._pending_runtime_api_results[normalized_correlation] = future
+        try:
+            await self.client.send_runtime_api_invoke(
+                RuntimeApiInvoke(
+                    delivery_id=delivery_id,
+                    source_event_id=source_event_id,
+                    lease_id=lease_id,
+                    correlation_id=normalized_correlation,
+                    runtime_kind=runtime_kind,
+                    version=version,
+                    bridge_id=bridge_id,
+                    api_id=api_id,
+                    caller_extension_id=caller_extension_id,
+                    arguments=arguments or {},
+                    authorization=authorization,
+                )
+            )
+            result = await asyncio.wait_for(future, timeout=timeout_seconds) if timeout_seconds else await future
+            if not isinstance(result, RuntimeApiResult):
+                raise BridgeRegistrationError("received an unexpected result for a runtime API invocation")
+            return result
+        finally:
+            if self._pending_runtime_api_results.get(normalized_correlation) is future:
+                self._pending_runtime_api_results.pop(normalized_correlation, None)
+
     async def _handle_delivery(self, message: EventMessage) -> None:
         await self.client.send_event_accepted(EventAccepted(delivery_id=message.delivery_id, lease_id=message.lease_id))
         try:
@@ -429,6 +538,44 @@ class BrokerBridgeRunner:
             )
         )
 
+    async def _handle_runtime_api(self, request: RuntimeApiInvoke) -> None:
+        declaration = next(
+            (
+                item
+                for item in self.client.manifest.runtime_apis
+                if item.runtime_kind == request.runtime_kind
+                and item.api_id == request.api_id
+                and runtime_version_matches(request.version, item.version)
+            ),
+            None,
+        )
+        handler = self._runtime_api_handlers.get(request.api_id)
+        if declaration is None or handler is None:
+            outcome = RuntimeApiOutcome(success=False, error_code="RUNTIME_API_NOT_REGISTERED")
+        else:
+            try:
+                Draft202012Validator(dict(declaration.input_schema)).validate(dict(request.arguments))
+            except (TypeError, ValueError, ValidationError):
+                outcome = RuntimeApiOutcome(success=False, error_code="RUNTIME_API_INVALID_ARGUMENTS")
+            else:
+                try:
+                    outcome = await handler(request)
+                    if outcome.success:
+                        Draft202012Validator(dict(declaration.output_schema)).validate(outcome.result)
+                except (TypeError, ValueError, ValidationError):
+                    outcome = RuntimeApiOutcome(success=False, error_code="RUNTIME_API_INVALID_RESULT")
+                except Exception:
+                    outcome = RuntimeApiOutcome(success=False, error_code="RUNTIME_API_HANDLER_FAILED")
+        await self.client.send_runtime_api_result(
+            RuntimeApiResult(
+                invocation_id=request.invocation_id or "",
+                success=outcome.success,
+                result=outcome.result,
+                error_code=outcome.error_code,
+                error_details=outcome.error_details,
+            )
+        )
+
     def _resolve_action_result(self, result: ActionResult) -> None:
         if result.correlation_id is None:
             raise BridgeRegistrationError("broker action result is missing its correlation ID")
@@ -447,6 +594,13 @@ class BrokerBridgeRunner:
         if result.correlation_id is None:
             raise BridgeRegistrationError("bridge control result is missing its correlation ID")
         future = self._pending_control_results.get(result.correlation_id)
+        if future is not None and not future.done():
+            future.set_result(result)
+
+    def _resolve_runtime_api_result(self, result: RuntimeApiResult) -> None:
+        if result.correlation_id is None:
+            raise BridgeRegistrationError("runtime API result is missing its correlation ID")
+        future = self._pending_runtime_api_results.get(result.correlation_id)
         if future is not None and not future.done():
             future.set_result(result)
 

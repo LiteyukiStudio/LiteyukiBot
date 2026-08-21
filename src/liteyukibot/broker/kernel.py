@@ -17,7 +17,7 @@ from .actions import MessageSendPayload, make_message_send_request
 from .host import BrokerBridgeRunner, BrokerDelivery, ControlHandler, ToolOutcome
 from .peer import BridgeClient, BridgeRegistrationError
 from .protocol import AuthorizationContextWire, BridgeAccess, BridgeManifest, BrokerToolDeclaration
-from .routing import BridgeControlResult, ToolInvoke
+from .routing import BridgeControlResult, RuntimeApiResult, ToolInvoke
 
 
 class KernelBridgeError(RuntimeError):
@@ -217,6 +217,39 @@ class KernelBrokerPeer:
             command=command,
             authorization=request.authorization,
             payload=payload,
+            timeout_seconds=timeout_seconds,
+        )
+
+    async def request_runtime_api(
+        self,
+        event: EventEnvelope,
+        *,
+        correlation_id: str,
+        runtime_kind: str,
+        version: str,
+        api_id: str,
+        caller_extension_id: str,
+        authorization: AuthorizationContextWire,
+        arguments: Mapping[str, JsonValue] | None = None,
+        bridge_id: str | None = None,
+        timeout_seconds: float | None = None,
+    ) -> RuntimeApiResult | None:
+        """Invoke a runtime API while the native event owns a broker delivery."""
+
+        delivery = self._active_deliveries.get(event.id)
+        if delivery is None:
+            return None
+        if authorization.event_id != event.id:
+            raise KernelBridgeError("runtime API authorization does not match the active event")
+        return await delivery.request_runtime_api(
+            correlation_id=correlation_id,
+            runtime_kind=runtime_kind,
+            version=version,
+            bridge_id=bridge_id,
+            api_id=api_id,
+            caller_extension_id=caller_extension_id,
+            authorization=authorization,
+            arguments=arguments,
             timeout_seconds=timeout_seconds,
         )
 
