@@ -79,6 +79,12 @@ VERIFICATIONS: tuple[InstallVerification, ...] = (
         ("--expected-version", ALPHA_VERSION),
     ),
     InstallVerification(
+        "nonebot-api",
+        ("liteyukibot-v7", "liteyukibot-v7-runtime-nonebot-api"),
+        "scripts/verify_nonebot_api_install.py",
+        ("--expected-version", ALPHA_VERSION),
+    ),
+    InstallVerification(
         "astrbot-bridge",
         ("liteyukibot-v7", "liteyukibot-v7-runtime-astrbot"),
         "scripts/verify_astrbot_runtime_install.py",

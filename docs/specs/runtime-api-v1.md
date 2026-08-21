@@ -3,8 +3,9 @@
 ## Status
 
 Applies to the Alpha8a Broker protocol v7 and the Native/Cordis Extension API
-v2 hosts. This is a first feasibility contract, not a promise to mirror any
-framework's complete public SDK.
+v2 hosts. Alpha9 adds a backward-compatible v1.1 portable facade catalog. This
+is a supported compatibility surface, not a promise to mirror every framework's
+complete public SDK.
 
 ## Boundary
 
@@ -39,11 +40,43 @@ The framework-neutral AstrBot SDK owns typed DTOs and proxy classes without
 depending on AstrBot. The bridge host owns AstrBot imports and maps the proof
 facade to the real `AstrMessageEvent`.
 
-The proof catalog contains `event.snapshot` for safe event metadata and
+The Alpha8 proof catalog contains `event.snapshot` for safe event metadata and
 message component projection, plus `event.send` for native-chain sending.
 The existing protocol-neutral `message.send` Action remains available as a
 fallback. Streaming, LLM calls, group objects, native object returns, and the
-remaining public methods are deferred to Alpha9.
+remaining public methods are outside the Alpha8 proof.
+
+## Alpha9 v1.1 portable facade
+
+The v1.1 catalog is a minor extension of the v1 contract. A caller using
+`^1.0` may resolve a v1.1 provider. Existing v1 callers retain the original
+`event.snapshot` fields and text form of `event.send`.
+
+The first supported portable operation set is:
+
+| API | Arguments | Result boundary |
+| --- | --- | --- |
+| `event.snapshot` | none | immutable event identity, conversation, actor, and portable message DTO |
+| `event.send` | text or portable `Message` | JSON-safe sent/result object |
+| `bot.snapshot` | none | exact bot identity, provider adapter/platform, and declared capabilities |
+| `bot.send` | exact `bot_id`, portable `Message`, `ConversationRef` | JSON-safe sent/result object |
+
+`bot.send` must use the bot identity authenticated by the active event
+authorization. Providers reject cross-bot requests even when another bot is
+present in the same process. NoneBot and AstrBot publish these operations from
+their separate bridge packages; the kernel imports neither framework SDK.
+
+The shared catalog helper supplies the Draft 2020-12 schemas for portable
+`Message` and `ConversationRef` values. Provider-specific DTOs remain typed
+facades in separately distributed `runtime-*-api` packages. Framework objects,
+native message chains, arbitrary API passthrough, mutable group objects,
+streaming, and long-running LLM calls remain outside v1.1.
+
+Provider failures use bounded stable error codes. Missing retained events and
+unavailable bots return `RUNTIME_EVENT_UNAVAILABLE` or
+`RUNTIME_BOT_UNAVAILABLE`; invalid portable values return
+`RUNTIME_API_INVALID_ARGUMENTS`; provider send failures return
+`RUNTIME_API_SEND_FAILED`.
 
 ## Compatibility and security
 

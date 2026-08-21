@@ -25,7 +25,11 @@ def main() -> int:
     if uv is None:
         raise RuntimeError("uv executable was not found")
     command = [uv, "run", "--no-project", "--python", "3.14"]
-    for wheel in (_one_wheel("liteyukibot_v7"), _one_wheel("liteyukibot_v7_runtime_nonebot")):
+    for wheel in (
+        _one_wheel("liteyukibot_v7"),
+        _one_wheel("liteyukibot_v7_runtime_nonebot_api"),
+        _one_wheel("liteyukibot_v7_runtime_nonebot"),
+    ):
         command.extend(("--with", str(wheel)))
     command.extend(("python", str(ROOT / "scripts" / "verify_nonebot_runtime_install.py")))
     with tempfile.TemporaryDirectory() as directory:

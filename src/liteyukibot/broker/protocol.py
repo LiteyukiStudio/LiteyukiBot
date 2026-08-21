@@ -51,7 +51,7 @@ def _non_blank_identifier(value: str) -> str:
 
 
 def runtime_version_matches(requested: str, offered: str) -> bool:
-    """Match the bounded Alpha8 runtime API caret range syntax."""
+    """Match the bounded runtime API caret range syntax."""
 
     if requested == offered:
         return True

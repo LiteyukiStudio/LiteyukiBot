@@ -9,6 +9,11 @@ The gateway additionally publishes native messages as `message.created` and
 owns bridge-scoped `message.send` actions. It never suppresses AstrBot's local
 pipeline or its native replies.
 
+With the separately installed `liteyukibot-v7-runtime-astrbot-api` package, the
+bridge publishes the Alpha9 v1.1 `event.snapshot`, `event.send`,
+`bot.snapshot`, and `bot.send` runtime APIs. Only portable JSON DTOs cross the
+Broker boundary.
+
 The `experimental` grade is declared by this package's bridge definition. The
 gateway uses AstrBot's public extension surface and does not use the legacy
 Liteyuki child-runtime protocol or runtime event routes.

@@ -6,7 +6,7 @@ import asyncio
 import importlib
 from collections import OrderedDict
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -23,10 +23,17 @@ from liteyukibot.broker import (
     BrokerBridgeRunner,
     EventIngress,
     MessageSendPayload,
+    RuntimeApiDeclaration,
+    RuntimeApiInvoke,
+    RuntimeApiOperation,
+    RuntimeApiOutcome,
     parse_message_send_request,
+    portable_conversation_schema,
+    portable_message_schema,
+    runtime_api_catalog,
 )
 from liteyukibot.config import AppSettings
-from liteyukibot.events import EventEnvelope
+from liteyukibot.events import ConversationRef, EventEnvelope, JsonValue, Message, Segment
 from liteyukibot.logging import get_logger
 from liteyukibot.lyip import LyipLane
 
@@ -51,6 +58,7 @@ class NoneBotHost:
         self.bridge_id = bridge_id
         self.options = dict(options or {})
         self.events: OrderedDict[str, tuple[Any, Any]] = OrderedDict()
+        self._events_by_source_id: OrderedDict[str, tuple[Any, Any, EventEnvelope]] = OrderedDict()
         self._serve_task: asyncio.Task[None] | None = None
 
     def install(self) -> None:
@@ -82,6 +90,10 @@ class NoneBotHost:
                 self.events.move_to_end(envelope.reply_token)
                 while len(self.events) > 2048:
                     self.events.popitem(last=False)
+            self._events_by_source_id[envelope.id] = (bot, event, envelope)
+            self._events_by_source_id.move_to_end(envelope.id)
+            while len(self._events_by_source_id) > 2048:
+                self._events_by_source_id.popitem(last=False)
             await runner.client.send_event_ingress(self.event_ingress(envelope))
 
         adapters = importlib.import_module("nonebot.adapters")
@@ -127,6 +139,56 @@ class NoneBotHost:
         except (AdapterContractError, KeyError, ValueError) as error:
             return ActionOutcome(success=False, payload={"error": "message_send_failed", "message": str(error)})
         return ActionOutcome(success=True, payload=json_value(result))
+
+    async def execute_runtime_api(self, request: RuntimeApiInvoke) -> RuntimeApiOutcome:
+        target = self._events_by_source_id.get(request.source_event_id)
+        if target is None:
+            return RuntimeApiOutcome(success=False, error_code="RUNTIME_EVENT_UNAVAILABLE")
+        bot, event, envelope = target
+        if request.api_id == "event.snapshot":
+            if request.arguments:
+                return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_INVALID_ARGUMENTS")
+            return RuntimeApiOutcome(success=True, result=_event_snapshot(envelope))
+        if request.api_id == "event.send":
+            if request.authorization.bot_id != str(bot.self_id):
+                return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_AUTHORIZATION_MISMATCH")
+            try:
+                if set(request.arguments) != {"message"}:
+                    raise ValueError("event.send accepts only message")
+                message = _runtime_message(request.arguments["message"])
+                native = to_native_message(adapter_id(str(bot.adapter.get_name())), message)
+            except (AdapterContractError, TypeError, ValueError):
+                return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_INVALID_ARGUMENTS")
+            try:
+                result = await bot.send(event, native)
+            except Exception:
+                return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_SEND_FAILED")
+            return RuntimeApiOutcome(success=True, result={"sent": True, "result": json_value(result)})
+        if request.api_id == "bot.snapshot":
+            if request.arguments:
+                return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_INVALID_ARGUMENTS")
+            if request.authorization.bot_id != str(bot.self_id):
+                return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_AUTHORIZATION_MISMATCH")
+            return RuntimeApiOutcome(success=True, result=_bot_snapshot(bot))
+        if request.api_id == "bot.send":
+            try:
+                if set(request.arguments) != {"bot_id", "message", "conversation"}:
+                    raise ValueError("bot.send requires bot_id, message, and conversation")
+                bot_id = request.arguments["bot_id"]
+                if bot_id != request.authorization.bot_id:
+                    raise ValueError("bot.send bot ID does not match the active event")
+                payload = MessageSendPayload(
+                    bot_id=bot_id,
+                    message=_runtime_message(request.arguments["message"]),
+                    conversation=_runtime_conversation(request.arguments["conversation"]),
+                )
+                result = await self._send_message(payload)
+            except (AdapterContractError, KeyError, TypeError, ValueError):
+                return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_INVALID_ARGUMENTS")
+            except Exception:
+                return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_SEND_FAILED")
+            return RuntimeApiOutcome(success=True, result={"sent": True, "result": json_value(result)})
+        return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_NOT_REGISTERED")
 
     async def _send_message(self, payload: MessageSendPayload) -> Any:
         bot = self.nonebot.get_bot(payload.bot_id)
@@ -175,6 +237,7 @@ def _run_nonebot(settings: AppSettings, bridge_id: str, token: str) -> None:
             )
             for item in bridge.action_resources
         ),
+        runtime_apis=_runtime_api_declarations(),
     )
     client = BridgeClient(
         context=zmq.asyncio.Context.instance(),
@@ -191,7 +254,21 @@ def _run_nonebot(settings: AppSettings, bridge_id: str, token: str) -> None:
             raise RuntimeError("NoneBot action handler was invoked before host initialization")
         return await host.execute_message_send(request)
 
-    runner = BrokerBridgeRunner(client, action_handlers={MESSAGE_SEND_KIND: execute_action})
+    async def execute_runtime_api(request: RuntimeApiInvoke) -> RuntimeApiOutcome:
+        if host is None:
+            raise RuntimeError("NoneBot runtime API handler was invoked before host initialization")
+        return await host.execute_runtime_api(request)
+
+    runner = BrokerBridgeRunner(
+        client,
+        action_handlers={MESSAGE_SEND_KIND: execute_action},
+        runtime_api_handlers={
+            "event.snapshot": execute_runtime_api,
+            "event.send": execute_runtime_api,
+            "bot.snapshot": execute_runtime_api,
+            "bot.send": execute_runtime_api,
+        },
+    )
     host = NoneBotHost(nonebot, runner, bridge_id, bridge.options)
     host.install()
     logger.info("starting NoneBot broker bridge {}", bridge_id)
@@ -219,6 +296,138 @@ def _portable_send_action(payload: MessageSendPayload) -> Any:
         conversation=payload.conversation,
         reply_token=payload.reply_token,
     )
+
+
+def _event_snapshot(envelope: EventEnvelope) -> dict[str, JsonValue]:
+    return {
+        "runtime_id": envelope.runtime_id,
+        "adapter": envelope.adapter,
+        "bot_id": envelope.bot_id,
+        "event_type": envelope.type,
+        "conversation": cast(JsonValue, json_value(envelope.conversation)),
+        "actor": None if envelope.actor is None else cast(JsonValue, json_value(envelope.actor)),
+        "message": None if envelope.message is None else cast(JsonValue, json_value(envelope.message)),
+    }
+
+
+def _bot_snapshot(bot: Any) -> dict[str, JsonValue]:
+    return {
+        "bot_id": str(bot.self_id),
+        "adapter": adapter_id(str(bot.adapter.get_name())),
+        "capabilities": cast(JsonValue, ["message.send"]),
+    }
+
+
+def _runtime_message(value: object) -> Message:
+    if isinstance(value, str):
+        if not value.strip():
+            raise ValueError("runtime message text must not be blank")
+        return Message(segments=(Segment(type="text", data={"text": value}),))
+    if not isinstance(value, Mapping):
+        raise TypeError("runtime message must be text or a portable Message object")
+    return Message.model_validate(value)
+
+
+def _runtime_conversation(value: object) -> ConversationRef:
+    if not isinstance(value, Mapping):
+        raise TypeError("runtime conversation must be a portable ConversationRef object")
+    return ConversationRef.model_validate(value)
+
+
+def _runtime_api_declarations() -> tuple[RuntimeApiDeclaration, ...]:
+    return runtime_api_catalog(
+        "nonebot",
+        (
+            RuntimeApiOperation(
+                namespace="event",
+                operation="snapshot",
+                input_schema={"type": "object", "additionalProperties": False},
+                output_schema=_event_snapshot_schema(),
+            ),
+            RuntimeApiOperation(
+                namespace="event",
+                operation="send",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "message": {
+                            "oneOf": [
+                                {"type": "string", "minLength": 1},
+                                portable_message_schema(),
+                            ]
+                        }
+                    },
+                    "required": ["message"],
+                    "additionalProperties": False,
+                },
+                output_schema={"type": "object", "additionalProperties": True},
+            ),
+            RuntimeApiOperation(
+                namespace="bot",
+                operation="snapshot",
+                input_schema={"type": "object", "additionalProperties": False},
+                output_schema=_bot_snapshot_schema(),
+            ),
+            RuntimeApiOperation(
+                namespace="bot",
+                operation="send",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "bot_id": {"type": "string", "minLength": 1},
+                        "message": portable_message_schema(),
+                        "conversation": portable_conversation_schema(),
+                    },
+                    "required": ["bot_id", "message", "conversation"],
+                    "additionalProperties": False,
+                },
+                output_schema={"type": "object", "additionalProperties": True},
+            ),
+        ),
+    )
+
+
+def _event_snapshot_schema() -> dict[str, object]:
+    return {
+        "type": "object",
+        "properties": {
+            "runtime_id": {"type": "string", "minLength": 1},
+            "adapter": {"type": "string", "minLength": 1},
+            "bot_id": {"type": "string", "minLength": 1},
+            "event_type": {"type": "string", "minLength": 1},
+            "conversation": portable_conversation_schema(),
+            "actor": {"oneOf": [_actor_schema(), {"type": "null"}]},
+            "message": {"oneOf": [portable_message_schema(), {"type": "null"}]},
+        },
+        "required": ["runtime_id", "adapter", "bot_id", "event_type", "conversation", "actor", "message"],
+        "additionalProperties": False,
+    }
+
+
+def _actor_schema() -> dict[str, object]:
+    return {
+        "type": "object",
+        "properties": {
+            "id": {"type": "string", "minLength": 1},
+            "display_name": {"type": ["string", "null"]},
+            "is_bot": {"type": "boolean"},
+        },
+        "required": ["id"],
+        "additionalProperties": False,
+    }
+
+
+def _bot_snapshot_schema() -> dict[str, object]:
+    return {
+        "type": "object",
+        "properties": {
+            "bot_id": {"type": "string", "minLength": 1},
+            "adapter": {"type": "string", "minLength": 1},
+            "capabilities": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["bot_id", "adapter", "capabilities"],
+        "additionalProperties": False,
+    }
 
 
 def _mapping_option(options: Mapping[str, Any], key: str) -> dict[str, Any]:

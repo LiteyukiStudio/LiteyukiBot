@@ -1,4 +1,4 @@
-"""Typed, AstrBot-independent Alpha9 runtime API facade."""
+"""Typed, NoneBot-independent runtime API facade."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import cast
 
 from pydantic import BaseModel, ConfigDict
 
-from liteyukibot.events import ConversationRef, JsonValue, Message, Segment
+from liteyukibot.events import ActorRef, ConversationRef, JsonValue, Message
 from liteyukibot.runtime_api import (
     RuntimeApiBackend,
     RuntimeApiError,
@@ -17,42 +17,35 @@ from liteyukibot.runtime_api import (
 )
 
 
-class AstrBotEventSnapshot(BaseModel):
+class NoneBotEventSnapshot(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    platform_id: str
-    platform_name: str
+    runtime_id: str
+    adapter: str
     bot_id: str
-    session_id: str
-    group_id: str | None = None
-    sender_id: str | None = None
-    message: str
-    message_type: str
-    conversation_id: str | None = None
-    conversation_type: str | None = None
-    actor_name: str | None = None
-    actor_is_bot: bool = False
-    message_segments: tuple[Segment, ...] = ()
+    event_type: str
+    conversation: ConversationRef
+    actor: ActorRef | None = None
+    message: Message | None = None
 
 
-class AstrBotBotSnapshot(BaseModel):
+class NoneBotBotSnapshot(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     bot_id: str
-    platform_id: str
-    platform_name: str
+    adapter: str
     capabilities: tuple[str, ...] = ()
 
 
-class AstrBotEventProxy(RuntimeNamespaceProxy):
-    """Typed facade for the portable AstrBot event contract."""
+class NoneBotEventProxy(RuntimeNamespaceProxy):
+    """Typed facade for the portable NoneBot event contract."""
 
-    async def snapshot(self) -> AstrBotEventSnapshot:
+    async def snapshot(self) -> NoneBotEventSnapshot:
         value = await self.call("snapshot")
         if not isinstance(value, Mapping):
             raise RuntimeApiError(self.binding.runtime, self.binding.api, "snapshot", "RUNTIME_API_INVALID_RESULT")
         try:
-            return AstrBotEventSnapshot.model_validate(value)
+            return NoneBotEventSnapshot.model_validate(value)
         except ValueError as error:
             raise RuntimeApiError(
                 self.binding.runtime,
@@ -62,12 +55,6 @@ class AstrBotEventProxy(RuntimeNamespaceProxy):
             ) from error
 
     async def send(self, message: str | Message) -> Mapping[str, JsonValue]:
-        return await self._send(message)
-
-    async def send_message(self, message: Message) -> Mapping[str, JsonValue]:
-        return await self._send(message)
-
-    async def _send(self, message: str | Message) -> Mapping[str, JsonValue]:
         argument: JsonValue = message if isinstance(message, str) else cast(
             dict[str, JsonValue], message.model_dump(mode="json")
         )
@@ -75,15 +62,15 @@ class AstrBotEventProxy(RuntimeNamespaceProxy):
         return _mapping_result(self, "send", value)
 
 
-class AstrBotBotProxy(RuntimeNamespaceProxy):
+class NoneBotBotProxy(RuntimeNamespaceProxy):
     """Typed facade for exact-bot identity and portable proactive sending."""
 
-    async def snapshot(self) -> AstrBotBotSnapshot:
+    async def snapshot(self) -> NoneBotBotSnapshot:
         value = await self.call("snapshot")
         if not isinstance(value, Mapping):
             raise RuntimeApiError(self.binding.runtime, self.binding.api, "snapshot", "RUNTIME_API_INVALID_RESULT")
         try:
-            return AstrBotBotSnapshot.model_validate(value)
+            return NoneBotBotSnapshot.model_validate(value)
         except ValueError as error:
             raise RuntimeApiError(
                 self.binding.runtime,
@@ -104,14 +91,14 @@ class AstrBotBotProxy(RuntimeNamespaceProxy):
         return _mapping_result(self, "send", value)
 
 
-def proxy_factory(
+def event_proxy_factory(
     *,
     binding: RuntimeBinding,
     backend: RuntimeApiBackend | None,
     context: RuntimeCallContext | None,
     reason: str = "unavailable",
-) -> AstrBotEventProxy:
-    return AstrBotEventProxy(binding, backend, context, reason=reason)
+) -> NoneBotEventProxy:
+    return NoneBotEventProxy(binding, backend, context, reason=reason)
 
 
 def bot_proxy_factory(
@@ -120,8 +107,8 @@ def bot_proxy_factory(
     backend: RuntimeApiBackend | None,
     context: RuntimeCallContext | None,
     reason: str = "unavailable",
-) -> AstrBotBotProxy:
-    return AstrBotBotProxy(binding, backend, context, reason=reason)
+) -> NoneBotBotProxy:
+    return NoneBotBotProxy(binding, backend, context, reason=reason)
 
 
 def _mapping_result(proxy: RuntimeNamespaceProxy, operation: str, value: JsonValue) -> Mapping[str, JsonValue]:
@@ -131,10 +118,10 @@ def _mapping_result(proxy: RuntimeNamespaceProxy, operation: str, value: JsonVal
 
 
 __all__ = [
-    "AstrBotBotProxy",
-    "AstrBotBotSnapshot",
-    "AstrBotEventProxy",
-    "AstrBotEventSnapshot",
+    "NoneBotBotProxy",
+    "NoneBotBotSnapshot",
+    "NoneBotEventProxy",
+    "NoneBotEventSnapshot",
     "bot_proxy_factory",
-    "proxy_factory",
+    "event_proxy_factory",
 ]

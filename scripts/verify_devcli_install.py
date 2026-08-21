@@ -1,4 +1,4 @@
-"""Verify the independent Alpha8 DevCLI wheel in an isolated environment."""
+"""Verify the independent v7 DevCLI wheel in an isolated environment."""
 
 from __future__ import annotations
 

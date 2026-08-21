@@ -13,8 +13,17 @@ def main() -> int:
     observed = importlib.metadata.version("liteyukibot-v7-runtime-astrbot-api")
     if observed != args.expected_version:
         raise RuntimeError(f"AstrBot API version {observed!r} does not match {args.expected_version!r}")
-    if not importlib.metadata.entry_points(group="liteyukibot.runtime_api_proxies"):
-        raise RuntimeError("AstrBot API facade did not publish its runtime API entry point")
+    entry_points = {
+        entry.name: entry.value
+        for entry in importlib.metadata.entry_points(group="liteyukibot.runtime_api_proxies")
+        if entry.name in {"astrbot.event", "astrbot.bot"}
+    }
+    expected = {
+        "astrbot.event": "liteyukibot_runtime_astrbot_api:proxy_factory",
+        "astrbot.bot": "liteyukibot_runtime_astrbot_api:bot_proxy_factory",
+    }
+    if entry_points != expected:
+        raise RuntimeError(f"unexpected AstrBot API facade entry points: {entry_points!r}")
     return 0
 
 

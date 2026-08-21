@@ -82,6 +82,12 @@ from .routing import (
     ToolInvoke,
     ToolResult,
 )
+from .runtime_catalog import (
+    RuntimeApiOperation,
+    portable_conversation_schema,
+    portable_message_schema,
+    runtime_api_catalog,
+)
 from .service import (
     BridgeCatalog,
     BridgeDefinition,
@@ -121,6 +127,7 @@ __all__ = [
     "BridgeControlResult",
     "BrokerToolDeclaration",
     "RuntimeApiDeclaration",
+    "RuntimeApiOperation",
     "BridgeAccess",
     "BridgeClient",
     "BrokerBridgeRunner",
@@ -166,6 +173,9 @@ __all__ = [
     "RoutedTool",
     "RuntimeApiInvoke",
     "RuntimeApiResult",
+    "runtime_api_catalog",
+    "portable_conversation_schema",
+    "portable_message_schema",
     "decode_broker_message",
     "decode_business_message",
     "encode_business_message",

@@ -1,14 +1,25 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import ModuleType, SimpleNamespace
 from typing import Any, cast
 
 import pytest
 from liteyukibot_runtime_nonebot import bridge_definition
-from liteyukibot_runtime_nonebot.host import MESSAGE_CREATED_TOPIC, NoneBotHost, _broker_endpoints
+from liteyukibot_runtime_nonebot.host import (
+    MESSAGE_CREATED_TOPIC,
+    NoneBotHost,
+    _broker_endpoints,
+    _runtime_api_declarations,
+)
 
-from liteyukibot.events import ConversationRef, EventEnvelope, Message, Segment
+from liteyukibot.broker import (
+    AuthorizationContextWire,
+    MessageSendPayload,
+    RuntimeApiInvoke,
+)
+from liteyukibot.events import ConversationRef, EventEnvelope, JsonValue, Message, Segment
 from liteyukibot.lyip import LyipLane
 
 
@@ -18,6 +29,18 @@ def test_nonebot_bridge_declares_stable_package_metadata() -> None:
     assert definition.kind == "nonebot"
     assert definition.grade == "stable"
     assert definition.distribution == "liteyukibot-v7-runtime-nonebot"
+
+
+def test_nonebot_runtime_catalog_contains_alpha9_portable_operations() -> None:
+    declarations = _runtime_api_declarations()
+
+    assert {(item.namespace, item.operation) for item in declarations} == {
+        ("event", "snapshot"),
+        ("event", "send"),
+        ("bot", "snapshot"),
+        ("bot", "send"),
+    }
+    assert all(item.version == "1.1" for item in declarations)
 
 
 def test_nonebot_ingress_is_json_safe_and_ordered_by_conversation() -> None:
@@ -119,3 +142,92 @@ def test_nonebot_host_wires_bridge_local_options_into_nonebot(monkeypatch: pytes
     assert driver.adapters == [adapter]
     assert nonebot.plugins == ["example.plugin"]
     assert nonebot.directories == ["plugins"]
+
+
+@pytest.mark.asyncio
+async def test_nonebot_runtime_api_uses_portable_dtos_and_exact_bot_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeAdapter:
+        def get_name(self) -> str:
+            return "OneBot V11"
+
+    class FakeBot:
+        self_id = "42"
+        adapter = FakeAdapter()
+
+        async def send(self, _event: object, message: object) -> dict[str, str]:
+            assert message == "native-message"
+            return {"message_id": "reply-1"}
+
+    bot = FakeBot()
+    event = object()
+    envelope = EventEnvelope(
+        id="event-1",
+        runtime_id="nonebot",
+        adapter="onebot-v11",
+        bot_id="42",
+        type="message.created",
+        conversation=ConversationRef(id="2002", type="group"),
+        message=Message(segments=(Segment(type="text", data={"text": "hello"}),)),
+    )
+    host = NoneBotHost(SimpleNamespace(), None, "nonebot")
+    host._events_by_source_id[envelope.id] = (bot, event, envelope)
+    monkeypatch.setattr(
+        "liteyukibot_runtime_nonebot.host.to_native_message",
+        lambda _adapter, _message: "native-message",
+    )
+
+    def request(api_id: str, arguments: dict[str, JsonValue] | None = None) -> RuntimeApiInvoke:
+        return RuntimeApiInvoke(
+            delivery_id="delivery-1",
+            source_event_id="event-1",
+            lease_id="lease-1",
+            correlation_id=f"runtime:{api_id}",
+            runtime_kind="nonebot",
+            version="^1.0",
+            api_id=api_id,
+            caller_extension_id="example.plugin",
+            arguments=arguments or {},
+            authorization=AuthorizationContextWire(
+                event_id="event-1",
+                runtime_id="nonebot",
+                bot_id="42",
+            ),
+        )
+
+    snapshot = await host.execute_runtime_api(request("event.snapshot"))
+    event_send = await host.execute_runtime_api(
+        request("event.send", {"message": "hello"}),
+    )
+    bot_snapshot = await host.execute_runtime_api(request("bot.snapshot"))
+
+    assert snapshot.success is True
+    assert isinstance(snapshot.result, Mapping)
+    assert snapshot.result["conversation"] == {"id": "2002", "type": "group", "parent_id": None}
+    assert event_send.success is True
+    assert bot_snapshot.result == {"bot_id": "42", "adapter": "onebot-v11", "capabilities": ["message.send"]}
+
+    sent_payloads: list[MessageSendPayload] = []
+
+    async def send(payload: MessageSendPayload) -> dict[str, str]:
+        sent_payloads.append(payload)
+        return {"message_id": "proactive-1"}
+
+    monkeypatch.setattr(host, "_send_message", send)
+    bot_send = await host.execute_runtime_api(
+        request(
+            "bot.send",
+            cast(
+                dict[str, JsonValue],
+                {
+                    "bot_id": "42",
+                    "message": {"segments": [{"type": "text", "data": {"text": "proactive"}}]},
+                    "conversation": {"id": "2002", "type": "group"},
+                },
+            ),
+        )
+    )
+
+    assert bot_send.success is True
+    assert sent_payloads[0].conversation == ConversationRef(id="2002", type="group")

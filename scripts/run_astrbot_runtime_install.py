@@ -25,7 +25,11 @@ def main() -> int:
     if uv is None:
         raise RuntimeError("uv executable was not found")
     command = [uv, "run", "--no-project", "--python", "3.14"]
-    for wheel in (_one_wheel("liteyukibot_v7"), _one_wheel("liteyukibot_v7_runtime_astrbot")):
+    for wheel in (
+        _one_wheel("liteyukibot_v7"),
+        _one_wheel("liteyukibot_v7_runtime_astrbot_api"),
+        _one_wheel("liteyukibot_v7_runtime_astrbot"),
+    ):
         command.extend(("--with", str(wheel)))
     command.extend(("python", str(ROOT / "scripts" / "verify_astrbot_runtime_install.py")))
     with tempfile.TemporaryDirectory() as directory:
