@@ -9,6 +9,7 @@ from liteyukibot import (
     RuntimeBinding,
     RuntimeCallContext,
     RuntimeNamespaceProxy,
+    RuntimeRequirement,
     RuntimeUnavailable,
     runtime,
     runtime_bindings,
