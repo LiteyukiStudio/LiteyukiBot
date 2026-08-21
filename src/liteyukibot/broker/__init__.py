@@ -1,6 +1,6 @@
 """Broker-side bridge registration primitives.
 
-This is the v6 broker migration entry point. It is intentionally not
+This is the v7 broker migration entry point. It is intentionally not
 interoperable with the legacy runtime child protocol.
 """
 
@@ -21,6 +21,8 @@ from .business import (
     BROKER_EVENT_COMPLETED_TYPE_ID,
     BROKER_EVENT_INGRESS_TYPE_ID,
     BROKER_EVENT_MESSAGE_TYPE_ID,
+    BROKER_RUNTIME_API_INVOKE_TYPE_ID,
+    BROKER_RUNTIME_API_RESULT_TYPE_ID,
     BROKER_TOOL_INVOKE_TYPE_ID,
     BROKER_TOOL_RESULT_TYPE_ID,
     BrokerBusinessWireError,
@@ -28,7 +30,7 @@ from .business import (
     encode_business_message,
 )
 from .diagnostics import BrokerDiagnosticsClient, BrokerDiagnosticsError
-from .host import ActionOutcome, BrokerBridgeRunner, BrokerDelivery, ControlOutcome, ToolOutcome
+from .host import ActionOutcome, BrokerBridgeRunner, BrokerDelivery, ControlOutcome, RuntimeApiOutcome, ToolOutcome
 from .kernel import KernelBridgeError, KernelBrokerPeer, configured_kernel_bridge
 from .peer import (
     BridgeClient,
@@ -51,6 +53,7 @@ from .protocol import (
     BridgeUnregistered,
     BrokerToolDeclaration,
     BrokerWireError,
+    RuntimeApiDeclaration,
     decode_broker_message,
     encode_broker_message,
 )
@@ -71,7 +74,10 @@ from .routing import (
     EventSnapshot,
     RoutedAction,
     RoutedControl,
+    RoutedRuntimeApi,
     RoutedTool,
+    RuntimeApiInvoke,
+    RuntimeApiResult,
     ToolInvoke,
     ToolResult,
 )
@@ -98,10 +104,13 @@ __all__ = [
     "BROKER_EVENT_MESSAGE_TYPE_ID",
     "BROKER_CONTROL_INVOKE_TYPE_ID",
     "BROKER_CONTROL_RESULT_TYPE_ID",
+    "BROKER_RUNTIME_API_INVOKE_TYPE_ID",
+    "BROKER_RUNTIME_API_RESULT_TYPE_ID",
     "ActionRequest",
     "ActionOutcome",
     "ToolOutcome",
     "ControlOutcome",
+    "RuntimeApiOutcome",
     "ActionResourceDeclaration",
     "AuthorizationContextWire",
     "ActionResult",
@@ -110,6 +119,7 @@ __all__ = [
     "BridgeControlInvoke",
     "BridgeControlResult",
     "BrokerToolDeclaration",
+    "RuntimeApiDeclaration",
     "BridgeAccess",
     "BridgeClient",
     "BrokerBridgeRunner",
@@ -149,7 +159,10 @@ __all__ = [
     "MessageSendPayload",
     "RoutedAction",
     "RoutedControl",
+    "RoutedRuntimeApi",
     "RoutedTool",
+    "RuntimeApiInvoke",
+    "RuntimeApiResult",
     "decode_broker_message",
     "decode_business_message",
     "encode_business_message",

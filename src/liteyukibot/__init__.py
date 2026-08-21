@@ -55,6 +55,22 @@ from .plugins import (
     WebUiSurfaceManifest,
 )
 from .resource_packs import RESOURCE_CATALOG_SERVICE, ResourceCatalog, ResourcePackDeclaration
+from .runtime_api import (
+    RuntimeApiBackend,
+    RuntimeApiError,
+    RuntimeApiProxy,
+    RuntimeBinding,
+    RuntimeCallContext,
+    RuntimeNamespaceProxy,
+    RuntimeRequirement,
+    RuntimeUnavailable,
+    create_runtime_proxy,
+    invoke_with_runtime,
+    runtime,
+    runtime_bindings,
+    runtime_handler,
+    validate_runtime_bindings,
+)
 from .services import ServiceKey, ServiceRegistry, ServiceRequirement
 from .status import KERNEL_STATUS_SERVICE, KernelStatusProvider, KernelStatusSnapshot
 
@@ -119,6 +135,20 @@ __all__ = [
     "RESOURCE_CATALOG_SERVICE",
     "ResourceCatalog",
     "ResourcePackDeclaration",
+    "RuntimeApiBackend",
+    "RuntimeApiError",
+    "RuntimeApiProxy",
+    "RuntimeBinding",
+    "RuntimeCallContext",
+    "RuntimeNamespaceProxy",
+    "RuntimeRequirement",
+    "RuntimeUnavailable",
+    "create_runtime_proxy",
+    "invoke_with_runtime",
+    "runtime",
+    "runtime_bindings",
+    "runtime_handler",
+    "validate_runtime_bindings",
     "Translator",
     "WorkerOperationBridge",
     "__version__",

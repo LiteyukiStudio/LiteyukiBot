@@ -1,10 +1,14 @@
-# v7 Alpha 8: DevCLI and Atomic Instance Updates
+# v7 Alpha 8b: DevCLI and Atomic Instance Updates
 
 > **Planned implementation contract.** This document does not authorize a
 > release updater or claim atomic process orchestration is implemented.
 
-Alpha 8 introduces a separate Python development scaffold and the first
+Alpha 8b is the second half of the ecosystem milestone. Alpha 8a first
+validates third-party Native/Cordis calls into a versioned runtime bridge API;
+this document retains the separate Python development scaffold and the first
 verified whole-instance update transaction.
+
+The combined Alpha 8 release is gated on both Alpha 8a and Alpha 8b.
 
 ## DevCLI
 

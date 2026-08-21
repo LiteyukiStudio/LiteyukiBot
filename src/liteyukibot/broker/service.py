@@ -145,6 +145,8 @@ class _AuthoritativePeerService(BrokerPeerService):
         delivery_timeout_seconds: float,
         diagnostics_token: str | None = None,
         dynamic_manifest_bridge_ids: frozenset[str] = frozenset(),
+        dynamic_runtime_api_bridge_ids: frozenset[str] = frozenset(),
+        runtime_kinds: Mapping[str, str] | None = None,
     ) -> None:
         super().__init__(
             instance_tokens=instance_tokens,
@@ -157,13 +159,31 @@ class _AuthoritativePeerService(BrokerPeerService):
         )
         self._manifests = dict(manifests)
         self._dynamic_manifest_bridge_ids = dynamic_manifest_bridge_ids
+        self._dynamic_runtime_api_bridge_ids = dynamic_runtime_api_bridge_ids
+        self._runtime_kinds = dict(runtime_kinds or {})
 
     def _register(self, peer_identity: bytes, frame: LyipFrame, message: BridgeRegister) -> LyipFrame:
         expected = self._manifests.get(message.bridge_id)
-        if message.bridge_id in self._dynamic_manifest_bridge_ids and expected is not None:
-            expected = expected.model_copy(
-                update={"tools": message.manifest.tools, "controls": message.manifest.controls}
-            )
+        if expected is not None:
+            updates: dict[str, object] = {}
+            if message.bridge_id in self._dynamic_manifest_bridge_ids:
+                updates.update(tools=message.manifest.tools, controls=message.manifest.controls)
+            if message.bridge_id in self._dynamic_runtime_api_bridge_ids:
+                expected_kind = self._runtime_kinds.get(message.bridge_id)
+                if expected_kind is not None and any(
+                    api.runtime_kind != expected_kind for api in message.manifest.runtime_apis
+                ):
+                    return self._reply(
+                        peer_identity,
+                        frame,
+                        BridgeRejected(
+                            code="runtime_api_kind_mismatch",
+                            message="runtime API declarations do not match the configured bridge kind",
+                        ),
+                    )
+                updates["runtime_apis"] = message.manifest.runtime_apis
+            if updates:
+                expected = expected.model_copy(update=updates)
         if expected is not None and message.manifest != expected:
             return self._reply(
                 peer_identity,
@@ -215,6 +235,9 @@ class BrokerService:
         dynamic_manifest_bridge_ids = frozenset(
             bridge_id for bridge_id, bridge in settings.broker.bridges.items() if bridge.kind == "kernel"
         )
+        dynamic_runtime_api_bridge_ids = frozenset(
+            bridge_id for bridge_id, bridge in settings.broker.bridges.items() if bridge.kind != "kernel"
+        )
         self._context = zmq.asyncio.Context.instance()
         self.server = BrokerPeerServer(
             context=self._context,
@@ -237,6 +260,8 @@ class BrokerService:
             delivery_timeout_seconds=settings.broker.delivery_timeout_seconds,
             diagnostics_token=diagnostics_token,
             dynamic_manifest_bridge_ids=dynamic_manifest_bridge_ids,
+            dynamic_runtime_api_bridge_ids=dynamic_runtime_api_bridge_ids,
+            runtime_kinds={bridge_id: bridge.kind for bridge_id, bridge in settings.broker.bridges.items()},
         )
 
     @classmethod

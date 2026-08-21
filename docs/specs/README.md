@@ -12,7 +12,9 @@ configuration, or plugin contract changes only with its owning specification
 and tests in the same pull request.
 
 - [Core Event and Action v1](core-event-action-v1.md)
-- [Broker Peer IPC v6](runtime-ipc-v6.md)
+- [Broker Peer IPC v7](runtime-ipc-v7.md)
+- [Broker Peer IPC v6 (baseline)](runtime-ipc-v6.md)
+- [Runtime API v1](runtime-api-v1.md)
 - [Runtime LYIP v2](runtime-lyip-v2.md)
 - [Runtime IPC v5 (historical)](runtime-ipc-v5.md)
 - [Runtime LYIP v1 (historical)](runtime-lyip-v1.md)

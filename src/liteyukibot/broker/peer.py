@@ -43,6 +43,8 @@ if TYPE_CHECKING:
         EventMessage,
         RoutedAction,
         RoutedTool,
+        RuntimeApiInvoke,
+        RuntimeApiResult,
         ToolInvoke,
         ToolResult,
     )
@@ -137,7 +139,7 @@ class BrokerPeerService:
         return tuple(self._sessions_by_bridge.values())
 
     def handle_control(self, peer_identity: bytes, frame: LyipFrame) -> LyipFrame:
-        """Handle one control frame and return a deterministic v6 acknowledgement."""
+        """Handle one control frame and return a deterministic v7 acknowledgement."""
 
         if frame.generation != self.generation:
             return self._reply(
@@ -261,6 +263,8 @@ class BrokerPeerService:
             EventCompleted,
             EventIngress,
             EventMessage,
+            RuntimeApiInvoke,
+            RuntimeApiResult,
             ToolInvoke,
             ToolResult,
         )
@@ -370,6 +374,25 @@ class BrokerPeerService:
                     message=message.model_copy(update={"invocation_id": control_routed.invocation_id}),
                 ),
             )
+        if isinstance(message, RuntimeApiInvoke):
+            if message.invocation_id is not None:
+                raise BrokerAdmissionError(
+                    "unexpected_runtime_api_invocation_id",
+                    "bridges must not assign runtime API invocation IDs",
+                )
+            self._require_frame_lease(frame, message.lease_id)
+            runtime_api_routed = self.ledger.route_runtime_api(session, message, self.sessions)
+            if runtime_api_routed.replayed:
+                runtime_api_result = self.ledger.runtime_api_result(runtime_api_routed.invocation_id, session)
+                if runtime_api_result is None:
+                    return ()
+                return (BusinessDispatch(target=runtime_api_routed.origin, message=runtime_api_result),)
+            return (
+                BusinessDispatch(
+                    target=runtime_api_routed.target,
+                    message=message.model_copy(update={"invocation_id": runtime_api_routed.invocation_id}),
+                ),
+            )
         if isinstance(message, ToolResult):
             tool_routed = self.ledger.tool_route(message.invocation_id)
             tool_result = self.ledger.complete_tool(
@@ -392,6 +415,17 @@ class BrokerPeerService:
                 error_details=message.error_details,
             )
             return (BusinessDispatch(target=control_routed.origin, message=control_result),)
+        if isinstance(message, RuntimeApiResult):
+            runtime_api_routed = self.ledger.runtime_api_route(message.invocation_id)
+            runtime_api_result = self.ledger.complete_runtime_api(
+                session,
+                message.invocation_id,
+                success=message.success,
+                result=message.result,
+                error_code=message.error_code,
+                error_details=message.error_details,
+            )
+            return (BusinessDispatch(target=runtime_api_routed.origin, message=runtime_api_result),)
         if isinstance(message, EventMessage):
             raise BrokerAdmissionError("unexpected_message", "bridges must not send broker event deliveries")
         raise BrokerAdmissionError("unexpected_message", "broker does not accept this business message from a bridge")
@@ -591,7 +625,15 @@ class BrokerPeerServer:
         """Send one catalog message on a target's registered session-bound business stream."""
 
         from .business import encode_business_message
-        from .routing import BridgeControlInvoke, BridgeControlResult, EventMessage, ToolInvoke, ToolResult
+        from .routing import (
+            BridgeControlInvoke,
+            BridgeControlResult,
+            EventMessage,
+            RuntimeApiInvoke,
+            RuntimeApiResult,
+            ToolInvoke,
+            ToolResult,
+        )
 
         if isinstance(message, EventMessage):
             suffix = "delivery"
@@ -599,6 +641,8 @@ class BrokerPeerServer:
             suffix = "tool"
         elif isinstance(message, (BridgeControlInvoke, BridgeControlResult)):
             suffix = "control"
+        elif isinstance(message, (RuntimeApiInvoke, RuntimeApiResult)):
+            suffix = "runtime-api"
         else:
             suffix = "action"
         stream_id = f"bridge:{target.bridge_id}:{target.session_id}:{suffix}"
@@ -731,6 +775,13 @@ class BridgeClient:
 
     async def send_control_result(self, message: BridgeControlResult) -> None:
         await self._send_business(message, suffix="control", lease_id="bridge-business")
+
+    async def send_runtime_api_invoke(self, message: RuntimeApiInvoke) -> None:
+        self._require_delivery_lease(message.delivery_id, message.lease_id)
+        await self._send_business(message, suffix="runtime-api", lease_id=message.lease_id)
+
+    async def send_runtime_api_result(self, message: RuntimeApiResult) -> None:
+        await self._send_business(message, suffix="runtime-api", lease_id="bridge-business")
 
     async def receive_business(self) -> BrokerBusinessMessage:
         """Receive one broker business message and bind offered leases to this live session."""

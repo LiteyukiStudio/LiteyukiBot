@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_valid
 from ..events.models import JsonValue
 from ..topic_patterns import topic_pattern_matches
 from .peer import BridgeRegistrationError, BridgeSession
-from .protocol import BROKER_PROTOCOL_VERSION, AuthorizationContextWire, BridgeAccess
+from .protocol import BROKER_PROTOCOL_VERSION, AuthorizationContextWire, BridgeAccess, runtime_version_matches
 
 
 def _validate_json(value: Any, path: str = "payload") -> None:
@@ -65,7 +65,7 @@ class EventIngress(BrokerModel):
     """The only event shape accepted from a bridge business lane."""
 
     type: Literal["event.ingress"] = "event.ingress"
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     source_event_id: str = Field(min_length=1)
     topic: str = Field(min_length=1)
     ordering_key: str = Field(min_length=1)
@@ -90,7 +90,7 @@ class EventIngress(BrokerModel):
 class BrokerEvent(BrokerModel):
     """Immutable broker-created event identity and authenticated provenance."""
 
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     kernel_event_id: str = Field(min_length=1)
     source_bridge_id: str = Field(min_length=1)
     source_event_id: str = Field(min_length=1)
@@ -129,7 +129,7 @@ _TERMINAL_STATES = frozenset({DeliveryState.COMPLETED, DeliveryState.FAILED, Del
 
 class ActionRequest(BrokerModel):
     type: Literal["action.request"] = "action.request"
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     delivery_id: str = Field(min_length=1)
     lease_id: str = Field(min_length=1)
     correlation_id: str = Field(min_length=1)
@@ -158,7 +158,7 @@ class EventMessage(BrokerModel):
     """Broker-to-bridge event delivery carrying an opaque broker lease."""
 
     type: Literal["event.message"] = "event.message"
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     delivery_id: str = Field(min_length=1)
     lease_id: str = Field(min_length=1)
     lease_ttl_ms: int = Field(ge=1)
@@ -170,7 +170,7 @@ class EventAccepted(BrokerModel):
     """Bridge acknowledgement that transitions an offered delivery to active."""
 
     type: Literal["event.accepted"] = "event.accepted"
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     delivery_id: str = Field(min_length=1)
     lease_id: str = Field(min_length=1)
 
@@ -179,7 +179,7 @@ class EventCompleted(BrokerModel):
     """Terminal outcome of an active broker event delivery."""
 
     type: Literal["event.completed"] = "event.completed"
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     delivery_id: str = Field(min_length=1)
     lease_id: str = Field(min_length=1)
     success: bool
@@ -198,7 +198,7 @@ class ActionResult(BrokerModel):
     """Terminal result returned by the bridge selected for one action."""
 
     type: Literal["action.result"] = "action.result"
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     action_id: str = Field(min_length=1)
     # The owner omits this field. The broker fills it from the retained request
     # before forwarding the result to its origin bridge.
@@ -226,7 +226,7 @@ class ToolInvoke(BrokerModel):
     """A lease-bound Tool invocation sent by a caller bridge."""
 
     type: Literal["tool.invoke"] = "tool.invoke"
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     delivery_id: str = Field(min_length=1)
     lease_id: str = Field(min_length=1)
     correlation_id: str = Field(min_length=1)
@@ -255,7 +255,7 @@ class ToolResult(BrokerModel):
     """Stable, redacted result returned by a Tool provider."""
 
     type: Literal["tool.result"] = "tool.result"
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     invocation_id: str = Field(min_length=1)
     correlation_id: str | None = Field(default=None, min_length=1)
     success: bool
@@ -275,11 +275,80 @@ class ToolResult(BrokerModel):
         return self
 
 
+class RuntimeApiInvoke(BrokerModel):
+    """A lease-bound runtime API invocation sent by a caller bridge."""
+
+    type: Literal["runtime.api.invoke"] = "runtime.api.invoke"
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
+    delivery_id: str = Field(min_length=1)
+    source_event_id: str = Field(min_length=1)
+    lease_id: str = Field(min_length=1)
+    correlation_id: str = Field(min_length=1)
+    runtime_kind: str = Field(min_length=1)
+    version: str = Field(min_length=1)
+    bridge_id: str | None = Field(default=None, min_length=1)
+    api_id: str = Field(min_length=1)
+    caller_extension_id: str = Field(min_length=1)
+    arguments: Mapping[str, JsonValue] = Field(default_factory=dict)
+    authorization: AuthorizationContextWire
+    invocation_id: str | None = Field(default=None, min_length=1)
+
+    @field_validator(
+        "source_event_id", "runtime_kind", "version", "api_id", "caller_extension_id", "bridge_id", mode="before"
+    )
+    @classmethod
+    def validate_identifiers(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        if not isinstance(value, str) or not value.strip():
+            raise TypeError("runtime API identifiers must be non-empty strings")
+        return value.strip()
+
+    @field_validator("arguments", mode="before")
+    @classmethod
+    def validate_arguments(cls, value: Any) -> Any:
+        _validate_json(value, "runtime API arguments")
+        return value
+
+    @field_validator("arguments", mode="after")
+    @classmethod
+    def freeze_arguments(cls, value: Mapping[str, JsonValue]) -> Mapping[str, JsonValue]:
+        return MappingProxyType({key: _freeze(item) for key, item in value.items()})
+
+    @field_serializer("arguments")
+    def serialize_arguments(self, value: Mapping[str, JsonValue]) -> dict[str, Any]:
+        return {key: _thaw(item) for key, item in value.items()}
+
+
+class RuntimeApiResult(BrokerModel):
+    """Stable result returned by a runtime API provider."""
+
+    type: Literal["runtime.api.result"] = "runtime.api.result"
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
+    invocation_id: str = Field(min_length=1)
+    correlation_id: str | None = Field(default=None, min_length=1)
+    success: bool
+    result: JsonValue = None
+    error_code: str | None = Field(default=None, min_length=1)
+    error_details: Mapping[str, JsonValue] | None = None
+
+    @model_validator(mode="after")
+    def validate_result(self) -> RuntimeApiResult:
+        if self.success and self.error_code is not None:
+            raise ValueError("successful runtime API results cannot contain an error code")
+        if not self.success and self.error_code is None:
+            raise ValueError("failed runtime API results require a stable error code")
+        _validate_json(self.result, "runtime API result")
+        if self.error_details is not None:
+            _validate_json(self.error_details, "runtime API error details")
+        return self
+
+
 class BridgeControlInvoke(BrokerModel):
     """A lease-bound control invocation sent by a caller bridge."""
 
     type: Literal["bridge.control.invoke"] = "bridge.control.invoke"
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     delivery_id: str = Field(min_length=1)
     lease_id: str = Field(min_length=1)
     correlation_id: str = Field(min_length=1)
@@ -308,7 +377,7 @@ class BridgeControlResult(BrokerModel):
     """Stable result returned by a bridge control owner."""
 
     type: Literal["bridge.control.result"] = "bridge.control.result"
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     invocation_id: str = Field(min_length=1)
     correlation_id: str | None = Field(default=None, min_length=1)
     success: bool
@@ -343,6 +412,16 @@ class RoutedControl:
     invocation_id: str
     event_id: str
     request: BridgeControlInvoke
+    target: BridgeSession
+    origin: BridgeSession
+    replayed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class RoutedRuntimeApi:
+    invocation_id: str
+    event_id: str
+    request: RuntimeApiInvoke
     target: BridgeSession
     origin: BridgeSession
     replayed: bool = False
@@ -424,6 +503,13 @@ class _Control:
     result: BridgeControlResult | None = None
 
 
+@dataclass(slots=True)
+class _RuntimeApi:
+    routed: RoutedRuntimeApi
+    canonical_request: str
+    result: RuntimeApiResult | None = None
+
+
 @dataclass(frozen=True, slots=True)
 class RoutedTool:
     invocation_id: str
@@ -442,6 +528,7 @@ class _EventRecord:
     actions: dict[tuple[str, str], _Action] = field(default_factory=dict)
     tools: dict[tuple[str, str], _Tool] = field(default_factory=dict)
     controls: dict[tuple[str, str], _Control] = field(default_factory=dict)
+    runtime_apis: dict[tuple[str, str], _RuntimeApi] = field(default_factory=dict)
     transitions: list[LedgerTransition] = field(default_factory=list)
     terminal_at: float | None = None
 
@@ -483,6 +570,7 @@ class BrokerLedger:
         self._action_index: dict[str, _Action] = {}
         self._tool_index: dict[str, _Tool] = {}
         self._control_index: dict[str, _Control] = {}
+        self._runtime_api_index: dict[str, _RuntimeApi] = {}
         self._lanes: dict[tuple[str, str, str], deque[str]] = {}
 
     @property
@@ -763,6 +851,84 @@ class BrokerLedger:
         self._record_transition(record, "control.routed", target_bridge_id=owners[0].bridge_id)
         return routed
 
+    def route_runtime_api(
+        self, session: BridgeSession, request: RuntimeApiInvoke, sessions: tuple[BridgeSession, ...]
+    ) -> RoutedRuntimeApi:
+        delivery = self._require_delivery(session, request.delivery_id, request.lease_id, DeliveryState.ACTIVE)
+        record = self._delivery_index[delivery.delivery_id]
+        authorization = request.authorization
+        if authorization.event_id != record.event.kernel_event_id:
+            raise BrokerAdmissionError(
+                "runtime_api_authorization_mismatch",
+                "runtime API authorization does not match the routed event",
+            )
+        if request.source_event_id != record.event.source_event_id:
+            raise BrokerAdmissionError(
+                "runtime_api_source_event_mismatch",
+                "runtime API source event does not match the routed event",
+            )
+        if authorization.runtime_id != record.event.source_bridge_id:
+            raise BrokerAdmissionError(
+                "runtime_api_authorization_mismatch",
+                "runtime API authorization runtime does not match the routed event",
+            )
+        event_payload = record.event.payload
+        if isinstance(event_payload, Mapping):
+            event_bot_id = event_payload.get("bot_id")
+            if isinstance(event_bot_id, str) and authorization.bot_id != event_bot_id:
+                raise BrokerAdmissionError(
+                    "runtime_api_authorization_mismatch",
+                    "runtime API authorization bot does not match the routed event",
+                )
+            event_actor = event_payload.get("actor")
+            if isinstance(event_actor, Mapping):
+                event_actor_id = event_actor.get("id")
+                if isinstance(event_actor_id, str) and authorization.actor_id != event_actor_id:
+                    raise BrokerAdmissionError(
+                        "runtime_api_authorization_mismatch",
+                        "runtime API authorization actor does not match the routed event",
+                    )
+        canonical = json.dumps(
+            request.model_dump(mode="json", exclude_none=True), sort_keys=True, separators=(",", ":")
+        )
+        key = (session.session_id, request.correlation_id)
+        previous = record.runtime_apis.get(key)
+        if previous is not None:
+            if previous.canonical_request != canonical:
+                raise BrokerAdmissionError(
+                    "runtime_api_conflict",
+                    "correlation ID was already used with different runtime API content",
+                )
+            return RoutedRuntimeApi(
+                invocation_id=previous.routed.invocation_id,
+                event_id=previous.routed.event_id,
+                request=previous.routed.request,
+                target=previous.routed.target,
+                origin=previous.routed.origin,
+                replayed=True,
+            )
+        owners = tuple(
+            candidate
+            for candidate in sessions
+            if (request.bridge_id is None or candidate.bridge_id == request.bridge_id)
+            and any(
+                api.runtime_kind == request.runtime_kind
+                and api.api_id == request.api_id
+                and runtime_version_matches(request.version, api.version)
+                for api in candidate.manifest.runtime_apis
+            )
+        )
+        if len(owners) != 1:
+            raise BrokerAdmissionError(
+                "runtime_api_owner_conflict" if owners else "unknown_runtime_api",
+                "runtime API ownership is not unique",
+            )
+        routed = RoutedRuntimeApi(str(uuid4()), record.event.kernel_event_id, request, owners[0], session)
+        record.runtime_apis[key] = _RuntimeApi(routed=routed, canonical_request=canonical)
+        self._runtime_api_index[routed.invocation_id] = record.runtime_apis[key]
+        self._record_transition(record, "runtime_api.routed", target_bridge_id=owners[0].bridge_id)
+        return routed
+
     def complete_tool(
         self,
         session: BridgeSession,
@@ -827,6 +993,43 @@ class BrokerLedger:
             raise BrokerAdmissionError("control_result_conflict", "control result conflicts with retained result")
         return control.result
 
+    def complete_runtime_api(
+        self,
+        session: BridgeSession,
+        invocation_id: str,
+        *,
+        success: bool,
+        result: JsonValue = None,
+        error_code: str | None = None,
+        error_details: Mapping[str, JsonValue] | None = None,
+    ) -> RuntimeApiResult:
+        self.expire()
+        runtime_api = self._runtime_api_index.get(invocation_id)
+        if runtime_api is None:
+            raise BrokerAdmissionError("unknown_runtime_api_invocation", "runtime API invocation is not retained")
+        if runtime_api.routed.target.session_id != session.session_id:
+            raise BrokerAdmissionError("runtime_api_owner_mismatch", "runtime API result owner does not match route")
+        response = RuntimeApiResult(
+            invocation_id=invocation_id,
+            correlation_id=runtime_api.routed.request.correlation_id,
+            success=success,
+            result=result,
+            error_code=error_code,
+            error_details=error_details,
+        )
+        if runtime_api.result is None:
+            runtime_api.result = response
+            record = self._record_for_runtime_api(runtime_api)
+            self._record_transition(
+                record, "runtime_api.completed", target_bridge_id=session.bridge_id, success=success
+            )
+        elif runtime_api.result != response:
+            raise BrokerAdmissionError(
+                "runtime_api_result_conflict",
+                "runtime API result conflicts with retained result",
+            )
+        return runtime_api.result
+
     def tool_route(self, invocation_id: str) -> RoutedTool:
         self.expire()
         tool = self._tool_index.get(invocation_id)
@@ -856,6 +1059,21 @@ class BrokerLedger:
         if control.routed.origin.session_id != session.session_id:
             raise BrokerAdmissionError("control_origin_mismatch", "control replay origin does not match route")
         return control.result
+
+    def runtime_api_route(self, invocation_id: str) -> RoutedRuntimeApi:
+        self.expire()
+        runtime_api = self._runtime_api_index.get(invocation_id)
+        if runtime_api is None:
+            raise BrokerAdmissionError("unknown_runtime_api_invocation", "runtime API invocation is not retained")
+        return runtime_api.routed
+
+    def runtime_api_result(self, invocation_id: str, session: BridgeSession) -> RuntimeApiResult | None:
+        runtime_api = self._runtime_api_index.get(invocation_id)
+        if runtime_api is None:
+            raise BrokerAdmissionError("unknown_runtime_api_invocation", "runtime API invocation is not retained")
+        if runtime_api.routed.origin.session_id != session.session_id:
+            raise BrokerAdmissionError("runtime_api_origin_mismatch", "runtime API replay origin does not match route")
+        return runtime_api.result
 
     def complete_action(
         self,
@@ -959,6 +1177,8 @@ class BrokerLedger:
                 self._tool_index.pop(invocation_id, None)
             for invocation_id in tuple(control.routed.invocation_id for control in record.controls.values()):
                 self._control_index.pop(invocation_id, None)
+            for invocation_id in tuple(api.routed.invocation_id for api in record.runtime_apis.values()):
+                self._runtime_api_index.pop(invocation_id, None)
 
     @staticmethod
     def event_subscribers(event: BrokerEvent, sessions: tuple[BridgeSession, ...]) -> tuple[BridgeSession, ...]:
@@ -1113,6 +1333,15 @@ class BrokerLedger:
         record = self._active.get(control.routed.event_id) or self._terminal.get(control.routed.event_id)
         if record is None:
             raise BrokerAdmissionError("unknown_control_invocation", "control invocation event is not retained")
+        return record
+
+    def _record_for_runtime_api(self, runtime_api: _RuntimeApi) -> _EventRecord:
+        record = self._active.get(runtime_api.routed.event_id) or self._terminal.get(runtime_api.routed.event_id)
+        if record is None:
+            raise BrokerAdmissionError(
+                "unknown_runtime_api_invocation",
+                "runtime API invocation event is not retained",
+            )
         return record
 
     def _record_delivery_transition(
