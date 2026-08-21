@@ -15,6 +15,7 @@ from liteyukibot import (
     runtime_handler,
 )
 from liteyukibot.events import ConversationRef, EventEnvelope, JsonValue
+from liteyukibot.plugins import ExtensionManifest
 
 
 def _event() -> EventEnvelope:
@@ -79,3 +80,32 @@ async def test_optional_runtime_proxy_fails_closed_when_unavailable() -> None:
     assert not proxy.available
     with pytest.raises(RuntimeUnavailable, match="astrbot.event"):
         await proxy.call("snapshot")
+
+
+def test_runtime_requirements_are_explicit_manifest_capabilities() -> None:
+    requirement = RuntimeRequirement(
+        runtime="astrbot",
+        api="event",
+        version="^1.0",
+        operations=("snapshot", "send"),
+    )
+    manifest = ExtensionManifest(
+        id="example.runtime",
+        name="Runtime Example",
+        version="1.0.0",
+        runtime_requirements=(requirement,),
+    )
+
+    assert manifest.runtime_capabilities == frozenset(
+        {
+            "runtime.astrbot.event.snapshot",
+            "runtime.astrbot.event.send",
+        }
+    )
+    with pytest.raises(ValueError, match="must not contain duplicates"):
+        ExtensionManifest(
+            id="example.runtime",
+            name="Runtime Example",
+            version="1.0.0",
+            runtime_requirements=(requirement, requirement),
+        )
