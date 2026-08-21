@@ -15,6 +15,7 @@ import { WebUiApi } from "@/services/webui-api";
 
 const workspaceViewModule = import("@/features/workspaces/workspace-view");
 const WorkspaceView = lazy(() => workspaceViewModule.then(({ WorkspaceView: View }) => ({ default: View })));
+const EMPTY_LYF_RESOURCES: LyfResourcePage = { read_only: true, grammar: "source.lyf", items: [] };
 
 function currentWorkspace(): Workspace {
   const value = window.location.hash.replace(/^#\//, "");
@@ -38,7 +39,7 @@ export function App() {
     reloadSequence.current = requestId;
     try {
       await api.initialize();
-      const [bootstrap, ledger, catalog, audit, resolvedPresentation, deliveries, resources] = await Promise.all([api.bootstrap(), api.ledger(), api.catalog(), api.audit(), api.presentation(requestedLocale ?? getLocale()), api.eventDeliveries(), api.lyfResources()]);
+      const [bootstrap, ledger, catalog, audit, resolvedPresentation, deliveries, resources] = await Promise.all([api.bootstrap(), api.ledger(), api.catalog(), api.audit(), api.presentation(requestedLocale ?? getLocale()), api.eventDeliveries(), api.lyfResources().catch(() => EMPTY_LYF_RESOURCES)]);
       if (requestId !== reloadSequence.current) return;
       setError(null);
       setSessionReady(true);
