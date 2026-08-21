@@ -311,6 +311,9 @@ class LiteyukiApp:
                 "daemon.webui.operation_catalog": self._daemon_webui_operation_catalog,
                 "daemon.webui.operation.execute": self._daemon_webui_execute_operation,
                 "daemon.webui.plugin_surfaces": self._daemon_webui_plugin_surfaces,
+                "daemon.lifecycle.freeze": self._daemon_lifecycle_freeze,
+                "daemon.lifecycle.status": self._daemon_lifecycle_status,
+                "daemon.lifecycle.unfreeze": self._daemon_lifecycle_unfreeze,
             },
         )
         self.http = (
@@ -319,6 +322,7 @@ class LiteyukiApp:
             else None
         )
         self._accepting_events = False
+        self._kernel_frozen = False
         self._stop_callback: Callable[[], None] | None = None
         self._logging_owned = logger is None
         self._logging_started = False
@@ -1120,7 +1124,25 @@ class LiteyukiApp:
         )
 
     def status(self) -> dict[str, Any]:
-        return self.status_snapshot().as_dict()
+        return {
+            **self.status_snapshot().as_dict(),
+            "lifecycle": {"frozen": self._kernel_frozen, "accepting_events": self._accepting_events},
+        }
+
+    async def _daemon_lifecycle_freeze(self, _request: Mapping[str, Any]) -> dict[str, object]:
+        self._kernel_frozen = True
+        self._accepting_events = False
+        return {"frozen": True, "accepting_events": False}
+
+    async def _daemon_lifecycle_status(self, _request: Mapping[str, Any]) -> dict[str, object]:
+        return {"frozen": self._kernel_frozen, "accepting_events": self._accepting_events}
+
+    async def _daemon_lifecycle_unfreeze(self, _request: Mapping[str, Any]) -> dict[str, object]:
+        if self.state is not AppState.READY:
+            raise RuntimeError("kernel cannot unfreeze before it is ready")
+        self._kernel_frozen = False
+        self._accepting_events = True
+        return {"frozen": False, "accepting_events": True}
 
     def topology(self, *, discover_plugins: bool = False) -> dict[str, object]:
         """Return a redacted module graph without starting processes or plugins."""
@@ -1287,7 +1309,7 @@ class LiteyukiApp:
             payload=payload,
             runtime_id=runtime_id,
         )
-        if not self._accepting_events:
+        if not self._accepting_events or self._kernel_frozen:
             return "invalid"
         try:
             event = EventEnvelope.model_validate(payload)

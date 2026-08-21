@@ -1,0 +1,8 @@
+{
+  "name": "@liteyuki/dev",
+  "version": "0.8.0-alpha.1",
+  "description": "Thin npm launcher for the installed LiteyukiBot DevCLI.",
+  "type": "module",
+  "bin": {"liteyuki-dev": "bin/liteyuki-dev.mjs"},
+  "license": "SEE LICENSE IN ../../LICENSE"
+}

@@ -1,7 +1,10 @@
-# Configuration v5
+# Configuration v5 (Historical)
+
+> The active configuration contract is [Configuration v6](configuration-v6.md).
+> This page records the previous pre-release schema and migration behavior.
 
 - Specification version: `5`
-- Applies to: current `config_version = 5` workspace configuration
+- Applies to: historical `config_version = 5` workspace configuration
 - Compatibility: root configurations without `config_version`, and every
   version through `4`, are pre-release input. Startup preserves them and
   blocks for a manual upgrade. Versions greater than `5` are rejected.

@@ -20,7 +20,8 @@ and [Alpha 6 Agent bridge](roadmap/v7-alpha-6-agent-bridge.md) record the
 remaining compatibility and Agent boundaries. [Alpha 7 LYF DSL]
 (roadmap/v7-alpha-7-lyf-dsl.md) and [Alpha 8 DevCLI updates]
 (roadmap/v7-alpha-8-devcli-updates.md) record the language and operations
-boundaries.
+boundaries. Alpha8b implements the signed offline bundle, daemon update graph,
+read-only editor artifacts, and WebUI resource diagnostics.
 
 - `specs/` contains the versioned, normative public contracts.
 - `architecture/` describes the current system boundary and lifecycle.
@@ -28,7 +29,7 @@ boundaries.
   release-maintainer guidance.
 - `roadmap/` contains forward-looking release plans. Its documents must label
   planned behavior explicitly and must not redefine current contracts.
-- `functions/` contains the planned Alpha7 LYF language specification, split by
+- `functions/` contains the Alpha7 LYF language specification, split by
   lexical, module, binding, function, decorator, Library, host and diagnostic
   concerns.
 - `archive/` holds completed historical records that remain useful for design

@@ -653,6 +653,8 @@ def _runtime_secrets(settings: AppSettings, workspace: ConfigWorkspace) -> dict[
         names.add(configured_kernel[1].token_secret)
     if settings.broker.diagnostics_token_secret is not None:
         names.add(settings.broker.diagnostics_token_secret)
+    if settings.broker.management_token_secret is not None:
+        names.add(settings.broker.management_token_secret)
     if not names:
         return {}
     values = SecretVault(workspace.management_directory).read(_vault_password(workspace))
@@ -768,6 +770,17 @@ def _run(settings: AppSettings, workspace: ConfigWorkspace, args: argparse.Names
         if diagnostics_token is None:
             raise ValueError("broker diagnostics secret is absent from the vault")
         environment["LITEYUKI_RUNTIME_SECRETS"] = json.dumps(secrets)
+    management_token = None
+    if (management_name := settings.broker.management_token_secret) is not None:
+        management_token = secrets.pop(management_name, None)
+        if management_token is None:
+            raise ValueError("broker management secret is absent from the vault")
+        environment["LITEYUKI_RUNTIME_SECRETS"] = json.dumps(secrets)
+    bridge_commands = {
+        bridge_id: _daemon_component_command(workspace, args, "bridge", "run", bridge_id)
+        for bridge_id, bridge in settings.broker.bridges.items()
+        if bridge.kind != "kernel"
+    }
     try:
         with _exclusive_daemon(paths):
             return asyncio.run(
@@ -786,6 +799,9 @@ def _run(settings: AppSettings, workspace: ConfigWorkspace, args: argparse.Names
                     broker_endpoint=settings.broker.endpoint,
                     broker_generation=settings.broker.generation,
                     broker_diagnostics_token=diagnostics_token,
+                    broker_command=_daemon_component_command(workspace, args, "broker", "run"),
+                    bridge_commands=bridge_commands,
+                    broker_management_token=management_token,
                 ).run()
             )
     except KeyboardInterrupt:
@@ -837,6 +853,24 @@ def _daemon_command(workspace: ConfigWorkspace, args: argparse.Namespace) -> lis
     for override in args.overrides:
         command.extend(("--set", override))
     command.append("run")
+    return command
+
+
+def _daemon_component_command(workspace: ConfigWorkspace, args: argparse.Namespace, *tail: str) -> list[str]:
+    command = [
+        sys.executable,
+        "-m",
+        "liteyukibot.cli",
+        "--workspace",
+        str(workspace.directory),
+        "--instance",
+        args.instance,
+    ]
+    for config_path in args.config:
+        command.extend(("--config", config_path))
+    for override in args.overrides:
+        command.extend(("--set", override))
+    command.extend(tail)
     return command
 
 

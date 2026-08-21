@@ -119,6 +119,8 @@ class WebUiBridge(Protocol):
 
     def plugin_surfaces(self, principal: WebUiPrincipal) -> MaybeAwaitable[JsonObject]: ...
 
+    def lyf_resources(self, principal: WebUiPrincipal) -> MaybeAwaitable[JsonObject]: ...
+
     def event_deliveries(
         self,
         principal: WebUiPrincipal,
@@ -377,6 +379,11 @@ def create_app(
     async def plugin_surfaces(request: Request) -> JsonObject:
         session = await authenticated(request)
         return await invoke(bridge.plugin_surfaces(session.principal))
+
+    @app.get("/api/v1/lyf/resources")
+    async def lyf_resources(request: Request) -> JsonObject:
+        session = await authenticated(request)
+        return await invoke(bridge.lyf_resources(session.principal))
 
     @app.get("/api/v1/event-deliveries")
     async def event_deliveries(

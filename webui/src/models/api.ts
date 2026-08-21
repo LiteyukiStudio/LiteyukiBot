@@ -85,3 +85,23 @@ export type EventDeliveryPage = {
   items: EventDeliveryRecord[];
   next_cursor: string | null;
 };
+
+export type LyfDiagnostic = {
+  code: string;
+  severity: string;
+  message: string;
+  source: string;
+  span: JsonObject | null;
+};
+
+export type LyfResource = {
+  path: string;
+  source: string;
+  diagnostics: LyfDiagnostic[];
+};
+
+export type LyfResourcePage = {
+  read_only: boolean;
+  grammar: string;
+  items: LyfResource[];
+};

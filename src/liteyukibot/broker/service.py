@@ -144,6 +144,7 @@ class _AuthoritativePeerService(BrokerPeerService):
         terminal_ttl_seconds: float,
         delivery_timeout_seconds: float,
         diagnostics_token: str | None = None,
+        management_token: str | None = None,
         dynamic_manifest_bridge_ids: frozenset[str] = frozenset(),
         dynamic_runtime_api_bridge_ids: frozenset[str] = frozenset(),
         runtime_kinds: Mapping[str, str] | None = None,
@@ -156,6 +157,7 @@ class _AuthoritativePeerService(BrokerPeerService):
             terminal_ttl_seconds=terminal_ttl_seconds,
             delivery_timeout_seconds=delivery_timeout_seconds,
             diagnostics_token=diagnostics_token,
+            management_token=management_token,
         )
         self._manifests = dict(manifests)
         self._dynamic_manifest_bridge_ids = dynamic_manifest_bridge_ids
@@ -202,6 +204,7 @@ class BrokerService:
         instance_tokens: Mapping[str, str],
         *,
         diagnostics_token: str | None = None,
+        management_token: str | None = None,
     ) -> None:
         if set(instance_tokens) != set(settings.broker.bridges):
             raise ValueError("broker tokens must resolve every configured bridge exactly once")
@@ -249,6 +252,7 @@ class BrokerService:
             terminal_ttl_seconds=settings.broker.terminal_ttl_seconds,
             delivery_timeout_seconds=settings.broker.delivery_timeout_seconds,
             diagnostics_token=diagnostics_token,
+            management_token=management_token,
         )
         self.server.service = _AuthoritativePeerService(
             manifests=manifests,
@@ -259,6 +263,7 @@ class BrokerService:
             terminal_ttl_seconds=settings.broker.terminal_ttl_seconds,
             delivery_timeout_seconds=settings.broker.delivery_timeout_seconds,
             diagnostics_token=diagnostics_token,
+            management_token=management_token,
             dynamic_manifest_bridge_ids=dynamic_manifest_bridge_ids,
             dynamic_runtime_api_bridge_ids=dynamic_runtime_api_bridge_ids,
             runtime_kinds={bridge_id: bridge.kind for bridge_id, bridge in settings.broker.bridges.items()},
@@ -280,7 +285,12 @@ class BrokerService:
             diagnostics_token = values.get(secret_name)
             if diagnostics_token is None:
                 raise BridgeRegistrationError("broker diagnostics references a secret that is absent from the vault")
-        return cls(settings, tokens, diagnostics_token=diagnostics_token)
+        management_token = None
+        if (secret_name := settings.broker.management_token_secret) is not None:
+            management_token = values.get(secret_name)
+            if management_token is None:
+                raise BridgeRegistrationError("broker management references a secret that is absent from the vault")
+        return cls(settings, tokens, diagnostics_token=diagnostics_token, management_token=management_token)
 
     async def run_until_cancelled(self) -> None:
         control = asyncio.create_task(self._serve_control(), name="liteyuki-broker-control")

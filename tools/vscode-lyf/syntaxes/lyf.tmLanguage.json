@@ -1,0 +1,62 @@
+{
+  "name": "Liteyuki Function",
+  "scopeName": "source.lyf",
+  "fileTypes": ["lyf"],
+  "patterns": [
+    {"include": "#comments"},
+    {"include": "#decorators"},
+    {"include": "#declarations"},
+    {"include": "#keywords"},
+    {"include": "#strings"},
+    {"include": "#numbers"},
+    {"include": "#operators"}
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {"name": "comment.line.lyf", "match": "//(?!/).*?$"},
+        {"name": "comment.line.documentation.lyf", "match": "///.*?$"},
+        {"name": "comment.line.number-sign.lyf", "match": "#.*?$"},
+        {"name": "comment.block.lyf", "begin": "/\\*", "end": "\\*/"}
+      ]
+    },
+    "decorators": {
+      "patterns": [
+        {"name": "entity.name.function.decorator.lyf", "match": "@[A-Za-z_][A-Za-z0-9_]*(?=\\s*\\()"},
+        {"name": "entity.name.function.decorator.lyf", "match": "@[A-Za-z_][A-Za-z0-9_]*"}
+      ]
+    },
+    "declarations": {
+      "patterns": [
+        {"name": "keyword.declaration.function.lyf", "match": "\\b(fn)\\s+([A-Za-z_][A-Za-z0-9_]*)", "captures": {"1": {"name": "keyword.declaration.function.lyf"}, "2": {"name": "entity.name.function.lyf"}}},
+        {"name": "keyword.declaration.use.lyf", "match": "\\b(use)\\s+([A-Za-z_][A-Za-z0-9_-]*)", "captures": {"1": {"name": "keyword.control.import.lyf"}, "2": {"name": "entity.name.namespace.lyf"}}},
+        {"name": "keyword.declaration.binding.lyf", "match": "\\b(let|val|const)\\b"},
+        {"name": "keyword.control.version.lyf", "match": "@version\\s+[0-9]+(?:\\.[0-9]+)*"}
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {"name": "keyword.control.lyf", "match": "\\b(async|sync|return|pass|await|while|for|in|or|and|not|echo|print)\\b"},
+        {"name": "constant.language.lyf", "match": "\\b(true|false|null)\\b"},
+        {"name": "variable.language.lyf", "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"}
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {"name": "string.quoted.double.lyf", "match": "\"(?:\\\\.|[^\"\\\\])*\""}
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {"name": "constant.numeric.lyf", "match": "-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?"}
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {"name": "keyword.operator.assignment.lyf", "match": ":=|\\+=|==|!=|<=|>=|=|<|>"},
+        {"name": "keyword.operator.arithmetic.lyf", "match": "[+*/%~-]"},
+        {"name": "punctuation.separator.lyf", "match": "[{},.():;\\[\\]]"}
+      ]
+    }
+  }
+}

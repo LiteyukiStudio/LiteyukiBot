@@ -53,6 +53,9 @@ class Bridge:
     async def plugin_surfaces(self, _principal: WebUiPrincipal) -> JsonObject:
         return {"generation": 1, "surfaces": []}
 
+    async def lyf_resources(self, _principal: WebUiPrincipal) -> JsonObject:
+        return {"read_only": True, "grammar": "source.lyf", "items": []}
+
     async def event_deliveries(
         self, _principal: WebUiPrincipal, filters: Mapping[str, str], cursor: str | None, limit: int
     ) -> JsonObject:

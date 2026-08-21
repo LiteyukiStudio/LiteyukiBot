@@ -7,7 +7,7 @@ from typing import Any
 
 from tomli_w import dumps
 
-CONFIG_VERSION = 5
+CONFIG_VERSION = 6
 
 
 def render_config_template(
@@ -58,10 +58,16 @@ def render_config_template(
         "http": {"enabled": False, "host": "127.0.0.1", "port": 20216},
         "daemon": {
             "auto_restart": False,
+            "manage_broker": True,
+            "manage_bridges": True,
             "restart_limit": 5,
             "restart_window_seconds": 60.0,
             "restart_backoff_initial_seconds": 0.5,
             "restart_backoff_max_seconds": 10.0,
+            "startup_timeout_seconds": 30.0,
+            "stop_timeout_seconds": 10.0,
+            "drain_timeout_seconds": 30.0,
+            "health_timeout_seconds": 30.0,
         },
         "lyip": {
             "default_backend": "auto",

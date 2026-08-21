@@ -26,7 +26,8 @@ and tests in the same pull request.
 - [Management and Command v1](management-command-v1.md)
 - [Release and Maintenance v1](release-maintenance-v1.md)
 - [Instance Daemon v1](instance-daemon-v1.md)
-- [Configuration v5](configuration-v5.md)
+- [Configuration v6](configuration-v6.md)
+- [Configuration v5 (historical)](configuration-v5.md)
 - [Resources v1](resources-v1.md)
 - [v6 Compatibility](v6-compatibility.md)
 

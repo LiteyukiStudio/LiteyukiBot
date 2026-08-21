@@ -1,0 +1,14 @@
+{
+  "name": "liteyuki-lyf",
+  "displayName": "Liteyuki Function Language",
+  "description": "Read-only syntax highlighting for Liteyuki Function files.",
+  "version": "0.8.0-alpha.1",
+  "publisher": "LiteyukiStudio",
+  "license": "SEE LICENSE IN LICENSE",
+  "engines": {"vscode": ">=1.90.0"},
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [{"id": "lyf", "aliases": ["LYF", "Liteyuki Function"], "extensions": [".lyf"], "configuration": "language-configuration.json"}],
+    "grammars": [{"language": "lyf", "scopeName": "source.lyf", "path": "./syntaxes/lyf.tmLanguage.json"}]
+  }
+}

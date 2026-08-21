@@ -30,10 +30,16 @@ class ProfileManifest:
     python: str
     distributions: dict[str, str]
     direct_urls: dict[str, dict[str, str]]
+    config_version: int = 6
+    bundle_tag: str | None = None
+    bundle_version: str | None = None
+    bundle_manifest_sha256: str | None = None
+    dependency_lock_sha256: str | None = None
+    artifact_filenames: tuple[str, ...] = ()
 
     def document(self) -> dict[str, Any]:
         return {
-            "schema": 2,
+            "schema": 3,
             "id": self.id,
             "created_at": self.created_at,
             "requirements": list(self.requirements),
@@ -43,6 +49,16 @@ class ProfileManifest:
                 name: dict(sorted(provenance.items()))
                 for name, provenance in sorted(self.direct_urls.items())
             },
+            "config_version": self.config_version,
+            "bundle": {
+                "tag": self.bundle_tag,
+                "version": self.bundle_version,
+                "manifest_sha256": self.bundle_manifest_sha256,
+                "dependency_lock_sha256": self.dependency_lock_sha256,
+                "artifacts": list(self.artifact_filenames),
+            }
+            if self.bundle_tag is not None
+            else None,
         }
 
     @property
@@ -108,7 +124,7 @@ class ProfileStore:
         path = self.profile_path(profile_id) / "manifest.json"
         try:
             value = json.loads(path.read_text(encoding="utf-8"))
-            if value.get("schema") not in (1, 2) or value.get("id") != profile_id:
+            if value.get("schema") not in (1, 2, 3) or value.get("id") != profile_id:
                 raise ValueError("invalid profile manifest")
             return ProfileManifest(
                 id=profile_id,
@@ -118,6 +134,35 @@ class ProfileStore:
                 distributions={str(k): str(v) for k, v in dict(value["distributions"]).items()},
                 direct_urls=ProfileManifest.sanitize_direct_urls(
                     dict(value.get("direct_urls", {})) if isinstance(value.get("direct_urls", {}), dict) else {}
+                ),
+                config_version=int(value.get("config_version", 5 if value.get("schema") == 2 else 6)),
+                bundle_tag=(
+                    str(dict(value["bundle"]).get("tag"))
+                    if isinstance(value.get("bundle"), dict) and dict(value["bundle"]).get("tag") is not None
+                    else None
+                ),
+                bundle_version=(
+                    str(dict(value["bundle"]).get("version"))
+                    if isinstance(value.get("bundle"), dict) and dict(value["bundle"]).get("version") is not None
+                    else None
+                ),
+                bundle_manifest_sha256=(
+                    str(dict(value["bundle"]).get("manifest_sha256"))
+                    if isinstance(value.get("bundle"), dict)
+                    and dict(value["bundle"]).get("manifest_sha256") is not None
+                    else None
+                ),
+                dependency_lock_sha256=(
+                    str(dict(value["bundle"]).get("dependency_lock_sha256"))
+                    if isinstance(value.get("bundle"), dict)
+                    and dict(value["bundle"]).get("dependency_lock_sha256") is not None
+                    else None
+                ),
+                artifact_filenames=(
+                    tuple(str(item) for item in dict(value["bundle"]).get("artifacts", []))
+                    if isinstance(value.get("bundle"), dict)
+                    and isinstance(dict(value["bundle"]).get("artifacts", []), list)
+                    else ()
                 ),
             )
         except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
@@ -147,16 +192,20 @@ class ProfileStore:
         )
 
     def rollback(self) -> str:
+        previous = self.previous()
+        current = self.active()
+        self.read_manifest(previous)
+        self._write_text(self.pointer, previous + "\n")
+        self._write_json(self.lock, {"schema": 1, "active": previous, "previous": current, "profiles": self.digests()})
+        return previous
+
+    def previous(self) -> str:
         try:
             previous = json.loads(self.lock.read_text(encoding="utf-8")).get("previous")
         except (OSError, json.JSONDecodeError) as error:
             raise ProfileError("no rollback profile is available") from error
         if not isinstance(previous, str):
             raise ProfileError("no rollback profile is available")
-        current = self.active()
-        self.read_manifest(previous)
-        self._write_text(self.pointer, previous + "\n")
-        self._write_json(self.lock, {"schema": 1, "active": previous, "previous": current, "profiles": self.digests()})
         return previous
 
     def list(self) -> tuple[ProfileManifest, ...]:

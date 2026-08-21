@@ -278,7 +278,7 @@ class KernelBrokerPeer:
 
 
 def _broker_endpoints(endpoint: str) -> Mapping[LyipLane, str]:
-    """Derive the existing adjacent control/business endpoints from v5 config."""
+    """Derive the existing adjacent control/business endpoints from v6 config."""
 
     parsed = urlparse(endpoint)
     if parsed.scheme != "tcp" or parsed.hostname is None or parsed.port is None:

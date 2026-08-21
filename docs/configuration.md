@@ -1,5 +1,30 @@
 # Configuration Operations
 
+The active workspace contract is `config_version = 6`. The normative schema is
+documented in [Configuration v6](specs/configuration-v6.md); the older v5 page
+is retained only as migration history. Alpha8b does not rewrite v5 files.
+
+## Atomic Instance Updates
+
+To make an instance eligible for `liteyuki-dev update` and `rollback`, configure
+the daemon to own the Broker and bridges and provide a distinct management
+secret:
+
+~~~toml
+[broker]
+management_token_secret = "broker.management.token"
+
+[daemon]
+manage_broker = true
+manage_bridges = true
+drain_timeout_seconds = 30
+~~~
+
+The daemon starts Broker, configured non-kernel Bridges, and Kernel in that
+order. It stops them in reverse order. Standalone `liteyuki broker run` and
+`liteyuki bridge run <id>` remain supported, but those processes cannot take
+part in an atomic profile update.
+
 ## Project Configuration
 
 ### Cordis Plugin v1
@@ -263,7 +288,7 @@ accepted by Alpha6.
 
 ## Upgrade Material
 
-`config_version = 5` is the current v7 pre-release schema. This is a hard cut:
+`config_version = 6` is the current v7 pre-release schema. This is a hard cut:
 the root configuration must declare version 5, and the former `runtimes` and
 `runtime_event_routes` sections are not accepted as broker configuration. A
 legacy `[agent]` section, `runtimes.* kind = "agent"`, and the

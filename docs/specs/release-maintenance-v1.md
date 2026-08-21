@@ -39,23 +39,27 @@ configured PyPI Trusted Publisher environment. SBOMs, checksum manifests, and
 other release evidence are retained as workflow artifacts rather than uploaded
 as distributions.
 
-## Alpha 3 Bundle
+## Alpha 8b Bundle
 
-The source Alpha 3 contract uses the exact `7.0.0a3` version for the kernel,
-Native IPC, Cordis, NoneBot bridge, AstrBot bridge, generic adapter bridge, and
-WebUI. The DevCLI identifier is reserved in the bundle inventory but has no
-artifact in Alpha 3. Independent business packages do not join this lockstep
-set. Permissions, Commands, Resources, Profile, Essentials, Agent Resolver,
-and Functions are independent signed assets and require exactly
-`liteyukibot-v7==7.0.0a3`.
+The source Alpha8b contract uses the exact `7.0.0a8` version for the kernel,
+Native IPC, Cordis, NoneBot bridge, AstrBot bridge, AstrBot API facade, generic
+adapter bridge, WebUI, and DevCLI. DevCLI is a real reserved bundle component
+and is not a PyPI publication target. Independent business packages do not
+join this lockstep set. Every first-party artifact declares the exact Alpha8b
+kernel dependency it consumes.
 
 `scripts/alpha_release.py` validates source metadata, writes canonical UTF-8
-`artifacts.manifest.json`, and writes the deterministic CycloneDX 1.5
-`sbom.cdx.json`. The manifest records tag, common version, frozen LYIP v2 /
-Runtime IPC v6 / broker v6 / configuration v5 baselines, inventory, artifact
-metadata, sizes, and SHA-256 hashes. Its Sigstore sidecar is named
-`artifacts.manifest.sigstore.json` and must verify the GitHub OIDC issuer,
-repository, Alpha workflow path, and exact tag.
+`artifacts.manifest.json`, a canonical resolved dependency lock, and the
+deterministic CycloneDX 1.5 `sbom.cdx.json`. The manifest records tag, common
+version, frozen LYIP v2 / Runtime IPC v7 / broker v7 / configuration v6
+baselines, inventory, artifact metadata, sizes, and SHA-256 hashes. Its
+Sigstore sidecar is named `artifacts.manifest.sigstore.json` and must verify the
+GitHub OIDC issuer, repository, Alpha workflow path, and exact tag.
+
+`liteyuki-dev verify` repeats the same checks without network access.
+`liteyuki-dev stage` installs only the verified wheel closure into an immutable
+profile. `update` and `rollback` are accepted only by a daemon that owns the
+whole Broker -> Bridge -> Kernel graph.
 
 `.github/workflows/alpha-release.yaml` is the only Alpha publication path. It
 builds the lockstep bundle, validates it in a fresh directory, exercises every
@@ -67,5 +71,7 @@ cannot reach their publish steps.
 ## Evidence
 
 Run `uv build --all-packages --out-dir dist/workspace --clear`,
-`uv run python -m scripts.run_webui_install`, and
-`uv run pytest tests/test_release_v7.py tests/test_alpha_release.py`.
+`uv run python -m scripts.run_webui_install`,
+`uv run python -m scripts.run_alpha_bundle_installs --bundle <verified-bundle>`,
+and `uv run pytest tests/test_release_v7.py tests/test_alpha_release.py
+tests/test_alpha8b.py`.

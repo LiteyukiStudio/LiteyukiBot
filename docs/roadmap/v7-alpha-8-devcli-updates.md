@@ -1,7 +1,8 @@
 # v7 Alpha 8b: DevCLI and Atomic Instance Updates
 
-> **Planned implementation contract.** This document does not authorize a
-> release updater or claim atomic process orchestration is implemented.
+> **Implemented Alpha 8b contract.** The source tree and local validation now
+> cover this contract. Official publication still requires the real Sigstore
+> signature and the CI release gates described below.
 
 Alpha 8b is the second half of the ecosystem milestone. Alpha 8a first
 validates third-party Native/Cordis calls into a versioned runtime bridge API;
@@ -42,9 +43,12 @@ diagnostics. Browser editing and execution remain outside Alpha 8.
 
 ## Completion
 
-Release `v7.0.0a8` with every independent first-party package rebuilt against
-that exact kernel. Tests cover invalid bundles, Sigstore/hash/lock mismatch,
-staging interruption, managed-process eligibility, drain timeout, startup
-ordering, health failure, automatic/manual rollback, recovery after
-interruption, TextMate fixtures, VS Code checks, WebUI rendering, and full
-repository release gates.
+The Alpha 8b implementation is present at `v7.0.0a8`: every independent
+first-party package is rebuilt against that exact kernel, the DevCLI stages
+offline verified profiles, the daemon owns the atomic Broker/Bridge/Kernel
+transaction, and LYF grammar/diagnostics are shared by VS Code and WebUI.
+Tests cover invalid bundles, Sigstore/hash/lock mismatch, staging interruption,
+managed-process eligibility, drain timeout, startup ordering, health failure,
+automatic/manual rollback, recovery after interruption, TextMate fixtures, VS
+Code checks, WebUI rendering, and full repository release gates. The release
+workflow must still produce the official signed bundle before publication.

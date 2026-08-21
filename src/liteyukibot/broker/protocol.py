@@ -24,6 +24,10 @@ BROKER_DIAGNOSTICS_DETAIL_TYPE_ID: Final = 607
 BROKER_DIAGNOSTICS_STATUS_RESULT_TYPE_ID: Final = 608
 BROKER_DIAGNOSTICS_LIST_RESULT_TYPE_ID: Final = 609
 BROKER_DIAGNOSTICS_DETAIL_RESULT_TYPE_ID: Final = 610
+BROKER_LIFECYCLE_FREEZE_TYPE_ID: Final = 611
+BROKER_LIFECYCLE_DRAIN_TYPE_ID: Final = 612
+BROKER_LIFECYCLE_UNFREEZE_TYPE_ID: Final = 613
+BROKER_LIFECYCLE_STATUS_RESULT_TYPE_ID: Final = 614
 
 
 class BrokerWireError(LyipError):
@@ -440,6 +444,63 @@ class BrokerDiagnosticsListResult(BrokerWireModel):
     next_cursor: str | None = None
 
 
+class BrokerLifecycleFreeze(BrokerWireModel):
+    """Authenticate and stop admitting new business events."""
+
+    type: Literal["broker.lifecycle.freeze"] = "broker.lifecycle.freeze"
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
+    token: str
+    reason: str = "instance update"
+
+    @field_validator("token", "reason", mode="before")
+    @classmethod
+    def validate_lifecycle_text(cls, value: object) -> str:
+        if not isinstance(value, str):
+            raise TypeError("broker lifecycle fields must be strings")
+        return _non_blank_identifier(value)
+
+
+class BrokerLifecycleDrain(BrokerWireModel):
+    """Authenticate and request the current bounded drain status."""
+
+    type: Literal["broker.lifecycle.drain"] = "broker.lifecycle.drain"
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
+    token: str
+
+    @field_validator("token", mode="before")
+    @classmethod
+    def validate_token(cls, value: object) -> str:
+        if not isinstance(value, str):
+            raise TypeError("broker management token must be a string")
+        return _non_blank_identifier(value)
+
+
+class BrokerLifecycleUnfreeze(BrokerWireModel):
+    """Authenticate and restore business admission after an aborted update."""
+
+    type: Literal["broker.lifecycle.unfreeze"] = "broker.lifecycle.unfreeze"
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
+    token: str
+
+    @field_validator("token", mode="before")
+    @classmethod
+    def validate_token(cls, value: object) -> str:
+        if not isinstance(value, str):
+            raise TypeError("broker management token must be a string")
+        return _non_blank_identifier(value)
+
+
+class BrokerLifecycleStatusResult(BrokerWireModel):
+    """Bounded state returned to the daemon update coordinator."""
+
+    type: Literal["broker.lifecycle.status.result"] = "broker.lifecycle.status.result"
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
+    frozen: bool
+    reason: str | None = None
+    active_events: int = Field(ge=0)
+    sessions: tuple[str, ...] = ()
+
+
 type BrokerWireMessage = Annotated[
     BridgeRegister
     | BridgeRegistered
@@ -451,7 +512,11 @@ type BrokerWireMessage = Annotated[
     | BrokerDiagnosticsDetail
     | BrokerDiagnosticsStatusResult
     | BrokerDiagnosticsListResult
-    | BrokerDiagnosticsDetailResult,
+    | BrokerDiagnosticsDetailResult
+    | BrokerLifecycleFreeze
+    | BrokerLifecycleDrain
+    | BrokerLifecycleUnfreeze
+    | BrokerLifecycleStatusResult,
     Field(discriminator="type"),
 ]
 BROKER_WIRE_ADAPTER: Final[TypeAdapter[BrokerWireMessage]] = TypeAdapter(BrokerWireMessage)
@@ -468,6 +533,10 @@ _TYPE_IDS: Final[dict[type[BrokerWireModel], int]] = {
     BrokerDiagnosticsStatusResult: BROKER_DIAGNOSTICS_STATUS_RESULT_TYPE_ID,
     BrokerDiagnosticsListResult: BROKER_DIAGNOSTICS_LIST_RESULT_TYPE_ID,
     BrokerDiagnosticsDetailResult: BROKER_DIAGNOSTICS_DETAIL_RESULT_TYPE_ID,
+    BrokerLifecycleFreeze: BROKER_LIFECYCLE_FREEZE_TYPE_ID,
+    BrokerLifecycleDrain: BROKER_LIFECYCLE_DRAIN_TYPE_ID,
+    BrokerLifecycleUnfreeze: BROKER_LIFECYCLE_UNFREEZE_TYPE_ID,
+    BrokerLifecycleStatusResult: BROKER_LIFECYCLE_STATUS_RESULT_TYPE_ID,
 }
 _MESSAGE_TYPES: Final[dict[int, type[BrokerWireModel]]] = {type_id: model for model, type_id in _TYPE_IDS.items()}
 

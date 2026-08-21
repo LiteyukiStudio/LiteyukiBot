@@ -52,7 +52,7 @@ from .libraries import (
     default_library_definitions,
     default_library_registry,
 )
-from .parser import parse
+from .parser import LYF_GRAMMAR, parse
 from .preflight import EventContribution, PreflightResult, PromptContribution, ToolContribution, preflight
 from .runtime import FunctionRuntime, FunctionRuntimeError
 
@@ -92,6 +92,7 @@ __all__ = [
     "LibraryDefinition",
     "LibraryExport",
     "LibraryRegistry",
+    "LYF_GRAMMAR",
     "ListExpr",
     "LiteralExpr",
     "MemberExpr",
