@@ -135,7 +135,7 @@ class ManagedProcessGraph:
             await asyncio.wait_for(asyncio.sleep(0.02), timeout=self.startup_timeout_seconds)
         except TimeoutError as error:
             raise ManagedGraphError(f"managed process {name!r} did not become ready") from error
-        if process.returncode is not None:
+        if process.returncode is not None and name != "kernel":
             raise ManagedGraphError(f"managed process {name!r} exited before readiness: {process.returncode}")
 
     def status(self) -> dict[str, object]:
