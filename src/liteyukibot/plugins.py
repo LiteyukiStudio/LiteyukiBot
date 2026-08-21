@@ -24,6 +24,15 @@ from .events import ActionEnvelope, ActionResult, EventBus, EventEnvelope
 from .exceptions import PluginError, ServiceError
 from .init_specs import PluginInitSpec
 from .resource_packs import ResourcePackDeclaration
+from .runtime_api import (
+    RuntimeCallContext,
+    RuntimeContextFactory,
+    RuntimeNamespaceProxy,
+    RuntimeRequirement,
+    RuntimeResolver,
+    runtime_handler,
+    validate_runtime_bindings,
+)
 from .services import ServiceKey, ServiceRegistry, ServiceRequirement
 from .tasks import ManagedTasks
 
@@ -375,6 +384,7 @@ class ExtensionManifest(BaseModel):
     storage: Literal["none", "private"] = "none"
     resource_packs: tuple[ResourcePackDeclaration, ...] = ()
     capabilities: tuple[str, ...] = ()
+    runtime_requirements: tuple[RuntimeRequirement, ...] = ()
     tools: tuple[ToolDeclaration, ...] = ()
     webui: WebUiContributionManifest | None = None
 
@@ -399,6 +409,14 @@ class ExtensionManifest(BaseModel):
             _validate_capability(capability)
         return value
 
+    @field_validator("runtime_requirements")
+    @classmethod
+    def validate_runtime_requirements(cls, value: tuple[RuntimeRequirement, ...]) -> tuple[RuntimeRequirement, ...]:
+        keys = tuple((item.runtime, item.api, item.bridge_id) for item in value)
+        if len(keys) != len(set(keys)):
+            raise ValueError("extension runtime requirements must not contain duplicates")
+        return value
+
     @field_validator("tools")
     @classmethod
     def validate_tools(cls, value: tuple[ToolDeclaration, ...], info: Any) -> tuple[ToolDeclaration, ...]:
@@ -411,6 +429,14 @@ class ExtensionManifest(BaseModel):
         if any(not tool.id.startswith(prefix) for tool in value):
             raise ValueError("tool IDs must be prefixed by their extension ID")
         return value
+
+    @property
+    def runtime_capabilities(self) -> frozenset[str]:
+        return frozenset(
+            capability
+            for requirement in self.runtime_requirements
+            for capability in requirement.capability_names
+        )
 
 
 # Deprecated source alias. It constructs Extension API v2 values, while an
@@ -454,6 +480,68 @@ def _validate_capability(value: str) -> str:
 
 PluginCallback = Callable[[], Awaitable[None]]
 type CleanupCallback = Callable[[], object]
+
+
+def _default_runtime_context_factory(args: tuple[Any, ...], kwargs: Mapping[str, Any]) -> RuntimeCallContext:
+    values = (*args, *kwargs.values())
+    event = next((value for value in values if isinstance(value, EventEnvelope)), None)
+    if event is None:
+        raise RuntimeError("runtime API calls require an active EventEnvelope")
+    authorization = next((value for value in values if isinstance(value, AuthorizationContext)), None)
+    if authorization is None:
+        authorization = AuthorizationContext(
+            event_id=event.id,
+            runtime_id=event.runtime_id,
+            bot_id=event.bot_id,
+            actor_id=None if event.actor is None else event.actor.id,
+        )
+    elif authorization.event_id != event.id:
+        raise RuntimeError("runtime API authorization does not match the active event")
+    return RuntimeCallContext(extension_id="unknown", event=event, authorization=authorization)
+
+
+def _unavailable_runtime_resolver(binding: Any, context: RuntimeCallContext) -> RuntimeNamespaceProxy:
+    return RuntimeNamespaceProxy(binding, None, context, reason="runtime bridge is not configured")
+
+
+class PluginEventBus:
+    """Plugin-owned EventBus facade that injects declared runtime proxies."""
+
+    def __init__(
+        self,
+        events: EventBus,
+        *,
+        context_factory: RuntimeContextFactory,
+        resolver: RuntimeResolver,
+        requirements: tuple[RuntimeRequirement, ...] = (),
+    ) -> None:
+        self._events = events
+        self._context_factory = context_factory
+        self._resolver = resolver
+        self._requirements = requirements
+
+    @property
+    def closed(self) -> bool:
+        return self._events.closed
+
+    @property
+    def outstanding(self) -> int:
+        return self._events.outstanding
+
+    def subscribe(self, handler: Callable[..., Any], *, order: int = 0, name: str | None = None) -> Any:
+        validate_runtime_bindings(handler, self._requirements)
+        wrapped = runtime_handler(
+            handler,
+            context_factory=self._context_factory,
+            resolver=self._resolver,
+        )
+        return self._events.subscribe(cast(Any, wrapped), order=order, name=name)
+
+    def unsubscribe(self, subscription: Any) -> bool:
+        return self._events.unsubscribe(subscription)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._events, name)
 
 
 class _PluginCleanup:
@@ -554,12 +642,16 @@ class PluginContext:
     logger: LoggerLike
     services: PluginServices
     tasks: ManagedTasks
-    events: EventBus
+    events: PluginEventBus
     actions: ActionServiceLike
     paths: PluginPaths | None
     function_host: FunctionHost | None
     _manifest: ExtensionManifest = field(repr=False, compare=False)
     _cleanup: _PluginCleanup = field(repr=False, compare=False)
+    _runtime_context_factory: RuntimeContextFactory = field(
+        default=_default_runtime_context_factory, repr=False, compare=False
+    )
+    _runtime_resolver: RuntimeResolver = field(default=_unavailable_runtime_resolver, repr=False, compare=False)
     _tool_handlers: MutableMapping[str, ToolCallback] = field(default_factory=dict, repr=False, compare=False)
 
     def defer_cleanup(self, callback: CleanupCallback) -> None:
@@ -578,7 +670,15 @@ class PluginContext:
         del declaration
         if tool_id in self._tool_handlers:
             raise PluginError(f"extension {self.id} registered Tool {tool_id!r} more than once")
-        self._tool_handlers[tool_id] = handler
+        validate_runtime_bindings(handler, self._manifest.runtime_requirements)
+        self._tool_handlers[tool_id] = cast(
+            ToolCallback,
+            runtime_handler(
+                handler,
+                context_factory=self._runtime_context_factory,
+                resolver=self._runtime_resolver,
+            ),
+        )
 
 
 class PluginState(StrEnum):
@@ -609,6 +709,9 @@ class PluginManager:
         logger: LoggerLike,
         data_dir: Path,
         cache_dir: Path,
+        runtime_context_factory: Callable[[str], RuntimeContextFactory] | None = None,
+        runtime_resolver: RuntimeResolver | None = None,
+        runtime_targets: Mapping[str, str] | None = None,
     ) -> None:
         self.services = services
         self.events = events
@@ -621,6 +724,11 @@ class PluginManager:
         self._webui_diagnostics: dict[str, WebUiDiagnostic] = {}
         self._webui_generation = 0
         self._tool_handlers: dict[str, tuple[str, ToolDeclaration, ToolCallback]] = {}
+        self._runtime_context_factory_factory = runtime_context_factory or (
+            lambda _extension_id: _default_runtime_context_factory
+        )
+        self._runtime_resolver = runtime_resolver or _unavailable_runtime_resolver
+        self._runtime_targets = dict(runtime_targets or {})
 
     @property
     def tool_handlers(self) -> Mapping[str, tuple[str, ToolDeclaration, ToolCallback]]:
@@ -841,11 +949,27 @@ class PluginManager:
         for plugin_id in self.resolve_order(definitions):
             definition = definitions[plugin_id]
             manifest = definition.manifest
+            missing_runtime_requirements = tuple(
+                requirement
+                for requirement in manifest.runtime_requirements
+                if not requirement.optional
+                and not any(
+                    kind == requirement.runtime
+                    and (requirement.bridge_id is None or bridge_id == requirement.bridge_id)
+                    for bridge_id, kind in self._runtime_targets.items()
+                )
+            )
+            if missing_runtime_requirements:
+                names = ", ".join(
+                    f"{item.runtime}.{item.api}" for item in missing_runtime_requirements
+                )
+                raise PluginError(f"extension {manifest.id} requires unavailable runtime APIs: {names}")
             authorizer = self.services.get(ServiceKey("liteyukibot.permissions", 2))
             activation_allowed = getattr(authorizer, "activation_allowed", None)
-            if manifest.capabilities and (
+            requested_capabilities = frozenset((*manifest.capabilities, *manifest.runtime_capabilities))
+            if requested_capabilities and (
                 not callable(activation_allowed)
-                or not activation_allowed(manifest.id, frozenset(manifest.capabilities))
+                or not activation_allowed(manifest.id, requested_capabilities)
             ):
                 raise PluginError(f"extension {manifest.id} requested capabilities outside its configured ceiling")
             logger = self.logger.bind(plugin=plugin_id, component="plugin")
@@ -857,19 +981,27 @@ class PluginManager:
             plugin_services = PluginServices(manifest, self.services)
             cleanup = _PluginCleanup()
             tool_handlers: dict[str, ToolCallback] = {}
+            runtime_context_factory = self._runtime_context_factory_factory(manifest.id)
             context = PluginContext(
                 id=plugin_id,
                 config=MappingProxyType(dict(configs.get(plugin_id, {}))),
                 logger=logger,
                 services=plugin_services,
                 tasks=tasks,
-                events=self.events,
+                events=PluginEventBus(
+                    self.events,
+                    context_factory=runtime_context_factory,
+                    resolver=self._runtime_resolver,
+                    requirements=manifest.runtime_requirements,
+                ),
                 actions=self.actions,
                 paths=paths,
                 function_host=None if function_hosts is None else function_hosts.get(manifest.id),
                 _manifest=manifest,
                 _cleanup=cleanup,
                 _tool_handlers=tool_handlers,
+                _runtime_context_factory=runtime_context_factory,
+                _runtime_resolver=self._runtime_resolver,
             )
             handle = PluginHandle()
             try:

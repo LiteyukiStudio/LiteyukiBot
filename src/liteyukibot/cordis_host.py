@@ -17,6 +17,7 @@ from .exceptions import PluginError
 from .functions import FunctionHost
 from .plugins import ExtensionCoexistence, ExtensionIdentity, ToolCallback, ToolDeclaration
 from .resource_packs import ResourcePackDeclaration
+from .runtime_api import RuntimeContextFactory, RuntimeResolver
 from .services import ServiceRegistry
 
 if TYPE_CHECKING:
@@ -47,6 +48,9 @@ class CordisHost(Protocol):
     def tool_handlers(self) -> Mapping[str, ToolCallback]: ...
 
     def bind_function_hosts(self, hosts: Mapping[str, FunctionHost]) -> None: ...
+
+    @property
+    def runtime_manifests(self) -> Mapping[str, object]: ...
 
     @property
     def function_resource_packs(self) -> Mapping[str, tuple[ResourcePackDeclaration, ...]]: ...
@@ -98,6 +102,9 @@ def discover_cordis_host(
     services: ServiceRegistry | None = None,
     data_dir: object | None = None,
     cache_dir: object | None = None,
+    runtime_context_factory: Callable[[str], RuntimeContextFactory] | None = None,
+    runtime_resolver: RuntimeResolver | None = None,
+    runtime_targets: Mapping[str, str] | None = None,
 ) -> CordisHost | None:
     """Resolve the one configured host without importing optional packages eagerly."""
 
@@ -126,6 +133,9 @@ def discover_cordis_host(
             "actions": actions,
             "settings": settings,
             "logger": logger,
+            "runtime_context_factory": runtime_context_factory,
+            "runtime_resolver": runtime_resolver,
+            "runtime_targets": runtime_targets,
         }
         if services is not None:
             factory_kwargs.update(services=services, data_dir=data_dir, cache_dir=cache_dir)

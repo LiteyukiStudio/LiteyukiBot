@@ -6,6 +6,7 @@ import asyncio
 import math
 import os
 from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import replace
 from enum import StrEnum
 from pathlib import Path
 from time import monotonic
@@ -63,7 +64,7 @@ from .management import (
 )
 from .operations import ManagementPrincipal, OperationRequest, PrincipalKind
 from .plugin_store import RuntimeGenerationStore
-from .plugins import PluginDefinition, PluginManager, ToolCallback, ToolDeclaration
+from .plugins import ExtensionManifest, PluginDefinition, PluginManager, ToolCallback, ToolDeclaration
 from .resource_packs import RESOURCE_CATALOG_SERVICE, ResourceCatalog, ResourcePackDeclaration
 from .runtime import (
     ActionProvenance,
@@ -73,6 +74,16 @@ from .runtime import (
     RuntimeSpec,
     RuntimeSupervisor,
     json_value,
+)
+from .runtime_api import (
+    RuntimeApiError,
+    RuntimeBinding,
+    RuntimeCallContext,
+    RuntimeContextFactory,
+    RuntimeNamespaceProxy,
+    RuntimeRequirement,
+    RuntimeUnavailable,
+    create_runtime_proxy,
 )
 from .services import ServiceKey, ServiceRegistry
 from .status import KERNEL_STATUS_SERVICE, KernelStatusSnapshot
@@ -158,6 +169,77 @@ class _AgentHistoryProvider:
         return await self._app._clear_agent_history(event)
 
 
+class _ApplicationRuntimeApiBackend:
+    """Authorize and route one plugin runtime call through the active broker lease."""
+
+    def __init__(self, app: LiteyukiApp) -> None:
+        self._app = app
+
+    async def invoke(
+        self,
+        binding: RuntimeBinding,
+        operation: str,
+        arguments: Mapping[str, EventJsonValue],
+        context: RuntimeCallContext,
+    ) -> EventJsonValue:
+        requirement = self._app._find_runtime_requirement(context.extension_id, binding)
+        if requirement is None:
+            raise RuntimeApiError(
+                binding.runtime,
+                binding.api,
+                operation,
+                "RUNTIME_API_NOT_DECLARED",
+            )
+        if operation not in requirement.operations:
+            raise RuntimeApiError(
+                binding.runtime,
+                binding.api,
+                operation,
+                "RUNTIME_API_OPERATION_NOT_DECLARED",
+            )
+        permissions = _permission_service(self._app.services)
+        allows_extension = getattr(permissions, "allows_extension", None)
+        capability = f"runtime.{binding.runtime}.{binding.api}.{operation}"
+        if not callable(allows_extension) or not allows_extension(
+            context.authorization,
+            context.extension_id,
+            capability,
+            full=False,
+        ):
+            raise RuntimeApiError(binding.runtime, binding.api, operation, "RUNTIME_API_PERMISSION_DENIED")
+        peer = self._app._kernel_broker_peer
+        if peer is None:
+            raise RuntimeUnavailable(binding.runtime, binding.api, "kernel broker is unavailable")
+        response = await peer.request_runtime_api(
+            context.event,
+            correlation_id=str(uuid4()),
+            runtime_kind=binding.runtime,
+            version=binding.version,
+            api_id=f"{binding.api}.{operation}",
+            caller_extension_id=context.extension_id,
+            authorization=AuthorizationContextWire(
+                event_id=context.authorization.event_id,
+                runtime_id=context.authorization.runtime_id,
+                bot_id=context.authorization.bot_id,
+                actor_id=context.authorization.actor_id,
+            ),
+            arguments=arguments,
+            bridge_id=binding.bridge_id,
+            timeout_seconds=self._app.settings.broker.delivery_timeout_seconds,
+        )
+        if response is None:
+            raise RuntimeUnavailable(binding.runtime, binding.api, "no active broker delivery")
+        if not response.success:
+            raise RuntimeApiError(
+                binding.runtime,
+                binding.api,
+                operation,
+                response.error_code or "RUNTIME_API_FAILED",
+                response.error_details,
+            )
+        return response.result
+
+
 class LiteyukiApp:
     """Own all v7 services and enforce deterministic startup and shutdown."""
 
@@ -196,6 +278,13 @@ class LiteyukiApp:
         self._kernel_broker_peer: KernelBrokerPeer | None = None
         self._cordis_host: CordisHost | None = None
         self._configured_kernel_bridge = configured_kernel_bridge(settings)
+        self._runtime_targets = {
+            bridge_id: bridge.kind
+            for bridge_id, bridge in settings.broker.bridges.items()
+            if bridge.kind != "kernel"
+        }
+        self._runtime_manifests: dict[str, ExtensionManifest] = {}
+        self._runtime_backend = _ApplicationRuntimeApiBackend(self)
         self._runtime_secrets = dict(runtime_secrets or {})
         self.plugins = PluginManager(
             services=self.services,
@@ -204,6 +293,9 @@ class LiteyukiApp:
             logger=self.logger,
             data_dir=core.data_dir,
             cache_dir=core.cache_dir,
+            runtime_context_factory=self._runtime_context_factory,
+            runtime_resolver=self._resolve_runtime_proxy,
+            runtime_targets=self._runtime_targets,
         )
         self.management = KernelManagement(self, self.resource_workspace, self._request_stop)
         self.control = ControlServer(
@@ -334,6 +426,88 @@ class LiteyukiApp:
         """Bind the host-owned shutdown signal used by the management console."""
 
         self._stop_callback = callback
+
+    def _find_runtime_requirement(
+        self, extension_id: str, binding: RuntimeBinding
+    ) -> RuntimeRequirement | None:
+        manifest = self._runtime_manifests.get(extension_id)
+        if manifest is None:
+            loaded = self.plugins.loaded.get(extension_id)
+            manifest = None if loaded is None else loaded.definition.manifest
+        if manifest is None:
+            return None
+        candidates = [
+            requirement
+            for requirement in manifest.runtime_requirements
+            if requirement.runtime == binding.runtime
+            and requirement.api == binding.api
+            and requirement.version == binding.version
+            and requirement.optional == binding.optional
+            and (requirement.bridge_id is None or binding.bridge_id in (None, requirement.bridge_id))
+        ]
+        if binding.bridge_id is not None:
+            exact = [item for item in candidates if item.bridge_id == binding.bridge_id]
+            candidates = exact or [item for item in candidates if item.bridge_id is None]
+        if len(candidates) != 1:
+            return None
+        return candidates[0]
+
+    def _resolve_runtime_proxy(self, binding: RuntimeBinding, context: RuntimeCallContext) -> RuntimeNamespaceProxy:
+        requirement = self._find_runtime_requirement(context.extension_id, binding)
+        if requirement is None:
+            return create_runtime_proxy(binding, None, context, reason="runtime API is not declared")
+        effective_binding = binding
+        if binding.bridge_id is None and requirement.bridge_id is not None:
+            effective_binding = replace(binding, bridge_id=requirement.bridge_id)
+        targets = tuple(
+            bridge_id
+            for bridge_id, kind in self._runtime_targets.items()
+            if kind == effective_binding.runtime
+            and (effective_binding.bridge_id is None or bridge_id == effective_binding.bridge_id)
+        )
+        if len(targets) != 1:
+            reason = "runtime bridge is not configured" if not targets else "runtime bridge is ambiguous"
+            return create_runtime_proxy(effective_binding, None, context, reason=reason)
+        return create_runtime_proxy(effective_binding, self._runtime_backend, context)
+
+    def _runtime_context_factory(self, extension_id: str) -> RuntimeContextFactory:
+        def create(args: tuple[Any, ...], kwargs: Mapping[str, Any]) -> RuntimeCallContext:
+            values = (*args, *kwargs.values())
+            event: EventEnvelope | None = None
+            authorization: AuthorizationContext | None = None
+            for value in values:
+                if isinstance(value, EventEnvelope):
+                    event = value
+                elif isinstance(value, AuthorizationContext):
+                    authorization = value
+                else:
+                    envelope = getattr(value, "envelope", None)
+                    if isinstance(envelope, EventEnvelope):
+                        event = envelope
+                    wrapped_event = getattr(value, "event", None)
+                    envelope = getattr(wrapped_event, "envelope", None)
+                    if isinstance(envelope, EventEnvelope):
+                        event = envelope
+            if event is None and authorization is not None and self._kernel_broker_peer is not None:
+                event = self._kernel_broker_peer.active_event(authorization.event_id)
+            if event is None:
+                raise RuntimeError("runtime API calls require an active broker event")
+            if authorization is None:
+                authorization = AuthorizationContext(
+                    event_id=event.id,
+                    runtime_id=event.runtime_id,
+                    bot_id=event.bot_id,
+                    actor_id=None if event.actor is None else event.actor.id,
+                )
+            elif (
+                authorization.event_id != event.id
+                or authorization.runtime_id != event.runtime_id
+                or authorization.bot_id != event.bot_id
+            ):
+                raise RuntimeError("runtime API authorization does not match the active event")
+            return RuntimeCallContext(extension_id=extension_id, event=event, authorization=authorization)
+
+        return create
 
     def _request_stop(self) -> None:
         if self._stop_callback is None:
@@ -709,7 +883,15 @@ class LiteyukiApp:
                 services=self.services,
                 data_dir=self.settings.core.data_dir,
                 cache_dir=self.settings.core.cache_dir,
+                runtime_context_factory=self._runtime_context_factory,
+                runtime_resolver=self._resolve_runtime_proxy,
+                runtime_targets=self._runtime_targets,
             )
+            self._runtime_manifests = {
+                definition.manifest.id: definition.manifest for definition in definitions.values()
+            }
+            if self._cordis_host is not None:
+                self._runtime_manifests.update(getattr(self._cordis_host, "runtime_manifests", {}))
             validate_extension_topology(
                 self.plugins.identities(definitions),
                 self._cordis_host.plugin_identities if self._cordis_host is not None else (),
