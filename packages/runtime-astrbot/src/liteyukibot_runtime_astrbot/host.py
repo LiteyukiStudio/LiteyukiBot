@@ -29,10 +29,13 @@ from liteyukibot.broker import (
     BrokerBridgeRunner,
     EventIngress,
     MessageSendPayload,
+    RuntimeApiDeclaration,
+    RuntimeApiInvoke,
+    RuntimeApiOutcome,
     parse_message_send_request,
 )
 from liteyukibot.config import AppSettings, LoggingSettings
-from liteyukibot.events import JsonValue, Message
+from liteyukibot.events import JsonValue, Message, Segment
 from liteyukibot.logging import configure_logging, get_logger
 from liteyukibot.lyip import LyipLane
 
@@ -103,6 +106,7 @@ class AstrBotGateway:
         self._ingress_sink: IngressSink | None = None
         self._ingress_tasks: set[asyncio.Task[None]] = set()
         self._reply_events: OrderedDict[str, tuple[str, Any]] = OrderedDict()
+        self._events_by_source_id: OrderedDict[str, Any] = OrderedDict()
         self._bot_platforms: dict[str, str] = {}
 
     async def start(self, ingress_sink: IngressSink, *, start_pipeline: bool = True) -> None:
@@ -169,6 +173,7 @@ class AstrBotGateway:
                     await _dispose_astrbot_global_database(self._output)
                 finally:
                     self._reply_events.clear()
+                    self._events_by_source_id.clear()
                     self._bot_platforms.clear()
                     configure_publisher(None)
                     self._remove_import_root()
@@ -182,6 +187,27 @@ class AstrBotGateway:
         except (KeyError, ValueError) as error:
             return ActionOutcome(success=False, payload={"error": "message_send_failed", "message": str(error)})
         return ActionOutcome(success=True, payload=_json_result(result))
+
+    async def execute_runtime_api(self, request: RuntimeApiInvoke) -> RuntimeApiOutcome:
+        event = self._events_by_source_id.get(request.source_event_id)
+        if event is None:
+            return RuntimeApiOutcome(success=False, error_code="RUNTIME_EVENT_UNAVAILABLE")
+        if request.api_id == "event.snapshot":
+            if request.arguments:
+                return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_INVALID_ARGUMENTS")
+            return RuntimeApiOutcome(success=True, result=self._event_snapshot(event))
+        if request.api_id == "event.send":
+            message = request.arguments.get("message")
+            if not isinstance(message, str) or not message.strip() or set(request.arguments) != {"message"}:
+                return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_INVALID_ARGUMENTS")
+            try:
+                result = await event.send(
+                    _to_astr_chain(Message(segments=(Segment(type="text", data={"text": message}),)))
+                )
+            except Exception:
+                return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_SEND_FAILED")
+            return RuntimeApiOutcome(success=True, result={"sent": True, "result": _json_result(result)})
+        return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_NOT_REGISTERED")
 
     def _spawn_ingress(self, event: Any) -> None:
         task = asyncio.create_task(self._publish_ingress(event), name="astrbot-broker-ingress")
@@ -200,9 +226,13 @@ class AstrBotGateway:
         reply_token = f"{platform_id}:{source_event_id}"
         envelope = to_event_envelope(event, reply_token=reply_token)
         self._reply_events[reply_token] = (envelope.bot_id, event)
+        self._events_by_source_id[envelope.id] = event
         self._reply_events.move_to_end(reply_token)
+        self._events_by_source_id.move_to_end(envelope.id)
         while len(self._reply_events) > 2_048:
             self._reply_events.popitem(last=False)
+        while len(self._events_by_source_id) > 2_048:
+            self._events_by_source_id.popitem(last=False)
         self._bot_platforms[envelope.bot_id] = platform_id
         await sink(
             EventIngress(
@@ -246,6 +276,19 @@ class AstrBotGateway:
             if str(platform.meta().id) == platform_id:
                 return platform
         raise ValueError("AstrBot platform is no longer available")
+
+    @staticmethod
+    def _event_snapshot(event: Any) -> dict[str, JsonValue]:
+        return {
+            "platform_id": str(event.get_platform_id()),
+            "platform_name": str(event.get_platform_name()),
+            "bot_id": str(event.get_self_id()),
+            "session_id": str(event.get_session_id()),
+            "group_id": _optional_text(event.get_group_id()),
+            "sender_id": _optional_text(event.get_sender_id()),
+            "message": str(event.get_message_str() or ""),
+            "message_type": str(event.get_message_type()),
+        }
 
     def _install_import_root(self) -> None:
         value = str(self.workspace)
@@ -294,6 +337,7 @@ async def launch(settings: AppSettings, bridge_id: str, token: str) -> None:
             )
             for item in bridge.action_resources
         ),
+        runtime_apis=_runtime_api_declarations(),
     )
     client = BridgeClient(
         context=zmq.asyncio.Context.instance(),
@@ -309,7 +353,14 @@ async def launch(settings: AppSettings, bridge_id: str, token: str) -> None:
         logger,
         settings.logging,
     )
-    runner = BrokerBridgeRunner(client, action_handlers={MESSAGE_SEND_KIND: gateway.execute_message_send})
+    runner = BrokerBridgeRunner(
+        client,
+        action_handlers={MESSAGE_SEND_KIND: gateway.execute_message_send},
+        runtime_api_handlers={
+            "event.snapshot": gateway.execute_runtime_api,
+            "event.send": gateway.execute_runtime_api,
+        },
+    )
     serving: asyncio.Task[None] | None = None
     try:
         await runner.start()
@@ -405,6 +456,39 @@ def _json_result(value: object) -> JsonValue:
     if isinstance(value, (list, tuple)):
         return tuple(_json_result(item) for item in value)
     return type(value).__name__
+
+
+def _optional_text(value: object) -> str | None:
+    rendered = str(value or "").strip()
+    return rendered or None
+
+
+def _runtime_api_declarations() -> tuple[RuntimeApiDeclaration, ...]:
+    return (
+        RuntimeApiDeclaration(
+            runtime_kind="astrbot",
+            namespace="event",
+            operation="snapshot",
+            version="1.0",
+            input_schema={"type": "object", "additionalProperties": False},
+            output_schema={"type": "object", "additionalProperties": True},
+            capabilities=("runtime.astrbot.event.snapshot",),
+        ),
+        RuntimeApiDeclaration(
+            runtime_kind="astrbot",
+            namespace="event",
+            operation="send",
+            version="1.0",
+            input_schema={
+                "type": "object",
+                "properties": {"message": {"type": "string", "minLength": 1}},
+                "required": ["message"],
+                "additionalProperties": False,
+            },
+            output_schema={"type": "object", "additionalProperties": True},
+            capabilities=("runtime.astrbot.event.send",),
+        ),
+    )
 
 
 async def _dispose_astrbot_global_database(output: Any) -> None:

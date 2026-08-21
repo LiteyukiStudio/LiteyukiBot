@@ -11,6 +11,7 @@ from time import monotonic
 from typing import Protocol, cast
 
 from liteyukibot.events import ActionEnvelope, ActionResult, EventBus, EventEnvelope, HandlerResult, Subscription
+from liteyukibot.runtime_api import RuntimeContextFactory, RuntimeRequirement, RuntimeResolver
 
 from .audit import CordisAuditService
 from .scope import Disposer, RegistrationSink, Scope
@@ -80,12 +81,24 @@ class CordisManager(RegistrationSink):
     """One EventBus subscriber that composes Cordis plugin registrations."""
 
     def __init__(
-        self, events: EventBus, actions: ActionServiceLike, *, audit: CordisAuditService | None = None
+        self,
+        events: EventBus,
+        actions: ActionServiceLike,
+        *,
+        audit: CordisAuditService | None = None,
+        runtime_context_factory: Callable[[str], RuntimeContextFactory] | None = None,
+        runtime_resolver: RuntimeResolver | None = None,
     ) -> None:
         self.events = events
         self.actions = actions
         self.audit = audit or CordisAuditService()
-        self.scope = Scope(plugin_id="liteyukibot.cordis", sink=self, audit=self.audit)
+        self.scope = Scope(
+            plugin_id="liteyukibot.cordis",
+            sink=self,
+            audit=self.audit,
+            runtime_context_factory=runtime_context_factory,
+            runtime_resolver=runtime_resolver,
+        )
         self._registrations: list[_Registration] = []
         self._scheduler_tasks: dict[Scope, set[asyncio.Task[None]]] = {}
         self._plugin_scopes: dict[str, Scope] = {}
@@ -109,10 +122,17 @@ class CordisManager(RegistrationSink):
 
         return tuple(self._plugin_scopes)
 
-    async def activate(self, plugin_id: str, factory: PluginFactory, *, declared_tools: tuple[str, ...] = ()) -> Scope:
+    async def activate(
+        self,
+        plugin_id: str,
+        factory: PluginFactory,
+        *,
+        declared_tools: tuple[str, ...] = (),
+        runtime_requirements: tuple[RuntimeRequirement, ...] = (),
+    ) -> Scope:
         if plugin_id in self._plugin_scopes:
             raise ValueError(f"Cordis plugin {plugin_id!r} is already activated")
-        scope = self.scope.child(plugin_id=plugin_id)
+        scope = self.scope.child(plugin_id=plugin_id, runtime_requirements=runtime_requirements)
         started = monotonic()
         try:
             result = factory(scope)

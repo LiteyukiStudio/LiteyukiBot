@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from importlib import metadata
 from inspect import isawaitable
@@ -16,14 +16,18 @@ from liteyukibot.plugins import (
     ExtensionManifest,
     PluginContext,
     PluginDefinition,
+    PluginEventBus,
     PluginHandle,
     PluginPaths,
     PluginServices,
     ToolCallback,
     ToolDeclaration,
+    _default_runtime_context_factory,
     _PluginCleanup,
+    _unavailable_runtime_resolver,
 )
 from liteyukibot.resource_packs import ResourcePackDeclaration
+from liteyukibot.runtime_api import RuntimeContextFactory, RuntimeResolver
 from liteyukibot.services import ServiceKey, ServiceRegistry
 from liteyukibot.tasks import ManagedTasks
 
@@ -71,8 +75,17 @@ class CordisHost:
         services: ServiceRegistry | None = None,
         data_dir: Any = None,
         cache_dir: Any = None,
+        runtime_context_factory: Callable[[str], RuntimeContextFactory] | None = None,
+        runtime_resolver: RuntimeResolver | None = None,
+        runtime_targets: Mapping[str, str] | None = None,
     ) -> None:
-        self.manager = CordisManager(events, actions, audit=CordisAuditService(logger=logger))
+        self.manager = CordisManager(
+            events,
+            actions,
+            audit=CordisAuditService(logger=logger),
+            runtime_context_factory=runtime_context_factory,
+            runtime_resolver=runtime_resolver,
+        )
         self.settings = settings
         self._definitions = discover_cordis_plugins(settings.enabled)
         self._tool_handlers: dict[str, ToolCallback] = {}
@@ -86,6 +99,9 @@ class CordisHost:
             cache_dir=cache_dir,
             access=settings.access,
             function_hosts=self._function_hosts,
+            runtime_context_factory=runtime_context_factory,
+            runtime_resolver=runtime_resolver,
+            runtime_targets=runtime_targets,
         )
         self.manager.scope.provide("liteyukibot.native_adapter", lambda: self._native_adapter)
 
@@ -116,6 +132,14 @@ class CordisHost:
             if definition.manifest is not None and definition.manifest.resource_packs
         }
 
+    @property
+    def runtime_manifests(self) -> Mapping[str, ExtensionManifest]:
+        return {
+            plugin_id: definition.manifest
+            for plugin_id, definition in self._definitions.items()
+            if definition.manifest is not None
+        }
+
     def bind_function_hosts(self, hosts: Mapping[str, FunctionHost]) -> None:
         if self.manager.active_plugin_ids:
             raise RuntimeError("Cordis Function Hosts must be bound before host start")
@@ -134,6 +158,7 @@ class CordisHost:
                 plugin_id,
                 _configured_factory(definition.factory, config, self._function_hosts.get(plugin_id)),
                 declared_tools=definition.tool_ids,
+                runtime_requirements=() if definition.manifest is None else definition.manifest.runtime_requirements,
             )
         await self.manager.start()
 
@@ -181,7 +206,9 @@ def host_factory(
     services: ServiceRegistry | None = None,
     data_dir: Any = None,
     cache_dir: Any = None,
-    **_kwargs: Any,
+    runtime_context_factory: Callable[[str], RuntimeContextFactory] | None = None,
+    runtime_resolver: RuntimeResolver | None = None,
+    runtime_targets: Mapping[str, str] | None = None,
 ) -> CordisHost:
     return CordisHost(
         events,
@@ -191,6 +218,9 @@ def host_factory(
         services=services,
         data_dir=data_dir,
         cache_dir=cache_dir,
+        runtime_context_factory=runtime_context_factory,
+        runtime_resolver=runtime_resolver,
+        runtime_targets=runtime_targets,
     )
 
 
@@ -206,6 +236,9 @@ class _NativeAdapter:
         cache_dir: Any,
         access: Mapping[str, str],
         function_hosts: Mapping[str, FunctionHost] | None = None,
+        runtime_context_factory: Callable[[str], RuntimeContextFactory] | None = None,
+        runtime_resolver: RuntimeResolver | None = None,
+        runtime_targets: Mapping[str, str] | None = None,
     ) -> None:
         self.events = events
         self.actions = actions
@@ -215,6 +248,11 @@ class _NativeAdapter:
         self.cache_dir = cache_dir
         self.access = access
         self.function_hosts = dict(function_hosts or {})
+        self.runtime_context_factory_factory = runtime_context_factory or (
+            lambda _extension_id: _default_runtime_context_factory
+        )
+        self.runtime_resolver = runtime_resolver or _unavailable_runtime_resolver
+        self.runtime_targets = dict(runtime_targets or {})
 
     async def activate(self, scope: Scope, plugin_id: str) -> None:
         if self.services is None:
@@ -234,13 +272,27 @@ class _NativeAdapter:
         if manifest.id != plugin_id:
             raise RuntimeError(f"Native plugin manifest ID {manifest.id!r} does not match {plugin_id!r}")
         full_access = plugin_id not in self.access
-        if not full_access and manifest.capabilities:
+        requested_capabilities = frozenset((*manifest.capabilities, *manifest.runtime_capabilities))
+        if not full_access and requested_capabilities:
             authorizer = services.get(ServiceKey("liteyukibot.permissions", 2))
             activation_allowed = getattr(authorizer, "activation_allowed", None)
             if not callable(activation_allowed) or not activation_allowed(
-                manifest.id, frozenset(manifest.capabilities)
+                manifest.id, requested_capabilities
             ):
                 raise RuntimeError(f"extension {manifest.id} requested capabilities outside its configured ceiling")
+        missing_runtime_requirements = tuple(
+            requirement
+            for requirement in manifest.runtime_requirements
+            if not requirement.optional
+            and not any(
+                kind == requirement.runtime
+                and (requirement.bridge_id is None or bridge_id == requirement.bridge_id)
+                for bridge_id, kind in self.runtime_targets.items()
+            )
+        )
+        if missing_runtime_requirements:
+            names = ", ".join(f"{item.runtime}.{item.api}" for item in missing_runtime_requirements)
+            raise RuntimeError(f"extension {manifest.id} requires unavailable runtime APIs: {names}")
         plugin_logger = self.logger.bind(plugin=plugin_id, component="cordis-plugin")
         tasks = ManagedTasks(plugin_id)
         paths = None
@@ -252,19 +304,27 @@ class _NativeAdapter:
             paths.cache.mkdir(parents=True, exist_ok=True)
         cleanup = _PluginCleanup()
         tool_handlers: dict[str, ToolCallback] = {}
+        runtime_context_factory = self.runtime_context_factory_factory(plugin_id)
         context = PluginContext(
             id=plugin_id,
             config=scope.config,
             logger=plugin_logger,
             services=PluginServices(manifest, services),
             tasks=tasks,
-            events=self.events,
+            events=PluginEventBus(
+                self.events,
+                context_factory=runtime_context_factory,
+                resolver=self.runtime_resolver,
+                requirements=manifest.runtime_requirements,
+            ),
             actions=self.actions,
             paths=paths,
             function_host=self.function_hosts.get(plugin_id),
             _manifest=manifest,
             _cleanup=cleanup,
             _tool_handlers=tool_handlers,
+            _runtime_context_factory=runtime_context_factory,
+            _runtime_resolver=self.runtime_resolver,
         )
         handle: PluginHandle = PluginHandle()
         try:
