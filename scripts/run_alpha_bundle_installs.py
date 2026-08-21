@@ -92,6 +92,18 @@ VERIFICATIONS: tuple[InstallVerification, ...] = (
     ),
     InstallVerification("webui", ("liteyukibot-v7-webui",), "scripts/verify_webui_install.py"),
     InstallVerification("ipc-native", ("liteyukibot-v7-ipc-native",), "scripts/verify_ipc_native_install.py"),
+    InstallVerification(
+        "astrbot-api",
+        ("liteyukibot-v7", "liteyukibot-v7-runtime-astrbot-api"),
+        "scripts/verify_astrbot_api_install.py",
+        ("--expected-version", ALPHA_VERSION),
+    ),
+    InstallVerification(
+        "devcli",
+        ("liteyukibot-v7", "liteyukibot-v7-functions", "liteyukibot-v7-devcli"),
+        "scripts/verify_devcli_install.py",
+        ("--expected-version", ALPHA_VERSION),
+    ),
 )
 
 
@@ -145,7 +157,16 @@ def wheels_for(bundle: Path, distribution: str) -> tuple[Path, ...]:
 
 
 def command_for(bundle: Path, verification: InstallVerification, uv: str) -> list[str]:
-    command = [uv, "run", "--no-project", "--python", "3.14"]
+    command = [
+        uv,
+        "run",
+        "--no-project",
+        "--python",
+        "3.14",
+        "--no-index",
+        "--find-links",
+        str(bundle.resolve()),
+    ]
     for distribution in verification.distributions:
         for wheel in wheels_for(bundle, distribution):
             command.extend(("--with", str(wheel.resolve())))

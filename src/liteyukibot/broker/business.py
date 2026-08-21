@@ -1,4 +1,4 @@
-"""Version 6 broker business-lane JSON catalog carried by LYIP frames."""
+"""Version 7 broker business-lane JSON catalog carried by LYIP frames."""
 
 from __future__ import annotations
 
@@ -16,6 +16,8 @@ from .routing import (
     EventCompleted,
     EventIngress,
     EventMessage,
+    RuntimeApiInvoke,
+    RuntimeApiResult,
     ToolInvoke,
     ToolResult,
 )
@@ -30,6 +32,8 @@ BROKER_TOOL_INVOKE_TYPE_ID: Final = 616
 BROKER_TOOL_RESULT_TYPE_ID: Final = 617
 BROKER_CONTROL_INVOKE_TYPE_ID: Final = 618
 BROKER_CONTROL_RESULT_TYPE_ID: Final = 619
+BROKER_RUNTIME_API_INVOKE_TYPE_ID: Final = 620
+BROKER_RUNTIME_API_RESULT_TYPE_ID: Final = 621
 
 
 class BrokerBusinessWireError(LyipError):
@@ -46,7 +50,9 @@ type BrokerBusinessMessage = Annotated[
     | ToolInvoke
     | ToolResult
     | BridgeControlInvoke
-    | BridgeControlResult,
+    | BridgeControlResult
+    | RuntimeApiInvoke
+    | RuntimeApiResult,
     Field(discriminator="type"),
 ]
 BROKER_BUSINESS_ADAPTER: Final[TypeAdapter[BrokerBusinessMessage]] = TypeAdapter(BrokerBusinessMessage)
@@ -62,6 +68,8 @@ _TYPE_IDS: Final[dict[type[object], int]] = {
     ToolResult: BROKER_TOOL_RESULT_TYPE_ID,
     BridgeControlInvoke: BROKER_CONTROL_INVOKE_TYPE_ID,
     BridgeControlResult: BROKER_CONTROL_RESULT_TYPE_ID,
+    RuntimeApiInvoke: BROKER_RUNTIME_API_INVOKE_TYPE_ID,
+    RuntimeApiResult: BROKER_RUNTIME_API_RESULT_TYPE_ID,
 }
 _MESSAGE_TYPES: Final[dict[int, type[object]]] = {type_id: model for model, type_id in _TYPE_IDS.items()}
 
@@ -74,7 +82,7 @@ def encode_business_message(
     sequence: int,
     lease_id: str,
 ) -> LyipFrame:
-    """Encode one v6 business message without transmitting a clock deadline."""
+    """Encode one v7 business message without transmitting a clock deadline."""
 
     return LyipFrame(
         protocol=1,
@@ -89,16 +97,16 @@ def encode_business_message(
 
 
 def decode_business_message(frame: LyipFrame) -> BrokerBusinessMessage:
-    """Decode exactly one known v6 business catalog message."""
+    """Decode exactly one known v7 business catalog message."""
 
     if frame.lane is not LyipLane.BUSINESS:
         raise BrokerBusinessWireError("broker business message arrived on the wrong LYIP lane")
     if frame.type_id not in _MESSAGE_TYPES:
-        raise BrokerBusinessWireError(f"unknown broker business v6 type ID: {frame.type_id}")
+        raise BrokerBusinessWireError(f"unknown broker business v7 type ID: {frame.type_id}")
     try:
         message = BROKER_BUSINESS_ADAPTER.validate_json(frame.payload)
     except ValueError as error:
-        raise BrokerBusinessWireError("broker business v6 payload is invalid") from error
+        raise BrokerBusinessWireError("broker business v7 payload is invalid") from error
     if _TYPE_IDS[type(message)] != frame.type_id:
-        raise BrokerBusinessWireError("broker business v6 type ID does not match payload type")
+        raise BrokerBusinessWireError("broker business v7 type ID does not match payload type")
     return message

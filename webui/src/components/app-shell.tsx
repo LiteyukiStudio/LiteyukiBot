@@ -1,5 +1,5 @@
 import { memo, useRef } from "react";
-import { Activity, Boxes, Cable, Cog, Languages, Menu, Network, Radio, RefreshCw, SunMoon } from "lucide-react";
+import { Activity, Boxes, Cable, Cog, FileCode2, Languages, Menu, Network, Radio, RefreshCw, SunMoon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -17,6 +17,7 @@ export const navigation: { id: Workspace; labelKey: string; icon: typeof Activit
   { id: "topology", labelKey: "webui.nav.topology", icon: Network },
   { id: "runtimes", labelKey: "webui.nav.runtimes", icon: Cable },
   { id: "plugins", labelKey: "webui.nav.plugins", icon: Boxes },
+  { id: "lyf", labelKey: "webui.nav.lyf", icon: FileCode2 },
   { id: "configuration", labelKey: "webui.nav.configuration", icon: Cog },
 ];
 

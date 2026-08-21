@@ -64,7 +64,7 @@ def test_runtime_secrets_loads_configured_kernel_bridge_token(
     workspace = ConfigWorkspace(tmp_path)
     settings = AppSettings.model_validate(
         {
-            "config_version": 5,
+            "config_version": 6,
             "broker": {
                 "bridges": {
                     "kernel": {
@@ -89,7 +89,7 @@ async def test_bridge_command_rejects_reserved_kernel_before_reading_vault(
 ) -> None:
     settings = AppSettings.model_validate(
         {
-            "config_version": 5,
+            "config_version": 6,
             "broker": {
                 "bridges": {
                     "kernel": {
@@ -119,7 +119,7 @@ async def test_bridge_command_resolves_secret_refs_in_launcher_only_settings(
     workspace = ConfigWorkspace(tmp_path)
     settings = AppSettings.model_validate(
         {
-            "config_version": 5,
+            "config_version": 6,
             "broker": {
                 "bridges": {
                     "adapter": {

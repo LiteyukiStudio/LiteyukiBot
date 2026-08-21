@@ -1,4 +1,4 @@
-"""Version 6 broker bridge-registration messages carried by LYIP frames."""
+"""Version 7 broker bridge-registration messages carried by LYIP frames."""
 
 from __future__ import annotations
 
@@ -6,12 +6,13 @@ from collections.abc import Mapping
 from enum import StrEnum
 from typing import Annotated, Final, Literal
 
+from jsonschema import Draft202012Validator, SchemaError
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_serializer, model_validator
 
 from ..lyip import LyipError, LyipFrame, LyipLane
 from ..topic_patterns import validate_topic_pattern
 
-BROKER_PROTOCOL_VERSION: Final = 6
+BROKER_PROTOCOL_VERSION: Final = 7
 BROKER_REGISTER_TYPE_ID: Final = 600
 BROKER_REGISTERED_TYPE_ID: Final = 601
 BROKER_REJECTED_TYPE_ID: Final = 602
@@ -23,10 +24,14 @@ BROKER_DIAGNOSTICS_DETAIL_TYPE_ID: Final = 607
 BROKER_DIAGNOSTICS_STATUS_RESULT_TYPE_ID: Final = 608
 BROKER_DIAGNOSTICS_LIST_RESULT_TYPE_ID: Final = 609
 BROKER_DIAGNOSTICS_DETAIL_RESULT_TYPE_ID: Final = 610
+BROKER_LIFECYCLE_FREEZE_TYPE_ID: Final = 611
+BROKER_LIFECYCLE_DRAIN_TYPE_ID: Final = 612
+BROKER_LIFECYCLE_UNFREEZE_TYPE_ID: Final = 613
+BROKER_LIFECYCLE_STATUS_RESULT_TYPE_ID: Final = 614
 
 
 class BrokerWireError(LyipError):
-    """Raised when a LYIP frame does not carry a valid broker v6 message."""
+    """Raised when a LYIP frame does not carry a valid broker v7 message."""
 
 
 class BridgeAccess(StrEnum):
@@ -43,6 +48,25 @@ def _non_blank_identifier(value: str) -> str:
     if not normalized:
         raise ValueError("identifier must be non-empty")
     return normalized
+
+
+def runtime_version_matches(requested: str, offered: str) -> bool:
+    """Match the bounded Alpha8 runtime API caret range syntax."""
+
+    if requested == offered:
+        return True
+    if not requested.startswith("^"):
+        return False
+    raw_requested = requested[1:].split(".")
+    raw_offered = offered.split(".")
+    if len(raw_requested) < 2 or len(raw_offered) < 2:
+        return False
+    try:
+        requested_major, requested_minor = int(raw_requested[0]), int(raw_requested[1])
+        offered_major, offered_minor = int(raw_offered[0]), int(raw_offered[1])
+    except ValueError:
+        return False
+    return offered_major == requested_major and offered_minor >= requested_minor
 
 
 class ActionResourceDeclaration(BrokerWireModel):
@@ -116,6 +140,48 @@ class BrokerToolDeclaration(BrokerWireModel):
         return result
 
 
+class RuntimeApiDeclaration(BrokerWireModel):
+    """One immutable operation exposed by a runtime bridge."""
+
+    runtime_kind: str
+    namespace: str
+    operation: str
+    version: str
+    input_schema: Mapping[str, object]
+    output_schema: Mapping[str, object]
+    capabilities: tuple[str, ...] = ()
+
+    @field_validator("runtime_kind", "namespace", "operation", "version", mode="before")
+    @classmethod
+    def validate_text(cls, value: object) -> str:
+        if not isinstance(value, str):
+            raise TypeError("runtime API declaration fields must be strings")
+        return _non_blank_identifier(value)
+
+    @field_validator("capabilities", mode="before")
+    @classmethod
+    def validate_capabilities(cls, value: object) -> tuple[str, ...]:
+        if not isinstance(value, (list, tuple)):
+            raise TypeError("runtime API capabilities must be an array")
+        result = tuple(_non_blank_identifier(item) for item in value if isinstance(item, str))
+        if len(result) != len(value) or len(result) != len(set(result)):
+            raise ValueError("runtime API capabilities must be unique strings")
+        return result
+
+    @field_validator("input_schema", "output_schema")
+    @classmethod
+    def validate_schema(cls, value: Mapping[str, object]) -> Mapping[str, object]:
+        try:
+            Draft202012Validator.check_schema(dict(value))
+        except SchemaError as error:
+            raise ValueError("runtime API schema must be Draft 2020-12 compatible") from error
+        return dict(value)
+
+    @property
+    def api_id(self) -> str:
+        return f"{self.namespace}.{self.operation}"
+
+
 class AuthorizationContextWire(BrokerWireModel):
     """Only event identity and principal fields may cross the Tool wire."""
 
@@ -143,6 +209,7 @@ class BridgeManifest(BrokerWireModel):
     action_resources: tuple[ActionResourceDeclaration, ...] = ()
     tools: tuple[BrokerToolDeclaration, ...] = ()
     controls: tuple[str, ...] = ()
+    runtime_apis: tuple[RuntimeApiDeclaration, ...] = ()
 
     @field_validator("bridge_id", mode="before")
     @classmethod
@@ -183,12 +250,15 @@ class BridgeManifest(BrokerWireModel):
         tool_ids = tuple(tool.id for tool in self.tools)
         if len(tool_ids) != len(set(tool_ids)):
             raise ValueError("tool declarations must not contain duplicate IDs")
+        api_ids = tuple((api.runtime_kind, api.api_id) for api in self.runtime_apis)
+        if len(api_ids) != len(set(api_ids)):
+            raise ValueError("runtime API declarations must not contain duplicate IDs")
         return self
 
 
 class BridgeRegister(BrokerWireModel):
     type: Literal["bridge.register"] = "bridge.register"
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     bridge_id: str
     instance_token: str
     manifest: BridgeManifest
@@ -209,7 +279,7 @@ class BridgeRegister(BrokerWireModel):
 
 class BridgeRegistered(BrokerWireModel):
     type: Literal["bridge.registered"] = "bridge.registered"
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     session_id: str
 
     @field_validator("session_id", mode="before")
@@ -222,7 +292,7 @@ class BridgeRegistered(BrokerWireModel):
 
 class BridgeRejected(BrokerWireModel):
     type: Literal["bridge.rejected"] = "bridge.rejected"
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     code: str
     message: str
 
@@ -236,7 +306,7 @@ class BridgeRejected(BrokerWireModel):
 
 class BridgeUnregister(BrokerWireModel):
     type: Literal["bridge.unregister"] = "bridge.unregister"
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     session_id: str
 
     @field_validator("session_id", mode="before")
@@ -249,7 +319,7 @@ class BridgeUnregister(BrokerWireModel):
 
 class BridgeUnregistered(BrokerWireModel):
     type: Literal["bridge.unregistered"] = "bridge.unregistered"
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     session_id: str
 
     @field_validator("session_id", mode="before")
@@ -264,7 +334,7 @@ class BrokerDiagnosticsStatus(BrokerWireModel):
     """Authenticate and request bounded broker diagnostic status."""
 
     type: Literal["broker.diagnostics.status"] = "broker.diagnostics.status"
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     token: str
 
     @field_validator("token", mode="before")
@@ -279,7 +349,7 @@ class BrokerDiagnosticsList(BrokerWireModel):
     """Authenticate and request one redacted event-delivery page."""
 
     type: Literal["broker.diagnostics.list"] = "broker.diagnostics.list"
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     token: str
     cursor: str | None = None
     limit: int = Field(default=100, ge=1, le=500)
@@ -303,7 +373,7 @@ class BrokerDiagnosticsDetail(BrokerWireModel):
     """Authenticate and request one redacted retained-event timeline."""
 
     type: Literal["broker.diagnostics.detail"] = "broker.diagnostics.detail"
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     token: str
     event_id: str
 
@@ -319,7 +389,7 @@ class BrokerDiagnosticsStatusResult(BrokerWireModel):
     """Read-only bounded-retention broker status without business data."""
 
     type: Literal["broker.diagnostics.status.result"] = "broker.diagnostics.status.result"
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     generation: int = Field(ge=1)
     active_events: int = Field(ge=0)
     terminal_events: int = Field(ge=0)
@@ -360,7 +430,7 @@ class BrokerDiagnosticsDetailResult(BrokerWireModel):
     """A redacted retained event with its bounded lifecycle timeline."""
 
     type: Literal["broker.diagnostics.detail.result"] = "broker.diagnostics.detail.result"
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     event: BrokerDiagnosticsEventRow
     transitions: tuple[BrokerDiagnosticsTransition, ...] = ()
 
@@ -369,9 +439,66 @@ class BrokerDiagnosticsListResult(BrokerWireModel):
     """One opaque-cursor page of redacted retained broker events."""
 
     type: Literal["broker.diagnostics.list.result"] = "broker.diagnostics.list.result"
-    protocol: Literal[6] = BROKER_PROTOCOL_VERSION
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     events: tuple[BrokerDiagnosticsEventRow, ...] = ()
     next_cursor: str | None = None
+
+
+class BrokerLifecycleFreeze(BrokerWireModel):
+    """Authenticate and stop admitting new business events."""
+
+    type: Literal["broker.lifecycle.freeze"] = "broker.lifecycle.freeze"
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
+    token: str
+    reason: str = "instance update"
+
+    @field_validator("token", "reason", mode="before")
+    @classmethod
+    def validate_lifecycle_text(cls, value: object) -> str:
+        if not isinstance(value, str):
+            raise TypeError("broker lifecycle fields must be strings")
+        return _non_blank_identifier(value)
+
+
+class BrokerLifecycleDrain(BrokerWireModel):
+    """Authenticate and request the current bounded drain status."""
+
+    type: Literal["broker.lifecycle.drain"] = "broker.lifecycle.drain"
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
+    token: str
+
+    @field_validator("token", mode="before")
+    @classmethod
+    def validate_token(cls, value: object) -> str:
+        if not isinstance(value, str):
+            raise TypeError("broker management token must be a string")
+        return _non_blank_identifier(value)
+
+
+class BrokerLifecycleUnfreeze(BrokerWireModel):
+    """Authenticate and restore business admission after an aborted update."""
+
+    type: Literal["broker.lifecycle.unfreeze"] = "broker.lifecycle.unfreeze"
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
+    token: str
+
+    @field_validator("token", mode="before")
+    @classmethod
+    def validate_token(cls, value: object) -> str:
+        if not isinstance(value, str):
+            raise TypeError("broker management token must be a string")
+        return _non_blank_identifier(value)
+
+
+class BrokerLifecycleStatusResult(BrokerWireModel):
+    """Bounded state returned to the daemon update coordinator."""
+
+    type: Literal["broker.lifecycle.status.result"] = "broker.lifecycle.status.result"
+    protocol: Literal[7] = BROKER_PROTOCOL_VERSION
+    frozen: bool
+    reason: str | None = None
+    active_events: int = Field(ge=0)
+    sessions: tuple[str, ...] = ()
 
 
 type BrokerWireMessage = Annotated[
@@ -385,7 +512,11 @@ type BrokerWireMessage = Annotated[
     | BrokerDiagnosticsDetail
     | BrokerDiagnosticsStatusResult
     | BrokerDiagnosticsListResult
-    | BrokerDiagnosticsDetailResult,
+    | BrokerDiagnosticsDetailResult
+    | BrokerLifecycleFreeze
+    | BrokerLifecycleDrain
+    | BrokerLifecycleUnfreeze
+    | BrokerLifecycleStatusResult,
     Field(discriminator="type"),
 ]
 BROKER_WIRE_ADAPTER: Final[TypeAdapter[BrokerWireMessage]] = TypeAdapter(BrokerWireMessage)
@@ -402,6 +533,10 @@ _TYPE_IDS: Final[dict[type[BrokerWireModel], int]] = {
     BrokerDiagnosticsStatusResult: BROKER_DIAGNOSTICS_STATUS_RESULT_TYPE_ID,
     BrokerDiagnosticsListResult: BROKER_DIAGNOSTICS_LIST_RESULT_TYPE_ID,
     BrokerDiagnosticsDetailResult: BROKER_DIAGNOSTICS_DETAIL_RESULT_TYPE_ID,
+    BrokerLifecycleFreeze: BROKER_LIFECYCLE_FREEZE_TYPE_ID,
+    BrokerLifecycleDrain: BROKER_LIFECYCLE_DRAIN_TYPE_ID,
+    BrokerLifecycleUnfreeze: BROKER_LIFECYCLE_UNFREEZE_TYPE_ID,
+    BrokerLifecycleStatusResult: BROKER_LIFECYCLE_STATUS_RESULT_TYPE_ID,
 }
 _MESSAGE_TYPES: Final[dict[int, type[BrokerWireModel]]] = {type_id: model for model, type_id in _TYPE_IDS.items()}
 
@@ -414,7 +549,7 @@ def encode_broker_message(
     sequence: int,
     lease_id: str,
 ) -> LyipFrame:
-    """Encode one v6 control-plane message into an existing LYIP frame."""
+    """Encode one v7 control-plane message into an existing LYIP frame."""
 
     return LyipFrame(
         protocol=1,
@@ -429,17 +564,17 @@ def encode_broker_message(
 
 
 def decode_broker_message(frame: LyipFrame) -> BrokerWireMessage:
-    """Decode a v6 broker control message without accepting legacy runtime types."""
+    """Decode a v7 broker control message without accepting legacy runtime types."""
 
     if frame.lane is not LyipLane.CONTROL:
         raise BrokerWireError("broker control message arrived on the wrong LYIP lane")
     message_type = _MESSAGE_TYPES.get(frame.type_id)
     if message_type is None:
-        raise BrokerWireError(f"unknown broker v6 type ID: {frame.type_id}")
+        raise BrokerWireError(f"unknown broker v7 type ID: {frame.type_id}")
     try:
         message = message_type.model_validate_json(frame.payload)
     except ValueError as error:
-        raise BrokerWireError("broker v6 payload is invalid") from error
+        raise BrokerWireError("broker v7 payload is invalid") from error
     if _TYPE_IDS[type(message)] != frame.type_id:
-        raise BrokerWireError("broker v6 type ID does not match payload type")
+        raise BrokerWireError("broker v7 type ID does not match payload type")
     return message  # type: ignore[return-value]

@@ -37,7 +37,7 @@ from liteyukibot.lyip import LyipLane, ZmqLyipRouter
 def _settings() -> AppSettings:
     return AppSettings.model_validate(
         {
-            "config_version": 5,
+            "config_version": 6,
             "broker": {
                 "bridges": {
                     "nonebot": {
@@ -54,7 +54,7 @@ def _settings() -> AppSettings:
     )
 
 
-def test_broker_settings_are_v5_only_and_authoritative() -> None:
+def test_broker_settings_are_v6_only_and_authoritative() -> None:
     settings = _settings()
 
     assert settings.broker.bridges["nonebot"].access == "limited"
@@ -65,16 +65,16 @@ def test_broker_settings_are_v5_only_and_authoritative() -> None:
     }
     with pytest.raises(TypeError):
         settings.broker.bridges["nonebot"].options["nested"]["enabled"] = False  # type: ignore[index]
-    with pytest.raises(ValidationError, match="config_version must be 5"):
+    with pytest.raises(ValidationError, match="config_version must be 6"):
         AppSettings(config_version=4)
     with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
-        AppSettings.model_validate({"config_version": 5, "runtimes": {}})
+        AppSettings.model_validate({"config_version": 6, "runtimes": {}})
     with pytest.raises(ValidationError, match="loopback"):
-        AppSettings.model_validate({"config_version": 5, "broker": {"endpoint": "tcp://0.0.0.0:20217"}})
+        AppSettings.model_validate({"config_version": 6, "broker": {"endpoint": "tcp://0.0.0.0:20217"}})
     with pytest.raises(ValidationError, match="duplicate 'limited' ownership"):
         AppSettings.model_validate(
             {
-                "config_version": 5,
+                "config_version": 6,
                 "broker": {
                     "bridges": {
                         "one": {
@@ -93,7 +93,7 @@ def test_broker_settings_are_v5_only_and_authoritative() -> None:
         )
     full_and_limited = AppSettings.model_validate(
         {
-            "config_version": 5,
+            "config_version": 6,
             "broker": {
                 "bridges": {
                     "owner": {
@@ -116,7 +116,7 @@ def test_broker_settings_are_v5_only_and_authoritative() -> None:
     with pytest.raises(ValidationError, match="must not contain duplicates"):
         AppSettings.model_validate(
             {
-                "config_version": 5,
+                "config_version": 6,
                 "broker": {
                     "bridges": {
                         "one": {
@@ -147,7 +147,7 @@ def test_kernel_bridge_rejects_tool_and_control_ownership(field: str, value: obj
     with pytest.raises(ValidationError, match="kernel bridge must not declare"):
         AppSettings.model_validate(
             {
-                "config_version": 5,
+                "config_version": 6,
                 "broker": {
                     "bridges": {
                         "kernel": {
@@ -254,7 +254,7 @@ def test_broker_service_projects_configured_tool_declarations_into_authoritative
     }
     settings = AppSettings.model_validate(
         {
-            "config_version": 5,
+            "config_version": 6,
             "broker": {
                 "bridges": {
                     "sandbox": {
@@ -362,7 +362,7 @@ async def test_sync_bridge_launcher_runs_off_the_asyncio_thread() -> None:
 async def test_catalog_rejects_the_in_process_kernel_bridge() -> None:
     settings = AppSettings.model_validate(
         {
-            "config_version": 5,
+            "config_version": 6,
             "broker": {
                 "bridges": {
                     "kernel": {

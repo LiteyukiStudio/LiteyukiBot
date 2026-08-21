@@ -1,0 +1,30 @@
+[project]
+name = "liteyukibot-v7-devcli"
+version = "7.0.0a8"
+description = "Offline release verification and developer tooling for LiteyukiBot v7."
+readme = "README.md"
+requires-python = ">=3.14"
+license = "LicenseRef-LSO"
+license-files = ["LICENSE"]
+authors = [
+    { name = "LiteyukiStudio" },
+]
+dependencies = [
+    "liteyukibot-v7==7.0.0a8",
+    "liteyukibot-v7-functions==0.1.0a3",
+]
+
+[project.scripts]
+liteyuki-dev = "liteyuki_devcli.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.11.32,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+liteyukibot-v7 = { workspace = true }
+liteyukibot-v7-functions = { workspace = true }
+
+[tool.uv.build-backend]
+module-root = "src"
+module-name = "liteyuki_devcli"

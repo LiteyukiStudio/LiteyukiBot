@@ -159,7 +159,7 @@ class ConfigWorkspace:
         if upgrade.exists() and not refresh:
             found = "missing" if version is None else str(version)
             raise ConfigUpgradeRequired(
-                f"configuration version {found} requires manual upgrade to {CONFIG_VERSION}; "
+                f"migration_required: configuration version {found} requires manual upgrade to {CONFIG_VERSION}; "
                 f"existing template: {upgrade}"
             )
         backup.parent.mkdir(parents=True, exist_ok=True)
@@ -176,6 +176,6 @@ class ConfigWorkspace:
         )
         found = "missing" if version is None else str(version)
         raise ConfigUpgradeRequired(
-            f"configuration version {found} requires manual upgrade to {CONFIG_VERSION}; "
+            f"migration_required: configuration version {found} requires manual upgrade to {CONFIG_VERSION}; "
             f"backup: {backup}; template: {upgrade}"
         )

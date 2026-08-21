@@ -211,6 +211,8 @@ NEWLINE: /\r?\n/
 %ignore /\/\*(?s:.*?)\*\//
 """
 
+LYF_GRAMMAR = _GRAMMAR
+
 
 @dataclass(frozen=True, slots=True)
 class _Version:
@@ -641,4 +643,4 @@ def parse(source: str, *, source_id: str = "<memory>") -> ParseResult:
         return ParseResult(None, (Diagnostic("LYF_PARSE_INVALID_LITERAL", str(error), source_id),))
 
 
-__all__ = ["parse"]
+__all__ = ["LYF_GRAMMAR", "parse"]

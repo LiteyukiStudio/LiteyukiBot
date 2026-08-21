@@ -7,16 +7,25 @@ import os
 import secrets
 import signal
 from collections import deque
-from collections.abc import AsyncIterator, Callable, Mapping, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from pathlib import Path
 from time import monotonic
 from typing import Any, cast
 
 import zmq.asyncio
 
-from .config import DaemonSettings, DevelopmentSettings, WebUISettings
+from .broker.lifecycle import BrokerLifecycleClient, BrokerLifecycleError
+from .config import CONFIG_VERSION, DaemonSettings, DevelopmentSettings, WebUISettings
 from .control import ControlServer, request_control
 from .instances import InstancePaths
+from .managed_graph import (
+    ManagedGraphError,
+    ManagedProcessGraph,
+    ProcessLike,
+    ProcessSpec,
+    launch_process,
+    terminate_process_tree,
+)
 from .operations import (
     ManagementPrincipal,
     OperationConfirmation,
@@ -27,6 +36,8 @@ from .operations import (
     OperationRequest,
     PrincipalKind,
 )
+from .profiles import ProfileError, ProfileStore
+from .update import UpdateError, UpdateJournal, UpdatePhase
 
 
 class InstanceDaemon:
@@ -47,6 +58,11 @@ class InstanceDaemon:
         broker_endpoint: str | None = None,
         broker_generation: int = 1,
         broker_diagnostics_token: str | None = None,
+        broker_command: Sequence[str] | None = None,
+        bridge_commands: Mapping[str, Sequence[str]] | None = None,
+        broker_management_token: str | None = None,
+        process_launcher: Callable[[ProcessSpec], Any] | None = None,
+        orphan_process_terminator: Callable[[int], Awaitable[None]] | None = None,
     ) -> None:
         self.paths = paths
         self.settings = settings
@@ -57,6 +73,19 @@ class InstanceDaemon:
         self.webui = webui or WebUISettings()
         self.watch_root = watch_root
         self.validate_configuration = validate_configuration
+        self.profile_store = ProfileStore(paths.workspace)
+        self.update_journal = UpdateJournal(paths.root / "update.json", instance=paths.name)
+        self._update_lock = asyncio.Lock()
+        self._broker_management_token = broker_management_token
+        self._broker_lifecycle: BrokerLifecycleClient | None = None
+        if broker_endpoint is not None and broker_management_token is not None:
+            self._broker_lifecycle = BrokerLifecycleClient.from_broker_endpoint(
+                context=zmq.asyncio.Context.instance(),
+                endpoint=broker_endpoint,
+                generation=broker_generation,
+                identity=f"liteyuki-daemon:{paths.name}".encode(),
+                management_token=broker_management_token,
+            )
         self._broker_diagnostics = None
         if broker_endpoint is not None and broker_diagnostics_token is not None:
             from .broker import BrokerDiagnosticsClient
@@ -68,7 +97,12 @@ class InstanceDaemon:
                 identity=f"liteyuki-webui:{paths.name}".encode(),
                 diagnostics_token=broker_diagnostics_token,
             )
-        self.worker: asyncio.subprocess.Process | None = None
+        self._broker_command = tuple(broker_command) if broker_command is not None else None
+        self._bridge_commands = {bridge_id: tuple(command) for bridge_id, command in (bridge_commands or {}).items()}
+        self._process_launcher = cast(Any, process_launcher or launch_process)
+        self._orphan_process_terminator = orphan_process_terminator or terminate_process_tree
+        self._graph = self._build_graph()
+        self.worker: ProcessLike | None = None
         self._stop_event = asyncio.Event()
         self._restart_event = asyncio.Event()
         self._failures: deque[float] = deque()
@@ -92,6 +126,8 @@ class InstanceDaemon:
                 "restart": self._request_restart,
                 "webui.open": self._request_webui_open,
                 "webui.status": self._request_webui_status,
+                "update": self._request_update,
+                "rollback": self._request_rollback,
             },
         )
         if self.development.enabled:
@@ -104,9 +140,39 @@ class InstanceDaemon:
                 }
             )
 
+    def _build_graph(self, profile_python: Path | None = None) -> ManagedProcessGraph:
+        base_environment = {**os.environ, **self.worker_environment}
+
+        def command_for(command: Sequence[str]) -> tuple[str, ...]:
+            if profile_python is None or not command:
+                return tuple(command)
+            return (str(profile_python), *tuple(command)[1:])
+
+        specs: list[ProcessSpec] = []
+        if self.settings.manage_broker and self._broker_command is not None:
+            specs.append(ProcessSpec("broker", command_for(self._broker_command), base_environment))
+        if self.settings.manage_bridges:
+            specs.extend(
+                ProcessSpec(f"bridge:{bridge_id}", command_for(command), base_environment)
+                for bridge_id, command in sorted(self._bridge_commands.items())
+            )
+        worker_environment = {
+            **base_environment,
+            "LITEYUKI_DAEMON_DESCRIPTOR": str(self.paths.daemon_descriptor),
+            "LITEYUKI_DAEMON_WORKER": "1",
+        }
+        specs.append(ProcessSpec("kernel", command_for(self.worker_command), worker_environment))
+        return ManagedProcessGraph(
+            specs,
+            launcher=self._process_launcher,
+            startup_timeout_seconds=self.settings.startup_timeout_seconds,
+            stop_timeout_seconds=self.settings.stop_timeout_seconds,
+        )
+
     def status(self) -> dict[str, object]:
+        journal = self.update_journal.load()
         return {
-            "schema_version": 1,
+            "schema_version": 2,
             "instance": self.paths.name,
             "state": "stopping" if self._stop_event.is_set() else "running",
             "uptime_seconds": max(0.0, monotonic() - self._started_at),
@@ -116,16 +182,19 @@ class InstanceDaemon:
             },
             "failures_in_window": len(self._failures),
             "last_restart_reason": self._last_restart_reason,
+            "managed_graph": self._graph.status(),
+            "update": journal,
             "webui": self._webui_status(),
         }
 
     async def run(self) -> int:
         self.paths.root.mkdir(parents=True, exist_ok=True)
-        await self.control.start()
         try:
+            await self._recover_interrupted_update()
             if self.webui.mode == "always":
                 await self._start_webui()
             await self._start_worker()
+            await self.control.start()
             self._install_signal_handlers()
             if self.development.enabled and self.development.watch_auto_restart:
                 self._watch_task = asyncio.create_task(self._watch_for_changes(), name="daemon-watch")
@@ -154,14 +223,17 @@ class InstanceDaemon:
                 await asyncio.gather(self._watch_task, return_exceptions=True)
             await self._terminate_worker()
             await self._stop_webui()
+            if self._broker_lifecycle is not None:
+                self._broker_lifecycle.close()
+                self._broker_lifecycle = None
             await self.operations.close()
             await self.control.stop()
 
     async def _start_worker(self) -> None:
-        environment = {**os.environ, **self.worker_environment}
-        environment["LITEYUKI_DAEMON_DESCRIPTOR"] = str(self.paths.daemon_descriptor)
-        environment["LITEYUKI_DAEMON_WORKER"] = "1"
-        self.worker = await asyncio.create_subprocess_exec(*self.worker_command, env=environment)
+        await self._graph.start()
+        self.worker = self._graph.processes.get("kernel")
+        if self.worker is None:
+            raise ManagedGraphError("managed graph did not start its kernel process")
         await self._publish_webui_event("reset", {"reason": "worker_started"})
 
     async def _wait_for_worker_change(self) -> str:
@@ -183,17 +255,8 @@ class InstanceDaemon:
         return "exit"
 
     async def _terminate_worker(self) -> None:
-        worker = self.worker
         self.worker = None
-        if worker is None or worker.returncode is not None:
-            return
-        worker.terminate()
-        try:
-            async with asyncio.timeout(10):
-                await worker.wait()
-        except TimeoutError:
-            worker.kill()
-            await worker.wait()
+        await self._graph.stop()
 
     def _can_restart(self) -> bool:
         now = monotonic()
@@ -387,6 +450,32 @@ class InstanceDaemon:
     async def plugin_surfaces(self, _principal: Any) -> dict[str, object]:
         value = await self._worker_webui_control("daemon.webui.plugin_surfaces")
         return value if isinstance(value, dict) else {"generation": 0, "surfaces": [], "diagnostics": []}
+
+    async def lyf_resources(self, _principal: Any) -> dict[str, object]:
+        root = self.paths.workspace / "resources"
+        if not root.is_dir():
+            return {"read_only": True, "grammar": "source.lyf", "items": []}
+        parse_function: Any = None
+        try:
+            from liteyukibot_functions import parse as parse_function
+        except ModuleNotFoundError:
+            pass
+        items: list[dict[str, object]] = []
+        for path in sorted(root.rglob("*.lyf")):
+            if len(items) >= 100 or path.is_symlink() or not path.is_file():
+                continue
+            try:
+                relative = path.resolve().relative_to(root.resolve()).as_posix()
+                source = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError, ValueError):
+                continue
+            if len(source.encode("utf-8")) > 256 * 1024:
+                source = source[:256 * 1024]
+            diagnostics: list[dict[str, object]] = []
+            if parse_function is not None:
+                diagnostics = [item.as_dict() for item in parse_function(source, source_id=relative).diagnostics]
+            items.append({"path": relative, "source": source, "diagnostics": diagnostics})
+        return {"read_only": True, "grammar": "source.lyf", "items": items}
 
     async def event_deliveries(
         self,
@@ -640,6 +729,266 @@ class InstanceDaemon:
             if queue.full():
                 continue
             queue.put_nowait(item)
+
+    async def _recover_interrupted_update(self) -> None:
+        journal = self.update_journal.load()
+        if journal is None or self.update_journal.is_terminal(journal):
+            return
+        stopped, failures = await self._stop_journaled_processes(journal)
+        previous = journal.get("previous_profile")
+        previous_python: Path | None = None
+        if isinstance(previous, str) and self.profile_store.active() != previous:
+            self.profile_store.activate(previous)
+        if isinstance(previous, str):
+            previous_python = ProfileStore.python_path(self.profile_store.profile_path(previous)).resolve()
+            self._graph = self._build_graph(previous_python)
+        reason = f"daemon restarted during a non-terminal update; stopped {len(stopped)} recorded process(es)"
+        if failures:
+            reason += "; failed to stop " + ", ".join(failures)
+        self.update_journal.recover(reason=reason)
+
+    async def _stop_journaled_processes(
+        self, journal: Mapping[str, object]
+    ) -> tuple[tuple[tuple[str, int], ...], tuple[str, ...]]:
+        stopped: list[tuple[str, int]] = []
+        failures: list[str] = []
+        for name, pid in self._journal_graph_processes(journal):
+            if pid == os.getpid():
+                continue
+            try:
+                await self._orphan_process_terminator(pid)
+            except Exception as error:
+                failures.append(f"{name}({pid}): {error}")
+            else:
+                stopped.append((name, pid))
+        return tuple(stopped), tuple(failures)
+
+    @staticmethod
+    def _journal_graph_processes(journal: Mapping[str, object]) -> tuple[tuple[str, int], ...]:
+        history = journal.get("history")
+        if not isinstance(history, list):
+            return ()
+        graphs: dict[str, Mapping[str, object]] = {}
+        for item in history:
+            if not isinstance(item, Mapping):
+                continue
+            phase = item.get("phase")
+            detail = item.get("detail")
+            if not isinstance(detail, Mapping):
+                continue
+            role = detail.get("role")
+            graph = detail.get("graph")
+            if (
+                not isinstance(role, str)
+                or role not in {"candidate", "previous"}
+                or not isinstance(graph, Mapping)
+            ):
+                if phase in {UpdatePhase.STARTING.value, UpdatePhase.HEALTHY.value} and "processes" in detail:
+                    role = "candidate"
+                    graph = detail
+                else:
+                    continue
+            graphs[role] = graph
+
+        processes_to_stop: list[tuple[str, int]] = []
+        seen_pids: set[int] = set()
+        for role in ("candidate", "previous"):
+            graph = graphs.get(role)
+            if graph is None:
+                continue
+            process_map = graph.get("processes")
+            if not isinstance(process_map, Mapping):
+                continue
+            stop_order = graph.get("stop_order")
+            names = [name for name in stop_order if isinstance(name, str)] if isinstance(stop_order, list) else []
+            names.extend(name for name in process_map if isinstance(name, str) and name not in names)
+            for name in names:
+                record = process_map.get(name)
+                if not isinstance(record, Mapping):
+                    continue
+                pid = record.get("pid")
+                if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 0 or pid in seen_pids:
+                    continue
+                seen_pids.add(pid)
+                processes_to_stop.append((name, pid))
+        return tuple(processes_to_stop)
+
+    async def _request_update(self, request: Mapping[str, Any]) -> dict[str, object]:
+        profile_id = request.get("profile_id")
+        if not isinstance(profile_id, str) or not profile_id:
+            raise ValueError("update requires a staged profile_id")
+        return await self._update_profile(profile_id)
+
+    async def _request_rollback(self, _request: Mapping[str, Any]) -> dict[str, object]:
+        async with self._update_lock:
+            profile_id = self.profile_store.previous()
+        return await self._update_profile(profile_id)
+
+    async def _update_profile(self, profile_id: str) -> dict[str, object]:
+        if not self._graph.managed:
+            raise UpdateError("instance is not eligible for atomic updates; daemon must own Broker and Kernel")
+        if self._broker_lifecycle is None:
+            raise UpdateError("atomic updates require broker management token configuration")
+        async with self._update_lock:
+            active = self.profile_store.active()
+            if active is None:
+                raise ProfileError("atomic updates require an active verified profile")
+            if profile_id == active:
+                raise ProfileError("update candidate is already the active profile")
+            candidate = self.profile_store.read_manifest(profile_id)
+            if candidate.config_version != CONFIG_VERSION:
+                raise UpdateError(
+                    f"migration_required: candidate profile requires config v{candidate.config_version}; "
+                    f"active daemon contract is v{CONFIG_VERSION}"
+                )
+            if candidate.bundle_tag != "v7.0.0a8" or candidate.bundle_version != "7.0.0a8":
+                raise UpdateError("candidate profile is not an Alpha8 verified bundle")
+            self.update_journal.begin(candidate_profile=profile_id, previous_profile=active)
+            admission_frozen = False
+            kernel_frozen = False
+            profile_switched = False
+            try:
+                self.update_journal.transition(
+                    UpdatePhase.STAGED,
+                    detail={"profile_id": profile_id, "role": "previous", "graph": self._graph.status()},
+                )
+                broker_status = await self._broker_lifecycle.freeze("instance update")
+                admission_frozen = broker_status.frozen
+                self.update_journal.transition(
+                    UpdatePhase.ADMISSION_FROZEN,
+                    detail={"active_events": broker_status.active_events},
+                )
+                await self._drain_broker()
+                self.update_journal.transition(UpdatePhase.DRAINED)
+                await self._freeze_kernel()
+                kernel_frozen = True
+                self.update_journal.transition(
+                    UpdatePhase.KERNEL_FROZEN,
+                    detail={"role": "previous", "graph": self._graph.status()},
+                )
+                await self._terminate_worker()
+                self.update_journal.transition(UpdatePhase.STOPPED)
+                self.profile_store.activate(profile_id)
+                profile_switched = True
+                self.update_journal.transition(UpdatePhase.PROFILE_SWITCHED, detail={"profile_id": profile_id})
+                candidate_python = ProfileStore.python_path(self.profile_store.profile_path(profile_id)).resolve()
+                self._graph = self._build_graph(candidate_python)
+                self.update_journal.transition(
+                    UpdatePhase.STARTING,
+                    detail={"role": "candidate", "graph": self._graph.status()},
+                )
+                await self._start_worker()
+                self.update_journal.transition(
+                    UpdatePhase.STARTING,
+                    detail={"role": "candidate", "graph": self._graph.status()},
+                )
+                await self._wait_kernel_healthy()
+                self.update_journal.transition(
+                    UpdatePhase.HEALTHY,
+                    detail={"role": "candidate", "graph": self._graph.status()},
+                )
+                self.update_journal.transition(UpdatePhase.COMMITTED)
+                return {"accepted": True, "profile_id": profile_id, "phase": UpdatePhase.COMMITTED.value}
+            except BaseException as error:
+                await self._recover_failed_update(
+                    active=active,
+                    profile_switched=profile_switched,
+                    admission_frozen=admission_frozen,
+                    kernel_frozen=kernel_frozen,
+                    error=error,
+                )
+                raise
+
+    async def _drain_broker(self) -> None:
+        deadline = monotonic() + self.settings.drain_timeout_seconds
+        while True:
+            assert self._broker_lifecycle is not None
+            status = await self._broker_lifecycle.drain()
+            if status.active_events == 0:
+                return
+            if monotonic() >= deadline:
+                await self._broker_lifecycle.unfreeze()
+                raise UpdateError("broker drain timed out; admission was restored")
+            await asyncio.sleep(0.05)
+
+    async def _freeze_kernel(self) -> None:
+        if self.worker_descriptor is None:
+            raise UpdateError("managed update requires the Kernel control descriptor")
+        value = await request_control(self.worker_descriptor, "daemon.lifecycle.freeze")
+        if not isinstance(value, Mapping) or value.get("frozen") is not True:
+            raise UpdateError("Kernel did not acknowledge lifecycle freeze")
+
+    async def _wait_kernel_healthy(self) -> None:
+        if self.worker_descriptor is None:
+            return
+        deadline = monotonic() + self.settings.health_timeout_seconds
+        while True:
+            try:
+                value = await request_control(self.worker_descriptor, "status")
+            except Exception as error:
+                if monotonic() >= deadline:
+                    raise UpdateError("candidate Kernel did not become healthy") from error
+            else:
+                if isinstance(value, Mapping) and value.get("state") == "ready":
+                    return
+                if monotonic() >= deadline:
+                    raise UpdateError("candidate Kernel reported an unhealthy state")
+            await asyncio.sleep(0.05)
+
+    async def _recover_failed_update(
+        self,
+        *,
+        active: str,
+        profile_switched: bool,
+        admission_frozen: bool,
+        kernel_frozen: bool,
+        error: BaseException,
+    ) -> None:
+        detail = str(error)
+        if not kernel_frozen and not profile_switched:
+            if admission_frozen and self._broker_lifecycle is not None:
+                try:
+                    await self._broker_lifecycle.unfreeze()
+                except BrokerLifecycleError:
+                    pass
+            try:
+                self.update_journal.transition(UpdatePhase.ABORTED, error=detail)
+            except UpdateError:
+                pass
+            return
+        try:
+            if self.update_journal.load() is not None:
+                self.update_journal.transition(UpdatePhase.ROLLING_BACK, error=detail)
+        except UpdateError:
+            pass
+        if kernel_frozen and self.worker_descriptor is not None and self.worker is not None:
+            try:
+                await request_control(self.worker_descriptor, "daemon.lifecycle.unfreeze")
+            except Exception:
+                pass
+        if profile_switched or self._graph.processes:
+            await self._terminate_worker()
+        if profile_switched:
+            self.profile_store.activate(active)
+        self._graph = self._build_graph(
+            ProfileStore.python_path(self.profile_store.profile_path(active)).resolve()
+            if self.profile_store.active() == active
+            else None
+        )
+        try:
+            await self._start_worker()
+            await self._wait_kernel_healthy()
+        except BaseException as restart_error:
+            detail = f"{detail}; previous graph restart failed: {restart_error}"
+        if admission_frozen and self._broker_lifecycle is not None and self._graph.processes:
+            try:
+                await self._broker_lifecycle.unfreeze()
+            except BrokerLifecycleError:
+                pass
+        try:
+            self.update_journal.transition(UpdatePhase.ROLLED_BACK, error=detail)
+        except UpdateError:
+            pass
 
     async def _request_stop(self, _request: Mapping[str, Any]) -> dict[str, object]:
         self._stop_event.set()

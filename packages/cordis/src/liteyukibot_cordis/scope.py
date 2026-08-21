@@ -9,6 +9,14 @@ from dataclasses import dataclass
 from typing import Any, Protocol, cast
 from uuid import uuid4
 
+from liteyukibot.runtime_api import (
+    RuntimeContextFactory,
+    RuntimeRequirement,
+    RuntimeResolver,
+    runtime_handler,
+    validate_runtime_bindings,
+)
+
 from .audit import CordisAuditService
 
 type Provider = Callable[[Scope], Any] | Callable[[], Any]
@@ -42,6 +50,9 @@ class Scope:
         parent: Scope | None = None,
         sink: RegistrationSink | None = None,
         audit: CordisAuditService | None = None,
+        runtime_context_factory: Callable[[str], RuntimeContextFactory] | None = None,
+        runtime_resolver: RuntimeResolver | None = None,
+        runtime_requirements: tuple[RuntimeRequirement, ...] = (),
     ) -> None:
         self.id = str(uuid4())
         self.plugin_id = plugin_id
@@ -52,6 +63,19 @@ class Scope:
         self._sink: RegistrationSink | None = sink if sink is not None else parent._sink if parent is not None else None
         self._audit: CordisAuditService = (
             audit if audit is not None else parent._audit if parent is not None else CordisAuditService()
+        )
+        self._runtime_context_factory_factory: Callable[[str], RuntimeContextFactory] | None = (
+            runtime_context_factory
+            if runtime_context_factory is not None
+            else parent._runtime_context_factory_factory
+            if parent is not None
+            else None
+        )
+        self._runtime_resolver = runtime_resolver
+        if self._runtime_resolver is None and parent is not None:
+            self._runtime_resolver = parent._runtime_resolver
+        self._runtime_requirements: tuple[RuntimeRequirement, ...] = runtime_requirements or (
+            parent._runtime_requirements if parent is not None else ()
         )
         self._providers: dict[Hashable, Provider] = {}
         self._instances: dict[Hashable, object] = {}
@@ -66,9 +90,20 @@ class Scope:
     def closed(self) -> bool:
         return self._closed
 
-    def child(self, *, plugin_id: str | None = None, config: Mapping[str, object] | None = None) -> Scope:
+    def child(
+        self,
+        *,
+        plugin_id: str | None = None,
+        config: Mapping[str, object] | None = None,
+        runtime_requirements: tuple[RuntimeRequirement, ...] = (),
+    ) -> Scope:
         self._ensure_open()
-        return Scope(plugin_id=plugin_id or self.plugin_id, config=config, parent=self)
+        return Scope(
+            plugin_id=plugin_id or self.plugin_id,
+            config=config,
+            parent=self,
+            runtime_requirements=runtime_requirements,
+        )
 
     def provide(self, key: Hashable, provider: Provider) -> None:
         self._ensure_open()
@@ -136,21 +171,21 @@ class Scope:
         self.own(self._sink.register(self, kind, value))
 
     def on(self, handler: object, *, order: int = 0) -> None:
-        self._register("ordered", (order, handler))
+        self._register("ordered", (order, self._wrap_handler(handler)))
 
     def parallel(self, handler: object) -> None:
-        self._register("parallel", handler)
+        self._register("parallel", self._wrap_handler(handler))
 
     def middleware(self, handler: object) -> None:
-        self._register("waterfall", handler)
+        self._register("waterfall", self._wrap_handler(handler))
 
     def route(self, name: str, predicate: object, handler: object) -> None:
         if not name:
             raise ValueError("route name must not be empty")
-        self._register("route", (name, predicate, handler))
+        self._register("route", (name, self._wrap_handler(predicate), self._wrap_handler(handler)))
 
     def schedule(self, scheduler: object) -> None:
-        self._register("scheduler", scheduler)
+        self._register("scheduler", self._wrap_handler(scheduler))
 
     def tool(self, tool_id: str, handler: object) -> None:
         """Register exactly one handler for a declared Extension API v2 Tool."""
@@ -159,7 +194,17 @@ class Scope:
             raise ValueError("Tool ID must be non-empty")
         if not callable(handler):
             raise TypeError("Tool handler must be callable")
-        self._register("tool", (tool_id, handler))
+        self._register("tool", (tool_id, self._wrap_handler(handler)))
+
+    def _wrap_handler(self, handler: object) -> object:
+        if self._runtime_context_factory_factory is None or self._runtime_resolver is None or not callable(handler):
+            return handler
+        validate_runtime_bindings(handler, self._runtime_requirements)
+        return runtime_handler(
+            handler,
+            context_factory=self._runtime_context_factory_factory(self.plugin_id),
+            resolver=self._runtime_resolver,
+        )
 
     async def aclose(self) -> None:
         if self._closed:

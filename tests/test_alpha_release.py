@@ -67,14 +67,12 @@ def test_bundle_manifest_is_canonical_and_verifies_artifact_metadata(tmp_path: P
     manifest = json.loads((bundle / MANIFEST_NAME).read_bytes())
 
     assert manifest["release"] == {"tag": ALPHA_TAG, "version": ALPHA_VERSION}
-    assert manifest["baseline"] == {"broker": 6, "configuration": 5, "lyip": 2, "runtime_ipc": 6}
-    assert manifest["components"][-1] == {
-        "distribution": "liteyukibot-v7-devcli",
-        "id": "devcli",
-        "reserved": True,
-        "version": ALPHA_VERSION,
-        "independent": False,
-    }
+    assert manifest["baseline"] == {"broker": 7, "configuration": 6, "lyip": 2, "runtime_ipc": 7}
+    assert manifest["components"][-1]["distribution"] == "liteyukibot-v7-devcli"
+    assert manifest["components"][-1]["id"] == "devcli"
+    assert manifest["components"][-1]["reserved"] is True
+    assert manifest["components"][-1]["version"] == ALPHA_VERSION
+    assert manifest["dependency_lock"]["filename"] == "dependencies.lock.json"
     assert b"\n" not in (bundle / MANIFEST_NAME).read_bytes()
 
     calls: list[tuple[Path, Path, str]] = []
@@ -93,7 +91,7 @@ def test_bundle_verifier_rejects_tampered_artifacts_and_wrong_tag(tmp_path: Path
     with pytest.raises(AlphaReleaseError, match="integrity"):
         verify_bundle(bundle, signature_verifier=lambda _signature, _manifest, _tag: None)
     with pytest.raises(AlphaReleaseError, match="tag"):
-        verify_bundle(bundle, tag="v7.0.0a2", signature_verifier=lambda _signature, _manifest, _tag: None)
+        verify_bundle(bundle, tag="v7.0.0a7", signature_verifier=lambda _signature, _manifest, _tag: None)
 
 
 def test_bundle_verifier_requires_signature_and_canonical_manifest(tmp_path: Path) -> None:

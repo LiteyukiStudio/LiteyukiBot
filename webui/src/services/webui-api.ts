@@ -2,6 +2,7 @@ import type {
   EventDeliveryDetail,
   EventDeliveryFilters,
   EventDeliveryPage,
+  LyfResourcePage,
   JsonObject,
   WebUiOperation,
   WebUiOperationRecord,
@@ -43,6 +44,7 @@ export class WebUiApi {
     return this.request<EventDeliveryPage>(`/event-deliveries?${query}`);
   }
   eventDelivery(eventId: string) { return this.request<EventDeliveryDetail>(`/event-deliveries/${encodeURIComponent(eventId)}`); }
+  lyfResources() { return this.request<LyfResourcePage>("/lyf/resources"); }
 
   async submit(operation: WebUiOperation, target: string, input: JsonObject, confirmed: boolean) {
     return this.request<WebUiOperationRecord>("/operations", {

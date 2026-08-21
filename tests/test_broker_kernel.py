@@ -52,7 +52,7 @@ def _kernel_settings(
 ) -> AppSettings:
     return AppSettings.model_validate(
         {
-            "config_version": 5,
+            "config_version": 6,
             "broker": {
                 "bridges": {
                     "kernel": {
@@ -153,7 +153,7 @@ def test_kernel_bridge_requires_full_subscribed_non_owner_manifest() -> None:
     with pytest.raises(ValidationError, match="multiple kernel bridges"):
         AppSettings.model_validate(
             {
-                "config_version": 5,
+                "config_version": 6,
                 "broker": {
                     "bridges": {
                         "kernel-a": {
@@ -408,7 +408,7 @@ async def test_app_lifecycle_registers_kernel_peer_and_dispatches_bridge_ingress
     try:
         settings = AppSettings.model_validate(
             {
-                "config_version": 5,
+                "config_version": 6,
                 "core": {"data_dir": str(tmp_path / "data"), "cache_dir": str(tmp_path / "cache")},
                 "broker": {
                     "endpoint": endpoint,

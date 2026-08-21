@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { SurfaceCard } from "@/components/surface-card";
 import { useLocale } from "@/i18n/locale";
 import { cn } from "@/lib/utils";
-import type { EventDeliveryPage, WebUiOperation } from "@/models/api";
+import type { EventDeliveryPage, LyfResourcePage, WebUiOperation } from "@/models/api";
 import type { Dashboard, LedgerView } from "@/models/dashboard";
 import type { Workspace } from "@/models/workspace";
 import type { WebUiApi } from "@/services/webui-api";
@@ -22,6 +22,8 @@ const OperationDialog = lazy(() =>
   import("@/features/operations/operation-dialog").then(({ OperationDialog: Dialog }) => ({ default: Dialog })),
 );
 
+const LyfResourceView = lazy(() => import("@/features/lyf/lyf-resource-view").then(({ LyfResourceView: View }) => ({ default: View })));
+
 const POSITIVE_STATES = new Set(["ready", "running", "enabled", "healthy", "succeeded"]);
 const WARNING_STATES = new Set(["attention", "recovering", "queued", "running"]);
 
@@ -29,12 +31,13 @@ type WorkspaceViewProps = {
   workspace: Workspace;
   dashboard: Dashboard;
   eventDeliveries: EventDeliveryPage;
+  lyfResources: LyfResourcePage;
   api: WebUiApi;
   reload: () => Promise<void>;
   reloadEventDeliveries: () => Promise<void>;
 };
 
-export const WorkspaceView = memo(function WorkspaceView({ workspace, dashboard, eventDeliveries, api, reload, reloadEventDeliveries }: WorkspaceViewProps) {
+export const WorkspaceView = memo(function WorkspaceView({ workspace, dashboard, eventDeliveries, lyfResources, api, reload, reloadEventDeliveries }: WorkspaceViewProps) {
   const [operation, setOperation] = useState<WebUiOperation | null>(null);
   const openOperation = useCallback((next: WebUiOperation) => setOperation(next), []);
   const closeOperation = useCallback(() => setOperation(null), []);
@@ -44,6 +47,7 @@ export const WorkspaceView = memo(function WorkspaceView({ workspace, dashboard,
       : workspace === "topology" ? <Topology dashboard={dashboard} />
         : workspace === "runtimes" ? <Runtimes dashboard={dashboard} openOperation={openOperation} />
           : workspace === "plugins" ? <Plugins dashboard={dashboard} />
+            : workspace === "lyf" ? <Suspense fallback={<div className="min-h-[382px]" />}><LyfResourceView page={lyfResources} /></Suspense>
             : <Configuration dashboard={dashboard} />;
 
   return <>{content}{operation ? <Suspense fallback={null}><OperationDialog operation={operation} close={closeOperation} api={api} reload={reload} /></Suspense> : null}</>;

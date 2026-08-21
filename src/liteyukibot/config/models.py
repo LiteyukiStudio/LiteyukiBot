@@ -320,13 +320,19 @@ class HttpSettings(FrozenSettingsModel):
 
 
 class DaemonSettings(FrozenSettingsModel):
-    """Policy for the local daemon that owns one restartable kernel worker."""
+    """Policy for the daemon-owned Broker, bridges, Kernel, and update graph."""
 
     auto_restart: bool = False
+    manage_broker: bool = True
+    manage_bridges: bool = True
     restart_limit: int = Field(default=5, ge=1)
     restart_window_seconds: float = Field(default=60.0, gt=0)
     restart_backoff_initial_seconds: float = Field(default=0.5, gt=0)
     restart_backoff_max_seconds: float = Field(default=10.0, gt=0)
+    startup_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
+    stop_timeout_seconds: float = Field(default=10.0, gt=0, le=300)
+    drain_timeout_seconds: float = Field(default=30.0, gt=0, le=3_600)
+    health_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
 
     @model_validator(mode="after")
     def validate_backoff(self) -> DaemonSettings:
@@ -663,6 +669,7 @@ class BrokerSettings(FrozenSettingsModel):
     terminal_ttl_seconds: int = Field(default=3_600, ge=60, le=86_400)
     delivery_timeout_seconds: int = Field(default=30, ge=1, le=3_600)
     diagnostics_token_secret: str | None = None
+    management_token_secret: str | None = None
     bridges: Mapping[str, BrokerBridgeSettings] = Field(default_factory=dict)
 
     @field_validator("diagnostics_token_secret")
@@ -672,6 +679,15 @@ class BrokerSettings(FrozenSettingsModel):
             return None
         if not value.strip() or value != value.strip():
             raise ValueError("broker diagnostics token secret must be a non-empty trimmed identifier")
+        return value
+
+    @field_validator("management_token_secret")
+    @classmethod
+    def validate_management_token_secret(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not value.strip() or value != value.strip():
+            raise ValueError("broker management token secret must be a non-empty trimmed identifier")
         return value
 
     @field_validator("endpoint")
@@ -738,7 +754,7 @@ class BrokerSettings(FrozenSettingsModel):
 
 
 class AppSettings(FrozenSettingsModel):
-    config_version: int = 5
+    config_version: int = 6
     core: CoreSettings = Field(default_factory=CoreSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     i18n: I18nSettings = Field(default_factory=I18nSettings)
@@ -754,21 +770,23 @@ class AppSettings(FrozenSettingsModel):
 
     @property
     def runtimes(self) -> Mapping[str, RuntimeSettings]:
-        """Compatibility view for legacy daemon code; v5 never loads this from TOML."""
+        """Compatibility view for legacy daemon code; v6 never loads this from TOML."""
 
         return MappingProxyType({})
 
     @property
     def runtime_event_routes(self) -> tuple[RuntimeEventRoute, ...]:
-        """Compatibility view for legacy daemon code; v5 never loads this from TOML."""
+        """Compatibility view for legacy daemon code; v6 never loads this from TOML."""
 
         return ()
 
     @field_validator("config_version")
     @classmethod
     def require_current_config_version(cls, value: int) -> int:
-        if value != 5:
-            raise ValueError("config_version must be 5")
+        if value == 5:
+            raise ValueError("migration_required: config_version 5 requires manual migration to 6")
+        if value != 6:
+            raise ValueError("config_version must be 6")
         return value
 
     @model_validator(mode="after")

@@ -64,7 +64,7 @@ class RecordingLogger:
 
 
 def _settings(data_dir: Path) -> AppSettings:
-    return AppSettings.model_validate({"config_version": 5, "core": {"data_dir": str(data_dir)}})
+    return AppSettings.model_validate({"config_version": 6, "core": {"data_dir": str(data_dir)}})
 
 
 def test_astrbot_bridge_declares_experimental_package_metadata() -> None:

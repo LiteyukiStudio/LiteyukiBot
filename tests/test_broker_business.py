@@ -181,12 +181,12 @@ def test_business_catalog_rejects_wrong_lane_and_type_id() -> None:
         BridgeControlResult(invocation_id="control-invocation-1", success=False, error_code="DENIED"),
     ),
 )
-def test_business_models_emit_protocol_six_and_reject_protocol_five(message: BrokerBusinessMessage) -> None:
-    assert message.protocol == 6
-    assert message.model_dump(mode="json")["protocol"] == 6
+def test_business_models_emit_protocol_seven_and_reject_protocol_six(message: BrokerBusinessMessage) -> None:
+    assert message.protocol == 7
+    assert message.model_dump(mode="json")["protocol"] == 7
 
     with pytest.raises(ValidationError):
-        type(message).model_validate({**message.model_dump(mode="json"), "protocol": 5})
+        type(message).model_validate({**message.model_dump(mode="json"), "protocol": 6})
 
 
 def test_duplicate_action_request_does_not_redispatch_owner_and_replays_retained_result() -> None:

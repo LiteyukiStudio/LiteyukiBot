@@ -22,6 +22,10 @@ from .protocol import (
     BrokerDiagnosticsDetail,
     BrokerDiagnosticsList,
     BrokerDiagnosticsStatus,
+    BrokerLifecycleDrain,
+    BrokerLifecycleFreeze,
+    BrokerLifecycleStatusResult,
+    BrokerLifecycleUnfreeze,
     BrokerWireError,
     BrokerWireMessage,
     decode_broker_message,
@@ -43,6 +47,8 @@ if TYPE_CHECKING:
         EventMessage,
         RoutedAction,
         RoutedTool,
+        RuntimeApiInvoke,
+        RuntimeApiResult,
         ToolInvoke,
         ToolResult,
     )
@@ -84,14 +90,13 @@ class BrokerPeerService:
         delivery_timeout_seconds: float = 30.0,
         monotonic: Callable[[], float] | None = None,
         diagnostics_token: str | None = None,
+        management_token: str | None = None,
     ) -> None:
         if generation < 1:
             raise ValueError("broker LYIP generation must be positive")
         self.generation = generation
         self._instance_tokens = {bridge_id.strip(): token.strip() for bridge_id, token in instance_tokens.items()}
-        if not self._instance_tokens or any(
-            not bridge_id or not token.strip() for bridge_id, token in self._instance_tokens.items()
-        ):
+        if any(not bridge_id or not token.strip() for bridge_id, token in self._instance_tokens.items()):
             raise ValueError("broker instance tokens must have non-empty bridge IDs and tokens")
         self._sessions_by_bridge: dict[str, BridgeSession] = {}
         self._sessions_by_identity: dict[bytes, BridgeSession] = {}
@@ -131,13 +136,35 @@ class BrokerPeerService:
                 generation=generation,
                 token=normalized_diagnostics_token,
             )
+        normalized_management_token = management_token.strip() if management_token is not None else None
+        if normalized_management_token == "":
+            raise ValueError("broker management token must be non-empty when configured")
+        if normalized_management_token is not None and any(
+            hmac.compare_digest(normalized_management_token, token) for token in self._instance_tokens.values()
+        ):
+            raise ValueError("broker management token must not reuse a bridge instance token")
+        if normalized_management_token is not None and normalized_diagnostics_token is not None and hmac.compare_digest(
+            normalized_management_token, normalized_diagnostics_token
+        ):
+            raise ValueError("broker management token must not reuse the diagnostics token")
+        self._management_token = normalized_management_token
+        self._admission_frozen = False
+        self._freeze_reason: str | None = None
 
     @property
     def sessions(self) -> tuple[BridgeSession, ...]:
         return tuple(self._sessions_by_bridge.values())
 
+    @property
+    def admission_frozen(self) -> bool:
+        return self._admission_frozen
+
+    @property
+    def active_events(self) -> int:
+        return self.ledger.active_count
+
     def handle_control(self, peer_identity: bytes, frame: LyipFrame) -> LyipFrame:
-        """Handle one control frame and return a deterministic v6 acknowledgement."""
+        """Handle one control frame and return a deterministic v7 acknowledgement."""
 
         if frame.generation != self.generation:
             return self._reply(
@@ -156,6 +183,8 @@ class BrokerPeerService:
             return self._unregister(peer_identity, frame, message)
         if isinstance(message, (BrokerDiagnosticsStatus, BrokerDiagnosticsList, BrokerDiagnosticsDetail)):
             return self._diagnostics_reply(peer_identity, frame, message)
+        if isinstance(message, (BrokerLifecycleFreeze, BrokerLifecycleDrain, BrokerLifecycleUnfreeze)):
+            return self._lifecycle_reply(peer_identity, frame, message)
         return self._reply(
             peer_identity,
             frame,
@@ -197,6 +226,38 @@ class BrokerPeerService:
             response = BridgeRejected(code=error.code, message="diagnostics event is not retained")
         return self._reply(peer_identity, frame, response)
 
+    def _lifecycle_reply(
+        self,
+        peer_identity: bytes,
+        frame: LyipFrame,
+        message: BrokerLifecycleFreeze | BrokerLifecycleDrain | BrokerLifecycleUnfreeze,
+    ) -> LyipFrame:
+        if self._management_token is None:
+            return self._reply(
+                peer_identity,
+                frame,
+                BridgeRejected(code="lifecycle_disabled", message="broker lifecycle management is not configured"),
+            )
+        if not hmac.compare_digest(self._management_token, message.token):
+            return self._reply(
+                peer_identity,
+                frame,
+                BridgeRejected(code="invalid_management_token", message="broker management token is invalid"),
+            )
+        if isinstance(message, BrokerLifecycleFreeze):
+            self._admission_frozen = True
+            self._freeze_reason = message.reason
+        elif isinstance(message, BrokerLifecycleUnfreeze):
+            self._admission_frozen = False
+            self._freeze_reason = None
+        response = BrokerLifecycleStatusResult(
+            frozen=self._admission_frozen,
+            reason=self._freeze_reason,
+            active_events=self.ledger.active_count,
+            sessions=tuple(sorted(session.bridge_id for session in self.sessions)),
+        )
+        return self._reply(peer_identity, frame, response)
+
     def require_business_peer(self, peer_identity: bytes, frame: LyipFrame) -> BridgeSession:
         """Validate identity plus an opaque session-bound stream before B5 delivery work."""
 
@@ -226,6 +287,10 @@ class BrokerPeerService:
         session = self._sessions_by_identity.get(peer_identity)
         if session is None:
             raise BridgeRegistrationError("broker rejected event from an unregistered peer")
+        if self._admission_frozen:
+            from .routing import BrokerAdmissionError
+
+            raise BrokerAdmissionError("admission_frozen", "broker admission is frozen for an instance update")
         return self.ledger.admit_event(session, ingress, self.sessions)
 
     def event_subscribers(self, event: BrokerEvent) -> tuple[BridgeSession, ...]:
@@ -261,6 +326,8 @@ class BrokerPeerService:
             EventCompleted,
             EventIngress,
             EventMessage,
+            RuntimeApiInvoke,
+            RuntimeApiResult,
             ToolInvoke,
             ToolResult,
         )
@@ -268,7 +335,7 @@ class BrokerPeerService:
         session = self.require_business_peer(peer_identity, frame)
         message = decode_business_message(frame)
         if isinstance(message, EventIngress):
-            event = self.ledger.admit_event(session, message, self.sessions)
+            event = self.admit_event(peer_identity, message)
             return tuple(
                 BusinessDispatch(
                     target=self._session_for_delivery(delivery.target_bridge_id),
@@ -370,6 +437,25 @@ class BrokerPeerService:
                     message=message.model_copy(update={"invocation_id": control_routed.invocation_id}),
                 ),
             )
+        if isinstance(message, RuntimeApiInvoke):
+            if message.invocation_id is not None:
+                raise BrokerAdmissionError(
+                    "unexpected_runtime_api_invocation_id",
+                    "bridges must not assign runtime API invocation IDs",
+                )
+            self._require_frame_lease(frame, message.lease_id)
+            runtime_api_routed = self.ledger.route_runtime_api(session, message, self.sessions)
+            if runtime_api_routed.replayed:
+                runtime_api_result = self.ledger.runtime_api_result(runtime_api_routed.invocation_id, session)
+                if runtime_api_result is None:
+                    return ()
+                return (BusinessDispatch(target=runtime_api_routed.origin, message=runtime_api_result),)
+            return (
+                BusinessDispatch(
+                    target=runtime_api_routed.target,
+                    message=message.model_copy(update={"invocation_id": runtime_api_routed.invocation_id}),
+                ),
+            )
         if isinstance(message, ToolResult):
             tool_routed = self.ledger.tool_route(message.invocation_id)
             tool_result = self.ledger.complete_tool(
@@ -392,6 +478,17 @@ class BrokerPeerService:
                 error_details=message.error_details,
             )
             return (BusinessDispatch(target=control_routed.origin, message=control_result),)
+        if isinstance(message, RuntimeApiResult):
+            runtime_api_routed = self.ledger.runtime_api_route(message.invocation_id)
+            runtime_api_result = self.ledger.complete_runtime_api(
+                session,
+                message.invocation_id,
+                success=message.success,
+                result=message.result,
+                error_code=message.error_code,
+                error_details=message.error_details,
+            )
+            return (BusinessDispatch(target=runtime_api_routed.origin, message=runtime_api_result),)
         if isinstance(message, EventMessage):
             raise BrokerAdmissionError("unexpected_message", "bridges must not send broker event deliveries")
         raise BrokerAdmissionError("unexpected_message", "broker does not accept this business message from a bridge")
@@ -531,6 +628,7 @@ class BrokerPeerServer:
         delivery_timeout_seconds: float = 30.0,
         monotonic: Callable[[], float] | None = None,
         diagnostics_token: str | None = None,
+        management_token: str | None = None,
     ) -> None:
         self.router = ZmqLyipRouter(
             context=context,
@@ -548,6 +646,7 @@ class BrokerPeerServer:
             delivery_timeout_seconds=delivery_timeout_seconds,
             monotonic=monotonic,
             diagnostics_token=diagnostics_token,
+            management_token=management_token,
         )
         self._business_sequences: dict[tuple[bytes, str], int] = {}
 
@@ -591,7 +690,15 @@ class BrokerPeerServer:
         """Send one catalog message on a target's registered session-bound business stream."""
 
         from .business import encode_business_message
-        from .routing import BridgeControlInvoke, BridgeControlResult, EventMessage, ToolInvoke, ToolResult
+        from .routing import (
+            BridgeControlInvoke,
+            BridgeControlResult,
+            EventMessage,
+            RuntimeApiInvoke,
+            RuntimeApiResult,
+            ToolInvoke,
+            ToolResult,
+        )
 
         if isinstance(message, EventMessage):
             suffix = "delivery"
@@ -599,6 +706,8 @@ class BrokerPeerServer:
             suffix = "tool"
         elif isinstance(message, (BridgeControlInvoke, BridgeControlResult)):
             suffix = "control"
+        elif isinstance(message, (RuntimeApiInvoke, RuntimeApiResult)):
+            suffix = "runtime-api"
         else:
             suffix = "action"
         stream_id = f"bridge:{target.bridge_id}:{target.session_id}:{suffix}"
@@ -731,6 +840,13 @@ class BridgeClient:
 
     async def send_control_result(self, message: BridgeControlResult) -> None:
         await self._send_business(message, suffix="control", lease_id="bridge-business")
+
+    async def send_runtime_api_invoke(self, message: RuntimeApiInvoke) -> None:
+        self._require_delivery_lease(message.delivery_id, message.lease_id)
+        await self._send_business(message, suffix="runtime-api", lease_id=message.lease_id)
+
+    async def send_runtime_api_result(self, message: RuntimeApiResult) -> None:
+        await self._send_business(message, suffix="runtime-api", lease_id="bridge-business")
 
     async def receive_business(self) -> BrokerBusinessMessage:
         """Receive one broker business message and bind offered leases to this live session."""

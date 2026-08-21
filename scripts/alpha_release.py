@@ -17,8 +17,22 @@ from email.parser import BytesParser
 from pathlib import Path
 from typing import Any, cast
 
+from liteyukibot.bundles import (
+    BUNDLE_BASELINE,
+    BUNDLE_LOCK_NAME,
+    BUNDLE_MANIFEST_NAME,
+    BUNDLE_SBOM_NAME,
+    BUNDLE_SIGNATURE_NAME,
+    BUNDLE_TAG,
+    BUNDLE_VERSION,
+    BundleError,
+)
+from liteyukibot.bundles import (
+    verify_bundle as verify_offline_bundle,
+)
 
-class AlphaReleaseError(RuntimeError):
+
+class AlphaReleaseError(BundleError):
     """Raised when an Alpha bundle does not satisfy its frozen contract."""
 
 
@@ -31,33 +45,32 @@ class AlphaComponent:
     distribution: str
     requires_sdist: bool = True
     version: str | None = None
+    reserved: bool = False
 
     @property
     def release_version(self) -> str:
         return self.version or ALPHA_VERSION
 
 
-ALPHA_VERSION = "7.0.0a3"
-ALPHA_TAG = f"v{ALPHA_VERSION}"
-MANIFEST_NAME = "artifacts.manifest.json"
-SBOM_NAME = "sbom.cdx.json"
-SIGNATURE_NAME = "artifacts.manifest.sigstore.json"
+ALPHA_VERSION = BUNDLE_VERSION
+ALPHA_TAG = BUNDLE_TAG
+MANIFEST_NAME = BUNDLE_MANIFEST_NAME
+LOCK_NAME = BUNDLE_LOCK_NAME
+SBOM_NAME = BUNDLE_SBOM_NAME
+SIGNATURE_NAME = BUNDLE_SIGNATURE_NAME
 OIDC_ISSUER = "https://token.actions.githubusercontent.com"
 WORKFLOW_PATH = ".github/workflows/alpha-release.yaml"
-BASELINE: Mapping[str, int] = {
-    "lyip": 2,
-    "runtime_ipc": 6,
-    "broker": 6,
-    "configuration": 5,
-}
+BASELINE: Mapping[str, int] = BUNDLE_BASELINE
 LOCKSTEP_COMPONENTS: tuple[AlphaComponent, ...] = (
     AlphaComponent("kernel", ".", "liteyukibot-v7"),
     AlphaComponent("ipc-native", "packages/ipc-native", "liteyukibot-v7-ipc-native"),
     AlphaComponent("cordis", "packages/cordis", "liteyukibot-v7-cordis"),
     AlphaComponent("nonebot-bridge", "packages/runtime-nonebot", "liteyukibot-v7-runtime-nonebot"),
     AlphaComponent("astrbot-bridge", "packages/runtime-astrbot", "liteyukibot-v7-runtime-astrbot"),
+    AlphaComponent("astrbot-api", "packages/runtime-astrbot-api", "liteyukibot-v7-runtime-astrbot-api"),
     AlphaComponent("adapter-bridge", "packages/runtime-adapter", "liteyukibot-v7-runtime-adapter"),
     AlphaComponent("webui", "packages/webui", "liteyukibot-v7-webui"),
+    AlphaComponent("devcli", "packages/devcli", "liteyukibot-v7-devcli", reserved=True),
 )
 INDEPENDENT_COMPONENTS: tuple[AlphaComponent, ...] = (
     AlphaComponent("permissions", "packages/permissions", "liteyukibot-v7-permissions", version="0.3.0a2"),
@@ -68,7 +81,11 @@ INDEPENDENT_COMPONENTS: tuple[AlphaComponent, ...] = (
     AlphaComponent("agent-resolver", "packages/agent-resolver", "liteyukibot-v7-agent-resolver", version="0.2.0a1"),
     AlphaComponent("functions", "packages/functions", "liteyukibot-v7-functions", version="0.1.0a3"),
 )
-RELEASE_COMPONENTS = LOCKSTEP_COMPONENTS + INDEPENDENT_COMPONENTS
+RELEASE_COMPONENTS = (
+    tuple(component for component in LOCKSTEP_COMPONENTS if component.component_id != "devcli")
+    + INDEPENDENT_COMPONENTS
+    + (next(component for component in LOCKSTEP_COMPONENTS if component.component_id == "devcli"),)
+)
 
 SignatureVerifier = Callable[[Path, Path, str], None]
 
@@ -134,16 +151,20 @@ def _distribution_metadata(path: Path) -> tuple[str, str]:
     metadata_bytes: bytes
     if path.suffix == ".whl":
         with zipfile.ZipFile(path) as archive:
-            names = tuple(name for name in archive.namelist() if name.endswith(".dist-info/METADATA"))
+            names = tuple(
+                name for name in archive.namelist() if name.endswith(".dist-info/METADATA") and name.count("/") == 1
+            )
             if len(names) != 1:
                 raise AlphaReleaseError(f"{path.name} has no unique wheel METADATA file")
             metadata_bytes = archive.read(names[0])
     elif path.name.endswith(".tar.gz"):
         with tarfile.open(path, "r:gz") as archive:
             members = tuple(member for member in archive.getmembers() if member.name.endswith("/PKG-INFO"))
-            if len(members) != 1:
+            preferred = tuple(member for member in members if ".egg-info/" not in member.name.lower())
+            candidates = preferred or members
+            if len(candidates) != 1:
                 raise AlphaReleaseError(f"{path.name} has no unique source PKG-INFO file")
-            extracted = archive.extractfile(members[0])
+            extracted = archive.extractfile(candidates[0])
             if extracted is None:
                 raise AlphaReleaseError(f"cannot read {path.name} PKG-INFO")
             metadata_bytes = extracted.read()
@@ -167,7 +188,7 @@ def _artifact_kind(path: Path) -> str:
 def _artifact_records(dist: Path) -> list[dict[str, object]]:
     records: list[dict[str, object]] = []
     for path in sorted(dist.iterdir()):
-        if not path.is_file() or path.name in {MANIFEST_NAME, SBOM_NAME, SIGNATURE_NAME}:
+        if not path.is_file() or path.name in {MANIFEST_NAME, LOCK_NAME, SBOM_NAME, SIGNATURE_NAME}:
             continue
         if path.suffix != ".whl" and not path.name.endswith(".tar.gz"):
             continue
@@ -194,11 +215,10 @@ def _validate_artifact_set(records: Sequence[Mapping[str, object]]) -> None:
         kind = record.get("kind")
         if not isinstance(distribution, str) or not isinstance(version, str) or not isinstance(kind, str):
             raise AlphaReleaseError("manifest artifact has invalid metadata")
-        if distribution not in expected:
-            raise AlphaReleaseError(f"bundle contains non-Alpha distribution {distribution!r}")
-        if version != expected[distribution].release_version:
+        if distribution in expected and version != expected[distribution].release_version:
             raise AlphaReleaseError(f"{distribution} artifact has the wrong Alpha version")
-        observed[distribution].add(kind)
+        if distribution in observed:
+            observed[distribution].add(kind)
     for component in RELEASE_COMPONENTS:
         kinds = observed[component.distribution]
         if "wheel" not in kinds:
@@ -222,25 +242,54 @@ def create_manifest(root: Path, dist: Path) -> Path:
                 "distribution": component.distribution,
                 "version": component.release_version,
                 "license": _string_field(project, "license", context=component.project_dir),
-                "reserved": False,
+                "reserved": component.reserved,
                 "independent": component in INDEPENDENT_COMPONENTS,
             }
         )
-    components.append(
-        {
-            "id": "devcli",
-            "distribution": "liteyukibot-v7-devcli",
-            "version": ALPHA_VERSION,
-            "reserved": True,
-            "independent": False,
+    lock_path = dist / LOCK_NAME
+    if lock_path.exists():
+        try:
+            lock_payload = json.loads(lock_path.read_bytes())
+        except (OSError, json.JSONDecodeError) as error:
+            raise AlphaReleaseError("dependency lock is not valid JSON") from error
+        if not isinstance(lock_payload, dict) or lock_payload.get("schema_version") != 1:
+            raise AlphaReleaseError("dependency lock schema is unsupported")
+        locked_records = lock_payload.get("artifacts")
+        if not isinstance(locked_records, list) or not all(isinstance(record, dict) for record in locked_records):
+            raise AlphaReleaseError("dependency lock artifacts are invalid")
+        if {
+            tuple(cast(dict[str, object], record).get(field) for field in ("filename", "bytes", "sha256"))
+            for record in locked_records
+        } != {
+            tuple(record.get(field) for field in ("filename", "bytes", "sha256")) for record in records
+        }:
+            raise AlphaReleaseError("dependency lock does not cover the staged artifact set")
+        if lock_path.read_bytes() != _canonical_json(lock_payload):
+            raise AlphaReleaseError("dependency lock is not canonical UTF-8 JSON")
+    else:
+        lock_payload = {
+            "schema_version": 1,
+            "requirements": sorted(
+                {
+                    f"{record['distribution']}=={record['version']}"
+                    for record in records
+                    if record.get("kind") == "wheel"
+                }
+            ),
+            "artifacts": records,
         }
-    )
+        lock_path.write_bytes(_canonical_json(lock_payload))
     payload: dict[str, object] = {
         "schema_version": 1,
         "release": {"tag": ALPHA_TAG, "version": ALPHA_VERSION},
         "baseline": dict(BASELINE),
         "components": components,
         "artifacts": records,
+        "dependency_lock": {
+            "filename": LOCK_NAME,
+            "bytes": lock_path.stat().st_size,
+            "sha256": _sha256(lock_path),
+        },
     }
     output = dist / MANIFEST_NAME
     output.write_bytes(_canonical_json(payload))
@@ -252,11 +301,25 @@ def create_sbom(dist: Path) -> Path:
 
     manifest = _read_manifest(dist / MANIFEST_NAME)
     components = manifest["components"]
-    assert isinstance(components, list)
+    records = manifest["artifacts"]
+    assert isinstance(components, list) and isinstance(records, list)
+    component_metadata = {
+        item["distribution"]: item
+        for item in components
+        if isinstance(item, dict) and isinstance(item.get("distribution"), str)
+    }
     bom_components: list[dict[str, object]] = []
-    for component in components:
-        if not isinstance(component, dict):
-            raise AlphaReleaseError("manifest component is invalid")
+    seen: set[tuple[str, str]] = set()
+    for record in records:
+        if not isinstance(record, dict):
+            raise AlphaReleaseError("manifest artifact is invalid")
+        distribution, version = record.get("distribution"), record.get("version")
+        if not isinstance(distribution, str) or not isinstance(version, str):
+            raise AlphaReleaseError("manifest artifact identity is invalid")
+        if (distribution, version) in seen:
+            continue
+        seen.add((distribution, version))
+        component = component_metadata.get(distribution, {})
         license_value = component.get("license")
         license_entry = (
             {"name": license_value}
@@ -268,10 +331,12 @@ def create_sbom(dist: Path) -> Path:
         bom_components.append(
             {
                 "type": "library",
-                "name": component["distribution"],
-                "version": component["version"],
+                "name": distribution,
+                "version": version,
                 "licenses": [{"license": license_entry}] if license_entry is not None else [],
-                "properties": [{"name": "liteyuki:reserved", "value": "true"}] if component["reserved"] else [],
+                "properties": [{"name": "liteyuki:reserved", "value": "true"}]
+                if component.get("reserved")
+                else [],
             }
         )
     payload = {"bomFormat": "CycloneDX", "specVersion": "1.5", "version": 1, "components": bom_components}
@@ -362,65 +427,16 @@ def verify_bundle(
     signature_verifier: SignatureVerifier | None = None,
 ) -> None:
     """Verify a downloaded Alpha bundle without reading source metadata."""
-
-    if tag != ALPHA_TAG:
-        raise AlphaReleaseError(f"current Alpha tag must be {ALPHA_TAG}")
-    manifest_path = bundle / MANIFEST_NAME
-    signature_path = bundle / SIGNATURE_NAME
-    if not signature_path.is_file():
-        raise AlphaReleaseError("bundle is missing the Sigstore manifest bundle")
-    manifest = _read_manifest(manifest_path)
-    records = _verify_manifest_shape(manifest, tag=tag)
-    _validate_artifact_set(records)
-    filenames: set[str] = set()
-    for record in records:
-        filename, size, digest, distribution, version = (
-            record.get("filename"),
-            record.get("bytes"),
-            record.get("sha256"),
-            record.get("distribution"),
-            record.get("version"),
-        )
-        if not isinstance(filename, str):
-            raise AlphaReleaseError("manifest artifact filename is invalid")
-        if not isinstance(size, int):
-            raise AlphaReleaseError("manifest artifact size is invalid")
-        if not isinstance(digest, str) or not isinstance(distribution, str) or not isinstance(version, str):
-            raise AlphaReleaseError("manifest artifact record has invalid fields")
-        if Path(filename).name != filename or filename in filenames:
-            raise AlphaReleaseError("manifest artifact filename is invalid")
-        filenames.add(filename)
-        artifact = bundle / filename
-        if not artifact.is_file() or artifact.stat().st_size != size or _sha256(artifact) != digest:
-            raise AlphaReleaseError(f"artifact integrity check failed for {filename}")
-        observed_distribution, observed_version = _distribution_metadata(artifact)
-        if (observed_distribution, observed_version) != (distribution, version):
-            raise AlphaReleaseError(f"artifact metadata check failed for {filename}")
     try:
-        sbom = json.loads((bundle / SBOM_NAME).read_bytes())
-    except (OSError, json.JSONDecodeError) as error:
-        raise AlphaReleaseError("bundle is missing a valid CycloneDX SBOM") from error
-    if not isinstance(sbom, dict) or sbom.get("bomFormat") != "CycloneDX" or sbom.get("specVersion") != "1.5":
-        raise AlphaReleaseError("bundle SBOM is not CycloneDX 1.5")
-    sbom_components = sbom.get("components")
-    if not isinstance(sbom_components, list):
-        raise AlphaReleaseError("bundle SBOM components are invalid")
-    inventory: dict[str, str] = {}
-    for component in sbom_components:
-        if not isinstance(component, dict):
-            raise AlphaReleaseError("bundle SBOM component is invalid")
-        name, version = component.get("name"), component.get("version")
-        if not isinstance(name, str) or not isinstance(version, str):
-            raise AlphaReleaseError("bundle SBOM component identity is invalid")
-        inventory[name] = version
-    expected_inventory = {component.distribution: component.release_version for component in RELEASE_COMPONENTS}
-    expected_inventory["liteyukibot-v7-devcli"] = ALPHA_VERSION
-    if inventory != expected_inventory or len(sbom_components) != len(expected_inventory):
-        raise AlphaReleaseError("bundle SBOM inventory does not match the current Alpha")
-    verifier = signature_verifier or (
-        lambda signature, manifest, release_tag: _run_sigstore(signature, manifest, release_tag, sigstore_command)
-    )
-    verifier(signature_path, manifest_path, tag)
+        verified = verify_offline_bundle(
+            bundle,
+            tag=tag,
+            sigstore_command=sigstore_command,
+            signature_verifier=signature_verifier,
+        )
+        _validate_artifact_set(verified.artifact_records)
+    except BundleError as error:
+        raise AlphaReleaseError(str(error)) from error
 
 
 def _parser() -> argparse.ArgumentParser:

@@ -61,6 +61,7 @@ def test_manifest_is_immutable_json_safe_and_rejects_invalid_declarations() -> N
         "action_resources": [{"kind": "message.send", "resource_prefix": "bot:"}],
         "tools": [],
         "controls": [],
+        "runtime_apis": [],
     }
     with pytest.raises(ValidationError, match="duplicates"):
         BridgeManifest(
