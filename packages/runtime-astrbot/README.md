@@ -10,9 +10,10 @@ owns bridge-scoped `message.send` actions. It never suppresses AstrBot's local
 pipeline or its native replies.
 
 With the separately installed `liteyukibot-v7-runtime-astrbot-api` package, the
-bridge publishes the Alpha9 v1.1 `event.snapshot`, `event.send`,
-`bot.snapshot`, and `bot.send` runtime APIs. Only portable JSON DTOs cross the
-Broker boundary.
+bridge publishes the Alpha10.1 v1.2 `event.snapshot`, `event.send`,
+`bot.snapshot`, and `bot.send` runtime APIs. Only kernel-owned portable JSON
+DTOs cross the Broker boundary; AstrBot platform/session fields are carried in
+the `astrbot` extension namespace.
 
 The configured bridge ID is passed into every translated event and snapshot.
 Source event IDs use the shared `v1:` composite of bridge ID, platform/bot

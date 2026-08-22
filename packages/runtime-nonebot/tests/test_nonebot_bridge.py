@@ -40,7 +40,7 @@ def test_nonebot_runtime_catalog_contains_alpha9_portable_operations() -> None:
         ("bot", "snapshot"),
         ("bot", "send"),
     }
-    assert all(item.version == "1.1" for item in declarations)
+    assert all(item.version == "1.2" for item in declarations)
 
 
 def test_nonebot_ingress_is_json_safe_and_ordered_by_conversation() -> None:
@@ -274,7 +274,12 @@ async def test_nonebot_runtime_api_uses_portable_dtos_and_exact_bot_identity(
     assert isinstance(snapshot.result, Mapping)
     assert snapshot.result["conversation"] == {"id": "2002", "type": "group", "parent_id": None}
     assert event_send.success is True
-    assert bot_snapshot.result == {"bot_id": "42", "adapter": "onebot-v11", "capabilities": ["message.send"]}
+    assert bot_snapshot.result == {
+        "bot_id": "42",
+        "adapter": "onebot-v11",
+        "capabilities": ["message.send"],
+        "extensions": {},
+    }
 
     sent_payloads: list[MessageSendPayload] = []
 

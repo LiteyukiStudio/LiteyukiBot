@@ -14,6 +14,7 @@ import zmq.asyncio
 
 from liteyukibot.broker import (
     MESSAGE_SEND_KIND,
+    PORTABLE_RUNTIME_API_VERSION,
     ActionOutcome,
     ActionRequest,
     ActionResourceDeclaration,
@@ -29,14 +30,18 @@ from liteyukibot.broker import (
     RuntimeApiOperation,
     RuntimeApiOutcome,
     parse_message_send_request,
+    portable_bot_snapshot_schema,
     portable_conversation_schema,
+    portable_event_snapshot_schema,
     portable_message_schema,
+    portable_send_result_schema,
     runtime_api_catalog,
 )
 from liteyukibot.config import AppSettings
 from liteyukibot.events import ConversationRef, EventEnvelope, JsonValue, Message, Segment
 from liteyukibot.logging import get_logger
 from liteyukibot.lyip import LyipLane
+from liteyukibot.runtime_api import BotSnapshot, EventSnapshot, SendResult
 
 from .contracts import AdapterContractError, adapter_id, json_value, normalize_event, send_proactive, to_native_message
 
@@ -188,7 +193,7 @@ class NoneBotHost:
                 result = await bot.send(event, native)
             except Exception:
                 return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_SEND_FAILED")
-            return RuntimeApiOutcome(success=True, result={"sent": True, "result": json_value(result)})
+            return RuntimeApiOutcome(success=True, result=_send_result(result))
         if request.api_id == "bot.snapshot":
             if request.arguments:
                 return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_INVALID_ARGUMENTS")
@@ -212,7 +217,7 @@ class NoneBotHost:
                 return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_INVALID_ARGUMENTS")
             except Exception:
                 return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_SEND_FAILED")
-            return RuntimeApiOutcome(success=True, result={"sent": True, "result": json_value(result)})
+            return RuntimeApiOutcome(success=True, result=_send_result(result))
         return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_NOT_REGISTERED")
 
     async def _send_message(self, payload: MessageSendPayload) -> Any:
@@ -324,23 +329,37 @@ def _portable_send_action(payload: MessageSendPayload) -> Any:
 
 
 def _event_snapshot(envelope: EventEnvelope) -> dict[str, JsonValue]:
-    return {
-        "runtime_id": envelope.runtime_id,
-        "adapter": envelope.adapter,
-        "bot_id": envelope.bot_id,
-        "event_type": envelope.type,
-        "conversation": cast(JsonValue, json_value(envelope.conversation)),
-        "actor": None if envelope.actor is None else cast(JsonValue, json_value(envelope.actor)),
-        "message": None if envelope.message is None else cast(JsonValue, json_value(envelope.message)),
-    }
+    return cast(
+        dict[str, JsonValue],
+        EventSnapshot(
+            source_event_id=envelope.id,
+            runtime_id=envelope.runtime_id,
+            adapter=envelope.adapter,
+            bot_id=envelope.bot_id,
+            event_type=envelope.type,
+            conversation=envelope.conversation,
+            actor=envelope.actor,
+            message=envelope.message,
+        ).model_dump(mode="json"),
+    )
 
 
 def _bot_snapshot(bot: Any) -> dict[str, JsonValue]:
-    return {
-        "bot_id": str(bot.self_id),
-        "adapter": adapter_id(str(bot.adapter.get_name())),
-        "capabilities": cast(JsonValue, ["message.send"]),
-    }
+    return cast(
+        dict[str, JsonValue],
+        BotSnapshot(
+            bot_id=str(bot.self_id),
+            adapter=adapter_id(str(bot.adapter.get_name())),
+            capabilities=("message.send",),
+        ).model_dump(mode="json"),
+    )
+
+
+def _send_result(value: object) -> dict[str, JsonValue]:
+    return cast(
+        dict[str, JsonValue],
+        SendResult(sent=True, result=json_value(value)).model_dump(mode="json"),
+    )
 
 
 def _runtime_message(value: object) -> Message:
@@ -366,12 +385,14 @@ def _runtime_api_declarations() -> tuple[RuntimeApiDeclaration, ...]:
             RuntimeApiOperation(
                 namespace="event",
                 operation="snapshot",
+                version=PORTABLE_RUNTIME_API_VERSION,
                 input_schema={"type": "object", "additionalProperties": False},
-                output_schema=_event_snapshot_schema(),
+                output_schema=portable_event_snapshot_schema(),
             ),
             RuntimeApiOperation(
                 namespace="event",
                 operation="send",
+                version=PORTABLE_RUNTIME_API_VERSION,
                 input_schema={
                     "type": "object",
                     "properties": {
@@ -385,17 +406,19 @@ def _runtime_api_declarations() -> tuple[RuntimeApiDeclaration, ...]:
                     "required": ["message"],
                     "additionalProperties": False,
                 },
-                output_schema={"type": "object", "additionalProperties": True},
+                output_schema=portable_send_result_schema(),
             ),
             RuntimeApiOperation(
                 namespace="bot",
                 operation="snapshot",
+                version=PORTABLE_RUNTIME_API_VERSION,
                 input_schema={"type": "object", "additionalProperties": False},
-                output_schema=_bot_snapshot_schema(),
+                output_schema=portable_bot_snapshot_schema(),
             ),
             RuntimeApiOperation(
                 namespace="bot",
                 operation="send",
+                version=PORTABLE_RUNTIME_API_VERSION,
                 input_schema={
                     "type": "object",
                     "properties": {
@@ -406,53 +429,10 @@ def _runtime_api_declarations() -> tuple[RuntimeApiDeclaration, ...]:
                     "required": ["bot_id", "message", "conversation"],
                     "additionalProperties": False,
                 },
-                output_schema={"type": "object", "additionalProperties": True},
+                output_schema=portable_send_result_schema(),
             ),
         ),
     )
-
-
-def _event_snapshot_schema() -> dict[str, object]:
-    return {
-        "type": "object",
-        "properties": {
-            "runtime_id": {"type": "string", "minLength": 1},
-            "adapter": {"type": "string", "minLength": 1},
-            "bot_id": {"type": "string", "minLength": 1},
-            "event_type": {"type": "string", "minLength": 1},
-            "conversation": portable_conversation_schema(),
-            "actor": {"oneOf": [_actor_schema(), {"type": "null"}]},
-            "message": {"oneOf": [portable_message_schema(), {"type": "null"}]},
-        },
-        "required": ["runtime_id", "adapter", "bot_id", "event_type", "conversation", "actor", "message"],
-        "additionalProperties": False,
-    }
-
-
-def _actor_schema() -> dict[str, object]:
-    return {
-        "type": "object",
-        "properties": {
-            "id": {"type": "string", "minLength": 1},
-            "display_name": {"type": ["string", "null"]},
-            "is_bot": {"type": "boolean"},
-        },
-        "required": ["id"],
-        "additionalProperties": False,
-    }
-
-
-def _bot_snapshot_schema() -> dict[str, object]:
-    return {
-        "type": "object",
-        "properties": {
-            "bot_id": {"type": "string", "minLength": 1},
-            "adapter": {"type": "string", "minLength": 1},
-            "capabilities": {"type": "array", "items": {"type": "string"}},
-        },
-        "required": ["bot_id", "adapter", "capabilities"],
-        "additionalProperties": False,
-    }
 
 
 def _mapping_option(options: Mapping[str, Any], key: str) -> dict[str, Any]:

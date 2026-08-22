@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import cast
 
+from ..runtime_api_models import BotSnapshot, EventSnapshot, SendResult
 from .protocol import RuntimeApiDeclaration
+
+PORTABLE_RUNTIME_API_VERSION = "1.2"
 
 
 def _identifier(value: str, field: str) -> str:
@@ -110,9 +114,31 @@ def portable_conversation_schema() -> dict[str, object]:
     }
 
 
+def portable_event_snapshot_schema() -> dict[str, object]:
+    """Return the canonical EventSnapshot JSON schema."""
+
+    return cast(dict[str, object], EventSnapshot.model_json_schema())
+
+
+def portable_bot_snapshot_schema() -> dict[str, object]:
+    """Return the canonical BotSnapshot JSON schema."""
+
+    return cast(dict[str, object], BotSnapshot.model_json_schema())
+
+
+def portable_send_result_schema() -> dict[str, object]:
+    """Return the canonical SendResult JSON schema."""
+
+    return cast(dict[str, object], SendResult.model_json_schema())
+
+
 __all__ = [
+    "PORTABLE_RUNTIME_API_VERSION",
     "RuntimeApiOperation",
+    "portable_bot_snapshot_schema",
     "portable_conversation_schema",
+    "portable_event_snapshot_schema",
     "portable_message_schema",
+    "portable_send_result_schema",
     "runtime_api_catalog",
 ]

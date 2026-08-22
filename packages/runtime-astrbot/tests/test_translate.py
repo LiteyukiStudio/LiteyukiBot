@@ -108,7 +108,7 @@ def test_astrbot_runtime_catalog_contains_alpha9_portable_operations() -> None:
         ("bot", "snapshot"),
         ("bot", "send"),
     }
-    assert all(item.version == "1.1" for item in declarations)
+    assert all(item.version == "1.2" for item in declarations)
     snapshot_schema = next(item for item in declarations if item.api_id == "event.snapshot").output_schema
     Draft202012Validator(dict(snapshot_schema)).validate(AstrBotGateway._event_snapshot(FakeAstrEvent()))
 
@@ -142,9 +142,19 @@ def test_astrbot_event_identity_uses_the_configured_bridge_id() -> None:
 def test_astrbot_event_snapshot_includes_portable_message_details() -> None:
     snapshot = AstrBotGateway._event_snapshot(FakeAstrEvent())
 
-    assert snapshot["conversation_id"] == "group-1"
-    assert snapshot["conversation_type"] == "group"
-    assert cast(object, snapshot["message_segments"]) == [{"type": "text", "data": {"text": "hello"}}]
+    assert snapshot["source_event_id"] == canonical_source_event_id("astrbot", "qq:bot-1", "message-1")
+    assert snapshot["conversation"] == {"id": "group-1", "type": "group", "parent_id": None}
+    expected_message = cast(JsonValue, {"segments": [{"type": "text", "data": {"text": "hello"}}]})
+    assert snapshot["message"] == expected_message
+    expected_extensions: JsonValue = {
+        "astrbot": {
+            "platform_id": "qq",
+            "platform_name": "aiocqhttp",
+            "session_id": "session-1",
+            "message_type": "group",
+        }
+    }
+    assert snapshot["extensions"] == expected_extensions
 
 
 @pytest.mark.asyncio
@@ -257,9 +267,9 @@ async def test_astrbot_runtime_api_accepts_portable_message_and_exact_bot_send(
     assert bot_snapshot.success is True
     assert bot_snapshot.result == {
         "bot_id": "bot-1",
-        "platform_id": "qq",
-        "platform_name": "aiocqhttp",
-        "capabilities": [],
+        "adapter": "aiocqhttp",
+        "capabilities": ["message.send"],
+        "extensions": {"astrbot": {"platform_id": "qq", "platform_name": "aiocqhttp"}},
     }
 
     sent_payloads: list[MessageSendPayload] = []

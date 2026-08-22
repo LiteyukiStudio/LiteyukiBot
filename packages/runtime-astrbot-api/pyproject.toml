@@ -1,7 +1,7 @@
 [project]
 name = "liteyukibot-v7-runtime-astrbot-api"
 version = "7.0.0a9"
-description = "Framework-neutral typed Alpha9 AstrBot runtime API facade."
+description = "Framework-neutral typed Alpha10.1 AstrBot runtime API facade."
 readme = "README.md"
 requires-python = ">=3.14"
 license = "LicenseRef-LSO"

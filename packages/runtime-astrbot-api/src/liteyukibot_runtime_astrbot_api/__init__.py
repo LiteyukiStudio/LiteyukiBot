@@ -1,47 +1,85 @@
-"""Typed, AstrBot-independent Alpha9 runtime API facade."""
+"""Typed, AstrBot-independent Alpha10.1 runtime API facade."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import cast
 
-from pydantic import BaseModel, ConfigDict
-
 from liteyukibot.events import ConversationRef, JsonValue, Message, Segment
 from liteyukibot.runtime_api import (
+    BotSnapshot,
+    EventSnapshot,
     RuntimeApiBackend,
     RuntimeApiError,
     RuntimeBinding,
     RuntimeCallContext,
     RuntimeNamespaceProxy,
+    SendResult,
 )
 
 
-class AstrBotEventSnapshot(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
+class AstrBotEventSnapshot(EventSnapshot):
+    """Canonical snapshot with Alpha9 AstrBot field compatibility properties."""
 
-    platform_id: str
-    platform_name: str
-    bot_id: str
-    session_id: str
-    group_id: str | None = None
-    sender_id: str | None = None
-    message: str
-    message_type: str
-    conversation_id: str | None = None
-    conversation_type: str | None = None
-    actor_name: str | None = None
-    actor_is_bot: bool = False
-    message_segments: tuple[Segment, ...] = ()
+    @property
+    def platform_id(self) -> str:
+        return _extension_text(self, "platform_id")
+
+    @property
+    def platform_name(self) -> str:
+        return _extension_text(self, "platform_name")
+
+    @property
+    def session_id(self) -> str:
+        return _extension_text(self, "session_id")
+
+    @property
+    def group_id(self) -> str | None:
+        return self.conversation.id if self.conversation.type == "group" else None
+
+    @property
+    def sender_id(self) -> str | None:
+        return None if self.actor is None else self.actor.id
+
+    @property
+    def message_text(self) -> str:
+        return "" if self.message is None else self.message.plain_text
+
+    @property
+    def message_type(self) -> str:
+        return _extension_text(self, "message_type")
+
+    @property
+    def conversation_id(self) -> str:
+        return self.conversation.id
+
+    @property
+    def conversation_type(self) -> str:
+        return self.conversation.type
+
+    @property
+    def actor_name(self) -> str | None:
+        return None if self.actor is None else self.actor.display_name
+
+    @property
+    def actor_is_bot(self) -> bool:
+        return False if self.actor is None else self.actor.is_bot
+
+    @property
+    def message_segments(self) -> tuple[Segment, ...]:
+        return () if self.message is None else self.message.segments
 
 
-class AstrBotBotSnapshot(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
+class AstrBotBotSnapshot(BotSnapshot):
+    """Canonical bot snapshot with Alpha9 AstrBot field compatibility properties."""
 
-    bot_id: str
-    platform_id: str
-    platform_name: str
-    capabilities: tuple[str, ...] = ()
+    @property
+    def platform_id(self) -> str:
+        return _extension_text(self, "platform_id")
+
+    @property
+    def platform_name(self) -> str:
+        return _extension_text(self, "platform_name")
 
 
 class AstrBotEventProxy(RuntimeNamespaceProxy):
@@ -61,18 +99,18 @@ class AstrBotEventProxy(RuntimeNamespaceProxy):
                 "RUNTIME_API_INVALID_RESULT",
             ) from error
 
-    async def send(self, message: str | Message) -> Mapping[str, JsonValue]:
+    async def send(self, message: str | Message) -> SendResult:
         return await self._send(message)
 
-    async def send_message(self, message: Message) -> Mapping[str, JsonValue]:
+    async def send_message(self, message: Message) -> SendResult:
         return await self._send(message)
 
-    async def _send(self, message: str | Message) -> Mapping[str, JsonValue]:
+    async def _send(self, message: str | Message) -> SendResult:
         argument: JsonValue = message if isinstance(message, str) else cast(
             dict[str, JsonValue], message.model_dump(mode="json")
         )
         value = await self.call("send", {"message": argument})
-        return _mapping_result(self, "send", value)
+        return _send_result(self, "send", value)
 
 
 class AstrBotBotProxy(RuntimeNamespaceProxy):
@@ -92,7 +130,7 @@ class AstrBotBotProxy(RuntimeNamespaceProxy):
                 "RUNTIME_API_INVALID_RESULT",
             ) from error
 
-    async def send(self, message: Message, conversation: ConversationRef) -> Mapping[str, JsonValue]:
+    async def send(self, message: Message, conversation: ConversationRef) -> SendResult:
         arguments = cast(
             Mapping[str, JsonValue],
             {
@@ -101,7 +139,7 @@ class AstrBotBotProxy(RuntimeNamespaceProxy):
             },
         )
         value = await self.call("send", arguments)
-        return _mapping_result(self, "send", value)
+        return _send_result(self, "send", value)
 
 
 def proxy_factory(
@@ -124,10 +162,26 @@ def bot_proxy_factory(
     return AstrBotBotProxy(binding, backend, context, reason=reason)
 
 
-def _mapping_result(proxy: RuntimeNamespaceProxy, operation: str, value: JsonValue) -> Mapping[str, JsonValue]:
-    if not isinstance(value, Mapping) or any(not isinstance(key, str) for key in value):
+def _send_result(proxy: RuntimeNamespaceProxy, operation: str, value: JsonValue) -> SendResult:
+    if not isinstance(value, Mapping):
         raise RuntimeApiError(proxy.binding.runtime, proxy.binding.api, operation, "RUNTIME_API_INVALID_RESULT")
-    return value
+    try:
+        return SendResult.model_validate(value)
+    except ValueError as error:
+        raise RuntimeApiError(
+            proxy.binding.runtime,
+            proxy.binding.api,
+            operation,
+            "RUNTIME_API_INVALID_RESULT",
+        ) from error
+
+
+def _extension_text(snapshot: EventSnapshot | BotSnapshot, key: str) -> str:
+    values = snapshot.extensions.get("astrbot")
+    if not isinstance(values, Mapping):
+        return ""
+    value = values.get(key)
+    return value if isinstance(value, str) else ""
 
 
 __all__ = [
@@ -135,6 +189,7 @@ __all__ = [
     "AstrBotBotSnapshot",
     "AstrBotEventProxy",
     "AstrBotEventSnapshot",
+    "SendResult",
     "bot_proxy_factory",
     "proxy_factory",
 ]

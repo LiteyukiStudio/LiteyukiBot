@@ -46,7 +46,8 @@ add another provider or expand the Runtime API catalog.
 
 ## Deferred Alpha10.x work
 
-Portable snapshot/result DTO convergence, provider conformance tooling,
-catalog fingerprints, API package CI coverage, and a third-party provider pilot
-remain later Alpha10 gates. They depend on the identity and failure policy
-defined here and are not part of Alpha10.0.
+Portable snapshot/result DTO convergence is specified in the
+[Alpha10.1 plan](v7-alpha-10-1-portable-facade.md). Provider conformance
+tooling, catalog fingerprints, API package CI coverage, and B7 author examples
+remain Alpha10.2 work. A third-party provider pilot and all Alpha11+ work stay
+outside these Alpha10 gates.

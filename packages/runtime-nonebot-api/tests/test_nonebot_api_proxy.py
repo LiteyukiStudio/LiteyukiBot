@@ -5,7 +5,7 @@ from collections.abc import Mapping
 import pytest
 from liteyukibot_runtime_nonebot_api import NoneBotBotProxy, NoneBotEventProxy
 
-from liteyukibot import AuthorizationContext, RuntimeBinding, RuntimeCallContext
+from liteyukibot import AuthorizationContext, RuntimeApiError, RuntimeBinding, RuntimeCallContext
 from liteyukibot.events import ConversationRef, EventEnvelope, JsonValue, Message, Segment
 
 
@@ -32,6 +32,7 @@ async def test_typed_nonebot_facades_map_portable_event_and_bot_operations() -> 
         ) -> JsonValue:
             if binding.api == "event" and operation == "snapshot":
                 return {
+                    "source_event_id": "v1:nonebot:onebot-v11:bot-1:event-1",
                     "runtime_id": "nonebot",
                     "adapter": "onebot-v11",
                     "bot_id": "bot-1",
@@ -66,6 +67,28 @@ async def test_typed_nonebot_facades_map_portable_event_and_bot_operations() -> 
     )
 
     assert snapshot.adapter == "onebot-v11"
-    assert sent == {"sent": True}
+    assert sent.sent is True
     assert bot_snapshot.bot_id == "bot-1"
-    assert proactive == {"sent": True}
+    assert proactive.sent is True
+
+
+@pytest.mark.asyncio
+async def test_nonebot_send_rejects_an_invalid_canonical_result() -> None:
+    class Backend:
+        async def invoke(
+            self,
+            _binding: RuntimeBinding,
+            _operation: str,
+            _arguments: Mapping[str, JsonValue],
+            _context: RuntimeCallContext,
+        ) -> JsonValue:
+            return {}
+
+    proxy = NoneBotEventProxy(
+        RuntimeBinding("nonebot", "event", "^1.2", False, "nonebot"),
+        Backend(),
+        _context(),
+    )
+
+    with pytest.raises(RuntimeApiError, match="RUNTIME_API_INVALID_RESULT"):
+        await proxy.send("hello")
