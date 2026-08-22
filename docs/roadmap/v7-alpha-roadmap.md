@@ -171,6 +171,23 @@ AstrBot and the additional provider pass Native/Cordis proxy, installation,
 disconnect, exact-owner, and framework-object containment tests; and the full
 repository gates pass from built artifacts.
 
+### Alpha 10: Runtime identity and ingress stability
+
+**Goal:** make the existing runtime facade providers reliable under custom
+bridge IDs and temporary broker failure before expanding the ecosystem.
+
+**Work:** implement the [Alpha 10 runtime stability plan]
+(v7-alpha-10-runtime-stability.md): pass configured bridge identity explicitly,
+define collision-safe source event IDs, and use bounded best-effort ingress in
+the NoneBot and AstrBot hosts. Keep portable DTO convergence, catalog
+fingerprints, and new providers for later Alpha10.x gates.
+
+**Exit criteria:** non-default bridge IDs pass provider and kernel identity
+checks; source IDs remain distinct across provider scopes; broker failure,
+conversion failure, queue overflow, and shutdown do not fail local provider
+pipelines; and the full repository gates pass from built artifacts and an
+authorized external workspace.
+
 ## Shared release gates
 
 Every Alpha must pass the complete repository pytest suite, Ruff, Mypy,

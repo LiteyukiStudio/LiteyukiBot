@@ -24,6 +24,11 @@ bridge publishes the Alpha9 v1.1 `event.snapshot`, `event.send`,
 `bot.snapshot`, and `bot.send` runtime APIs. Only portable JSON DTOs cross the
 Broker boundary; NoneBot and adapter objects remain local to this process.
 
+The configured bridge ID is passed into every normalized event. Source event
+IDs use the shared `v1:` composite of bridge ID, adapter/bot scope, and upstream
+event ID. Ingress forwarding is bounded and best-effort: temporary broker
+failures or queue overflow do not fail NoneBot's local event pipeline.
+
 The `stable` grade is package metadata on the bridge definition, not a promise
 that the broker wire protocol accepts framework-specific actions. NoneBot SDK
 objects and credentials remain in this package; the kernel never imports them.

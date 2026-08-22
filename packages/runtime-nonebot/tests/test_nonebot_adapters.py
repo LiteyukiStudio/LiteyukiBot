@@ -18,7 +18,7 @@ from liteyukibot_runtime_nonebot.contracts import (
 from liteyukibot_runtime_nonebot.host import NoneBotHost
 
 from liteyukibot.broker import MESSAGE_SEND_KIND, ActionRequest, MessageSendPayload, message_send_resource_key
-from liteyukibot.events import ConversationRef, Message, Segment
+from liteyukibot.events import ConversationRef, Message, Segment, canonical_source_event_id
 
 _ADAPTER_MODULES = (
     "nonebot.adapters.onebot.v11",
@@ -286,6 +286,26 @@ def test_onebot_v11_event_uses_group_fifo_key_and_original_segments() -> None:
         "type": "face",
         "data": {"id": "123"},
     }
+
+
+def test_nonebot_event_identity_uses_the_configured_bridge_id() -> None:
+    envelope = normalize_event(
+        FakeBot("42", "OneBot V11"),
+        _onebot_v11_group_event(),
+        runtime_id="nonebot-prod",
+    )
+
+    assert envelope.runtime_id == "nonebot-prod"
+    assert envelope.id == canonical_source_event_id("nonebot-prod", "onebot-v11:42", "7")
+
+
+def test_nonebot_event_identity_rejects_an_empty_explicit_bridge_id() -> None:
+    with pytest.raises(ValueError, match="non-empty trimmed"):
+        normalize_event(
+            FakeBot("42", "OneBot V11"),
+            _onebot_v11_group_event(),
+            runtime_id="",
+        )
 
 
 def test_onebot_v11_private_conversation_is_actor_not_composite_session() -> None:

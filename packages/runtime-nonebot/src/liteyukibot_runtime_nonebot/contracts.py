@@ -14,7 +14,15 @@ from uuid import uuid4
 
 from pydantic import BaseModel
 
-from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope, Message, Segment, SendMessage
+from liteyukibot.events import (
+    ActorRef,
+    ConversationRef,
+    EventEnvelope,
+    Message,
+    Segment,
+    SendMessage,
+    canonical_source_event_id,
+)
 
 _MESSAGE_MODULES = {
     "onebot-v11": "nonebot.adapters.onebot.v11",
@@ -38,13 +46,17 @@ def adapter_id(display_name: str) -> str:
     return aliases.get(normalized, normalized)
 
 
-def normalize_event(bot: Any, event: Any) -> EventEnvelope:
+def normalize_event(bot: Any, event: Any, *, runtime_id: str | None = None) -> EventEnvelope:
     adapter = adapter_id(str(bot.adapter.get_name()))
     bot_id = str(bot.self_id)
     native_message = _original_message(event)
     timestamp = _event_timestamp(event)
+    raw = _event_raw(event)
+    runtime_name = runtime_id if runtime_id is not None else os.environ.get("LITEYUKI_RUNTIME_ID", "nonebot")
+    upstream_id = _upstream_event_id(raw)
     values: dict[str, Any] = {
-        "runtime_id": os.environ.get("LITEYUKI_RUNTIME_ID", "nonebot"),
+        "id": canonical_source_event_id(runtime_name, f"{adapter}:{bot_id}", upstream_id),
+        "runtime_id": runtime_name,
         "adapter": adapter,
         "bot_id": bot_id,
         "type": _event_name(event),
@@ -52,7 +64,7 @@ def normalize_event(bot: Any, event: Any) -> EventEnvelope:
         "actor": _actor(adapter, bot_id, event),
         "message": _to_portable_message(adapter, native_message) if native_message is not None else None,
         "reply_token": str(uuid4()) if native_message is not None else None,
-        "raw": _event_raw(event),
+        "raw": raw,
     }
     if timestamp is not None:
         values["timestamp"] = timestamp
@@ -599,6 +611,14 @@ def _event_raw(event: Any) -> dict[str, Any]:
         return normalized if isinstance(normalized, dict) else {}
     except AttributeError, TypeError, ValueError:
         return {}
+
+
+def _upstream_event_id(raw: Mapping[str, Any]) -> str:
+    for key in ("message_id", "event_id", "id"):
+        value = raw.get(key)
+        if value is not None and str(value).strip():
+            return str(value).strip()
+    return str(uuid4())
 
 
 def _positive_integer_id(value: str) -> int:

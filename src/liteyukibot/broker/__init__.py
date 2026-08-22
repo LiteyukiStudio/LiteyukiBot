@@ -31,6 +31,7 @@ from .business import (
 )
 from .diagnostics import BrokerDiagnosticsClient, BrokerDiagnosticsError
 from .host import ActionOutcome, BrokerBridgeRunner, BrokerDelivery, ControlOutcome, RuntimeApiOutcome, ToolOutcome
+from .ingress import BoundedIngressPublisher, IngressPublisherStats
 from .kernel import KernelBridgeError, KernelBrokerPeer, configured_kernel_bridge
 from .lifecycle import BrokerLifecycleClient, BrokerLifecycleError
 from .peer import (
@@ -118,6 +119,8 @@ __all__ = [
     "ToolOutcome",
     "ControlOutcome",
     "RuntimeApiOutcome",
+    "BoundedIngressPublisher",
+    "IngressPublisherStats",
     "ActionResourceDeclaration",
     "AuthorizationContextWire",
     "ActionResult",
