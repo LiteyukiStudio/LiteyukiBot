@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from .authorization import AuthorizationContext
 from .events import EventEnvelope
 from .events.models import JsonValue
+from .runtime_api_models import BotSnapshot, EventSnapshot, SendResult
 
 RUNTIME_BINDINGS_ATTRIBUTE = "__liteyuki_runtime_bindings__"
 
@@ -292,6 +293,8 @@ def runtime_handler(
 
 
 __all__ = [
+    "BotSnapshot",
+    "EventSnapshot",
     "RuntimeApiBackend",
     "RuntimeApiError",
     "RuntimeApiProxy",
@@ -301,6 +304,7 @@ __all__ = [
     "RuntimeProxyFactory",
     "RuntimeRequirement",
     "RuntimeUnavailable",
+    "SendResult",
     "invoke_with_runtime",
     "create_runtime_proxy",
     "runtime",

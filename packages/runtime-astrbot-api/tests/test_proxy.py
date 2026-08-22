@@ -5,7 +5,7 @@ from collections.abc import Mapping
 import pytest
 from liteyukibot_runtime_astrbot_api import AstrBotBotProxy, AstrBotEventProxy
 
-from liteyukibot import AuthorizationContext, RuntimeBinding, RuntimeCallContext
+from liteyukibot import AuthorizationContext, RuntimeApiError, RuntimeBinding, RuntimeCallContext
 from liteyukibot.events import ConversationRef, EventEnvelope, JsonValue, Message, Segment
 
 
@@ -32,12 +32,20 @@ async def test_typed_event_proxy_maps_alpha9_operations() -> None:
         ) -> JsonValue:
             if binding.api == "event" and operation == "snapshot":
                 return {
-                    "platform_id": "onebot",
-                    "platform_name": "qq",
+                    "source_event_id": "v1:astrbot:onebot:bot-1:event-1",
+                    "runtime_id": "astrbot",
+                    "adapter": "aiocqhttp",
                     "bot_id": "bot-1",
-                    "session_id": "chat-1",
-                    "message": "hello",
-                    "message_type": "group",
+                    "event_type": "message.created",
+                    "conversation": {"id": "chat-1", "type": "group"},
+                    "extensions": {
+                        "astrbot": {
+                            "platform_id": "onebot",
+                            "platform_name": "qq",
+                            "session_id": "chat-1",
+                            "message_type": "group",
+                        }
+                    },
                 }
             if binding.api == "event":
                 assert arguments in (
@@ -49,9 +57,8 @@ async def test_typed_event_proxy_maps_alpha9_operations() -> None:
                 assert arguments == {}
                 return {
                     "bot_id": "bot-1",
-                    "platform_id": "qq",
-                    "platform_name": "aiocqhttp",
-                    "capabilities": (),
+                    "adapter": "aiocqhttp",
+                    "extensions": {"astrbot": {"platform_id": "qq", "platform_name": "aiocqhttp"}},
                 }
             assert arguments == {
                 "message": {"segments": [{"type": "text", "data": {"text": "proactive"}}]},
@@ -80,7 +87,29 @@ async def test_typed_event_proxy_maps_alpha9_operations() -> None:
     )
 
     assert snapshot.session_id == "chat-1"
-    assert sent == {"sent": True}
-    assert portable == {"sent": True}
+    assert sent.sent is True
+    assert portable.sent is True
     assert bot_snapshot.platform_name == "aiocqhttp"
-    assert proactive == {"sent": True}
+    assert proactive.sent is True
+
+
+@pytest.mark.asyncio
+async def test_astrbot_send_rejects_an_invalid_canonical_result() -> None:
+    class Backend:
+        async def invoke(
+            self,
+            _binding: RuntimeBinding,
+            _operation: str,
+            _arguments: Mapping[str, JsonValue],
+            _context: RuntimeCallContext,
+        ) -> JsonValue:
+            return {}
+
+    proxy = AstrBotEventProxy(
+        RuntimeBinding("astrbot", "event", "^1.2", False, "astrbot"),
+        Backend(),
+        _context(),
+    )
+
+    with pytest.raises(RuntimeApiError, match="RUNTIME_API_INVALID_RESULT"):
+        await proxy.send("hello")

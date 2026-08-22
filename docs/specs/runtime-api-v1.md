@@ -3,9 +3,10 @@
 ## Status
 
 Applies to the Alpha8a Broker protocol v7 and the Native/Cordis Extension API
-v2 hosts. Alpha9 adds a backward-compatible v1.1 portable facade catalog. This
-is a supported compatibility surface, not a promise to mirror every framework's
-complete public SDK.
+v2 hosts. Alpha9 introduced the v1.1 portable facade catalog; Alpha10.1
+converges its shared result contract as Runtime API v1.2. This is a supported
+compatibility surface, not a promise to mirror every framework's complete
+public SDK.
 
 ## Boundary
 
@@ -77,6 +78,28 @@ unavailable bots return `RUNTIME_EVENT_UNAVAILABLE` or
 `RUNTIME_BOT_UNAVAILABLE`; invalid portable values return
 `RUNTIME_API_INVALID_ARGUMENTS`; provider send failures return
 `RUNTIME_API_SEND_FAILED`.
+
+## Alpha10.1 canonical facade
+
+The v1.2 portable result contract is kernel-owned and shared by the NoneBot and
+AstrBot API packages:
+
+| DTO | Portable fields and defaults |
+| --- | --- |
+| `EventSnapshot` | `source_event_id`, `runtime_id`, `adapter`, `bot_id`, `event_type`, and `conversation` are required; `actor` and `message` are nullable; `extensions` defaults to `{}` |
+| `BotSnapshot` | `bot_id` and `adapter` are required; `capabilities` defaults to `[]`; `extensions` defaults to `{}` |
+| `SendResult` | `sent` is required; `result` defaults to `null`; `extensions` defaults to `{}` |
+
+Every DTO also has JSON-safe `extensions`. Provider-specific fields must be
+under a provider namespace such as `extensions.astrbot`; portable consumers
+must not depend on them. `EventSnapshot.message` is always the portable
+`Message` DTO. AstrBot consumers migrating from the Alpha9 text field should
+use `message_text` or `message.plain_text`.
+
+Both providers register the same v1.2 input/output schemas for the four
+portable operations. The provider API packages retain their old class names as
+aliases or compatibility subclasses, but the kernel DTOs define the wire
+contract.
 
 ## Compatibility and security
 

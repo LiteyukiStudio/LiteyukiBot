@@ -56,6 +56,8 @@ from .plugins import (
 )
 from .resource_packs import RESOURCE_CATALOG_SERVICE, ResourceCatalog, ResourcePackDeclaration
 from .runtime_api import (
+    BotSnapshot,
+    EventSnapshot,
     RuntimeApiBackend,
     RuntimeApiError,
     RuntimeApiProxy,
@@ -64,6 +66,7 @@ from .runtime_api import (
     RuntimeNamespaceProxy,
     RuntimeRequirement,
     RuntimeUnavailable,
+    SendResult,
     create_runtime_proxy,
     invoke_with_runtime,
     runtime,
@@ -136,6 +139,8 @@ __all__ = [
     "ResourceCatalog",
     "ResourcePackDeclaration",
     "RuntimeApiBackend",
+    "BotSnapshot",
+    "EventSnapshot",
     "RuntimeApiError",
     "RuntimeApiProxy",
     "RuntimeBinding",
@@ -143,6 +148,7 @@ __all__ = [
     "RuntimeNamespaceProxy",
     "RuntimeRequirement",
     "RuntimeUnavailable",
+    "SendResult",
     "create_runtime_proxy",
     "invoke_with_runtime",
     "runtime",

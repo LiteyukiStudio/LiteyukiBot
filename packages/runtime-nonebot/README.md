@@ -20,9 +20,10 @@ initialization is configured under `broker.bridges.<id>.options` with
 message editing are not part of this bridge contract.
 
 With the separately installed `liteyukibot-v7-runtime-nonebot-api` package, the
-bridge publishes the Alpha9 v1.1 `event.snapshot`, `event.send`,
-`bot.snapshot`, and `bot.send` runtime APIs. Only portable JSON DTOs cross the
-Broker boundary; NoneBot and adapter objects remain local to this process.
+bridge publishes the Alpha10.1 v1.2 `event.snapshot`, `event.send`,
+`bot.snapshot`, and `bot.send` runtime APIs. Only kernel-owned portable JSON
+DTOs cross the Broker boundary; NoneBot and adapter objects remain local to
+this process.
 
 The configured bridge ID is passed into every normalized event. Source event
 IDs use the shared `v1:` composite of bridge ID, adapter/bot scope, and upstream
