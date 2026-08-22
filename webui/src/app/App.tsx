@@ -22,6 +22,11 @@ function currentWorkspace(): Workspace {
   return isWorkspace(value) ? value : "overview";
 }
 
+/**
+ * Coordinates session bootstrap, live updates, navigation, and lazy workspace rendering.
+ * @returns The complete WebUI application surface or its loading/recovery state.
+ * @remarks A monotonically increasing reload sequence prevents stale parallel responses from replacing newer data.
+ */
 export function App() {
   const { applyPresentation, getLocale } = useLocaleActions();
   const api = useMemo(() => new WebUiApi(), []);

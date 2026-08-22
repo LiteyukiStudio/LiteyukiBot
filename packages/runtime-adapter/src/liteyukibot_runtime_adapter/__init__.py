@@ -8,7 +8,11 @@ from .host import launch
 
 
 def bridge_definition() -> BridgeDefinition:
-    """Describe the mixed-grade adapter bridge without importing drivers eagerly."""
+    """Describe the mixed-grade adapter bridge without importing drivers eagerly.
+
+    Returns:
+        The `BridgeDefinition` result produced by the operation.
+    """
 
     return BridgeDefinition(
         kind="adapter",

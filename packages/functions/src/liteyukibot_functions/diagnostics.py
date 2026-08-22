@@ -25,9 +25,19 @@ class Diagnostic:
 
     @property
     def is_error(self) -> bool:
+        """Return the diagnostic's is error.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
         return self.severity == "error"
 
     def as_dict(self) -> dict[str, object]:
+        """Implement the as dict operation for the diagnostic.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+        """
         span: dict[str, object] | None = None
         if self.span is not None:
             span = {
@@ -60,6 +70,11 @@ class ParseResult:
 
     @property
     def ok(self) -> bool:
+        """Return the parse result's ok.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
         return not any(item.is_error for item in self.diagnostics)
 
 

@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class PluginType(StrEnum):
+    """Enumerate the supported plugin type values."""
     APPLICATION = "application"
     SERVICE = "service"
     MODULE = "module"
@@ -18,6 +19,7 @@ class PluginType(StrEnum):
 
 
 class PluginMetadata(BaseModel):
+    """Represent the validated plugin metadata contract."""
     name: str
     description: str = ""
     usage: str = ""
@@ -28,6 +30,7 @@ class PluginMetadata(BaseModel):
 
 
 class Plugin(BaseModel):
+    """Represent the validated plugin contract."""
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     name: str
@@ -36,6 +39,11 @@ class Plugin(BaseModel):
     metadata: PluginMetadata
 
     def __hash__(self) -> int:
+        """Implement the hash operation for the plugin.
+
+        Returns:
+            The `int` result produced by the operation.
+        """
         return hash(self.module_name)
 
 

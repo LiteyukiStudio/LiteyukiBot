@@ -16,6 +16,11 @@ generation, lane, fixed type ID, stream ID, per-stream sequence, lease ID, and
 opaque payload. Send and receive reject generation or sequence mismatches; a
 full lane does not advance its sender sequence.
 
+Alpha11 limits opaque payloads to 8 MiB and encoded wire frames to 12 MiB.
+Constructors and encoders reject oversized outbound content; decoders and ZMQ
+sockets reject oversized inbound frames. Large binary objects belong in an
+explicit bounded blob transport rather than the JSON/base64 frame path.
+
 ZMQ uses separate ROUTER/DEALER sockets and high-water marks for the two lanes,
 so business saturation cannot consume control capacity. Router identity plus
 stream ID owns sequence state. A peer must use its broker-issued session-bound

@@ -18,7 +18,16 @@ class RuntimeFacetInstaller(Protocol):
         generation: Path,
         facets: Mapping[str, PluginFacet],
     ) -> dict[str, Any]:
-        """Create framework-owned payload files and return a JSON-safe load plan."""
+        """Create framework-owned payload files and return a JSON-safe load plan.
+
+        Args:
+            artifacts: The artifacts value used by the operation.
+            generation: Positive protocol or deployment generation.
+            facets: The facets value used by the operation.
+
+        Returns:
+            The `dict[str, Any]` result produced by the operation.
+        """
 
 
 __all__ = ["RuntimeFacetInstaller"]

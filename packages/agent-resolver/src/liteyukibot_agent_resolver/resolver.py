@@ -15,12 +15,38 @@ class ResolutionError(ValueError):
 
 
 def _identifier(value: str, *, field: str) -> str:
+    """Implement the identifier operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        field: The field value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_identifier`. It delegates to `strip` while keeping
+        intermediate state local to the owning operation.
+    """
     if not value or value != value.strip():
         raise ValueError(f"{field} must be a non-empty trimmed identifier")
     return value
 
 
 def _identifiers(values: Iterable[str], *, field: str) -> tuple[str, ...]:
+    """Implement the identifiers operation for the component.
+
+    Args:
+        values: The values value used by the operation.
+        field: The field value used by the operation.
+
+    Returns:
+        The `tuple[str, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_identifiers`. It delegates to `_identifier` while keeping
+        intermediate state local to the owning operation.
+    """
     normalized = tuple(_identifier(value, field=field) for value in values)
     if len(set(normalized)) != len(normalized):
         raise ValueError(f"{field} must not contain duplicates")
@@ -37,6 +63,11 @@ class AgentModule:
     provides_capabilities: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        """Validate and normalize the agent module after initialization.
+
+        Returns:
+            None.
+        """
         object.__setattr__(self, "id", _identifier(self.id, field="module id"))
         object.__setattr__(self, "requires", _identifiers(self.requires, field="module requirements"))
         object.__setattr__(self, "conflicts", _identifiers(self.conflicts, field="module conflicts"))
@@ -61,6 +92,11 @@ class AgentToolDescriptor:
     required_capabilities: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        """Validate and normalize the agent tool descriptor after initialization.
+
+        Returns:
+            None.
+        """
         object.__setattr__(self, "id", _identifier(self.id, field="tool id"))
         object.__setattr__(self, "module_id", _identifier(self.module_id, field="tool module id"))
         if not self.title.strip() or not self.description.strip():
@@ -74,7 +110,11 @@ class AgentToolDescriptor:
         )
 
     def declaration(self) -> ToolDeclaration:
-        """Return immutable Kernel Tool metadata without binding an executor."""
+        """Return immutable Kernel Tool metadata without binding an executor.
+
+        Returns:
+            The `ToolDeclaration` result produced by the operation.
+        """
 
         return ToolDeclaration(
             id=self.id,
@@ -102,11 +142,28 @@ class AgentToolTree:
     tools: tuple[AgentToolDescriptor, ...]
 
     def direct(self, limit: int) -> tuple[ToolTreeNode, ...]:
+        """Implement the direct operation for the agent tool tree.
+
+        Args:
+            limit: Maximum number of records to return.
+
+        Returns:
+            The `tuple[ToolTreeNode, ...]` result produced by the operation.
+        """
         if limit < 1:
             raise ValueError("direct tool limit must be at least 1")
         return self.roots[:limit]
 
     def search(self, query: str, limit: int) -> tuple[AgentToolDescriptor, ...]:
+        """Implement the search operation for the agent tool tree.
+
+        Args:
+            query: The query value used by the operation.
+            limit: Maximum number of records to return.
+
+        Returns:
+            The `tuple[AgentToolDescriptor, ...]` result produced by the operation.
+        """
         if limit < 1:
             raise ValueError("search result limit must be at least 1")
         normalized = query.strip().casefold()
@@ -139,6 +196,15 @@ class Resolver:
         modules: Iterable[AgentModule],
         tools: Iterable[AgentToolDescriptor] = (),
     ) -> None:
+        """Initialize the resolver.
+
+        Args:
+            modules: The modules value used by the operation.
+            tools: The tools value used by the operation.
+
+        Returns:
+            None.
+        """
         module_items = tuple(modules)
         self._modules = {module.id: module for module in module_items}
         if not self._modules:
@@ -159,6 +225,15 @@ class Resolver:
         *,
         granted_capabilities: Iterable[str] = (),
     ) -> Resolution:
+        """Resolve the resolver operation.
+
+        Args:
+            requested: The requested value used by the operation.
+            granted_capabilities: The granted capabilities value used by the operation.
+
+        Returns:
+            The requested `Resolution` value.
+        """
         requested_ids = _identifiers(requested, field="requested modules")
         if not requested_ids:
             raise ValueError("at least one agent module must be requested")
@@ -168,6 +243,18 @@ class Resolver:
         selected: set[str] = set()
 
         def visit(module_id: str) -> None:
+            """Implement the visit operation for the resolve.
+
+            Args:
+                module_id: Stable identifier for the module.
+
+            Returns:
+                None.
+
+            Notes:
+                Internal implementation detail for `Resolver.resolve.visit`. It delegates to `get`, `add`,
+                `visit`, `remove` while keeping intermediate state local to the owning operation.
+            """
             if module_id in selected:
                 return
             if module_id in visiting:
@@ -219,6 +306,18 @@ ToolCatalog = Resolver
 
 
 def _tool_tree(tools: tuple[AgentToolDescriptor, ...]) -> AgentToolTree:
+    """Implement the tool tree operation for the component.
+
+    Args:
+        tools: The tools value used by the operation.
+
+    Returns:
+        The `AgentToolTree` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_tool_tree`. It delegates to `split`, `enumerate`, `append`,
+        `join` while keeping intermediate state local to the owning operation.
+    """
     nodes: dict[str, dict[str, object]] = {}
     roots: dict[str, dict[str, object]] = {}
     for tool in tools:
@@ -235,6 +334,19 @@ def _tool_tree(tools: tuple[AgentToolDescriptor, ...]) -> AgentToolTree:
             parent = node["children"]  # type: ignore[assignment]
 
     def freeze(branch: Mapping[str, dict[str, object]], prefix: str = "") -> tuple[ToolTreeNode, ...]:
+        """Freeze the tool tree operation.
+
+        Args:
+            branch: The branch value used by the operation.
+            prefix: The prefix value used by the operation.
+
+        Returns:
+            The `tuple[ToolTreeNode, ...]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_tool_tree.freeze`. It delegates to `freeze`, `sorted`,
+            `items` while keeping intermediate state local to the owning operation.
+        """
         return tuple(
             ToolTreeNode(
                 id=f"{prefix}.{name}" if prefix else name,

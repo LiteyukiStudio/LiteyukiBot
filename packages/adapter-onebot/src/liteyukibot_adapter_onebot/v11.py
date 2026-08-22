@@ -46,6 +46,14 @@ class OneBotV11Connection(AdapterConnection):
     """Own one OneBot v11 HTTP callback listener and API endpoint."""
 
     def __init__(self, context: AdapterContext) -> None:
+        """Initialize the one bot v11 connection.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+
+        Returns:
+            None.
+        """
         self.context = context
         self._event_host = _config_string(context.config, "event_host", "127.0.0.1")
         self._event_port = _config_port(context.config, "event_port", 5700)
@@ -64,6 +72,14 @@ class OneBotV11Connection(AdapterConnection):
         self._failure: BaseException | None = None
 
     async def start(self, emit: EventEmitter) -> None:
+        """Start the one bot v11 connection.
+
+        Args:
+            emit: The emit value used by the operation.
+
+        Returns:
+            None.
+        """
         if self._server is not None or self._websocket is not None:
             raise RuntimeError("OneBot v11 connection is already started")
         self._failure_event.clear()
@@ -86,9 +102,22 @@ class OneBotV11Connection(AdapterConnection):
         self._server = await asyncio.start_server(self._handle_request, self._event_host, self._event_port)
 
     async def send_message(self, payload: MessageSendPayload) -> JsonValue:
+        """Send message.
+
+        Args:
+            payload: JSON-safe payload carried by the operation.
+
+        Returns:
+            The `JsonValue` result produced by the operation.
+        """
         return await self._send_message(payload)
 
     async def close(self) -> None:
+        """Close the one bot v11 connection and release its owned resources.
+
+        Returns:
+            None.
+        """
         websocket, self._websocket = self._websocket, None
         if websocket is not None:
             await websocket.close()
@@ -100,17 +129,47 @@ class OneBotV11Connection(AdapterConnection):
         self._reply_routes.clear()
 
     async def wait_failure(self) -> None:
+        """Wait for failure.
+
+        Returns:
+            None.
+        """
         await self._failure_event.wait()
         if self._failure is not None:
             raise self._failure
         raise RuntimeError("OneBot v11 connection failed without a diagnostic")
 
     async def _transport_failed(self, error: BaseException) -> None:
+        """Implement the transport failed operation for the one bot v11 connection.
+
+        Args:
+            error: The error value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `OneBotV11Connection._transport_failed`. It delegates to
+            `is_set` while keeping intermediate state local to the owning operation.
+        """
         if not self._failure_event.is_set():
             self._failure = error
             self._failure_event.set()
 
     async def _handle_websocket_event(self, payload: Mapping[str, Any]) -> None:
+        """Handle websocket event.
+
+        Args:
+            payload: JSON-safe payload carried by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `OneBotV11Connection._handle_websocket_event`. It delegates
+            to `_validate_self_id`, `_normalize_event`, `_remember_reply_route`, `_emit` while keeping
+            intermediate state local to the owning operation.
+        """
         _validate_self_id(payload, {}, self.context.bot_id)
         event = _normalize_event(self.context, payload)
         if event is not None:
@@ -120,6 +179,20 @@ class OneBotV11Connection(AdapterConnection):
             await self._emit(event)
 
     async def _handle_request(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        """Handle request.
+
+        Args:
+            reader: The reader value used by the operation.
+            writer: The writer value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `OneBotV11Connection._handle_request`. It delegates to
+            `locked`, `_write_response`, `timeout`, `_read_http_request` while keeping intermediate state
+            local to the owning operation.
+        """
         try:
             if self._request_slots.locked():
                 await _write_response(writer, 503, b"")
@@ -157,6 +230,18 @@ class OneBotV11Connection(AdapterConnection):
             await writer.wait_closed()
 
     def _remember_reply_route(self, event: EventEnvelope) -> None:
+        """Implement the remember reply route operation for the one bot v11 connection.
+
+        Args:
+            event: Event associated with the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `OneBotV11Connection._remember_reply_route`. It delegates to
+            `move_to_end`, `popitem` while keeping intermediate state local to the owning operation.
+        """
         if event.reply_token is None:
             return
         self._reply_routes[event.reply_token] = event.conversation
@@ -165,6 +250,19 @@ class OneBotV11Connection(AdapterConnection):
             self._reply_routes.popitem(last=False)
 
     async def _send_message(self, payload: MessageSendPayload) -> JsonValue:
+        """Send message.
+
+        Args:
+            payload: JSON-safe payload carried by the operation.
+
+        Returns:
+            The `JsonValue` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `OneBotV11Connection._send_message`. It delegates to
+            `_to_onebot_message`, `_positive_integer_id`, `_call_api` while keeping intermediate state local
+            to the owning operation.
+        """
         conversation = payload.conversation
         if conversation is None:
             if payload.reply_token is None:
@@ -182,6 +280,19 @@ class OneBotV11Connection(AdapterConnection):
         raise OneBotV11Error(f"OneBot v11 does not support {conversation.type!r} conversations")
 
     async def _call_api(self, api: str, params: Mapping[str, Any]) -> JsonValue:
+        """Implement the call api operation for the one bot v11 connection.
+
+        Args:
+            api: The api value used by the operation.
+            params: The params value used by the operation.
+
+        Returns:
+            The `JsonValue` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `OneBotV11Connection._call_api`. It delegates to `fullmatch`,
+            `_post_json`, `execute`, `get` while keeping intermediate state local to the owning operation.
+        """
         if not _API_NAME.fullmatch(api):
             raise OneBotV11Error("OneBot API names must contain only ASCII letters, digits, and underscores")
         if self._websocket is None:
@@ -197,12 +308,31 @@ class OneBotV11Connection(AdapterConnection):
 
 
 async def create_v11(context: AdapterContext) -> AdapterConnection:
-    """Create a OneBot v11 adapter instance selected by the host."""
+    """Create a OneBot v11 adapter instance selected by the host.
+
+    Args:
+        context: Runtime or authorization context for the operation.
+
+    Returns:
+        The `AdapterConnection` result produced by the operation.
+    """
 
     return OneBotV11Connection(context)
 
 
 async def _read_http_request(reader: asyncio.StreamReader) -> tuple[str, str, dict[str, str], bytes]:
+    """Read http request.
+
+    Args:
+        reader: The reader value used by the operation.
+
+    Returns:
+        The `tuple[str, str, dict[str, str], bytes]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_read_http_request`. It delegates to `_read_limited_line`,
+        `split`, `rstrip`, `decode` while keeping intermediate state local to the owning operation.
+    """
     request_line = await _read_limited_line(reader)
     method, target, version = request_line.decode("ascii").rstrip("\r\n").split(" ", maxsplit=2)
     if version != "HTTP/1.1" or not method.isalpha() or not target.startswith("/"):
@@ -233,6 +363,18 @@ async def _read_http_request(reader: asyncio.StreamReader) -> tuple[str, str, di
 
 
 async def _read_limited_line(reader: asyncio.StreamReader) -> bytes:
+    """Read limited line.
+
+    Args:
+        reader: The reader value used by the operation.
+
+    Returns:
+        The `bytes` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_read_limited_line`. It delegates to `readline`, `endswith`
+        while keeping intermediate state local to the owning operation.
+    """
     line = await reader.readline()
     if not line or not line.endswith(b"\r\n") or len(line) > _MAX_HEADER_BYTES:
         raise OneBotV11Error("invalid HTTP line")
@@ -240,6 +382,20 @@ async def _read_limited_line(reader: asyncio.StreamReader) -> bytes:
 
 
 async def _write_response(writer: asyncio.StreamWriter, status: int, body: bytes) -> None:
+    """Write response.
+
+    Args:
+        writer: The writer value used by the operation.
+        status: The status value used by the operation.
+        body: The body value used by the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_write_response`. It delegates to `write`, `encode`, `drain`
+        while keeping intermediate state local to the owning operation.
+    """
     reason = {
         204: "No Content",
         400: "Bad Request",
@@ -255,6 +411,20 @@ async def _write_response(writer: asyncio.StreamWriter, status: int, body: bytes
 
 
 def _normalize_event(context: AdapterContext, payload: Mapping[str, Any]) -> EventEnvelope | None:
+    """Normalize event.
+
+    Args:
+        context: Runtime or authorization context for the operation.
+        payload: JSON-safe payload carried by the operation.
+
+    Returns:
+        The `EventEnvelope | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_normalize_event`. It delegates to `get`,
+        `_required_string`, `_required_identifier`, `_optional_string` while keeping intermediate state
+        local to the owning operation.
+    """
     if payload.get("post_type") != "message":
         return None
     message_type = _required_string(payload, "message_type")
@@ -286,6 +456,18 @@ def _normalize_event(context: AdapterContext, payload: Mapping[str, Any]) -> Eve
 
 
 def _to_portable_message(value: Any) -> Message:
+    """Implement the to portable message operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `Message` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_to_portable_message`. It delegates to `_required_string`,
+        `get`, `json_value`, `append` while keeping intermediate state local to the owning operation.
+    """
     if isinstance(value, str):
         return Message(segments=(Segment(type="text", data={"text": value}),))
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes, bytearray)):
@@ -306,6 +488,19 @@ def _to_portable_message(value: Any) -> Message:
 
 
 def _to_portable_segment(native_type: str, data: dict[str, Any]) -> Segment:
+    """Implement the to portable segment operation for the component.
+
+    Args:
+        native_type: The native type value used by the operation.
+        data: The data value used by the operation.
+
+    Returns:
+        The `Segment` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_to_portable_segment`. It delegates to `get`, `pop` while
+        keeping intermediate state local to the owning operation.
+    """
     if native_type == "text":
         text = data.get("text")
         if not isinstance(text, str):
@@ -338,10 +533,34 @@ def _to_portable_segment(native_type: str, data: dict[str, Any]) -> Segment:
 
 
 def _to_onebot_message(message: Message) -> list[dict[str, Any]]:
+    """Implement the to onebot message operation for the component.
+
+    Args:
+        message: Message content associated with the operation.
+
+    Returns:
+        The `list[dict[str, Any]]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_to_onebot_message`. It delegates to `_to_onebot_segment`
+        while keeping intermediate state local to the owning operation.
+    """
     return [_to_onebot_segment(segment) for segment in message.segments]
 
 
 def _to_onebot_segment(segment: Segment) -> dict[str, Any]:
+    """Implement the to onebot segment operation for the component.
+
+    Args:
+        segment: The segment value used by the operation.
+
+    Returns:
+        The `dict[str, Any]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_to_onebot_segment`. It delegates to `model_dump`, `pop`,
+        `get`, `json_value` while keeping intermediate state local to the owning operation.
+    """
     data = dict(segment.model_dump(mode="json")["data"])
     if segment.type == "text":
         return {"type": "text", "data": {"text": data["text"]}}
@@ -389,6 +608,21 @@ def _to_onebot_segment(segment: Segment) -> dict[str, Any]:
 async def _post_json(
     api_root: str, api: str, params: Mapping[str, Any], access_token: str | None
 ) -> dict[str, Any]:
+    """Implement the post json operation for the component.
+
+    Args:
+        api_root: The api root value used by the operation.
+        api: The api value used by the operation.
+        params: The params value used by the operation.
+        access_token: The access token value used by the operation.
+
+    Returns:
+        The `dict[str, Any]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_post_json`. It delegates to `urlsplit`, `encode`, `dumps`,
+        `json_value` while keeping intermediate state local to the owning operation.
+    """
     url = urlsplit(f"{api_root}/{api}")
     if url.scheme not in {"http", "https"} or not url.hostname or url.username or url.password:
         raise OneBotV11Error("OneBot api_root must be an absolute HTTP(S) URL without credentials")
@@ -435,6 +669,19 @@ async def _post_json(
 
 
 async def _read_response_headers(reader: asyncio.StreamReader) -> dict[str, str]:
+    """Read response headers.
+
+    Args:
+        reader: The reader value used by the operation.
+
+    Returns:
+        The `dict[str, str]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_read_response_headers`. It delegates to
+        `_read_limited_line`, `partition`, `rstrip`, `decode` while keeping intermediate state local to
+        the owning operation.
+    """
     headers: dict[str, str] = {}
     header_bytes = 0
     while True:
@@ -452,6 +699,19 @@ async def _read_response_headers(reader: asyncio.StreamReader) -> dict[str, str]
 
 
 def _json_object(raw: bytes, subject: str) -> dict[str, Any]:
+    """Implement the json object operation for the component.
+
+    Args:
+        raw: The raw value used by the operation.
+        subject: The subject value used by the operation.
+
+    Returns:
+        The `dict[str, Any]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_json_object`. It delegates to `loads`, `json_value` while
+        keeping intermediate state local to the owning operation.
+    """
     value = json.loads(raw)
     if not isinstance(value, MutableMapping):
         raise OneBotV11Error(f"{subject} must be a JSON object")
@@ -462,6 +722,19 @@ def _json_object(raw: bytes, subject: str) -> dict[str, Any]:
 
 
 def _authorized(headers: Mapping[str, str], token: str | None) -> bool:
+    """Implement the authorized operation for the component.
+
+    Args:
+        headers: The headers value used by the operation.
+        token: Authentication token presented at the boundary.
+
+    Returns:
+        Whether the requested condition is satisfied.
+
+    Notes:
+        Internal implementation detail for `_authorized`. It delegates to `get`, `startswith`,
+        `compare_digest` while keeping intermediate state local to the owning operation.
+    """
     if token is None:
         return True
     value = headers.get("authorization")
@@ -471,16 +744,55 @@ def _authorized(headers: Mapping[str, str], token: str | None) -> bool:
 
 
 def _is_json_content_type(value: str | None) -> bool:
+    """Implement the is json content type operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        Whether the requested condition is satisfied.
+
+    Notes:
+        Internal implementation detail for `_is_json_content_type`. It delegates to `lower`, `strip`,
+        `split` while keeping intermediate state local to the owning operation.
+    """
     return value is not None and value.split(";", maxsplit=1)[0].strip().lower() == "application/json"
 
 
 def _validate_self_id(payload: Mapping[str, Any], headers: Mapping[str, str], bot_id: str) -> None:
+    """Validate self id.
+
+    Args:
+        payload: JSON-safe payload carried by the operation.
+        headers: The headers value used by the operation.
+        bot_id: Stable identifier for the bot.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_validate_self_id`. It delegates to `get`, `any` while
+        keeping intermediate state local to the owning operation.
+    """
     values = [str(value) for value in (payload.get("self_id"), headers.get("x-self-id")) if value is not None]
     if not values or any(value != bot_id for value in values):
         raise OneBotV11Error("OneBot event self ID does not match the configured bot_id")
 
 
 def _required_identifier(payload: Mapping[str, Any], key: str) -> str:
+    """Implement the required identifier operation for the component.
+
+    Args:
+        payload: JSON-safe payload carried by the operation.
+        key: Stable FIFO ordering key for the queued work.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_required_identifier`. It delegates to `get` while keeping
+        intermediate state local to the owning operation.
+    """
     value = payload.get(key)
     if isinstance(value, bool) or value is None:
         raise OneBotV11Error(f"OneBot event requires {key}")
@@ -491,6 +803,19 @@ def _required_identifier(payload: Mapping[str, Any], key: str) -> str:
 
 
 def _required_string(payload: Mapping[str, Any], key: str) -> str:
+    """Implement the required string operation for the component.
+
+    Args:
+        payload: JSON-safe payload carried by the operation.
+        key: Stable FIFO ordering key for the queued work.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_required_string`. It delegates to `get` while keeping
+        intermediate state local to the owning operation.
+    """
     value = payload.get(key)
     if not isinstance(value, str) or not value:
         raise OneBotV11Error(f"OneBot event requires string {key}")
@@ -498,17 +823,56 @@ def _required_string(payload: Mapping[str, Any], key: str) -> str:
 
 
 def _optional_string(payload: Mapping[str, Any], key: str) -> str | None:
+    """Implement the optional string operation for the component.
+
+    Args:
+        payload: JSON-safe payload carried by the operation.
+        key: Stable FIFO ordering key for the queued work.
+
+    Returns:
+        The `str | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_optional_string`. It delegates to `get` while keeping
+        intermediate state local to the owning operation.
+    """
     value = payload.get(key)
     return value if isinstance(value, str) and value else None
 
 
 def _positive_integer_id(value: str) -> int:
+    """Implement the positive integer id operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_positive_integer_id`. It delegates to `isdecimal`, `int`
+        while keeping intermediate state local to the owning operation.
+    """
     if not value.isdecimal() or (parsed := int(value)) <= 0:
         raise OneBotV11Error("OneBot v11 conversation IDs must be positive integers")
     return parsed
 
 
 def _config_string(config: Mapping[str, JsonValue], key: str, default: str) -> str:
+    """Implement the config string operation for the component.
+
+    Args:
+        config: Validated configuration used by the operation.
+        key: Stable FIFO ordering key for the queued work.
+        default: The default value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_config_string`. It delegates to `get`, `strip` while
+        keeping intermediate state local to the owning operation.
+    """
     value = config.get(key, default)
     if not isinstance(value, str) or not value or value != value.strip():
         raise OneBotV11Error(f"adapter config {key!r} must be a non-empty trimmed string")
@@ -516,6 +880,19 @@ def _config_string(config: Mapping[str, JsonValue], key: str, default: str) -> s
 
 
 def _config_optional_string(config: Mapping[str, JsonValue], key: str) -> str | None:
+    """Implement the config optional string operation for the component.
+
+    Args:
+        config: Validated configuration used by the operation.
+        key: Stable FIFO ordering key for the queued work.
+
+    Returns:
+        The `str | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_config_optional_string`. It delegates to `get`, `strip`,
+        `isascii`, `any` while keeping intermediate state local to the owning operation.
+    """
     value = config.get(key)
     if value is None:
         return None
@@ -527,6 +904,20 @@ def _config_optional_string(config: Mapping[str, JsonValue], key: str) -> str | 
 
 
 def _config_port(config: Mapping[str, JsonValue], key: str, default: int) -> int:
+    """Implement the config port operation for the component.
+
+    Args:
+        config: Validated configuration used by the operation.
+        key: Stable FIFO ordering key for the queued work.
+        default: The default value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_config_port`. It delegates to `get` while keeping
+        intermediate state local to the owning operation.
+    """
     value = config.get(key, default)
     if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 65535:
         raise OneBotV11Error(f"adapter config {key!r} must be an integer from 1 to 65535")
@@ -534,6 +925,20 @@ def _config_port(config: Mapping[str, JsonValue], key: str, default: int) -> int
 
 
 def _config_path(config: Mapping[str, JsonValue], key: str, default: str) -> str:
+    """Implement the config path operation for the component.
+
+    Args:
+        config: Validated configuration used by the operation.
+        key: Stable FIFO ordering key for the queued work.
+        default: The default value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_config_path`. It delegates to `_config_string`,
+        `startswith` while keeping intermediate state local to the owning operation.
+    """
     value = _config_string(config, key, default)
     if not value.startswith("/") or "?" in value or "#" in value:
         raise OneBotV11Error(f"adapter config {key!r} must be an absolute path without query or fragment")
@@ -541,6 +946,18 @@ def _config_path(config: Mapping[str, JsonValue], key: str, default: str) -> str
 
 
 def _config_transport(config: Mapping[str, JsonValue]) -> str:
+    """Implement the config transport operation for the component.
+
+    Args:
+        config: Validated configuration used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_config_transport`. It delegates to `get` while keeping
+        intermediate state local to the owning operation.
+    """
     value = config.get("transport", "http_post")
     if value not in {"http_post", "forward_websocket", "reverse_websocket"}:
         raise OneBotV11Error("adapter config 'transport' must be http_post, forward_websocket, or reverse_websocket")
@@ -549,6 +966,19 @@ def _config_transport(config: Mapping[str, JsonValue]) -> str:
 
 
 def _config_optional_url(config: Mapping[str, JsonValue], key: str) -> str | None:
+    """Implement the config optional url operation for the component.
+
+    Args:
+        config: Validated configuration used by the operation.
+        key: Stable FIFO ordering key for the queued work.
+
+    Returns:
+        The `str | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_config_optional_url`. It delegates to `get`, `startswith`,
+        `any`, `isspace` while keeping intermediate state local to the owning operation.
+    """
     value = config.get(key)
     if value is None:
         return None
@@ -562,6 +992,19 @@ def _config_optional_url(config: Mapping[str, JsonValue], key: str) -> str | Non
 
 
 def _config_optional_host(config: Mapping[str, JsonValue], key: str) -> str | None:
+    """Implement the config optional host operation for the component.
+
+    Args:
+        config: Validated configuration used by the operation.
+        key: Stable FIFO ordering key for the queued work.
+
+    Returns:
+        The `str | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_config_optional_host`. It delegates to `get`,
+        `_config_string` while keeping intermediate state local to the owning operation.
+    """
     value = config.get(key)
     if value is None:
         return None
@@ -569,6 +1012,19 @@ def _config_optional_host(config: Mapping[str, JsonValue], key: str) -> str | No
 
 
 def _config_optional_port(config: Mapping[str, JsonValue], key: str) -> int | None:
+    """Implement the config optional port operation for the component.
+
+    Args:
+        config: Validated configuration used by the operation.
+        key: Stable FIFO ordering key for the queued work.
+
+    Returns:
+        The `int | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_config_optional_port`. It delegates to `get`,
+        `_config_port` while keeping intermediate state local to the owning operation.
+    """
     value = config.get(key)
     if value is None:
         return None
@@ -576,6 +1032,18 @@ def _config_optional_port(config: Mapping[str, JsonValue], key: str) -> int | No
 
 
 def _config_api_root(config: Mapping[str, JsonValue]) -> str:
+    """Implement the config api root operation for the component.
+
+    Args:
+        config: Validated configuration used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_config_api_root`. It delegates to `_config_string`,
+        `isascii`, `any`, `isspace` while keeping intermediate state local to the owning operation.
+    """
     value = _config_string(config, "api_root", "http://127.0.0.1:5701")
     if not value.isascii() or any(character.isspace() for character in value):
         raise OneBotV11Error("adapter config 'api_root' must contain only non-whitespace ASCII characters")
@@ -599,6 +1067,18 @@ def _config_api_root(config: Mapping[str, JsonValue]) -> str:
 
 
 def _is_loopback_host(host: str) -> bool:
+    """Implement the is loopback host operation for the component.
+
+    Args:
+        host: The host value used by the operation.
+
+    Returns:
+        Whether the requested condition is satisfied.
+
+    Notes:
+        Internal implementation detail for `_is_loopback_host`. It delegates to `lower`, `ip_address`
+        while keeping intermediate state local to the owning operation.
+    """
     if host.lower() == "localhost":
         return True
     try:

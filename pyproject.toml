@@ -44,7 +44,10 @@ ly = "liteyukibot.cli:main"
 [dependency-groups]
 dev = [
     "mypy>=1.18,<2",
+    "pip-audit>=2.9,<3",
+    "psutil>=7,<8",
     "types-PyYAML>=6.0.12,<7",
+    "types-psutil>=7,<8",
     "pytest>=9,<10",
     "pytest-asyncio>=1.2,<2",
     "ruff>=0.14,<1",

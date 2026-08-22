@@ -31,6 +31,11 @@ from liteyukibot.profiles import ProfileError, ProfileManifest, ProfileStore
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build parser.
+
+    Returns:
+        The `argparse.ArgumentParser` result produced by the operation.
+    """
     parser = argparse.ArgumentParser(prog="liteyuki-dev")
     parser.add_argument("--workspace", default=".", metavar="PATH")
     parser.add_argument("--instance", default="default", metavar="NAME")
@@ -62,6 +67,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """Run the command-line entry point.
+
+    Args:
+        argv: The argv value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+    """
     args = build_parser().parse_args(list(sys.argv[1:] if argv is None else argv))
     try:
         workspace = Path(args.workspace).resolve()
@@ -99,6 +112,18 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _print_verified(verified: VerifiedBundle) -> None:
+    """Implement the print verified operation for the component.
+
+    Args:
+        verified: The verified value used by the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_print_verified`. It delegates to `print`, `dumps`,
+        `requirements_from_lock` while keeping intermediate state local to the owning operation.
+    """
     print(
         json.dumps(
             {
@@ -115,6 +140,19 @@ def _print_verified(verified: VerifiedBundle) -> None:
 
 
 def _write_requirements(path: Path, requirements: Sequence[str]) -> None:
+    """Write requirements.
+
+    Args:
+        path: Filesystem or logical resource path.
+        requirements: The requirements value used by the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_write_requirements`. It delegates to `write_text`, `join`
+        while keeping intermediate state local to the owning operation.
+    """
     path.write_text("".join(f"{requirement}\n" for requirement in requirements), encoding="utf-8")
 
 
@@ -126,7 +164,18 @@ def stage_bundle(
     uv_command: str,
     signature_verifier: SignatureVerifier | None = None,
 ) -> str:
-    """Verify and install a bundle using only files from its own directory."""
+    """Verify and install a bundle using only files from its own directory.
+
+    Args:
+        workspace: The workspace value used by the operation.
+        bundle: The bundle value used by the operation.
+        python_version: The python version value used by the operation.
+        uv_command: The uv command value used by the operation.
+        signature_verifier: The signature verifier value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+    """
 
     verified = verify_bundle(bundle, signature_verifier=signature_verifier)
     requirements = requirements_from_lock(verified)
@@ -188,10 +237,36 @@ def stage_bundle(
 
 
 def _run(command: Sequence[str], *, cwd: Path, env: dict[str, str]) -> None:
+    """Run the component operation.
+
+    Args:
+        command: Command or operation name to execute.
+        cwd: The cwd value used by the operation.
+        env: The env value used by the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_run`. It delegates to `run` while keeping intermediate
+        state local to the owning operation.
+    """
     subprocess.run(list(command), cwd=cwd, env=env, check=True)
 
 
 def _lock_digest(verified: VerifiedBundle) -> str:
+    """Implement the lock digest operation for the component.
+
+    Args:
+        verified: The verified value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_lock_digest`. It delegates to `get` while keeping
+        intermediate state local to the owning operation.
+    """
     reference = verified.manifest.get("dependency_lock")
     if not isinstance(reference, dict) or not isinstance(reference.get("sha256"), str):
         raise BundleError("verified bundle has no dependency lock digest")
@@ -201,6 +276,20 @@ def _lock_digest(verified: VerifiedBundle) -> str:
 
 
 def _installed_report(python: Path, *, cwd: Path, env: dict[str, str]) -> dict[str, Any]:
+    """Implement the installed report operation for the component.
+
+    Args:
+        python: The python value used by the operation.
+        cwd: The cwd value used by the operation.
+        env: The env value used by the operation.
+
+    Returns:
+        The `dict[str, Any]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_installed_report`. It delegates to `run`, `loads` while
+        keeping intermediate state local to the owning operation.
+    """
     source = (
         "import importlib.metadata as m, json, sys; "
         "items = {d.metadata['Name'].lower(): d.version for d in m.distributions() if d.metadata.get('Name')}; "
@@ -223,6 +312,18 @@ def _installed_report(python: Path, *, cwd: Path, env: dict[str, str]) -> dict[s
 
 
 def _config_version(workspace: Path) -> int:
+    """Implement the config version operation for the component.
+
+    Args:
+        workspace: The workspace value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_config_version`. It delegates to `is_file`, `loads`,
+        `read_text`, `get` while keeping intermediate state local to the owning operation.
+    """
     path = ConfigWorkspace(workspace).path
     if not path.is_file():
         return CONFIG_VERSION
@@ -234,6 +335,22 @@ def _config_version(workspace: Path) -> int:
 
 
 def _request_daemon(workspace: Path, instance: str, operation: str, payload: dict[str, object]) -> int:
+    """Request daemon.
+
+    Args:
+        workspace: The workspace value used by the operation.
+        instance: The instance value used by the operation.
+        operation: The operation value used by the operation.
+        payload: JSON-safe payload carried by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_request_daemon`. It delegates to `_config_version`,
+        `from_workspace`, `is_file`, `get` while keeping intermediate state local to the owning
+        operation.
+    """
     from liteyukibot.control import ControlError, request_control
     from liteyukibot.instances import InstancePaths
 
@@ -257,6 +374,19 @@ def _request_daemon(workspace: Path, instance: str, operation: str, payload: dic
 
 
 def _status(workspace: Path, instance: str) -> int:
+    """Return the status of the component operation.
+
+    Args:
+        workspace: The workspace value used by the operation.
+        instance: The instance value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_status`. It delegates to `active`, `document`,
+        `from_workspace`, `is_file` while keeping intermediate state local to the owning operation.
+    """
     store = ProfileStore(workspace)
     payload: dict[str, object] = {
         "active": store.active(),
@@ -277,6 +407,19 @@ def _status(workspace: Path, instance: str) -> int:
 
 
 def _diagnose(paths: Sequence[Path], json_output: bool) -> int:
+    """Implement the diagnose operation for the component.
+
+    Args:
+        paths: The paths value used by the operation.
+        json_output: The json output value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_diagnose`. It delegates to `read`, `read_text`, `parse`,
+        `extend` while keeping intermediate state local to the owning operation.
+    """
     from liteyukibot_functions import parse
 
     selected = tuple(paths) or (Path("-"),)

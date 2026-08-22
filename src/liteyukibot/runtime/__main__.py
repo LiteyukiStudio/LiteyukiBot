@@ -17,6 +17,14 @@ from .protocol import (
 
 
 async def run_noop(kind: str) -> None:
+    """Run noop.
+
+    Args:
+        kind: The kind value used by the operation.
+
+    Returns:
+        None.
+    """
     client = RuntimeClient.from_environment(kind)
     try:
         await client.connect()
@@ -53,6 +61,11 @@ async def run_noop(kind: str) -> None:
 
 
 def main() -> None:
+    """Run the command-line entry point.
+
+    Returns:
+        None.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--kind", required=True)
     args = parser.parse_args()

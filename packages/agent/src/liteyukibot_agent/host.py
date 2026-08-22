@@ -98,7 +98,18 @@ _MODEL_TOOL_RESULT_LIMIT = 8_192
 
 
 class PermissionPolicy(Protocol):
-    def allows(self, context: AuthorizationContext, capability: str) -> bool: ...
+    """Define the structural interface required from a permission policy."""
+    def allows(self, context: AuthorizationContext, capability: str) -> bool:
+        """Determine whether the permission policy operation is allowed.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+            capability: The capability value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
+        ...
 
 
 class AgentBridgeHost:
@@ -119,6 +130,24 @@ class AgentBridgeHost:
         max_tool_rounds: int,
         rag: RagIndex | None = None,
     ) -> None:
+        """Initialize the agent bridge host.
+
+        Args:
+            runner: The runner value used by the operation.
+            engine: The engine value used by the operation.
+            store: The store value used by the operation.
+            catalog: The catalog value used by the operation.
+            permissions: The permissions value used by the operation.
+            max_concurrent_events: Maximum number of events dispatched concurrently.
+            history_limit: The history limit value used by the operation.
+            model_timeout_seconds: Configured model timeout duration, in seconds.
+            event_timeout_seconds: Configured event timeout duration, in seconds.
+            max_tool_rounds: The max tool rounds value used by the operation.
+            rag: The rag value used by the operation.
+
+        Returns:
+            None.
+        """
         self.runner = runner
         self.engine = engine
         self.store = store
@@ -133,6 +162,14 @@ class AgentBridgeHost:
         self._active_prompt_catalogs: dict[str, Mapping[str, Mapping[str, Any]]] = {}
 
     async def handle_delivery(self, delivery: BrokerDelivery) -> None:
+        """Handle delivery.
+
+        Args:
+            delivery: The delivery value used by the operation.
+
+        Returns:
+            None.
+        """
         async with self._capacity:
             try:
                 event = _event_from_delivery(delivery)
@@ -147,6 +184,14 @@ class AgentBridgeHost:
                 raise RuntimeError("agent event failed") from error
 
     async def clear_history(self, request: BridgeControlInvoke) -> ControlOutcome:
+        """Clear history.
+
+        Args:
+            request: Validated request object to process.
+
+        Returns:
+            The `ControlOutcome` result produced by the operation.
+        """
         authorization = _authorization_context(request)
         if not _allows(self.permissions, authorization, AGENT_HISTORY_CLEAR_CAPABILITY):
             return ControlOutcome(success=False, error_code="CONTROL_PERMISSION_DENIED")
@@ -169,6 +214,14 @@ class AgentBridgeHost:
         return ControlOutcome(success=True, result={"cleared": cleared})
 
     async def select_prompt(self, request: BridgeControlInvoke) -> ControlOutcome:
+        """Select prompt.
+
+        Args:
+            request: Validated request object to process.
+
+        Returns:
+            The `ControlOutcome` result produced by the operation.
+        """
         authorization = _authorization_context(request)
         if not _allows(self.permissions, authorization, AGENT_PROMPT_SELECT_CAPABILITY):
             return ControlOutcome(success=False, error_code="CONTROL_PERMISSION_DENIED")
@@ -185,6 +238,20 @@ class AgentBridgeHost:
         return ControlOutcome(success=True, result={"preset_id": preset_id})
 
     async def _process_event(self, delivery: BrokerDelivery, event: EventEnvelope) -> None:
+        """Implement the process event operation for the agent bridge host.
+
+        Args:
+            delivery: The delivery value used by the operation.
+            event: Event associated with the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `AgentBridgeHost._process_event`. It delegates to
+            `_request_function_catalog`, `_process_event_with_catalog`, `pop` while keeping intermediate
+            state local to the owning operation.
+        """
         authorization = AuthorizationContext(
             event_id=event.id,
             runtime_id=event.runtime_id,
@@ -205,6 +272,22 @@ class AgentBridgeHost:
         event_catalog: AgentCatalog,
         prompts: Mapping[str, Mapping[str, Any]],
     ) -> None:
+        """Implement the process event with catalog operation for the agent bridge host.
+
+        Args:
+            delivery: The delivery value used by the operation.
+            event: Event associated with the operation.
+            event_catalog: The event catalog value used by the operation.
+            prompts: The prompts value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `AgentBridgeHost._process_event_with_catalog`. It delegates
+            to `append`, `cast`, `messages`, `_retrieve_rag` while keeping intermediate state local to the
+            owning operation.
+        """
         key = (event.runtime_id, event.bot_id, event.conversation.ordering_key)
         user_text = event.message.plain_text if event.message is not None else ""
         self.store.append(*key, "user", user_text, retain=self.history_limit)
@@ -270,6 +353,18 @@ class AgentBridgeHost:
             raise RuntimeError("agent final message action failed")
 
     async def _retrieve_rag(self, query: str) -> RagContext:
+        """Implement the retrieve rag operation for the agent bridge host.
+
+        Args:
+            query: The query value used by the operation.
+
+        Returns:
+            The `RagContext` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `AgentBridgeHost._retrieve_rag`. It delegates to `retrieve`
+            while keeping intermediate state local to the owning operation.
+        """
         if self.rag is None:
             return RagContext("")
         try:
@@ -283,6 +378,21 @@ class AgentBridgeHost:
         event: EventEnvelope,
         authorization: AuthorizationContext,
     ) -> tuple[AgentCatalog, Mapping[str, Mapping[str, Any]]]:
+        """Request function catalog.
+
+        Args:
+            delivery: The delivery value used by the operation.
+            event: Event associated with the operation.
+            authorization: Authenticated authorization context for the request.
+
+        Returns:
+            The `tuple[AgentCatalog, Mapping[str, Mapping[str, Any]]]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `AgentBridgeHost._request_function_catalog`. It delegates to
+            `request_control`, `_parse_remote_tools`, `get`, `_parse_remote_prompts` while keeping
+            intermediate state local to the owning operation.
+        """
         try:
             result = await delivery.request_control(
                 correlation_id=f"agent-function-catalog:{event.id}",
@@ -320,6 +430,24 @@ class AgentBridgeHost:
         active: Mapping[str, Any],
         catalog: AgentCatalog,
     ) -> tuple[JsonObject, JsonObject, Mapping[str, Any] | None, str | None]:
+        """Execute tool.
+
+        Args:
+            delivery: The delivery value used by the operation.
+            event: Event associated with the operation.
+            authorization: Authenticated authorization context for the request.
+            call: The call value used by the operation.
+            active: The active value used by the operation.
+            catalog: The catalog value used by the operation.
+
+        Returns:
+            The `tuple[JsonObject, JsonObject, Mapping[str, Any] | None, str | None]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `AgentBridgeHost._execute_tool`. It delegates to `get`,
+            `strip`, `search`, `_truncate_json` while keeping intermediate state local to the owning
+            operation.
+        """
         if call.tool_id == CATALOG_SEARCH_ID:
             query = call.arguments.get("query")
             if not isinstance(query, str) or not query.strip():
@@ -390,6 +518,19 @@ class AgentBridgeHost:
         messages: Sequence[Mapping[str, object]],
         tools: Sequence[Mapping[str, object]],
     ) -> ModelReply:
+        """Complete the agent bridge host operation.
+
+        Args:
+            messages: The messages value used by the operation.
+            tools: The tools value used by the operation.
+
+        Returns:
+            The `ModelReply` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `AgentBridgeHost._complete`. It delegates to `wait_for`,
+            `complete` while keeping intermediate state local to the owning operation.
+        """
         try:
             return await asyncio.wait_for(
                 self.engine.complete(messages, tools=tools),
@@ -403,6 +544,16 @@ JsonObject = dict[str, object]
 
 
 async def launch(settings: AppSettings, bridge_id: str, token: str) -> None:
+    """Launch the component operation.
+
+    Args:
+        settings: Validated application settings.
+        bridge_id: Stable identifier for the bridge.
+        token: Authentication token presented at the boundary.
+
+    Returns:
+        None.
+    """
     bridge = settings.broker.bridges.get(bridge_id)
     if bridge is None:
         raise RuntimeError(f"broker bridge {bridge_id!r} is not configured")
@@ -451,11 +602,35 @@ async def launch(settings: AppSettings, bridge_id: str, token: str) -> None:
     host: AgentBridgeHost | None = None
 
     async def handle_delivery(delivery: BrokerDelivery) -> None:
+        """Handle delivery.
+
+        Args:
+            delivery: The delivery value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `launch.handle_delivery`. It delegates to `handle_delivery`
+            while keeping intermediate state local to the owning operation.
+        """
         if host is None:
             raise RuntimeError("Agent bridge received an event before host initialization")
         await host.handle_delivery(delivery)
 
     async def handle_control(request: BridgeControlInvoke) -> ControlOutcome:
+        """Handle control.
+
+        Args:
+            request: Validated request object to process.
+
+        Returns:
+            The `ControlOutcome` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `launch.handle_control`. It delegates to `clear_history`,
+            `select_prompt` while keeping intermediate state local to the owning operation.
+        """
         if host is None:
             raise RuntimeError("Agent bridge received a control before host initialization")
         if request.command == AGENT_HISTORY_CLEAR:
@@ -496,6 +671,16 @@ async def launch(settings: AppSettings, bridge_id: str, token: str) -> None:
 
 
 async def launch_sandbox(settings: AppSettings, bridge_id: str, token: str) -> None:
+    """Launch sandbox.
+
+    Args:
+        settings: Validated application settings.
+        bridge_id: Stable identifier for the bridge.
+        token: Authentication token presented at the boundary.
+
+    Returns:
+        None.
+    """
     bridge = settings.broker.bridges.get(bridge_id)
     if bridge is None:
         raise RuntimeError(f"broker bridge {bridge_id!r} is not configured")
@@ -520,6 +705,19 @@ async def launch_sandbox(settings: AppSettings, bridge_id: str, token: str) -> N
     definition_by_id = {definition.descriptor.id: definition for definition in definitions}
 
     async def handle_tool(request: ToolInvoke) -> ToolOutcome:
+        """Handle tool.
+
+        Args:
+            request: Validated request object to process.
+
+        Returns:
+            The `ToolOutcome` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `launch_sandbox.handle_tool`. It delegates to `get`, `any`,
+            `_allows`, `_broker_tool_declaration` while keeping intermediate state local to the owning
+            operation.
+        """
         definition = definition_by_id.get(request.tool_id)
         if definition is None:
             return ToolOutcome(success=False, error_code="TOOL_NOT_FOUND")
@@ -579,6 +777,18 @@ async def launch_sandbox(settings: AppSettings, bridge_id: str, token: str) -> N
 
 
 def _event_from_delivery(delivery: BrokerDelivery) -> EventEnvelope:
+    """Implement the event from delivery operation for the component.
+
+    Args:
+        delivery: The delivery value used by the operation.
+
+    Returns:
+        The `EventEnvelope` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_event_from_delivery`. It delegates to `model_validate`,
+        `model_copy` while keeping intermediate state local to the owning operation.
+    """
     event = EventEnvelope.model_validate(delivery.message.event.payload)
     if event.id != delivery.message.event.source_event_id:
         raise ValueError("Agent event ID does not match its broker source event")
@@ -588,6 +798,18 @@ def _event_from_delivery(delivery: BrokerDelivery) -> EventEnvelope:
 
 
 def _authorization_context(request: BridgeControlInvoke) -> AuthorizationContext:
+    """Implement the authorization context operation for the component.
+
+    Args:
+        request: Validated request object to process.
+
+    Returns:
+        The `AuthorizationContext` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_authorization_context`. It performs the local state
+        transition directly and is not a stable extension boundary.
+    """
     return AuthorizationContext(
         event_id=request.authorization.event_id,
         runtime_id=request.authorization.runtime_id,
@@ -597,6 +819,18 @@ def _authorization_context(request: BridgeControlInvoke) -> AuthorizationContext
 
 
 def _permission_policy(settings: AppSettings) -> PermissionPolicy | None:
+    """Implement the permission policy operation for the component.
+
+    Args:
+        settings: Validated application settings.
+
+    Returns:
+        The `PermissionPolicy | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_permission_policy`. It delegates to `get`, `cast`,
+        `create_permission_service` while keeping intermediate state local to the owning operation.
+    """
     raw = settings.plugins.config.get("liteyukibot.permissions", {})
     if not isinstance(raw, Mapping):
         raise RuntimeError("permission configuration must be an object")
@@ -604,16 +838,54 @@ def _permission_policy(settings: AppSettings) -> PermissionPolicy | None:
 
 
 def _allows(policy: PermissionPolicy | None, context: AuthorizationContext, capability: str) -> bool:
+    """Determine whether the component operation is allowed.
+
+    Args:
+        policy: The policy value used by the operation.
+        context: Runtime or authorization context for the operation.
+        capability: The capability value used by the operation.
+
+    Returns:
+        Whether the requested condition is satisfied.
+
+    Notes:
+        Internal implementation detail for `_allows`. It delegates to `allows` while keeping
+        intermediate state local to the owning operation.
+    """
     return policy is not None and policy.allows(context, capability)
 
 
 def _tool_schemas(tools: Iterable[Any]) -> tuple[Mapping[str, object], ...]:
+    """Implement the tool schemas operation for the component.
+
+    Args:
+        tools: The tools value used by the operation.
+
+    Returns:
+        The `tuple[Mapping[str, object], ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_tool_schemas`. It delegates to `catalog_search_schema`,
+        `extend`, `openai_tool_schema` while keeping intermediate state local to the owning operation.
+    """
     schemas: list[Mapping[str, object]] = [catalog_search_schema()]
     schemas.extend(openai_tool_schema(tool) for tool in tools)
     return tuple(schemas[:ACTIVE_TOOL_LIMIT])
 
 
 def _assistant_tool_message(reply: ModelReply) -> Mapping[str, object]:
+    """Implement the assistant tool message operation for the component.
+
+    Args:
+        reply: The reply value used by the operation.
+
+    Returns:
+        The `Mapping[str, object]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_assistant_tool_message`. It delegates to `dumps` while
+        keeping intermediate state local to the owning operation.
+    """
     return {
         "role": "assistant",
         "tool_calls": [
@@ -631,6 +903,19 @@ def _assistant_tool_message(reply: ModelReply) -> Mapping[str, object]:
 
 
 def _tool_result_content(tool_id: str, result: ToolResult) -> tuple[JsonObject, JsonObject, None]:
+    """Implement the tool result content operation for the component.
+
+    Args:
+        tool_id: Stable identifier for the tool.
+        result: Result value produced by the preceding operation.
+
+    Returns:
+        The `tuple[JsonObject, JsonObject, None]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_tool_result_content`. It delegates to `_truncate_json`
+        while keeping intermediate state local to the owning operation.
+    """
     if result.success:
         content: JsonObject = {"ok": True, "result": result.result}
         return content, {"tool_id": tool_id, "ok": True, "summary": _truncate_json(result.result)}, None
@@ -639,6 +924,18 @@ def _tool_result_content(tool_id: str, result: ToolResult) -> tuple[JsonObject, 
 
 
 def _selected_prompt_id(result: ToolResult) -> str | None:
+    """Implement the selected prompt id operation for the component.
+
+    Args:
+        result: Result value produced by the preceding operation.
+
+    Returns:
+        The `str | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_selected_prompt_id`. It delegates to `get`, `strip` while
+        keeping intermediate state local to the owning operation.
+    """
     if not result.success or not isinstance(result.result, Mapping):
         return None
     preset_id = result.result.get("preset_id")
@@ -646,6 +943,18 @@ def _selected_prompt_id(result: ToolResult) -> str | None:
 
 
 def _parse_remote_tools(value: object) -> tuple[AgentToolDescriptor, ...]:
+    """Parse remote tools.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `tuple[AgentToolDescriptor, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_parse_remote_tools`. It delegates to `get`, `all`,
+        `append`, `cast` while keeping intermediate state local to the owning operation.
+    """
     if not isinstance(value, (list, tuple)):
         raise RuntimeError("Agent function catalog tools must be an array")
     if len(value) > 128:
@@ -687,6 +996,18 @@ def _parse_remote_tools(value: object) -> tuple[AgentToolDescriptor, ...]:
 
 
 def _parse_remote_prompts(value: object) -> Mapping[str, Mapping[str, Any]]:
+    """Parse remote prompts.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `Mapping[str, Mapping[str, Any]]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_parse_remote_prompts`. It delegates to `get`, `all`,
+        `dumps` while keeping intermediate state local to the owning operation.
+    """
     if not isinstance(value, (list, tuple)):
         raise RuntimeError("Agent function catalog prompts must be an array")
     if len(value) > 64:
@@ -725,6 +1046,18 @@ def _parse_remote_prompts(value: object) -> Mapping[str, Mapping[str, Any]]:
 
 
 def _prompt_message(preset: Mapping[str, Any]) -> str:
+    """Implement the prompt message operation for the component.
+
+    Args:
+        preset: The preset value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_prompt_message`. It delegates to `cast`, `get`, `dumps`
+        while keeping intermediate state local to the owning operation.
+    """
     prompt = cast(str, preset["prompt"])
     examples = preset.get("examples", ())
     if not examples:
@@ -733,12 +1066,38 @@ def _prompt_message(preset: Mapping[str, Any]) -> str:
 
 
 def _append_citations(text: str, context: RagContext) -> str:
+    """Implement the append citations operation for the component.
+
+    Args:
+        text: The text value used by the operation.
+        context: Runtime or authorization context for the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_append_citations`. It delegates to `join` while keeping
+        intermediate state local to the owning operation.
+    """
     if not text or not context.citations:
         return text
     return f"{text}\n\nSources: {', '.join(context.citations)}"
 
 
 def _truncate_json(value: object, limit: int = _HISTORY_SUMMARY_LIMIT) -> str:
+    """Implement the truncate json operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        limit: Maximum number of records to return.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_truncate_json`. It delegates to `dumps` while keeping
+        intermediate state local to the owning operation.
+    """
     encoded = json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
     return encoded if len(encoded) <= limit else encoded[:limit] + "..."
 
@@ -751,6 +1110,23 @@ def _validate_agent_bridge(
     controls: Sequence[str],
     options: Mapping[str, Any],
 ) -> None:
+    """Validate agent bridge.
+
+    Args:
+        access: The access value used by the operation.
+        subscriptions: The subscriptions value used by the operation.
+        action_resources: The action resources value used by the operation.
+        tools: The tools value used by the operation.
+        controls: The controls value used by the operation.
+        options: Validated optional settings for the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_validate_agent_bridge`. It delegates to `sorted`,
+        `difference`, `join` while keeping intermediate state local to the owning operation.
+    """
     if access != BridgeAccess.LIMITED.value:
         raise RuntimeError("Agent bridge must use limited access")
     if not subscriptions:
@@ -776,6 +1152,23 @@ def _validate_sandbox_bridge(
     controls: Sequence[str],
     options: Mapping[str, Any],
 ) -> None:
+    """Validate sandbox bridge.
+
+    Args:
+        access: The access value used by the operation.
+        subscriptions: The subscriptions value used by the operation.
+        action_resources: The action resources value used by the operation.
+        tools: The tools value used by the operation.
+        controls: The controls value used by the operation.
+        options: Validated optional settings for the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_validate_sandbox_bridge`. It delegates to `sorted`,
+        `difference`, `join` while keeping intermediate state local to the owning operation.
+    """
     if access != BridgeAccess.LIMITED.value:
         raise RuntimeError("Agent sandbox bridge must use limited access")
     if subscriptions or action_resources or controls:
@@ -788,6 +1181,20 @@ def _validate_sandbox_bridge(
 
 
 def _sandbox_definitions(settings: AppSettings, *, bridge_id: str | None = None) -> tuple[SandboxToolDefinition, ...]:
+    """Implement the sandbox definitions operation for the component.
+
+    Args:
+        settings: Validated application settings.
+        bridge_id: Stable identifier for the bridge.
+
+    Returns:
+        The `tuple[SandboxToolDefinition, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_sandbox_definitions`. It delegates to `items`, `get`,
+        `builtin_sandbox_tools`, `discover_sandbox_tool_definitions` while keeping intermediate state
+        local to the owning operation.
+    """
     if bridge_id is None:
         sandboxes = tuple(
             (configured_id, bridge)
@@ -835,6 +1242,18 @@ def _sandbox_definitions(settings: AppSettings, *, bridge_id: str | None = None)
 
 
 def _broker_tool_declaration(definition: SandboxToolDefinition) -> BrokerToolDeclaration:
+    """Implement the broker tool declaration operation for the component.
+
+    Args:
+        definition: The definition value used by the operation.
+
+    Returns:
+        The `BrokerToolDeclaration` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_broker_tool_declaration`. It performs the local state
+        transition directly and is not a stable extension boundary.
+    """
     return BrokerToolDeclaration(
         id=definition.descriptor.id,
         description=definition.descriptor.description,
@@ -845,6 +1264,20 @@ def _broker_tool_declaration(definition: SandboxToolDefinition) -> BrokerToolDec
 
 
 def _history_path(settings: AppSettings, bridge_id: str, options: Mapping[str, Any]) -> Path:
+    """Implement the history path operation for the component.
+
+    Args:
+        settings: Validated application settings.
+        bridge_id: Stable identifier for the bridge.
+        options: Validated optional settings for the operation.
+
+    Returns:
+        The `Path` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_history_path`. It delegates to `get`, `strip` while keeping
+        intermediate state local to the owning operation.
+    """
     value = options.get("history_path")
     if value is None:
         return settings.core.data_dir / "bridges" / bridge_id / "history.sqlite3"
@@ -854,6 +1287,20 @@ def _history_path(settings: AppSettings, bridge_id: str, options: Mapping[str, A
 
 
 def _build_rag(settings: AppSettings, bridge_id: str, options: Mapping[str, Any]) -> RagIndex | None:
+    """Build rag.
+
+    Args:
+        settings: Validated application settings.
+        bridge_id: Stable identifier for the bridge.
+        options: Validated optional settings for the operation.
+
+    Returns:
+        The `RagIndex | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_build_rag`. It delegates to `from_options` while keeping
+        intermediate state local to the owning operation.
+    """
     rag_settings = RagSettings.from_options(
         options,
         default_directory=settings.core.data_dir / "bridges" / bridge_id,
@@ -869,6 +1316,19 @@ def _build_rag(settings: AppSettings, bridge_id: str, options: Mapping[str, Any]
 
 
 def _required_string(options: Mapping[str, Any], key: str) -> str:
+    """Implement the required string operation for the component.
+
+    Args:
+        options: Validated optional settings for the operation.
+        key: Stable FIFO ordering key for the queued work.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_required_string`. It delegates to `get`, `strip` while
+        keeping intermediate state local to the owning operation.
+    """
     value = options.get(key)
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"Agent option {key!r} must be a non-empty string")
@@ -876,6 +1336,19 @@ def _required_string(options: Mapping[str, Any], key: str) -> str:
 
 
 def _optional_string(options: Mapping[str, Any], key: str) -> str | None:
+    """Implement the optional string operation for the component.
+
+    Args:
+        options: Validated optional settings for the operation.
+        key: Stable FIFO ordering key for the queued work.
+
+    Returns:
+        The `str | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_optional_string`. It delegates to `get`, `strip` while
+        keeping intermediate state local to the owning operation.
+    """
     value = options.get(key)
     if value is None:
         return None
@@ -885,6 +1358,20 @@ def _optional_string(options: Mapping[str, Any], key: str) -> str | None:
 
 
 def _positive_int_option(options: Mapping[str, Any], key: str, default: int) -> int:
+    """Implement the positive int option operation for the component.
+
+    Args:
+        options: Validated optional settings for the operation.
+        key: Stable FIFO ordering key for the queued work.
+        default: The default value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_positive_int_option`. It delegates to `get` while keeping
+        intermediate state local to the owning operation.
+    """
     value = options.get(key, default)
     if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
         raise ValueError(f"Agent option {key!r} must be a positive integer")
@@ -892,6 +1379,20 @@ def _positive_int_option(options: Mapping[str, Any], key: str, default: int) -> 
 
 
 def _positive_float_option(options: Mapping[str, Any], key: str, default: float) -> float:
+    """Implement the positive float option operation for the component.
+
+    Args:
+        options: Validated optional settings for the operation.
+        key: Stable FIFO ordering key for the queued work.
+        default: The default value used by the operation.
+
+    Returns:
+        The `float` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_positive_float_option`. It delegates to `get`, `float`
+        while keeping intermediate state local to the owning operation.
+    """
     value = options.get(key, default)
     if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
         raise ValueError(f"Agent option {key!r} must be a positive number")
@@ -899,6 +1400,18 @@ def _positive_float_option(options: Mapping[str, Any], key: str, default: float)
 
 
 def _broker_endpoints(endpoint: str) -> dict[LyipLane, str]:
+    """Implement the broker endpoints operation for the component.
+
+    Args:
+        endpoint: Transport endpoint used for the connection.
+
+    Returns:
+        The `dict[LyipLane, str]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_broker_endpoints`. It delegates to `urlparse` while keeping
+        intermediate state local to the owning operation.
+    """
     parsed = urlparse(endpoint)
     if parsed.scheme != "tcp" or parsed.hostname is None or parsed.port is None:
         raise ValueError("broker endpoint must be a valid tcp URL")

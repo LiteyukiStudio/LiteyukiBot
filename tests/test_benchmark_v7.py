@@ -25,6 +25,8 @@ def _sample(
         "platform": "test-platform",
         "python": "3.14.0",
         "event_count": 100,
+        "resident_event_count": 100,
+        "resident_payload_bytes": 16,
         "startup_ms": startup_ms,
         "peak_rss_bytes": 1_000,
         "workloads": {
@@ -62,6 +64,19 @@ def _sample(
             },
         },
         "functions": {"available": False, "reason": "disabled"},
+        "resident": {
+            name: {
+                "elapsed_ms": 1.0,
+                "throughput_events_per_second": throughput,
+                "rss_before_bytes": 1_000,
+                "rss_after_bytes": 1_100,
+                "rss_delta_bytes": 100,
+                "tracemalloc_retained_bytes": 50,
+                "tracemalloc_peak_bytes": 200,
+                "processed_events": 100,
+            }
+            for name in ("event_bus", "broker")
+        },
     }
 
 
@@ -72,6 +87,8 @@ def test_benchmark_sample_covers_all_event_workloads() -> None:
             function_packs=1,
             functions_per_pack=1,
             function_calls=0,
+            resident_events=100,
+            resident_payload_bytes=16,
         )
     )
 
@@ -84,6 +101,15 @@ def test_benchmark_sample_covers_all_event_workloads() -> None:
     assert result["workloads"]["fifo"]["successful_actions"] == 0
     assert result["workloads"]["action"]["successful_actions"] == 100
     assert result["functions"] == {"available": False, "reason": "disabled"}
+    assert result["resident"]["event_bus"]["retained_key_queues"] == 0
+    assert result["resident"]["event_bus"]["retained_key_workers"] == 0
+    assert result["resident"]["broker"]["active_events"] == 0
+    assert result["resident"]["broker"]["terminal_events"] == 100
+    assert result["resident"]["broker"]["terminal_content_bytes"] <= result["resident"]["broker"][
+        "terminal_content_bytes_capacity"
+    ]
+    assert result["resident"]["broker"]["delivery_indexes"] == 0
+    assert result["resident"]["broker"]["retained_lanes"] == 0
 
 
 def test_function_benchmark_reports_missing_executor(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -198,6 +224,42 @@ def test_installed_first_party_manifest_marks_cordis_unavailable_without_host(
 
     manifest = benchmark_v7.discover_installed_first_party_manifest()
     assert manifest[0]["extensions"] == [{"host": "cordis", "id": "cordis.example", "enabled": False}]
+
+
+def test_installed_first_party_manifest_prefers_cordis_for_dual_host_extension(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class EntryPoint:
+        def __init__(self, group: str, name: str) -> None:
+            self.group = group
+            self.name = name
+
+    class Distribution:
+        def __init__(self, name: str, entry_points: list[EntryPoint]) -> None:
+            self.metadata = {"Name": name}
+            self.version = "1.0.0"
+            self.entry_points = entry_points
+
+    monkeypatch.setattr(
+        importlib.metadata,
+        "distributions",
+        lambda: [
+            Distribution(
+                "liteyukibot-v7-commands",
+                [
+                    EntryPoint("liteyukibot.plugins", "liteyukibot.commands"),
+                    EntryPoint("liteyukibot.cordis_plugins", "liteyukibot.commands"),
+                ],
+            ),
+            Distribution("liteyukibot-v7-cordis", [EntryPoint("liteyukibot.cordis_hosts", "python")]),
+        ],
+    )
+
+    manifest = benchmark_v7.discover_installed_first_party_manifest()
+    assert manifest[0]["extensions"] == [
+        {"host": "cordis", "id": "liteyukibot.commands", "enabled": True},
+        {"host": "native", "id": "liteyukibot.commands", "enabled": False},
+    ]
 
 
 def test_profile_settings_enable_only_snapshot_extensions(tmp_path: Path) -> None:

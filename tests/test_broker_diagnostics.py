@@ -92,6 +92,8 @@ def test_diagnostics_require_a_distinct_secret_and_use_the_existing_control_lane
         )
     )
     assert accepted.type == "broker.diagnostics.status.result"
+    assert accepted.terminal_content_bytes == 0
+    assert accepted.terminal_content_bytes_capacity == 16 * 1024 * 1024
 
 
 def test_diagnostics_projection_redacts_payloads_and_tracks_delivery_and_action_timeline() -> None:

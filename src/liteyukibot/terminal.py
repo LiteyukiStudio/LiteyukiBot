@@ -22,7 +22,18 @@ async def run_local_console(
     logging: LoggingSettings,
     confirm_dangerous: Callable[[str], bool] | None = None,
 ) -> None:
-    """Read administrator commands while preserving asynchronous log output."""
+    """Read administrator commands while preserving asynchronous log output.
+
+    Args:
+        registry: The registry value used by the operation.
+        stop_event: The stop event value used by the operation.
+        logger: Structured logger used for diagnostics.
+        logging: The logging value used by the operation.
+        confirm_dangerous: The confirm dangerous value used by the operation.
+
+    Returns:
+        None.
+    """
 
     caller = ManagementCaller.local_terminal()
     session: PromptSession[str] = PromptSession("ly> ")
@@ -62,6 +73,14 @@ async def run_local_console(
 
 
 def supports_local_console(*, docker: bool) -> bool:
+    """Implement the supports local console operation for the component.
+
+    Args:
+        docker: The docker value used by the operation.
+
+    Returns:
+        Whether the requested condition is satisfied.
+    """
     return not docker and sys.stdin.isatty() and sys.stdout.isatty()
 
 

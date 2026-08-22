@@ -31,29 +31,39 @@ class FunctionError(RuntimeError):
 
 
 class FunctionNotFoundError(FunctionError):
+    """Raised when the function not found contract cannot be satisfied."""
     pass
 
 
 class FunctionExecutorUnavailableError(FunctionError):
+    """Raised when the function executor unavailable contract cannot be satisfied."""
     pass
 
 
 class FunctionRecursionError(FunctionError):
+    """Raised when the function recursion contract cannot be satisfied."""
     pass
 
 
 @dataclass(frozen=True, slots=True)
 class FunctionDocument:
+    """Represent the function document contract."""
     id: str
     extension: str
     resource: ResourceFile
 
     def read_text(self) -> str:
+        """Read text.
+
+        Returns:
+            The requested `str` value.
+        """
         return self.resource.read_text()
 
 
 @dataclass(frozen=True, slots=True)
 class FunctionCall:
+    """Represent the function call contract."""
     id: str
     arguments: Mapping[str, Any]
     positional: tuple[str, ...] = ()
@@ -119,9 +129,26 @@ class FunctionHost(Protocol):
         arguments: Mapping[str, Any] | None = None,
         *,
         event: EventEnvelope | None = None,
-    ) -> Any: ...
+    ) -> Any:
+        """Invoke the function host operation.
 
-    async def aclose(self) -> None: ...
+        Args:
+            function_id: Stable identifier for the function.
+            arguments: JSON-safe arguments supplied to the operation.
+            event: Event associated with the operation.
+
+        Returns:
+            The `Any` result produced by the operation.
+        """
+        ...
+
+    async def aclose(self) -> None:
+        """Close the function host asynchronously.
+
+        Returns:
+            None.
+        """
+        ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,13 +173,36 @@ class FunctionHostBindings:
 class FunctionHostProvider(Protocol):
     """Entry-point contract for the installed LYF implementation."""
 
-    def preflight(self, sources: tuple[FunctionPackSource, ...]) -> FunctionPreflight: ...
+    def preflight(self, sources: tuple[FunctionPackSource, ...]) -> FunctionPreflight:
+        """Implement the preflight operation for the function host provider.
 
-    def create_host(self, preflight: FunctionPreflight, bindings: FunctionHostBindings) -> FunctionHost: ...
+        Args:
+            sources: The sources value used by the operation.
+
+        Returns:
+            The `FunctionPreflight` result produced by the operation.
+        """
+        ...
+
+    def create_host(self, preflight: FunctionPreflight, bindings: FunctionHostBindings) -> FunctionHost:
+        """Create host.
+
+        Args:
+            preflight: The preflight value used by the operation.
+            bindings: The bindings value used by the operation.
+
+        Returns:
+            The `FunctionHost` result produced by the operation.
+        """
+        ...
 
 
 def discover_function_host_provider() -> FunctionHostProvider | None:
-    """Discover the one installed Alpha7 Function Host provider, if present."""
+    """Discover the one installed Alpha7 Function Host provider, if present.
+
+    Returns:
+        The `FunctionHostProvider | None` result produced by the operation.
+    """
 
     entry_points = tuple(metadata.entry_points(group=FUNCTION_HOST_ENTRY_POINT_GROUP))
     if not entry_points:
@@ -172,6 +222,7 @@ def discover_function_host_provider() -> FunctionHostProvider | None:
 
 
 class FunctionExecutor(Protocol):
+    """Define the structural interface required from a function executor."""
     extensions: tuple[str, ...]
 
     def execute(
@@ -179,11 +230,31 @@ class FunctionExecutor(Protocol):
         document: FunctionDocument,
         call: FunctionCall,
         invoke: FunctionInvoker,
-    ) -> Awaitable[object]: ...
+    ) -> Awaitable[object]:
+        """Execute one request through the function executor.
+
+        Args:
+            document: The document value used by the operation.
+            call: The call value used by the operation.
+            invoke: The invoke value used by the operation.
+
+        Returns:
+            The `Awaitable[object]` result produced by the operation.
+        """
+        ...
 
 
 class FunctionCatalog:
+    """Represent the function catalog contract."""
     def __init__(self, resources: ResourceCatalog) -> None:
+        """Initialize the function catalog.
+
+        Args:
+            resources: The resources value used by the operation.
+
+        Returns:
+            None.
+        """
         documents: dict[str, FunctionDocument] = {}
         for path in resources.paths("functions"):
             relative = path.removeprefix("functions/")
@@ -197,16 +268,30 @@ class FunctionCatalog:
         self._documents = documents
 
     def require(self, identifier: str) -> FunctionDocument:
+        """Return the function catalog operation, failing when it is unavailable.
+
+        Args:
+            identifier: The identifier value used by the operation.
+
+        Returns:
+            The requested `FunctionDocument` value.
+        """
         try:
             return self._documents[identifier]
         except KeyError as error:
             raise FunctionNotFoundError(f"function does not exist: {identifier}") from error
 
     def snapshot(self) -> tuple[FunctionDocument, ...]:
+        """Return an immutable snapshot of the function catalog state.
+
+        Returns:
+            The requested `tuple[FunctionDocument, ...]` value.
+        """
         return tuple(self._documents[key] for key in sorted(self._documents))
 
 
 class FunctionDispatcher:
+    """Represent the function dispatcher contract."""
     ENTRY_POINT_GROUP = "liteyukibot.function_executors"
 
     def __init__(
@@ -216,6 +301,16 @@ class FunctionDispatcher:
         *,
         task_owner: ManagedTasks | None = None,
     ) -> None:
+        """Initialize the function dispatcher.
+
+        Args:
+            resources: The resources value used by the operation.
+            executors: The executors value used by the operation.
+            task_owner: The task owner value used by the operation.
+
+        Returns:
+            None.
+        """
         self.catalog = FunctionCatalog(resources)
         self._executors = dict(executors) if executors is not None else self.discover_executors()
         self._task_owner = task_owner or ManagedTasks("functions")
@@ -223,10 +318,20 @@ class FunctionDispatcher:
 
     @property
     def background_task_count(self) -> int:
+        """Return the function dispatcher's background task count.
+
+        Returns:
+            The `int` result produced by the operation.
+        """
         return self._task_owner.count
 
     @classmethod
     def discover_executors(cls) -> dict[str, FunctionExecutor]:
+        """Discover executors.
+
+        Returns:
+            The `dict[str, FunctionExecutor]` result produced by the operation.
+        """
         executors: dict[str, FunctionExecutor] = {}
         for entry in metadata.entry_points(group=cls.ENTRY_POINT_GROUP):
             candidate = entry.load()
@@ -245,17 +350,43 @@ class FunctionDispatcher:
         return executors
 
     async def dispatch(self, call: FunctionCall) -> object:
+        """Dispatch the function dispatcher operation.
+
+        Args:
+            call: The call value used by the operation.
+
+        Returns:
+            The `object` result produced by the operation.
+        """
         if self._closed:
             raise FunctionError("function dispatcher is closed")
         return await self._dispatch(call, ())
 
     async def aclose(self) -> None:
+        """Close the function dispatcher asynchronously.
+
+        Returns:
+            None.
+        """
         if self._closed:
             return
         self._closed = True
         await self._task_owner.stop()
 
     async def _dispatch(self, call: FunctionCall, stack: tuple[str, ...]) -> object:
+        """Dispatch the function dispatcher operation.
+
+        Args:
+            call: The call value used by the operation.
+            stack: The stack value used by the operation.
+
+        Returns:
+            The `object` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `FunctionDispatcher._dispatch`. It delegates to `replace`,
+            `require`, `join`, `get` while keeping intermediate state local to the owning operation.
+        """
         call = replace(call, task_owner=self._task_owner)
         document = self.catalog.require(call.id)
         if document.id in stack:
@@ -270,6 +401,18 @@ class FunctionDispatcher:
             )
 
         async def invoke(nested_call: FunctionCall) -> object:
+            """Invoke the dispatch operation.
+
+            Args:
+                nested_call: The nested call value used by the operation.
+
+            Returns:
+                The `object` result produced by the operation.
+
+            Notes:
+                Internal implementation detail for `FunctionDispatcher._dispatch.invoke`. It delegates to
+                `_dispatch` while keeping intermediate state local to the owning operation.
+            """
             return await self._dispatch(nested_call, (*stack, document.id))
 
         result = executor.execute(document, call, invoke)

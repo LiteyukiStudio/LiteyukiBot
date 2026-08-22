@@ -37,6 +37,7 @@ _ALLOWED_BRIDGE_OPTION_KEYS = frozenset({"v6_plugins", "max_concurrent_events"})
 
 
 class _V6BridgeHost:
+    """Represent the v6 bridge host contract."""
     def __init__(
         self,
         runner: BrokerBridgeRunner,
@@ -46,6 +47,22 @@ class _V6BridgeHost:
         max_concurrent_events: int,
         restart_requested: asyncio.Event,
     ) -> None:
+        """Initialize the v6 bridge host.
+
+        Args:
+            runner: The runner value used by the operation.
+            bridge_id: Stable identifier for the bridge.
+            logger: Structured logger used for diagnostics.
+            max_concurrent_events: Maximum number of events dispatched concurrently.
+            restart_requested: The restart requested value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_V6BridgeHost.__init__`. It performs the local state
+            transition directly and is not a stable extension boundary.
+        """
         self.runner = runner
         self.bridge_id = bridge_id
         self.logger = logger
@@ -53,6 +70,16 @@ class _V6BridgeHost:
         self._restart_requested = restart_requested
 
     async def serve(self) -> str:
+        """Serve the v6 bridge host operation.
+
+        Returns:
+            The `str` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_V6BridgeHost.serve`. It delegates to `create_task`,
+            `serve_forever`, `wait`, `cancel` while keeping intermediate state local to the owning
+            operation.
+        """
         serving = asyncio.create_task(self.runner.serve_forever(), name=f"v6-bridge:{self.bridge_id}")
         restart = asyncio.create_task(self._restart_requested.wait(), name=f"v6-restart:{self.bridge_id}")
         done, pending = await asyncio.wait((serving, restart), return_when=asyncio.FIRST_COMPLETED)
@@ -65,6 +92,19 @@ class _V6BridgeHost:
         return "shutdown"
 
     async def handle_delivery(self, delivery: BrokerDelivery) -> None:
+        """Handle delivery.
+
+        Args:
+            delivery: The delivery value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_V6BridgeHost.handle_delivery`. It delegates to
+            `model_validate`, `to_legacy_message_event`, `_dispatch_matchers`, `warning` while keeping
+            intermediate state local to the owning operation.
+        """
         async with self._capacity:
             broker_event = delivery.message.event
             event = EventEnvelope.model_validate(broker_event.payload)
@@ -110,7 +150,14 @@ class _V6BridgeHost:
 
 
 def load_configured_v6_plugins(names: Sequence[str]) -> tuple[str, ...]:
-    """Import only the selected v6 plugin entry points."""
+    """Import only the selected v6 plugin entry points.
+
+    Args:
+        names: The names value used by the operation.
+
+    Returns:
+        The `tuple[str, ...]` result produced by the operation.
+    """
 
     configured = _normalized_plugin_names(names)
     entries: dict[str, Any] = {}
@@ -132,7 +179,16 @@ def load_configured_v6_plugins(names: Sequence[str]) -> tuple[str, ...]:
 
 
 async def launch(settings: AppSettings, bridge_id: str, token: str) -> None:
-    """Launch one limited v6 bridge through the standalone Broker."""
+    """Launch one limited v6 bridge through the standalone Broker.
+
+    Args:
+        settings: Validated application settings.
+        bridge_id: Stable identifier for the bridge.
+        token: Authentication token presented at the boundary.
+
+    Returns:
+        None.
+    """
 
     bridge = settings.broker.bridges.get(bridge_id)
     if bridge is None:
@@ -159,6 +215,18 @@ async def launch(settings: AppSettings, bridge_id: str, token: str) -> None:
     loop = asyncio.get_running_loop()
 
     def request_restart(_name: str | None) -> None:
+        """Request restart.
+
+        Args:
+            _name: The name value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `launch.request_restart`. It delegates to
+            `call_soon_threadsafe` while keeping intermediate state local to the owning operation.
+        """
         loop.call_soon_threadsafe(restart_requested.set)
 
     _install_runtime({}, request_restart)
@@ -199,11 +267,37 @@ async def launch(settings: AppSettings, bridge_id: str, token: str) -> None:
 
 
 def _load_configured_plugins(options: Mapping[str, Any]) -> tuple[str, ...]:
+    """Load configured plugins.
+
+    Args:
+        options: Validated optional settings for the operation.
+
+    Returns:
+        The `tuple[str, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_load_configured_plugins`. It delegates to
+        `_reject_legacy_options`, `load_configured_v6_plugins`, `_string_list_option` while keeping
+        intermediate state local to the owning operation.
+    """
     _reject_legacy_options(options)
     return load_configured_v6_plugins(_string_list_option(options, "v6_plugins"))
 
 
 def _reject_legacy_options(options: Mapping[str, Any]) -> None:
+    """Implement the reject legacy options operation for the component.
+
+    Args:
+        options: Validated optional settings for the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_reject_legacy_options`. It delegates to `sorted`,
+        `intersection`, `join`, `difference` while keeping intermediate state local to the owning
+        operation.
+    """
     legacy = sorted(_LEGACY_OPTION_KEYS.intersection(options))
     if legacy:
         raise RuntimeError("migration_required: v6 bridge does not accept legacy options: " + ", ".join(legacy))
@@ -220,6 +314,21 @@ def _validate_bridge_settings(
     action_resources: Sequence[Any],
     options: Mapping[str, Any],
 ) -> None:
+    """Validate bridge settings.
+
+    Args:
+        access: The access value used by the operation.
+        subscriptions: The subscriptions value used by the operation.
+        action_resources: The action resources value used by the operation.
+        options: Validated optional settings for the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_validate_bridge_settings`. It delegates to
+        `_reject_legacy_options` while keeping intermediate state local to the owning operation.
+    """
     if access != BridgeAccess.LIMITED.value:
         raise RuntimeError("v6 compatibility bridge must use limited access")
     if not subscriptions:
@@ -230,6 +339,18 @@ def _validate_bridge_settings(
 
 
 def _normalized_plugin_names(value: Sequence[str]) -> tuple[str, ...]:
+    """Implement the normalized plugin names operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `tuple[str, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_normalized_plugin_names`. It delegates to `any`, `strip`
+        while keeping intermediate state local to the owning operation.
+    """
     names = tuple(value)
     if any(not isinstance(name, str) or not name or name != name.strip() for name in names):
         raise ValueError("v6_plugins must contain non-empty trimmed entry point names")
@@ -239,6 +360,19 @@ def _normalized_plugin_names(value: Sequence[str]) -> tuple[str, ...]:
 
 
 def _string_list_option(options: Mapping[str, Any], key: str) -> tuple[str, ...]:
+    """Implement the string list option operation for the component.
+
+    Args:
+        options: Validated optional settings for the operation.
+        key: Stable FIFO ordering key for the queued work.
+
+    Returns:
+        The `tuple[str, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_string_list_option`. It delegates to `get`,
+        `_normalized_plugin_names` while keeping intermediate state local to the owning operation.
+    """
     value = options.get(key, ())
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
         raise ValueError(f"v6 bridge option {key!r} must be an array of strings")
@@ -246,6 +380,20 @@ def _string_list_option(options: Mapping[str, Any], key: str) -> tuple[str, ...]
 
 
 def _positive_int_option(options: Mapping[str, Any], key: str, default: int) -> int:
+    """Implement the positive int option operation for the component.
+
+    Args:
+        options: Validated optional settings for the operation.
+        key: Stable FIFO ordering key for the queued work.
+        default: The default value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_positive_int_option`. It delegates to `get` while keeping
+        intermediate state local to the owning operation.
+    """
     value = options.get(key, default)
     if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
         raise ValueError(f"v6 bridge option {key!r} must be a positive integer")
@@ -253,6 +401,18 @@ def _positive_int_option(options: Mapping[str, Any], key: str, default: int) -> 
 
 
 def _broker_endpoints(endpoint: str) -> dict[LyipLane, str]:
+    """Implement the broker endpoints operation for the component.
+
+    Args:
+        endpoint: Transport endpoint used for the connection.
+
+    Returns:
+        The `dict[LyipLane, str]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_broker_endpoints`. It delegates to `urlparse` while keeping
+        intermediate state local to the owning operation.
+    """
     parsed = urlparse(endpoint)
     if parsed.scheme != "tcp" or parsed.hostname is None or parsed.port is None:
         raise ValueError("broker endpoint must be a valid tcp URL")

@@ -18,14 +18,17 @@ class V6FunctionError(RuntimeError):
 
 
 class V6FunctionSyntaxError(V6FunctionError):
+    """Raised when the v6 function syntax contract cannot be satisfied."""
     pass
 
 
 class V6FunctionCapabilityError(V6FunctionError):
+    """Raised when the v6 function capability contract cannot be satisfied."""
     pass
 
 
 class V6FunctionRuntimeError(V6FunctionError):
+    """Raised when the v6 function runtime contract cannot be satisfied."""
     pass
 
 
@@ -37,6 +40,7 @@ _ESCAPED_EQUALS = "__LITEYUKI_ESCAPED_EQUALS__"
 
 @dataclass(frozen=True, slots=True)
 class _Statement:
+    """Represent the statement contract."""
     head: str
     args: tuple[str, ...]
     kwargs: Mapping[str, Any]
@@ -45,20 +49,43 @@ class _Statement:
 
 @dataclass(frozen=True, slots=True)
 class _Program:
+    """Represent the program contract."""
     lines: tuple[str, ...]
 
 
 @dataclass(slots=True)
 class _Execution:
+    """Represent the execution contract."""
     call: FunctionCall
     invoke: FunctionInvoker
     variables: dict[str, Any] = field(init=False)
     tasks: set[asyncio.Task[Any]] = field(default_factory=set)
 
     def __post_init__(self) -> None:
+        """Validate and normalize the execution after initialization.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_Execution.__post_init__`. It performs the local state
+            transition directly and is not a stable extension boundary.
+        """
         self.variables = dict(self.call.arguments)
 
     async def run(self, program: _Program) -> None:
+        """Run the execution until its lifecycle completes.
+
+        Args:
+            program: The program value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_Execution.run`. It delegates to `_execute`, `cancel_tasks`
+            while keeping intermediate state local to the owning operation.
+        """
         try:
             for source in program.lines:
                 if await self._execute(source):
@@ -68,6 +95,18 @@ class _Execution:
             raise
 
     async def _execute(self, source: str) -> bool:
+        """Execute the execution operation.
+
+        Args:
+            source: Source value or location to process.
+
+        Returns:
+            Whether the requested condition is satisfied.
+
+        Notes:
+            Internal implementation detail for `_Execution._execute`. It delegates to `_parse`, `_render`,
+            `update`, `_required_argument` while keeping intermediate state local to the owning operation.
+        """
         statement = self._parse(self._render(source))
         if statement.head == "var":
             self.variables.update(statement.kwargs)
@@ -112,9 +151,33 @@ class _Execution:
         return False
 
     async def _execute_background(self, source: str) -> None:
+        """Execute background.
+
+        Args:
+            source: Source value or location to process.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_Execution._execute_background`. It delegates to `_execute`
+            while keeping intermediate state local to the owning operation.
+        """
         await self._execute(source)
 
     def _render(self, source: str) -> str:
+        """Render the execution operation.
+
+        Args:
+            source: Source value or location to process.
+
+        Returns:
+            The `str` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_Execution._render`. It delegates to `sub`, `get`, `group`,
+            `format` while keeping intermediate state local to the owning operation.
+        """
         if "${" in source:
             return _PLACEHOLDER.sub(lambda match: str(self.variables.get(match.group(1), "")), source)
         try:
@@ -123,6 +186,19 @@ class _Execution:
             return source
 
     def _parse(self, source: str) -> _Statement:
+        """Parse the execution operation.
+
+        Args:
+            source: Source value or location to process.
+
+        Returns:
+            The `_Statement` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_Execution._parse`. It delegates to `split`, `replace`,
+            `enumerate`, `_literal_or_variable` while keeping intermediate state local to the owning
+            operation.
+        """
         tokens = source.replace(r"\=", _ESCAPED_EQUALS).split(" ")
         head = tokens[0]
         args: list[str] = []
@@ -143,6 +219,18 @@ class _Execution:
         return _Statement(head=head, args=tuple(args), kwargs=kwargs, tail=tail)
 
     def _literal_or_variable(self, value: str) -> Any:
+        """Implement the literal or variable operation for the execution.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `Any` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_Execution._literal_or_variable`. It delegates to
+            `literal_eval`, `get` while keeping intermediate state local to the owning operation.
+        """
         try:
             return ast.literal_eval(value)
         except SyntaxError, ValueError:
@@ -150,11 +238,38 @@ class _Execution:
 
     @staticmethod
     def _required_argument(statement: _Statement, instruction: str) -> str:
+        """Implement the required argument operation for the execution.
+
+        Args:
+            statement: The statement value used by the operation.
+            instruction: The instruction value used by the operation.
+
+        Returns:
+            The `str` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_Execution._required_argument`. It performs the local state
+            transition directly and is not a stable extension boundary.
+        """
         if len(statement.args) < 2 or not statement.args[1]:
             raise V6FunctionSyntaxError(f"{instruction} requires an argument")
         return statement.args[1]
 
     async def _capability(self, name: str, *args: object) -> object:
+        """Implement the capability operation for the execution.
+
+        Args:
+            name: Stable name used to identify the value.
+            *args: The args value used by the operation.
+
+        Returns:
+            The `object` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_Execution._capability`. It delegates to `getattr`,
+            `callable`, `cast`, `isawaitable` while keeping intermediate state local to the owning
+            operation.
+        """
         capability = self.call.capabilities
         method = getattr(capability, name, None)
         if not callable(method):
@@ -165,6 +280,15 @@ class _Execution:
         return await result
 
     async def await_tasks(self) -> None:
+        """Implement the await tasks operation for the execution.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_Execution.await_tasks`. It delegates to `gather`,
+            `difference_update` while keeping intermediate state local to the owning operation.
+        """
         tasks = tuple(self.tasks)
         try:
             if tasks:
@@ -173,6 +297,15 @@ class _Execution:
             self.tasks.difference_update(tasks)
 
     async def cancel_tasks(self) -> None:
+        """Implement the cancel tasks operation for the execution.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_Execution.cancel_tasks`. It delegates to `cancel`,
+            `gather`, `difference_update` while keeping intermediate state local to the owning operation.
+        """
         tasks = tuple(self.tasks)
         for task in tasks:
             task.cancel()
@@ -187,6 +320,11 @@ class V6FunctionExecutor:
     extensions: tuple[str, ...] = (".lyf", ".lyfunction", ".mcfunction")
 
     def __init__(self) -> None:
+        """Initialize the v6 function executor.
+
+        Returns:
+            None.
+        """
         self._programs: dict[int, _Program] = {}
 
     async def execute(
@@ -195,9 +333,31 @@ class V6FunctionExecutor:
         call: FunctionCall,
         invoke: FunctionInvoker,
     ) -> None:
+        """Execute one request through the v6 function executor.
+
+        Args:
+            document: The document value used by the operation.
+            call: The call value used by the operation.
+            invoke: The invoke value used by the operation.
+
+        Returns:
+            None.
+        """
         await _Execution(call, invoke).run(self._program(document))
 
     def _program(self, document: FunctionDocument) -> _Program:
+        """Implement the program operation for the v6 function executor.
+
+        Args:
+            document: The document value used by the operation.
+
+        Returns:
+            The `_Program` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `V6FunctionExecutor._program`. It delegates to `id`, `get`,
+            `read_text`, `_Program` while keeping intermediate state local to the owning operation.
+        """
         key = id(document.resource)
         program = self._programs.get(key)
         if program is None:

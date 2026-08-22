@@ -33,6 +33,14 @@ class ConfigProvenance:
     chains: Mapping[tuple[str, ...], tuple[ConfigSource, ...]]
 
     def explain(self, pointer: str) -> tuple[ConfigSource, ...]:
+        """Implement the explain operation for the config provenance.
+
+        Args:
+            pointer: The pointer value used by the operation.
+
+        Returns:
+            The `tuple[ConfigSource, ...]` result produced by the operation.
+        """
         path = _parse_pointer(pointer)
         exact = self.chains.get(path)
         if exact is not None:
@@ -56,6 +64,14 @@ class ConfigInspection:
     provenance: ConfigProvenance
 
     def explain(self, pointer: str) -> ConfigExplanation:
+        """Implement the explain operation for the config inspection.
+
+        Args:
+            pointer: The pointer value used by the operation.
+
+        Returns:
+            The `ConfigExplanation` result produced by the operation.
+        """
         return ConfigExplanation(
             pointer=pointer,
             value=_value_at_pointer(self.settings.model_dump(mode="json"), _parse_pointer(pointer)),
@@ -73,16 +89,62 @@ class ConfigExplanation:
 
 
 class _ProvenanceTracker:
+    """Represent the provenance tracker contract."""
     def __init__(self) -> None:
+        """Initialize the provenance tracker.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_ProvenanceTracker.__init__`. It performs the local state
+            transition directly and is not a stable extension boundary.
+        """
         self.chains: dict[tuple[str, ...], list[ConfigSource]] = {}
 
     def apply(self, value: Mapping[str, Any], source: ConfigSource) -> None:
+        """Implement the apply operation for the provenance tracker.
+
+        Args:
+            value: Value to validate, transform, or store.
+            source: Source value or location to process.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_ProvenanceTracker.apply`. It delegates to `_apply` while
+            keeping intermediate state local to the owning operation.
+        """
         self._apply(value, source, ())
 
     def freeze(self) -> ConfigProvenance:
+        """Freeze the provenance tracker operation.
+
+        Returns:
+            The `ConfigProvenance` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_ProvenanceTracker.freeze`. It delegates to `items` while
+            keeping intermediate state local to the owning operation.
+        """
         return ConfigProvenance({path: tuple(chain) for path, chain in self.chains.items()})
 
     def _apply(self, value: Any, source: ConfigSource, path: tuple[str, ...]) -> None:
+        """Implement the apply operation for the provenance tracker.
+
+        Args:
+            value: Value to validate, transform, or store.
+            source: Source value or location to process.
+            path: Filesystem or logical resource path.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_ProvenanceTracker._apply`. It delegates to `append`,
+            `setdefault`, `items`, `_apply` while keeping intermediate state local to the owning operation.
+        """
         if isinstance(value, Mapping):
             if not value:
                 self.chains.setdefault(path, []).append(source)
@@ -94,6 +156,19 @@ class _ProvenanceTracker:
 
 
 def _deep_merge(base: Mapping[str, Any], overlay: Mapping[str, Any]) -> ConfigMap:
+    """Implement the deep merge operation for the component.
+
+    Args:
+        base: The base value used by the operation.
+        overlay: The overlay value used by the operation.
+
+    Returns:
+        The `ConfigMap` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_deep_merge`. It delegates to `items`, `get`, `_deep_merge`
+        while keeping intermediate state local to the owning operation.
+    """
     merged = dict(base)
     for key, value in overlay.items():
         current = merged.get(key)
@@ -105,6 +180,18 @@ def _deep_merge(base: Mapping[str, Any], overlay: Mapping[str, Any]) -> ConfigMa
 
 
 def _parse_value(value: str) -> Any:
+    """Parse value.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `Any` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_parse_value`. It delegates to `loads` while keeping
+        intermediate state local to the owning operation.
+    """
     try:
         return json.loads(value)
     except json.JSONDecodeError:
@@ -112,6 +199,20 @@ def _parse_value(value: str) -> Any:
 
 
 def _assign_nested(target: ConfigMap, path: Sequence[str], value: Any) -> None:
+    """Implement the assign nested operation for the component.
+
+    Args:
+        target: Target value or location for the operation.
+        path: Filesystem or logical resource path.
+        value: Value to validate, transform, or store.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_assign_nested`. It delegates to `get` while keeping
+        intermediate state local to the owning operation.
+    """
     cursor = target
     for part in path[:-1]:
         child = cursor.get(part)
@@ -123,10 +224,37 @@ def _assign_nested(target: ConfigMap, path: Sequence[str], value: Any) -> None:
 
 
 def _normalize_override_key(key: str, separator: str) -> tuple[str, ...]:
+    """Normalize override key.
+
+    Args:
+        key: Stable FIFO ordering key for the queued work.
+        separator: The separator value used by the operation.
+
+    Returns:
+        The `tuple[str, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_normalize_override_key`. It delegates to `lower`, `strip`,
+        `split` while keeping intermediate state local to the owning operation.
+    """
     return tuple(part.strip().lower() for part in key.split(separator))
 
 
 def _environment_layer(environ: Mapping[str, str], issues: list[ConfigIssue]) -> ConfigMap:
+    """Implement the environment layer operation for the component.
+
+    Args:
+        environ: The environ value used by the operation.
+        issues: The issues value used by the operation.
+
+    Returns:
+        The `ConfigMap` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_environment_layer`. It delegates to `items`, `startswith`,
+        `upper`, `_normalize_override_key` while keeping intermediate state local to the owning
+        operation.
+    """
     result: ConfigMap = {}
     prefix = "LITEYUKI__"
     for key, raw_value in environ.items():
@@ -141,6 +269,19 @@ def _environment_layer(environ: Mapping[str, str], issues: list[ConfigIssue]) ->
 
 
 def _cli_layer(overrides: CliOverrides, issues: list[ConfigIssue]) -> ConfigMap:
+    """Implement the cli layer operation for the component.
+
+    Args:
+        overrides: The overrides value used by the operation.
+        issues: The issues value used by the operation.
+
+    Returns:
+        The `ConfigMap` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_cli_layer`. It delegates to `items`, `append`,
+        `_deep_merge`, `lower` while keeping intermediate state local to the owning operation.
+    """
     result: ConfigMap = {}
     if isinstance(overrides, Mapping):
         for key, value in overrides.items():
@@ -174,6 +315,19 @@ def _cli_layer(overrides: CliOverrides, issues: list[ConfigIssue]) -> ConfigMap:
 
 
 def _resolve_path(value: Any, base_directory: Path) -> Any:
+    """Resolve path.
+
+    Args:
+        value: Value to validate, transform, or store.
+        base_directory: The base directory value used by the operation.
+
+    Returns:
+        The `Any` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_resolve_path`. It delegates to `expanduser`, `is_absolute`,
+        `resolve` while keeping intermediate state local to the owning operation.
+    """
     if not isinstance(value, (str, os.PathLike)):
         return value
     path = Path(value).expanduser()
@@ -183,6 +337,19 @@ def _resolve_path(value: Any, base_directory: Path) -> Any:
 
 
 def _resolve_declared_paths(data: ConfigMap, base_directory: Path) -> ConfigMap:
+    """Resolve declared paths.
+
+    Args:
+        data: The data value used by the operation.
+        base_directory: The base directory value used by the operation.
+
+    Returns:
+        The `ConfigMap` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_resolve_declared_paths`. It delegates to `get`,
+        `_resolve_path`, `items` while keeping intermediate state local to the owning operation.
+    """
     result = dict(data)
 
     core = result.get("core")
@@ -219,7 +386,21 @@ def _resolve_declared_paths(data: ConfigMap, base_directory: Path) -> ConfigMap:
 
 
 class _FileLoader:
+    """Represent the file loader contract."""
     def __init__(self, issues: list[ConfigIssue], tracker: _ProvenanceTracker | None = None) -> None:
+        """Initialize the file loader.
+
+        Args:
+            issues: The issues value used by the operation.
+            tracker: The tracker value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_FileLoader.__init__`. It performs the local state
+            transition directly and is not a stable extension boundary.
+        """
         self.issues = issues
         self.tracker = tracker
         self._active: list[Path] = []
@@ -227,15 +408,54 @@ class _FileLoader:
 
     @staticmethod
     def _identity(path: Path) -> str:
+        """Implement the identity operation for the file loader.
+
+        Args:
+            path: Filesystem or logical resource path.
+
+        Returns:
+            The `str` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_FileLoader._identity`. It delegates to `normcase`,
+            `resolve` while keeping intermediate state local to the owning operation.
+        """
         return os.path.normcase(str(path.resolve(strict=False)))
 
     def load_root(self, path: str | os.PathLike[str], *, require_config_version: bool = False) -> ConfigMap:
+        """Load root.
+
+        Args:
+            path: Filesystem or logical resource path.
+            require_config_version: The require config version value used by the operation.
+
+        Returns:
+            The `ConfigMap` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_FileLoader.load_root`. It delegates to `resolve`,
+            `expanduser`, `_load_file` while keeping intermediate state local to the owning operation.
+        """
         resolved = Path(path).expanduser().resolve(strict=False)
         return self._load_file(resolved, included_by=None, require_config_version=require_config_version)
 
     def _load_file(
         self, path: Path, *, included_by: Path | None, require_config_version: bool = False
     ) -> ConfigMap:
+        """Load file.
+
+        Args:
+            path: Filesystem or logical resource path.
+            included_by: The included by value used by the operation.
+            require_config_version: The require config version value used by the operation.
+
+        Returns:
+            The `ConfigMap` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_FileLoader._load_file`. It delegates to `_identity`,
+            `index`, `join`, `append` while keeping intermediate state local to the owning operation.
+        """
         identity = self._identity(path)
         active_identities = [self._identity(active) for active in self._active]
         if identity in active_identities:
@@ -273,6 +493,20 @@ class _FileLoader:
             self._active.pop()
 
     def _load_includes(self, include_value: Any, declaring_file: Path) -> ConfigMap:
+        """Load includes.
+
+        Args:
+            include_value: The include value value used by the operation.
+            declaring_file: The declaring file value used by the operation.
+
+        Returns:
+            The `ConfigMap` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_FileLoader._load_includes`. It delegates to `append`,
+            `enumerate`, `strip`, `expanduser` while keeping intermediate state local to the owning
+            operation.
+        """
         if not isinstance(include_value, list):
             self.issues.append(ConfigIssue(declaring_file, "include must be an array of file paths", ("include",)))
             return {}
@@ -291,6 +525,18 @@ class _FileLoader:
         return merged
 
     def _parse_file(self, path: Path) -> ConfigMap | None:
+        """Parse file.
+
+        Args:
+            path: Filesystem or logical resource path.
+
+        Returns:
+            The `ConfigMap | None` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_FileLoader._parse_file`. It delegates to `read_bytes`,
+            `append`, `lower`, `loads` while keeping intermediate state local to the owning operation.
+        """
         try:
             raw = path.read_bytes()
         except OSError as error:
@@ -328,6 +574,19 @@ class _FileLoader:
         return dict(value)
 
     def _parse_yaml(self, raw: bytes, path: Path) -> Any:
+        """Parse yaml.
+
+        Args:
+            raw: The raw value used by the operation.
+            path: Filesystem or logical resource path.
+
+        Returns:
+            The `Any` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_FileLoader._parse_yaml`. It delegates to `import_module`,
+            `append`, `safe_load`, `decode` while keeping intermediate state local to the owning operation.
+        """
         try:
             yaml = importlib.import_module("yaml")
         except ModuleNotFoundError as error:
@@ -363,6 +622,16 @@ def load_settings(
     ``config_paths`` preserves the order of repeated CLI ``--config`` options.
     Iterable ``cli_overrides`` values use ``section.field=JSON_VALUE`` syntax;
     mappings may contain either nested values or dotted keys.
+
+    Args:
+        primary_path: Filesystem path for the primary.
+        config_paths: The config paths value used by the operation.
+        instance_config_paths: The instance config paths value used by the operation.
+        environ: The environ value used by the operation.
+        cli_overrides: The cli overrides value used by the operation.
+
+    Returns:
+        The `AppSettings` result produced by the operation.
     """
 
     return _load_settings(
@@ -383,7 +652,18 @@ def inspect_settings(
     environ: Mapping[str, str] | None = None,
     cli_overrides: CliOverrides = (),
 ) -> ConfigInspection:
-    """Load settings and preserve the full source chain for every value."""
+    """Load settings and preserve the full source chain for every value.
+
+    Args:
+        primary_path: Filesystem path for the primary.
+        config_paths: The config paths value used by the operation.
+        instance_config_paths: The instance config paths value used by the operation.
+        environ: The environ value used by the operation.
+        cli_overrides: The cli overrides value used by the operation.
+
+    Returns:
+        The `ConfigInspection` result produced by the operation.
+    """
 
     tracker = _ProvenanceTracker()
     tracker.apply(AppSettings().model_dump(mode="json"), ConfigSource("default", "kernel defaults"))
@@ -408,6 +688,24 @@ def _load_settings(
     cli_overrides: CliOverrides,
     tracker: _ProvenanceTracker | None,
 ) -> tuple[AppSettings, ConfigProvenance | None]:
+    """Load settings.
+
+    Args:
+        primary_path: Filesystem path for the primary.
+        config_paths: The config paths value used by the operation.
+        instance_config_paths: The instance config paths value used by the operation.
+        environ: The environ value used by the operation.
+        cli_overrides: The cli overrides value used by the operation.
+        tracker: The tracker value used by the operation.
+
+    Returns:
+        The `tuple[AppSettings, ConfigProvenance | None]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_load_settings`. It delegates to `_FileLoader`, `load_root`,
+        `_deep_merge`, `_validate_instance_overlay` while keeping intermediate state local to the owning
+        operation.
+    """
     issues: list[ConfigIssue] = []
     loader = _FileLoader(issues, tracker)
     merged: ConfigMap = {}
@@ -454,6 +752,19 @@ def _load_settings(
 
 
 def _reject_legacy_runtime_config(merged: Mapping[str, Any], issues: list[ConfigIssue]) -> None:
+    """Implement the reject legacy runtime config operation for the component.
+
+    Args:
+        merged: The merged value used by the operation.
+        issues: The issues value used by the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_reject_legacy_runtime_config`. It delegates to `get`,
+        `items`, `append` while keeping intermediate state local to the owning operation.
+    """
     runtimes = merged.get("runtimes")
     if not isinstance(runtimes, Mapping):
         return
@@ -496,6 +807,19 @@ def _reject_legacy_runtime_config(merged: Mapping[str, Any], issues: list[Config
 
 
 def _reject_legacy_agent_config(merged: Mapping[str, Any], issues: list[ConfigIssue]) -> None:
+    """Implement the reject legacy agent config operation for the component.
+
+    Args:
+        merged: The merged value used by the operation.
+        issues: The issues value used by the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_reject_legacy_agent_config`. It delegates to `append`,
+        `get` while keeping intermediate state local to the owning operation.
+    """
     if "agent" in merged:
         issues.append(
             ConfigIssue(
@@ -528,7 +852,19 @@ def _reject_legacy_agent_config(merged: Mapping[str, Any], issues: list[ConfigIs
 
 
 def _validate_instance_overlay(overlay: Mapping[str, Any], path: Path) -> None:
-    """Prevent an instance overlay from escaping its derived private storage."""
+    """Prevent an instance overlay from escaping its derived private storage.
+
+    Args:
+        overlay: The overlay value used by the operation.
+        path: Filesystem or logical resource path.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_validate_instance_overlay`. It delegates to `join` while
+        keeping intermediate state local to the owning operation.
+    """
 
     restricted = (("config_version",), ("core", "data_dir"), ("core", "cache_dir"), ("logging", "file"))
     for parts in restricted:
@@ -544,6 +880,18 @@ def _validate_instance_overlay(overlay: Mapping[str, Any], path: Path) -> None:
 
 
 def _parse_pointer(pointer: str) -> tuple[str, ...]:
+    """Parse pointer.
+
+    Args:
+        pointer: The pointer value used by the operation.
+
+    Returns:
+        The `tuple[str, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_parse_pointer`. It delegates to `startswith`, `split`,
+        `append`, `join` while keeping intermediate state local to the owning operation.
+    """
     if pointer == "":
         return ()
     if not pointer.startswith("/"):
@@ -567,6 +915,19 @@ def _parse_pointer(pointer: str) -> tuple[str, ...]:
 
 
 def _value_at_pointer(value: Any, path: tuple[str, ...]) -> Any:
+    """Implement the value at pointer operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        path: Filesystem or logical resource path.
+
+    Returns:
+        The `Any` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_value_at_pointer`. It delegates to `join`, `isdigit`, `int`
+        while keeping intermediate state local to the owning operation.
+    """
     current = value
     for part in path:
         if isinstance(current, Mapping):

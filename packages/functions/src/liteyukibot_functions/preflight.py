@@ -52,6 +52,7 @@ _MISSING = object()
 
 @dataclass(frozen=True, slots=True)
 class ToolContribution:
+    """Represent the tool contribution contract."""
     id: str
     name: str
     function_name: str
@@ -64,6 +65,7 @@ class ToolContribution:
 
 @dataclass(frozen=True, slots=True)
 class PromptContribution:
+    """Represent the prompt contribution contract."""
     id: str
     name: str
     function_name: str
@@ -75,6 +77,7 @@ class PromptContribution:
 
 @dataclass(frozen=True, slots=True)
 class EventContribution:
+    """Represent the event contribution contract."""
     id: str
     function_name: str
     topic: str
@@ -84,6 +87,7 @@ class EventContribution:
 
 @dataclass(frozen=True, slots=True)
 class PreflightResult:
+    """Represent the validated preflight result contract."""
     program: FunctionProgram | None
     diagnostics: tuple[Diagnostic, ...]
     libraries: LibraryRegistry
@@ -93,14 +97,46 @@ class PreflightResult:
 
     @property
     def ok(self) -> bool:
+        """Return the preflight result's ok.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
         return self.program is not None and not any(item.is_error for item in self.diagnostics)
 
 
 def _diagnostic(code: str, message: str, program: FunctionProgram, span: SourceSpan | None = None) -> Diagnostic:
+    """Implement the diagnostic operation for the component.
+
+    Args:
+        code: The code value used by the operation.
+        message: Message content associated with the operation.
+        program: The program value used by the operation.
+        span: The span value used by the operation.
+
+    Returns:
+        The `Diagnostic` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_diagnostic`. It performs the local state transition
+        directly and is not a stable extension boundary.
+    """
     return Diagnostic(code, message, program.source_id, span)
 
 
 def _argument_map(decorator: AgentDecorator | EventsDecorator) -> tuple[dict[str, Expr], list[str]]:
+    """Implement the argument map operation for the component.
+
+    Args:
+        decorator: The decorator value used by the operation.
+
+    Returns:
+        The `tuple[dict[str, Expr], list[str]]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_argument_map`. It delegates to `append` while keeping
+        intermediate state local to the owning operation.
+    """
     values: dict[str, Expr] = {}
     duplicates: list[str] = []
     for argument in decorator.arguments:
@@ -111,6 +147,20 @@ def _argument_map(decorator: AgentDecorator | EventsDecorator) -> tuple[dict[str
 
 
 def _static_value(expression: Expr, constants: Mapping[str, Any], libraries: Mapping[str, LibraryDefinition]) -> Any:
+    """Implement the static value operation for the component.
+
+    Args:
+        expression: The expression value used by the operation.
+        constants: The constants value used by the operation.
+        libraries: The libraries value used by the operation.
+
+    Returns:
+        The `Any` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_static_value`. It delegates to `thaw_json`, `get`,
+        `_static_value`, `any` while keeping intermediate state local to the owning operation.
+    """
     if isinstance(expression, LiteralExpr):
         return thaw_json(expression.value)
     if isinstance(expression, NameExpr):
@@ -152,6 +202,18 @@ def _static_value(expression: Expr, constants: Mapping[str, Any], libraries: Map
 
 
 def _qualified_name(expression: Expr) -> tuple[str, str] | None:
+    """Implement the qualified name operation for the component.
+
+    Args:
+        expression: The expression value used by the operation.
+
+    Returns:
+        The `tuple[str, str] | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_qualified_name`. It delegates to `append`, `reverse`,
+        `join` while keeping intermediate state local to the owning operation.
+    """
     parts: list[str] = []
     current: Expr = expression
     while isinstance(current, MemberExpr):
@@ -165,6 +227,18 @@ def _qualified_name(expression: Expr) -> tuple[str, str] | None:
 
 
 def _target_names(target: BindingTarget) -> tuple[str, ...]:
+    """Implement the target names operation for the component.
+
+    Args:
+        target: Target value or location for the operation.
+
+    Returns:
+        The `tuple[str, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_target_names`. It delegates to `_target_names` while
+        keeping intermediate state local to the owning operation.
+    """
     if isinstance(target, NameTarget):
         return (target.name,)
     if isinstance(target, TupleTarget):
@@ -172,17 +246,98 @@ def _target_names(target: BindingTarget) -> tuple[str, ...]:
     return ()
 
 
+def _check_call_target(
+    expression: CallExpr,
+    program: FunctionProgram,
+    libraries: Mapping[str, LibraryDefinition],
+    names: set[str],
+    function_names: frozenset[str],
+    diagnostics: list[Diagnostic],
+) -> None:
+    """Check call target.
+
+    Args:
+        expression: The expression value used by the operation.
+        program: The program value used by the operation.
+        libraries: The libraries value used by the operation.
+        names: The names value used by the operation.
+        function_names: The function names value used by the operation.
+        diagnostics: The diagnostics value used by the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_check_call_target`. It delegates to `_qualified_name`,
+        `append`, `_diagnostic`, `get` while keeping intermediate state local to the owning operation.
+    """
+    callee = expression.callee
+    if isinstance(callee, MemberExpr):
+        qualified = _qualified_name(callee)
+        if qualified is None:
+            diagnostics.append(
+                _diagnostic("LYF_LIBRARY_EXPORT", "library call must use namespace.export", program, callee.span)
+            )
+            return
+        namespace, export_name = qualified
+        definition = libraries.get(namespace)
+        export = definition.export_map.get(export_name) if definition is not None else None
+        if export is None:
+            diagnostics.append(
+                _diagnostic(
+                    "LYF_LIBRARY_EXPORT",
+                    f"unknown Library export {namespace}.{export_name}",
+                    program,
+                    callee.span,
+                )
+            )
+        if (namespace, export_name) == ("terminal", "exec"):
+            diagnostics.append(
+                _diagnostic(
+                    "LYF_UNSUPPORTED_SYNTAX", "terminal.exec is parse-only in Alpha 7", program, expression.span
+                )
+            )
+        return
+    if isinstance(callee, NameExpr):
+        if callee.name not in names and callee.name not in function_names:
+            diagnostics.append(
+                _diagnostic("LYF_BINDING_MISSING", f"unknown callable {callee.name!r}", program, callee.span)
+            )
+        return
+    diagnostics.append(_diagnostic("LYF_LIBRARY_EXPORT", "call target is not executable", program, callee.span))
+
+
 def _check_expression(
     expression: Expr,
     program: FunctionProgram,
     libraries: Mapping[str, LibraryDefinition],
     names: set[str],
+    function_names: frozenset[str],
     diagnostics: list[Diagnostic],
     *,
     allow_await: bool,
 ) -> None:
+    """Check expression.
+
+    Args:
+        expression: The expression value used by the operation.
+        program: The program value used by the operation.
+        libraries: The libraries value used by the operation.
+        names: The names value used by the operation.
+        function_names: The function names value used by the operation.
+        diagnostics: The diagnostics value used by the operation.
+        allow_await: Whether allow await is enabled.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_check_expression`. It delegates to `append`, `_diagnostic`,
+        `_check_expression`, `_qualified_name` while keeping intermediate state local to the owning
+        operation.
+    """
     if isinstance(expression, NameExpr):
-        if expression.name not in names and expression.name not in {item.name for item in program.functions}:
+        if expression.name not in names and expression.name not in function_names:
             diagnostics.append(
                 _diagnostic("LYF_BINDING_MISSING", f"unknown binding {expression.name!r}", program, expression.span)
             )
@@ -191,11 +346,13 @@ def _check_expression(
         return
     if isinstance(expression, (ListExpr, TupleExpr)):
         for item in expression.items:
-            _check_expression(item, program, libraries, names, diagnostics, allow_await=allow_await)
+            _check_expression(item, program, libraries, names, function_names, diagnostics, allow_await=allow_await)
         return
     if isinstance(expression, ObjectExpr):
         for entry in expression.entries:
-            _check_expression(entry.value, program, libraries, names, diagnostics, allow_await=allow_await)
+            _check_expression(
+                entry.value, program, libraries, names, function_names, diagnostics, allow_await=allow_await
+            )
         return
     if isinstance(expression, (BinaryExpr, UnaryExpr, IndexExpr)):
         diagnostics.append(
@@ -209,59 +366,23 @@ def _check_expression(
                     "LYF_RUNTIME_ASYNC_CONTEXT", "await is only executable in async fn", program, expression.span
                 )
             )
-        _check_expression(expression.value, program, libraries, names, diagnostics, allow_await=allow_await)
+        _check_expression(
+            expression.value, program, libraries, names, function_names, diagnostics, allow_await=allow_await
+        )
         return
     if isinstance(expression, MemberExpr):
         qualified = _qualified_name(expression)
         if qualified is None:
-            _check_expression(expression.value, program, libraries, names, diagnostics, allow_await=allow_await)
+            _check_expression(
+                expression.value, program, libraries, names, function_names, diagnostics, allow_await=allow_await
+            )
         return
     if isinstance(expression, CallExpr):
-        if isinstance(expression.callee, MemberExpr):
-            qualified = _qualified_name(expression.callee)
-            if qualified is None:
-                diagnostics.append(
-                    _diagnostic(
-                        "LYF_LIBRARY_EXPORT", "library call must use namespace.export", program, expression.callee.span
-                    )
-                )
-            else:
-                namespace, export_name = qualified
-                definition = libraries.get(namespace)
-                export = definition.export_map.get(export_name) if definition is not None else None
-                if export is None:
-                    diagnostics.append(
-                        _diagnostic(
-                            "LYF_LIBRARY_EXPORT",
-                            f"unknown Library export {namespace}.{export_name}",
-                            program,
-                            expression.callee.span,
-                        )
-                    )
-                if export_name == "exec" and namespace == "terminal":
-                    diagnostics.append(
-                        _diagnostic(
-                            "LYF_UNSUPPORTED_SYNTAX", "terminal.exec is parse-only in Alpha 7", program, expression.span
-                        )
-                    )
-        elif isinstance(expression.callee, NameExpr):
-            if expression.callee.name not in names and expression.callee.name not in {
-                item.name for item in program.functions
-            }:
-                diagnostics.append(
-                    _diagnostic(
-                        "LYF_BINDING_MISSING",
-                        f"unknown callable {expression.callee.name!r}",
-                        program,
-                        expression.callee.span,
-                    )
-                )
-        else:
-            diagnostics.append(
-                _diagnostic("LYF_LIBRARY_EXPORT", "call target is not executable", program, expression.callee.span)
-            )
+        _check_call_target(expression, program, libraries, names, function_names, diagnostics)
         for argument in expression.arguments:
-            _check_expression(argument, program, libraries, names, diagnostics, allow_await=allow_await)
+            _check_expression(
+                argument, program, libraries, names, function_names, diagnostics, allow_await=allow_await
+            )
         return
     diagnostics.append(_diagnostic("LYF_UNSUPPORTED_SYNTAX", "expression is not executable", program, expression.span))
 
@@ -272,15 +393,40 @@ def _check_statement_block(
     libraries: Mapping[str, LibraryDefinition],
     diagnostics: list[Diagnostic],
 ) -> None:
+    """Check statement block.
+
+    Args:
+        function: The function value used by the operation.
+        program: The program value used by the operation.
+        libraries: The libraries value used by the operation.
+        diagnostics: The diagnostics value used by the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_check_statement_block`. It delegates to `frozenset`,
+        `append`, `_diagnostic`, `_check_expression` while keeping intermediate state local to the
+        owning operation.
+    """
     names = set(function.parameters)
     const_names: set[str] = set()
+    function_names = frozenset(item.name for item in program.functions)
     for statement in function.body:
         if isinstance(statement, UnsupportedStatement):
             code = "migration_required" if statement.kind == "migration_required" else "LYF_UNSUPPORTED_SYNTAX"
             diagnostics.append(_diagnostic(code, statement.detail, program, statement.span))
             continue
         if isinstance(statement, BindingStatement):
-            _check_expression(statement.value, program, libraries, names, diagnostics, allow_await=function.is_async)
+            _check_expression(
+                statement.value,
+                program,
+                libraries,
+                names,
+                function_names,
+                diagnostics,
+                allow_await=function.is_async,
+            )
             for name in _target_names(statement.target):
                 if name in names:
                     diagnostics.append(
@@ -293,7 +439,15 @@ def _check_statement_block(
                     const_names.add(name)
             continue
         if isinstance(statement, AssignmentStatement):
-            _check_expression(statement.value, program, libraries, names, diagnostics, allow_await=function.is_async)
+            _check_expression(
+                statement.value,
+                program,
+                libraries,
+                names,
+                function_names,
+                diagnostics,
+                allow_await=function.is_async,
+            )
             for name in _target_names(statement.target):
                 if name not in names:
                     diagnostics.append(
@@ -311,14 +465,40 @@ def _check_statement_block(
         if isinstance(statement, ReturnStatement):
             if statement.value is not None:
                 _check_expression(
-                    statement.value, program, libraries, names, diagnostics, allow_await=function.is_async
+                    statement.value,
+                    program,
+                    libraries,
+                    names,
+                    function_names,
+                    diagnostics,
+                    allow_await=function.is_async,
                 )
             continue
         if isinstance(statement, ExpressionStatement):
-            _check_expression(statement.value, program, libraries, names, diagnostics, allow_await=function.is_async)
+            _check_expression(
+                statement.value,
+                program,
+                libraries,
+                names,
+                function_names,
+                diagnostics,
+                allow_await=function.is_async,
+            )
 
 
 def _schema(value: Any) -> Mapping[str, Any] | None:
+    """Implement the schema operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `Mapping[str, Any] | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_schema`. It delegates to `get`, `check_schema`, `cast`
+        while keeping intermediate state local to the owning operation.
+    """
     if not isinstance(value, Mapping):
         return None
     if value.get("type") != "object":
@@ -339,6 +519,24 @@ def _collect_tool(
     libraries: Mapping[str, LibraryDefinition],
     diagnostics: list[Diagnostic],
 ) -> ToolContribution | None:
+    """Collect tool.
+
+    Args:
+        decorator: The decorator value used by the operation.
+        function: The function value used by the operation.
+        program: The program value used by the operation.
+        extension_id: Stable identifier for the extension.
+        constants: The constants value used by the operation.
+        libraries: The libraries value used by the operation.
+        diagnostics: The diagnostics value used by the operation.
+
+    Returns:
+        The `ToolContribution | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_collect_tool`. It delegates to `_argument_map`, `append`,
+        `_diagnostic`, `join` while keeping intermediate state local to the owning operation.
+    """
     values, duplicates = _argument_map(decorator)
     for duplicate_name in duplicates:
         diagnostics.append(
@@ -408,6 +606,106 @@ def _collect_tool(
     )
 
 
+def _evaluate_prompt_body(
+    function: FunctionDeclaration,
+    program: FunctionProgram,
+    constants: Mapping[str, Any],
+    libraries: Mapping[str, LibraryDefinition],
+    diagnostics: list[Diagnostic],
+) -> Any:
+    """Interpret the deliberately small static subset accepted for prompt presets.
+
+    Args:
+        function: The function value used by the operation.
+        program: The program value used by the operation.
+        constants: The constants value used by the operation.
+        libraries: The libraries value used by the operation.
+        diagnostics: The diagnostics value used by the operation.
+
+    Returns:
+        The `Any` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_evaluate_prompt_body`. It delegates to `_static_value`,
+        `append`, `_diagnostic` while keeping intermediate state local to the owning operation.
+    """
+
+    local = dict(constants)
+    for statement in function.body:
+        if isinstance(statement, BindingStatement):
+            value = _static_value(statement.value, local, libraries)
+            if value is _MISSING or not isinstance(statement.target, NameTarget):
+                diagnostics.append(
+                    _diagnostic(
+                        "LYF_PROMPT_NON_STATIC",
+                        "prompt bindings must be static scalar or JSON values",
+                        program,
+                        statement.span,
+                    )
+                )
+                return _MISSING
+            local[statement.target.name] = value
+            continue
+        if isinstance(statement, ReturnStatement):
+            return None if statement.value is None else _static_value(statement.value, local, libraries)
+        if not isinstance(statement, PassStatement):
+            diagnostics.append(
+                _diagnostic(
+                    "LYF_PROMPT_NON_STATIC", "prompt presets may not use runtime statements", program, statement.span
+                )
+            )
+            return _MISSING
+    return _MISSING
+
+
+def _validate_prompt_payload(
+    value: Any,
+    function: FunctionDeclaration,
+    program: FunctionProgram,
+    diagnostics: list[Diagnostic],
+) -> tuple[str, tuple[Mapping[str, Any], ...]] | None:
+    """Validate prompt payload.
+
+    Args:
+        value: Value to validate, transform, or store.
+        function: The function value used by the operation.
+        program: The program value used by the operation.
+        diagnostics: The diagnostics value used by the operation.
+
+    Returns:
+        The `tuple[str, tuple[Mapping[str, Any], ...]] | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_validate_prompt_payload`. It delegates to `get`, `append`,
+        `_diagnostic`, `any` while keeping intermediate state local to the owning operation.
+    """
+    if (
+        not isinstance(value, Mapping)
+        or not isinstance(value.get("prompt"), str)
+        or not isinstance(value.get("examples"), Sequence)
+    ):
+        diagnostics.append(
+            _diagnostic(
+                "LYF_PROMPT_VALUE",
+                "prompt function must return {prompt: string, examples: array}",
+                program,
+                function.span,
+            )
+        )
+        return None
+    examples = value["examples"]
+    if any(not isinstance(item, Mapping) for item in examples):
+        diagnostics.append(_diagnostic("LYF_PROMPT_VALUE", "prompt examples must be objects", program, function.span))
+        return None
+    prompt = cast(str, value["prompt"])
+    if len(prompt.encode("utf-8")) > 16 * 1024 or len(repr(examples).encode("utf-8")) > 64 * 1024:
+        diagnostics.append(
+            _diagnostic("LYF_PROMPT_LIMIT", "prompt preset exceeds Alpha 7 size limits", program, function.span)
+        )
+        return None
+    return prompt, tuple(cast(Mapping[str, Any], item) for item in examples)
+
+
 def _collect_prompt(
     decorator: AgentDecorator,
     function: FunctionDeclaration,
@@ -417,6 +715,24 @@ def _collect_prompt(
     libraries: Mapping[str, LibraryDefinition],
     diagnostics: list[Diagnostic],
 ) -> PromptContribution | None:
+    """Collect prompt.
+
+    Args:
+        decorator: The decorator value used by the operation.
+        function: The function value used by the operation.
+        program: The program value used by the operation.
+        extension_id: Stable identifier for the extension.
+        constants: The constants value used by the operation.
+        libraries: The libraries value used by the operation.
+        diagnostics: The diagnostics value used by the operation.
+
+    Returns:
+        The `PromptContribution | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_collect_prompt`. It delegates to `_argument_map`, `append`,
+        `_diagnostic`, `_static_value` while keeping intermediate state local to the owning operation.
+    """
     values, duplicates = _argument_map(decorator)
     for name in duplicates:
         diagnostics.append(
@@ -447,65 +763,22 @@ def _collect_prompt(
             _diagnostic("LYF_PROMPT_ARGUMENT", "prompt name and description must be strings", program, decorator.span)
         )
         return None
-    local = dict(constants)
-    result: Any = _MISSING
-    for statement in function.body:
-        if isinstance(statement, BindingStatement):
-            value = _static_value(statement.value, local, libraries)
-            if value is _MISSING or not isinstance(statement.target, NameTarget):
-                diagnostics.append(
-                    _diagnostic(
-                        "LYF_PROMPT_NON_STATIC",
-                        "prompt bindings must be static scalar or JSON values",
-                        program,
-                        statement.span,
-                    )
-                )
-                return None
-            local[statement.target.name] = value
-        elif isinstance(statement, ReturnStatement):
-            result = None if statement.value is None else _static_value(statement.value, local, libraries)
-            break
-        elif isinstance(statement, PassStatement):
-            continue
-        else:
-            diagnostics.append(
-                _diagnostic(
-                    "LYF_PROMPT_NON_STATIC", "prompt presets may not use runtime statements", program, statement.span
-                )
-            )
-            return None
-    if (
-        not isinstance(result, Mapping)
-        or not isinstance(result.get("prompt"), str)
-        or not isinstance(result.get("examples"), Sequence)
-    ):
-        diagnostics.append(
-            _diagnostic(
-                "LYF_PROMPT_VALUE",
-                "prompt function must return {prompt: string, examples: array}",
-                program,
-                function.span,
-            )
-        )
+    payload = _validate_prompt_payload(
+        _evaluate_prompt_body(function, program, constants, libraries, diagnostics),
+        function,
+        program,
+        diagnostics,
+    )
+    if payload is None:
         return None
-    examples = result["examples"]
-    if any(not isinstance(item, Mapping) for item in examples):
-        diagnostics.append(_diagnostic("LYF_PROMPT_VALUE", "prompt examples must be objects", program, function.span))
-        return None
-    prompt = cast(str, result["prompt"])
-    if len(prompt.encode("utf-8")) > 16 * 1024 or len(repr(examples).encode("utf-8")) > 64 * 1024:
-        diagnostics.append(
-            _diagnostic("LYF_PROMPT_LIMIT", "prompt preset exceeds Alpha 7 size limits", program, function.span)
-        )
-        return None
+    prompt, examples = payload
     return PromptContribution(
         f"{extension_id}.lyf.prompt.{name}",
         name,
         function.name,
         description,
         prompt,
-        tuple(cast(Mapping[str, Any], item) for item in examples),
+        examples,
         decorator.span,
     )
 
@@ -519,6 +792,25 @@ def _collect_event(
     libraries: Mapping[str, LibraryDefinition],
     diagnostics: list[Diagnostic],
 ) -> EventContribution | None:
+    """Collect event.
+
+    Args:
+        decorator: The decorator value used by the operation.
+        function: The function value used by the operation.
+        program: The program value used by the operation.
+        extension_id: Stable identifier for the extension.
+        constants: The constants value used by the operation.
+        libraries: The libraries value used by the operation.
+        diagnostics: The diagnostics value used by the operation.
+
+    Returns:
+        The `EventContribution | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_collect_event`. It delegates to `_static_value`,
+        `fullmatch`, `append`, `_diagnostic` while keeping intermediate state local to the owning
+        operation.
+    """
     topic = _static_value(decorator.topic, constants, libraries)
     if not isinstance(topic, str) or _TOPIC.fullmatch(topic) is None:
         diagnostics.append(
@@ -562,7 +854,17 @@ def preflight(
     extension_id: str = "extension",
     libraries: LibraryRegistry | None = None,
 ) -> PreflightResult:
-    """Resolve Libraries, validate a program and collect static contributions."""
+    """Resolve Libraries, validate a program and collect static contributions.
+
+    Args:
+        source: Source value or location to process.
+        source_id: Stable identifier for the source.
+        extension_id: Stable identifier for the extension.
+        libraries: The libraries value used by the operation.
+
+    Returns:
+        The `PreflightResult` result produced by the operation.
+    """
 
     registry = libraries or default_library_registry()
     parse_result: ParseResult | None = source if isinstance(source, ParseResult) else None

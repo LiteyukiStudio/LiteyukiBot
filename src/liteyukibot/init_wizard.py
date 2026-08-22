@@ -19,11 +19,13 @@ from .resource_packs import ResourceCatalog
 
 
 class WizardCancelled(RuntimeError):
+    """Represent the wizard cancelled contract."""
     pass
 
 
 @dataclass(frozen=True, slots=True)
 class InitWizardResult:
+    """Represent the validated init wizard result contract."""
     workspace: str
     locale: str
     mode: Literal["minimal", "custom"]
@@ -31,6 +33,7 @@ class InitWizardResult:
 
 
 class _BackRequested(Exception):
+    """Represent the back requested contract."""
     pass
 
 
@@ -38,14 +41,45 @@ _STYLE = Style.from_dict({"radio-selected": "fg:#00ff66 bold", "button.focused":
 
 
 def _application(body: AnyContainer, *, back: bool) -> tuple[Application[None], dict[str, object]]:
+    """Implement the application operation for the component.
+
+    Args:
+        body: The body value used by the operation.
+        back: The back value used by the operation.
+
+    Returns:
+        The `tuple[Application[None], dict[str, object]]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_application`. It delegates to `append`, `extend`, `exit`,
+        `add` while keeping intermediate state local to the owning operation.
+    """
     result: dict[str, object] = {}
     bindings = KeyBindings()
 
     def cancel() -> None:
+        """Implement the cancel operation for the application.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_application.cancel`. It delegates to `exit` while keeping
+            intermediate state local to the owning operation.
+        """
         result["value"] = "cancel"
         application.exit()
 
     def go_back() -> None:
+        """Implement the go back operation for the application.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_application.go_back`. It delegates to `exit` while keeping
+            intermediate state local to the owning operation.
+        """
         result["value"] = "back"
         application.exit()
 
@@ -68,6 +102,21 @@ def _application(body: AnyContainer, *, back: bool) -> tuple[Application[None], 
 
 
 def _choose(title: str, values: list[tuple[str, str]], *, current: str, back: bool) -> str:
+    """Implement the choose operation for the component.
+
+    Args:
+        title: The title value used by the operation.
+        values: The values value used by the operation.
+        current: The current value used by the operation.
+        back: The back value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_choose`. It delegates to `_mnemonic`, `enumerate`,
+        `_application`, `_mnemonic_key` while keeping intermediate state local to the owning operation.
+    """
     rendered = [(value, _mnemonic(label, index, values)) for index, (value, label) in enumerate(values)]
     choices = RadioList(values=rendered)
     choices.current_value = current
@@ -98,6 +147,19 @@ def _choose(title: str, values: list[tuple[str, str]], *, current: str, back: bo
 
 
 def _mnemonic_key(label: str, used: set[str]) -> str:
+    """Implement the mnemonic key operation for the component.
+
+    Args:
+        label: The label value used by the operation.
+        used: The used value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_mnemonic_key`. It delegates to `isascii`, `isalpha`,
+        `lower`, `next` while keeping intermediate state local to the owning operation.
+    """
     for character in label:
         if character.isascii() and character.isalpha() and character.lower() not in used:
             return character.lower()
@@ -105,6 +167,20 @@ def _mnemonic_key(label: str, used: set[str]) -> str:
 
 
 def _mnemonic(label: str, index: int, values: list[tuple[str, str]]) -> HTML:
+    """Implement the mnemonic operation for the component.
+
+    Args:
+        label: The label value used by the operation.
+        index: The index value used by the operation.
+        values: The values value used by the operation.
+
+    Returns:
+        The `HTML` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_mnemonic`. It delegates to `range`, `add`, `_mnemonic_key`,
+        `next` while keeping intermediate state local to the owning operation.
+    """
     used: set[str] = set()
     for previous_index in range(index):
         used.add(_mnemonic_key(values[previous_index][1], used))
@@ -116,6 +192,21 @@ def _mnemonic(label: str, index: int, values: list[tuple[str, str]]) -> HTML:
 
 
 def _text(title: str, value: str, *, back: bool, secret: bool = False) -> str:
+    """Implement the text operation for the component.
+
+    Args:
+        title: The title value used by the operation.
+        value: Value to validate, transform, or store.
+        back: The back value used by the operation.
+        secret: The secret value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_text`. It delegates to `_application`, `run`, `get`,
+        `strip` while keeping intermediate state local to the owning operation.
+    """
     field = TextArea(text=value, multiline=False, password=secret)
     application, result = _application(HSplit([Label(title), field]), back=back)
     application.run()
@@ -128,6 +219,15 @@ def _text(title: str, value: str, *, back: bool, secret: bool = False) -> str:
 
 
 def run_init_wizard(workspace: str, locale: str = "auto") -> InitWizardResult:
+    """Run init wizard.
+
+    Args:
+        workspace: The workspace value used by the operation.
+        locale: The locale value used by the operation.
+
+    Returns:
+        The `InitWizardResult` result produced by the operation.
+    """
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         raise RuntimeError("Interactive setup requires a terminal. Use --non-interactive instead.")
     catalog = ResourceCatalog.load(".")
@@ -191,6 +291,18 @@ def run_init_wizard(workspace: str, locale: str = "auto") -> InitWizardResult:
 
 
 def _logging_choices(translator: Translator) -> tuple[str, bool, bool, str, tuple[str, ...]]:
+    """Implement the logging choices operation for the component.
+
+    Args:
+        translator: The translator value used by the operation.
+
+    Returns:
+        The `tuple[str, bool, bool, str, tuple[str, ...]]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_logging_choices`. It delegates to `_choose`, `text`,
+        `_text`, `strip` while keeping intermediate state local to the owning operation.
+    """
     level = _choose(
         translator.text("init.logging_level", "Logging level"),
         [(item, item) for item in ("TRACE", "DEBUG", "INFO", "WARNING", "ERROR")],
@@ -224,7 +336,14 @@ def _logging_choices(translator: Translator) -> tuple[str, bool, bool, str, tupl
 
 
 def build_custom_initialization_plan(_locale: str) -> tuple[InitializationPlan, tuple[str, ...]]:
-    """Collect package metadata in full-screen prompts with replay-based backtracking."""
+    """Collect package metadata in full-screen prompts with replay-based backtracking.
+
+    Args:
+        _locale: The locale value used by the operation.
+
+    Returns:
+        The `tuple[InitializationPlan, tuple[str, ...]]` result produced by the operation.
+    """
 
     answers: list[str] = []
     catalog = ResourceCatalog.load(".")

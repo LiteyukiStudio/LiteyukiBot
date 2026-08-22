@@ -52,6 +52,11 @@ from .terminal import run_local_console, supports_local_console
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build parser.
+
+    Returns:
+        The `argparse.ArgumentParser` result produced by the operation.
+    """
     parser = argparse.ArgumentParser(prog="liteyuki")
     parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument("--workspace", default=".", metavar="PATH", help="project workspace directory")
@@ -191,6 +196,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """Run the command-line entry point.
+
+    Args:
+        argv: The argv value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+    """
     command_line = list(sys.argv[1:] if argv is None else argv)
     args = build_parser().parse_args(command_line)
     if args.command == "version":
@@ -270,6 +283,20 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _delegate_to_active_profile(workspace: ConfigWorkspace, command_line: Sequence[str]) -> int | None:
+    """Implement the delegate to active profile operation for the component.
+
+    Args:
+        workspace: The workspace value used by the operation.
+        command_line: The command line value used by the operation.
+
+    Returns:
+        The `int | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_delegate_to_active_profile`. It delegates to `get`,
+        `active`, `resolve`, `python_path` while keeping intermediate state local to the owning
+        operation.
+    """
     if os.environ.get("LITEYUKI_PROFILE_STAGE") == "1":
         return None
     store = ProfileStore(workspace.directory)
@@ -292,6 +319,21 @@ def _load(
     overrides: Sequence[str],
     instance_name: str = DEFAULT_INSTANCE,
 ) -> AppSettings:
+    """Load the component operation.
+
+    Args:
+        workspace: The workspace value used by the operation.
+        config_paths: The config paths value used by the operation.
+        overrides: The overrides value used by the operation.
+        instance_name: The instance name value used by the operation.
+
+    Returns:
+        The `AppSettings` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_load`. It delegates to `prepare`, `from_workspace`,
+        `load_settings`, `overlay_paths` while keeping intermediate state local to the owning operation.
+    """
     primary = workspace.prepare()
     paths = InstancePaths.from_workspace(workspace, instance_name)
     settings = load_settings(
@@ -304,6 +346,19 @@ def _load(
 
 
 def _resource_command(args: argparse.Namespace) -> int:
+    """Implement the resource command operation for the component.
+
+    Args:
+        args: The args value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_resource_command`. It delegates to `print`,
+        `write_resource_manifest`, `verify_resource_manifest` while keeping intermediate state local to
+        the owning operation.
+    """
     if args.resource_command == "manifest":
         print(write_resource_manifest(args.directory))
         return 0
@@ -315,6 +370,21 @@ def _resource_command(args: argparse.Namespace) -> int:
 
 
 def _init(directory: str, non_interactive: bool, locale: str) -> int:
+    """Implement the init operation for the component.
+
+    Args:
+        directory: The directory value used by the operation.
+        non_interactive: The non interactive value used by the operation.
+        locale: The locale value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_init`. It delegates to `_exclusive_workspace`,
+        `initialize`, `print`, `run_init_wizard` while keeping intermediate state local to the owning
+        operation.
+    """
     if non_interactive:
         workspace = ConfigWorkspace(directory)
         with _exclusive_workspace(workspace):
@@ -358,6 +428,19 @@ def _init(directory: str, non_interactive: bool, locale: str) -> int:
 
 
 def _upgrade(directory: str, refresh: bool) -> int:
+    """Implement the upgrade operation for the component.
+
+    Args:
+        directory: The directory value used by the operation.
+        refresh: The refresh value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_upgrade`. It delegates to `upgrade`, `print` while keeping
+        intermediate state local to the owning operation.
+    """
     result = ConfigWorkspace(directory).upgrade(refresh=refresh)
     if result is None:
         print("configuration is current")
@@ -365,6 +448,19 @@ def _upgrade(directory: str, refresh: bool) -> int:
 
 
 def _profile(args: argparse.Namespace) -> int:
+    """Implement the profile operation for the component.
+
+    Args:
+        args: The args value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_profile`. It delegates to `prepare`,
+        `_exclusive_workspace`, `_profile_unlocked` while keeping intermediate state local to the owning
+        operation.
+    """
     workspace = ConfigWorkspace(args.workspace)
     workspace.prepare()
     with _exclusive_workspace(workspace):
@@ -372,6 +468,18 @@ def _profile(args: argparse.Namespace) -> int:
 
 
 def _plugin_source(args: argparse.Namespace) -> int:
+    """Implement the plugin source operation for the component.
+
+    Args:
+        args: The args value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_plugin_source`. It delegates to `_exclusive_workspace`,
+        `cached_digest`, `print`, `add` while keeping intermediate state local to the owning operation.
+    """
     workspace = ConfigWorkspace(args.workspace)
     with _exclusive_workspace(workspace):
         store = PluginSourceStore(workspace.directory)
@@ -392,6 +500,21 @@ def _plugin_source(args: argparse.Namespace) -> int:
 
 
 def _plugin_install(args: argparse.Namespace, settings: AppSettings, workspace: ConfigWorkspace) -> int:
+    """Implement the plugin install operation for the component.
+
+    Args:
+        args: The args value used by the operation.
+        settings: Validated application settings.
+        workspace: The workspace value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_plugin_install`. It delegates to `_configured_runtime`,
+        `_exclusive_workspace`, `install`, `print` while keeping intermediate state local to the owning
+        operation.
+    """
     runtime = _configured_runtime(args.runtime_id, settings)
     with _exclusive_workspace(workspace):
         result = PluginInstallationService(workspace.directory).install(
@@ -405,6 +528,20 @@ def _plugin_install(args: argparse.Namespace, settings: AppSettings, workspace: 
 
 
 def _plugin_rollback(args: argparse.Namespace, settings: AppSettings, workspace: ConfigWorkspace) -> int:
+    """Implement the plugin rollback operation for the component.
+
+    Args:
+        args: The args value used by the operation.
+        settings: Validated application settings.
+        workspace: The workspace value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_plugin_rollback`. It delegates to `_exclusive_workspace`,
+        `rollback`, `print` while keeping intermediate state local to the owning operation.
+    """
     if args.runtime_id not in settings.runtimes:
         raise ValueError(f"runtime {args.runtime_id!r} is not configured")
     with _exclusive_workspace(workspace):
@@ -414,6 +551,21 @@ def _plugin_rollback(args: argparse.Namespace, settings: AppSettings, workspace:
 
 
 def _plugin_update(args: argparse.Namespace, settings: AppSettings, workspace: ConfigWorkspace) -> int:
+    """Implement the plugin update operation for the component.
+
+    Args:
+        args: The args value used by the operation.
+        settings: Validated application settings.
+        workspace: The workspace value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_plugin_update`. It delegates to `_configured_runtime`,
+        `_exclusive_workspace`, `update`, `print` while keeping intermediate state local to the owning
+        operation.
+    """
     runtime = _configured_runtime(args.runtime_id, settings)
     with _exclusive_workspace(workspace):
         result = PluginInstallationService(workspace.directory).update(
@@ -426,6 +578,21 @@ def _plugin_update(args: argparse.Namespace, settings: AppSettings, workspace: C
 
 
 def _plugin_uninstall(args: argparse.Namespace, settings: AppSettings, workspace: ConfigWorkspace) -> int:
+    """Implement the plugin uninstall operation for the component.
+
+    Args:
+        args: The args value used by the operation.
+        settings: Validated application settings.
+        workspace: The workspace value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_plugin_uninstall`. It delegates to `_configured_runtime`,
+        `_exclusive_workspace`, `uninstall`, `print` while keeping intermediate state local to the
+        owning operation.
+    """
     runtime = _configured_runtime(args.runtime_id, settings)
     with _exclusive_workspace(workspace):
         result = PluginInstallationService(workspace.directory).uninstall(
@@ -441,6 +608,21 @@ def _plugin_uninstall(args: argparse.Namespace, settings: AppSettings, workspace
 
 
 def _plugin_disable(args: argparse.Namespace, settings: AppSettings, workspace: ConfigWorkspace) -> int:
+    """Implement the plugin disable operation for the component.
+
+    Args:
+        args: The args value used by the operation.
+        settings: Validated application settings.
+        workspace: The workspace value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_plugin_disable`. It delegates to `_configured_runtime`,
+        `_exclusive_workspace`, `disable`, `print` while keeping intermediate state local to the owning
+        operation.
+    """
     runtime = _configured_runtime(args.runtime_id, settings)
     with _exclusive_workspace(workspace):
         result = PluginInstallationService(workspace.directory).disable(
@@ -453,6 +635,21 @@ def _plugin_disable(args: argparse.Namespace, settings: AppSettings, workspace: 
 
 
 def _plugin_enable(args: argparse.Namespace, settings: AppSettings, workspace: ConfigWorkspace) -> int:
+    """Implement the plugin enable operation for the component.
+
+    Args:
+        args: The args value used by the operation.
+        settings: Validated application settings.
+        workspace: The workspace value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_plugin_enable`. It delegates to `_configured_runtime`,
+        `_exclusive_workspace`, `enable`, `print` while keeping intermediate state local to the owning
+        operation.
+    """
     runtime = _configured_runtime(args.runtime_id, settings)
     with _exclusive_workspace(workspace):
         result = PluginInstallationService(workspace.directory).enable(
@@ -465,6 +662,19 @@ def _plugin_enable(args: argparse.Namespace, settings: AppSettings, workspace: C
 
 
 def _plugin_gc(args: argparse.Namespace, workspace: ConfigWorkspace) -> int:
+    """Implement the plugin gc operation for the component.
+
+    Args:
+        args: The args value used by the operation.
+        workspace: The workspace value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_plugin_gc`. It delegates to `_exclusive_workspace`,
+        `collect`, `print` while keeping intermediate state local to the owning operation.
+    """
     with _exclusive_workspace(workspace):
         collected = RuntimeGenerationStore(workspace.directory).collect(args.runtime_id)
     for generation in collected:
@@ -474,6 +684,19 @@ def _plugin_gc(args: argparse.Namespace, workspace: ConfigWorkspace) -> int:
 
 
 def _configured_runtime(runtime_id: str, settings: AppSettings) -> Any:
+    """Implement the configured runtime operation for the component.
+
+    Args:
+        runtime_id: Stable runtime identifier.
+        settings: Validated application settings.
+
+    Returns:
+        The `Any` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_configured_runtime`. It performs the local state transition
+        directly and is not a stable extension boundary.
+    """
     try:
         runtime = settings.runtimes[runtime_id]
     except KeyError as error:
@@ -484,6 +707,19 @@ def _configured_runtime(runtime_id: str, settings: AppSettings) -> Any:
 
 
 def _profile_unlocked(args: argparse.Namespace, workspace: ConfigWorkspace) -> int:
+    """Implement the profile unlocked operation for the component.
+
+    Args:
+        args: The args value used by the operation.
+        workspace: The workspace value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_profile_unlocked`. It delegates to `create`, `python_path`,
+        `run`, `check_output` while keeping intermediate state local to the owning operation.
+    """
     store = ProfileStore(workspace.directory)
     if args.profile_command == "stage":
         profile_id, path = store.create(tuple(args.requirements))
@@ -547,6 +783,18 @@ def _profile_unlocked(args: argparse.Namespace, workspace: ConfigWorkspace) -> i
 
 
 def _config_show(args: argparse.Namespace) -> int:
+    """Implement the config show operation for the component.
+
+    Args:
+        args: The args value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_config_show`. It delegates to `_inspect`, `redact_config`,
+        `model_dump`, `print` while keeping intermediate state local to the owning operation.
+    """
     inspection = _inspect(args)
     document = redact_config(inspection.settings.model_dump(mode="json"))
     if args.format == "toml":
@@ -557,6 +805,18 @@ def _config_show(args: argparse.Namespace) -> int:
 
 
 def _config_explain(args: argparse.Namespace) -> int:
+    """Implement the config explain operation for the component.
+
+    Args:
+        args: The args value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_config_explain`. It delegates to `explain`, `_inspect`,
+        `print`, `dumps` while keeping intermediate state local to the owning operation.
+    """
     explanation = _inspect(args).explain(args.pointer)
     print(
         json.dumps(
@@ -576,6 +836,19 @@ def _config_explain(args: argparse.Namespace) -> int:
 
 
 def _inspect(args: argparse.Namespace) -> ConfigInspection:
+    """Inspect the component operation.
+
+    Args:
+        args: The args value used by the operation.
+
+    Returns:
+        The `ConfigInspection` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_inspect`. It delegates to `from_workspace`,
+        `inspect_settings`, `prepare`, `overlay_paths` while keeping intermediate state local to the
+        owning operation.
+    """
     workspace = ConfigWorkspace(args.workspace)
     paths = InstancePaths.from_workspace(workspace, args.instance)
     inspection = inspect_settings(
@@ -588,6 +861,18 @@ def _inspect(args: argparse.Namespace) -> ConfigInspection:
 
 
 def _vault(args: argparse.Namespace) -> int:
+    """Implement the vault operation for the component.
+
+    Args:
+        args: The args value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_vault`. It delegates to `prepare`, `_vault_password`,
+        `exists`, `_prompt_secret` while keeping intermediate state local to the owning operation.
+    """
     workspace = ConfigWorkspace(args.workspace)
     workspace.prepare()
     vault = SecretVault(workspace.management_directory)
@@ -615,6 +900,19 @@ def _vault(args: argparse.Namespace) -> int:
 
 
 def _prompt(label: str, default: str) -> str:
+    """Implement the prompt operation for the component.
+
+    Args:
+        label: The label value used by the operation.
+        default: The default value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_prompt`. It delegates to `strip`, `input` while keeping
+        intermediate state local to the owning operation.
+    """
     try:
         value = input(f"{label} [{default}]: ").strip()
     except EOFError:
@@ -623,6 +921,18 @@ def _prompt(label: str, default: str) -> str:
 
 
 def _prompt_secret(label: str) -> str:
+    """Implement the prompt secret operation for the component.
+
+    Args:
+        label: The label value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_prompt_secret`. It delegates to `getpass` while keeping
+        intermediate state local to the owning operation.
+    """
     value = getpass.getpass(f"{label}: ")
     if not value:
         raise ValueError(f"{label} must not be empty")
@@ -630,6 +940,19 @@ def _prompt_secret(label: str) -> str:
 
 
 def _vault_password(workspace: ConfigWorkspace, *, create: bool = False) -> str:
+    """Implement the vault password operation for the component.
+
+    Args:
+        workspace: The workspace value used by the operation.
+        create: The create value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_vault_password`. It delegates to `is_docker`, `get`,
+        `_prompt_secret` while keeping intermediate state local to the owning operation.
+    """
     if workspace.is_docker():
         value = os.environ.get("LITEYUKI_VAULT_PASSWORD", "")
         if not value:
@@ -642,6 +965,20 @@ def _vault_password(workspace: ConfigWorkspace, *, create: bool = False) -> str:
 
 
 def _runtime_secrets(settings: AppSettings, workspace: ConfigWorkspace) -> dict[str, str]:
+    """Implement the runtime secrets operation for the component.
+
+    Args:
+        settings: Validated application settings.
+        workspace: The workspace value used by the operation.
+
+    Returns:
+        The `dict[str, str]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_runtime_secrets`. It delegates to `values`,
+        `configured_kernel_bridge`, `add`, `read` while keeping intermediate state local to the owning
+        operation.
+    """
     names = {
         secret_name
         for runtime in settings.runtimes.values()
@@ -665,6 +1002,21 @@ def _runtime_secrets(settings: AppSettings, workspace: ConfigWorkspace) -> dict[
 
 
 async def _broker_command(settings: AppSettings, workspace: ConfigWorkspace, args: argparse.Namespace) -> int:
+    """Implement the broker command operation for the component.
+
+    Args:
+        settings: Validated application settings.
+        workspace: The workspace value used by the operation.
+        args: The args value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_broker_command`. It delegates to `_vault_password`,
+        `run_until_cancelled`, `from_vault`, `get` while keeping intermediate state local to the owning
+        operation.
+    """
     vault = SecretVault(workspace.management_directory)
     password = _vault_password(workspace)
     if args.broker_command == "run":
@@ -705,6 +1057,21 @@ async def _broker_command(settings: AppSettings, workspace: ConfigWorkspace, arg
 
 
 async def _bridge_command(settings: AppSettings, workspace: ConfigWorkspace, bridge_id: str) -> int:
+    """Implement the bridge command operation for the component.
+
+    Args:
+        settings: Validated application settings.
+        workspace: The workspace value used by the operation.
+        bridge_id: Stable identifier for the bridge.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_bridge_command`. It delegates to `get`, `read`,
+        `_vault_password`, `resolve_secret_references` while keeping intermediate state local to the
+        owning operation.
+    """
     configured = settings.broker.bridges.get(bridge_id)
     if configured is not None and configured.kind == "kernel":
         raise RuntimeError("the reserved kernel bridge starts with liteyuki run, not liteyuki bridge run")
@@ -727,12 +1094,36 @@ async def _bridge_command(settings: AppSettings, workspace: ConfigWorkspace, bri
 
 
 def _check(settings: AppSettings) -> None:
+    """Check the component operation.
+
+    Args:
+        settings: Validated application settings.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_check`. It delegates to `discover`, `resolve_order` while
+        keeping intermediate state local to the owning operation.
+    """
     app = LiteyukiApp(settings)
     definitions = app.plugins.discover(settings.plugins.enabled, settings.plugins.local_modules)
     app.plugins.resolve_order(definitions)
 
 
 def _list_plugins(settings: AppSettings) -> None:
+    """List plugins.
+
+    Args:
+        settings: Validated application settings.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_list_plugins`. It delegates to `discover`, `resolve_order`,
+        `print` while keeping intermediate state local to the owning operation.
+    """
     app = LiteyukiApp(settings)
     definitions = app.plugins.discover(settings.plugins.enabled, settings.plugins.local_modules)
     for plugin_id in app.plugins.resolve_order(definitions):
@@ -741,6 +1132,20 @@ def _list_plugins(settings: AppSettings) -> None:
 
 
 def _list_runtime_plugin_generations(workspace: ConfigWorkspace, runtime_id: str) -> None:
+    """List runtime plugin generations.
+
+    Args:
+        workspace: The workspace value used by the operation.
+        runtime_id: Stable runtime identifier.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_list_runtime_plugin_generations`. It delegates to `active`,
+        `get`, `list_generations`, `join` while keeping intermediate state local to the owning
+        operation.
+    """
     store = RuntimeGenerationStore(workspace.directory)
     deployment = store.active()
     active = deployment.runtime_generations.get(runtime_id)
@@ -754,6 +1159,21 @@ def _list_runtime_plugin_generations(workspace: ConfigWorkspace, runtime_id: str
 
 
 def _run(settings: AppSettings, workspace: ConfigWorkspace, args: argparse.Namespace) -> int:
+    """Run the component operation.
+
+    Args:
+        settings: Validated application settings.
+        workspace: The workspace value used by the operation.
+        args: The args value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_run`. It delegates to `from_workspace`, `_detach_daemon`,
+        `_worker_runtime_secrets`, `_runtime_secrets` while keeping intermediate state local to the
+        owning operation.
+    """
     paths = InstancePaths.from_workspace(workspace, args.instance)
     if args.detach:
         return _detach_daemon(settings, workspace, args, paths)
@@ -809,6 +1229,20 @@ def _run(settings: AppSettings, workspace: ConfigWorkspace, args: argparse.Names
 
 
 def _run_worker(settings: AppSettings, workspace: ConfigWorkspace) -> int:
+    """Run worker.
+
+    Args:
+        settings: Validated application settings.
+        workspace: The workspace value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_run_worker`. It delegates to `_worker_runtime_secrets`,
+        `pop`, `_exclusive_data_directory`, `run` while keeping intermediate state local to the owning
+        operation.
+    """
     runtime_secrets = _worker_runtime_secrets()
     if (diagnostics_name := settings.broker.diagnostics_token_secret) is not None:
         runtime_secrets.pop(diagnostics_name, None)
@@ -821,6 +1255,19 @@ def _run_worker(settings: AppSettings, workspace: ConfigWorkspace) -> int:
 
 
 def _daemon_worker_command(workspace: ConfigWorkspace, args: argparse.Namespace) -> list[str]:
+    """Implement the daemon worker command operation for the component.
+
+    Args:
+        workspace: The workspace value used by the operation.
+        args: The args value used by the operation.
+
+    Returns:
+        The `list[str]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_daemon_worker_command`. It delegates to `extend` while
+        keeping intermediate state local to the owning operation.
+    """
     command = [
         sys.executable,
         "-m",
@@ -839,6 +1286,19 @@ def _daemon_worker_command(workspace: ConfigWorkspace, args: argparse.Namespace)
 
 
 def _daemon_command(workspace: ConfigWorkspace, args: argparse.Namespace) -> list[str]:
+    """Implement the daemon command operation for the component.
+
+    Args:
+        workspace: The workspace value used by the operation.
+        args: The args value used by the operation.
+
+    Returns:
+        The `list[str]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_daemon_command`. It delegates to `extend`, `append` while
+        keeping intermediate state local to the owning operation.
+    """
     command = [
         sys.executable,
         "-m",
@@ -857,6 +1317,20 @@ def _daemon_command(workspace: ConfigWorkspace, args: argparse.Namespace) -> lis
 
 
 def _daemon_component_command(workspace: ConfigWorkspace, args: argparse.Namespace, *tail: str) -> list[str]:
+    """Implement the daemon component command operation for the component.
+
+    Args:
+        workspace: The workspace value used by the operation.
+        args: The args value used by the operation.
+        *tail: The tail value used by the operation.
+
+    Returns:
+        The `list[str]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_daemon_component_command`. It delegates to `extend` while
+        keeping intermediate state local to the owning operation.
+    """
     command = [
         sys.executable,
         "-m",
@@ -875,6 +1349,15 @@ def _daemon_component_command(workspace: ConfigWorkspace, args: argparse.Namespa
 
 
 def _worker_runtime_secrets() -> dict[str, str]:
+    """Implement the worker runtime secrets operation for the component.
+
+    Returns:
+        The `dict[str, str]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_worker_runtime_secrets`. It delegates to `pop`, `loads`,
+        `all`, `items` while keeping intermediate state local to the owning operation.
+    """
     raw = os.environ.pop("LITEYUKI_RUNTIME_SECRETS", "{}")
     try:
         decoded = json.loads(raw)
@@ -894,6 +1377,21 @@ def _validate_instance_configuration(
     overrides: Sequence[str],
     instance_name: str,
 ) -> None:
+    """Validate instance configuration.
+
+    Args:
+        workspace: The workspace value used by the operation.
+        config_paths: The config paths value used by the operation.
+        overrides: The overrides value used by the operation.
+        instance_name: The instance name value used by the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_validate_instance_configuration`. It delegates to `_load`
+        while keeping intermediate state local to the owning operation.
+    """
     _load(workspace, config_paths, overrides, instance_name)
 
 
@@ -903,6 +1401,21 @@ def _detach_daemon(
     args: argparse.Namespace,
     paths: InstancePaths,
 ) -> int:
+    """Implement the detach daemon operation for the component.
+
+    Args:
+        settings: Validated application settings.
+        workspace: The workspace value used by the operation.
+        args: The args value used by the operation.
+        paths: The paths value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_detach_daemon`. It delegates to `mkdir`, `_daemon_command`,
+        `open`, `dumps` while keeping intermediate state local to the owning operation.
+    """
     paths.root.mkdir(parents=True, exist_ok=True)
     command = _daemon_command(workspace, args)
     log_path = paths.root / "logs" / "daemon.log"
@@ -927,6 +1440,18 @@ def _detach_daemon(
 
 
 def _instance_command(args: argparse.Namespace) -> int:
+    """Implement the instance command operation for the component.
+
+    Args:
+        args: The args value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_instance_command`. It delegates to `from_workspace`,
+        `is_dir`, `sorted`, `glob` while keeping intermediate state local to the owning operation.
+    """
     workspace = ConfigWorkspace(args.workspace)
     selected = InstancePaths.from_workspace(workspace, args.instance)
     if args.instance_command == "list":
@@ -956,6 +1481,21 @@ def _instance_command(args: argparse.Namespace) -> int:
 
 
 def _development_command(args: argparse.Namespace, settings: AppSettings, workspace: ConfigWorkspace) -> int:
+    """Implement the development command operation for the component.
+
+    Args:
+        args: The args value used by the operation.
+        settings: Validated application settings.
+        workspace: The workspace value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_development_command`. It delegates to `from_workspace`,
+        `run`, `request_control`, `read_text` while keeping intermediate state local to the owning
+        operation.
+    """
     if not settings.development.enabled:
         raise PermissionError("development controls require development.enabled = true")
     paths = InstancePaths.from_workspace(workspace, args.instance)
@@ -989,7 +1529,18 @@ def _development_command(args: argparse.Namespace, settings: AppSettings, worksp
 
 @contextmanager
 def _exclusive_workspace(workspace: ConfigWorkspace) -> Iterator[None]:
-    """Serialize operations that mutate one workspace's management state."""
+    """Serialize operations that mutate one workspace's management state.
+
+    Args:
+        workspace: The workspace value used by the operation.
+
+    Returns:
+        Values yielded by the operation.
+
+    Notes:
+        Internal implementation detail for `_exclusive_workspace`. It delegates to `mkdir` while keeping
+        intermediate state local to the owning operation.
+    """
 
     workspace.management_directory.mkdir(parents=True, exist_ok=True)
     lock = FileLock(workspace.management_directory / "instance.lock", timeout=0)
@@ -1002,7 +1553,18 @@ def _exclusive_workspace(workspace: ConfigWorkspace) -> Iterator[None]:
 
 @contextmanager
 def _exclusive_data_directory(data_directory: Path) -> Iterator[None]:
-    """Ensure one kernel owns all state beneath a resolved data directory."""
+    """Ensure one kernel owns all state beneath a resolved data directory.
+
+    Args:
+        data_directory: The data directory value used by the operation.
+
+    Returns:
+        Values yielded by the operation.
+
+    Notes:
+        Internal implementation detail for `_exclusive_data_directory`. It delegates to `mkdir` while
+        keeping intermediate state local to the owning operation.
+    """
 
     data_directory.mkdir(parents=True, exist_ok=True)
     lock = FileLock(data_directory / "instance.lock", timeout=0)
@@ -1017,7 +1579,18 @@ def _exclusive_data_directory(data_directory: Path) -> Iterator[None]:
 
 @contextmanager
 def _exclusive_daemon(paths: InstancePaths) -> Iterator[None]:
-    """Permit exactly one daemon to own a named instance's control endpoint."""
+    """Permit exactly one daemon to own a named instance's control endpoint.
+
+    Args:
+        paths: The paths value used by the operation.
+
+    Returns:
+        Values yielded by the operation.
+
+    Notes:
+        Internal implementation detail for `_exclusive_daemon`. It delegates to `mkdir` while keeping
+        intermediate state local to the owning operation.
+    """
 
     paths.root.mkdir(parents=True, exist_ok=True)
     lock = FileLock(paths.daemon_lock, timeout=0)
@@ -1033,7 +1606,21 @@ async def _run_until_signal(
     runtime_secrets: Mapping[str, str] | None = None,
     resource_workspace: str | os.PathLike[str] = ".",
 ) -> None:
-    """Run the app until SIGINT/SIGTERM and always perform graceful cleanup."""
+    """Run the app until SIGINT/SIGTERM and always perform graceful cleanup.
+
+    Args:
+        settings: Validated application settings.
+        runtime_secrets: The runtime secrets value used by the operation.
+        resource_workspace: The resource workspace value used by the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_run_until_signal`. It delegates to `get_running_loop`,
+        `add_signal_handler`, `getsignal`, `signal` while keeping intermediate state local to the owning
+        operation.
+    """
 
     if resource_workspace == ".":
         if runtime_secrets is None:
@@ -1054,6 +1641,15 @@ async def _run_until_signal(
     fallback_handlers: dict[signal.Signals, Any] = {}
 
     def request_stop() -> None:
+        """Request stop.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_run_until_signal.request_stop`. It delegates to
+            `call_soon_threadsafe` while keeping intermediate state local to the owning operation.
+        """
         loop.call_soon_threadsafe(stop_event.set)
 
     for signum in (signal.SIGINT, signal.SIGTERM):
@@ -1104,6 +1700,21 @@ async def _run_until_signal(
 
 
 async def _runtime_command(settings: AppSettings, command: str, args: argparse.Namespace) -> int:
+    """Implement the runtime command operation for the component.
+
+    Args:
+        settings: Validated application settings.
+        command: Command or operation name to execute.
+        args: The args value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_runtime_command`. It delegates to `is_file`,
+        `request_control`, `get`, `items` while keeping intermediate state local to the owning
+        operation.
+    """
     descriptor = settings.core.data_dir / "control.json"
     if command == "list":
         if descriptor.is_file():
@@ -1134,6 +1745,20 @@ async def _runtime_command(settings: AppSettings, command: str, args: argparse.N
 
 
 async def _web_command(workspace: ConfigWorkspace, args: argparse.Namespace) -> int:
+    """Implement the web command operation for the component.
+
+    Args:
+        workspace: The workspace value used by the operation.
+        args: The args value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_web_command`. It delegates to `from_workspace`,
+        `request_control`, `print`, `dumps` while keeping intermediate state local to the owning
+        operation.
+    """
     paths = InstancePaths.from_workspace(workspace, args.instance)
     if args.web_command == "status":
         result = await request_control(paths.daemon_descriptor, "webui.status")

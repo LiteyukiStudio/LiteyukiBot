@@ -15,6 +15,13 @@ type OperationDialogProps = {
   reload: () => Promise<void>;
 };
 
+/**
+ * Builds and submits a catalog-driven operation form.
+ * @param props - Selected operation, API client, close command, and post-submit reload command.
+ * @returns The operation dialog, or `null` when no operation is selected.
+ * @remarks High-impact operations require the target to be typed verbatim; server-side authorization and schema
+ * validation remain mandatory because this client check is only an interaction safeguard.
+ */
 export function OperationDialog({ operation, close, api, reload }: OperationDialogProps) {
   const { t } = useLocale();
   const [values, setValues] = useState<Record<string, string>>({});

@@ -37,6 +37,22 @@ Atomic updates require the daemon-owned Broker, bridge, and Kernel graph plus a
 dedicated `broker.management_token_secret`. Standalone Broker and Bridge
 commands remain supported but are not eligible for atomic profile updates.
 
+## Broker Retention Bounds
+
+The Broker keeps terminal diagnostics in memory and applies the first bound
+that expires: record count, retained JSON/wire content, or TTL.
+
+| Field | Default | Range |
+| --- | ---: | ---: |
+| `active_capacity` | `1024` | `1..262144` |
+| `terminal_capacity` | `4096` | `1024..262144` |
+| `terminal_content_bytes_capacity` | `16777216` | `1048576..1073741824` |
+| `terminal_ttl_seconds` | `3600` | `60..86400` |
+
+The content budget measures retained protocol content. The count bound remains
+necessary because Python model, mapping, and index overhead is platform
+dependent and is larger than serialized content.
+
 ## Bundle Compatibility
 
 Verified Alpha8b profiles record configuration version, release tag/version,

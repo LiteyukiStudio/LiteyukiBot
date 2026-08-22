@@ -15,11 +15,22 @@ from typing import Any, Protocol
 
 
 class EmbeddingProvider(Protocol):
-    async def embed(self, texts: Sequence[str]) -> Sequence[Sequence[float]]: ...
+    """Define the structural interface required from a embedding provider."""
+    async def embed(self, texts: Sequence[str]) -> Sequence[Sequence[float]]:
+        """Implement the embed operation for the embedding provider.
+
+        Args:
+            texts: The texts value used by the operation.
+
+        Returns:
+            The `Sequence[Sequence[float]]` result produced by the operation.
+        """
+        ...
 
 
 @dataclass(frozen=True, slots=True)
 class RetrievedChunk:
+    """Represent the retrieved chunk contract."""
     source_id: str
     chunk_id: int
     text: str
@@ -27,24 +38,46 @@ class RetrievedChunk:
 
 
 class Reranker(Protocol):
-    def rerank(self, query: str, candidates: Sequence[RetrievedChunk]) -> Sequence[RetrievedChunk]: ...
+    """Define the structural interface required from a reranker."""
+    def rerank(self, query: str, candidates: Sequence[RetrievedChunk]) -> Sequence[RetrievedChunk]:
+        """Implement the rerank operation for the reranker.
+
+        Args:
+            query: The query value used by the operation.
+            candidates: The candidates value used by the operation.
+
+        Returns:
+            The `Sequence[RetrievedChunk]` result produced by the operation.
+        """
+        ...
 
 
 class IdentityReranker:
     """Reference reranker that preserves deterministic cosine order."""
 
     def rerank(self, _query: str, candidates: Sequence[RetrievedChunk]) -> Sequence[RetrievedChunk]:
+        """Implement the rerank operation for the identity reranker.
+
+        Args:
+            _query: The query value used by the operation.
+            candidates: The candidates value used by the operation.
+
+        Returns:
+            The `Sequence[RetrievedChunk]` result produced by the operation.
+        """
         return candidates
 
 
 @dataclass(frozen=True, slots=True)
 class RagContext:
+    """Represent the rag context contract."""
     text: str
     citations: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
 class RagSettings:
+    """Represent the validated rag settings contract."""
     roots: tuple[Path, ...]
     index_path: Path
     chunk_size: int
@@ -59,6 +92,15 @@ class RagSettings:
 
     @classmethod
     def from_options(cls, options: Mapping[str, Any], *, default_directory: Path) -> RagSettings | None:
+        """Create the rag settings from options.
+
+        Args:
+            options: Validated optional settings for the operation.
+            default_directory: The default directory value used by the operation.
+
+        Returns:
+            The `RagSettings | None` result produced by the operation.
+        """
         raw_roots = options.get("rag_paths", ())
         if not isinstance(raw_roots, Sequence) or isinstance(raw_roots, (str, bytes)):
             raise ValueError("rag_paths must be an array of directories")
@@ -105,11 +147,29 @@ class OpenAIEmbeddingProvider:
     """OpenAI-compatible embedding adapter kept behind the replaceable protocol."""
 
     def __init__(self, *, api_key: str, base_url: str | None, model: str) -> None:
+        """Initialize the open a i embedding provider.
+
+        Args:
+            api_key: The api key value used by the operation.
+            base_url: The base url value used by the operation.
+            model: The model value used by the operation.
+
+        Returns:
+            None.
+        """
         self.api_key = api_key
         self.base_url = base_url
         self.model = model
 
     async def embed(self, texts: Sequence[str]) -> Sequence[Sequence[float]]:
+        """Implement the embed operation for the open a i embedding provider.
+
+        Args:
+            texts: The texts value used by the operation.
+
+        Returns:
+            The `Sequence[Sequence[float]]` result produced by the operation.
+        """
         try:
             from openai import AsyncOpenAI
         except ModuleNotFoundError as error:
@@ -132,6 +192,16 @@ class RagIndex:
         *,
         reranker: Reranker | None = None,
     ) -> None:
+        """Initialize the rag index.
+
+        Args:
+            settings: Validated application settings.
+            provider: The provider value used by the operation.
+            reranker: The reranker value used by the operation.
+
+        Returns:
+            None.
+        """
         self.settings = settings
         self.provider = provider
         self.reranker = reranker or IdentityReranker()
@@ -160,6 +230,11 @@ class RagIndex:
         self._connection.commit()
 
     async def sync(self) -> tuple[str, ...]:
+        """Implement the sync operation for the rag index.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+        """
         seen: set[str] = set()
         seen_paths: set[Path] = set()
         diagnostics: list[str] = []
@@ -221,6 +296,14 @@ class RagIndex:
         return tuple(sorted(diagnostics))
 
     async def retrieve(self, query: str) -> RagContext:
+        """Implement the retrieve operation for the rag index.
+
+        Args:
+            query: The query value used by the operation.
+
+        Returns:
+            The `RagContext` result produced by the operation.
+        """
         if not query.strip():
             return RagContext("")
         embeddings = await asyncio.wait_for(self.provider.embed((query,)), timeout=self.settings.timeout_seconds)
@@ -240,10 +323,27 @@ class RagIndex:
         return RagContext(text=text, citations=citations)
 
     def close(self) -> None:
+        """Close the rag index and release its owned resources.
+
+        Returns:
+            None.
+        """
         with self._connection_lock:
             self._connection.close()
 
     def _score_candidates(self, query_vector: Sequence[float]) -> tuple[RetrievedChunk, ...]:
+        """Implement the score candidates operation for the rag index.
+
+        Args:
+            query_vector: The query vector value used by the operation.
+
+        Returns:
+            The `tuple[RetrievedChunk, ...]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `RagIndex._score_candidates`. It delegates to `execute`,
+            `int`, `_cosine`, `float` while keeping intermediate state local to the owning operation.
+        """
         with self._connection_lock:
             rows = tuple(self._connection.execute("SELECT source_id, chunk_id, text, embedding FROM chunks"))
         candidates = [
@@ -260,6 +360,20 @@ class RagIndex:
 
 
 def _chunks(text: str, size: int, overlap: int) -> tuple[str, ...]:
+    """Implement the chunks operation for the component.
+
+    Args:
+        text: The text value used by the operation.
+        size: The size value used by the operation.
+        overlap: The overlap value used by the operation.
+
+    Returns:
+        The `tuple[str, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_chunks`. It delegates to `range` while keeping intermediate
+        state local to the owning operation.
+    """
     if not text:
         return ()
     step = size - overlap
@@ -267,6 +381,19 @@ def _chunks(text: str, size: int, overlap: int) -> tuple[str, ...]:
 
 
 def _validate_embeddings(values: Sequence[Sequence[float]], expected: int) -> tuple[tuple[float, ...], ...]:
+    """Validate embeddings.
+
+    Args:
+        values: The values value used by the operation.
+        expected: The expected value used by the operation.
+
+    Returns:
+        The `tuple[tuple[float, ...], ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_validate_embeddings`. It delegates to `float`, `any`,
+        `isfinite` while keeping intermediate state local to the owning operation.
+    """
     if len(values) != expected or not values:
         raise ValueError("embedding provider returned an unexpected item count")
     vectors = tuple(tuple(float(item) for item in value) for value in values)
@@ -279,6 +406,19 @@ def _validate_embeddings(values: Sequence[Sequence[float]], expected: int) -> tu
 
 
 def _cosine(left: Sequence[float], right: Sequence[float]) -> float:
+    """Implement the cosine operation for the component.
+
+    Args:
+        left: The left value used by the operation.
+        right: The right value used by the operation.
+
+    Returns:
+        The `float` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_cosine`. It delegates to `sqrt`, `sum`, `zip` while keeping
+        intermediate state local to the owning operation.
+    """
     if len(left) != len(right):
         return -1.0
     denominator = math.sqrt(sum(item * item for item in left)) * math.sqrt(sum(item * item for item in right))
@@ -286,24 +426,80 @@ def _cosine(left: Sequence[float], right: Sequence[float]) -> float:
 
 
 def _path(value: object, field: str) -> Path:
+    """Implement the path operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        field: The field value used by the operation.
+
+    Returns:
+        The `Path` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_path`. It delegates to `strip`, `resolve` while keeping
+        intermediate state local to the owning operation.
+    """
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field} must be a non-empty path")
     return Path(value).resolve()
 
 
 def _text(value: object, field: str) -> str:
+    """Implement the text operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        field: The field value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_text`. It delegates to `strip` while keeping intermediate
+        state local to the owning operation.
+    """
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field} must be a non-empty string")
     return value.strip()
 
 
 def _bounded_int(value: object, field: str, minimum: int, maximum: int) -> int:
+    """Implement the bounded int operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        field: The field value used by the operation.
+        minimum: The minimum value used by the operation.
+        maximum: The maximum value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_bounded_int`. It performs the local state transition
+        directly and is not a stable extension boundary.
+    """
     if not isinstance(value, int) or isinstance(value, bool) or not minimum <= value <= maximum:
         raise ValueError(f"{field} must be between {minimum} and {maximum}")
     return value
 
 
 def _bounded_float(value: object, field: str, minimum: float, maximum: float) -> float:
+    """Implement the bounded float operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        field: The field value used by the operation.
+        minimum: The minimum value used by the operation.
+        maximum: The maximum value used by the operation.
+
+    Returns:
+        The `float` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_bounded_float`. It delegates to `float` while keeping
+        intermediate state local to the owning operation.
+    """
     if not isinstance(value, (int, float)) or isinstance(value, bool) or not minimum <= value <= maximum:
         raise ValueError(f"{field} must be between {minimum} and {maximum}")
     return float(value)

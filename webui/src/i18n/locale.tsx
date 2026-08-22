@@ -45,6 +45,12 @@ function normalizeLocale(value: string | null | undefined): Locale {
   return value?.toLowerCase().startsWith("zh") ? "zh-CN" : "en-US";
 }
 
+/**
+ * Owns locale selection, daemon-provided messages, and recovery translations.
+ * @param props - Child React nodes rendered inside both locale contexts.
+ * @returns Locale state and stable action providers.
+ * @remarks The action context is separate so session reload logic does not rerender for every presentation change.
+ */
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
   const [presentation, setPresentation] = useState<Presentation | null>(null);
@@ -78,12 +84,22 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   return <LocaleActionsContext.Provider value={actions}><LocaleContext.Provider value={value}>{children}</LocaleContext.Provider></LocaleActionsContext.Provider>;
 }
 
+/**
+ * Reads localized presentation state.
+ * @returns The current locale, translator, presentation, and locale setter.
+ * @throws When called outside `LocaleProvider`.
+ */
 export function useLocale() {
   const value = useContext(LocaleContext);
   if (value === null) throw new Error("useLocale must be rendered inside LocaleProvider");
   return value;
 }
 
+/**
+ * Reads stable locale actions without subscribing to the full presentation value.
+ * @returns Locale mutation methods and a current-locale getter.
+ * @throws When called outside `LocaleProvider`.
+ */
 export function useLocaleActions() {
   const value = useContext(LocaleActionsContext);
   if (value === null) throw new Error("useLocaleActions must be rendered inside LocaleProvider");

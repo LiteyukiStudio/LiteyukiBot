@@ -90,7 +90,17 @@ class BrokerDelivery:
         resource_key: str,
         payload: Mapping[str, JsonValue] | None = None,
     ) -> ActionResult:
-        """Route an action for this delivery and await its correlated result."""
+        """Route an action for this delivery and await its correlated result.
+
+        Args:
+            correlation_id: Stable identifier for the correlation.
+            kind: The kind value used by the operation.
+            resource_key: The resource key value used by the operation.
+            payload: JSON-safe payload carried by the operation.
+
+        Returns:
+            The `ActionResult` result produced by the operation.
+        """
 
         return await self._runner.request_action(
             delivery_id=self.message.delivery_id,
@@ -111,7 +121,18 @@ class BrokerDelivery:
         authorization: AuthorizationContextWire,
         timeout_seconds: float | None = None,
     ) -> ToolResult:
-        """Invoke a declared Tool through the active delivery lease."""
+        """Invoke a declared Tool through the active delivery lease.
+
+        Args:
+            correlation_id: Stable identifier for the correlation.
+            tool_id: Stable identifier for the tool.
+            arguments: JSON-safe arguments supplied to the operation.
+            authorization: Authenticated authorization context for the request.
+            timeout_seconds: Maximum duration to wait, in seconds.
+
+        Returns:
+            The `ToolResult` result produced by the operation.
+        """
 
         return await self._runner.request_tool(
             delivery_id=self.message.delivery_id,
@@ -134,7 +155,18 @@ class BrokerDelivery:
         payload: Mapping[str, JsonValue] | None = None,
         timeout_seconds: float | None = None,
     ) -> BridgeControlResult:
-        """Invoke a declared bridge control through the active delivery lease."""
+        """Invoke a declared bridge control through the active delivery lease.
+
+        Args:
+            correlation_id: Stable identifier for the correlation.
+            command: Command or operation name to execute.
+            authorization: Authenticated authorization context for the request.
+            payload: JSON-safe payload carried by the operation.
+            timeout_seconds: Maximum duration to wait, in seconds.
+
+        Returns:
+            The `BridgeControlResult` result produced by the operation.
+        """
 
         return await self._runner.request_control(
             delivery_id=self.message.delivery_id,
@@ -161,7 +193,22 @@ class BrokerDelivery:
         bridge_id: str | None = None,
         timeout_seconds: float | None = None,
     ) -> RuntimeApiResult:
-        """Invoke one declared runtime API through the active delivery lease."""
+        """Invoke one declared runtime API through the active delivery lease.
+
+        Args:
+            correlation_id: Stable identifier for the correlation.
+            runtime_kind: The runtime kind value used by the operation.
+            version: The version value used by the operation.
+            api_id: Stable identifier for the api.
+            caller_extension_id: Stable identifier for the caller extension.
+            authorization: Authenticated authorization context for the request.
+            arguments: JSON-safe arguments supplied to the operation.
+            bridge_id: Stable identifier for the bridge.
+            timeout_seconds: Maximum duration to wait, in seconds.
+
+        Returns:
+            The `RuntimeApiResult` result produced by the operation.
+        """
 
         return await self._runner.request_runtime_api(
             delivery_id=self.message.delivery_id,
@@ -197,6 +244,19 @@ class BrokerBridgeRunner:
         control_handlers: Mapping[str, ControlHandler] | None = None,
         runtime_api_handlers: Mapping[str, RuntimeApiHandler] | None = None,
     ) -> None:
+        """Initialize the broker bridge runner.
+
+        Args:
+            client: The client value used by the operation.
+            event_handler: The event handler value used by the operation.
+            action_handlers: The action handlers value used by the operation.
+            tool_handlers: The tool handlers value used by the operation.
+            control_handlers: The control handlers value used by the operation.
+            runtime_api_handlers: The runtime api handlers value used by the operation.
+
+        Returns:
+            None.
+        """
         self.client = client
         self._event_handler = event_handler
         self._action_handlers = dict(action_handlers or {})
@@ -211,14 +271,22 @@ class BrokerBridgeRunner:
         self._closing = False
 
     async def start(self) -> str:
-        """Register this bridge and return its broker-assigned session ID."""
+        """Register this bridge and return its broker-assigned session ID.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
 
         if self._closing:
             raise BridgeRegistrationError("bridge runner is closing")
         return await self.client.register()
 
     async def stop(self) -> None:
-        """Cancel local work and explicitly unregister a live bridge session."""
+        """Cancel local work and explicitly unregister a live bridge session.
+
+        Returns:
+            None.
+        """
 
         self._closing = True
         current = asyncio.current_task()
@@ -250,19 +318,31 @@ class BrokerBridgeRunner:
             await self.client.unregister()
 
     def close(self) -> None:
-        """Close ZMQ resources after :meth:`stop` has completed or on fatal exit."""
+        """Close ZMQ resources after :meth:`stop` has completed or on fatal exit.
+
+        Returns:
+            None.
+        """
 
         self._closing = True
         self.client.close()
 
     async def serve_forever(self) -> None:
-        """Dispatch broker business traffic until cancelled or explicitly stopped."""
+        """Dispatch broker business traffic until cancelled or explicitly stopped.
+
+        Returns:
+            None.
+        """
 
         while not self._closing:
             await self.serve_once()
 
     async def serve_once(self) -> BrokerBusinessMessage:
-        """Receive one broker message and schedule its corresponding local work."""
+        """Receive one broker message and schedule its corresponding local work.
+
+        Returns:
+            The `BrokerBusinessMessage` result produced by the operation.
+        """
 
         message = await self.client.receive_business()
         if isinstance(message, EventMessage):
@@ -306,7 +386,20 @@ class BrokerBridgeRunner:
         payload: Mapping[str, JsonValue] | None = None,
         timeout_seconds: float | None = None,
     ) -> ActionResult:
-        """Send one active-delivery action and await its exact correlation result."""
+        """Send one active-delivery action and await its exact correlation result.
+
+        Args:
+            delivery_id: Stable identifier for the delivery.
+            lease_id: Stable identifier for the lease.
+            correlation_id: Stable identifier for the correlation.
+            kind: The kind value used by the operation.
+            resource_key: The resource key value used by the operation.
+            payload: JSON-safe payload carried by the operation.
+            timeout_seconds: Maximum duration to wait, in seconds.
+
+        Returns:
+            The `ActionResult` result produced by the operation.
+        """
 
         normalized_correlation = correlation_id.strip()
         if not normalized_correlation:
@@ -348,6 +441,20 @@ class BrokerBridgeRunner:
         authorization: AuthorizationContextWire,
         timeout_seconds: float | None = None,
     ) -> ToolResult:
+        """Request tool.
+
+        Args:
+            delivery_id: Stable identifier for the delivery.
+            lease_id: Stable identifier for the lease.
+            correlation_id: Stable identifier for the correlation.
+            tool_id: Stable identifier for the tool.
+            arguments: JSON-safe arguments supplied to the operation.
+            authorization: Authenticated authorization context for the request.
+            timeout_seconds: Maximum duration to wait, in seconds.
+
+        Returns:
+            The `ToolResult` result produced by the operation.
+        """
         normalized_correlation = correlation_id.strip()
         if not normalized_correlation:
             raise ValueError("Tool correlation ID must be non-empty")
@@ -387,6 +494,20 @@ class BrokerBridgeRunner:
         payload: Mapping[str, JsonValue] | None = None,
         timeout_seconds: float | None = None,
     ) -> BridgeControlResult:
+        """Request control.
+
+        Args:
+            delivery_id: Stable identifier for the delivery.
+            lease_id: Stable identifier for the lease.
+            correlation_id: Stable identifier for the correlation.
+            command: Command or operation name to execute.
+            authorization: Authenticated authorization context for the request.
+            payload: JSON-safe payload carried by the operation.
+            timeout_seconds: Maximum duration to wait, in seconds.
+
+        Returns:
+            The `BridgeControlResult` result produced by the operation.
+        """
         normalized_correlation = correlation_id.strip()
         if not normalized_correlation:
             raise ValueError("control correlation ID must be non-empty")
@@ -431,6 +552,25 @@ class BrokerBridgeRunner:
         bridge_id: str | None = None,
         timeout_seconds: float | None = None,
     ) -> RuntimeApiResult:
+        """Request runtime api.
+
+        Args:
+            delivery_id: Stable identifier for the delivery.
+            lease_id: Stable identifier for the lease.
+            source_event_id: Stable identifier for the source event.
+            correlation_id: Stable identifier for the correlation.
+            runtime_kind: The runtime kind value used by the operation.
+            version: The version value used by the operation.
+            api_id: Stable identifier for the api.
+            caller_extension_id: Stable identifier for the caller extension.
+            authorization: Authenticated authorization context for the request.
+            arguments: JSON-safe arguments supplied to the operation.
+            bridge_id: Stable identifier for the bridge.
+            timeout_seconds: Maximum duration to wait, in seconds.
+
+        Returns:
+            The `RuntimeApiResult` result produced by the operation.
+        """
         normalized_correlation = correlation_id.strip()
         if not normalized_correlation:
             raise ValueError("runtime API correlation ID must be non-empty")
@@ -465,6 +605,19 @@ class BrokerBridgeRunner:
                 self._pending_runtime_api_results.pop(normalized_correlation, None)
 
     async def _handle_delivery(self, message: EventMessage) -> None:
+        """Handle delivery.
+
+        Args:
+            message: Message content associated with the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `BrokerBridgeRunner._handle_delivery`. It delegates to
+            `send_event_accepted`, `_event_handler`, `send_event_completed` while keeping intermediate state
+            local to the owning operation.
+        """
         await self.client.send_event_accepted(EventAccepted(delivery_id=message.delivery_id, lease_id=message.lease_id))
         try:
             if self._event_handler is None:
@@ -485,6 +638,18 @@ class BrokerBridgeRunner:
             )
 
     async def _handle_action(self, request: ActionRequest) -> None:
+        """Handle action.
+
+        Args:
+            request: Validated request object to process.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `BrokerBridgeRunner._handle_action`. It delegates to `get`,
+            `handler`, `send_action_result` while keeping intermediate state local to the owning operation.
+        """
         handler = self._action_handlers.get(request.kind)
         if handler is None:
             outcome = ActionOutcome(success=False, payload={"error": "unsupported_action"})
@@ -501,6 +666,18 @@ class BrokerBridgeRunner:
         )
 
     async def _handle_tool(self, request: ToolInvoke) -> None:
+        """Handle tool.
+
+        Args:
+            request: Validated request object to process.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `BrokerBridgeRunner._handle_tool`. It delegates to `get`,
+            `handler`, `send_tool_result` while keeping intermediate state local to the owning operation.
+        """
         handler = self._tool_handlers.get(request.tool_id)
         if handler is None:
             outcome = ToolOutcome(success=False, error_code="TOOL_NOT_REGISTERED")
@@ -520,6 +697,18 @@ class BrokerBridgeRunner:
         )
 
     async def _handle_control(self, request: BridgeControlInvoke) -> None:
+        """Handle control.
+
+        Args:
+            request: Validated request object to process.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `BrokerBridgeRunner._handle_control`. It delegates to `get`,
+            `handler`, `send_control_result` while keeping intermediate state local to the owning operation.
+        """
         handler = self._control_handlers.get(request.command)
         if handler is None:
             outcome = ControlOutcome(success=False, error_code="CONTROL_NOT_REGISTERED")
@@ -539,6 +728,19 @@ class BrokerBridgeRunner:
         )
 
     async def _handle_runtime_api(self, request: RuntimeApiInvoke) -> None:
+        """Handle runtime api.
+
+        Args:
+            request: Validated request object to process.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `BrokerBridgeRunner._handle_runtime_api`. It delegates to
+            `next`, `runtime_version_matches`, `get`, `validate` while keeping intermediate state local to
+            the owning operation.
+        """
         declaration = next(
             (
                 item
@@ -577,6 +779,18 @@ class BrokerBridgeRunner:
         )
 
     def _resolve_action_result(self, result: ActionResult) -> None:
+        """Resolve action result.
+
+        Args:
+            result: Result value produced by the preceding operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `BrokerBridgeRunner._resolve_action_result`. It delegates to
+            `get`, `done`, `set_result` while keeping intermediate state local to the owning operation.
+        """
         if result.correlation_id is None:
             raise BridgeRegistrationError("broker action result is missing its correlation ID")
         future = self._pending_results.get(result.correlation_id)
@@ -584,6 +798,18 @@ class BrokerBridgeRunner:
             future.set_result(result)
 
     def _resolve_tool_result(self, result: ToolResult) -> None:
+        """Resolve tool result.
+
+        Args:
+            result: Result value produced by the preceding operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `BrokerBridgeRunner._resolve_tool_result`. It delegates to
+            `get`, `done`, `set_result` while keeping intermediate state local to the owning operation.
+        """
         if result.correlation_id is None:
             raise BridgeRegistrationError("Tool result is missing its correlation ID")
         future = self._pending_tool_results.get(result.correlation_id)
@@ -591,6 +817,18 @@ class BrokerBridgeRunner:
             future.set_result(result)
 
     def _resolve_control_result(self, result: BridgeControlResult) -> None:
+        """Resolve control result.
+
+        Args:
+            result: Result value produced by the preceding operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `BrokerBridgeRunner._resolve_control_result`. It delegates to
+            `get`, `done`, `set_result` while keeping intermediate state local to the owning operation.
+        """
         if result.correlation_id is None:
             raise BridgeRegistrationError("bridge control result is missing its correlation ID")
         future = self._pending_control_results.get(result.correlation_id)
@@ -598,6 +836,19 @@ class BrokerBridgeRunner:
             future.set_result(result)
 
     def _resolve_runtime_api_result(self, result: RuntimeApiResult) -> None:
+        """Resolve runtime api result.
+
+        Args:
+            result: Result value produced by the preceding operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `BrokerBridgeRunner._resolve_runtime_api_result`. It
+            delegates to `get`, `done`, `set_result` while keeping intermediate state local to the owning
+            operation.
+        """
         if result.correlation_id is None:
             raise BridgeRegistrationError("runtime API result is missing its correlation ID")
         future = self._pending_runtime_api_results.get(result.correlation_id)
@@ -605,10 +856,35 @@ class BrokerBridgeRunner:
             future.set_result(result)
 
     def _spawn(self, coroutine: Awaitable[None]) -> None:
+        """Implement the spawn operation for the broker bridge runner.
+
+        Args:
+            coroutine: The coroutine value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `BrokerBridgeRunner._spawn`. It delegates to `create_task`,
+            `_run_background`, `add`, `add_done_callback` while keeping intermediate state local to the
+            owning operation.
+        """
         task: asyncio.Task[None] = asyncio.create_task(self._run_background(coroutine))
         self._background.add(task)
         task.add_done_callback(self._background.discard)
 
     @staticmethod
     async def _run_background(coroutine: Awaitable[None]) -> None:
+        """Run background.
+
+        Args:
+            coroutine: The coroutine value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `BrokerBridgeRunner._run_background`. It performs the local
+            state transition directly and is not a stable extension boundary.
+        """
         await coroutine

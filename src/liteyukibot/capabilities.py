@@ -42,7 +42,14 @@ _BY_ID = {capability.id: capability for capability in KERNEL_CAPABILITIES}
 
 
 def capability_definition(capability: str) -> CapabilityDefinition | None:
-    """Return metadata for a kernel-owned capability without rejecting extension tokens."""
+    """Return metadata for a kernel-owned capability without rejecting extension tokens.
+
+    Args:
+        capability: The capability value used by the operation.
+
+    Returns:
+        The `CapabilityDefinition | None` result produced by the operation.
+    """
 
     return _BY_ID.get(capability)
 

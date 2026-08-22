@@ -39,9 +39,19 @@ class BrokerDiagnosticsError(RuntimeError):
 
 
 class BrokerDiagnostics:
-    """Project bounded ledger state without exposing broker business data."""
+    """Project bounded ledger state without exposing broker business payloads."""
 
     def __init__(self, *, ledger: BrokerLedger, generation: int, token: str) -> None:
+        """Initialize the broker diagnostics.
+
+        Args:
+            ledger: The ledger value used by the operation.
+            generation: Positive protocol or deployment generation.
+            token: Authentication token presented at the boundary.
+
+        Returns:
+            None.
+        """
         normalized_token = token.strip()
         if not normalized_token:
             raise ValueError("broker diagnostics token must be non-empty")
@@ -54,9 +64,32 @@ class BrokerDiagnostics:
         self._cursor_key = hmac.new(normalized_token.encode("utf-8"), _CURSOR_CONTEXT, hashlib.sha256).digest()
 
     def authenticate(self, token: str) -> bool:
+        """Compare a presented diagnostics token with the configured secret.
+
+        Args:
+            token: Diagnostics credential carried by the control request.
+
+        Returns:
+            `True` only when the complete token matches in constant time.
+
+        Security:
+            Diagnostics use a separate authority domain from bridge registration and lifecycle management.
+        """
         return hmac.compare_digest(self._token, token)
 
     def status(self, sessions: tuple[str, ...]) -> BrokerDiagnosticsStatusResult:
+        """Return occupancy, retention limits, generation, and live bridge IDs.
+
+        Args:
+            sessions: Authenticated bridge IDs currently registered with the broker.
+
+        Returns:
+            A JSON-safe bounded-state summary with both current values and configured ceilings.
+
+        Security:
+            Bridge IDs and aggregate occupancy are exposed intentionally for local operations. Tokens, payloads,
+            source event IDs, ordering keys, and lease IDs are never included.
+        """
         terminal_events = self._ledger.terminal_count
         return BrokerDiagnosticsStatusResult(
             generation=self._generation,
@@ -64,11 +97,25 @@ class BrokerDiagnostics:
             terminal_events=terminal_events,
             active_capacity=self._ledger.active_capacity,
             terminal_capacity=self._ledger.terminal_capacity,
+            terminal_content_bytes=self._ledger.terminal_content_bytes,
+            terminal_content_bytes_capacity=self._ledger.terminal_content_bytes_capacity,
             terminal_ttl_seconds=self._ledger.terminal_ttl_seconds,
             sessions=tuple(sorted(sessions)),
         )
 
     def list_events(self, request: BrokerDiagnosticsList) -> BrokerDiagnosticsListResult:
+        """Return one signed-cursor page of redacted retained event summaries.
+
+        Args:
+            request: Validated filters, page limit, and optional opaque cursor.
+
+        Returns:
+            Matching redacted rows and an authenticated cursor for the next page.
+
+        Security:
+            Business payloads are never projected. Source event IDs and ordering keys are token-keyed pseudonyms,
+            and cursors are signed so a caller cannot forge arbitrary offsets.
+        """
         rows = tuple(
             self._row(snapshot)
             for snapshot in self._ledger.diagnostic_snapshots()
@@ -85,6 +132,18 @@ class BrokerDiagnostics:
         )
 
     def detail(self, event_id: str) -> BrokerDiagnosticsDetailResult:
+        """Return redacted transitions for one retained broker event.
+
+        Args:
+            event_id: Broker-issued kernel event ID from a diagnostics list row.
+
+        Returns:
+            Redacted event summary and ordered lifecycle transitions.
+
+        Security:
+            Arbitrary failure strings are collapsed to a small allowlist before disclosure. Payloads, tokens,
+            leases, and original correlation values remain excluded.
+        """
         snapshot = next(
             (item for item in self._ledger.diagnostic_snapshots() if item.event.kernel_event_id == event_id),
             None,
@@ -108,6 +167,19 @@ class BrokerDiagnostics:
         )
 
     def _row(self, snapshot: LedgerDiagnosticSnapshot) -> BrokerDiagnosticsEventRow:
+        """Implement the row operation for the broker diagnostics.
+
+        Args:
+            snapshot: The snapshot value used by the operation.
+
+        Returns:
+            The `BrokerDiagnosticsEventRow` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `BrokerDiagnostics._row`. It delegates to `sorted`,
+            `_failure_code`, `_pseudonymize`, `sum` while keeping intermediate state local to the owning
+            operation.
+        """
         failure_codes = tuple(
             sorted(
                 {
@@ -131,6 +203,19 @@ class BrokerDiagnostics:
         )
 
     def _matches(self, snapshot: LedgerDiagnosticSnapshot, request: BrokerDiagnosticsList) -> bool:
+        """Implement the matches operation for the broker diagnostics.
+
+        Args:
+            snapshot: The snapshot value used by the operation.
+            request: Validated request object to process.
+
+        Returns:
+            Whether the requested condition is satisfied.
+
+        Notes:
+            Internal implementation detail for `BrokerDiagnostics._matches`. It delegates to `_row`, `all`
+            while keeping intermediate state local to the owning operation.
+        """
         row = self._row(snapshot)
         if request.state is not None and request.state != row.status and all(
             delivery.state.value != request.state for delivery in snapshot.deliveries
@@ -145,15 +230,52 @@ class BrokerDiagnostics:
         return request.failure is None or request.failure in row.failure_codes
 
     def _pseudonymize(self, value: str) -> str:
+        """Implement the pseudonymize operation for the broker diagnostics.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `str` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `BrokerDiagnostics._pseudonymize`. It delegates to
+            `hexdigest`, `new`, `encode` while keeping intermediate state local to the owning operation.
+        """
         digest = hmac.new(self._pseudonym_key, value.encode("utf-8"), hashlib.sha256).hexdigest()
         return f"hmac:{digest[:24]}"
 
     def _encode_cursor(self, offset: int) -> str:
+        """Encode cursor.
+
+        Args:
+            offset: The offset value used by the operation.
+
+        Returns:
+            The `str` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `BrokerDiagnostics._encode_cursor`. It delegates to `encode`,
+            `digest`, `new`, `decode` while keeping intermediate state local to the owning operation.
+        """
         value = str(offset).encode("ascii")
         signature = hmac.new(self._cursor_key, value, hashlib.sha256).digest()[:16]
         return base64.urlsafe_b64encode(value + b":" + signature).decode("ascii")
 
     def _decode_cursor(self, cursor: str | None) -> int:
+        """Decode cursor.
+
+        Args:
+            cursor: Opaque pagination cursor, or `None` for the first page.
+
+        Returns:
+            The `int` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `BrokerDiagnostics._decode_cursor`. It delegates to
+            `b64decode`, `encode`, `split`, `digest` while keeping intermediate state local to the owning
+            operation.
+        """
         if cursor is None:
             return 0
         try:
@@ -171,6 +293,18 @@ class BrokerDiagnostics:
 
     @staticmethod
     def _failure_code(reason: str | None) -> str | None:
+        """Implement the failure code operation for the broker diagnostics.
+
+        Args:
+            reason: The reason value used by the operation.
+
+        Returns:
+            The `str | None` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `BrokerDiagnostics._failure_code`. It performs the local
+            state transition directly and is not a stable extension boundary.
+        """
         if reason is None:
             return None
         return reason if reason in _SAFE_FAILURE_CODES else "bridge_failed"
@@ -189,6 +323,19 @@ class BrokerDiagnosticsClient:
         diagnostics_token: str,
         control_hwm: int = 100,
     ) -> None:
+        """Initialize the broker diagnostics client.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+            endpoints: The endpoints value used by the operation.
+            generation: Positive protocol or deployment generation.
+            identity: The identity value used by the operation.
+            diagnostics_token: The diagnostics token value used by the operation.
+            control_hwm: The control hwm value used by the operation.
+
+        Returns:
+            None.
+        """
         token = diagnostics_token.strip()
         if not identity:
             raise ValueError("diagnostics peer identity must be non-empty")
@@ -218,6 +365,19 @@ class BrokerDiagnosticsClient:
         diagnostics_token: str,
         control_hwm: int = 100,
     ) -> BrokerDiagnosticsClient:
+        """Create the broker diagnostics client from broker endpoint.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+            endpoint: Transport endpoint used for the connection.
+            generation: Positive protocol or deployment generation.
+            identity: The identity value used by the operation.
+            diagnostics_token: The diagnostics token value used by the operation.
+            control_hwm: The control hwm value used by the operation.
+
+        Returns:
+            The `BrokerDiagnosticsClient` result produced by the operation.
+        """
         parsed = urlsplit(endpoint)
         if parsed.scheme != "tcp" or parsed.hostname is None or parsed.port is None or parsed.port >= 65_535:
             raise ValueError("broker diagnostics client requires a TCP endpoint with a free business port")
@@ -236,6 +396,11 @@ class BrokerDiagnosticsClient:
         )
 
     async def status(self) -> BrokerDiagnosticsStatusResult:
+        """Return the status of the broker diagnostics client operation.
+
+        Returns:
+            The requested `BrokerDiagnosticsStatusResult` value.
+        """
         response = await self._request(BrokerDiagnosticsStatus(token=self._token))
         if not isinstance(response, BrokerDiagnosticsStatusResult):
             raise BrokerDiagnosticsError("broker returned an unexpected diagnostics status response")
@@ -252,6 +417,20 @@ class BrokerDiagnosticsClient:
         target: str | None = None,
         failure: str | None = None,
     ) -> BrokerDiagnosticsListResult:
+        """List events.
+
+        Args:
+            cursor: Opaque pagination cursor, or `None` for the first page.
+            limit: Maximum number of records to return.
+            state: The state value used by the operation.
+            topic: The topic value used by the operation.
+            source: Source value or location to process.
+            target: Target value or location for the operation.
+            failure: The failure value used by the operation.
+
+        Returns:
+            The `BrokerDiagnosticsListResult` result produced by the operation.
+        """
         response = await self._request(
             BrokerDiagnosticsList(
                 token=self._token,
@@ -269,18 +448,44 @@ class BrokerDiagnosticsClient:
         return response
 
     async def detail(self, event_id: str) -> BrokerDiagnosticsDetailResult:
+        """Implement the detail operation for the broker diagnostics client.
+
+        Args:
+            event_id: Stable event identifier.
+
+        Returns:
+            The `BrokerDiagnosticsDetailResult` result produced by the operation.
+        """
         response = await self._request(BrokerDiagnosticsDetail(token=self._token, event_id=event_id))
         if not isinstance(response, BrokerDiagnosticsDetailResult):
             raise BrokerDiagnosticsError("broker returned an unexpected diagnostics detail response")
         return response
 
     def close(self) -> None:
+        """Close the broker diagnostics client and release its owned resources.
+
+        Returns:
+            None.
+        """
         self._dealer.close()
 
     async def _request(
         self,
         message: BrokerDiagnosticsStatus | BrokerDiagnosticsList | BrokerDiagnosticsDetail,
     ) -> BrokerWireMessage:
+        """Request the broker diagnostics client operation.
+
+        Args:
+            message: Message content associated with the operation.
+
+        Returns:
+            The `BrokerWireMessage` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `BrokerDiagnosticsClient._request`. It delegates to
+            `encode_broker_message`, `offer`, `decode_broker_message`, `receive` while keeping intermediate
+            state local to the owning operation.
+        """
         async with self._lock:
             frame = encode_broker_message(
                 message,

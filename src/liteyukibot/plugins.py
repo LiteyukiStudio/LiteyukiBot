@@ -93,12 +93,38 @@ _WEBUI_ICON_NAMES = frozenset(
 
 
 def _validate_webui_token(value: str, field: str) -> str:
+    """Validate webui token.
+
+    Args:
+        value: Value to validate, transform, or store.
+        field: The field value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_validate_webui_token`. It delegates to `fullmatch` while
+        keeping intermediate state local to the owning operation.
+    """
     if not _WEBUI_TOKEN.fullmatch(value):
         raise ValueError(f"{field} must use lowercase ASCII letters, digits, or '-'")
     return value
 
 
 def _validate_webui_key(value: str, field: str) -> str:
+    """Validate webui key.
+
+    Args:
+        value: Value to validate, transform, or store.
+        field: The field value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_validate_webui_key`. It delegates to `strip`, `any`,
+        `split` while keeping intermediate state local to the owning operation.
+    """
     if not value or value != value.strip() or any(part == "" for part in value.split(".")):
         raise ValueError(f"{field} must be a non-empty i18n key")
     return value
@@ -129,16 +155,41 @@ class WebUiComponent(BaseModel):
     @field_validator("id")
     @classmethod
     def validate_id(cls, value: str) -> str:
+        """Validate id.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         return _validate_webui_token(value, "webui component id")
 
     @field_validator("title_key", "summary_key")
     @classmethod
     def validate_i18n_key(cls, value: str | None, info: Any) -> str | None:
+        """Validate i18n key.
+
+        Args:
+            value: Value to validate, transform, or store.
+            info: The info value used by the operation.
+
+        Returns:
+            The `str | None` result produced by the operation.
+        """
         return _validate_webui_key(value, info.field_name) if value is not None else value
 
     @field_validator("data_path")
     @classmethod
     def validate_data_path(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        """Validate data path.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+        """
         if any(not _WEBUI_PATH_TOKEN.fullmatch(part) for part in value):
             raise ValueError("webui data_path must contain object field names")
         return value
@@ -146,11 +197,27 @@ class WebUiComponent(BaseModel):
     @field_validator("operation_id")
     @classmethod
     def validate_operation_id(cls, value: str | None) -> str | None:
+        """Validate operation id.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `str | None` result produced by the operation.
+        """
         if value is not None and (not value or value != value.strip() or " " in value):
             raise ValueError("webui operation_id must be a non-empty operation identifier")
         return value
 
     def model_post_init(self, __context: Any) -> None:
+        """Implement the model post init operation for the web ui component.
+
+        Args:
+            __context: The context value used by the operation.
+
+        Returns:
+            None.
+        """
         child_ids = [child.id for child in self.children]
         if len(child_ids) != len(set(child_ids)):
             raise ValueError("webui component children must have unique ids")
@@ -177,16 +244,41 @@ class WebUiSurfaceManifest(BaseModel):
     @field_validator("id")
     @classmethod
     def validate_id(cls, value: str) -> str:
+        """Validate id.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         return _validate_webui_token(value, "webui surface id")
 
     @field_validator("title_key", "summary_key")
     @classmethod
     def validate_i18n_key(cls, value: str | None, info: Any) -> str | None:
+        """Validate i18n key.
+
+        Args:
+            value: Value to validate, transform, or store.
+            info: The info value used by the operation.
+
+        Returns:
+            The `str | None` result produced by the operation.
+        """
         return _validate_webui_key(value, info.field_name) if value is not None else value
 
     @field_validator("icon")
     @classmethod
     def validate_icon(cls, value: str) -> str:
+        """Validate icon.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         if value not in _WEBUI_ICON_NAMES:
             raise ValueError("webui icon is not host-approved")
         return value
@@ -194,6 +286,14 @@ class WebUiSurfaceManifest(BaseModel):
     @field_validator("read_capability")
     @classmethod
     def validate_read_capability(cls, value: str) -> str:
+        """Validate read capability.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         if not value or value != value.strip() or " " in value:
             raise ValueError("webui read_capability must be a non-empty capability identifier")
         return value
@@ -201,6 +301,14 @@ class WebUiSurfaceManifest(BaseModel):
     @field_validator("operation_ids")
     @classmethod
     def validate_operation_ids(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        """Validate operation ids.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+        """
         if len(value) != len(set(value)):
             raise ValueError("webui operation_ids must be unique")
         for operation_id in value:
@@ -209,6 +317,14 @@ class WebUiSurfaceManifest(BaseModel):
         return value
 
     def model_post_init(self, __context: Any) -> None:
+        """Implement the model post init operation for the web ui surface manifest.
+
+        Args:
+            __context: The context value used by the operation.
+
+        Returns:
+            None.
+        """
         if self.data_schema.get("$schema") != WEBUI_SCHEMA_DRAFT_2020_12:
             raise ValueError("webui data_schema must declare Draft 2020-12")
         try:
@@ -225,6 +341,14 @@ class WebUiSurfaceManifest(BaseModel):
                 raise ValueError("webui operation_form must reference an allowlisted operation_id")
 
     def route(self, plugin_id: str) -> str:
+        """Route the web ui surface manifest operation.
+
+        Args:
+            plugin_id: Stable identifier for the plugin.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         return f"/plugins/{plugin_id}/{self.id}"
 
 
@@ -240,6 +364,14 @@ class WebUiContributionManifest(BaseModel):
     @field_validator("api_version")
     @classmethod
     def validate_api_version(cls, value: int) -> int:
+        """Validate api version.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `int` result produced by the operation.
+        """
         if value < 1:
             raise ValueError("webui api_version must be positive")
         return value
@@ -247,11 +379,27 @@ class WebUiContributionManifest(BaseModel):
     @field_validator("i18n_keys")
     @classmethod
     def validate_i18n_keys(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        """Validate i18n keys.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+        """
         if len(value) != len(set(value)):
             raise ValueError("webui i18n_keys must be unique")
         return tuple(_validate_webui_key(key, "webui i18n key") for key in value)
 
     def model_post_init(self, __context: Any) -> None:
+        """Implement the model post init operation for the web ui contribution manifest.
+
+        Args:
+            __context: The context value used by the operation.
+
+        Returns:
+            None.
+        """
         if len(self.surfaces) > 16:
             raise ValueError("webui contribution supports at most 16 surfaces")
         ids = [surface.id for surface in self.surfaces]
@@ -260,6 +408,18 @@ class WebUiContributionManifest(BaseModel):
 
 
 def _walk_components(components: Sequence[WebUiComponent]) -> tuple[WebUiComponent, ...]:
+    """Implement the walk components operation for the component.
+
+    Args:
+        components: The components value used by the operation.
+
+    Returns:
+        The `tuple[WebUiComponent, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_walk_components`. It delegates to `append`, `extend`,
+        `_walk_components` while keeping intermediate state local to the owning operation.
+    """
     values: list[WebUiComponent] = []
     for component in components:
         values.append(component)
@@ -268,20 +428,44 @@ def _walk_components(components: Sequence[WebUiComponent]) -> tuple[WebUiCompone
 
 
 def _component_ids(components: Sequence[WebUiComponent]) -> tuple[str, ...]:
+    """Implement the component ids operation for the component.
+
+    Args:
+        components: The components value used by the operation.
+
+    Returns:
+        The `tuple[str, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_component_ids`. It delegates to `_walk_components` while
+        keeping intermediate state local to the owning operation.
+    """
     return tuple(component.id for component in _walk_components(components))
 
 
 class WebUiProvider(Protocol):
-    def snapshot(self, surface_id: str) -> Mapping[str, object] | Awaitable[Mapping[str, object]]: ...
+    """Define the structural interface required from a web ui provider."""
+    def snapshot(self, surface_id: str) -> Mapping[str, object] | Awaitable[Mapping[str, object]]:
+        """Return an immutable snapshot of the web ui provider state.
+
+        Args:
+            surface_id: Stable identifier for the surface.
+
+        Returns:
+            The requested `Mapping[str, object] | Awaitable[Mapping[str, object]]` value.
+        """
+        ...
 
 
 class WebUiSnapshotState(StrEnum):
+    """Enumerate the supported web ui snapshot state values."""
     AVAILABLE = "available"
     UNAVAILABLE = "unavailable"
 
 
 @dataclass(frozen=True, slots=True)
 class WebUiSnapshot:
+    """Represent the validated web ui snapshot contract."""
     plugin_id: str
     surface_id: str
     state: WebUiSnapshotState
@@ -291,37 +475,170 @@ class WebUiSnapshot:
 
 @dataclass(frozen=True, slots=True)
 class WebUiDiagnostic:
+    """Represent the web ui diagnostic contract."""
     plugin_id: str
     code: str
 
 
 class LoggerLike(Protocol):
-    def bind(self, **fields: Any) -> LoggerLike: ...
+    """Define the structural interface required from a logger like."""
+    def bind(self, **fields: Any) -> LoggerLike:
+        """Bind the logger like operation.
 
-    def contextualize(self, **fields: Any) -> AbstractContextManager[None]: ...
+        Args:
+            **fields: Structured fields attached to the operation.
 
-    def trace(self, message: str, *args: Any, **kwargs: Any) -> None: ...
+        Returns:
+            The `LoggerLike` result produced by the operation.
+        """
+        ...
 
-    def debug(self, message: str, *args: Any, **kwargs: Any) -> None: ...
+    def contextualize(self, **fields: Any) -> AbstractContextManager[None]:
+        """Implement the contextualize operation for the logger like.
 
-    def info(self, message: str, *args: Any, **kwargs: Any) -> None: ...
+        Args:
+            **fields: Structured fields attached to the operation.
 
-    def success(self, message: str, *args: Any, **kwargs: Any) -> None: ...
+        Returns:
+            The `AbstractContextManager[None]` result produced by the operation.
+        """
+        ...
 
-    def warning(self, message: str, *args: Any, **kwargs: Any) -> None: ...
+    def trace(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """Implement the trace operation for the logger like.
 
-    def error(self, message: str, *args: Any, **kwargs: Any) -> None: ...
+        Args:
+            message: Message content associated with the operation.
+            *args: The args value used by the operation.
+            **kwargs: The kwargs value used by the operation.
 
-    def critical(self, message: str, *args: Any, **kwargs: Any) -> None: ...
+        Returns:
+            None.
+        """
+        ...
 
-    def exception(self, message: str, *args: Any, **kwargs: Any) -> None: ...
+    def debug(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """Implement the debug operation for the logger like.
+
+        Args:
+            message: Message content associated with the operation.
+            *args: The args value used by the operation.
+            **kwargs: The kwargs value used by the operation.
+
+        Returns:
+            None.
+        """
+        ...
+
+    def info(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """Implement the info operation for the logger like.
+
+        Args:
+            message: Message content associated with the operation.
+            *args: The args value used by the operation.
+            **kwargs: The kwargs value used by the operation.
+
+        Returns:
+            None.
+        """
+        ...
+
+    def success(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """Implement the success operation for the logger like.
+
+        Args:
+            message: Message content associated with the operation.
+            *args: The args value used by the operation.
+            **kwargs: The kwargs value used by the operation.
+
+        Returns:
+            None.
+        """
+        ...
+
+    def warning(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """Implement the warning operation for the logger like.
+
+        Args:
+            message: Message content associated with the operation.
+            *args: The args value used by the operation.
+            **kwargs: The kwargs value used by the operation.
+
+        Returns:
+            None.
+        """
+        ...
+
+    def error(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """Implement the error operation for the logger like.
+
+        Args:
+            message: Message content associated with the operation.
+            *args: The args value used by the operation.
+            **kwargs: The kwargs value used by the operation.
+
+        Returns:
+            None.
+        """
+        ...
+
+    def critical(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """Implement the critical operation for the logger like.
+
+        Args:
+            message: Message content associated with the operation.
+            *args: The args value used by the operation.
+            **kwargs: The kwargs value used by the operation.
+
+        Returns:
+            None.
+        """
+        ...
+
+    def exception(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """Implement the exception operation for the logger like.
+
+        Args:
+            message: Message content associated with the operation.
+            *args: The args value used by the operation.
+            **kwargs: The kwargs value used by the operation.
+
+        Returns:
+            None.
+        """
+        ...
 
 
 class ActionServiceLike(Protocol):
-    async def execute(self, action: ActionEnvelope, *, event: EventEnvelope | None = None) -> ActionResult: ...
+    """Define the structural interface required from a action service like."""
+    async def execute(self, action: ActionEnvelope, *, event: EventEnvelope | None = None) -> ActionResult:
+        """Execute one request through the action service like.
+
+        Args:
+            action: Action request being processed.
+            event: Event associated with the operation.
+
+        Returns:
+            The `ActionResult` result produced by the operation.
+        """
+        ...
 
 
 def _log_task_failure(logger: LoggerLike, name: str, error: BaseException) -> None:
+    """Implement the log task failure operation for the component.
+
+    Args:
+        logger: Structured logger used for diagnostics.
+        name: Stable name used to identify the value.
+        error: The error value used by the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_log_task_failure`. It delegates to `error` while keeping
+        intermediate state local to the owning operation.
+    """
     logger.error("task {} failed: {}", name, error)
 
 
@@ -346,6 +663,14 @@ class ToolDeclaration(BaseModel):
     @field_validator("id", "description")
     @classmethod
     def validate_required_text(cls, value: str) -> str:
+        """Validate required text.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         if not value or value != value.strip():
             raise ValueError("tool metadata must be non-empty and trimmed")
         return value
@@ -353,6 +678,14 @@ class ToolDeclaration(BaseModel):
     @field_validator("input_schema", "output_schema")
     @classmethod
     def validate_schema(cls, value: Mapping[str, JsonValue]) -> Mapping[str, JsonValue]:
+        """Validate schema.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `Mapping[str, JsonValue]` result produced by the operation.
+        """
         try:
             Draft202012Validator.check_schema(dict(value))
         except SchemaError as error:
@@ -362,6 +695,14 @@ class ToolDeclaration(BaseModel):
     @field_validator("capabilities")
     @classmethod
     def validate_capabilities(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        """Validate capabilities.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+        """
         if len(set(value)) != len(value):
             raise ValueError("tool capabilities must not contain duplicates")
         for capability in value:
@@ -391,11 +732,27 @@ class ExtensionManifest(BaseModel):
     @field_validator("id")
     @classmethod
     def validate_id(cls, value: str) -> str:
+        """Validate id.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         return _validate_extension_id(value)
 
     @field_validator("name", "version")
     @classmethod
     def validate_required_metadata(cls, value: str) -> str:
+        """Validate required metadata.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         if not value.strip():
             raise ValueError("plugin manifest metadata must not be blank")
         return value
@@ -403,6 +760,14 @@ class ExtensionManifest(BaseModel):
     @field_validator("capabilities")
     @classmethod
     def validate_capabilities(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        """Validate capabilities.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+        """
         if len(set(value)) != len(value):
             raise ValueError("extension capabilities must not contain duplicates")
         for capability in value:
@@ -412,6 +777,14 @@ class ExtensionManifest(BaseModel):
     @field_validator("runtime_requirements")
     @classmethod
     def validate_runtime_requirements(cls, value: tuple[RuntimeRequirement, ...]) -> tuple[RuntimeRequirement, ...]:
+        """Validate runtime requirements.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `tuple[RuntimeRequirement, ...]` result produced by the operation.
+        """
         keys = tuple((item.runtime, item.api, item.bridge_id) for item in value)
         if len(keys) != len(set(keys)):
             raise ValueError("extension runtime requirements must not contain duplicates")
@@ -420,6 +793,15 @@ class ExtensionManifest(BaseModel):
     @field_validator("tools")
     @classmethod
     def validate_tools(cls, value: tuple[ToolDeclaration, ...], info: Any) -> tuple[ToolDeclaration, ...]:
+        """Validate tools.
+
+        Args:
+            value: Value to validate, transform, or store.
+            info: The info value used by the operation.
+
+        Returns:
+            The `tuple[ToolDeclaration, ...]` result produced by the operation.
+        """
         extension_id = info.data.get("id")
         if not isinstance(extension_id, str):
             return value
@@ -432,6 +814,11 @@ class ExtensionManifest(BaseModel):
 
     @property
     def runtime_capabilities(self) -> frozenset[str]:
+        """Return the extension manifest's runtime capabilities.
+
+        Returns:
+            The `frozenset[str]` result produced by the operation.
+        """
         return frozenset(
             capability
             for requirement in self.runtime_requirements
@@ -452,12 +839,29 @@ class ExtensionIdentity:
     coexistence: ExtensionCoexistence = ExtensionCoexistence.EXCLUSIVE
 
     def __post_init__(self) -> None:
+        """Validate and normalize the extension identity after initialization.
+
+        Returns:
+            None.
+        """
         _validate_extension_id(self.id)
         if not isinstance(self.coexistence, ExtensionCoexistence):
             raise TypeError("extension coexistence must be ExtensionCoexistence")
 
 
 def _validate_extension_id(value: str) -> str:
+    """Validate extension id.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_validate_extension_id`. It delegates to `strip`, `any`,
+        `split` while keeping intermediate state local to the owning operation.
+    """
     if (
         not value
         or value.strip("abcdefghijklmnopqrstuvwxyz0123456789-_.")
@@ -468,6 +872,18 @@ def _validate_extension_id(value: str) -> str:
 
 
 def _validate_capability(value: str) -> str:
+    """Validate capability.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_validate_capability`. It delegates to `strip`, `any`,
+        `isspace` while keeping intermediate state local to the owning operation.
+    """
     if (
         not isinstance(value, str)
         or not value
@@ -483,6 +899,19 @@ type CleanupCallback = Callable[[], object]
 
 
 def _default_runtime_context_factory(args: tuple[Any, ...], kwargs: Mapping[str, Any]) -> RuntimeCallContext:
+    """Implement the default runtime context factory operation for the component.
+
+    Args:
+        args: The args value used by the operation.
+        kwargs: The kwargs value used by the operation.
+
+    Returns:
+        The `RuntimeCallContext` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_default_runtime_context_factory`. It delegates to `values`,
+        `next` while keeping intermediate state local to the owning operation.
+    """
     values = (*args, *kwargs.values())
     event = next((value for value in values if isinstance(value, EventEnvelope)), None)
     if event is None:
@@ -501,6 +930,19 @@ def _default_runtime_context_factory(args: tuple[Any, ...], kwargs: Mapping[str,
 
 
 def _unavailable_runtime_resolver(binding: Any, context: RuntimeCallContext) -> RuntimeNamespaceProxy:
+    """Implement the unavailable runtime resolver operation for the component.
+
+    Args:
+        binding: The binding value used by the operation.
+        context: Runtime or authorization context for the operation.
+
+    Returns:
+        The `RuntimeNamespaceProxy` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_unavailable_runtime_resolver`. It performs the local state
+        transition directly and is not a stable extension boundary.
+    """
     return RuntimeNamespaceProxy(binding, None, context, reason="runtime bridge is not configured")
 
 
@@ -515,6 +957,17 @@ class PluginEventBus:
         resolver: RuntimeResolver,
         requirements: tuple[RuntimeRequirement, ...] = (),
     ) -> None:
+        """Initialize the plugin event bus.
+
+        Args:
+            events: The events value used by the operation.
+            context_factory: The context factory value used by the operation.
+            resolver: The resolver value used by the operation.
+            requirements: The requirements value used by the operation.
+
+        Returns:
+            None.
+        """
         self._events = events
         self._context_factory = context_factory
         self._resolver = resolver
@@ -522,13 +975,33 @@ class PluginEventBus:
 
     @property
     def closed(self) -> bool:
+        """Return the plugin event bus's closed.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
         return self._events.closed
 
     @property
     def outstanding(self) -> int:
+        """Return the plugin event bus's outstanding.
+
+        Returns:
+            The `int` result produced by the operation.
+        """
         return self._events.outstanding
 
     def subscribe(self, handler: Callable[..., Any], *, order: int = 0, name: str | None = None) -> Any:
+        """Register a handler and return its subscription.
+
+        Args:
+            handler: Callable that handles the dispatched value.
+            order: Relative handler ordering; lower values run first.
+            name: Stable name used to identify the value.
+
+        Returns:
+            The `Any` result produced by the operation.
+        """
         validate_runtime_bindings(handler, self._requirements)
         wrapped = runtime_handler(
             handler,
@@ -538,18 +1011,56 @@ class PluginEventBus:
         return self._events.subscribe(cast(Any, wrapped), order=order, name=name)
 
     def unsubscribe(self, subscription: Any) -> bool:
+        """Remove a previously registered subscription.
+
+        Args:
+            subscription: Previously returned subscription to remove.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
         return self._events.unsubscribe(subscription)
 
     def __getattr__(self, name: str) -> Any:
+        """Implement the getattr operation for the plugin event bus.
+
+        Args:
+            name: Stable name used to identify the value.
+
+        Returns:
+            The `Any` result produced by the operation.
+        """
         return getattr(self._events, name)
 
 
 class _PluginCleanup:
+    """Represent the plugin cleanup contract."""
     def __init__(self) -> None:
+        """Initialize the plugin cleanup.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_PluginCleanup.__init__`. It performs the local state
+            transition directly and is not a stable extension boundary.
+        """
         self._callbacks: list[CleanupCallback] = []
         self._closed = False
 
     def defer(self, callback: CleanupCallback) -> None:
+        """Implement the defer operation for the plugin cleanup.
+
+        Args:
+            callback: Callback invoked by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_PluginCleanup.defer`. It delegates to `callable`, `append`
+            while keeping intermediate state local to the owning operation.
+        """
         if self._closed:
             raise RuntimeError("plugin cleanup is already closed")
         if not callable(callback):
@@ -557,6 +1068,15 @@ class _PluginCleanup:
         self._callbacks.append(callback)
 
     async def close(self) -> None:
+        """Close the plugin cleanup and release its owned resources.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_PluginCleanup.close`. It delegates to `pop`, `callback`,
+            `isawaitable`, `append` while keeping intermediate state local to the owning operation.
+        """
         if self._closed:
             return
         self._closed = True
@@ -575,6 +1095,7 @@ class _PluginCleanup:
 
 @dataclass(frozen=True, slots=True)
 class PluginHandle:
+    """Represent the plugin handle contract."""
     start: PluginCallback | None = None
     stop: PluginCallback | None = None
     webui_provider: WebUiProvider | None = None
@@ -585,12 +1106,18 @@ PluginSetup = Callable[["PluginContext"], Awaitable[PluginHandle | None]]
 
 @dataclass(frozen=True, slots=True)
 class ExtensionDefinition:
+    """Represent the extension definition contract."""
     manifest: ExtensionManifest
     setup: PluginSetup
     init_spec: PluginInitSpec | None = None
 
     @property
     def identity(self) -> ExtensionIdentity:
+        """Return the extension definition's identity.
+
+        Returns:
+            The `ExtensionIdentity` result produced by the operation.
+        """
         return ExtensionIdentity(self.manifest.id, self.manifest.coexistence)
 
 
@@ -600,35 +1127,76 @@ PluginDefinition = ExtensionDefinition
 
 @dataclass(frozen=True, slots=True)
 class PluginPaths:
+    """Represent the plugin paths contract."""
     data: Path
     cache: Path
 
 
 class PluginServices:
+    """Represent the plugin services contract."""
     def __init__(self, manifest: PluginManifest, registry: ServiceRegistry) -> None:
+        """Initialize the plugin services.
+
+        Args:
+            manifest: Validated manifest describing the component contract.
+            registry: The registry value used by the operation.
+
+        Returns:
+            None.
+        """
         self._manifest = manifest
         self._registry = registry
         self._provided: set[ServiceKey] = set()
 
     def provide(self, key: ServiceKey, value: Any) -> None:
+        """Implement the provide operation for the plugin services.
+
+        Args:
+            key: Stable FIFO ordering key for the queued work.
+            value: Value to validate, transform, or store.
+
+        Returns:
+            None.
+        """
         if key not in self._manifest.provides:
             raise ServiceError(f"plugin {self._manifest.id} did not declare provided service {key}")
         self._registry.provide(key, value, provider=self._manifest.id)
         self._provided.add(key)
 
     def require(self, key: ServiceKey) -> Any:
+        """Return the plugin services operation, failing when it is unavailable.
+
+        Args:
+            key: Stable FIFO ordering key for the queued work.
+
+        Returns:
+            The requested `Any` value.
+        """
         declared = {requirement.key for requirement in self._manifest.requires}
         if key not in declared:
             raise ServiceError(f"plugin {self._manifest.id} did not declare required service {key}")
         return self._registry.require(key)
 
     def get_optional(self, key: ServiceKey) -> Any | None:
+        """Return optional.
+
+        Args:
+            key: Stable FIFO ordering key for the queued work.
+
+        Returns:
+            The requested `Any | None` value.
+        """
         requirement = next((item for item in self._manifest.requires if item.key == key), None)
         if requirement is None or not requirement.optional:
             raise ServiceError(f"plugin {self._manifest.id} did not declare optional service {key}")
         return self._registry.get(key)
 
     def validate_provided(self) -> None:
+        """Validate provided.
+
+        Returns:
+            None.
+        """
         missing = set(self._manifest.provides) - self._provided
         if missing:
             rendered = ", ".join(str(key) for key in sorted(missing))
@@ -637,6 +1205,7 @@ class PluginServices:
 
 @dataclass(frozen=True, slots=True)
 class PluginContext:
+    """Represent the plugin context contract."""
     id: str
     config: Mapping[str, Any]
     logger: LoggerLike
@@ -655,12 +1224,27 @@ class PluginContext:
     _tool_handlers: MutableMapping[str, ToolCallback] = field(default_factory=dict, repr=False, compare=False)
 
     def defer_cleanup(self, callback: CleanupCallback) -> None:
-        """Run a synchronous or asynchronous callback during plugin cleanup."""
+        """Run a synchronous or asynchronous callback during plugin cleanup.
+
+        Args:
+            callback: Callback invoked by the operation.
+
+        Returns:
+            None.
+        """
 
         self._cleanup.defer(callback)
 
     def register_tool(self, tool_id: str, handler: ToolCallback) -> None:
-        """Register exactly one handler for a Tool declared by this extension."""
+        """Register exactly one handler for a Tool declared by this extension.
+
+        Args:
+            tool_id: Stable identifier for the tool.
+            handler: Callable that handles the dispatched value.
+
+        Returns:
+            None.
+        """
 
         if not isinstance(tool_id, str) or not tool_id.strip():
             raise ValueError("Tool ID must be non-empty")
@@ -682,6 +1266,7 @@ class PluginContext:
 
 
 class PluginState(StrEnum):
+    """Enumerate the supported plugin state values."""
     DISCOVERED = "discovered"
     SETUP = "setup"
     READY = "ready"
@@ -691,6 +1276,7 @@ class PluginState(StrEnum):
 
 @dataclass(slots=True)
 class LoadedPlugin:
+    """Represent the loaded plugin contract."""
     definition: PluginDefinition
     context: PluginContext
     handle: PluginHandle
@@ -698,6 +1284,7 @@ class LoadedPlugin:
 
 
 class PluginManager:
+    """Represent the plugin manager contract."""
     ENTRY_POINT_GROUP = "liteyukibot.plugins"
 
     def __init__(
@@ -713,6 +1300,22 @@ class PluginManager:
         runtime_resolver: RuntimeResolver | None = None,
         runtime_targets: Mapping[str, str] | None = None,
     ) -> None:
+        """Initialize the plugin manager.
+
+        Args:
+            services: The services value used by the operation.
+            events: The events value used by the operation.
+            actions: The actions value used by the operation.
+            logger: Structured logger used for diagnostics.
+            data_dir: Filesystem path for the data.
+            cache_dir: Filesystem path for the cache.
+            runtime_context_factory: The runtime context factory value used by the operation.
+            runtime_resolver: The runtime resolver value used by the operation.
+            runtime_targets: The runtime targets value used by the operation.
+
+        Returns:
+            None.
+        """
         self.services = services
         self.events = events
         self.actions = actions
@@ -732,20 +1335,38 @@ class PluginManager:
 
     @property
     def tool_handlers(self) -> Mapping[str, tuple[str, ToolDeclaration, ToolCallback]]:
+        """Return the plugin manager's tool handlers.
+
+        Returns:
+            The `Mapping[str, tuple[str, ToolDeclaration, ToolCallback]]` result produced by the operation.
+        """
         return dict(self._tool_handlers)
 
     @property
     def webui_generation(self) -> int:
-        """Monotonic provider revision for an owning WebUI bridge to emit reset."""
+        """Monotonic provider revision for an owning WebUI bridge to emit reset.
+
+        Returns:
+            The `int` result produced by the operation.
+        """
 
         return self._webui_generation
 
     @property
     def webui_diagnostics(self) -> tuple[WebUiDiagnostic, ...]:
+        """Return the plugin manager's webui diagnostics.
+
+        Returns:
+            The `tuple[WebUiDiagnostic, ...]` result produced by the operation.
+        """
         return tuple(self._webui_diagnostics[plugin_id] for plugin_id in sorted(self._webui_diagnostics))
 
     def webui_surfaces(self) -> tuple[tuple[str, WebUiSurfaceManifest], ...]:
-        """Return only active, host-derived Plugin workspace surfaces."""
+        """Return only active, host-derived Plugin workspace surfaces.
+
+        Returns:
+            The `tuple[tuple[str, WebUiSurfaceManifest], ...]` result produced by the operation.
+        """
 
         values: list[tuple[str, WebUiSurfaceManifest]] = []
         for plugin_id in sorted(self._webui_providers):
@@ -760,7 +1381,16 @@ class PluginManager:
         surface_id: str,
         capabilities: frozenset[str],
     ) -> WebUiSnapshot:
-        """Read one authorized bounded provider snapshot without leaking provider failures."""
+        """Read one authorized bounded provider snapshot without leaking provider failures.
+
+        Args:
+            plugin_id: Stable identifier for the plugin.
+            surface_id: Stable identifier for the surface.
+            capabilities: The capabilities value used by the operation.
+
+        Returns:
+            The `WebUiSnapshot` result produced by the operation.
+        """
 
         provider = self._webui_providers.get(plugin_id)
         loaded = self.loaded.get(plugin_id)
@@ -794,6 +1424,20 @@ class PluginManager:
         return WebUiSnapshot(plugin_id, surface_id, WebUiSnapshotState.AVAILABLE, data=normalized)
 
     def _register_webui_provider(self, plugin_id: str, plugin: LoadedPlugin) -> None:
+        """Register webui provider.
+
+        Args:
+            plugin_id: Stable identifier for the plugin.
+            plugin: The plugin value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `PluginManager._register_webui_provider`. It delegates to
+            `update`, `intersection`, `_contribution_i18n_is_owned`, `pop` while keeping intermediate state
+            local to the owning operation.
+        """
         manifest = plugin.definition.manifest.webui
         provider = plugin.handle.webui_provider
         if manifest is None:
@@ -820,11 +1464,32 @@ class PluginManager:
         self._webui_generation += 1
 
     def _withdraw_webui_provider(self, plugin_id: str) -> None:
+        """Implement the withdraw webui provider operation for the plugin manager.
+
+        Args:
+            plugin_id: Stable identifier for the plugin.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `PluginManager._withdraw_webui_provider`. It delegates to
+            `pop` while keeping intermediate state local to the owning operation.
+        """
         self._webui_diagnostics.pop(plugin_id, None)
         if self._webui_providers.pop(plugin_id, None) is not None:
             self._webui_generation += 1
 
     def discover(self, enabled: Sequence[str], local_modules: Sequence[str] = ()) -> dict[str, PluginDefinition]:
+        """Discover the plugin manager operation.
+
+        Args:
+            enabled: The enabled value used by the operation.
+            local_modules: The local modules value used by the operation.
+
+        Returns:
+            The `dict[str, PluginDefinition]` result produced by the operation.
+        """
         wanted = set(enabled)
         definitions: dict[str, PluginDefinition] = {}
         entry_points = {item.name: item for item in metadata.entry_points(group=self.ENTRY_POINT_GROUP)}
@@ -856,7 +1521,11 @@ class PluginManager:
 
     @classmethod
     def discover_installed(cls) -> tuple[dict[str, PluginDefinition], tuple[str, ...]]:
-        """Discover entry-point plugins for setup clients without failing on unrelated packages."""
+        """Discover entry-point plugins for setup clients without failing on unrelated packages.
+
+        Returns:
+            The `tuple[dict[str, PluginDefinition], tuple[str, ...]]` result produced by the operation.
+        """
 
         definitions: dict[str, PluginDefinition] = {}
         diagnostics: list[str] = []
@@ -871,6 +1540,18 @@ class PluginManager:
 
     @staticmethod
     def _coerce_definition(candidate: Any) -> PluginDefinition:
+        """Implement the coerce definition operation for the plugin manager.
+
+        Args:
+            candidate: The candidate value used by the operation.
+
+        Returns:
+            The `PluginDefinition` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `PluginManager._coerce_definition`. It delegates to
+            `iscoroutinefunction` while keeping intermediate state local to the owning operation.
+        """
         if not isinstance(candidate, PluginDefinition):
             raise PluginError("plugin entry point must resolve to PluginDefinition")
         if not inspect.iscoroutinefunction(candidate.setup):
@@ -881,6 +1562,20 @@ class PluginManager:
     def _insert_definition(
         definitions: dict[str, PluginDefinition], definition: PluginDefinition, expected_id: str
     ) -> None:
+        """Implement the insert definition operation for the plugin manager.
+
+        Args:
+            definitions: The definitions value used by the operation.
+            definition: The definition value used by the operation.
+            expected_id: Stable identifier for the expected.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `PluginManager._insert_definition`. It performs the local
+            state transition directly and is not a stable extension boundary.
+        """
         plugin_id = definition.manifest.id
         if plugin_id != expected_id:
             raise PluginError(f"plugin entry point {expected_id} declared mismatched id {plugin_id}")
@@ -889,12 +1584,27 @@ class PluginManager:
         definitions[plugin_id] = definition
 
     def resolve_order(self, definitions: Mapping[str, PluginDefinition]) -> tuple[str, ...]:
+        """Resolve order.
+
+        Args:
+            definitions: The definitions value used by the operation.
+
+        Returns:
+            The requested `tuple[str, ...]` value.
+        """
         provided_services = {registration.key: registration.provider for registration in self.services.snapshot()}
         return self.resolve_definitions(definitions, provided_services)
 
     @staticmethod
     def identities(definitions: Mapping[str, PluginDefinition]) -> tuple[ExtensionIdentity, ...]:
-        """Return native extension identities for cross-host topology validation."""
+        """Return native extension identities for cross-host topology validation.
+
+        Args:
+            definitions: The definitions value used by the operation.
+
+        Returns:
+            The `tuple[ExtensionIdentity, ...]` result produced by the operation.
+        """
 
         return tuple(definitions[plugin_id].identity for plugin_id in sorted(definitions))
 
@@ -903,7 +1613,15 @@ class PluginManager:
         definitions: Mapping[str, PluginDefinition],
         provided_services: Mapping[ServiceKey, str] | None = None,
     ) -> tuple[str, ...]:
-        """Resolve a plugin topology from package metadata without loading plugins."""
+        """Resolve a plugin topology from package metadata without loading plugins.
+
+        Args:
+            definitions: The definitions value used by the operation.
+            provided_services: The provided services value used by the operation.
+
+        Returns:
+            The requested `tuple[str, ...]` value.
+        """
 
         existing_providers = provided_services or {}
         providers: dict[ServiceKey, str] = {}
@@ -946,6 +1664,16 @@ class PluginManager:
         *,
         function_hosts: Mapping[str, FunctionHost] | None = None,
     ) -> None:
+        """Implement the setup operation for the plugin manager.
+
+        Args:
+            definitions: The definitions value used by the operation.
+            configs: The configs value used by the operation.
+            function_hosts: The function hosts value used by the operation.
+
+        Returns:
+            None.
+        """
         for plugin_id in self.resolve_order(definitions):
             definition = definitions[plugin_id]
             manifest = definition.manifest
@@ -1037,6 +1765,11 @@ class PluginManager:
             self.loaded[plugin_id] = LoadedPlugin(definition, context, handle)
 
     async def start(self) -> None:
+        """Start the plugin manager.
+
+        Returns:
+            None.
+        """
         for plugin in self.loaded.values():
             if plugin.handle.start is not None:
                 await plugin.handle.start()
@@ -1044,6 +1777,11 @@ class PluginManager:
             self._register_webui_provider(plugin.definition.manifest.id, plugin)
 
     async def stop(self) -> None:
+        """Stop the plugin manager and release its owned resources.
+
+        Returns:
+            None.
+        """
         errors: list[BaseException] = []
         for plugin in reversed(tuple(self.loaded.values())):
             self._withdraw_webui_provider(plugin.definition.manifest.id)
@@ -1067,6 +1805,18 @@ class PluginManager:
             raise BaseExceptionGroup("plugin shutdown failed", errors)
 
     def _create_paths(self, plugin_id: str) -> PluginPaths:
+        """Create paths.
+
+        Args:
+            plugin_id: Stable identifier for the plugin.
+
+        Returns:
+            The `PluginPaths` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `PluginManager._create_paths`. It delegates to `mkdir` while
+            keeping intermediate state local to the owning operation.
+        """
         data = self.data_dir / "plugins" / plugin_id
         cache = self.cache_dir / "plugins" / plugin_id
         data.mkdir(parents=True, exist_ok=True)
@@ -1075,6 +1825,20 @@ class PluginManager:
 
 
 def _contribution_i18n_is_owned(plugin_id: str, manifest: WebUiContributionManifest) -> bool:
+    """Implement the contribution i18n is owned operation for the component.
+
+    Args:
+        plugin_id: Stable identifier for the plugin.
+        manifest: Validated manifest describing the component contract.
+
+    Returns:
+        Whether the requested condition is satisfied.
+
+    Notes:
+        Internal implementation detail for `_contribution_i18n_is_owned`. It delegates to
+        `_walk_components`, `all`, `startswith`, `issubset` while keeping intermediate state local to
+        the owning operation.
+    """
     prefix = f"webui.plugin.{plugin_id}."
     keys = set(manifest.i18n_keys)
     referenced = {
@@ -1088,6 +1852,18 @@ def _contribution_i18n_is_owned(plugin_id: str, manifest: WebUiContributionManif
 
 
 def _normalize_json_mapping(value: Mapping[str, object]) -> dict[str, JsonValue]:
+    """Normalize json mapping.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `dict[str, JsonValue]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_normalize_json_mapping`. It delegates to `dumps`, `loads`,
+        `cast` while keeping intermediate state local to the owning operation.
+    """
     encoded = json.dumps(value, ensure_ascii=True, allow_nan=False, separators=(",", ":"))
     decoded = json.loads(encoded)
     if not isinstance(decoded, dict):
@@ -1096,6 +1872,19 @@ def _normalize_json_mapping(value: Mapping[str, object]) -> dict[str, JsonValue]
 
 
 def _table_rows_exceed_limit(data: Mapping[str, JsonValue], components: Sequence[WebUiComponent]) -> bool:
+    """Implement the table rows exceed limit operation for the component.
+
+    Args:
+        data: The data value used by the operation.
+        components: The components value used by the operation.
+
+    Returns:
+        Whether the requested condition is satisfied.
+
+    Notes:
+        Internal implementation detail for `_table_rows_exceed_limit`. It delegates to
+        `_walk_components`, `get` while keeping intermediate state local to the owning operation.
+    """
     for component in _walk_components(components):
         if component.kind != "table":
             continue

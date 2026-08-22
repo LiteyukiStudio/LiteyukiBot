@@ -18,18 +18,36 @@ I18N_SERVICE = ServiceKey("liteyukibot.i18n", 1)
 
 
 def normalize_locale(value: str) -> str:
+    """Normalize locale.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `str` result produced by the operation.
+    """
     normalized = value.strip().replace("_", "-")
     aliases = {"en": "en-US", "zh": "zh-CN", "zh-Hans": "zh-CN"}
     return aliases.get(normalized, normalized)
 
 
 def system_locale() -> str:
+    """Implement the system locale operation for the component.
+
+    Returns:
+        The `str` result produced by the operation.
+    """
     detected = locale.getlocale()[0] or os.environ.get("LANG", "")
     normalized = normalize_locale(detected.split(".", maxsplit=1)[0])
     return normalized if normalized in SUPPORTED_LOCALES else DEFAULT_LOCALE
 
 
 def terminal_supports_cjk() -> bool:
+    """Implement the terminal supports cjk operation for the component.
+
+    Returns:
+        Whether the requested condition is satisfied.
+    """
     if not sys.stdout.isatty() or not (sys.stdout.encoding or "").lower().startswith("utf"):
         return False
     if sys.platform != "win32":
@@ -42,6 +60,14 @@ def terminal_supports_cjk() -> bool:
 
 
 def select_locale(value: str = "auto") -> tuple[str, str | None]:
+    """Select locale.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `tuple[str, str | None]` result produced by the operation.
+    """
     requested = value.strip() or "auto"
     automatic = requested == "auto"
     selected = system_locale() if automatic else normalize_locale(requested)
@@ -54,6 +80,19 @@ def select_locale(value: str = "auto") -> tuple[str, str | None]:
 
 
 def _parse_lang(text: str, source: str) -> dict[str, str]:
+    """Parse lang.
+
+    Args:
+        text: The text value used by the operation.
+        source: Source value or location to process.
+
+    Returns:
+        The `dict[str, str]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_parse_lang`. It delegates to `enumerate`, `splitlines`,
+        `strip`, `startswith` while keeping intermediate state local to the owning operation.
+    """
     entries: dict[str, str] = {}
     for line_number, raw in enumerate(text.splitlines(), start=1):
         line = raw.strip()
@@ -71,11 +110,21 @@ def _parse_lang(text: str, source: str) -> dict[str, str]:
 
 @dataclass(frozen=True, slots=True)
 class Translator:
+    """Represent the translator contract."""
     locale: str
     catalogs: Mapping[str, Mapping[str, str]]
 
     @classmethod
     def from_resources(cls, resources: ResourceCatalog, locale: str = "auto") -> tuple[Translator, str | None]:
+        """Create the translator from resources.
+
+        Args:
+            resources: The resources value used by the operation.
+            locale: The locale value used by the operation.
+
+        Returns:
+            The `tuple[Translator, str | None]` result produced by the operation.
+        """
         selected, warning = select_locale(locale)
         catalogs: dict[str, dict[str, str]] = {}
         for resource in resources.files("lang"):
@@ -87,9 +136,30 @@ class Translator:
         return cls(selected, catalogs), warning
 
     def text(self, key: str, /, default: str | None = None, **values: object) -> str:
+        """Implement the text operation for the translator.
+
+        Args:
+            key: Stable FIFO ordering key for the queued work.
+            default: The default value used by the operation.
+            **values: The values value used by the operation.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         return self.text_for(self.locale, key, default, **values)
 
     def text_for(self, locale: str, key: str, /, default: str | None = None, **values: object) -> str:
+        """Implement the text for operation for the translator.
+
+        Args:
+            locale: The locale value used by the operation.
+            key: Stable FIFO ordering key for the queued work.
+            default: The default value used by the operation.
+            **values: The values value used by the operation.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         selected = normalize_locale(locale)
         if selected not in SUPPORTED_LOCALES:
             selected = self.locale
@@ -103,7 +173,20 @@ class Translator:
 
 
 class _PlaceholderValues(dict[str, object]):
+    """Represent the placeholder values contract."""
     def __missing__(self, key: str) -> str:
+        """Implement the missing operation for the placeholder values.
+
+        Args:
+            key: Stable FIFO ordering key for the queued work.
+
+        Returns:
+            The `str` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_PlaceholderValues.__missing__`. It performs the local state
+            transition directly and is not a stable extension boundary.
+        """
         return "{" + key + "}"
 
 

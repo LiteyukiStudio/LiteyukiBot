@@ -24,6 +24,11 @@ class RuntimePlugin:
     resource_packs: tuple[ResourcePackDeclaration, ...] = ()
 
     def __post_init__(self) -> None:
+        """Validate and normalize the runtime plugin after initialization.
+
+        Returns:
+            None.
+        """
         if not self.kind or self.kind != self.kind.strip():
             raise ValueError("runtime plugin kind must be a non-empty trimmed string")
         if not self.command or any(not argument for argument in self.command):
@@ -40,6 +45,14 @@ class RuntimeCatalog:
     ENTRY_POINT_GROUP = "liteyukibot.runtimes"
 
     def command_for(self, kind: str) -> tuple[str, ...]:
+        """Implement the command for operation for the runtime catalog.
+
+        Args:
+            kind: The kind value used by the operation.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+        """
         if kind == "noop":
             return (sys.executable, "-m", "liteyukibot.runtime", "--kind", kind)
         plugin = self.discover().get(kind)
@@ -50,13 +63,22 @@ class RuntimeCatalog:
         return plugin.command
 
     def discover(self) -> dict[str, RuntimePlugin]:
+        """Discover the runtime catalog operation.
+
+        Returns:
+            The `dict[str, RuntimePlugin]` result produced by the operation.
+        """
         plugins, diagnostics = self.discover_installed()
         if diagnostics:
             raise RuntimeError("; ".join(diagnostics))
         return plugins
 
     def discover_installed(self) -> tuple[dict[str, RuntimePlugin], tuple[str, ...]]:
-        """Return valid runtime packages plus diagnostics for broken entry points."""
+        """Return valid runtime packages plus diagnostics for broken entry points.
+
+        Returns:
+            The `tuple[dict[str, RuntimePlugin], tuple[str, ...]]` result produced by the operation.
+        """
 
         plugins: dict[str, RuntimePlugin] = {}
         diagnostics: list[str] = []

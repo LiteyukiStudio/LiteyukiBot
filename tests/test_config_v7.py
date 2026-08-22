@@ -11,6 +11,7 @@ import liteyukibot.config.models as config_models
 from liteyukibot.config import (
     AgentSettings,
     AppSettings,
+    BrokerSettings,
     ConfigurationError,
     DevelopmentSettings,
     LyipLinkCapacitySettings,
@@ -31,6 +32,8 @@ def test_defaults_and_result_are_deeply_immutable(tmp_path: Path, monkeypatch: p
 
     assert settings.core.queue_capacity == 1024
     assert settings.core.data_dir == tmp_path / "data"
+    assert settings.broker.terminal_capacity == 4_096
+    assert settings.broker.terminal_content_bytes_capacity == 16 * 1024 * 1024
     with pytest.raises(ValidationError):
         settings.core.queue_capacity = 1
     with pytest.raises(TypeError):
@@ -313,6 +316,7 @@ def test_native_diagnostics_are_derived_and_require_an_explanation(monkeypatch: 
         (lambda: LyipSettings(terminal_capacity=262_145), "less than or equal to 262144"),
         (lambda: LyipSettings(terminal_ttl_seconds=59), "greater than or equal to 60"),
         (lambda: LyipSettings(dev_summary_ttl_seconds=3_601), "less than or equal to 3600"),
+        (lambda: BrokerSettings(terminal_content_bytes_capacity=1024 * 1024 - 1), "greater than or equal to 1048576"),
         (lambda: WebUISettings.model_validate({"mode": "always_on"}), "Input should be"),
         (lambda: WebUISettings(idle_shutdown_seconds=29), "greater than or equal to 30"),
         (lambda: WebUISettings(ticket_ttl_seconds=14), "greater than or equal to 15"),

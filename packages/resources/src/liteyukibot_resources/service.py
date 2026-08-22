@@ -35,26 +35,72 @@ class ResourceError(ValueError):
 
 
 class ResourceService(Protocol):
+    """Define the structural interface required from a resource service."""
     def register(
         self,
         spec: ResourceSpec,
         provider: ResourceProvider,
         *,
         owner: str,
-    ) -> ResourceRegistration: ...
+    ) -> ResourceRegistration:
+        """Register the resource service operation.
+
+        Args:
+            spec: The spec value used by the operation.
+            provider: The provider value used by the operation.
+            owner: Stable owner identity for the registration.
+
+        Returns:
+            The `ResourceRegistration` result produced by the operation.
+        """
+        ...
 
     def register_many(
         self,
         bindings: Sequence[tuple[ResourceSpec, ResourceProvider]],
         *,
         owner: str,
-    ) -> tuple[ResourceRegistration, ...]: ...
+    ) -> tuple[ResourceRegistration, ...]:
+        """Register many.
 
-    def unregister(self, registration: ResourceRegistration) -> bool: ...
+        Args:
+            bindings: The bindings value used by the operation.
+            owner: Stable owner identity for the registration.
 
-    def snapshot(self) -> tuple[ResourceRegistration, ...]: ...
+        Returns:
+            The `tuple[ResourceRegistration, ...]` result produced by the operation.
+        """
+        ...
 
-    def resolve(self, path: Sequence[str]) -> ResourceRegistration | None: ...
+    def unregister(self, registration: ResourceRegistration) -> bool:
+        """Unregister the resource service operation.
+
+        Args:
+            registration: The registration value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
+        ...
+
+    def snapshot(self) -> tuple[ResourceRegistration, ...]:
+        """Return an immutable snapshot of the resource service state.
+
+        Returns:
+            The requested `tuple[ResourceRegistration, ...]` value.
+        """
+        ...
+
+    def resolve(self, path: Sequence[str]) -> ResourceRegistration | None:
+        """Resolve the resource service operation.
+
+        Args:
+            path: Filesystem or logical resource path.
+
+        Returns:
+            The requested `ResourceRegistration | None` value.
+        """
+        ...
 
     async def inspect(
         self,
@@ -62,7 +108,18 @@ class ResourceService(Protocol):
         path: Sequence[str],
         *,
         actor_id: str | None = None,
-    ) -> Mapping[str, object]: ...
+    ) -> Mapping[str, object]:
+        """Inspect the resource service operation.
+
+        Args:
+            event: Event associated with the operation.
+            path: Filesystem or logical resource path.
+            actor_id: Stable identifier for the actor.
+
+        Returns:
+            The `Mapping[str, object]` result produced by the operation.
+        """
+        ...
 
     async def set(
         self,
@@ -72,7 +129,20 @@ class ResourceService(Protocol):
         value: str,
         *,
         actor_id: str | None = None,
-    ) -> None: ...
+    ) -> None:
+        """Set the resource service operation.
+
+        Args:
+            event: Event associated with the operation.
+            path: Filesystem or logical resource path.
+            field: The field value used by the operation.
+            value: Value to validate, transform, or store.
+            actor_id: Stable identifier for the actor.
+
+        Returns:
+            None.
+        """
+        ...
 
     async def delete(
         self,
@@ -81,13 +151,35 @@ class ResourceService(Protocol):
         field: str,
         *,
         actor_id: str | None = None,
-    ) -> None: ...
+    ) -> None:
+        """Delete the resource service operation.
+
+        Args:
+            event: Event associated with the operation.
+            path: Filesystem or logical resource path.
+            field: The field value used by the operation.
+            actor_id: Stable identifier for the actor.
+
+        Returns:
+            None.
+        """
+        ...
 
     async def inspect_context(
         self,
         context: AuthorizationContext,
         path: Sequence[str],
-    ) -> Mapping[str, object]: ...
+    ) -> Mapping[str, object]:
+        """Inspect context.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+            path: Filesystem or logical resource path.
+
+        Returns:
+            The `Mapping[str, object]` result produced by the operation.
+        """
+        ...
 
     async def set_context(
         self,
@@ -95,25 +187,64 @@ class ResourceService(Protocol):
         path: Sequence[str],
         field: str,
         value: str,
-    ) -> None: ...
+    ) -> None:
+        """Set context.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+            path: Filesystem or logical resource path.
+            field: The field value used by the operation.
+            value: Value to validate, transform, or store.
+
+        Returns:
+            None.
+        """
+        ...
 
     async def delete_context(
         self,
         context: AuthorizationContext,
         path: Sequence[str],
         field: str,
-    ) -> None: ...
+    ) -> None:
+        """Delete context.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+            path: Filesystem or logical resource path.
+            field: The field value used by the operation.
+
+        Returns:
+            None.
+        """
+        ...
 
 
 @dataclass(frozen=True, slots=True)
 class _RegisteredResource:
+    """Represent the registered resource contract."""
     registration: ResourceRegistration
     provider: ResourceProvider
     commands: tuple[CommandRegistration, ...]
 
 
 class _ResourceService:
+    """Represent the resource service contract."""
     def __init__(self, permissions: PermissionService, commands: CommandService, translator: Translator) -> None:
+        """Initialize the resource service.
+
+        Args:
+            permissions: The permissions value used by the operation.
+            commands: The commands value used by the operation.
+            translator: The translator value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_ResourceService.__init__`. It performs the local state
+            transition directly and is not a stable extension boundary.
+        """
         self._permissions = permissions
         self._commands = commands
         self._translator = translator
@@ -128,6 +259,20 @@ class _ResourceService:
         *,
         owner: str,
     ) -> ResourceRegistration:
+        """Register the resource service operation.
+
+        Args:
+            spec: The spec value used by the operation.
+            provider: The provider value used by the operation.
+            owner: Stable owner identity for the registration.
+
+        Returns:
+            The `ResourceRegistration` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_ResourceService.register`. It delegates to `register_many`
+            while keeping intermediate state local to the owning operation.
+        """
         return self.register_many(((spec, provider),), owner=owner)[0]
 
     def register_many(
@@ -136,6 +281,20 @@ class _ResourceService:
         *,
         owner: str,
     ) -> tuple[ResourceRegistration, ...]:
+        """Register many.
+
+        Args:
+            bindings: The bindings value used by the operation.
+            owner: Stable owner identity for the registration.
+
+        Returns:
+            The `tuple[ResourceRegistration, ...]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_ResourceService.register_many`. It delegates to `strip`,
+            `callable`, `getattr`, `casefold` while keeping intermediate state local to the owning
+            operation.
+        """
         if not owner or owner != owner.strip():
             raise ValueError("resource owner must be a non-empty trimmed string")
         pending = tuple(bindings)
@@ -170,6 +329,18 @@ class _ResourceService:
         return tuple(registrations)
 
     def unregister(self, registration: ResourceRegistration) -> bool:
+        """Unregister the resource service operation.
+
+        Args:
+            registration: The registration value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+
+        Notes:
+            Internal implementation detail for `_ResourceService.unregister`. It delegates to `get`, `pop`,
+            `casefold`, `reversed` while keeping intermediate state local to the owning operation.
+        """
         registered = self._resources.get(registration.id)
         if registered is None or registered.registration != registration:
             return False
@@ -180,6 +351,15 @@ class _ResourceService:
         return True
 
     def snapshot(self) -> tuple[ResourceRegistration, ...]:
+        """Return an immutable snapshot of the resource service state.
+
+        Returns:
+            The requested `tuple[ResourceRegistration, ...]` value.
+
+        Notes:
+            Internal implementation detail for `_ResourceService.snapshot`. It delegates to `sorted`,
+            `values`, `casefold` while keeping intermediate state local to the owning operation.
+        """
         return tuple(
             item.registration
             for item in sorted(
@@ -192,6 +372,18 @@ class _ResourceService:
         )
 
     def resolve(self, path: Sequence[str]) -> ResourceRegistration | None:
+        """Resolve the resource service operation.
+
+        Args:
+            path: Filesystem or logical resource path.
+
+        Returns:
+            The requested `ResourceRegistration | None` value.
+
+        Notes:
+            Internal implementation detail for `_ResourceService.resolve`. It delegates to `get`, `casefold`
+            while keeping intermediate state local to the owning operation.
+        """
         resource_id = self._paths.get(tuple(segment.casefold() for segment in path))
         return None if resource_id is None else self._resources[resource_id].registration
 
@@ -202,6 +394,21 @@ class _ResourceService:
         *,
         actor_id: str | None = None,
     ) -> Mapping[str, object]:
+        """Inspect the resource service operation.
+
+        Args:
+            event: Event associated with the operation.
+            path: Filesystem or logical resource path.
+            actor_id: Stable identifier for the actor.
+
+        Returns:
+            The `Mapping[str, object]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_ResourceService.inspect`. It delegates to `_target`,
+            `_authorize`, `_await_provider`, `inspect` while keeping intermediate state local to the owning
+            operation.
+        """
         registered, principal = self._target(event, path, actor_id)
         result: dict[str, object] = {}
         for field in registered.registration.spec.fields:
@@ -216,6 +423,20 @@ class _ResourceService:
         context: AuthorizationContext,
         path: Sequence[str],
     ) -> Mapping[str, object]:
+        """Inspect context.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+            path: Filesystem or logical resource path.
+
+        Returns:
+            The `Mapping[str, object]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_ResourceService.inspect_context`. It delegates to
+            `_current_target`, `_await_provider`, `inspect` while keeping intermediate state local to the
+            owning operation.
+        """
         registered, principal = self._current_target(context, path)
         result: dict[str, object] = {}
         for field in registered.registration.spec.fields:
@@ -233,6 +454,22 @@ class _ResourceService:
         *,
         actor_id: str | None = None,
     ) -> None:
+        """Set the resource service operation.
+
+        Args:
+            event: Event associated with the operation.
+            path: Filesystem or logical resource path.
+            field: The field value used by the operation.
+            value: Value to validate, transform, or store.
+            actor_id: Stable identifier for the actor.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_ResourceService.set`. It delegates to `_target`, `_field`,
+            `_authorize`, `converter` while keeping intermediate state local to the owning operation.
+        """
         registered, principal = self._target(event, path, actor_id)
         selected = self._field(registered.registration.spec, field)
         if not selected.settable:
@@ -251,6 +488,22 @@ class _ResourceService:
         field: str,
         value: str,
     ) -> None:
+        """Set context.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+            path: Filesystem or logical resource path.
+            field: The field value used by the operation.
+            value: Value to validate, transform, or store.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_ResourceService.set_context`. It delegates to
+            `_current_target`, `_field`, `converter`, `_await_provider` while keeping intermediate state
+            local to the owning operation.
+        """
         registered, principal = self._current_target(context, path)
         selected = self._field(registered.registration.spec, field)
         if not selected.settable:
@@ -269,6 +522,22 @@ class _ResourceService:
         *,
         actor_id: str | None = None,
     ) -> None:
+        """Delete the resource service operation.
+
+        Args:
+            event: Event associated with the operation.
+            path: Filesystem or logical resource path.
+            field: The field value used by the operation.
+            actor_id: Stable identifier for the actor.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_ResourceService.delete`. It delegates to `_target`,
+            `_field`, `_authorize`, `_await_provider` while keeping intermediate state local to the owning
+            operation.
+        """
         registered, principal = self._target(event, path, actor_id)
         selected = self._field(registered.registration.spec, field)
         if not selected.deletable:
@@ -282,6 +551,21 @@ class _ResourceService:
         path: Sequence[str],
         field: str,
     ) -> None:
+        """Delete context.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+            path: Filesystem or logical resource path.
+            field: The field value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_ResourceService.delete_context`. It delegates to
+            `_current_target`, `_field`, `_await_provider`, `delete` while keeping intermediate state local
+            to the owning operation.
+        """
         registered, principal = self._current_target(context, path)
         selected = self._field(registered.registration.spec, field)
         if not selected.deletable:
@@ -294,6 +578,20 @@ class _ResourceService:
         path: Sequence[str],
         actor_id: str | None,
     ) -> tuple[_RegisteredResource, Principal]:
+        """Implement the target operation for the resource service.
+
+        Args:
+            event: Event associated with the operation.
+            path: Filesystem or logical resource path.
+            actor_id: Stable identifier for the actor.
+
+        Returns:
+            The `tuple[_RegisteredResource, Principal]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_ResourceService._target`. It delegates to `get`,
+            `casefold`, `join` while keeping intermediate state local to the owning operation.
+        """
         resource_id = self._paths.get(tuple(segment.casefold() for segment in path))
         if resource_id is None:
             raise ResourceError(f"resource not found: {' '.join(path)}")
@@ -308,6 +606,19 @@ class _ResourceService:
         context: AuthorizationContext,
         path: Sequence[str],
     ) -> tuple[_RegisteredResource, Principal]:
+        """Implement the current target operation for the resource service.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+            path: Filesystem or logical resource path.
+
+        Returns:
+            The `tuple[_RegisteredResource, Principal]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_ResourceService._current_target`. It delegates to `get`,
+            `casefold`, `join` while keeping intermediate state local to the owning operation.
+        """
         resource_id = self._paths.get(tuple(segment.casefold() for segment in path))
         if resource_id is None:
             raise ResourceError(f"resource not found: {' '.join(path)}")
@@ -322,6 +633,21 @@ class _ResourceService:
         field: ResourceField,
         operation: ResourceOperation,
     ) -> None:
+        """Authorize the resource service operation.
+
+        Args:
+            event: Event associated with the operation.
+            target: Target value or location for the operation.
+            field: The field value used by the operation.
+            operation: The operation value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_ResourceService._authorize`. It delegates to
+            `capability_for`, `allows` while keeping intermediate state local to the owning operation.
+        """
         current = Principal(event.runtime_id, event.bot_id, event.actor.id) if event.actor is not None else None
         if current == target:
             return
@@ -331,12 +657,37 @@ class _ResourceService:
 
     @staticmethod
     def _field(spec: ResourceSpec, name: str) -> ResourceField:
+        """Implement the field operation for the resource service.
+
+        Args:
+            spec: The spec value used by the operation.
+            name: Stable name used to identify the value.
+
+        Returns:
+            The `ResourceField` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_ResourceService._field`. It delegates to `casefold` while
+            keeping intermediate state local to the owning operation.
+        """
         for field in spec.fields:
             if field.name.casefold() == name.casefold():
                 return field
         raise ResourceError(f"resource field not found: {name}")
 
     def _command_bindings(self, spec: ResourceSpec) -> tuple[CommandBinding, ...]:
+        """Implement the command bindings operation for the resource service.
+
+        Args:
+            spec: The spec value used by the operation.
+
+        Returns:
+            The `tuple[CommandBinding, ...]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_ResourceService._command_bindings`. It delegates to `join`,
+            `text` while keeping intermediate state local to the owning operation.
+        """
         fields = "; ".join(f"{field.name}: {field.description}" for field in spec.fields if field.description)
         text = self._translator
         set_summary = text.text("resources.command.set_summary", "Set a {name} field", name=spec.name)
@@ -344,6 +695,19 @@ class _ResourceService:
             set_summary += text.text("resources.command.fields", ". Fields: {fields}", fields=fields)
 
         async def inspect_command(invocation: CommandInvocation) -> HandlerResult:
+            """Inspect command.
+
+            Args:
+                invocation: The invocation value used by the operation.
+
+            Returns:
+                The `HandlerResult` result produced by the operation.
+
+            Notes:
+                Internal implementation detail for `_ResourceService._command_bindings.inspect_command`. It
+                delegates to `parse`, `inspect`, `reply`, `text` while keeping intermediate state local to the
+                owning operation.
+            """
             try:
                 parsed = invocation.parse()
                 actor_id = parsed.options["actor"]
@@ -361,6 +725,19 @@ class _ResourceService:
             return invocation.reply("\n".join(f"{name}: {value}" for name, value in values.items()))
 
         async def set_command(invocation: CommandInvocation) -> HandlerResult:
+            """Set command.
+
+            Args:
+                invocation: The invocation value used by the operation.
+
+            Returns:
+                The `HandlerResult` result produced by the operation.
+
+            Notes:
+                Internal implementation detail for `_ResourceService._command_bindings.set_command`. It
+                delegates to `parse`, `all`, `cast`, `reply` while keeping intermediate state local to the
+                owning operation.
+            """
             try:
                 parsed = invocation.parse()
                 field = parsed.arguments["field"]
@@ -393,6 +770,19 @@ class _ResourceService:
             )
 
         async def delete_command(invocation: CommandInvocation) -> HandlerResult:
+            """Delete command.
+
+            Args:
+                invocation: The invocation value used by the operation.
+
+            Returns:
+                The `HandlerResult` result produced by the operation.
+
+            Notes:
+                Internal implementation detail for `_ResourceService._command_bindings.delete_command`. It
+                delegates to `parse`, `delete`, `reply`, `text` while keeping intermediate state local to the
+                owning operation.
+            """
             try:
                 parsed = invocation.parse()
                 field = parsed.arguments["field"]
@@ -460,12 +850,37 @@ class _ResourceService:
 
 
 async def _await_provider(value: object) -> object:
+    """Implement the await provider operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `object` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_await_provider`. It delegates to `isawaitable` while
+        keeping intermediate state local to the owning operation.
+    """
     if not inspect.isawaitable(value):
         raise TypeError("resource provider operation must return an awaitable")
     return await value
 
 
 def _error_text(error: ResourceError, translator: Translator) -> str:
+    """Implement the error text operation for the component.
+
+    Args:
+        error: The error value used by the operation.
+        translator: The translator value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_error_text`. It delegates to `text` while keeping
+        intermediate state local to the owning operation.
+    """
     return translator.text("resources.error.request_failed", "Resource request failed: {error}", error=error)
 
 
@@ -474,6 +889,16 @@ def create_resource_service(
     commands: CommandService,
     translator: Translator,
 ) -> ResourceService:
+    """Create resource service.
+
+    Args:
+        permissions: The permissions value used by the operation.
+        commands: The commands value used by the operation.
+        translator: The translator value used by the operation.
+
+    Returns:
+        The `ResourceService` result produced by the operation.
+    """
     return _ResourceService(permissions, commands, translator)
 
 

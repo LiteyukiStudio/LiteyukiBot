@@ -5,6 +5,8 @@ import zmq.asyncio
 
 from liteyukibot.config import LyipLinkSettings, LyipSettings
 from liteyukibot.lyip import (
+    MAX_LYIP_PAYLOAD_SIZE,
+    MAX_LYIP_WIRE_FRAME_SIZE,
     InMemoryLyipLink,
     LyipBackend,
     LyipError,
@@ -13,6 +15,8 @@ from liteyukibot.lyip import (
     LyipOfferResult,
     ZmqLyipDealer,
     ZmqLyipRouter,
+    _decode_frame,
+    _encode_frame,
     select_lyip_backend,
 )
 
@@ -55,6 +59,26 @@ def test_link_rejects_generation_and_sequence_mismatches_without_advancing_state
     with pytest.raises(LyipError, match="expected 0"):
         link.offer(_frame("one", 1))
     assert link.offer(_frame("one", 0)) is LyipOfferResult.ACCEPTED
+
+
+def test_frames_reject_oversized_payloads_and_wire_content() -> None:
+    with pytest.raises(ValueError, match="payload exceeds"):
+        LyipFrame(1, 1, LyipLane.BUSINESS, 7, "stream", 0, "lease", b"x" * (MAX_LYIP_PAYLOAD_SIZE + 1))
+
+    metadata_heavy = LyipFrame(
+        1,
+        1,
+        LyipLane.BUSINESS,
+        7,
+        "s" * MAX_LYIP_WIRE_FRAME_SIZE,
+        0,
+        "lease",
+        b"",
+    )
+    with pytest.raises(LyipError, match="wire frame exceeds"):
+        _encode_frame(metadata_heavy)
+    with pytest.raises(LyipError, match="wire frame exceeds"):
+        _decode_frame(b"x" * (MAX_LYIP_WIRE_FRAME_SIZE + 1))
 
 
 def test_backend_selection_falls_back_to_zmq_and_rejects_unavailable_shm() -> None:

@@ -25,6 +25,12 @@ type EventDeliveriesViewProps = {
 
 const stateOptions = ["", "active", "settled", "pending", "offered", "accepted", "completed", "failed", "expired"];
 
+/**
+ * Provides filterable, cursor-paginated inspection of redacted broker delivery history.
+ * @param props - Initial page, authenticated API client, and parent refresh callback.
+ * @returns Delivery occupancy metrics, rows, paging controls, and a detail drawer.
+ * @remarks The daemon owns redaction and cursor validation; the component never receives business payloads.
+ */
 export function EventDeliveriesView({ initial, api, reloadInitial }: EventDeliveriesViewProps) {
   const { t } = useLocale();
   const [page, setPage] = useState(initial);

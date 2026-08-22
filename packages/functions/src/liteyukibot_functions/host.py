@@ -34,6 +34,14 @@ class FunctionHostError(RuntimeError):
     """Raised when an extension's LYF sources cannot enter the host."""
 
     def __init__(self, diagnostics: tuple[Diagnostic, ...]) -> None:
+        """Initialize the function host error.
+
+        Args:
+            diagnostics: The diagnostics value used by the operation.
+
+        Returns:
+            None.
+        """
         self.diagnostics = diagnostics
         message = "; ".join(f"{item.code}: {item.message}" for item in diagnostics)
         super().__init__(message or "LYF Function Host preflight failed")
@@ -41,12 +49,14 @@ class FunctionHostError(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class _FunctionTarget:
+    """Represent the function target contract."""
     runtime: FunctionRuntime
     local_name: str
 
 
 @dataclass(frozen=True, slots=True)
 class _SourceArtifact:
+    """Represent the source artifact contract."""
     source_id: str
     program: FunctionProgram
     checked: PreflightResult
@@ -57,10 +67,26 @@ class Alpha7FunctionHostProvider:
     """Adapt package-local LYF sources to the public FunctionHost protocol."""
 
     def __init__(self, libraries: LibraryRegistry | None = None) -> None:
+        """Initialize the alpha7 function host provider.
+
+        Args:
+            libraries: The libraries value used by the operation.
+
+        Returns:
+            None.
+        """
         self.libraries = libraries or default_library_registry()
         self._artifacts: dict[int, tuple[_SourceArtifact, ...]] = {}
 
     def preflight(self, sources: tuple[FunctionPackSource, ...]) -> FunctionPreflight:
+        """Implement the preflight operation for the alpha7 function host provider.
+
+        Args:
+            sources: The sources value used by the operation.
+
+        Returns:
+            The `FunctionPreflight` result produced by the operation.
+        """
         if not sources:
             raise FunctionHostError(
                 (Diagnostic("LYF_RESOURCE_EMPTY", "no Function resource pack was supplied", "<host>"),)
@@ -200,6 +226,15 @@ class Alpha7FunctionHostProvider:
         return result
 
     def create_host(self, preflight: FunctionPreflight, bindings: FunctionHostBindings) -> FunctionHost:
+        """Create host.
+
+        Args:
+            preflight: The preflight value used by the operation.
+            bindings: The bindings value used by the operation.
+
+        Returns:
+            The `FunctionHost` result produced by the operation.
+        """
         artifacts = self._artifacts.get(id(preflight))
         if artifacts is None:
             raise FunctionHostError(
@@ -209,6 +244,21 @@ class Alpha7FunctionHostProvider:
 
     @staticmethod
     def _check_contribution_id(id_value: str, seen: set[str], span: Any, source: str) -> None:
+        """Check contribution id.
+
+        Args:
+            id_value: The id value value used by the operation.
+            seen: The seen value used by the operation.
+            span: The span value used by the operation.
+            source: Source value or location to process.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `Alpha7FunctionHostProvider._check_contribution_id`. It
+            delegates to `add` while keeping intermediate state local to the owning operation.
+        """
         if id_value in seen:
             raise FunctionHostError(
                 (Diagnostic("LYF_TOOL_COLLISION", f"duplicate contribution id {id_value!r}", source, span),)
@@ -222,6 +272,16 @@ class Alpha7FunctionHost:
     def __init__(
         self, preflight: FunctionPreflight, artifacts: tuple[_SourceArtifact, ...], bindings: FunctionHostBindings
     ) -> None:
+        """Initialize the alpha7 function host.
+
+        Args:
+            preflight: The preflight value used by the operation.
+            artifacts: The artifacts value used by the operation.
+            bindings: The bindings value used by the operation.
+
+        Returns:
+            None.
+        """
         self.preflight = preflight
         self._bindings = bindings
         self._closed = False
@@ -240,6 +300,16 @@ class Alpha7FunctionHost:
         *,
         event: EventEnvelope | None = None,
     ) -> Any:
+        """Invoke the alpha7 function host operation.
+
+        Args:
+            function_id: Stable identifier for the function.
+            arguments: JSON-safe arguments supplied to the operation.
+            event: Event associated with the operation.
+
+        Returns:
+            The `Any` result produced by the operation.
+        """
         if self._closed:
             raise FunctionHostError((Diagnostic("LYF_RUNTIME_CLOSED", "Function Host is closed", "<host>"),))
         target = self._targets.get(function_id)
@@ -277,9 +347,24 @@ class Alpha7FunctionHost:
         return await target.runtime.invoke(target.local_name, bound_arguments, context=context)
 
     async def aclose(self) -> None:
+        """Close the alpha7 function host asynchronously.
+
+        Returns:
+            None.
+        """
         self._closed = True
 
     def _register_tools(self) -> None:
+        """Register tools.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `Alpha7FunctionHost._register_tools`. It delegates to
+            `rsplit`, `register_tool`, `cast` while keeping intermediate state local to the owning
+            operation.
+        """
         for declaration in self.preflight.tool_declarations:
 
             async def callback(
@@ -306,6 +391,15 @@ class Alpha7FunctionHost:
             self._bindings.register_tool(declaration, cast(ToolCallback, callback))
 
     def _register_events(self) -> None:
+        """Register events.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `Alpha7FunctionHost._register_events`. It delegates to
+            `register_event` while keeping intermediate state local to the owning operation.
+        """
         for contribution in self.preflight.events:
 
             async def handler(event: EventEnvelope, *, function_id: str = contribution.function_id) -> None:
@@ -315,6 +409,11 @@ class Alpha7FunctionHost:
 
 
 def host_provider() -> Alpha7FunctionHostProvider:
+    """Implement the host provider operation for the component.
+
+    Returns:
+        The `Alpha7FunctionHostProvider` result produced by the operation.
+    """
     return Alpha7FunctionHostProvider()
 
 

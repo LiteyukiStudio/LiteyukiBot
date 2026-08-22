@@ -19,11 +19,13 @@ _PROFILE_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")
 
 
 class ProfileError(LiteyukiError):
+    """Raised when the profile contract cannot be satisfied."""
     pass
 
 
 @dataclass(frozen=True, slots=True)
 class ProfileManifest:
+    """Represent the validated profile manifest contract."""
     id: str
     created_at: str
     requirements: tuple[str, ...]
@@ -38,6 +40,11 @@ class ProfileManifest:
     artifact_filenames: tuple[str, ...] = ()
 
     def document(self) -> dict[str, Any]:
+        """Return the serialized document for the profile manifest operation.
+
+        Returns:
+            The `dict[str, Any]` result produced by the operation.
+        """
         return {
             "schema": 3,
             "id": self.id,
@@ -63,10 +70,23 @@ class ProfileManifest:
 
     @property
     def digest(self) -> str:
+        """Return the profile manifest's digest.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         return hashlib.sha256(json.dumps(self.document(), sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
     @staticmethod
     def sanitize_direct_urls(value: dict[str, Any]) -> dict[str, dict[str, str]]:
+        """Implement the sanitize direct urls operation for the profile manifest.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `dict[str, dict[str, str]]` result produced by the operation.
+        """
         normalized: dict[str, dict[str, str]] = {}
         for name, raw in value.items():
             if not isinstance(name, str) or not name or not isinstance(raw, dict):
@@ -92,7 +112,16 @@ class ProfileManifest:
 
 
 class ProfileStore:
+    """Represent the profile store contract."""
     def __init__(self, workspace: str | Path) -> None:
+        """Initialize the profile store.
+
+        Args:
+            workspace: The workspace value used by the operation.
+
+        Returns:
+            None.
+        """
         self.workspace = Path(workspace).resolve()
         self.management = self.workspace / ".liteyuki"
         self.directory = self.management / "profiles"
@@ -101,14 +130,38 @@ class ProfileStore:
 
     @staticmethod
     def python_path(profile: Path) -> Path:
+        """Implement the python path operation for the profile store.
+
+        Args:
+            profile: Named runtime or benchmark profile.
+
+        Returns:
+            The `Path` result produced by the operation.
+        """
         return profile / "venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
     def profile_path(self, profile_id: str) -> Path:
+        """Implement the profile path operation for the profile store.
+
+        Args:
+            profile_id: Stable identifier for the profile.
+
+        Returns:
+            The `Path` result produced by the operation.
+        """
         if not _PROFILE_ID.fullmatch(profile_id):
             raise ProfileError("profile id must contain only lowercase letters, digits, and hyphens")
         return self.directory / profile_id
 
     def create(self, requirements: tuple[str, ...]) -> tuple[str, Path]:
+        """Create the profile store operation.
+
+        Args:
+            requirements: The requirements value used by the operation.
+
+        Returns:
+            The `tuple[str, Path]` result produced by the operation.
+        """
         if not requirements:
             raise ProfileError("profile stage requires at least one --require")
         profile_id = datetime.now(UTC).strftime("%Y%m%d-%H%M%S-") + hashlib.sha256(os.urandom(16)).hexdigest()[:8]
@@ -117,10 +170,26 @@ class ProfileStore:
         return profile_id, path
 
     def write_manifest(self, manifest: ProfileManifest) -> None:
+        """Write manifest.
+
+        Args:
+            manifest: Validated manifest describing the component contract.
+
+        Returns:
+            None.
+        """
         path = self.profile_path(manifest.id) / "manifest.json"
         self._write_json(path, manifest.document())
 
     def read_manifest(self, profile_id: str) -> ProfileManifest:
+        """Read manifest.
+
+        Args:
+            profile_id: Stable identifier for the profile.
+
+        Returns:
+            The requested `ProfileManifest` value.
+        """
         path = self.profile_path(profile_id) / "manifest.json"
         try:
             value = json.loads(path.read_text(encoding="utf-8"))
@@ -169,6 +238,11 @@ class ProfileStore:
             raise ProfileError(f"profile {profile_id!r} is not verified") from error
 
     def active(self) -> str | None:
+        """Implement the active operation for the profile store.
+
+        Returns:
+            The `str | None` result produced by the operation.
+        """
         if not self.pointer.exists():
             return None
         try:
@@ -179,6 +253,14 @@ class ProfileStore:
             raise ProfileError("cannot read active profile") from error
 
     def activate(self, profile_id: str) -> None:
+        """Activate the profile store operation.
+
+        Args:
+            profile_id: Stable identifier for the profile.
+
+        Returns:
+            None.
+        """
         self.read_manifest(profile_id)
         python = self.python_path(self.profile_path(profile_id))
         if not python.is_file():
@@ -192,6 +274,11 @@ class ProfileStore:
         )
 
     def rollback(self) -> str:
+        """Implement the rollback operation for the profile store.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         previous = self.previous()
         current = self.active()
         self.read_manifest(previous)
@@ -200,6 +287,11 @@ class ProfileStore:
         return previous
 
     def previous(self) -> str:
+        """Implement the previous operation for the profile store.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         try:
             previous = json.loads(self.lock.read_text(encoding="utf-8")).get("previous")
         except (OSError, json.JSONDecodeError) as error:
@@ -209,6 +301,11 @@ class ProfileStore:
         return previous
 
     def list(self) -> tuple[ProfileManifest, ...]:
+        """List the profile store operation.
+
+        Returns:
+            The `tuple[ProfileManifest, ...]` result produced by the operation.
+        """
         if not self.directory.exists():
             return ()
         manifests: list[ProfileManifest] = []
@@ -222,10 +319,29 @@ class ProfileStore:
         return tuple(manifests)
 
     def digests(self) -> dict[str, str]:
+        """Implement the digests operation for the profile store.
+
+        Returns:
+            The `dict[str, str]` result produced by the operation.
+        """
         return {manifest.id: manifest.digest for manifest in self.list()}
 
     @staticmethod
     def _write_text(path: Path, text: str) -> None:
+        """Write text.
+
+        Args:
+            path: Filesystem or logical resource path.
+            text: The text value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `ProfileStore._write_text`. It delegates to `mkdir`,
+            `with_suffix`, `write_text`, `replace` while keeping intermediate state local to the owning
+            operation.
+        """
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.with_suffix(path.suffix + ".tmp")
         temporary.write_text(text, encoding="utf-8")
@@ -233,10 +349,28 @@ class ProfileStore:
 
     @classmethod
     def _write_json(cls, path: Path, value: dict[str, Any]) -> None:
+        """Write json.
+
+        Args:
+            path: Filesystem or logical resource path.
+            value: Value to validate, transform, or store.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `ProfileStore._write_json`. It delegates to `_write_text`,
+            `dumps` while keeping intermediate state local to the owning operation.
+        """
         cls._write_text(path, json.dumps(value, indent=2, sort_keys=True) + "\n")
 
 
 def installed_distributions() -> dict[str, str]:
+    """Implement the installed distributions operation for the component.
+
+    Returns:
+        The `dict[str, str]` result produced by the operation.
+    """
     import importlib.metadata
 
     return {
@@ -247,6 +381,11 @@ def installed_distributions() -> dict[str, str]:
 
 
 def current_python() -> str:
+    """Implement the current python operation for the component.
+
+    Returns:
+        The `str` result produced by the operation.
+    """
     return str(Path(sys.executable).resolve())
 
 

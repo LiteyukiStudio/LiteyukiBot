@@ -42,6 +42,8 @@ export type EventDeliveryBroker = {
   active_capacity: number;
   terminal: number;
   terminal_capacity: number;
+  terminal_content_bytes: number;
+  terminal_content_bytes_capacity: number;
   bridges: EventDeliveryBridge[];
 };
 

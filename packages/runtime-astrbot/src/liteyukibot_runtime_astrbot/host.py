@@ -55,17 +55,40 @@ class AstrBotLogBridge:
     """Forward AstrBot's public LogBroker records into the process Yukilog sink."""
 
     def __init__(self, broker: Any, output: Any) -> None:
+        """Initialize the astr bot log bridge.
+
+        Args:
+            broker: The broker value used by the operation.
+            output: The output value used by the operation.
+
+        Returns:
+            None.
+        """
         self._broker = broker
         self._output = output
         self._queue: Any | None = None
         self._task: asyncio.Task[None] | None = None
 
     def start(self, log_manager: Any, source_logger: Any) -> None:
+        """Start the astr bot log bridge.
+
+        Args:
+            log_manager: The log manager value used by the operation.
+            source_logger: The source logger value used by the operation.
+
+        Returns:
+            None.
+        """
         log_manager.set_queue_handler(source_logger, self._broker)
         self._queue = self._broker.register()
         self._task = asyncio.create_task(self._forward(), name="astrbot-log-bridge")
 
     async def close(self) -> None:
+        """Close the astr bot log bridge and release its owned resources.
+
+        Returns:
+            None.
+        """
         task, self._task = self._task, None
         if task is not None:
             task.cancel()
@@ -76,6 +99,15 @@ class AstrBotLogBridge:
             self._queue = None
 
     async def _forward(self) -> None:
+        """Implement the forward operation for the astr bot log bridge.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `AstrBotLogBridge._forward`. It delegates to `get`, `lower`,
+            `bind`, `getattr` while keeping intermediate state local to the owning operation.
+        """
         assert self._queue is not None
         while True:
             entry = await self._queue.get()
@@ -98,6 +130,17 @@ class AstrBotGateway:
         output: Any,
         logging_settings: LoggingSettings | None = None,
     ) -> None:
+        """Initialize the astr bot gateway.
+
+        Args:
+            workspace: The workspace value used by the operation.
+            bridge_id: Stable identifier for the bridge.
+            output: The output value used by the operation.
+            logging_settings: The logging settings value used by the operation.
+
+        Returns:
+            None.
+        """
         self.workspace = workspace
         self.bridge_id = bridge_id
         self._output = output
@@ -113,7 +156,15 @@ class AstrBotGateway:
         self._bot_platforms: dict[str, str] = {}
 
     async def start(self, ingress_sink: IngressSink, *, start_pipeline: bool = True) -> None:
-        """Initialize AstrBot and start its configured native platform adapters."""
+        """Initialize AstrBot and start its configured native platform adapters.
+
+        Args:
+            ingress_sink: The ingress sink value used by the operation.
+            start_pipeline: The start pipeline value used by the operation.
+
+        Returns:
+            None.
+        """
 
         self.workspace.mkdir(parents=True, exist_ok=True)
         os.environ["ASTRBOT_ROOT"] = str(self.workspace)
@@ -156,11 +207,21 @@ class AstrBotGateway:
             self._lifecycle_task = asyncio.create_task(lifecycle.start(), name="astrbot-lifecycle")
 
     async def serve_forever(self) -> None:
+        """Serve forever.
+
+        Returns:
+            None.
+        """
         if self._lifecycle_task is None:
             raise RuntimeError("AstrBot gateway is not started")
         await self._lifecycle_task
 
     async def close(self) -> None:
+        """Close the astr bot gateway and release its owned resources.
+
+        Returns:
+            None.
+        """
         lifecycle, self._lifecycle = self._lifecycle, None
         lifecycle_task, self._lifecycle_task = self._lifecycle_task, None
         log_bridge, self._log_bridge = self._log_bridge, None
@@ -188,7 +249,14 @@ class AstrBotGateway:
                     self._remove_import_root()
 
     async def execute_message_send(self, request: ActionRequest) -> ActionOutcome:
-        """Send the broker's sole portable action through the owning AstrBot platform."""
+        """Send the broker's sole portable action through the owning AstrBot platform.
+
+        Args:
+            request: Validated request object to process.
+
+        Returns:
+            The `ActionOutcome` result produced by the operation.
+        """
 
         try:
             payload = parse_message_send_request(request, owner_bridge_id=self.bridge_id)
@@ -198,6 +266,14 @@ class AstrBotGateway:
         return ActionOutcome(success=True, payload=_json_result(result))
 
     async def execute_runtime_api(self, request: RuntimeApiInvoke) -> RuntimeApiOutcome:
+        """Execute runtime api.
+
+        Args:
+            request: Validated request object to process.
+
+        Returns:
+            The `RuntimeApiOutcome` result produced by the operation.
+        """
         event = self._events_by_source_id.get(request.source_event_id)
         if event is None:
             return RuntimeApiOutcome(success=False, error_code="RUNTIME_EVENT_UNAVAILABLE")
@@ -250,17 +326,54 @@ class AstrBotGateway:
         return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_NOT_REGISTERED")
 
     def _spawn_ingress(self, event: Any) -> None:
+        """Implement the spawn ingress operation for the astr bot gateway.
+
+        Args:
+            event: Event associated with the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `AstrBotGateway._spawn_ingress`. It delegates to `submit`
+            while keeping intermediate state local to the owning operation.
+        """
         publisher = self._ingress_publisher
         if publisher is not None:
             publisher.submit(event)
 
     def _report_ingress_error(self, error: Exception) -> None:
+        """Implement the report ingress error operation for the astr bot gateway.
+
+        Args:
+            error: The error value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `AstrBotGateway._report_ingress_error`. It delegates to
+            `warning`, `bind` while keeping intermediate state local to the owning operation.
+        """
         self._output.bind(runtime=self.bridge_id, component="ingress").warning(
             "AstrBot broker ingress delivery failed: {}",
             type(error).__name__,
         )
 
     async def _publish_ingress(self, event: Any) -> None:
+        """Publish ingress.
+
+        Args:
+            event: Event associated with the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `AstrBotGateway._publish_ingress`. It delegates to `strip`,
+            `get_platform_id`, `getattr`, `warning` while keeping intermediate state local to the owning
+            operation.
+        """
         sink = self._ingress_sink
         if sink is None:
             return
@@ -290,6 +403,19 @@ class AstrBotGateway:
         )
 
     async def _send_message(self, payload: MessageSendPayload) -> Any:
+        """Send message.
+
+        Args:
+            payload: JSON-safe payload carried by the operation.
+
+        Returns:
+            The `Any` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `AstrBotGateway._send_message`. It delegates to
+            `_to_astr_chain`, `get`, `send`, `_platform` while keeping intermediate state local to the
+            owning operation.
+        """
         chain = _to_astr_chain(payload.message)
         if payload.reply_token is not None:
             target = self._reply_events.get(payload.reply_token)
@@ -316,6 +442,18 @@ class AstrBotGateway:
         return await platform.send_by_session(session, chain)
 
     def _platform(self, platform_id: str) -> Any:
+        """Implement the platform operation for the astr bot gateway.
+
+        Args:
+            platform_id: Stable identifier for the platform.
+
+        Returns:
+            The `Any` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `AstrBotGateway._platform`. It delegates to `get_insts`,
+            `meta` while keeping intermediate state local to the owning operation.
+        """
         if self._lifecycle is None:
             raise RuntimeError("AstrBot gateway is not started")
         for platform in self._lifecycle.platform_manager.get_insts():
@@ -325,6 +463,20 @@ class AstrBotGateway:
 
     @staticmethod
     def _event_snapshot(event: Any, *, runtime_id: str = "astrbot") -> dict[str, JsonValue]:
+        """Implement the event snapshot operation for the astr bot gateway.
+
+        Args:
+            event: Event associated with the operation.
+            runtime_id: Stable runtime identifier.
+
+        Returns:
+            The `dict[str, JsonValue]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `AstrBotGateway._event_snapshot`. It delegates to
+            `to_event_envelope`, `get_platform_id`, `getattr`, `cast` while keeping intermediate state local
+            to the owning operation.
+        """
         envelope = to_event_envelope(
             event,
             reply_token=f"{event.get_platform_id()}:{getattr(getattr(event, 'message_obj', None), 'message_id', '')}",
@@ -355,6 +507,18 @@ class AstrBotGateway:
         )
 
     def _bot_snapshot(self, bot_id: str) -> dict[str, JsonValue]:
+        """Implement the bot snapshot operation for the astr bot gateway.
+
+        Args:
+            bot_id: Stable identifier for the bot.
+
+        Returns:
+            The `dict[str, JsonValue]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `AstrBotGateway._bot_snapshot`. It delegates to `get`,
+            `_platform`, `meta`, `getattr` while keeping intermediate state local to the owning operation.
+        """
         platform_id = self._bot_platforms.get(bot_id)
         if platform_id is None:
             raise ValueError("bot has no observed AstrBot platform session")
@@ -377,12 +541,30 @@ class AstrBotGateway:
         )
 
     def _install_import_root(self) -> None:
+        """Install import root.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `AstrBotGateway._install_import_root`. It delegates to
+            `insert` while keeping intermediate state local to the owning operation.
+        """
         value = str(self.workspace)
         sys.path.insert(0, value)
         self._import_root = value
 
     def _install_star_plugin(self) -> None:
-        """Install the package-owned Star hook without touching user plugins."""
+        """Install the package-owned Star hook without touching user plugins.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `AstrBotGateway._install_star_plugin`. It delegates to
+            `mkdir`, `read_text`, `joinpath`, `files` while keeping intermediate state local to the owning
+            operation.
+        """
 
         plugin_root = self.workspace / "data" / "plugins" / "liteyuki_broker_ingress"
         plugin_root.mkdir(parents=True, exist_ok=True)
@@ -397,6 +579,15 @@ class AstrBotGateway:
         )
 
     def _remove_import_root(self) -> None:
+        """Remove import root.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `AstrBotGateway._remove_import_root`. It delegates to
+            `suppress`, `remove` while keeping intermediate state local to the owning operation.
+        """
         value, self._import_root = self._import_root, None
         if value is not None:
             with suppress(ValueError):
@@ -404,7 +595,16 @@ class AstrBotGateway:
 
 
 async def launch(settings: AppSettings, bridge_id: str, token: str) -> None:
-    """Launch a configured AstrBot platform gateway in the bridge process."""
+    """Launch a configured AstrBot platform gateway in the bridge process.
+
+    Args:
+        settings: Validated application settings.
+        bridge_id: Stable identifier for the bridge.
+        token: Authentication token presented at the boundary.
+
+    Returns:
+        None.
+    """
 
     bridge = settings.broker.bridges.get(bridge_id)
     if bridge is None:
@@ -465,10 +665,29 @@ async def launch(settings: AppSettings, bridge_id: str, token: str) -> None:
 
 
 async def run_standalone() -> None:
+    """Run standalone.
+
+    Returns:
+        None.
+    """
     raise RuntimeError("AstrBot is a broker gateway; use 'liteyuki bridge run <bridge-id>'")
 
 
 def _workspace_path(settings: AppSettings, bridge_id: str, options: Mapping[str, object]) -> Path:
+    """Implement the workspace path operation for the component.
+
+    Args:
+        settings: Validated application settings.
+        bridge_id: Stable identifier for the bridge.
+        options: Validated optional settings for the operation.
+
+    Returns:
+        The `Path` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_workspace_path`. It delegates to `get`, `resolve`, `strip`,
+        `expanduser` while keeping intermediate state local to the owning operation.
+    """
     workspace = options.get("workspace")
     if workspace is None:
         return (settings.core.data_dir / "bridges" / bridge_id / "astrbot").resolve()
@@ -478,6 +697,18 @@ def _workspace_path(settings: AppSettings, bridge_id: str, options: Mapping[str,
 
 
 def _broker_endpoints(endpoint: str) -> dict[LyipLane, str]:
+    """Implement the broker endpoints operation for the component.
+
+    Args:
+        endpoint: Transport endpoint used for the connection.
+
+    Returns:
+        The `dict[LyipLane, str]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_broker_endpoints`. It delegates to `urlparse` while keeping
+        intermediate state local to the owning operation.
+    """
     parsed = urlparse(endpoint)
     if parsed.scheme != "tcp" or parsed.hostname is None or parsed.port is None:
         raise ValueError("broker endpoint must be a valid tcp URL")
@@ -489,6 +720,18 @@ def _broker_endpoints(endpoint: str) -> dict[LyipLane, str]:
 
 
 def _to_astr_chain(message: Message) -> Any:
+    """Implement the to astr chain operation for the component.
+
+    Args:
+        message: Message content associated with the operation.
+
+    Returns:
+        The `Any` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_to_astr_chain`. It delegates to `import_module`,
+        `model_dump`, `append`, `get` while keeping intermediate state local to the owning operation.
+    """
     components = import_module("astrbot.core.message.components")
     chain_type = import_module("astrbot.core.message.message_event_result").MessageChain
     rendered: list[Any] = []
@@ -537,6 +780,18 @@ def _to_astr_chain(message: Message) -> Any:
 
 
 def _json_result(value: object) -> JsonValue:
+    """Implement the json result operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `JsonValue` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_json_result`. It delegates to `_json_result`, `items` while
+        keeping intermediate state local to the owning operation.
+    """
     if value is None or isinstance(value, (bool, int, float, str)):
         return value
     if isinstance(value, Mapping):
@@ -547,6 +802,18 @@ def _json_result(value: object) -> JsonValue:
 
 
 def _send_result(value: object) -> dict[str, JsonValue]:
+    """Send result.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `dict[str, JsonValue]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_send_result`. It delegates to `cast`, `model_dump`,
+        `_json_result` while keeping intermediate state local to the owning operation.
+    """
     return cast(
         dict[str, JsonValue],
         SendResult(sent=True, result=_json_result(value)).model_dump(mode="json"),
@@ -554,15 +821,48 @@ def _send_result(value: object) -> dict[str, JsonValue]:
 
 
 def _optional_text(value: object) -> str | None:
+    """Implement the optional text operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `str | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_optional_text`. It delegates to `strip` while keeping
+        intermediate state local to the owning operation.
+    """
     rendered = str(value or "").strip()
     return rendered or None
 
 
 def _runtime_api_declarations() -> tuple[RuntimeApiDeclaration, ...]:
+    """Implement the runtime api declarations operation for the component.
+
+    Returns:
+        The `tuple[RuntimeApiDeclaration, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_runtime_api_declarations`. It delegates to
+        `portable_runtime_api_catalog` while keeping intermediate state local to the owning operation.
+    """
     return portable_runtime_api_catalog("astrbot")
 
 
 def _runtime_message(value: object) -> Message:
+    """Implement the runtime message operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `Message` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_runtime_message`. It delegates to `strip`, `model_validate`
+        while keeping intermediate state local to the owning operation.
+    """
     if isinstance(value, str):
         if not value.strip():
             raise ValueError("runtime message text must not be blank")
@@ -573,6 +873,19 @@ def _runtime_message(value: object) -> Message:
 
 
 async def _dispose_astrbot_global_database(output: Any) -> None:
+    """Implement the dispose astrbot global database operation for the component.
+
+    Args:
+        output: The output value used by the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_dispose_astrbot_global_database`. It delegates to
+        `import_module`, `dispose`, `isawaitable`, `warning` while keeping intermediate state local to
+        the owning operation.
+    """
     try:
         database = import_module("astrbot.core").db_helper
         result = database.engine.dispose()

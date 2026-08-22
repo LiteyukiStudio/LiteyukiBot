@@ -25,7 +25,14 @@ class KernelBridgeError(RuntimeError):
 
 
 def configured_kernel_bridge(settings: AppSettings) -> tuple[str, BrokerBridgeSettings] | None:
-    """Return the unique configured in-process kernel bridge, if any."""
+    """Return the unique configured in-process kernel bridge, if any.
+
+    Args:
+        settings: Validated application settings.
+
+    Returns:
+        The `tuple[str, BrokerBridgeSettings] | None` result produced by the operation.
+    """
 
     try:
         return configured_kernel_bridge_settings(settings.broker.bridges)
@@ -51,6 +58,19 @@ class KernelBrokerPeer:
         controls: tuple[str, ...] = (),
         control_handlers: Mapping[str, ControlHandler] | None = None,
     ) -> None:
+        """Initialize the kernel broker peer.
+
+        Args:
+            bridge_id: Stable identifier for the bridge.
+            client: The client value used by the operation.
+            events: The events value used by the operation.
+            tool_handlers: The tool handlers value used by the operation.
+            controls: The controls value used by the operation.
+            control_handlers: The control handlers value used by the operation.
+
+        Returns:
+            None.
+        """
         self.bridge_id = bridge_id
         self._events = events
         self._active_deliveries: dict[str, BrokerDelivery] = {}
@@ -77,6 +97,20 @@ class KernelBrokerPeer:
         controls: tuple[str, ...] = (),
         control_handlers: Mapping[str, ControlHandler] | None = None,
     ) -> KernelBrokerPeer:
+        """Create the kernel broker peer from settings.
+
+        Args:
+            settings: Validated application settings.
+            token: Authentication token presented at the boundary.
+            events: The events value used by the operation.
+            tools: The tools value used by the operation.
+            tool_handlers: The tool handlers value used by the operation.
+            controls: The controls value used by the operation.
+            control_handlers: The control handlers value used by the operation.
+
+        Returns:
+            The `KernelBrokerPeer` result produced by the operation.
+        """
         configured = configured_kernel_bridge(settings)
         if configured is None:
             raise KernelBridgeError("kernel bridge is not configured")
@@ -108,12 +142,22 @@ class KernelBrokerPeer:
         )
 
     async def start(self) -> None:
+        """Start the kernel broker peer.
+
+        Returns:
+            None.
+        """
         if self._serve_task is not None:
             raise KernelBridgeError("kernel bridge is already running")
         await self._runner.start()
         self._serve_task = asyncio.create_task(self._runner.serve_forever(), name="liteyuki-kernel-broker")
 
     async def stop(self) -> None:
+        """Stop the kernel broker peer and release its owned resources.
+
+        Returns:
+            None.
+        """
         task, self._serve_task = self._serve_task, None
         if task is not None:
             task.cancel()
@@ -129,6 +173,13 @@ class KernelBrokerPeer:
         ``None`` means that the EventBus dispatch did not originate from this
         broker peer, allowing the application's legacy-independent action path
         to handle locally injected events.
+
+        Args:
+            event: Event associated with the operation.
+            action: Action request being processed.
+
+        Returns:
+            The `ActionResult | None` result produced by the operation.
         """
 
         delivery = self._active_deliveries.get(event.id)
@@ -168,7 +219,14 @@ class KernelBrokerPeer:
         return _action_error(action.action_id, "BROKER_ACTION_FAILED", "bridge action owner rejected the request")
 
     def active_event(self, event_id: str) -> EventEnvelope | None:
-        """Return the EventEnvelope currently being dispatched by the kernel peer."""
+        """Return the EventEnvelope currently being dispatched by the kernel peer.
+
+        Args:
+            event_id: Stable event identifier.
+
+        Returns:
+            The `EventEnvelope | None` result produced by the operation.
+        """
 
         return self._active_events.get(event_id)
 
@@ -182,7 +240,19 @@ class KernelBrokerPeer:
         payload: Mapping[str, JsonValue] | None = None,
         timeout_seconds: float | None = None,
     ) -> BridgeControlResult | None:
-        """Invoke a bridge control while the native event owns a broker delivery."""
+        """Invoke a bridge control while the native event owns a broker delivery.
+
+        Args:
+            event: Event associated with the operation.
+            correlation_id: Stable identifier for the correlation.
+            command: Command or operation name to execute.
+            authorization: Authenticated authorization context for the request.
+            payload: JSON-safe payload carried by the operation.
+            timeout_seconds: Maximum duration to wait, in seconds.
+
+        Returns:
+            The `BridgeControlResult | None` result produced by the operation.
+        """
 
         delivery = self._active_deliveries.get(event.id)
         if delivery is None:
@@ -206,7 +276,18 @@ class KernelBrokerPeer:
         payload: Mapping[str, JsonValue] | None = None,
         timeout_seconds: float | None = None,
     ) -> BridgeControlResult | None:
-        """Invoke a control through the active delivery for a Tool authorization event."""
+        """Invoke a control through the active delivery for a Tool authorization event.
+
+        Args:
+            request: Validated request object to process.
+            correlation_id: Stable identifier for the correlation.
+            command: Command or operation name to execute.
+            payload: JSON-safe payload carried by the operation.
+            timeout_seconds: Maximum duration to wait, in seconds.
+
+        Returns:
+            The `BridgeControlResult | None` result produced by the operation.
+        """
 
         event = self.active_event(request.authorization.event_id)
         if event is None:
@@ -234,7 +315,23 @@ class KernelBrokerPeer:
         bridge_id: str | None = None,
         timeout_seconds: float | None = None,
     ) -> RuntimeApiResult | None:
-        """Invoke a runtime API while the native event owns a broker delivery."""
+        """Invoke a runtime API while the native event owns a broker delivery.
+
+        Args:
+            event: Event associated with the operation.
+            correlation_id: Stable identifier for the correlation.
+            runtime_kind: The runtime kind value used by the operation.
+            version: The version value used by the operation.
+            api_id: Stable identifier for the api.
+            caller_extension_id: Stable identifier for the caller extension.
+            authorization: Authenticated authorization context for the request.
+            arguments: JSON-safe arguments supplied to the operation.
+            bridge_id: Stable identifier for the bridge.
+            timeout_seconds: Maximum duration to wait, in seconds.
+
+        Returns:
+            The `RuntimeApiResult | None` result produced by the operation.
+        """
 
         delivery = self._active_deliveries.get(event.id)
         if delivery is None:
@@ -254,6 +351,19 @@ class KernelBrokerPeer:
         )
 
     async def _handle_delivery(self, delivery: BrokerDelivery) -> None:
+        """Handle delivery.
+
+        Args:
+            delivery: The delivery value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `KernelBrokerPeer._handle_delivery`. It delegates to
+            `model_validate`, `model_copy`, `publish`, `pop` while keeping intermediate state local to the
+            owning operation.
+        """
         broker_event = delivery.message.event
         try:
             source_event = EventEnvelope.model_validate(broker_event.payload)
@@ -278,7 +388,18 @@ class KernelBrokerPeer:
 
 
 def _broker_endpoints(endpoint: str) -> Mapping[LyipLane, str]:
-    """Derive the existing adjacent control/business endpoints from v6 config."""
+    """Derive the existing adjacent control/business endpoints from v6 config.
+
+    Args:
+        endpoint: Transport endpoint used for the connection.
+
+    Returns:
+        The `Mapping[LyipLane, str]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_broker_endpoints`. It delegates to `urlparse` while keeping
+        intermediate state local to the owning operation.
+    """
 
     parsed = urlparse(endpoint)
     if parsed.scheme != "tcp" or parsed.hostname is None or parsed.port is None:
@@ -291,6 +412,20 @@ def _broker_endpoints(endpoint: str) -> Mapping[LyipLane, str]:
 
 
 def _action_error(action_id: str, code: str, message: str) -> ActionResult:
+    """Implement the action error operation for the component.
+
+    Args:
+        action_id: Stable identifier for the action.
+        code: The code value used by the operation.
+        message: Message content associated with the operation.
+
+    Returns:
+        The `ActionResult` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_action_error`. It performs the local state transition
+        directly and is not a stable extension boundary.
+    """
     return ActionResult(action_id=action_id, success=False, error_code=code, error_message=message)
 
 

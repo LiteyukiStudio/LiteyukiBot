@@ -50,6 +50,18 @@ def encode_runtime_message(
     sequence: int,
     lease_id: str,
 ) -> LyipFrame:
+    """Encode runtime message.
+
+    Args:
+        message: Message content associated with the operation.
+        generation: Positive protocol or deployment generation.
+        stream_id: Stable identifier for the stream.
+        sequence: Monotonic sequence number for the stream.
+        lease_id: Stable identifier for the lease.
+
+    Returns:
+        The `LyipFrame` result produced by the operation.
+    """
     type_id = _TYPE_IDS[message.type]
     lane = LyipLane.CONTROL if message.type in _CONTROL_TYPES else LyipLane.BUSINESS
     return LyipFrame(
@@ -65,6 +77,14 @@ def encode_runtime_message(
 
 
 def decode_runtime_message(frame: LyipFrame) -> WireMessage:
+    """Decode runtime message.
+
+    Args:
+        frame: The frame value used by the operation.
+
+    Returns:
+        The `WireMessage` result produced by the operation.
+    """
     expected_type = _TYPE_NAMES.get(frame.type_id)
     if expected_type is None:
         raise LyipError(f"unsupported LYIP runtime type ID: {frame.type_id}")

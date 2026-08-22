@@ -35,5 +35,9 @@ except PackageNotFoundError:
 
 
 def static_assets() -> Traversable:
-    """Return the installed directory that will contain built WebUI assets."""
+    """Return the installed directory that will contain built WebUI assets.
+
+    Returns:
+        The `Traversable` result produced by the operation.
+    """
     return files("liteyukibot_webui").joinpath("static")

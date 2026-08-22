@@ -19,6 +19,19 @@ type AuthorizationInput = AuthorizationContext | EventEnvelope
 
 
 def _validate_token(kind: str, value: object) -> str:
+    """Validate token.
+
+    Args:
+        kind: The kind value used by the operation.
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_validate_token`. It delegates to `strip`, `any`, `isspace`
+        while keeping intermediate state local to the owning operation.
+    """
     if not isinstance(value, str):
         raise TypeError(f"permission {kind} must be a string")
     if not value or value != value.strip() or any(character.isspace() for character in value):
@@ -28,11 +41,17 @@ def _validate_token(kind: str, value: object) -> str:
 
 @dataclass(frozen=True, slots=True)
 class Principal:
+    """Represent the principal contract."""
     runtime_id: str
     bot_id: str
     actor_id: str
 
     def __post_init__(self) -> None:
+        """Validate and normalize the principal after initialization.
+
+        Returns:
+            None.
+        """
         for name, value in (
             ("runtime_id", self.runtime_id),
             ("bot_id", self.bot_id),
@@ -46,11 +65,17 @@ class Principal:
 
 @dataclass(frozen=True, slots=True)
 class PermissionSnapshot:
+    """Represent the validated permission snapshot contract."""
     principal: Principal | None
     roles: frozenset[str]
     capabilities: frozenset[str]
 
     def __post_init__(self) -> None:
+        """Validate and normalize the permission snapshot after initialization.
+
+        Returns:
+            None.
+        """
         roles = frozenset(self.roles)
         capabilities = frozenset(self.capabilities)
         for role in roles:
@@ -63,6 +88,14 @@ class PermissionSnapshot:
         object.__setattr__(self, "capabilities", capabilities)
 
     def allows(self, capability: str) -> bool:
+        """Determine whether the permission snapshot operation is allowed.
+
+        Args:
+            capability: The capability value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
         return capability in self.capabilities
 
 
@@ -79,7 +112,14 @@ class PermissionDecision:
 
 
 def authorization_context(value: AuthorizationInput) -> AuthorizationContext:
-    """Convert legacy event callers without retaining event payload data."""
+    """Convert legacy event callers without retaining event payload data.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `AuthorizationContext` result produced by the operation.
+    """
 
     if isinstance(value, AuthorizationContext):
         return value
@@ -92,21 +132,79 @@ def authorization_context(value: AuthorizationInput) -> AuthorizationContext:
 
 
 class PermissionService(Protocol):
-    def principal(self, event: EventEnvelope) -> Principal | None: ...
+    """Define the structural interface required from a permission service."""
+    def principal(self, event: EventEnvelope) -> Principal | None:
+        """Implement the principal operation for the permission service.
 
-    def resolve(self, event: EventEnvelope) -> PermissionSnapshot: ...
+        Args:
+            event: Event associated with the operation.
 
-    def allows(self, event: EventEnvelope, capability: str) -> bool: ...
+        Returns:
+            The `Principal | None` result produced by the operation.
+        """
+        ...
+
+    def resolve(self, event: EventEnvelope) -> PermissionSnapshot:
+        """Resolve the permission service operation.
+
+        Args:
+            event: Event associated with the operation.
+
+        Returns:
+            The requested `PermissionSnapshot` value.
+        """
+        ...
+
+    def allows(self, event: EventEnvelope, capability: str) -> bool:
+        """Determine whether the permission service operation is allowed.
+
+        Args:
+            event: Event associated with the operation.
+            capability: The capability value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
+        ...
 
 
 class PermissionV2Service(Protocol):
     """Host-facing v2 authorization surface with no EventEnvelope payload."""
 
-    def resolve(self, context: AuthorizationContext) -> PermissionSnapshot: ...
+    def resolve(self, context: AuthorizationContext) -> PermissionSnapshot:
+        """Resolve the permission v2 service operation.
 
-    def allows(self, context: AuthorizationContext, capability: str) -> bool: ...
+        Args:
+            context: Runtime or authorization context for the operation.
 
-    def activation_allowed(self, extension_id: str, capabilities: frozenset[str]) -> bool: ...
+        Returns:
+            The requested `PermissionSnapshot` value.
+        """
+        ...
+
+    def allows(self, context: AuthorizationContext, capability: str) -> bool:
+        """Determine whether the permission v2 service operation is allowed.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+            capability: The capability value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
+        ...
+
+    def activation_allowed(self, extension_id: str, capabilities: frozenset[str]) -> bool:
+        """Implement the activation allowed operation for the permission v2 service.
+
+        Args:
+            extension_id: Stable identifier for the extension.
+            capabilities: The capabilities value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
+        ...
 
     def allows_extension(
         self,
@@ -115,17 +213,62 @@ class PermissionV2Service(Protocol):
         capability: str,
         *,
         full: bool,
-    ) -> bool: ...
+    ) -> bool:
+        """Determine whether extension is allowed.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+            extension_id: Stable identifier for the extension.
+            capability: The capability value used by the operation.
+            full: The full value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
+        ...
 
 
 class ManagementPermissionService(Protocol):
-    def allows_management(self, caller: ManagementCaller, capability: str) -> bool: ...
+    """Define the structural interface required from a management permission service."""
+    def allows_management(self, caller: ManagementCaller, capability: str) -> bool:
+        """Determine whether management is allowed.
+
+        Args:
+            caller: The caller value used by the operation.
+            capability: The capability value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
+        ...
 
 
 class PermissionAuditService(PermissionService, Protocol):
-    def decide(self, event: EventEnvelope, capability: str, *, component: str) -> bool: ...
+    """Define the structural interface required from a permission audit service."""
+    def decide(self, event: EventEnvelope, capability: str, *, component: str) -> bool:
+        """Implement the decide operation for the permission audit service.
 
-    def activation_allowed(self, extension_id: str, capabilities: frozenset[str]) -> bool: ...
+        Args:
+            event: Event associated with the operation.
+            capability: The capability value used by the operation.
+            component: The component value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
+        ...
+
+    def activation_allowed(self, extension_id: str, capabilities: frozenset[str]) -> bool:
+        """Implement the activation allowed operation for the permission audit service.
+
+        Args:
+            extension_id: Stable identifier for the extension.
+            capabilities: The capabilities value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
+        ...
 
     def allows_extension(
         self,
@@ -134,18 +277,61 @@ class PermissionAuditService(PermissionService, Protocol):
         capability: str,
         *,
         full: bool,
-    ) -> bool: ...
+    ) -> bool:
+        """Determine whether extension is allowed.
 
-    def audit(self, *, limit: int | None = None) -> tuple[PermissionDecision, ...]: ...
+        Args:
+            context: Runtime or authorization context for the operation.
+            extension_id: Stable identifier for the extension.
+            capability: The capability value used by the operation.
+            full: The full value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
+        ...
+
+    def audit(self, *, limit: int | None = None) -> tuple[PermissionDecision, ...]:
+        """Implement the audit operation for the permission audit service.
+
+        Args:
+            limit: Maximum number of records to return.
+
+        Returns:
+            The `tuple[PermissionDecision, ...]` result produced by the operation.
+        """
+        ...
 
 
 class PermissionLogger(Protocol):
-    def bind(self, **fields: object) -> PermissionLogger: ...
+    """Define the structural interface required from a permission logger."""
+    def bind(self, **fields: object) -> PermissionLogger:
+        """Bind the permission logger operation.
 
-    def info(self, message: str, *args: object, **kwargs: object) -> None: ...
+        Args:
+            **fields: Structured fields attached to the operation.
+
+        Returns:
+            The `PermissionLogger` result produced by the operation.
+        """
+        ...
+
+    def info(self, message: str, *args: object, **kwargs: object) -> None:
+        """Implement the info operation for the permission logger.
+
+        Args:
+            message: Message content associated with the operation.
+            *args: The args value used by the operation.
+            **kwargs: The kwargs value used by the operation.
+
+        Returns:
+            None.
+        """
+        ...
 
 
 class _ConfiguredPermissionService:
+    """Represent the configured permission service contract."""
     AUDIT_CAPACITY = 256
 
     def __init__(
@@ -156,6 +342,21 @@ class _ConfiguredPermissionService:
         *,
         logger: PermissionLogger | None = None,
     ) -> None:
+        """Initialize the configured permission service.
+
+        Args:
+            snapshots: The snapshots value used by the operation.
+            management_grants: The management grants value used by the operation.
+            plugin_capabilities: The plugin capabilities value used by the operation.
+            logger: Structured logger used for diagnostics.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_ConfiguredPermissionService.__init__`. It delegates to
+            `frozenset`, `deque` while keeping intermediate state local to the owning operation.
+        """
         self._snapshots = dict(snapshots)
         self._management_grants = dict(management_grants)
         self._plugin_capabilities = dict(plugin_capabilities)
@@ -164,6 +365,18 @@ class _ConfiguredPermissionService:
         self._audit: deque[PermissionDecision] = deque(maxlen=self.AUDIT_CAPACITY)
 
     def principal(self, context: AuthorizationInput) -> Principal | None:
+        """Implement the principal operation for the configured permission service.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+
+        Returns:
+            The `Principal | None` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_ConfiguredPermissionService.principal`. It delegates to
+            `authorization_context` while keeping intermediate state local to the owning operation.
+        """
         normalized = authorization_context(context)
         if normalized.actor_id is None:
             return None
@@ -174,6 +387,18 @@ class _ConfiguredPermissionService:
         )
 
     def resolve(self, context: AuthorizationInput) -> PermissionSnapshot:
+        """Resolve the configured permission service operation.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+
+        Returns:
+            The requested `PermissionSnapshot` value.
+
+        Notes:
+            Internal implementation detail for `_ConfiguredPermissionService.resolve`. It delegates to
+            `principal`, `get`, `frozenset` while keeping intermediate state local to the owning operation.
+        """
         principal = self.principal(context)
         if principal is None:
             return self._anonymous
@@ -183,6 +408,20 @@ class _ConfiguredPermissionService:
         )
 
     def allows(self, context: AuthorizationInput, capability: str) -> bool:
+        """Determine whether the configured permission service operation is allowed.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+            capability: The capability value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+
+        Notes:
+            Internal implementation detail for `_ConfiguredPermissionService.allows`. It delegates to
+            `strip`, `any`, `isspace`, `allows` while keeping intermediate state local to the owning
+            operation.
+        """
         if not isinstance(capability, str):
             return False
         if not capability or capability != capability.strip() or any(character.isspace() for character in capability):
@@ -190,12 +429,40 @@ class _ConfiguredPermissionService:
         return self.resolve(context).allows(capability)
 
     def allows_management(self, caller: ManagementCaller, capability: str) -> bool:
+        """Determine whether management is allowed.
+
+        Args:
+            caller: The caller value used by the operation.
+            capability: The capability value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+
+        Notes:
+            Internal implementation detail for `_ConfiguredPermissionService.allows_management`. It
+            delegates to `strip`, `allows`, `get` while keeping intermediate state local to the owning
+            operation.
+        """
         if not isinstance(capability, str) or not capability or capability != capability.strip():
             return False
         return self._management_grants.get(caller.id, self._anonymous).allows(capability)
 
     def decide(self, context: AuthorizationInput, capability: str, *, component: str) -> bool:
-        """Evaluate and retain a redacted audit record for a privileged boundary."""
+        """Evaluate and retain a redacted audit record for a privileged boundary.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+            capability: The capability value used by the operation.
+            component: The component value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+
+        Notes:
+            Internal implementation detail for `_ConfiguredPermissionService.decide`. It delegates to
+            `_validate_token`, `authorization_context`, `principal`, `strip` while keeping intermediate
+            state local to the owning operation.
+        """
 
         component = _validate_token("decision component", component)
         normalized = authorization_context(context)
@@ -238,7 +505,20 @@ class _ConfiguredPermissionService:
         return allowed
 
     def activation_allowed(self, extension_id: str, capabilities: frozenset[str]) -> bool:
-        """Fail closed unless every Native/downscoped capability is explicitly granted."""
+        """Fail closed unless every Native/downscoped capability is explicitly granted.
+
+        Args:
+            extension_id: Stable identifier for the extension.
+            capabilities: The capabilities value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+
+        Notes:
+            Internal implementation detail for `_ConfiguredPermissionService.activation_allowed`. It
+            delegates to `_validate_token`, `frozenset`, `get` while keeping intermediate state local to the
+            owning operation.
+        """
 
         extension_id = _validate_token("extension id", extension_id)
         requested = frozenset(_validate_token("requested capability", capability) for capability in capabilities)
@@ -253,7 +533,22 @@ class _ConfiguredPermissionService:
         *,
         full: bool,
     ) -> bool:
-        """Authorize one host privilege while retaining only redacted context fields."""
+        """Authorize one host privilege while retaining only redacted context fields.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+            extension_id: Stable identifier for the extension.
+            capability: The capability value used by the operation.
+            full: The full value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+
+        Notes:
+            Internal implementation detail for `_ConfiguredPermissionService.allows_extension`. It delegates
+            to `_validate_token`, `activation_allowed`, `frozenset`, `allows` while keeping intermediate
+            state local to the owning operation.
+        """
 
         extension_id = _validate_token("extension id", extension_id)
         allowed = full or (
@@ -271,7 +566,18 @@ class _ConfiguredPermissionService:
         return allowed
 
     def audit(self, *, limit: int | None = None) -> tuple[PermissionDecision, ...]:
-        """Return newest redacted decisions, without exposing message or tool payloads."""
+        """Return newest redacted decisions, without exposing message or tool payloads.
+
+        Args:
+            limit: Maximum number of records to return.
+
+        Returns:
+            The `tuple[PermissionDecision, ...]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_ConfiguredPermissionService.audit`. It performs the local
+            state transition directly and is not a stable extension boundary.
+        """
 
         if limit is not None and (not isinstance(limit, int) or isinstance(limit, bool) or limit < 0):
             raise ValueError("audit limit must be a non-negative integer")
@@ -282,6 +588,21 @@ class _ConfiguredPermissionService:
 
 
 def _parse_token_sequence(value: object, *, location: str, kind: str) -> tuple[str, ...]:
+    """Parse token sequence.
+
+    Args:
+        value: Value to validate, transform, or store.
+        location: The location value used by the operation.
+        kind: The kind value used by the operation.
+
+    Returns:
+        The `tuple[str, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_parse_token_sequence`. It delegates to `enumerate`,
+        `_validate_token`, `add`, `append` while keeping intermediate state local to the owning
+        operation.
+    """
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
         raise TypeError(f"permission {location} must be a sequence of strings")
     parsed: list[str] = []
@@ -296,6 +617,19 @@ def _parse_token_sequence(value: object, *, location: str, kind: str) -> tuple[s
 
 
 def _parse_roles(value: object) -> dict[str, frozenset[str]]:
+    """Parse roles.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `dict[str, frozenset[str]]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_parse_roles`. It delegates to `items`, `_validate_token`,
+        `_parse_token_sequence`, `frozenset` while keeping intermediate state local to the owning
+        operation.
+    """
     if not isinstance(value, Mapping):
         raise TypeError("permission roles must be an object")
     roles: dict[str, frozenset[str]] = {}
@@ -315,6 +649,21 @@ def _parse_roles(value: object) -> dict[str, frozenset[str]]:
 
 
 def _invalid_fields(location: str, actual: set[object], required: set[str], optional: set[str]) -> ValueError:
+    """Implement the invalid fields operation for the component.
+
+    Args:
+        location: The location value used by the operation.
+        actual: The actual value used by the operation.
+        required: The required value used by the operation.
+        optional: The optional value used by the operation.
+
+    Returns:
+        The `ValueError` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_invalid_fields`. It delegates to `sorted`, `append`, `join`
+        while keeping intermediate state local to the owning operation.
+    """
     missing = sorted(required - actual)
     extra = sorted(str(item) for item in actual - required - optional)
     details: list[str] = []
@@ -329,6 +678,19 @@ def _parse_grants(
     value: object,
     roles: Mapping[str, frozenset[str]],
 ) -> dict[Principal, PermissionSnapshot]:
+    """Parse grants.
+
+    Args:
+        value: Value to validate, transform, or store.
+        roles: The roles value used by the operation.
+
+    Returns:
+        The `dict[Principal, PermissionSnapshot]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_parse_grants`. It delegates to `enumerate`, `all`, `bool`,
+        `_invalid_fields` while keeping intermediate state local to the owning operation.
+    """
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
         raise TypeError("permission grants must be a sequence of objects")
     snapshots: dict[Principal, PermissionSnapshot] = {}
@@ -385,6 +747,20 @@ def _parse_grants(
 
 
 def _parse_management_grants(value: object, roles: Mapping[str, frozenset[str]]) -> dict[str, PermissionSnapshot]:
+    """Parse management grants.
+
+    Args:
+        value: Value to validate, transform, or store.
+        roles: The roles value used by the operation.
+
+    Returns:
+        The `dict[str, PermissionSnapshot]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_parse_management_grants`. It delegates to `enumerate`,
+        `_validate_token`, `_parse_token_sequence`, `get` while keeping intermediate state local to the
+        owning operation.
+    """
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
         raise TypeError("permission management_grants must be a sequence of objects")
     grants: dict[str, PermissionSnapshot] = {}
@@ -414,6 +790,19 @@ def _parse_management_grants(value: object, roles: Mapping[str, frozenset[str]])
 
 
 def _parse_plugin_capabilities(value: object) -> dict[str, frozenset[str]]:
+    """Parse plugin capabilities.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `dict[str, frozenset[str]]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_parse_plugin_capabilities`. It delegates to `items`,
+        `_validate_token`, `frozenset`, `_parse_token_sequence` while keeping intermediate state local
+        to the owning operation.
+    """
     if not isinstance(value, Mapping):
         raise TypeError("permission plugin_capabilities must be an object")
     parsed: dict[str, frozenset[str]] = {}
@@ -430,6 +819,15 @@ def _parse_plugin_capabilities(value: object) -> dict[str, frozenset[str]]:
 def create_permission_service(
     config: Mapping[str, Any], *, logger: PermissionLogger | None = None
 ) -> PermissionAuditService:
+    """Create permission service.
+
+    Args:
+        config: Validated configuration used by the operation.
+        logger: Structured logger used for diagnostics.
+
+    Returns:
+        The `PermissionAuditService` result produced by the operation.
+    """
     if not all(isinstance(key, str) for key in config):
         raise TypeError("permission config keys must be strings")
     unknown = set(config) - {"roles", "grants", "management_grants", "plugin_capabilities"}

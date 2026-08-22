@@ -19,11 +19,32 @@ from .service import PERMISSION_SERVICE, PermissionV2Service, create_permission_
 
 
 async def setup(context: PluginContext) -> None:
+    """Implement the setup operation for the component.
+
+    Args:
+        context: Runtime or authorization context for the operation.
+
+    Returns:
+        None.
+    """
     _reject_legacy_config(context.config)
     service = create_permission_service(context.config, logger=context.logger)
     context.services.provide(PERMISSION_SERVICE, service)
 
     async def check_tool(authorization: AuthorizationContext, arguments: Mapping[str, Any]) -> dict[str, bool]:
+        """Check tool.
+
+        Args:
+            authorization: Authenticated authorization context for the request.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `dict[str, bool]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `setup.check_tool`. It delegates to `get`, `allows`, `cast`
+            while keeping intermediate state local to the owning operation.
+        """
         capability = arguments.get("capability")
         if not isinstance(capability, str) or not capability:
             raise ValueError("permission capability must be a non-empty string")
@@ -33,6 +54,14 @@ async def setup(context: PluginContext) -> None:
 
 
 def create_plugin(version: str) -> PluginDefinition:
+    """Create plugin.
+
+    Args:
+        version: The version value used by the operation.
+
+    Returns:
+        The `PluginDefinition` result produced by the operation.
+    """
     return PluginDefinition(
         manifest=PluginManifest(
             id="liteyukibot.permissions",
@@ -67,5 +96,17 @@ __all__ = ["create_plugin"]
 
 
 def _reject_legacy_config(config: Mapping[str, Any]) -> None:
+    """Implement the reject legacy config operation for the component.
+
+    Args:
+        config: Validated configuration used by the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_reject_legacy_config`. It delegates to `any`, `get` while
+        keeping intermediate state local to the owning operation.
+    """
     if any(config.get(key) == 1 for key in ("api_version", "schema_version", "version")):
         raise RuntimeError("migration_required")

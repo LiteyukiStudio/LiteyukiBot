@@ -48,6 +48,11 @@ class CordisPluginDefinition:
     manifest: ExtensionManifest | None = None
 
     def __post_init__(self) -> None:
+        """Validate and normalize the cordis plugin definition after initialization.
+
+        Returns:
+            None.
+        """
         ExtensionIdentity(self.id, self.coexistence)
         if not callable(self.factory):
             raise TypeError(f"Cordis plugin {self.id!r} factory must be callable")
@@ -56,15 +61,26 @@ class CordisPluginDefinition:
 
     @property
     def identity(self) -> ExtensionIdentity:
+        """Return the cordis plugin definition's identity.
+
+        Returns:
+            The `ExtensionIdentity` result produced by the operation.
+        """
         coexistence = self.manifest.coexistence if self.manifest is not None else self.coexistence
         return ExtensionIdentity(self.id, coexistence)
 
     @property
     def tool_ids(self) -> tuple[str, ...]:
+        """Return the cordis plugin definition's tool ids.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+        """
         return () if self.manifest is None else tuple(tool.id for tool in self.manifest.tools)
 
 
 class CordisHost:
+    """Represent the cordis host contract."""
     def __init__(
         self,
         events: EventBus,
@@ -79,6 +95,23 @@ class CordisHost:
         runtime_resolver: RuntimeResolver | None = None,
         runtime_targets: Mapping[str, str] | None = None,
     ) -> None:
+        """Initialize the cordis host.
+
+        Args:
+            events: The events value used by the operation.
+            actions: The actions value used by the operation.
+            settings: Validated application settings.
+            logger: Structured logger used for diagnostics.
+            services: The services value used by the operation.
+            data_dir: Filesystem path for the data.
+            cache_dir: Filesystem path for the cache.
+            runtime_context_factory: The runtime context factory value used by the operation.
+            runtime_resolver: The runtime resolver value used by the operation.
+            runtime_targets: The runtime targets value used by the operation.
+
+        Returns:
+            None.
+        """
         self.manager = CordisManager(
             events,
             actions,
@@ -107,12 +140,22 @@ class CordisHost:
 
     @property
     def plugin_access(self) -> Mapping[str, str]:
+        """Return the cordis host's plugin access.
+
+        Returns:
+            The `Mapping[str, str]` result produced by the operation.
+        """
         return {
             plugin_id: "limited" if plugin_id in self.settings.access else "full" for plugin_id in self._definitions
         }
 
     @property
     def tool_declarations(self) -> tuple[ToolDeclaration, ...]:
+        """Return the cordis host's tool declarations.
+
+        Returns:
+            The `tuple[ToolDeclaration, ...]` result produced by the operation.
+        """
         return tuple(
             tool
             for definition in self._definitions.values()
@@ -122,10 +165,20 @@ class CordisHost:
 
     @property
     def tool_handlers(self) -> Mapping[str, ToolCallback]:
+        """Return the cordis host's tool handlers.
+
+        Returns:
+            The `Mapping[str, ToolCallback]` result produced by the operation.
+        """
         return {tool_id: cast(ToolCallback, handler) for tool_id, handler in self.manager.tool_handlers.items()}
 
     @property
     def function_resource_packs(self) -> Mapping[str, tuple[ResourcePackDeclaration, ...]]:
+        """Return the cordis host's function resource packs.
+
+        Returns:
+            The `Mapping[str, tuple[ResourcePackDeclaration, ...]]` result produced by the operation.
+        """
         return {
             plugin_id: definition.manifest.resource_packs
             for plugin_id, definition in self._definitions.items()
@@ -134,6 +187,11 @@ class CordisHost:
 
     @property
     def runtime_manifests(self) -> Mapping[str, ExtensionManifest]:
+        """Return the cordis host's runtime manifests.
+
+        Returns:
+            The `Mapping[str, ExtensionManifest]` result produced by the operation.
+        """
         return {
             plugin_id: definition.manifest
             for plugin_id, definition in self._definitions.items()
@@ -141,6 +199,14 @@ class CordisHost:
         }
 
     def bind_function_hosts(self, hosts: Mapping[str, FunctionHost]) -> None:
+        """Bind function hosts.
+
+        Args:
+            hosts: Function hosts keyed by their stable provider identifiers.
+
+        Returns:
+            None.
+        """
         if self.manager.active_plugin_ids:
             raise RuntimeError("Cordis Function Hosts must be bound before host start")
         self._function_hosts = dict(hosts)
@@ -148,9 +214,19 @@ class CordisHost:
 
     @property
     def plugin_identities(self) -> tuple[ExtensionIdentity, ...]:
+        """Return the cordis host's plugin identities.
+
+        Returns:
+            The `tuple[ExtensionIdentity, ...]` result produced by the operation.
+        """
         return tuple(definition.identity for definition in self._definitions.values())
 
     async def start(self) -> None:
+        """Start the cordis host.
+
+        Returns:
+            None.
+        """
         for plugin_id in self._activation_order():
             definition = self._definitions[plugin_id]
             config = self.settings.config.get(plugin_id, {})
@@ -163,6 +239,15 @@ class CordisHost:
         await self.manager.start()
 
     def _activation_order(self) -> tuple[str, ...]:
+        """Implement the activation order operation for the cordis host.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `CordisHost._activation_order`. It delegates to `items`,
+            `get`, `add`, `sorted` while keeping intermediate state local to the owning operation.
+        """
         providers: dict[ServiceKey, str] = {}
         for plugin_id, definition in self._definitions.items():
             for key in definition.manifest.provides if definition.manifest is not None else ():
@@ -194,6 +279,11 @@ class CordisHost:
         return tuple(ordered)
 
     async def aclose(self) -> None:
+        """Close the cordis host asynchronously.
+
+        Returns:
+            None.
+        """
         await self.manager.aclose()
 
 
@@ -210,6 +300,23 @@ def host_factory(
     runtime_resolver: RuntimeResolver | None = None,
     runtime_targets: Mapping[str, str] | None = None,
 ) -> CordisHost:
+    """Implement the host factory operation for the component.
+
+    Args:
+        events: The events value used by the operation.
+        actions: The actions value used by the operation.
+        settings: Validated application settings.
+        logger: Structured logger used for diagnostics.
+        services: The services value used by the operation.
+        data_dir: Filesystem path for the data.
+        cache_dir: Filesystem path for the cache.
+        runtime_context_factory: The runtime context factory value used by the operation.
+        runtime_resolver: The runtime resolver value used by the operation.
+        runtime_targets: The runtime targets value used by the operation.
+
+    Returns:
+        The `CordisHost` result produced by the operation.
+    """
     return CordisHost(
         events,
         actions,
@@ -225,6 +332,7 @@ def host_factory(
 
 
 class _NativeAdapter:
+    """Represent the native adapter contract."""
     def __init__(
         self,
         events: EventBus,
@@ -240,6 +348,28 @@ class _NativeAdapter:
         runtime_resolver: RuntimeResolver | None = None,
         runtime_targets: Mapping[str, str] | None = None,
     ) -> None:
+        """Initialize the native adapter.
+
+        Args:
+            events: The events value used by the operation.
+            actions: The actions value used by the operation.
+            services: The services value used by the operation.
+            logger: Structured logger used for diagnostics.
+            data_dir: Filesystem path for the data.
+            cache_dir: Filesystem path for the cache.
+            access: The access value used by the operation.
+            function_hosts: The function hosts value used by the operation.
+            runtime_context_factory: The runtime context factory value used by the operation.
+            runtime_resolver: The runtime resolver value used by the operation.
+            runtime_targets: The runtime targets value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_NativeAdapter.__init__`. It performs the local state
+            transition directly and is not a stable extension boundary.
+        """
         self.events = events
         self.actions = actions
         self.services = services
@@ -255,6 +385,20 @@ class _NativeAdapter:
         self.runtime_targets = dict(runtime_targets or {})
 
     async def activate(self, scope: Scope, plugin_id: str) -> None:
+        """Activate the native adapter operation.
+
+        Args:
+            scope: The scope value used by the operation.
+            plugin_id: Stable identifier for the plugin.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_NativeAdapter.activate`. It delegates to `next`,
+            `entry_points`, `load`, `frozenset` while keeping intermediate state local to the owning
+            operation.
+        """
         if self.services is None:
             raise RuntimeError("Cordis business plugins require the application service registry")
         services = self.services
@@ -352,6 +496,15 @@ class _NativeAdapter:
             raise
 
         async def close() -> None:
+            """Close the activate and release its owned resources.
+
+            Returns:
+                None.
+
+            Notes:
+                Internal implementation detail for `_NativeAdapter.activate.close`. It delegates to `stop`,
+                `close`, `remove_provider` while keeping intermediate state local to the owning operation.
+            """
             try:
                 if handle.stop is not None:
                     await handle.stop()
@@ -366,7 +519,14 @@ class _NativeAdapter:
 
 
 def discover_cordis_plugins(enabled: tuple[str, ...]) -> dict[str, CordisPluginDefinition]:
-    """Resolve enabled declarative definitions without activating plugin code."""
+    """Resolve enabled declarative definitions without activating plugin code.
+
+    Args:
+        enabled: The enabled value used by the operation.
+
+    Returns:
+        The `dict[str, CordisPluginDefinition]` result produced by the operation.
+    """
 
     entry_points: dict[str, metadata.EntryPoint] = {}
     for entry in metadata.entry_points(group=PLUGIN_ENTRY_POINT_GROUP):
@@ -392,6 +552,18 @@ def discover_cordis_plugins(enabled: tuple[str, ...]) -> dict[str, CordisPluginD
 
 
 def _coerce_definition(candidate: object) -> CordisPluginDefinition:
+    """Implement the coerce definition operation for the component.
+
+    Args:
+        candidate: The candidate value used by the operation.
+
+    Returns:
+        The `CordisPluginDefinition` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_coerce_definition`. It performs the local state transition
+        directly and is not a stable extension boundary.
+    """
     if not isinstance(candidate, CordisPluginDefinition):
         raise TypeError("Cordis plugin entry point must resolve to CordisPluginDefinition")
     return candidate
@@ -402,7 +574,34 @@ def _configured_factory(
     config: Mapping[str, object],
     function_host: FunctionHost | None = None,
 ) -> PluginFactory:
+    """Implement the configured factory operation for the component.
+
+    Args:
+        factory: The factory value used by the operation.
+        config: Validated configuration used by the operation.
+        function_host: The function host value used by the operation.
+
+    Returns:
+        The `PluginFactory` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_configured_factory`. It performs the local state transition
+        directly and is not a stable extension boundary.
+    """
     async def activate(scope: Scope) -> None:
+        """Activate the configured factory operation.
+
+        Args:
+            scope: The scope value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_configured_factory.activate`. It delegates to `child`,
+            `provide`, `factory`, `isawaitable` while keeping intermediate state local to the owning
+            operation.
+        """
         configured = scope.child(config=config)
         if function_host is not None:
             configured.provide("liteyukibot.function_host", lambda: function_host)

@@ -44,11 +44,37 @@ class _PinnedHTTPSConnection(http.client.HTTPSConnection):
     """Connect to one already-validated address while retaining hostname SNI."""
 
     def __init__(self, hostname: str, port: int, address: str, *, timeout: float) -> None:
+        """Initialize the pinned h t t p s connection.
+
+        Args:
+            hostname: The hostname value used by the operation.
+            port: The port value used by the operation.
+            address: The address value used by the operation.
+            timeout: Maximum duration to wait before failing.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_PinnedHTTPSConnection.__init__`. It delegates to
+            `create_default_context`, `__init__`, `super` while keeping intermediate state local to the
+            owning operation.
+        """
         self._ssl_context = ssl.create_default_context()
         super().__init__(hostname, port, timeout=timeout, context=self._ssl_context)
         self._address = address
 
     def connect(self) -> None:
+        """Connect the pinned h t t p s connection operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_PinnedHTTPSConnection.connect`. It delegates to
+            `create_connection`, `wrap_socket`, `close` while keeping intermediate state local to the owning
+            operation.
+        """
         raw_socket = socket.create_connection((self._address, self.port), self.timeout)
         try:
             self.sock = self._ssl_context.wrap_socket(raw_socket, server_hostname=self.host)
@@ -59,7 +85,11 @@ class _PinnedHTTPSConnection(http.client.HTTPSConnection):
 
 @dataclass(frozen=True, slots=True)
 class SandboxPolicy:
-    """Validated worker policy; it is copied into every fresh worker request."""
+    """Bound file, process, network, time, and output capabilities for one worker.
+
+    This policy reduces accidental or compromised worker reach. It is not an OS
+    sandbox and does not make arbitrary Python code safe in the same account.
+    """
 
     file_roots: tuple[Path, ...]
     command_allowlist: tuple[str, ...]
@@ -73,6 +103,22 @@ class SandboxPolicy:
 
     @classmethod
     def from_options(cls, options: Mapping[str, Any], *, default_root: Path) -> SandboxPolicy:
+        """Create the sandbox policy from options.
+
+        Args:
+            options: Validated optional settings for the operation.
+            default_root: The default root value used by the operation.
+
+        Returns:
+            The `SandboxPolicy` result produced by the operation.
+
+        Security:
+            Policy values control dangerous worker capabilities. Roots are
+            resolved, limits must be positive, commands/hosts/ports are explicit,
+            and private networking defaults off. Execution remains available for
+            trusted Agent tools; see
+            `docs/security/trusted-boundaries.md#agent-worker-execution`.
+        """
         file_roots = _paths(options.get("file_roots", (str(default_root),)), "file_roots")
         if not file_roots:
             raise ValueError("sandbox file_roots must not be empty")
@@ -104,6 +150,11 @@ class SandboxPolicy:
         )
 
     def wire(self) -> dict[str, JsonValue]:
+        """Implement the wire operation for the sandbox policy.
+
+        Returns:
+            The `dict[str, JsonValue]` result produced by the operation.
+        """
         return {
             "file_roots": tuple(str(path) for path in self.file_roots),
             "command_allowlist": self.command_allowlist,
@@ -119,6 +170,7 @@ class SandboxPolicy:
 
 @dataclass(frozen=True, slots=True)
 class SandboxExecutionResult:
+    """Represent the validated sandbox execution result contract."""
     success: bool
     result: JsonValue = None
     error_code: str | None = None
@@ -126,6 +178,11 @@ class SandboxExecutionResult:
 
 
 def builtin_sandbox_tools() -> tuple[SandboxToolDefinition, ...]:
+    """Implement the builtin sandbox tools operation for the component.
+
+    Returns:
+        The `tuple[SandboxToolDefinition, ...]` result produced by the operation.
+    """
     return (
         SandboxToolDefinition(
             AgentToolDescriptor(
@@ -201,7 +258,24 @@ async def execute_in_fresh_worker(
     arguments: Mapping[str, JsonValue],
     policy: SandboxPolicy,
 ) -> SandboxExecutionResult:
-    """Run exactly one Tool invocation in a new native Python subprocess."""
+    """Run exactly one Tool invocation in a new native Python subprocess.
+
+    Args:
+        definition: Tool descriptor and import reference selected by the trusted catalog.
+        arguments: JSON-safe arguments supplied to the operation.
+        policy: Fully validated capability and resource policy copied to the worker.
+
+    Returns:
+        Bounded JSON result or stable failure code; worker stderr is never returned.
+
+    Security:
+        Importing and executing Python callables is inherently dangerous. A fresh
+        subprocess, minimal environment, working directory, timeout, output cap,
+        correlation check, and JSON protocol reduce persistence and memory abuse.
+        The capability is retained for explicitly configured Agent tools, not
+        hostile-code containment. See
+        `docs/security/trusted-boundaries.md#agent-worker-execution`.
+    """
 
     correlation_id = str(uuid4())
     request = json.dumps(
@@ -275,6 +349,20 @@ async def execute_in_fresh_worker(
 
 
 def _resolve_path(raw: object, policy: Mapping[str, object], *, write: bool) -> tuple[Path | None, str | None]:
+    """Resolve path.
+
+    Args:
+        raw: The raw value used by the operation.
+        policy: The policy value used by the operation.
+        write: The write value used by the operation.
+
+    Returns:
+        The `tuple[Path | None, str | None]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_resolve_path`. It delegates to `strip`, `resolve`,
+        `_sequence_strings`, `get` while keeping intermediate state local to the owning operation.
+    """
     if not isinstance(raw, str) or not raw.strip():
         return None, "SANDBOX_INVALID_ARGUMENTS"
     roots = tuple(Path(item).resolve() for item in _sequence_strings(policy.get("file_roots")))
@@ -293,6 +381,15 @@ def _resolve_path(raw: object, policy: Mapping[str, object], *, write: bool) -> 
 
 
 def builtin_file_read(arguments: Mapping[str, object], policy: Mapping[str, object]) -> tuple[JsonValue, str | None]:
+    """Implement the builtin file read operation for the component.
+
+    Args:
+        arguments: JSON-safe arguments supplied to the operation.
+        policy: The policy value used by the operation.
+
+    Returns:
+        The `tuple[JsonValue, str | None]` result produced by the operation.
+    """
     path, error = _resolve_path(arguments.get("path"), policy, write=False)
     if error is not None or path is None:
         return None, error
@@ -307,6 +404,15 @@ def builtin_file_read(arguments: Mapping[str, object], policy: Mapping[str, obje
 
 
 def builtin_file_write(arguments: Mapping[str, object], policy: Mapping[str, object]) -> tuple[JsonValue, str | None]:
+    """Implement the builtin file write operation for the component.
+
+    Args:
+        arguments: JSON-safe arguments supplied to the operation.
+        policy: The policy value used by the operation.
+
+    Returns:
+        The `tuple[JsonValue, str | None]` result produced by the operation.
+    """
     path, error = _resolve_path(arguments.get("path"), policy, write=True)
     content = arguments.get("content")
     if error is not None or path is None:
@@ -325,6 +431,22 @@ def builtin_file_write(arguments: Mapping[str, object], policy: Mapping[str, obj
 
 
 def builtin_http_fetch(arguments: Mapping[str, object], policy: Mapping[str, object]) -> tuple[JsonValue, str | None]:
+    """Fetch one bounded HTTPS response under the worker network policy.
+
+    Args:
+        arguments: JSON-safe arguments supplied to the operation.
+        policy: Serialized host, port, address-class, timeout, and output limits.
+
+    Returns:
+        JSON response metadata and text, or a stable sandbox error code.
+
+    Security:
+        URLs can target credentials or private services. HTTPS-only parsing,
+        credential rejection, host/port allowlists, resolved-address policy,
+        DNS pinning, timeouts, and byte limits reduce SSRF and rebinding risk.
+        Fetch remains available for explicitly authorized tools; see
+        `docs/security/trusted-boundaries.md#agent-worker-execution`.
+    """
     raw_url = arguments.get("url")
     if not isinstance(raw_url, str) or not raw_url.strip():
         return None, "SANDBOX_INVALID_ARGUMENTS"
@@ -390,6 +512,22 @@ def builtin_http_fetch(arguments: Mapping[str, object], policy: Mapping[str, obj
 
 
 def builtin_command_exec(arguments: Mapping[str, object], policy: Mapping[str, object]) -> tuple[JsonValue, str | None]:
+    """Run one explicitly allowlisted executable without invoking a shell.
+
+    Args:
+        arguments: JSON-safe arguments supplied to the operation.
+        policy: Serialized executable allowlist, working directory, timeout, and output limit.
+
+    Returns:
+        Exit code and bounded combined output, or a stable sandbox error code.
+
+    Security:
+        Process execution can access the worker account. Exact executable
+        allowlisting, `shell=False`, a reduced environment, timeout, working
+        directory, and output truncation bound the retained capability. It exists
+        for administrator-approved tools; see
+        `docs/security/trusted-boundaries.md#agent-worker-execution`.
+    """
     raw_command = arguments.get("command")
     if not isinstance(raw_command, Sequence) or isinstance(raw_command, (str, bytes)):
         return None, "SANDBOX_INVALID_ARGUMENTS"
@@ -433,6 +571,19 @@ def builtin_command_exec(arguments: Mapping[str, object], policy: Mapping[str, o
 
 
 def load_worker_callable(reference: str) -> Any:
+    """Resolve one configured `module:attribute` worker callable.
+
+    Args:
+        reference: Trusted import path recorded in the tool catalog.
+
+    Returns:
+        Imported callable object.
+
+    Security:
+        Import resolution executes Python module initialization. The capability
+        is retained for trusted extension tools and is called only inside a fresh
+        worker process; arbitrary third-party references require external isolation.
+    """
     module_name, separator, attribute = reference.partition(":")
     if not separator or not module_name or not attribute:
         raise ValueError("invalid sandbox worker reference")
@@ -447,6 +598,22 @@ def load_worker_callable(reference: str) -> Any:
 async def run_worker_callable(
     reference: str, arguments: Mapping[str, object], policy: Mapping[str, object]
 ) -> tuple[JsonValue, str | None]:
+    """Dispatch a built-in or configured worker callable and normalize failures.
+
+    Args:
+        reference: The reference value used by the operation.
+        arguments: JSON-safe arguments supplied to the operation.
+        policy: Serialized worker policy passed to the callable.
+
+    Returns:
+        JSON-safe callable result and optional stable sandbox error code.
+
+    Security:
+        Non-built-in callables are trusted Python code, not sandboxed language
+        expressions. This dispatch remains for extension tools but runs only in
+        the disposable worker boundary described in
+        `docs/security/trusted-boundaries.md#agent-worker-execution`.
+    """
     builtin = reference.startswith("builtin:")
     if builtin:
         handlers = {
@@ -479,16 +646,55 @@ async def run_worker_callable(
 
 
 def _paths(value: object, field: str) -> tuple[Path, ...]:
+    """Implement the paths operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        field: The field value used by the operation.
+
+    Returns:
+        The `tuple[Path, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_paths`. It delegates to `_path`, `_sequence_strings` while
+        keeping intermediate state local to the owning operation.
+    """
     return tuple(_path(item, field) for item in _sequence_strings(value))
 
 
 def _path(value: object, field: str) -> Path:
+    """Implement the path operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        field: The field value used by the operation.
+
+    Returns:
+        The `Path` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_path`. It delegates to `strip`, `resolve` while keeping
+        intermediate state local to the owning operation.
+    """
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"sandbox {field} entries must be non-empty strings")
     return Path(value).resolve()
 
 
 def _strings(value: object, field: str) -> tuple[str, ...]:
+    """Implement the strings operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        field: The field value used by the operation.
+
+    Returns:
+        The `tuple[str, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_strings`. It delegates to `_sequence_strings` while keeping
+        intermediate state local to the owning operation.
+    """
     result = _sequence_strings(value)
     if len(set(result)) != len(result):
         raise ValueError(f"sandbox {field} must not contain duplicates")
@@ -496,6 +702,18 @@ def _strings(value: object, field: str) -> tuple[str, ...]:
 
 
 def _sequence_strings(value: object) -> tuple[str, ...]:
+    """Implement the sequence strings operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `tuple[str, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_sequence_strings`. It delegates to `strip` while keeping
+        intermediate state local to the owning operation.
+    """
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
         raise ValueError("sandbox option must be an array")
     result = tuple(item for item in value if isinstance(item, str) and item.strip())
@@ -505,6 +723,18 @@ def _sequence_strings(value: object) -> tuple[str, ...]:
 
 
 def _ports(value: object) -> tuple[int, ...]:
+    """Implement the ports operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `tuple[int, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_ports`. It delegates to `any` while keeping intermediate
+        state local to the owning operation.
+    """
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
         raise ValueError("sandbox allowed_ports must be an array")
     result = tuple(item for item in value if isinstance(item, int) and not isinstance(item, bool))
@@ -516,24 +746,76 @@ def _ports(value: object) -> tuple[int, ...]:
 
 
 def _positive_int(value: object, field: str) -> int:
+    """Implement the positive int operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        field: The field value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_positive_int`. It performs the local state transition
+        directly and is not a stable extension boundary.
+    """
     if not isinstance(value, int) or isinstance(value, bool) or value < 1:
         raise ValueError(f"sandbox {field} must be a positive integer")
     return value
 
 
 def _positive_float(value: object, field: str) -> float:
+    """Implement the positive float operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        field: The field value used by the operation.
+
+    Returns:
+        The `float` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_positive_float`. It delegates to `float` while keeping
+        intermediate state local to the owning operation.
+    """
     if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
         raise ValueError(f"sandbox {field} must be a positive number")
     return float(value)
 
 
 def _bool(value: object, field: str) -> bool:
+    """Implement the bool operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        field: The field value used by the operation.
+
+    Returns:
+        Whether the requested condition is satisfied.
+
+    Notes:
+        Internal implementation detail for `_bool`. It performs the local state transition directly and
+        is not a stable extension boundary.
+    """
     if not isinstance(value, bool):
         raise ValueError(f"sandbox {field} must be boolean")
     return value
 
 
 def _contains_symlink(root: Path, candidate: Path) -> bool:
+    """Implement the contains symlink operation for the component.
+
+    Args:
+        root: The root value used by the operation.
+        candidate: The candidate value used by the operation.
+
+    Returns:
+        Whether the requested condition is satisfied.
+
+    Notes:
+        Internal implementation detail for `_contains_symlink`. It delegates to `relative_to`,
+        `is_symlink` while keeping intermediate state local to the owning operation.
+    """
     relative = candidate.relative_to(root)
     current = root
     for part in relative.parts:
@@ -544,6 +826,20 @@ def _contains_symlink(root: Path, candidate: Path) -> bool:
 
 
 def _relative_source(path: Path, policy: Mapping[str, object]) -> str:
+    """Implement the relative source operation for the component.
+
+    Args:
+        path: Filesystem or logical resource path.
+        policy: The policy value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_relative_source`. It delegates to `resolve`,
+        `_sequence_strings`, `get`, `enumerate` while keeping intermediate state local to the owning
+        operation.
+    """
     roots = tuple(Path(item).resolve() for item in _sequence_strings(policy.get("file_roots")))
     for index, root in enumerate(roots):
         if path.is_relative_to(root):
@@ -552,6 +848,20 @@ def _relative_source(path: Path, policy: Mapping[str, object]) -> str:
 
 
 def _resolve_network_address(hostname: str, port: int, *, allow_private: bool) -> str | None:
+    """Resolve network address.
+
+    Args:
+        hostname: The hostname value used by the operation.
+        port: The port value used by the operation.
+        allow_private: Whether allow private is enabled.
+
+    Returns:
+        The `str | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_resolve_network_address`. It delegates to `getaddrinfo`,
+        `fromkeys`, `any`, `ip_address` while keeping intermediate state local to the owning operation.
+    """
     try:
         raw_addresses = tuple(
             address for item in socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
@@ -572,21 +882,75 @@ def _resolve_network_address(hostname: str, port: int, *, allow_private: bool) -
 
 
 def _policy_int(policy: Mapping[str, object], key: str, default: int) -> int:
+    """Implement the policy int operation for the component.
+
+    Args:
+        policy: The policy value used by the operation.
+        key: Stable FIFO ordering key for the queued work.
+        default: The default value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_policy_int`. It delegates to `get` while keeping
+        intermediate state local to the owning operation.
+    """
     value = policy.get(key, default)
     return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else default
 
 
 def _policy_float(policy: Mapping[str, object], key: str, default: float) -> float:
+    """Implement the policy float operation for the component.
+
+    Args:
+        policy: The policy value used by the operation.
+        key: Stable FIFO ordering key for the queued work.
+        default: The default value used by the operation.
+
+    Returns:
+        The `float` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_policy_float`. It delegates to `get`, `float` while keeping
+        intermediate state local to the owning operation.
+    """
     value = policy.get(key, default)
     return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0 else default
 
 
 def _policy_bool(policy: Mapping[str, object], key: str, default: bool) -> bool:
+    """Implement the policy bool operation for the component.
+
+    Args:
+        policy: The policy value used by the operation.
+        key: Stable FIFO ordering key for the queued work.
+        default: The default value used by the operation.
+
+    Returns:
+        Whether the requested condition is satisfied.
+
+    Notes:
+        Internal implementation detail for `_policy_bool`. It delegates to `get` while keeping
+        intermediate state local to the owning operation.
+    """
     value = policy.get(key, default)
     return value if isinstance(value, bool) else default
 
 
 def _policy_ports(policy: Mapping[str, object]) -> tuple[int, ...]:
+    """Implement the policy ports operation for the component.
+
+    Args:
+        policy: The policy value used by the operation.
+
+    Returns:
+        The `tuple[int, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_policy_ports`. It delegates to `get` while keeping
+        intermediate state local to the owning operation.
+    """
     value = policy.get("allowed_ports", (443,))
     if not isinstance(value, Sequence):
         return (443,)
@@ -594,6 +958,18 @@ def _policy_ports(policy: Mapping[str, object]) -> tuple[int, ...]:
 
 
 def _mapping_or_none(value: object) -> Mapping[str, JsonValue] | None:
+    """Implement the mapping or none operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `Mapping[str, JsonValue] | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_mapping_or_none`. It delegates to `cast` while keeping
+        intermediate state local to the owning operation.
+    """
     return cast(Mapping[str, JsonValue], value) if isinstance(value, Mapping) else None
 
 

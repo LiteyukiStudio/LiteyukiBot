@@ -34,6 +34,7 @@ class FunctionContext:
 
 @dataclass(frozen=True, slots=True)
 class LibraryExport:
+    """Represent the library export contract."""
     name: str
     callback: LibraryCallback
     is_async: bool = False
@@ -45,6 +46,7 @@ class LibraryExport:
 
 @dataclass(frozen=True, slots=True)
 class LibraryDefinition:
+    """Represent the library definition contract."""
     namespace: str
     provider: str
     exports: tuple[LibraryExport, ...]
@@ -52,6 +54,11 @@ class LibraryDefinition:
 
     @property
     def export_map(self) -> Mapping[str, LibraryExport]:
+        """Return the library definition's export map.
+
+        Returns:
+            The `Mapping[str, LibraryExport]` result produced by the operation.
+        """
         return {item.name: item for item in self.exports}
 
 
@@ -59,16 +66,36 @@ class LibraryRegistry:
     """Deterministic Provider registry used by parser hosts and runtimes."""
 
     def __init__(self, definitions: Iterable[LibraryDefinition] = ()) -> None:
+        """Initialize the library registry.
+
+        Args:
+            definitions: The definitions value used by the operation.
+
+        Returns:
+            None.
+        """
         self._definitions = tuple(definitions)
         self._validate()
 
     @classmethod
     def with_core(cls) -> LibraryRegistry:
+        """Implement the with core operation for the library registry.
+
+        Returns:
+            The `LibraryRegistry` result produced by the operation.
+        """
         return cls(default_library_definitions())
 
     @classmethod
     def discover(cls, *, include_core: bool = True) -> LibraryRegistry:
-        """Load the built-in and installed Library Providers deterministically."""
+        """Load the built-in and installed Library Providers deterministically.
+
+        Args:
+            include_core: The include core value used by the operation.
+
+        Returns:
+            The `LibraryRegistry` result produced by the operation.
+        """
 
         definitions = list(default_library_definitions() if include_core else ())
         for entry in metadata.entry_points(group=FUNCTION_LIBRARY_ENTRY_POINT_GROUP):
@@ -90,22 +117,64 @@ class LibraryRegistry:
 
     @property
     def definitions(self) -> tuple[LibraryDefinition, ...]:
+        """Return the library registry's definitions.
+
+        Returns:
+            The `tuple[LibraryDefinition, ...]` result produced by the operation.
+        """
         return self._definitions
 
     def resolve(self, namespace: str, provider: str | None = None) -> LibraryDefinition | None:
+        """Resolve the library registry operation.
+
+        Args:
+            namespace: The namespace value used by the operation.
+            provider: The provider value used by the operation.
+
+        Returns:
+            The requested `LibraryDefinition | None` value.
+        """
         matches = tuple(item for item in self._definitions if item.namespace == namespace)
         if provider is not None:
             matches = tuple(item for item in matches if item.provider == provider)
         return matches[0] if len(matches) == 1 else None
 
     def matches(self, namespace: str) -> tuple[LibraryDefinition, ...]:
+        """Implement the matches operation for the library registry.
+
+        Args:
+            namespace: The namespace value used by the operation.
+
+        Returns:
+            The `tuple[LibraryDefinition, ...]` result produced by the operation.
+        """
         return tuple(item for item in self._definitions if item.namespace == namespace)
 
     def export(self, namespace: str, provider: str, name: str) -> LibraryExport | None:
+        """Implement the export operation for the library registry.
+
+        Args:
+            namespace: The namespace value used by the operation.
+            provider: The provider value used by the operation.
+            name: Stable name used to identify the value.
+
+        Returns:
+            The `LibraryExport | None` result produced by the operation.
+        """
         definition = self.resolve(namespace, provider)
         return None if definition is None else definition.export_map.get(name)
 
     def _validate(self) -> None:
+        """Validate the library registry operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `LibraryRegistry._validate`. It delegates to
+            `_validate_identifier`, `fullmatch`, `strip`, `any` while keeping intermediate state local to
+            the owning operation.
+        """
         seen: set[tuple[str, str]] = set()
         for definition in self._definitions:
             if not isinstance(definition, LibraryDefinition):
@@ -162,9 +231,26 @@ class LibraryRegistry:
 
 
 def core_library() -> LibraryDefinition:
-    """Return the side-effect-bounded built-in Core Provider."""
+    """Return the side-effect-bounded built-in Core Provider.
+
+    Returns:
+        The `LibraryDefinition` result produced by the operation.
+    """
 
     def emit(arguments: tuple[FrozenJSONValue, ...], context: FunctionContext) -> FrozenJSONValue | None:
+        """Implement the emit operation for the core library.
+
+        Args:
+            arguments: JSON-safe arguments supplied to the operation.
+            context: Runtime or authorization context for the operation.
+
+        Returns:
+            The `FrozenJSONValue | None` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `core_library.emit`. It delegates to `emit_log`,
+            `isawaitable` while keeping intermediate state local to the owning operation.
+        """
         if len(arguments) != 1:
             raise ValueError("terminal output expects one value")
         value = arguments[0]
@@ -185,7 +271,25 @@ def core_library() -> LibraryDefinition:
 
 
 def core_async_library() -> LibraryDefinition:
+    """Implement the core async library operation for the component.
+
+    Returns:
+        The `LibraryDefinition` result produced by the operation.
+    """
     async def sleep(arguments: tuple[FrozenJSONValue, ...], _context: FunctionContext) -> None:
+        """Implement the sleep operation for the core async library.
+
+        Args:
+            arguments: JSON-safe arguments supplied to the operation.
+            _context: The context value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `core_async_library.sleep`. It delegates to `sleep`, `float`
+            while keeping intermediate state local to the owning operation.
+        """
         if len(arguments) != 1 or not isinstance(arguments[0], (int, float)) or isinstance(arguments[0], bool):
             raise ValueError("async.sleep expects one number")
         if arguments[0] < 0:
@@ -200,7 +304,25 @@ def core_async_library() -> LibraryDefinition:
 
 
 def core_agent_library() -> LibraryDefinition:
+    """Implement the core agent library operation for the component.
+
+    Returns:
+        The `LibraryDefinition` result produced by the operation.
+    """
     def select(arguments: tuple[FrozenJSONValue, ...], context: FunctionContext) -> object:
+        """Select the core agent library operation.
+
+        Args:
+            arguments: JSON-safe arguments supplied to the operation.
+            context: Runtime or authorization context for the operation.
+
+        Returns:
+            The `object` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `core_agent_library.select`. It delegates to `select_prompt`
+            while keeping intermediate state local to the owning operation.
+        """
         if len(arguments) != 1 or not isinstance(arguments[0], str):
             raise ValueError("agent.prompt.select expects one preset id")
         if context.select_prompt is None:
@@ -222,14 +344,37 @@ def core_agent_library() -> LibraryDefinition:
 
 
 def default_library_definitions() -> tuple[LibraryDefinition, ...]:
+    """Implement the default library definitions operation for the component.
+
+    Returns:
+        The `tuple[LibraryDefinition, ...]` result produced by the operation.
+    """
     return (core_library(), core_async_library(), core_agent_library())
 
 
 def default_library_registry() -> LibraryRegistry:
+    """Implement the default library registry operation for the component.
+
+    Returns:
+        The `LibraryRegistry` result produced by the operation.
+    """
     return LibraryRegistry.discover()
 
 
 def _validate_identifier(value: str, label: str) -> None:
+    """Validate identifier.
+
+    Args:
+        value: Value to validate, transform, or store.
+        label: The label value used by the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_validate_identifier`. It delegates to `fullmatch` while
+        keeping intermediate state local to the owning operation.
+    """
     if not isinstance(value, str) or _IDENTIFIER.fullmatch(value) is None:
         raise ValueError(f"invalid {label}: {value!r}")
 

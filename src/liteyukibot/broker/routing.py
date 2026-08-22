@@ -22,26 +22,103 @@ from .protocol import BROKER_PROTOCOL_VERSION, AuthorizationContextWire, BridgeA
 
 
 def _validate_json(value: Any, path: str = "payload") -> None:
+    """Validate json.
+
+    Args:
+        value: Value to validate, transform, or store.
+        path: Filesystem or logical resource path.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_validate_json`. It delegates to `_validate_json_float`,
+        `_validate_json_mapping`, `_validate_json_sequence` while keeping intermediate state local to
+        the owning operation.
+    """
     if value is None or isinstance(value, (bool, int, str)):
         return
     if isinstance(value, float):
-        if value != value or value in (float("inf"), float("-inf")):
-            raise ValueError(f"{path} must not contain NaN or infinity")
+        _validate_json_float(value, path)
         return
     if isinstance(value, Mapping):
-        for key, item in value.items():
-            if not isinstance(key, str):
-                raise ValueError(f"{path} must use string object keys")
-            _validate_json(item, f"{path}.{key}")
+        _validate_json_mapping(value, path)
         return
     if isinstance(value, (list, tuple)):
-        for index, item in enumerate(value):
-            _validate_json(item, f"{path}[{index}]")
+        _validate_json_sequence(value, path)
         return
     raise ValueError(f"{path} contains non-JSON value {type(value).__name__}")
 
 
+def _validate_json_float(value: float, path: str) -> None:
+    """Validate json float.
+
+    Args:
+        value: Value to validate, transform, or store.
+        path: Filesystem or logical resource path.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_validate_json_float`. It delegates to `float` while keeping
+        intermediate state local to the owning operation.
+    """
+    if value != value or value in (float("inf"), float("-inf")):
+        raise ValueError(f"{path} must not contain NaN or infinity")
+
+
+def _validate_json_mapping(value: Mapping[object, object], path: str) -> None:
+    """Validate json mapping.
+
+    Args:
+        value: Value to validate, transform, or store.
+        path: Filesystem or logical resource path.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_validate_json_mapping`. It delegates to `items`,
+        `_validate_json` while keeping intermediate state local to the owning operation.
+    """
+    for key, item in value.items():
+        if not isinstance(key, str):
+            raise ValueError(f"{path} must use string object keys")
+        _validate_json(item, f"{path}.{key}")
+
+
+def _validate_json_sequence(value: list[object] | tuple[object, ...], path: str) -> None:
+    """Validate json sequence.
+
+    Args:
+        value: Value to validate, transform, or store.
+        path: Filesystem or logical resource path.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_validate_json_sequence`. It delegates to `enumerate`,
+        `_validate_json` while keeping intermediate state local to the owning operation.
+    """
+    for index, item in enumerate(value):
+        _validate_json(item, f"{path}[{index}]")
+
+
 def _freeze(value: JsonValue) -> JsonValue:
+    """Freeze the component operation.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `JsonValue` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_freeze`. It delegates to `_freeze`, `items` while keeping
+        intermediate state local to the owning operation.
+    """
     if isinstance(value, Mapping):
         return MappingProxyType({key: _freeze(item) for key, item in value.items()})
     if isinstance(value, tuple):
@@ -50,6 +127,18 @@ def _freeze(value: JsonValue) -> JsonValue:
 
 
 def _thaw(value: JsonValue) -> Any:
+    """Implement the thaw operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `Any` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_thaw`. It delegates to `_thaw`, `items` while keeping
+        intermediate state local to the owning operation.
+    """
     if isinstance(value, Mapping):
         return {key: _thaw(item) for key, item in value.items()}
     if isinstance(value, tuple):
@@ -58,6 +147,7 @@ def _thaw(value: JsonValue) -> Any:
 
 
 class BrokerModel(BaseModel):
+    """Represent the validated broker model contract."""
     model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False, validate_default=True)
 
 
@@ -74,16 +164,40 @@ class EventIngress(BrokerModel):
     @field_validator("payload", mode="before")
     @classmethod
     def validate_payload(cls, value: Any) -> Any:
+        """Validate payload.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `Any` result produced by the operation.
+        """
         _validate_json(value)
         return value
 
     @field_validator("payload", mode="after")
     @classmethod
     def freeze_payload(cls, value: Mapping[str, JsonValue]) -> Mapping[str, JsonValue]:
+        """Freeze payload.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `Mapping[str, JsonValue]` result produced by the operation.
+        """
         return MappingProxyType({key: _freeze(item) for key, item in value.items()})
 
     @field_serializer("payload")
     def serialize_payload(self, value: Mapping[str, JsonValue]) -> dict[str, Any]:
+        """Implement the serialize payload operation for the event ingress.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `dict[str, Any]` result produced by the operation.
+        """
         return {key: _thaw(item) for key, item in value.items()}
 
 
@@ -101,20 +215,45 @@ class BrokerEvent(BrokerModel):
     @field_validator("payload", mode="before")
     @classmethod
     def validate_payload(cls, value: Any) -> Any:
+        """Validate payload.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `Any` result produced by the operation.
+        """
         _validate_json(value)
         return value
 
     @field_validator("payload", mode="after")
     @classmethod
     def freeze_payload(cls, value: Mapping[str, JsonValue]) -> Mapping[str, JsonValue]:
+        """Freeze payload.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `Mapping[str, JsonValue]` result produced by the operation.
+        """
         return MappingProxyType({key: _freeze(item) for key, item in value.items()})
 
     @field_serializer("payload")
     def serialize_payload(self, value: Mapping[str, JsonValue]) -> dict[str, Any]:
+        """Implement the serialize payload operation for the broker event.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `dict[str, Any]` result produced by the operation.
+        """
         return {key: _thaw(item) for key, item in value.items()}
 
 
 class DeliveryState(StrEnum):
+    """Enumerate the supported delivery state values."""
     PENDING = "pending"
     OFFERED = "offered"
     ACCEPTED = "accepted"
@@ -128,6 +267,7 @@ _TERMINAL_STATES = frozenset({DeliveryState.COMPLETED, DeliveryState.FAILED, Del
 
 
 class ActionRequest(BrokerModel):
+    """Represent the validated action request contract."""
     type: Literal["action.request"] = "action.request"
     protocol: Literal[7] = BROKER_PROTOCOL_VERSION
     delivery_id: str = Field(min_length=1)
@@ -141,16 +281,40 @@ class ActionRequest(BrokerModel):
     @field_validator("payload", mode="before")
     @classmethod
     def validate_payload(cls, value: Any) -> Any:
+        """Validate payload.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `Any` result produced by the operation.
+        """
         _validate_json(value)
         return value
 
     @field_validator("payload", mode="after")
     @classmethod
     def freeze_payload(cls, value: Mapping[str, JsonValue]) -> Mapping[str, JsonValue]:
+        """Freeze payload.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `Mapping[str, JsonValue]` result produced by the operation.
+        """
         return MappingProxyType({key: _freeze(item) for key, item in value.items()})
 
     @field_serializer("payload")
     def serialize_payload(self, value: Mapping[str, JsonValue]) -> dict[str, Any]:
+        """Implement the serialize payload operation for the action request.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `dict[str, Any]` result produced by the operation.
+        """
         return {key: _thaw(item) for key, item in value.items()}
 
 
@@ -187,6 +351,11 @@ class EventCompleted(BrokerModel):
 
     @model_validator(mode="after")
     def validate_outcome(self) -> Self:
+        """Validate outcome.
+
+        Returns:
+            The `Self` result produced by the operation.
+        """
         if self.success and self.failure_reason is not None:
             raise ValueError("successful event completions cannot contain failure_reason")
         if not self.success and self.failure_reason is None:
@@ -209,16 +378,40 @@ class ActionResult(BrokerModel):
     @field_validator("payload", mode="before")
     @classmethod
     def validate_payload(cls, value: Any) -> Any:
+        """Validate payload.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `Any` result produced by the operation.
+        """
         _validate_json(value, "action result")
         return value
 
     @field_validator("payload", mode="after")
     @classmethod
     def freeze_payload(cls, value: JsonValue) -> JsonValue:
+        """Freeze payload.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `JsonValue` result produced by the operation.
+        """
         return _freeze(value)
 
     @field_serializer("payload")
     def serialize_payload(self, value: JsonValue) -> Any:
+        """Implement the serialize payload operation for the action result.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `Any` result produced by the operation.
+        """
         return _thaw(value)
 
 
@@ -238,16 +431,40 @@ class ToolInvoke(BrokerModel):
     @field_validator("arguments", mode="before")
     @classmethod
     def validate_arguments(cls, value: Any) -> Any:
+        """Validate arguments.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `Any` result produced by the operation.
+        """
         _validate_json(value, "tool arguments")
         return value
 
     @field_validator("arguments", mode="after")
     @classmethod
     def freeze_arguments(cls, value: Mapping[str, JsonValue]) -> Mapping[str, JsonValue]:
+        """Freeze arguments.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `Mapping[str, JsonValue]` result produced by the operation.
+        """
         return MappingProxyType({key: _freeze(item) for key, item in value.items()})
 
     @field_serializer("arguments")
     def serialize_arguments(self, value: Mapping[str, JsonValue]) -> dict[str, Any]:
+        """Implement the serialize arguments operation for the tool invoke.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `dict[str, Any]` result produced by the operation.
+        """
         return {key: _thaw(item) for key, item in value.items()}
 
 
@@ -265,6 +482,11 @@ class ToolResult(BrokerModel):
 
     @model_validator(mode="after")
     def validate_result(self) -> ToolResult:
+        """Validate result.
+
+        Returns:
+            The `ToolResult` result produced by the operation.
+        """
         if self.success and self.error_code is not None:
             raise ValueError("successful Tool results cannot contain an error code")
         if not self.success and self.error_code is None:
@@ -298,6 +520,14 @@ class RuntimeApiInvoke(BrokerModel):
     )
     @classmethod
     def validate_identifiers(cls, value: object) -> str | None:
+        """Validate identifiers.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `str | None` result produced by the operation.
+        """
         if value is None:
             return None
         if not isinstance(value, str) or not value.strip():
@@ -307,16 +537,40 @@ class RuntimeApiInvoke(BrokerModel):
     @field_validator("arguments", mode="before")
     @classmethod
     def validate_arguments(cls, value: Any) -> Any:
+        """Validate arguments.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `Any` result produced by the operation.
+        """
         _validate_json(value, "runtime API arguments")
         return value
 
     @field_validator("arguments", mode="after")
     @classmethod
     def freeze_arguments(cls, value: Mapping[str, JsonValue]) -> Mapping[str, JsonValue]:
+        """Freeze arguments.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `Mapping[str, JsonValue]` result produced by the operation.
+        """
         return MappingProxyType({key: _freeze(item) for key, item in value.items()})
 
     @field_serializer("arguments")
     def serialize_arguments(self, value: Mapping[str, JsonValue]) -> dict[str, Any]:
+        """Implement the serialize arguments operation for the runtime api invoke.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `dict[str, Any]` result produced by the operation.
+        """
         return {key: _thaw(item) for key, item in value.items()}
 
 
@@ -334,6 +588,11 @@ class RuntimeApiResult(BrokerModel):
 
     @model_validator(mode="after")
     def validate_result(self) -> RuntimeApiResult:
+        """Validate result.
+
+        Returns:
+            The `RuntimeApiResult` result produced by the operation.
+        """
         if self.success and self.error_code is not None:
             raise ValueError("successful runtime API results cannot contain an error code")
         if not self.success and self.error_code is None:
@@ -360,16 +619,40 @@ class BridgeControlInvoke(BrokerModel):
     @field_validator("payload", mode="before")
     @classmethod
     def validate_payload(cls, value: Any) -> Any:
+        """Validate payload.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `Any` result produced by the operation.
+        """
         _validate_json(value, "control payload")
         return value
 
     @field_validator("payload", mode="after")
     @classmethod
     def freeze_payload(cls, value: Mapping[str, JsonValue]) -> Mapping[str, JsonValue]:
+        """Freeze payload.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `Mapping[str, JsonValue]` result produced by the operation.
+        """
         return MappingProxyType({key: _freeze(item) for key, item in value.items()})
 
     @field_serializer("payload")
     def serialize_payload(self, value: Mapping[str, JsonValue]) -> dict[str, Any]:
+        """Implement the serialize payload operation for the bridge control invoke.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `dict[str, Any]` result produced by the operation.
+        """
         return {key: _thaw(item) for key, item in value.items()}
 
 
@@ -387,6 +670,11 @@ class BridgeControlResult(BrokerModel):
 
     @model_validator(mode="after")
     def validate_result(self) -> BridgeControlResult:
+        """Validate result.
+
+        Returns:
+            The `BridgeControlResult` result produced by the operation.
+        """
         if self.success and self.error_code is not None:
             raise ValueError("successful bridge control results cannot contain an error code")
         if not self.success and self.error_code is None:
@@ -399,6 +687,7 @@ class BridgeControlResult(BrokerModel):
 
 @dataclass(frozen=True, slots=True)
 class RoutedAction:
+    """Represent the routed action contract."""
     action_id: str
     event_id: str
     request: ActionRequest
@@ -409,6 +698,7 @@ class RoutedAction:
 
 @dataclass(frozen=True, slots=True)
 class RoutedControl:
+    """Represent the routed control contract."""
     invocation_id: str
     event_id: str
     request: BridgeControlInvoke
@@ -419,6 +709,7 @@ class RoutedControl:
 
 @dataclass(frozen=True, slots=True)
 class RoutedRuntimeApi:
+    """Represent the routed runtime api contract."""
     invocation_id: str
     event_id: str
     request: RuntimeApiInvoke
@@ -429,6 +720,7 @@ class RoutedRuntimeApi:
 
 @dataclass(frozen=True, slots=True)
 class DeliverySnapshot:
+    """Represent the validated delivery snapshot contract."""
     delivery_id: str
     target_bridge_id: str
     state: DeliveryState
@@ -440,6 +732,7 @@ class DeliverySnapshot:
 
 @dataclass(frozen=True, slots=True)
 class EventSnapshot:
+    """Represent the validated event snapshot contract."""
     event: BrokerEvent
     status: Literal["active", "settled"]
     deliveries: tuple[DeliverySnapshot, ...]
@@ -472,6 +765,7 @@ class LedgerDiagnosticSnapshot:
 
 @dataclass(slots=True)
 class _Delivery:
+    """Represent the delivery contract."""
     delivery_id: str
     event_id: str
     target_bridge_id: str
@@ -484,6 +778,7 @@ class _Delivery:
 
 @dataclass(slots=True)
 class _Action:
+    """Represent the action contract."""
     routed: RoutedAction
     canonical_request: str
     result: ActionResult | None = None
@@ -491,6 +786,7 @@ class _Action:
 
 @dataclass(slots=True)
 class _Tool:
+    """Represent the tool contract."""
     routed: RoutedTool
     canonical_request: str
     result: ToolResult | None = None
@@ -498,6 +794,7 @@ class _Tool:
 
 @dataclass(slots=True)
 class _Control:
+    """Represent the control contract."""
     routed: RoutedControl
     canonical_request: str
     result: BridgeControlResult | None = None
@@ -505,6 +802,7 @@ class _Control:
 
 @dataclass(slots=True)
 class _RuntimeApi:
+    """Represent the runtime api contract."""
     routed: RoutedRuntimeApi
     canonical_request: str
     result: RuntimeApiResult | None = None
@@ -512,6 +810,7 @@ class _RuntimeApi:
 
 @dataclass(frozen=True, slots=True)
 class RoutedTool:
+    """Represent the routed tool contract."""
     invocation_id: str
     event_id: str
     request: ToolInvoke
@@ -522,6 +821,7 @@ class RoutedTool:
 
 @dataclass(slots=True)
 class _EventRecord:
+    """Represent the event record contract."""
     event: BrokerEvent
     admitted_at: float
     deliveries: dict[str, _Delivery] = field(default_factory=dict)
@@ -531,34 +831,134 @@ class _EventRecord:
     runtime_apis: dict[tuple[str, str], _RuntimeApi] = field(default_factory=dict)
     transitions: list[LedgerTransition] = field(default_factory=list)
     terminal_at: float | None = None
+    retained_content_bytes: int = 0
+
+
+def _model_content_bytes(value: BaseModel | None) -> int:
+    """Implement the model content bytes operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_model_content_bytes`. It delegates to `encode`,
+        `model_dump_json` while keeping intermediate state local to the owning operation.
+    """
+    return 0 if value is None else len(value.model_dump_json().encode("utf-8"))
+
+
+def _record_content_bytes(record: _EventRecord) -> int:
+    """Measure retained wire content; object overhead remains platform-specific benchmark evidence.
+
+    Args:
+        record: The record value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_record_content_bytes`. It delegates to
+        `_model_content_bytes`, `sum`, `encode`, `values` while keeping intermediate state local to the
+        owning operation.
+    """
+
+    total = _model_content_bytes(record.event)
+    total += sum(
+        len(delivery.delivery_id.encode())
+        + len(delivery.target_bridge_id.encode())
+        + len(delivery.lease_id.encode())
+        + len((delivery.failure_reason or "").encode())
+        for delivery in record.deliveries.values()
+    )
+    total += sum(
+        len(transition.kind.encode())
+        + len((transition.target_bridge_id or "").encode())
+        + len((transition.failure_reason or "").encode())
+        for transition in record.transitions
+    )
+    total += sum(
+        len(action.canonical_request.encode()) + _model_content_bytes(action.result)
+        for action in record.actions.values()
+    )
+    total += sum(
+        len(tool.canonical_request.encode()) + _model_content_bytes(tool.result) for tool in record.tools.values()
+    )
+    total += sum(
+        len(control.canonical_request.encode()) + _model_content_bytes(control.result)
+        for control in record.controls.values()
+    )
+    total += sum(
+        len(runtime_api.canonical_request.encode()) + _model_content_bytes(runtime_api.result)
+        for runtime_api in record.runtime_apis.values()
+    )
+    return total
 
 
 class BrokerAdmissionError(BridgeRegistrationError):
     """Raised when an authenticated bridge violates the broker business contract."""
 
     def __init__(self, code: str, message: str) -> None:
+        """Initialize the broker admission error.
+
+        Args:
+            code: The code value used by the operation.
+            message: Message content associated with the operation.
+
+        Returns:
+            None.
+        """
         super().__init__(message)
         self.code = code
 
 
 class BrokerLedger:
-    """Bounded event ledger; all deadlines are evaluated by the broker clock."""
+    """Own bounded event, delivery, replay, and portable invocation state.
+
+    Active records preserve delivery ordering and lease ownership. Settled
+    records remain only for diagnostics and idempotent result handling, subject
+    to independent count, content-byte, and TTL limits.
+    """
 
     def __init__(
         self,
         *,
         active_capacity: int = 1024,
-        terminal_capacity: int = 16384,
+        terminal_capacity: int = 4096,
+        terminal_content_bytes_capacity: int = 16 * 1024 * 1024,
         terminal_ttl_seconds: float = 3600.0,
         delivery_timeout_seconds: float = 30.0,
         monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
-        if active_capacity < 1 or terminal_capacity < 1:
+        """Initialize the broker ledger.
+
+        Args:
+            active_capacity: Maximum concurrently active events.
+            terminal_capacity: Maximum settled records retained for diagnostics.
+            terminal_content_bytes_capacity: Maximum serialized content retained by settled records.
+            terminal_ttl_seconds: Maximum age of a settled diagnostic record, in seconds.
+            delivery_timeout_seconds: Lease duration before an uncompleted delivery expires.
+            monotonic: Broker-owned monotonic clock, replaceable for deterministic tests.
+
+        Returns:
+            None.
+
+        Security:
+            Authenticated bridges still control event content and churn. Count,
+            retained-content, and TTL bounds are retained because diagnostics and
+            replay detection require history without allowing history to grow
+            with total traffic. See
+            `docs/security/trusted-boundaries.md#broker-retention`.
+        """
+        if active_capacity < 1 or terminal_capacity < 1 or terminal_content_bytes_capacity < 1:
             raise ValueError("broker event capacities must be positive")
         if terminal_ttl_seconds <= 0 or delivery_timeout_seconds <= 0:
             raise ValueError("broker retention and delivery timeouts must be positive")
         self.active_capacity = active_capacity
         self.terminal_capacity = terminal_capacity
+        self.terminal_content_bytes_capacity = terminal_content_bytes_capacity
         self.terminal_ttl_seconds = terminal_ttl_seconds
         self.delivery_timeout_seconds = delivery_timeout_seconds
         self._monotonic = monotonic
@@ -566,6 +966,7 @@ class BrokerLedger:
         self._active_order: deque[str] = deque()
         self._terminal: dict[str, _EventRecord] = {}
         self._terminal_order: deque[str] = deque()
+        self._terminal_content_bytes = 0
         self._delivery_index: dict[str, _EventRecord] = {}
         self._action_index: dict[str, _Action] = {}
         self._tool_index: dict[str, _Tool] = {}
@@ -575,21 +976,49 @@ class BrokerLedger:
 
     @property
     def active_count(self) -> int:
+        """Return the broker ledger's active count.
+
+        Returns:
+            The `int` result produced by the operation.
+        """
         return len(self._active)
 
     @property
     def terminal_count(self) -> int:
+        """Return the broker ledger's terminal count.
+
+        Returns:
+            The `int` result produced by the operation.
+        """
         self.expire()
         return len(self._terminal)
 
+    @property
+    def terminal_content_bytes(self) -> int:
+        """Return the broker ledger's terminal content bytes.
+
+        Returns:
+            The `int` result produced by the operation.
+        """
+        self.expire()
+        return self._terminal_content_bytes
+
     def index_counts(self) -> tuple[int, int]:
-        """Expose bounded internal index sizes for deterministic contract tests."""
+        """Expose bounded internal index sizes for deterministic contract tests.
+
+        Returns:
+            The `tuple[int, int]` result produced by the operation.
+        """
 
         self.expire()
         return len(self._delivery_index), len(self._lanes)
 
     def diagnostic_snapshots(self) -> tuple[LedgerDiagnosticSnapshot, ...]:
-        """Return currently retained raw records for broker-local diagnostics only."""
+        """Return currently retained raw records for broker-local diagnostics only.
+
+        Returns:
+            The `tuple[LedgerDiagnosticSnapshot, ...]` result produced by the operation.
+        """
 
         self.expire()
         event_ids = tuple(reversed(self._active_order)) + tuple(reversed(self._terminal_order))
@@ -611,6 +1040,22 @@ class BrokerLedger:
         ingress: EventIngress,
         sessions: tuple[BridgeSession, ...],
     ) -> BrokerEvent:
+        """Admit one authenticated bridge event and create ordered deliveries.
+
+        Args:
+            session: Authenticated source bridge session.
+            ingress: Validated source identity, topic, ordering key, and payload.
+            sessions: Current authenticated sessions considered for subscriptions.
+
+        Returns:
+            Broker-owned immutable event identity.
+
+        Security:
+            The source cannot choose the kernel event ID or recipients. Active
+            capacity rejects unbounded admission; payload size is bounded by
+            LYIP before this method. The capability is retained for bridge event
+            ingress. See `docs/security/trusted-boundaries.md#broker-retention`.
+        """
         self.expire()
         if self.active_count >= self.active_capacity:
             raise BrokerAdmissionError("active_capacity", "broker active event capacity is exhausted")
@@ -647,6 +1092,14 @@ class BrokerLedger:
         return event
 
     def event_snapshot(self, event_id: str) -> EventSnapshot:
+        """Implement the event snapshot operation for the broker ledger.
+
+        Args:
+            event_id: Stable event identifier.
+
+        Returns:
+            The `EventSnapshot` result produced by the operation.
+        """
         self.expire()
         record = self._active.get(event_id) or self._terminal.get(event_id)
         if record is None:
@@ -663,16 +1116,44 @@ class BrokerLedger:
         )
 
     def offered_deliveries(self, event_id: str) -> tuple[DeliverySnapshot, ...]:
+        """Implement the offered deliveries operation for the broker ledger.
+
+        Args:
+            event_id: Stable event identifier.
+
+        Returns:
+            The `tuple[DeliverySnapshot, ...]` result produced by the operation.
+        """
         snapshot = self.event_snapshot(event_id)
         return tuple(delivery for delivery in snapshot.deliveries if delivery.state is DeliveryState.OFFERED)
 
     def accept_delivery(self, session: BridgeSession, delivery_id: str, lease_id: str) -> DeliverySnapshot:
+        """Accept delivery.
+
+        Args:
+            session: The session value used by the operation.
+            delivery_id: Stable identifier for the delivery.
+            lease_id: Stable identifier for the lease.
+
+        Returns:
+            The `DeliverySnapshot` result produced by the operation.
+        """
         delivery = self._require_delivery(session, delivery_id, lease_id, DeliveryState.OFFERED)
         delivery.state = DeliveryState.ACCEPTED
         self._record_delivery_transition(delivery, "delivery.accepted")
         return self._snapshot_delivery(delivery)
 
     def activate_delivery(self, session: BridgeSession, delivery_id: str, lease_id: str) -> DeliverySnapshot:
+        """Activate delivery.
+
+        Args:
+            session: The session value used by the operation.
+            delivery_id: Stable identifier for the delivery.
+            lease_id: Stable identifier for the lease.
+
+        Returns:
+            The `DeliverySnapshot` result produced by the operation.
+        """
         delivery = self._require_delivery(session, delivery_id, lease_id, DeliveryState.ACCEPTED)
         delivery.state = DeliveryState.ACTIVE
         self._record_delivery_transition(delivery, "delivery.active")
@@ -687,6 +1168,18 @@ class BrokerLedger:
         success: bool,
         failure_reason: str | None = None,
     ) -> DeliverySnapshot:
+        """Complete delivery.
+
+        Args:
+            session: The session value used by the operation.
+            delivery_id: Stable identifier for the delivery.
+            lease_id: Stable identifier for the lease.
+            success: The success value used by the operation.
+            failure_reason: The failure reason value used by the operation.
+
+        Returns:
+            The `DeliverySnapshot` result produced by the operation.
+        """
         snapshot, _next_offer = self.complete_delivery_with_next_offer(
             session,
             delivery_id,
@@ -705,7 +1198,18 @@ class BrokerLedger:
         success: bool,
         failure_reason: str | None = None,
     ) -> tuple[DeliverySnapshot, tuple[BrokerEvent, DeliverySnapshot] | None]:
-        """Complete one delivery and reveal the next FIFO offer, if it became sendable."""
+        """Complete one delivery and reveal the next FIFO offer, if it became sendable.
+
+        Args:
+            session: The session value used by the operation.
+            delivery_id: Stable identifier for the delivery.
+            lease_id: Stable identifier for the lease.
+            success: The success value used by the operation.
+            failure_reason: The failure reason value used by the operation.
+
+        Returns:
+            The `tuple[DeliverySnapshot, tuple[BrokerEvent, DeliverySnapshot] | None]` result produced by the operation.
+        """
 
         delivery = self._require_delivery(session, delivery_id, lease_id, DeliveryState.ACTIVE)
         if success:
@@ -727,6 +1231,22 @@ class BrokerLedger:
         request: ActionRequest,
         sessions: tuple[BridgeSession, ...],
     ) -> RoutedAction:
+        """Route a lease-bound portable action to its unique resource owner.
+
+        Args:
+            session: Authenticated delivery owner requesting the action.
+            request: Lease, correlation, action kind, resource key, and payload.
+            sessions: Current sessions whose manifests declare resource ownership.
+
+        Returns:
+            Stable routed action; exact correlation replays return `replayed=True`.
+
+        Security:
+            Actions cross framework ownership boundaries. An active delivery,
+            exact lease, unique owner, and canonical replay comparison prevent
+            confused-deputy and correlation-reuse behavior. Routing is retained
+            for protocol-neutral actions.
+        """
         delivery = self._require_delivery(session, request.delivery_id, request.lease_id, DeliveryState.ACTIVE)
         record = self._delivery_index[delivery.delivery_id]
         canonical = json.dumps(
@@ -757,6 +1277,22 @@ class BrokerLedger:
     def route_tool(
         self, session: BridgeSession, request: ToolInvoke, sessions: tuple[BridgeSession, ...]
     ) -> RoutedTool:
+        """Route a lease-bound Tool invocation to its unique manifest owner.
+
+        Args:
+            session: Authenticated delivery owner invoking the Tool.
+            request: Lease-bound Tool invocation with authorization context.
+            sessions: Current sessions whose manifests declare Tool ownership.
+
+        Returns:
+            Stable routed invocation, including replay status.
+
+        Security:
+            Tools may expose privileged capabilities. Delivery lease ownership,
+            unique manifest ownership, and byte-for-byte canonical replay checks
+            are retained because the Broker must route approved Tools without
+            executing them itself.
+        """
         delivery = self._require_delivery(session, request.delivery_id, request.lease_id, DeliveryState.ACTIVE)
         record = self._delivery_index[delivery.delivery_id]
         canonical = json.dumps(
@@ -793,6 +1329,22 @@ class BrokerLedger:
     def route_control(
         self, session: BridgeSession, request: BridgeControlInvoke, sessions: tuple[BridgeSession, ...]
     ) -> RoutedControl:
+        """Route a control invocation after binding authorization to its event.
+
+        Args:
+            session: Authenticated delivery owner invoking the control.
+            request: Lease-bound control request and authorization projection.
+            sessions: Current sessions whose manifests declare control ownership.
+
+        Returns:
+            Stable routed control invocation, including replay status.
+
+        Security:
+            Controls can mutate bridge state. Event, runtime, bot, actor, lease,
+            owner, and canonical correlation checks prevent a caller from
+            borrowing another delivery's authority. Controls remain necessary
+            for explicitly declared bridge management operations.
+        """
         delivery = self._require_delivery(session, request.delivery_id, request.lease_id, DeliveryState.ACTIVE)
         record = self._delivery_index[delivery.delivery_id]
         authorization = request.authorization
@@ -854,6 +1406,22 @@ class BrokerLedger:
     def route_runtime_api(
         self, session: BridgeSession, request: RuntimeApiInvoke, sessions: tuple[BridgeSession, ...]
     ) -> RoutedRuntimeApi:
+        """Route a versioned runtime API call under event-scoped authorization.
+
+        Args:
+            session: Authenticated delivery owner making the call.
+            request: Runtime kind, version, API ID, source identity, and arguments.
+            sessions: Current sessions whose manifests declare runtime APIs.
+
+        Returns:
+            Stable routed runtime API invocation, including replay status.
+
+        Security:
+            Runtime APIs preserve framework-specific capabilities. Source event,
+            runtime, bot, actor, lease, version, API catalog, owner, and replay
+            checks retain that capability without exposing an unrestricted RPC
+            surface.
+        """
         delivery = self._require_delivery(session, request.delivery_id, request.lease_id, DeliveryState.ACTIVE)
         record = self._delivery_index[delivery.delivery_id]
         authorization = request.authorization
@@ -939,6 +1507,19 @@ class BrokerLedger:
         error_code: str | None = None,
         error_details: Mapping[str, JsonValue] | None = None,
     ) -> ToolResult:
+        """Complete tool.
+
+        Args:
+            session: The session value used by the operation.
+            invocation_id: Stable identifier for the invocation.
+            success: The success value used by the operation.
+            result: Result value produced by the preceding operation.
+            error_code: The error code value used by the operation.
+            error_details: The error details value used by the operation.
+
+        Returns:
+            The `ToolResult` result produced by the operation.
+        """
         self.expire()
         tool = self._tool_index.get(invocation_id)
         if tool is None:
@@ -957,6 +1538,7 @@ class BrokerLedger:
             tool.result = response
             record = self._record_for_tool(tool)
             self._record_transition(record, "tool.completed", target_bridge_id=session.bridge_id, success=success)
+            self._refresh_terminal_content_size(record)
         elif tool.result != response:
             raise BrokerAdmissionError("tool_result_conflict", "Tool result conflicts with retained result")
         return tool.result
@@ -971,6 +1553,19 @@ class BrokerLedger:
         error_code: str | None = None,
         error_details: Mapping[str, JsonValue] | None = None,
     ) -> BridgeControlResult:
+        """Complete control.
+
+        Args:
+            session: The session value used by the operation.
+            invocation_id: Stable identifier for the invocation.
+            success: The success value used by the operation.
+            result: Result value produced by the preceding operation.
+            error_code: The error code value used by the operation.
+            error_details: The error details value used by the operation.
+
+        Returns:
+            The `BridgeControlResult` result produced by the operation.
+        """
         self.expire()
         control = self._control_index.get(invocation_id)
         if control is None:
@@ -989,6 +1584,7 @@ class BrokerLedger:
             control.result = response
             record = self._record_for_control(control)
             self._record_transition(record, "control.completed", target_bridge_id=session.bridge_id, success=success)
+            self._refresh_terminal_content_size(record)
         elif control.result != response:
             raise BrokerAdmissionError("control_result_conflict", "control result conflicts with retained result")
         return control.result
@@ -1003,6 +1599,19 @@ class BrokerLedger:
         error_code: str | None = None,
         error_details: Mapping[str, JsonValue] | None = None,
     ) -> RuntimeApiResult:
+        """Complete runtime api.
+
+        Args:
+            session: The session value used by the operation.
+            invocation_id: Stable identifier for the invocation.
+            success: The success value used by the operation.
+            result: Result value produced by the preceding operation.
+            error_code: The error code value used by the operation.
+            error_details: The error details value used by the operation.
+
+        Returns:
+            The `RuntimeApiResult` result produced by the operation.
+        """
         self.expire()
         runtime_api = self._runtime_api_index.get(invocation_id)
         if runtime_api is None:
@@ -1023,6 +1632,7 @@ class BrokerLedger:
             self._record_transition(
                 record, "runtime_api.completed", target_bridge_id=session.bridge_id, success=success
             )
+            self._refresh_terminal_content_size(record)
         elif runtime_api.result != response:
             raise BrokerAdmissionError(
                 "runtime_api_result_conflict",
@@ -1031,6 +1641,14 @@ class BrokerLedger:
         return runtime_api.result
 
     def tool_route(self, invocation_id: str) -> RoutedTool:
+        """Implement the tool route operation for the broker ledger.
+
+        Args:
+            invocation_id: Stable identifier for the invocation.
+
+        Returns:
+            The `RoutedTool` result produced by the operation.
+        """
         self.expire()
         tool = self._tool_index.get(invocation_id)
         if tool is None:
@@ -1038,6 +1656,15 @@ class BrokerLedger:
         return tool.routed
 
     def tool_result(self, invocation_id: str, session: BridgeSession) -> ToolResult | None:
+        """Implement the tool result operation for the broker ledger.
+
+        Args:
+            invocation_id: Stable identifier for the invocation.
+            session: The session value used by the operation.
+
+        Returns:
+            The `ToolResult | None` result produced by the operation.
+        """
         tool = self._tool_index.get(invocation_id)
         if tool is None:
             raise BrokerAdmissionError("unknown_tool_invocation", "Tool invocation is not retained")
@@ -1046,6 +1673,14 @@ class BrokerLedger:
         return tool.result
 
     def control_route(self, invocation_id: str) -> RoutedControl:
+        """Implement the control route operation for the broker ledger.
+
+        Args:
+            invocation_id: Stable identifier for the invocation.
+
+        Returns:
+            The `RoutedControl` result produced by the operation.
+        """
         self.expire()
         control = self._control_index.get(invocation_id)
         if control is None:
@@ -1053,6 +1688,15 @@ class BrokerLedger:
         return control.routed
 
     def control_result(self, invocation_id: str, session: BridgeSession) -> BridgeControlResult | None:
+        """Implement the control result operation for the broker ledger.
+
+        Args:
+            invocation_id: Stable identifier for the invocation.
+            session: The session value used by the operation.
+
+        Returns:
+            The `BridgeControlResult | None` result produced by the operation.
+        """
         control = self._control_index.get(invocation_id)
         if control is None:
             raise BrokerAdmissionError("unknown_control_invocation", "control invocation is not retained")
@@ -1061,6 +1705,14 @@ class BrokerLedger:
         return control.result
 
     def runtime_api_route(self, invocation_id: str) -> RoutedRuntimeApi:
+        """Implement the runtime api route operation for the broker ledger.
+
+        Args:
+            invocation_id: Stable identifier for the invocation.
+
+        Returns:
+            The `RoutedRuntimeApi` result produced by the operation.
+        """
         self.expire()
         runtime_api = self._runtime_api_index.get(invocation_id)
         if runtime_api is None:
@@ -1068,6 +1720,15 @@ class BrokerLedger:
         return runtime_api.routed
 
     def runtime_api_result(self, invocation_id: str, session: BridgeSession) -> RuntimeApiResult | None:
+        """Implement the runtime api result operation for the broker ledger.
+
+        Args:
+            invocation_id: Stable identifier for the invocation.
+            session: The session value used by the operation.
+
+        Returns:
+            The `RuntimeApiResult | None` result produced by the operation.
+        """
         runtime_api = self._runtime_api_index.get(invocation_id)
         if runtime_api is None:
             raise BrokerAdmissionError("unknown_runtime_api_invocation", "runtime API invocation is not retained")
@@ -1083,6 +1744,17 @@ class BrokerLedger:
         success: bool,
         payload: JsonValue = None,
     ) -> ActionResult:
+        """Complete action.
+
+        Args:
+            session: The session value used by the operation.
+            action_id: Stable identifier for the action.
+            success: The success value used by the operation.
+            payload: JSON-safe payload carried by the operation.
+
+        Returns:
+            The `ActionResult` result produced by the operation.
+        """
         self.expire()
         action = self._action_index.get(action_id)
         if action is None:
@@ -1104,6 +1776,7 @@ class BrokerLedger:
                 target_bridge_id=session.bridge_id,
                 success=success,
             )
+            self._refresh_terminal_content_size(record)
         elif action.result.success != success or self._canonical_json(action.result.payload) != self._canonical_json(
             payload
         ):
@@ -1115,10 +1788,29 @@ class BrokerLedger:
 
     @staticmethod
     def _canonical_json(value: JsonValue) -> str:
+        """Implement the canonical json operation for the broker ledger.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `str` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `BrokerLedger._canonical_json`. It delegates to `dumps`,
+            `_thaw` while keeping intermediate state local to the owning operation.
+        """
         return json.dumps(_thaw(value), sort_keys=True, separators=(",", ":"))
 
     def action_route(self, action_id: str) -> RoutedAction:
-        """Return retained action routing only for broker-side result forwarding."""
+        """Return retained action routing only for broker-side result forwarding.
+
+        Args:
+            action_id: Stable identifier for the action.
+
+        Returns:
+            The `RoutedAction` result produced by the operation.
+        """
 
         self.expire()
         action = self._action_index.get(action_id)
@@ -1127,7 +1819,15 @@ class BrokerLedger:
         return action.routed
 
     def action_result(self, action_id: str, session: BridgeSession) -> ActionResult | None:
-        """Return a retained result for replay, without dispatching the owner again."""
+        """Return a retained result for replay, without dispatching the owner again.
+
+        Args:
+            action_id: Stable identifier for the action.
+            session: The session value used by the operation.
+
+        Returns:
+            The `ActionResult | None` result produced by the operation.
+        """
 
         self.expire()
         action = self._action_index.get(action_id)
@@ -1138,6 +1838,14 @@ class BrokerLedger:
         return action.result
 
     def disconnect_bridge(self, bridge_id: str) -> None:
+        """Implement the disconnect bridge operation for the broker ledger.
+
+        Args:
+            bridge_id: Stable identifier for the bridge.
+
+        Returns:
+            None.
+        """
         self.expire()
         for record in tuple(self._active.values()):
             for delivery in tuple(record.deliveries.values()):
@@ -1148,6 +1856,11 @@ class BrokerLedger:
                     self._terminalize_delivery(delivery)
 
     def expire(self) -> None:
+        """Implement the expire operation for the broker ledger.
+
+        Returns:
+            None.
+        """
         now = self._monotonic()
         for record in tuple(self._active.values()):
             for delivery in tuple(record.deliveries.values()):
@@ -1163,25 +1876,89 @@ class BrokerLedger:
         self._expire_terminal_records(now)
 
     def _expire_terminal_records(self, now: float) -> None:
+        """Evict settled records until every terminal-retention bound is satisfied.
+
+        Args:
+            now: Current monotonic timestamp used for TTL comparisons.
+
+        Returns:
+            None.
+
+        Notes:
+            Records are removed oldest-first when the record count, retained-content byte total, or TTL
+            exceeds its configured limit. Every secondary action, tool, control, and runtime-API index is
+            removed with the owning event so an evicted record cannot remain reachable through another map.
+
+        Security:
+            This is the final memory-residency guard for settled broker content. The three independent limits
+            are intentional: a count limit alone does not protect against a small number of very large payloads.
+            See `docs/security/trusted-boundaries.md#broker-retention`.
+        """
         while self._terminal_order:
             event_id = self._terminal_order[0]
             record = self._terminal[event_id]
-            terminal_at = record.terminal_at if record.terminal_at is not None else now
-            if len(self._terminal) <= self.terminal_capacity and now - terminal_at < self.terminal_ttl_seconds:
+            if not self._terminal_limits_exceeded(record, now):
                 break
             self._terminal_order.popleft()
-            self._terminal.pop(event_id, None)
-            for action_id in tuple(action.routed.action_id for action in record.actions.values()):
-                self._action_index.pop(action_id, None)
-            for invocation_id in tuple(tool.routed.invocation_id for tool in record.tools.values()):
-                self._tool_index.pop(invocation_id, None)
-            for invocation_id in tuple(control.routed.invocation_id for control in record.controls.values()):
-                self._control_index.pop(invocation_id, None)
-            for invocation_id in tuple(api.routed.invocation_id for api in record.runtime_apis.values()):
-                self._runtime_api_index.pop(invocation_id, None)
+            self._evict_terminal_record(event_id, record)
+
+    def _terminal_limits_exceeded(self, record: _EventRecord, now: float) -> bool:
+        """Return whether the oldest settled record must be evicted.
+
+        Args:
+            record: Oldest terminal record currently retained by the ledger.
+            now: Current monotonic timestamp used for TTL comparisons.
+
+        Returns:
+            `True` when record count, retained bytes, or age is outside its configured bound.
+
+        Notes:
+            This predicate is evaluated only for the oldest record. Count and byte overages therefore evict in
+            insertion order, while an expired oldest record proves that all earlier retention has already ended.
+        """
+        terminal_at = record.terminal_at if record.terminal_at is not None else now
+        return (
+            len(self._terminal) > self.terminal_capacity
+            or self._terminal_content_bytes > self.terminal_content_bytes_capacity
+            or now - terminal_at >= self.terminal_ttl_seconds
+        )
+
+    def _evict_terminal_record(self, event_id: str, record: _EventRecord) -> None:
+        """Remove one settled record and every secondary route index that can reach it.
+
+        Args:
+            event_id: Kernel event identifier at the head of the terminal order.
+            record: Terminal record being removed.
+
+        Returns:
+            None.
+
+        Notes:
+            The caller removes the ordering entry first. This method then adjusts byte accounting and clears action,
+            tool, control, and runtime-API replay indexes owned by the event.
+        """
+        self._terminal.pop(event_id, None)
+        self._terminal_content_bytes -= record.retained_content_bytes
+        for action in record.actions.values():
+            self._action_index.pop(action.routed.action_id, None)
+        for tool in record.tools.values():
+            self._tool_index.pop(tool.routed.invocation_id, None)
+        for control in record.controls.values():
+            self._control_index.pop(control.routed.invocation_id, None)
+        for api in record.runtime_apis.values():
+            self._runtime_api_index.pop(api.routed.invocation_id, None)
 
     @staticmethod
     def event_subscribers(event: BrokerEvent, sessions: tuple[BridgeSession, ...]) -> tuple[BridgeSession, ...]:
+        """Implement the event subscribers operation for the broker ledger.
+
+        Args:
+            event: Event associated with the operation.
+            sessions: The sessions value used by the operation.
+
+        Returns:
+            The `tuple[BridgeSession, ...]` result produced by the operation.
+        """
         return tuple(
             session
             for session in sessions
@@ -1190,6 +1967,19 @@ class BrokerLedger:
         )
 
     def _offer_next(self, lane: tuple[str, str, str]) -> _Delivery | None:
+        """Offer next.
+
+        Args:
+            lane: The lane value used by the operation.
+
+        Returns:
+            The `_Delivery | None` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `BrokerLedger._offer_next`. It delegates to `get`,
+            `_delivery`, `token_urlsafe`, `_monotonic` while keeping intermediate state local to the owning
+            operation.
+        """
         queue = self._lanes.get(lane)
         if not queue:
             return None
@@ -1209,6 +1999,21 @@ class BrokerLedger:
         lease_id: str,
         required_state: DeliveryState,
     ) -> _Delivery:
+        """Return delivery, failing when it is unavailable.
+
+        Args:
+            session: The session value used by the operation.
+            delivery_id: Stable identifier for the delivery.
+            lease_id: Stable identifier for the lease.
+            required_state: The required state value used by the operation.
+
+        Returns:
+            The `_Delivery` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `BrokerLedger._require_delivery`. It delegates to `expire`,
+            `get`, `compare_digest` while keeping intermediate state local to the owning operation.
+        """
         self.expire()
         record = self._delivery_index.get(delivery_id)
         if record is None:
@@ -1223,6 +2028,20 @@ class BrokerLedger:
         return delivery
 
     def _resolve_owner(self, kind: str, resource_key: str, sessions: tuple[BridgeSession, ...]) -> BridgeSession:
+        """Resolve owner.
+
+        Args:
+            kind: The kind value used by the operation.
+            resource_key: The resource key value used by the operation.
+            sessions: The sessions value used by the operation.
+
+        Returns:
+            The `BridgeSession` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `BrokerLedger._resolve_owner`. It delegates to `matches`,
+            `append`, `_select_owner`, `max` while keeping intermediate state local to the owning operation.
+        """
         exact_candidates: list[BridgeSession] = []
         prefix_candidates: list[tuple[int, BridgeSession]] = []
         for session in sessions:
@@ -1252,6 +2071,18 @@ class BrokerLedger:
 
     @staticmethod
     def _select_owner(candidates: list[BridgeSession]) -> BridgeSession | None:
+        """Select owner.
+
+        Args:
+            candidates: The candidates value used by the operation.
+
+        Returns:
+            The `BridgeSession | None` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `BrokerLedger._select_owner`. It performs the local state
+            transition directly and is not a stable extension boundary.
+        """
         if not candidates:
             return None
         for access in (BridgeAccess.FULL, BridgeAccess.LIMITED):
@@ -1266,6 +2097,19 @@ class BrokerLedger:
         return None
 
     def _terminalize_delivery(self, delivery: _Delivery) -> _Delivery | None:
+        """Implement the terminalize delivery operation for the broker ledger.
+
+        Args:
+            delivery: The delivery value used by the operation.
+
+        Returns:
+            The `_Delivery | None` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `BrokerLedger._terminalize_delivery`. It delegates to `get`,
+            `popleft`, `remove`, `_offer_next` while keeping intermediate state local to the owning
+            operation.
+        """
         record = self._delivery_index[delivery.delivery_id]
         queue = self._lanes.get(delivery.lane)
         next_delivery = None
@@ -1283,6 +2127,24 @@ class BrokerLedger:
         return next_delivery
 
     def _settle(self, record: _EventRecord) -> None:
+        """Move a fully delivered event from active routing state into bounded history.
+
+        Args:
+            record: Active event record whose deliveries have all reached terminal states.
+
+        Returns:
+            None.
+
+        Notes:
+            The method drops active delivery indexes before measuring retained content, then immediately
+            applies terminal eviction. Immediate enforcement is required because no later broker operation is
+            guaranteed to run after settlement.
+
+        Security:
+            Settled records are retained for diagnostics and replay observability, but retention is deliberately
+            bounded by count, serialized content size, and age. See
+            `docs/security/trusted-boundaries.md#broker-retention`.
+        """
         if record.terminal_at is not None:
             return
         record.terminal_at = self._monotonic()
@@ -1292,18 +2154,68 @@ class BrokerLedger:
         self._active_order.remove(event_id)
         for delivery_id in record.deliveries:
             self._delivery_index.pop(delivery_id, None)
+        record.retained_content_bytes = _record_content_bytes(record)
         self._terminal[event_id] = record
         self._terminal_order.append(event_id)
+        self._terminal_content_bytes += record.retained_content_bytes
         # Settling can exceed the retention cap before the next public operation.
         self._expire_terminal_records(record.terminal_at)
 
+    def _refresh_terminal_content_size(self, record: _EventRecord) -> None:
+        """Re-account and re-enforce retention after a terminal record gains content.
+
+        Args:
+            record: Settled record updated by a late result or transition.
+
+        Returns:
+            None.
+
+        Notes:
+            Terminal records can receive a result after the event itself settles. The byte delta must therefore
+            be applied to the ledger total and eviction rerun instead of assuming settlement was the final size.
+
+        Security:
+            Rechecking the byte ceiling closes the late-result path that could otherwise grow retained content
+            after admission. See `docs/security/trusted-boundaries.md#broker-retention`.
+        """
+        if record.terminal_at is None:
+            return
+        previous = record.retained_content_bytes
+        record.retained_content_bytes = _record_content_bytes(record)
+        self._terminal_content_bytes += record.retained_content_bytes - previous
+        self._expire_terminal_records(self._monotonic())
+
     def _delivery(self, delivery_id: str) -> _Delivery:
+        """Implement the delivery operation for the broker ledger.
+
+        Args:
+            delivery_id: Stable identifier for the delivery.
+
+        Returns:
+            The `_Delivery` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `BrokerLedger._delivery`. It delegates to `get` while keeping
+            intermediate state local to the owning operation.
+        """
         record = self._delivery_index.get(delivery_id)
         if record is None:
             raise BrokerAdmissionError("unknown_delivery", "delivery is no longer active")
         return record.deliveries[delivery_id]
 
     def _snapshot_delivery(self, delivery: _Delivery) -> DeliverySnapshot:
+        """Return a snapshot of delivery.
+
+        Args:
+            delivery: The delivery value used by the operation.
+
+        Returns:
+            The `DeliverySnapshot` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `BrokerLedger._snapshot_delivery`. It delegates to `max`,
+            `int`, `_monotonic` while keeping intermediate state local to the owning operation.
+        """
         remaining = 0
         if delivery.lease_deadline is not None and delivery.state not in _TERMINAL_STATES:
             remaining = max(0, int((delivery.lease_deadline - self._monotonic()) * 1000))
@@ -1318,24 +2230,72 @@ class BrokerLedger:
         )
 
     def _record_for_action(self, action: _Action) -> _EventRecord:
+        """Record for action.
+
+        Args:
+            action: Action request being processed.
+
+        Returns:
+            The `_EventRecord` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `BrokerLedger._record_for_action`. It delegates to `get`
+            while keeping intermediate state local to the owning operation.
+        """
         record = self._active.get(action.routed.event_id) or self._terminal.get(action.routed.event_id)
         if record is None:
             raise BrokerAdmissionError("unknown_action", "broker action is not retained")
         return record
 
     def _record_for_tool(self, tool: _Tool) -> _EventRecord:
+        """Record for tool.
+
+        Args:
+            tool: The tool value used by the operation.
+
+        Returns:
+            The `_EventRecord` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `BrokerLedger._record_for_tool`. It delegates to `get` while
+            keeping intermediate state local to the owning operation.
+        """
         record = self._active.get(tool.routed.event_id) or self._terminal.get(tool.routed.event_id)
         if record is None:
             raise BrokerAdmissionError("unknown_tool_invocation", "Tool invocation event is not retained")
         return record
 
     def _record_for_control(self, control: _Control) -> _EventRecord:
+        """Record for control.
+
+        Args:
+            control: The control value used by the operation.
+
+        Returns:
+            The `_EventRecord` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `BrokerLedger._record_for_control`. It delegates to `get`
+            while keeping intermediate state local to the owning operation.
+        """
         record = self._active.get(control.routed.event_id) or self._terminal.get(control.routed.event_id)
         if record is None:
             raise BrokerAdmissionError("unknown_control_invocation", "control invocation event is not retained")
         return record
 
     def _record_for_runtime_api(self, runtime_api: _RuntimeApi) -> _EventRecord:
+        """Record for runtime api.
+
+        Args:
+            runtime_api: The runtime api value used by the operation.
+
+        Returns:
+            The `_EventRecord` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `BrokerLedger._record_for_runtime_api`. It delegates to `get`
+            while keeping intermediate state local to the owning operation.
+        """
         record = self._active.get(runtime_api.routed.event_id) or self._terminal.get(runtime_api.routed.event_id)
         if record is None:
             raise BrokerAdmissionError(
@@ -1351,6 +2311,20 @@ class BrokerLedger:
         *,
         success: bool | None = None,
     ) -> None:
+        """Record delivery transition.
+
+        Args:
+            delivery: The delivery value used by the operation.
+            kind: The kind value used by the operation.
+            success: The success value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `BrokerLedger._record_delivery_transition`. It delegates to
+            `get`, `_record_transition` while keeping intermediate state local to the owning operation.
+        """
         record = self._delivery_index.get(delivery.delivery_id)
         if record is None:
             raise BrokerAdmissionError("unknown_delivery", "delivery is no longer active")
@@ -1373,6 +2347,23 @@ class BrokerLedger:
         success: bool | None = None,
         failure_reason: str | None = None,
     ) -> None:
+        """Record transition.
+
+        Args:
+            record: The record value used by the operation.
+            kind: The kind value used by the operation.
+            target_bridge_id: Stable identifier for the target bridge.
+            state: The state value used by the operation.
+            success: The success value used by the operation.
+            failure_reason: The failure reason value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `BrokerLedger._record_transition`. It delegates to `append`,
+            `max`, `int`, `_monotonic` while keeping intermediate state local to the owning operation.
+        """
         record.transitions.append(
             LedgerTransition(
                 order=len(record.transitions),

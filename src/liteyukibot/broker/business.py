@@ -82,7 +82,18 @@ def encode_business_message(
     sequence: int,
     lease_id: str,
 ) -> LyipFrame:
-    """Encode one v7 business message without transmitting a clock deadline."""
+    """Encode one v7 business message without transmitting a clock deadline.
+
+    Args:
+        message: Message content associated with the operation.
+        generation: Positive protocol or deployment generation.
+        stream_id: Stable identifier for the stream.
+        sequence: Monotonic sequence number for the stream.
+        lease_id: Stable identifier for the lease.
+
+    Returns:
+        The `LyipFrame` result produced by the operation.
+    """
 
     return LyipFrame(
         protocol=1,
@@ -97,7 +108,14 @@ def encode_business_message(
 
 
 def decode_business_message(frame: LyipFrame) -> BrokerBusinessMessage:
-    """Decode exactly one known v7 business catalog message."""
+    """Decode exactly one known v7 business catalog message.
+
+    Args:
+        frame: The frame value used by the operation.
+
+    Returns:
+        The `BrokerBusinessMessage` result produced by the operation.
+    """
 
     if frame.lane is not LyipLane.BUSINESS:
         raise BrokerBusinessWireError("broker business message arrived on the wrong LYIP lane")

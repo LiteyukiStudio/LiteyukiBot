@@ -64,6 +64,30 @@ class InstanceDaemon:
         process_launcher: Callable[[ProcessSpec], Any] | None = None,
         orphan_process_terminator: Callable[[int], Awaitable[None]] | None = None,
     ) -> None:
+        """Initialize the instance daemon.
+
+        Args:
+            paths: The paths value used by the operation.
+            settings: Validated application settings.
+            worker_command: The worker command value used by the operation.
+            worker_environment: The worker environment value used by the operation.
+            worker_descriptor: The worker descriptor value used by the operation.
+            development: The development value used by the operation.
+            webui: The webui value used by the operation.
+            watch_root: The watch root value used by the operation.
+            validate_configuration: The validate configuration value used by the operation.
+            broker_endpoint: The broker endpoint value used by the operation.
+            broker_generation: The broker generation value used by the operation.
+            broker_diagnostics_token: The broker diagnostics token value used by the operation.
+            broker_command: The broker command value used by the operation.
+            bridge_commands: The bridge commands value used by the operation.
+            broker_management_token: The broker management token value used by the operation.
+            process_launcher: The process launcher value used by the operation.
+            orphan_process_terminator: The orphan process terminator value used by the operation.
+
+        Returns:
+            None.
+        """
         self.paths = paths
         self.settings = settings
         self.worker_command = tuple(worker_command)
@@ -141,9 +165,34 @@ class InstanceDaemon:
             )
 
     def _build_graph(self, profile_python: Path | None = None) -> ManagedProcessGraph:
+        """Build graph.
+
+        Args:
+            profile_python: The profile python value used by the operation.
+
+        Returns:
+            The `ManagedProcessGraph` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._build_graph`. It delegates to `append`,
+            `command_for`, `extend`, `sorted` while keeping intermediate state local to the owning
+            operation.
+        """
         base_environment = {**os.environ, **self.worker_environment}
 
         def command_for(command: Sequence[str]) -> tuple[str, ...]:
+            """Implement the command for operation for the build graph.
+
+            Args:
+                command: Command or operation name to execute.
+
+            Returns:
+                The `tuple[str, ...]` result produced by the operation.
+
+            Notes:
+                Internal implementation detail for `InstanceDaemon._build_graph.command_for`. It performs the
+                local state transition directly and is not a stable extension boundary.
+            """
             if profile_python is None or not command:
                 return tuple(command)
             return (str(profile_python), *tuple(command)[1:])
@@ -170,6 +219,11 @@ class InstanceDaemon:
         )
 
     def status(self) -> dict[str, object]:
+        """Return the status of the instance daemon operation.
+
+        Returns:
+            The requested `dict[str, object]` value.
+        """
         journal = self.update_journal.load()
         return {
             "schema_version": 2,
@@ -188,6 +242,11 @@ class InstanceDaemon:
         }
 
     async def run(self) -> int:
+        """Run the instance daemon until its lifecycle completes.
+
+        Returns:
+            The `int` result produced by the operation.
+        """
         self.paths.root.mkdir(parents=True, exist_ok=True)
         try:
             await self._recover_interrupted_update()
@@ -230,6 +289,15 @@ class InstanceDaemon:
             await self.control.stop()
 
     async def _start_worker(self) -> None:
+        """Start worker.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._start_worker`. It delegates to `start`,
+            `get`, `_publish_webui_event` while keeping intermediate state local to the owning operation.
+        """
         await self._graph.start()
         self.worker = self._graph.processes.get("kernel")
         if self.worker is None:
@@ -237,6 +305,16 @@ class InstanceDaemon:
         await self._publish_webui_event("reset", {"reason": "worker_started"})
 
     async def _wait_for_worker_change(self) -> str:
+        """Wait for for worker change.
+
+        Returns:
+            The `str` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._wait_for_worker_change`. It delegates to
+            `create_task`, `wait`, `cancel`, `gather` while keeping intermediate state local to the owning
+            operation.
+        """
         assert self.worker is not None
         worker_exit = asyncio.create_task(self.worker.wait(), name="daemon-worker-exit")
         stop_wait = asyncio.create_task(self._stop_event.wait(), name="daemon-stop")
@@ -255,10 +333,28 @@ class InstanceDaemon:
         return "exit"
 
     async def _terminate_worker(self) -> None:
+        """Implement the terminate worker operation for the instance daemon.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._terminate_worker`. It delegates to `stop`
+            while keeping intermediate state local to the owning operation.
+        """
         self.worker = None
         await self._graph.stop()
 
     def _can_restart(self) -> bool:
+        """Implement the can restart operation for the instance daemon.
+
+        Returns:
+            Whether the requested condition is satisfied.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._can_restart`. It delegates to `monotonic`,
+            `popleft`, `append` while keeping intermediate state local to the owning operation.
+        """
         now = monotonic()
         while self._failures and now - self._failures[0] > self.settings.restart_window_seconds:
             self._failures.popleft()
@@ -266,6 +362,15 @@ class InstanceDaemon:
         return len(self._failures) <= self.settings.restart_limit
 
     def _restart_delay(self) -> float:
+        """Implement the restart delay operation for the instance daemon.
+
+        Returns:
+            The `float` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._restart_delay`. It delegates to `max`,
+            `min`, `float` while keeping intermediate state local to the owning operation.
+        """
         exponent = max(0, len(self._failures) - 1)
         delay = min(
             self.settings.restart_backoff_max_seconds,
@@ -274,6 +379,16 @@ class InstanceDaemon:
         return float(delay)
 
     def _operation_audit_key(self) -> bytes:
+        """Implement the operation audit key operation for the instance daemon.
+
+        Returns:
+            The `bytes` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._operation_audit_key`. It delegates to
+            `mkdir`, `read_bytes`, `token_bytes`, `open` while keeping intermediate state local to the
+            owning operation.
+        """
         path = self.paths.root / "operations.audit-key"
         path.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -293,6 +408,18 @@ class InstanceDaemon:
         return key
 
     async def _request_webui_open(self, _request: Mapping[str, Any]) -> dict[str, str]:
+        """Request webui open.
+
+        Args:
+            _request: The request value used by the operation.
+
+        Returns:
+            The `dict[str, str]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._request_webui_open`. It delegates to
+            `_start_webui`, `open` while keeping intermediate state local to the owning operation.
+        """
         if self.webui.mode == "disabled":
             raise PermissionError("WebUI is disabled by configuration")
         await self._start_webui()
@@ -300,14 +427,45 @@ class InstanceDaemon:
         return {"url": await self._webui_server.open()}
 
     async def _request_webui_status(self, _request: Mapping[str, Any]) -> dict[str, object]:
+        """Request webui status.
+
+        Args:
+            _request: The request value used by the operation.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._request_webui_status`. It delegates to
+            `_webui_status` while keeping intermediate state local to the owning operation.
+        """
         return self._webui_status()
 
     def _webui_status(self) -> dict[str, object]:
+        """Implement the webui status operation for the instance daemon.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._webui_status`. It delegates to `status`
+            while keeping intermediate state local to the owning operation.
+        """
         if self._webui_server is None:
             return {"state": "disabled" if self.webui.mode == "disabled" else "stopped", "mode": self.webui.mode}
         return {**self._webui_server.status(), "mode": self.webui.mode}
 
     async def _start_webui(self) -> None:
+        """Start webui.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._start_webui`. It delegates to `cast`,
+            `start`, `create_task`, `_watch_broker_diagnostics` while keeping intermediate state local to
+            the owning operation.
+        """
         if self._webui_server is not None:
             return
         try:
@@ -328,6 +486,15 @@ class InstanceDaemon:
             )
 
     async def _stop_webui(self) -> None:
+        """Stop webui.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._stop_webui`. It delegates to `cancel`,
+            `gather`, `stop`, `clear` while keeping intermediate state local to the owning operation.
+        """
         if self._broker_watch_task is not None:
             self._broker_watch_task.cancel()
             await asyncio.gather(self._broker_watch_task, return_exceptions=True)
@@ -342,11 +509,24 @@ class InstanceDaemon:
             self._broker_diagnostics = None
 
     async def issue_ticket(self) -> str:
+        """Implement the issue ticket operation for the instance daemon.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         ticket = secrets.token_urlsafe(32)
         self._webui_tickets[ticket] = monotonic() + self.webui.ticket_ttl_seconds
         return ticket
 
     async def redeem_ticket(self, ticket: str) -> Any:
+        """Redeem ticket.
+
+        Args:
+            ticket: The ticket value used by the operation.
+
+        Returns:
+            The `Any` result produced by the operation.
+        """
         expiry = self._webui_tickets.pop(ticket, None)
         if expiry is None or expiry < monotonic():
             return None
@@ -355,6 +535,14 @@ class InstanceDaemon:
         return WebUiPrincipal(f"daemon:{self.paths.name}", frozenset({"liteyukibot.management.admin"}))
 
     async def authorize_session(self, principal: Any) -> bool:
+        """Authorize session.
+
+        Args:
+            principal: Authenticated principal requesting the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
         return (
             getattr(principal, "subject", None) == f"daemon:{self.paths.name}"
             and "liteyukibot.management.admin" in getattr(principal, "capabilities", ())
@@ -362,6 +550,14 @@ class InstanceDaemon:
         )
 
     async def bootstrap(self, _principal: Any) -> dict[str, object]:
+        """Implement the bootstrap operation for the instance daemon.
+
+        Args:
+            _principal: The principal value used by the operation.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+        """
         snapshot = await self._worker_webui_control("daemon.webui.snapshot")
         status = snapshot.get("status", {}) if isinstance(snapshot, Mapping) else {}
         runtime_health = status.get("runtime_health", {}) if isinstance(status, Mapping) else {}
@@ -373,19 +569,53 @@ class InstanceDaemon:
         }
 
     async def presentation(self, _principal: Any, locale: str | None) -> dict[str, object]:
+        """Implement the presentation operation for the instance daemon.
+
+        Args:
+            _principal: The principal value used by the operation.
+            locale: The locale value used by the operation.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+        """
         request = {"locale": locale} if locale is not None else {}
         value = await self._worker_webui_control("daemon.webui.presentation", **request)
         return value if isinstance(value, dict) else {"locale": "en-US", "locales": [], "messages": {}}
 
     async def snapshot(self, _principal: Any) -> dict[str, object]:
+        """Return an immutable snapshot of the instance daemon state.
+
+        Args:
+            _principal: The principal value used by the operation.
+
+        Returns:
+            The requested `dict[str, object]` value.
+        """
         value = await self._worker_webui_control("daemon.webui.snapshot")
         return value if isinstance(value, dict) else {"state": "worker_unavailable"}
 
     async def operation_catalog(self, _principal: Any) -> dict[str, object]:
+        """Implement the operation catalog operation for the instance daemon.
+
+        Args:
+            _principal: The principal value used by the operation.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+        """
         await self._prepare_webui_operations()
         return {"operations": list(self.operations.catalog(self._webui_management_principal()))}
 
     async def submit_operation(self, _principal: Any, request: Mapping[str, Any]) -> dict[str, object]:
+        """Implement the submit operation operation for the instance daemon.
+
+        Args:
+            _principal: The principal value used by the operation.
+            request: Validated request object to process.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+        """
         await self._prepare_webui_operations()
         operation_id = request.get("operation_id")
         target = request.get("target")
@@ -417,10 +647,29 @@ class InstanceDaemon:
         return self._operation_record(record)
 
     async def operation(self, _principal: Any, operation_id: str) -> dict[str, object] | None:
+        """Implement the operation operation for the instance daemon.
+
+        Args:
+            _principal: The principal value used by the operation.
+            operation_id: Stable identifier for the operation.
+
+        Returns:
+            The `dict[str, object] | None` result produced by the operation.
+        """
         record = self.operations.get(operation_id)
         return self._operation_record(record) if record is not None else None
 
     async def ledger(self, _principal: Any, cursor: str | None, limit: int) -> dict[str, object]:
+        """Implement the ledger operation for the instance daemon.
+
+        Args:
+            _principal: The principal value used by the operation.
+            cursor: Opaque pagination cursor, or `None` for the first page.
+            limit: Maximum number of records to return.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+        """
         del cursor
         records = self.operations.records(limit)
         return {
@@ -441,6 +690,16 @@ class InstanceDaemon:
         }
 
     async def audit(self, _principal: Any, cursor: str | None, limit: int) -> dict[str, object]:
+        """Implement the audit operation for the instance daemon.
+
+        Args:
+            _principal: The principal value used by the operation.
+            cursor: Opaque pagination cursor, or `None` for the first page.
+            limit: Maximum number of records to return.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+        """
         del cursor
         return {
             "items": [self._operation_record(record) for record in self.operations.records(limit)],
@@ -448,10 +707,26 @@ class InstanceDaemon:
         }
 
     async def plugin_surfaces(self, _principal: Any) -> dict[str, object]:
+        """Implement the plugin surfaces operation for the instance daemon.
+
+        Args:
+            _principal: The principal value used by the operation.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+        """
         value = await self._worker_webui_control("daemon.webui.plugin_surfaces")
         return value if isinstance(value, dict) else {"generation": 0, "surfaces": [], "diagnostics": []}
 
     async def lyf_resources(self, _principal: Any) -> dict[str, object]:
+        """Implement the lyf resources operation for the instance daemon.
+
+        Args:
+            _principal: The principal value used by the operation.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+        """
         root = self.paths.workspace / "resources"
         if not root.is_dir():
             return {"read_only": True, "grammar": "source.lyf", "items": []}
@@ -484,6 +759,17 @@ class InstanceDaemon:
         cursor: str | None,
         limit: int,
     ) -> dict[str, object]:
+        """Implement the event deliveries operation for the instance daemon.
+
+        Args:
+            _principal: The principal value used by the operation.
+            filters: Validated filters applied to the result set.
+            cursor: Opaque pagination cursor, or `None` for the first page.
+            limit: Maximum number of records to return.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+        """
         if self._broker_diagnostics is None:
             return {
                 "broker": {
@@ -492,6 +778,8 @@ class InstanceDaemon:
                     "active_capacity": 0,
                     "terminal": 0,
                     "terminal_capacity": 0,
+                    "terminal_content_bytes": 0,
+                    "terminal_content_bytes_capacity": 0,
                     "bridges": [],
                 },
                 "items": [],
@@ -508,6 +796,8 @@ class InstanceDaemon:
                     "active_capacity": 0,
                     "terminal": 0,
                     "terminal_capacity": 0,
+                    "terminal_content_bytes": 0,
+                    "terminal_content_bytes_capacity": 0,
                     "bridges": [],
                 },
                 "items": [],
@@ -521,6 +811,8 @@ class InstanceDaemon:
                 "active_capacity": status.active_capacity,
                 "terminal": status.terminal_events,
                 "terminal_capacity": status.terminal_capacity,
+                "terminal_content_bytes": status.terminal_content_bytes,
+                "terminal_content_bytes_capacity": status.terminal_content_bytes_capacity,
                 "bridges": [
                     {"id": bridge_id, "state": "connected", "session_state": "registered"}
                     for bridge_id in status.sessions
@@ -543,6 +835,15 @@ class InstanceDaemon:
         }
 
     async def event_delivery(self, _principal: Any, event_id: str) -> dict[str, object] | None:
+        """Implement the event delivery operation for the instance daemon.
+
+        Args:
+            _principal: The principal value used by the operation.
+            event_id: Stable event identifier.
+
+        Returns:
+            The `dict[str, object] | None` result produced by the operation.
+        """
         if self._broker_diagnostics is None:
             return None
         try:
@@ -580,6 +881,16 @@ class InstanceDaemon:
         }
 
     async def replay_events(self, _principal: Any, after_id: str | None, limit: int) -> Any:
+        """Replay events.
+
+        Args:
+            _principal: The principal value used by the operation.
+            after_id: Last observed event identifier, or `None` to start at the current boundary.
+            limit: Maximum number of records to return.
+
+        Returns:
+            The `Any` result produced by the operation.
+        """
         from liteyukibot_webui import WebUiEventReplay
 
         events = tuple(self._webui_events)
@@ -591,6 +902,15 @@ class InstanceDaemon:
         return WebUiEventReplay((), reset=bool(events))
 
     async def stream_events(self, _principal: Any, _after_id: str | None) -> AsyncIterator[Any]:
+        """Stream events.
+
+        Args:
+            _principal: The principal value used by the operation.
+            _after_id: Stable identifier for the after.
+
+        Returns:
+            Values yielded by the operation.
+        """
         queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=128)
         self._webui_subscribers.add(queue)
         try:
@@ -603,6 +923,16 @@ class InstanceDaemon:
             self._webui_subscribers.discard(queue)
 
     async def _prepare_webui_operations(self) -> None:
+        """Implement the prepare webui operations operation for the instance daemon.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._prepare_webui_operations`. It delegates to
+            `_worker_webui_control`, `get`, `register`, `start` while keeping intermediate state local to
+            the owning operation.
+        """
         if self._webui_operations_ready:
             return
         value = await self._worker_webui_control("daemon.webui.operation_catalog")
@@ -645,6 +975,16 @@ class InstanceDaemon:
         self._webui_operations_ready = True
 
     async def _watch_broker_diagnostics(self) -> None:
+        """Implement the watch broker diagnostics operation for the instance daemon.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._watch_broker_diagnostics`. It delegates to
+            `is_set`, `status`, `_publish_webui_event`, `sleep` while keeping intermediate state local to
+            the owning operation.
+        """
         assert self._broker_diagnostics is not None
         previous: tuple[int, int, int] | None = None
         while not self._stop_event.is_set():
@@ -659,6 +999,20 @@ class InstanceDaemon:
             await asyncio.sleep(2)
 
     async def _execute_worker_operation(self, _principal: ManagementPrincipal, request: OperationRequest) -> str:
+        """Execute worker operation.
+
+        Args:
+            _principal: The principal value used by the operation.
+            request: Validated request object to process.
+
+        Returns:
+            The `str` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._execute_worker_operation`. It delegates to
+            `_worker_webui_control`, `get`, `cast` while keeping intermediate state local to the owning
+            operation.
+        """
         value = await self._worker_webui_control(
             "daemon.webui.operation.execute",
             operation_id=request.operation,
@@ -673,11 +1027,33 @@ class InstanceDaemon:
         return cast(str, value["result_code"])
 
     async def _worker_webui_control(self, command: str, **parameters: object) -> Any:
+        """Implement the worker webui control operation for the instance daemon.
+
+        Args:
+            command: Command or operation name to execute.
+            **parameters: The parameters value used by the operation.
+
+        Returns:
+            The `Any` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._worker_webui_control`. It delegates to
+            `cast` while keeping intermediate state local to the owning operation.
+        """
         if self.worker_descriptor is None:
             raise RuntimeError("WebUI worker bridge is unavailable")
         return await cast(Any, request_control)(self.worker_descriptor, command, **parameters)
 
     def _webui_management_principal(self) -> ManagementPrincipal:
+        """Implement the webui management principal operation for the instance daemon.
+
+        Returns:
+            The `ManagementPrincipal` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._webui_management_principal`. It delegates to
+            `frozenset` while keeping intermediate state local to the owning operation.
+        """
         return ManagementPrincipal(
             PrincipalKind.WEB_SESSION,
             f"daemon:{self.paths.name}",
@@ -688,6 +1064,18 @@ class InstanceDaemon:
 
     @staticmethod
     def _operation_record(record: OperationRecord) -> dict[str, object]:
+        """Implement the operation record operation for the instance daemon.
+
+        Args:
+            record: The record value used by the operation.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._operation_record`. It delegates to
+            `isoformat` while keeping intermediate state local to the owning operation.
+        """
         return {
             "id": record.id,
             "operation": record.operation,
@@ -700,6 +1088,18 @@ class InstanceDaemon:
 
     @staticmethod
     def _ledger_status(record: OperationRecord) -> str:
+        """Implement the ledger status operation for the instance daemon.
+
+        Args:
+            record: The record value used by the operation.
+
+        Returns:
+            The `str` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._ledger_status`. It performs the local state
+            transition directly and is not a stable extension boundary.
+        """
         if record.state.value == "succeeded":
             return "healthy"
         if record.state.value in {"failed", "unknown"}:
@@ -707,6 +1107,19 @@ class InstanceDaemon:
         return "attention"
 
     async def _publish_operation_completion(self, operation_id: str) -> None:
+        """Publish operation completion.
+
+        Args:
+            operation_id: Stable identifier for the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._publish_operation_completion`. It delegates
+            to `is_set`, `get`, `_publish_webui_event`, `_operation_record` while keeping intermediate state
+            local to the owning operation.
+        """
         while not self._stop_event.is_set():
             record = self.operations.get(operation_id)
             if record is None:
@@ -717,12 +1130,39 @@ class InstanceDaemon:
             await asyncio.sleep(0.02)
 
     def _new_webui_event(self, event: str, data: Mapping[str, object]) -> Any:
+        """Implement the new webui event operation for the instance daemon.
+
+        Args:
+            event: Event associated with the operation.
+            data: The data value used by the operation.
+
+        Returns:
+            The `Any` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._new_webui_event`. It delegates to `cast`
+            while keeping intermediate state local to the owning operation.
+        """
         from liteyukibot_webui import WebUiEvent
 
         self._webui_sequence += 1
         return WebUiEvent(event, cast(Any, data), str(self._webui_sequence))
 
     async def _publish_webui_event(self, event: str, data: Mapping[str, object]) -> None:
+        """Publish webui event.
+
+        Args:
+            event: Event associated with the operation.
+            data: The data value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._publish_webui_event`. It delegates to
+            `_new_webui_event`, `append`, `full`, `put_nowait` while keeping intermediate state local to the
+            owning operation.
+        """
         item = self._new_webui_event(event, data)
         self._webui_events.append(item)
         for queue in tuple(self._webui_subscribers):
@@ -731,6 +1171,16 @@ class InstanceDaemon:
             queue.put_nowait(item)
 
     async def _recover_interrupted_update(self) -> None:
+        """Implement the recover interrupted update operation for the instance daemon.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._recover_interrupted_update`. It delegates to
+            `load`, `is_terminal`, `_stop_journaled_processes`, `get` while keeping intermediate state local
+            to the owning operation.
+        """
         journal = self.update_journal.load()
         if journal is None or self.update_journal.is_terminal(journal):
             return
@@ -750,6 +1200,19 @@ class InstanceDaemon:
     async def _stop_journaled_processes(
         self, journal: Mapping[str, object]
     ) -> tuple[tuple[tuple[str, int], ...], tuple[str, ...]]:
+        """Stop journaled processes.
+
+        Args:
+            journal: The journal value used by the operation.
+
+        Returns:
+            The `tuple[tuple[tuple[str, int], ...], tuple[str, ...]]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._stop_journaled_processes`. It delegates to
+            `_journal_graph_processes`, `getpid`, `_orphan_process_terminator`, `append` while keeping
+            intermediate state local to the owning operation.
+        """
         stopped: list[tuple[str, int]] = []
         failures: list[str] = []
         for name, pid in self._journal_graph_processes(journal):
@@ -765,6 +1228,18 @@ class InstanceDaemon:
 
     @staticmethod
     def _journal_graph_processes(journal: Mapping[str, object]) -> tuple[tuple[str, int], ...]:
+        """Implement the journal graph processes operation for the instance daemon.
+
+        Args:
+            journal: The journal value used by the operation.
+
+        Returns:
+            The `tuple[tuple[str, int], ...]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._journal_graph_processes`. It delegates to
+            `get`, `extend`, `add`, `append` while keeping intermediate state local to the owning operation.
+        """
         history = journal.get("history")
         if not isinstance(history, list):
             return ()
@@ -814,17 +1289,54 @@ class InstanceDaemon:
         return tuple(processes_to_stop)
 
     async def _request_update(self, request: Mapping[str, Any]) -> dict[str, object]:
+        """Request update.
+
+        Args:
+            request: Validated request object to process.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._request_update`. It delegates to `get`,
+            `_update_profile` while keeping intermediate state local to the owning operation.
+        """
         profile_id = request.get("profile_id")
         if not isinstance(profile_id, str) or not profile_id:
             raise ValueError("update requires a staged profile_id")
         return await self._update_profile(profile_id)
 
     async def _request_rollback(self, _request: Mapping[str, Any]) -> dict[str, object]:
+        """Request rollback.
+
+        Args:
+            _request: The request value used by the operation.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._request_rollback`. It delegates to
+            `previous`, `_update_profile` while keeping intermediate state local to the owning operation.
+        """
         async with self._update_lock:
             profile_id = self.profile_store.previous()
         return await self._update_profile(profile_id)
 
     async def _update_profile(self, profile_id: str) -> dict[str, object]:
+        """Update profile.
+
+        Args:
+            profile_id: Stable identifier for the profile.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._update_profile`. It delegates to `active`,
+            `read_manifest`, `begin`, `transition` while keeping intermediate state local to the owning
+            operation.
+        """
         if not self._graph.managed:
             raise UpdateError("instance is not eligible for atomic updates; daemon must own Broker and Kernel")
         if self._broker_lifecycle is None:
@@ -900,6 +1412,15 @@ class InstanceDaemon:
                 raise
 
     async def _drain_broker(self) -> None:
+        """Implement the drain broker operation for the instance daemon.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._drain_broker`. It delegates to `monotonic`,
+            `drain`, `unfreeze`, `sleep` while keeping intermediate state local to the owning operation.
+        """
         deadline = monotonic() + self.settings.drain_timeout_seconds
         while True:
             assert self._broker_lifecycle is not None
@@ -912,6 +1433,15 @@ class InstanceDaemon:
             await asyncio.sleep(0.05)
 
     async def _freeze_kernel(self) -> None:
+        """Freeze kernel.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._freeze_kernel`. It delegates to
+            `request_control`, `get` while keeping intermediate state local to the owning operation.
+        """
         if self.worker_descriptor is None:
             raise UpdateError("managed update requires the Kernel control descriptor")
         value = await request_control(self.worker_descriptor, "daemon.lifecycle.freeze")
@@ -919,6 +1449,16 @@ class InstanceDaemon:
             raise UpdateError("Kernel did not acknowledge lifecycle freeze")
 
     async def _wait_kernel_healthy(self) -> None:
+        """Wait for kernel healthy.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._wait_kernel_healthy`. It delegates to
+            `monotonic`, `request_control`, `get`, `sleep` while keeping intermediate state local to the
+            owning operation.
+        """
         if self.worker_descriptor is None:
             return
         deadline = monotonic() + self.settings.health_timeout_seconds
@@ -944,6 +1484,23 @@ class InstanceDaemon:
         kernel_frozen: bool,
         error: BaseException,
     ) -> None:
+        """Implement the recover failed update operation for the instance daemon.
+
+        Args:
+            active: The active value used by the operation.
+            profile_switched: The profile switched value used by the operation.
+            admission_frozen: The admission frozen value used by the operation.
+            kernel_frozen: The kernel frozen value used by the operation.
+            error: The error value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._recover_failed_update`. It delegates to
+            `unfreeze`, `transition`, `load`, `request_control` while keeping intermediate state local to
+            the owning operation.
+        """
         detail = str(error)
         if not kernel_frozen and not profile_switched:
             if admission_frozen and self._broker_lifecycle is not None:
@@ -991,10 +1548,34 @@ class InstanceDaemon:
             pass
 
     async def _request_stop(self, _request: Mapping[str, Any]) -> dict[str, object]:
+        """Request stop.
+
+        Args:
+            _request: The request value used by the operation.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._request_stop`. It performs the local state
+            transition directly and is not a stable extension boundary.
+        """
         self._stop_event.set()
         return {"accepted": True}
 
     async def _request_restart(self, _request: Mapping[str, Any]) -> dict[str, object]:
+        """Request restart.
+
+        Args:
+            _request: The request value used by the operation.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._request_restart`. It delegates to `get`,
+            `strip` while keeping intermediate state local to the owning operation.
+        """
         reason = _request.get("reason", "explicit CLI restart")
         if not isinstance(reason, str) or not reason.strip():
             raise ValueError("restart reason must be a non-empty string")
@@ -1003,6 +1584,19 @@ class InstanceDaemon:
         return {"accepted": True}
 
     async def _worker_control(self, request: Mapping[str, Any]) -> Any:
+        """Implement the worker control operation for the instance daemon.
+
+        Args:
+            request: Validated request object to process.
+
+        Returns:
+            The `Any` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._worker_control`. It delegates to `get`,
+            `startswith`, `removeprefix`, `items` while keeping intermediate state local to the owning
+            operation.
+        """
         if not self.development.enabled or self.worker_descriptor is None:
             raise PermissionError("development controls are disabled")
         command = request.get("command")
@@ -1013,6 +1607,16 @@ class InstanceDaemon:
         return await request_control(self.worker_descriptor, forwarded, **parameters)
 
     async def _watch_for_changes(self) -> None:
+        """Implement the watch for changes operation for the instance daemon.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._watch_for_changes`. It delegates to
+            `_watch_snapshot`, `is_set`, `sleep`, `monotonic` while keeping intermediate state local to the
+            owning operation.
+        """
         if self.watch_root is None or self.validate_configuration is None:
             return
         snapshot = self._watch_snapshot()
@@ -1034,6 +1638,16 @@ class InstanceDaemon:
             self._restart_event.set()
 
     def _watch_snapshot(self) -> dict[Path, tuple[int, int]]:
+        """Implement the watch snapshot operation for the instance daemon.
+
+        Returns:
+            The `dict[Path, tuple[int, int]]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._watch_snapshot`. It delegates to `is_dir`,
+            `rglob`, `relative_to`, `is_file` while keeping intermediate state local to the owning
+            operation.
+        """
         if self.watch_root is None or not self.watch_root.is_dir():
             return {}
         ignored = {".git", ".venv", "dist", "data", "cache"}
@@ -1057,6 +1671,16 @@ class InstanceDaemon:
         return snapshot
 
     def _install_signal_handlers(self) -> None:
+        """Install signal handlers.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `InstanceDaemon._install_signal_handlers`. It delegates to
+            `get_running_loop`, `add_signal_handler`, `signal` while keeping intermediate state local to the
+            owning operation.
+        """
         loop = asyncio.get_running_loop()
         for signum in (signal.SIGINT, signal.SIGTERM):
             try:

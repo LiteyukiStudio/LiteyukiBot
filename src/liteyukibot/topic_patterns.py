@@ -4,7 +4,15 @@ from __future__ import annotations
 
 
 def validate_topic_pattern(value: object, *, subject: str = "topic pattern") -> str:
-    """Validate one literal-or-single-segment-wildcard topic pattern."""
+    """Validate one literal-or-single-segment-wildcard topic pattern.
+
+    Args:
+        value: Value to validate, transform, or store.
+        subject: The subject value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+    """
 
     if not isinstance(value, str):
         raise TypeError(f"{subject} must be a string")
@@ -22,7 +30,15 @@ def validate_topic_pattern(value: object, *, subject: str = "topic pattern") -> 
 
 
 def topic_pattern_matches(pattern: str, topic: str) -> bool:
-    """Return whether a pattern matches a topic without regex semantics."""
+    """Return whether a pattern matches a topic without regex semantics.
+
+    Args:
+        pattern: The pattern value used by the operation.
+        topic: The topic value used by the operation.
+
+    Returns:
+        Whether the requested condition is satisfied.
+    """
 
     pattern_segments = validate_topic_pattern(pattern).split(".")
     topic_segments = validate_topic_pattern(topic, subject="topic").split(".")

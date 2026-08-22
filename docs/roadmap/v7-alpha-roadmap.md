@@ -190,6 +190,23 @@ conversion failure, queue overflow, and shutdown do not fail local provider
 pipelines; and the full repository gates pass from built artifacts and an
 authorized external workspace.
 
+### Alpha 11: Security, quality, and residency qualification
+
+**Goal:** qualify the existing ecosystem against known dependency risks,
+resource exhaustion, concentrated complexity, and long-running retained state.
+
+**Work:** implement the [Alpha 11 quality and residency plan]
+(v7-alpha-11-quality-residency.md): audit locked dependencies, bound plugin
+archive extraction, improve test-protected `fuck-u-code` hotspots, and extend
+schema-2 benchmarks with EventBus and Broker resident-state workloads. Run both
+bare and installed-first-party profiles with independent samples.
+
+**Exit criteria:** locked dependency audits are clean; archive resource-limit
+tests pass; selected complexity metrics improve without public behavior drift;
+EventBus transient state drains to zero; Broker state stays within its terminal
+capacity with no retained delivery indices or lanes; and both three-sample
+profile artifacts pass the complete repository gate.
+
 ## Shared release gates
 
 Every Alpha must pass the complete repository pytest suite, Ruff, Mypy,
@@ -198,11 +215,10 @@ wire, lifecycle, permission, disconnect, and upgrade-boundary tests. Artifacts
 must be generated from a clean checkout and retain the exact manifest and
 SHA-256 evidence used for verification.
 
-Only after Alpha work is complete and reviewed should the project run the two
-parallel qualification profiles: bare kernel and kernel with all installed
-first-party packages. The 72-hour soak and the full-workspace theoretical
-benchmark are post-Alpha qualification work; this roadmap records no result for
-either. Their reviewed artifacts are prerequisites for a future Beta decision.
+Alpha11 runs the two parallel qualification profiles: bare kernel and kernel
+with all installed first-party packages. The 72-hour soak and external-host
+end-to-end workload remain post-Alpha qualification work. Their reviewed
+artifacts are prerequisites for a future Beta decision.
 
 ## Non-goals
 

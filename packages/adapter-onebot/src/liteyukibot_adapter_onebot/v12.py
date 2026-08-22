@@ -51,6 +51,14 @@ class OneBotV12Connection(AdapterConnection):
     """Own one OneBot v12 callback/transport connection and API endpoint."""
 
     def __init__(self, context: AdapterContext) -> None:
+        """Initialize the one bot v12 connection.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+
+        Returns:
+            None.
+        """
         self.context = context
         self._event_host = _config_optional_host(context.config, "event_host") or "127.0.0.1"
         self._event_port = _config_optional_port(context.config, "event_port") or 5702
@@ -68,6 +76,14 @@ class OneBotV12Connection(AdapterConnection):
         self._failure: BaseException | None = None
 
     async def start(self, emit: EventEmitter) -> None:
+        """Start the one bot v12 connection.
+
+        Args:
+            emit: The emit value used by the operation.
+
+        Returns:
+            None.
+        """
         if self._server is not None or self._websocket is not None:
             raise RuntimeError("OneBot v12 connection is already started")
         self._failure_event.clear()
@@ -90,9 +106,22 @@ class OneBotV12Connection(AdapterConnection):
         self._websocket = websocket
 
     async def send_message(self, payload: MessageSendPayload) -> JsonValue:
+        """Send message.
+
+        Args:
+            payload: JSON-safe payload carried by the operation.
+
+        Returns:
+            The `JsonValue` result produced by the operation.
+        """
         return await self._send_message(payload)
 
     async def close(self) -> None:
+        """Close the one bot v12 connection and release its owned resources.
+
+        Returns:
+            None.
+        """
         websocket, self._websocket = self._websocket, None
         if websocket is not None:
             await websocket.close()
@@ -104,17 +133,48 @@ class OneBotV12Connection(AdapterConnection):
         self._reply_routes.clear()
 
     async def wait_failure(self) -> None:
+        """Wait for failure.
+
+        Returns:
+            None.
+        """
         await self._failure_event.wait()
         if self._failure is not None:
             raise self._failure
         raise RuntimeError("OneBot v12 connection failed without a diagnostic")
 
     async def _transport_failed(self, error: BaseException) -> None:
+        """Implement the transport failed operation for the one bot v12 connection.
+
+        Args:
+            error: The error value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `OneBotV12Connection._transport_failed`. It delegates to
+            `is_set` while keeping intermediate state local to the owning operation.
+        """
         if not self._failure_event.is_set():
             self._failure = error
             self._failure_event.set()
 
     async def _handle_http(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        """Handle http.
+
+        Args:
+            reader: The reader value used by the operation.
+            writer: The writer value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `OneBotV12Connection._handle_http`. It delegates to
+            `timeout`, `_read_http_request`, `_write_response`, `_is_json_content_type` while keeping
+            intermediate state local to the owning operation.
+        """
         try:
             async with asyncio.timeout(_HTTP_TIMEOUT_SECONDS):
                 method, path, headers, body = await _read_http_request(reader)
@@ -137,6 +197,19 @@ class OneBotV12Connection(AdapterConnection):
             await writer.wait_closed()
 
     async def _handle_payload(self, payload: Mapping[str, Any]) -> None:
+        """Handle payload.
+
+        Args:
+            payload: JSON-safe payload carried by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `OneBotV12Connection._handle_payload`. It delegates to `get`,
+            `_normalize_event`, `move_to_end`, `popitem` while keeping intermediate state local to the
+            owning operation.
+        """
         if str(payload.get("self_id", "")) != self.context.bot_id:
             raise OneBotV12Error("OneBot v12 event self ID does not match configured bot_id")
         event = _normalize_event(self.context, payload)
@@ -152,6 +225,19 @@ class OneBotV12Connection(AdapterConnection):
         await self._emit(event)
 
     async def _send_message(self, payload: MessageSendPayload) -> JsonValue:
+        """Send message.
+
+        Args:
+            payload: JSON-safe payload carried by the operation.
+
+        Returns:
+            The `JsonValue` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `OneBotV12Connection._send_message`. It delegates to
+            `_to_onebot_message`, `_call_api` while keeping intermediate state local to the owning
+            operation.
+        """
         conversation = payload.conversation
         if conversation is None:
             if payload.reply_token is None or payload.reply_token not in self._reply_routes:
@@ -171,6 +257,19 @@ class OneBotV12Connection(AdapterConnection):
         return await self._call_api("send_message", params)
 
     async def _call_api(self, api: str, params: Mapping[str, Any]) -> JsonValue:
+        """Implement the call api operation for the one bot v12 connection.
+
+        Args:
+            api: The api value used by the operation.
+            params: The params value used by the operation.
+
+        Returns:
+            The `JsonValue` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `OneBotV12Connection._call_api`. It delegates to `fullmatch`,
+            `_post_json`, `execute`, `get` while keeping intermediate state local to the owning operation.
+        """
         if not _API_NAME.fullmatch(api):
             raise OneBotV12Error("OneBot API names must contain only ASCII letters, digits, and underscores")
         if self._websocket is None:
@@ -186,6 +285,19 @@ class OneBotV12Connection(AdapterConnection):
 
 
 def _normalize_event(context: AdapterContext, payload: Mapping[str, Any]) -> EventEnvelope | None:
+    """Normalize event.
+
+    Args:
+        context: Runtime or authorization context for the operation.
+        payload: JSON-safe payload carried by the operation.
+
+    Returns:
+        The `EventEnvelope | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_normalize_event`. It delegates to `get`, `json_value`,
+        `append`, `model_validate` while keeping intermediate state local to the owning operation.
+    """
     if payload.get("type") != "message":
         return None
     detail_type = payload.get("detail_type")
@@ -256,14 +368,46 @@ def _normalize_event(context: AdapterContext, payload: Mapping[str, Any]) -> Eve
 
 
 async def create_v12(context: AdapterContext) -> AdapterConnection:
+    """Create v12.
+
+    Args:
+        context: Runtime or authorization context for the operation.
+
+    Returns:
+        The `AdapterConnection` result produced by the operation.
+    """
     return OneBotV12Connection(context)
 
 
 def _to_onebot_message(message: Message) -> list[dict[str, JsonValue]]:
+    """Implement the to onebot message operation for the component.
+
+    Args:
+        message: Message content associated with the operation.
+
+    Returns:
+        The `list[dict[str, JsonValue]]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_to_onebot_message`. It delegates to `_to_onebot_segment`
+        while keeping intermediate state local to the owning operation.
+    """
     return [_to_onebot_segment(segment) for segment in message.segments]
 
 
 def _to_onebot_segment(segment: Segment) -> dict[str, JsonValue]:
+    """Implement the to onebot segment operation for the component.
+
+    Args:
+        segment: The segment value used by the operation.
+
+    Returns:
+        The `dict[str, JsonValue]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_to_onebot_segment`. It delegates to `model_dump`, `get`,
+        `pop`, `json_value` while keeping intermediate state local to the owning operation.
+    """
     data = segment.model_dump(mode="json")["data"]
     assert isinstance(data, dict)
     if segment.type == "text":

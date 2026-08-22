@@ -91,6 +91,7 @@ from .tasks import ManagedTasks
 
 
 class AppState(StrEnum):
+    """Enumerate the supported app state values."""
     CREATED = "created"
     STARTING = "starting"
     READY = "ready"
@@ -107,10 +108,28 @@ class ActionService:
         supervisor: RuntimeSupervisor,
         action_guard: Callable[[EventEnvelope | None, ActionEnvelope], ActionResult | None],
     ) -> None:
+        """Initialize the action service.
+
+        Args:
+            supervisor: The supervisor value used by the operation.
+            action_guard: Optional policy hook that can reject an action before execution.
+
+        Returns:
+            None.
+        """
         self._supervisor = supervisor
         self._action_guard = action_guard
 
     async def execute(self, action: ActionEnvelope, *, event: EventEnvelope | None = None) -> ActionResult:
+        """Execute one request through the action service.
+
+        Args:
+            action: Action request being processed.
+            event: Event associated with the operation.
+
+        Returns:
+            The `ActionResult` result produced by the operation.
+        """
         guarded = self._action_guard(event, action)
         if guarded is not None:
             return guarded
@@ -148,24 +167,82 @@ _LEGACY_PERMISSION_SERVICE = ServiceKey(PERMISSION_SERVICE_NAME, 1)
 
 
 def _permission_service(services: ServiceRegistry) -> object | None:
-    """Use v2 for new hosts; retain v1 only for legacy runtime action paths."""
+    """Use v2 for new hosts; retain v1 only for legacy runtime action paths.
+
+    Args:
+        services: The services value used by the operation.
+
+    Returns:
+        The `object | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_permission_service`. It delegates to `cast`, `get` while
+        keeping intermediate state local to the owning operation.
+    """
 
     return cast(object | None, services.get(_PERMISSION_SERVICE) or services.get(_LEGACY_PERMISSION_SERVICE))
 
 
 class _AppStatusProvider:
+    """Represent the app status provider contract."""
     def __init__(self, app: LiteyukiApp) -> None:
+        """Initialize the app status provider.
+
+        Args:
+            app: The app value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_AppStatusProvider.__init__`. It performs the local state
+            transition directly and is not a stable extension boundary.
+        """
         self._app = app
 
     def snapshot(self) -> KernelStatusSnapshot:
+        """Return an immutable snapshot of the app status provider state.
+
+        Returns:
+            The requested `KernelStatusSnapshot` value.
+
+        Notes:
+            Internal implementation detail for `_AppStatusProvider.snapshot`. It delegates to
+            `status_snapshot` while keeping intermediate state local to the owning operation.
+        """
         return self._app.status_snapshot()
 
 
 class _AgentHistoryProvider:
+    """Represent the agent history provider contract."""
     def __init__(self, app: LiteyukiApp) -> None:
+        """Initialize the agent history provider.
+
+        Args:
+            app: The app value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_AgentHistoryProvider.__init__`. It performs the local state
+            transition directly and is not a stable extension boundary.
+        """
         self._app = app
 
     async def clear(self, event: EventEnvelope) -> int:
+        """Clear the agent history provider operation.
+
+        Args:
+            event: Event associated with the operation.
+
+        Returns:
+            The `int` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AgentHistoryProvider.clear`. It delegates to
+            `_clear_agent_history` while keeping intermediate state local to the owning operation.
+        """
         return await self._app._clear_agent_history(event)
 
 
@@ -173,6 +250,18 @@ class _ApplicationRuntimeApiBackend:
     """Authorize and route one plugin runtime call through the active broker lease."""
 
     def __init__(self, app: LiteyukiApp) -> None:
+        """Initialize the application runtime api backend.
+
+        Args:
+            app: The app value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_ApplicationRuntimeApiBackend.__init__`. It performs the
+            local state transition directly and is not a stable extension boundary.
+        """
         self._app = app
 
     async def invoke(
@@ -182,6 +271,22 @@ class _ApplicationRuntimeApiBackend:
         arguments: Mapping[str, EventJsonValue],
         context: RuntimeCallContext,
     ) -> EventJsonValue:
+        """Invoke the application runtime api backend operation.
+
+        Args:
+            binding: The binding value used by the operation.
+            operation: The operation value used by the operation.
+            arguments: JSON-safe arguments supplied to the operation.
+            context: Runtime or authorization context for the operation.
+
+        Returns:
+            The `EventJsonValue` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_ApplicationRuntimeApiBackend.invoke`. It delegates to
+            `_find_runtime_requirement`, `_permission_service`, `getattr`, `callable` while keeping
+            intermediate state local to the owning operation.
+        """
         requirement = self._app._find_runtime_requirement(context.extension_id, binding)
         if requirement is None:
             raise RuntimeApiError(
@@ -251,6 +356,17 @@ class LiteyukiApp:
         runtime_secrets: Mapping[str, str] | None = None,
         resource_workspace: str | None = None,
     ) -> None:
+        """Initialize the liteyuki app.
+
+        Args:
+            settings: Validated application settings.
+            logger: Structured logger used for diagnostics.
+            runtime_secrets: The runtime secrets value used by the operation.
+            resource_workspace: The resource workspace value used by the operation.
+
+        Returns:
+            None.
+        """
         self.settings = settings
         self.resource_workspace = resource_workspace or "."
         self.logger = logger or get_logger(component="core")
@@ -427,13 +543,33 @@ class LiteyukiApp:
             )
 
     def set_stop_callback(self, callback: Callable[[], None]) -> None:
-        """Bind the host-owned shutdown signal used by the management console."""
+        """Bind the host-owned shutdown signal used by the management console.
+
+        Args:
+            callback: Callback invoked by the operation.
+
+        Returns:
+            None.
+        """
 
         self._stop_callback = callback
 
     def _find_runtime_requirement(
         self, extension_id: str, binding: RuntimeBinding
     ) -> RuntimeRequirement | None:
+        """Implement the find runtime requirement operation for the liteyuki app.
+
+        Args:
+            extension_id: Stable identifier for the extension.
+            binding: The binding value used by the operation.
+
+        Returns:
+            The `RuntimeRequirement | None` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._find_runtime_requirement`. It delegates to
+            `get` while keeping intermediate state local to the owning operation.
+        """
         manifest = self._runtime_manifests.get(extension_id)
         if manifest is None:
             loaded = self.plugins.loaded.get(extension_id)
@@ -457,6 +593,20 @@ class LiteyukiApp:
         return candidates[0]
 
     def _resolve_runtime_proxy(self, binding: RuntimeBinding, context: RuntimeCallContext) -> RuntimeNamespaceProxy:
+        """Resolve runtime proxy.
+
+        Args:
+            binding: The binding value used by the operation.
+            context: Runtime or authorization context for the operation.
+
+        Returns:
+            The `RuntimeNamespaceProxy` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._resolve_runtime_proxy`. It delegates to
+            `_find_runtime_requirement`, `create_runtime_proxy`, `replace`, `items` while keeping
+            intermediate state local to the owning operation.
+        """
         requirement = self._find_runtime_requirement(context.extension_id, binding)
         if requirement is None:
             return create_runtime_proxy(binding, None, context, reason="runtime API is not declared")
@@ -475,7 +625,33 @@ class LiteyukiApp:
         return create_runtime_proxy(effective_binding, self._runtime_backend, context)
 
     def _runtime_context_factory(self, extension_id: str) -> RuntimeContextFactory:
+        """Implement the runtime context factory operation for the liteyuki app.
+
+        Args:
+            extension_id: Stable identifier for the extension.
+
+        Returns:
+            The `RuntimeContextFactory` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._runtime_context_factory`. It performs the local
+            state transition directly and is not a stable extension boundary.
+        """
         def create(args: tuple[Any, ...], kwargs: Mapping[str, Any]) -> RuntimeCallContext:
+            """Create the runtime context factory operation.
+
+            Args:
+                args: The args value used by the operation.
+                kwargs: The kwargs value used by the operation.
+
+            Returns:
+                The `RuntimeCallContext` result produced by the operation.
+
+            Notes:
+                Internal implementation detail for `LiteyukiApp._runtime_context_factory.create`. It delegates
+                to `values`, `getattr`, `active_event` while keeping intermediate state local to the owning
+                operation.
+            """
             values = (*args, *kwargs.values())
             event: EventEnvelope | None = None
             authorization: AuthorizationContext | None = None
@@ -514,11 +690,33 @@ class LiteyukiApp:
         return create
 
     def _request_stop(self) -> None:
+        """Request stop.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._request_stop`. It delegates to `_stop_callback`
+            while keeping intermediate state local to the owning operation.
+        """
         if self._stop_callback is None:
             raise RuntimeError("application host does not support management shutdown")
         self._stop_callback()
 
     async def _inject_event(self, request: Mapping[str, Any]) -> dict[str, Any]:
+        """Implement the inject event operation for the liteyuki app.
+
+        Args:
+            request: Validated request object to process.
+
+        Returns:
+            The `dict[str, Any]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._inject_event`. It delegates to `get`,
+            `model_validate`, `publish`, `model_dump` while keeping intermediate state local to the owning
+            operation.
+        """
         if not self.settings.development.enabled:
             raise PermissionError("development controls are disabled")
         raw_event = request.get("event")
@@ -529,6 +727,19 @@ class LiteyukiApp:
         return result.model_dump(mode="json")
 
     async def _execute_local_management(self, request: Mapping[str, Any]) -> dict[str, Any]:
+        """Execute local management.
+
+        Args:
+            request: Validated request object to process.
+
+        Returns:
+            The `dict[str, Any]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._execute_local_management`. It delegates to
+            `get`, `strip`, `local_terminal`, `resolve` while keeping intermediate state local to the owning
+            operation.
+        """
         if not self.settings.development.enabled:
             raise PermissionError("development controls are disabled")
         line = request.get("line")
@@ -542,13 +753,33 @@ class LiteyukiApp:
         return {"text": result.text, "data": result.data}
 
     async def _control_topology(self, _request: Mapping[str, Any]) -> dict[str, object]:
+        """Implement the control topology operation for the liteyuki app.
+
+        Args:
+            _request: The request value used by the operation.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._control_topology`. It delegates to `topology`
+            while keeping intermediate state local to the owning operation.
+        """
         if not self.settings.development.enabled:
             raise PermissionError("development controls are disabled")
         return self.topology()
 
     @staticmethod
     def _daemon_webui_principal() -> ManagementPrincipal:
-        """The daemon control descriptor is the sole authority for this worker bridge."""
+        """The daemon control descriptor is the sole authority for this worker bridge.
+
+        Returns:
+            The `ManagementPrincipal` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._daemon_webui_principal`. It delegates to
+            `frozenset` while keeping intermediate state local to the owning operation.
+        """
 
         return ManagementPrincipal(
             PrincipalKind.SYSTEM,
@@ -559,6 +790,18 @@ class LiteyukiApp:
         )
 
     async def _daemon_webui_snapshot(self, _request: Mapping[str, Any]) -> dict[str, Any]:
+        """Implement the daemon webui snapshot operation for the liteyuki app.
+
+        Args:
+            _request: The request value used by the operation.
+
+        Returns:
+            The `dict[str, Any]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._daemon_webui_snapshot`. It delegates to
+            `status`, `topology` while keeping intermediate state local to the owning operation.
+        """
         return {
             "status": self.status(),
             "topology": self.topology(),
@@ -566,6 +809,19 @@ class LiteyukiApp:
         }
 
     async def _daemon_webui_presentation(self, request: Mapping[str, Any]) -> dict[str, Any]:
+        """Implement the daemon webui presentation operation for the liteyuki app.
+
+        Args:
+            request: Validated request object to process.
+
+        Returns:
+            The `dict[str, Any]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._daemon_webui_presentation`. It delegates to
+            `get`, `normalize_locale`, `sorted`, `values` while keeping intermediate state local to the
+            owning operation.
+        """
         if self.translator is None:
             raise RuntimeError("WebUI presentation is unavailable before resource initialization")
         requested = request.get("locale")
@@ -582,9 +838,35 @@ class LiteyukiApp:
         }
 
     async def _daemon_webui_operation_catalog(self, _request: Mapping[str, Any]) -> dict[str, Any]:
+        """Implement the daemon webui operation catalog operation for the liteyuki app.
+
+        Args:
+            _request: The request value used by the operation.
+
+        Returns:
+            The `dict[str, Any]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._daemon_webui_operation_catalog`. It delegates
+            to `operation_catalog`, `_daemon_webui_principal` while keeping intermediate state local to the
+            owning operation.
+        """
         return {"operations": list(self.management.operation_catalog(self._daemon_webui_principal()))}
 
     async def _daemon_webui_execute_operation(self, request: Mapping[str, Any]) -> dict[str, str]:
+        """Implement the daemon webui execute operation operation for the liteyuki app.
+
+        Args:
+            request: Validated request object to process.
+
+        Returns:
+            The `dict[str, str]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._daemon_webui_execute_operation`. It delegates
+            to `get`, `execute_structured_operation`, `_daemon_webui_principal` while keeping intermediate
+            state local to the owning operation.
+        """
         operation_id = request.get("operation_id")
         target = request.get("target")
         input_value = request.get("input")
@@ -613,6 +895,18 @@ class LiteyukiApp:
         return {"result_code": result}
 
     async def _daemon_webui_plugin_surfaces(self, _request: Mapping[str, Any]) -> dict[str, Any]:
+        """Implement the daemon webui plugin surfaces operation for the liteyuki app.
+
+        Args:
+            _request: The request value used by the operation.
+
+        Returns:
+            The `dict[str, Any]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._daemon_webui_plugin_surfaces`. It delegates to
+            `model_dump`, `webui_surfaces` while keeping intermediate state local to the owning operation.
+        """
         surfaces = [
             {"plugin_id": plugin_id, "surface": surface.model_dump(mode="json")}
             for plugin_id, surface in self.plugins.webui_surfaces()
@@ -625,6 +919,20 @@ class LiteyukiApp:
         extension_id: str,
         declarations: tuple[ResourcePackDeclaration, ...],
     ) -> tuple[FunctionPackSource, ...]:
+        """Implement the function sources operation for the liteyuki app.
+
+        Args:
+            extension_id: Stable identifier for the extension.
+            declarations: The declarations value used by the operation.
+
+        Returns:
+            The `tuple[FunctionPackSource, ...]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._function_sources`. It delegates to
+            `pack_for_declaration`, `removeprefix`, `read_bytes`, `pack_files` while keeping intermediate
+            state local to the owning operation.
+        """
         if self.resources is None:
             raise RuntimeError("Function resources are unavailable before ResourceCatalog startup")
         sources: list[FunctionPackSource] = []
@@ -640,6 +948,19 @@ class LiteyukiApp:
         return tuple(sources)
 
     def _preflight_functions(self, definitions: Mapping[str, PluginDefinition]) -> None:
+        """Implement the preflight functions operation for the liteyuki app.
+
+        Args:
+            definitions: The definitions value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._preflight_functions`. It delegates to
+            `_function_sources`, `items`, `getattr`, `any` while keeping intermediate state local to the
+            owning operation.
+        """
         source_map: dict[str, tuple[FunctionPackSource, ...]] = {
             extension_id: self._function_sources(
                 extension_id,
@@ -680,6 +1001,18 @@ class LiteyukiApp:
             self._function_prompts.update({prompt.id: prompt for prompt in preflight.prompts})
 
     def _create_function_hosts(self, configs: Mapping[str, Mapping[str, Any]]) -> None:
+        """Create function hosts.
+
+        Args:
+            configs: The configs value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._create_function_hosts`. It delegates to
+            `sorted`, `items`, `get`, `bind` while keeping intermediate state local to the owning operation.
+        """
         provider = self._function_host_provider
         if provider is None:
             return
@@ -773,6 +1106,20 @@ class LiteyukiApp:
 
     @staticmethod
     def _function_event_matches(event: EventEnvelope, contribution: FunctionEventContribution) -> bool:
+        """Implement the function event matches operation for the liteyuki app.
+
+        Args:
+            event: Event associated with the operation.
+            contribution: The contribution value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._function_event_matches`. It delegates to `any`,
+            `endswith`, `startswith`, `model_dump` while keeping intermediate state local to the owning
+            operation.
+        """
         if contribution.topics and not any(
             topic == event.type or topic == "*" or topic.endswith(".*") and event.type.startswith(topic[:-1])
             for topic in contribution.topics
@@ -790,6 +1137,19 @@ class LiteyukiApp:
         return True
 
     async def _select_function_prompt(self, event: EventEnvelope, preset_id: str) -> Any:
+        """Select function prompt.
+
+        Args:
+            event: Event associated with the operation.
+            preset_id: Stable identifier for the preset.
+
+        Returns:
+            The `Any` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._select_function_prompt`. It delegates to
+            `request_control`, `uuid4` while keeping intermediate state local to the owning operation.
+        """
         if preset_id not in self._function_prompts:
             raise ValueError("unknown prompt preset")
         peer = self._kernel_broker_peer
@@ -814,6 +1174,19 @@ class LiteyukiApp:
         return response.result
 
     async def _handle_prompt_catalog(self, request: BridgeControlInvoke) -> ControlOutcome:
+        """Handle prompt catalog.
+
+        Args:
+            request: Validated request object to process.
+
+        Returns:
+            The `ControlOutcome` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._handle_prompt_catalog`. It delegates to
+            `active_event`, `_function_prompt_catalog`, `cast` while keeping intermediate state local to the
+            owning operation.
+        """
         peer = self._kernel_broker_peer
         if peer is None or peer.active_event(request.authorization.event_id) is None:
             return ControlOutcome(success=False, error_code="CONTROL_STALE_DELIVERY")
@@ -823,6 +1196,19 @@ class LiteyukiApp:
         return ControlOutcome(success=True, result=cast(EventJsonValue, {"prompts": prompts}))
 
     async def _handle_function_catalog(self, request: BridgeControlInvoke) -> ControlOutcome:
+        """Handle function catalog.
+
+        Args:
+            request: Validated request object to process.
+
+        Returns:
+            The `ControlOutcome` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._handle_function_catalog`. It delegates to
+            `active_event`, `rsplit`, `sorted`, `items` while keeping intermediate state local to the owning
+            operation.
+        """
         peer = self._kernel_broker_peer
         if peer is None or peer.active_event(request.authorization.event_id) is None:
             return ControlOutcome(success=False, error_code="CONTROL_STALE_DELIVERY")
@@ -846,6 +1232,15 @@ class LiteyukiApp:
         )
 
     def _function_prompt_catalog(self) -> list[dict[str, Any]]:
+        """Implement the function prompt catalog operation for the liteyuki app.
+
+        Returns:
+            The `list[dict[str, Any]]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._function_prompt_catalog`. It delegates to
+            `sorted`, `values` while keeping intermediate state local to the owning operation.
+        """
         return [
             {
                 "id": item.id,
@@ -858,6 +1253,11 @@ class LiteyukiApp:
         ]
 
     async def start(self) -> None:
+        """Start the liteyuki app.
+
+        Returns:
+            None.
+        """
         if self.state is not AppState.CREATED:
             raise RuntimeError(f"application cannot start from state {self.state}")
         self.state = AppState.STARTING
@@ -1081,6 +1481,11 @@ class LiteyukiApp:
             raise
 
     async def stop(self) -> None:
+        """Stop the liteyuki app and release its owned resources.
+
+        Returns:
+            None.
+        """
         if self.state in {AppState.STOPPED, AppState.CREATED}:
             self.state = AppState.STOPPED
             self._freeze_uptime()
@@ -1099,6 +1504,11 @@ class LiteyukiApp:
             self._freeze_uptime()
 
     async def run(self) -> None:
+        """Run the liteyuki app until its lifecycle completes.
+
+        Returns:
+            None.
+        """
         await self.start()
         try:
             await asyncio.Event().wait()
@@ -1106,13 +1516,31 @@ class LiteyukiApp:
             await self.stop()
 
     async def __aenter__(self) -> LiteyukiApp:
+        """Enter the liteyuki app context.
+
+        Returns:
+            The `LiteyukiApp` result produced by the operation.
+        """
         await self.start()
         return self
 
     async def __aexit__(self, *_exc_info: object) -> None:
+        """Exit the liteyuki app context.
+
+        Args:
+            *_exc_info: Exception context supplied by the asynchronous context manager.
+
+        Returns:
+            None.
+        """
         await self.stop()
 
     def status_snapshot(self) -> KernelStatusSnapshot:
+        """Return the status of snapshot.
+
+        Returns:
+            The requested `KernelStatusSnapshot` value.
+        """
         return KernelStatusSnapshot(
             version=__version__,
             state=self.state.value,
@@ -1124,20 +1552,61 @@ class LiteyukiApp:
         )
 
     def status(self) -> dict[str, Any]:
+        """Return the status of the liteyuki app operation.
+
+        Returns:
+            The requested `dict[str, Any]` value.
+        """
         return {
             **self.status_snapshot().as_dict(),
             "lifecycle": {"frozen": self._kernel_frozen, "accepting_events": self._accepting_events},
         }
 
     async def _daemon_lifecycle_freeze(self, _request: Mapping[str, Any]) -> dict[str, object]:
+        """Implement the daemon lifecycle freeze operation for the liteyuki app.
+
+        Args:
+            _request: The request value used by the operation.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._daemon_lifecycle_freeze`. It performs the local
+            state transition directly and is not a stable extension boundary.
+        """
         self._kernel_frozen = True
         self._accepting_events = False
         return {"frozen": True, "accepting_events": False}
 
     async def _daemon_lifecycle_status(self, _request: Mapping[str, Any]) -> dict[str, object]:
+        """Implement the daemon lifecycle status operation for the liteyuki app.
+
+        Args:
+            _request: The request value used by the operation.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._daemon_lifecycle_status`. It performs the local
+            state transition directly and is not a stable extension boundary.
+        """
         return {"frozen": self._kernel_frozen, "accepting_events": self._accepting_events}
 
     async def _daemon_lifecycle_unfreeze(self, _request: Mapping[str, Any]) -> dict[str, object]:
+        """Implement the daemon lifecycle unfreeze operation for the liteyuki app.
+
+        Args:
+            _request: The request value used by the operation.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._daemon_lifecycle_unfreeze`. It performs the
+            local state transition directly and is not a stable extension boundary.
+        """
         if self.state is not AppState.READY:
             raise RuntimeError("kernel cannot unfreeze before it is ready")
         self._kernel_frozen = False
@@ -1145,7 +1614,14 @@ class LiteyukiApp:
         return {"frozen": False, "accepting_events": True}
 
     def topology(self, *, discover_plugins: bool = False) -> dict[str, object]:
-        """Return a redacted module graph without starting processes or plugins."""
+        """Return a redacted module graph without starting processes or plugins.
+
+        Args:
+            discover_plugins: The discover plugins value used by the operation.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+        """
 
         definitions = (
             self.plugins.discover(self.settings.plugins.enabled, self.settings.plugins.local_modules)
@@ -1198,16 +1674,43 @@ class LiteyukiApp:
         }
 
     def _uptime_seconds(self) -> float:
+        """Implement the uptime seconds operation for the liteyuki app.
+
+        Returns:
+            The `float` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._uptime_seconds`. It delegates to `monotonic`,
+            `max` while keeping intermediate state local to the owning operation.
+        """
         if self._started_at is None:
             return 0.0
         end = self._stopped_at if self._stopped_at is not None else monotonic()
         return max(0.0, end - self._started_at)
 
     def _freeze_uptime(self) -> None:
+        """Freeze uptime.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._freeze_uptime`. It delegates to `monotonic`
+            while keeping intermediate state local to the owning operation.
+        """
         if self._started_at is not None and self._stopped_at is None:
             self._stopped_at = monotonic()
 
     async def _cleanup(self) -> None:
+        """Implement the cleanup operation for the liteyuki app.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._cleanup`. It delegates to `stop`, `append`,
+            `close_operations`, `aclose` while keeping intermediate state local to the owning operation.
+        """
         self._accepting_events = False
         errors: list[BaseException] = []
         if self._http_started and self.http is not None:
@@ -1275,6 +1778,16 @@ class LiteyukiApp:
             raise BaseExceptionGroup("application cleanup failed", errors)
 
     async def _close_function_hosts(self) -> None:
+        """Close function hosts.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._close_function_hosts`. It delegates to
+            `reversed`, `unsubscribe`, `clear`, `items` while keeping intermediate state local to the owning
+            operation.
+        """
         for subscription in reversed(self._function_subscriptions):
             self.events.unsubscribe(subscription)
         self._function_subscriptions.clear()
@@ -1299,9 +1812,36 @@ class LiteyukiApp:
             raise BaseExceptionGroup("Function Host cleanup failed", errors)
 
     def _function_task_failed(self, name: str, error: BaseException) -> None:
+        """Implement the function task failed operation for the liteyuki app.
+
+        Args:
+            name: Stable name used to identify the value.
+            error: The error value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._function_task_failed`. It delegates to `error`,
+            `bind` while keeping intermediate state local to the owning operation.
+        """
         self.logger.bind(component="functions").error("function task {} failed: {}", name, error)
 
     async def _ingest_runtime_event(self, runtime_id: str, payload: dict[str, Any]) -> str:
+        """Implement the ingest runtime event operation for the liteyuki app.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+            payload: JSON-safe payload carried by the operation.
+
+        Returns:
+            The `str` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._ingest_runtime_event`. It delegates to
+            `log_payload`, `model_validate`, `warning`, `bind` while keeping intermediate state local to the
+            owning operation.
+        """
         log_payload(
             self.logger,
             self.settings.logging,
@@ -1332,6 +1872,21 @@ class LiteyukiApp:
         payload: dict[str, Any],
         provenance: ActionProvenance | None,
     ) -> ActionSinkResult:
+        """Execute runtime action.
+
+        Args:
+            source_runtime_id: Stable identifier for the source runtime.
+            payload: JSON-safe payload carried by the operation.
+            provenance: The provenance value used by the operation.
+
+        Returns:
+            The `ActionSinkResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._execute_runtime_action`. It delegates to
+            `log_payload`, `model_validate`, `warning`, `bind` while keeping intermediate state local to the
+            owning operation.
+        """
         log_payload(
             self.logger,
             self.settings.logging,
@@ -1375,6 +1930,20 @@ class LiteyukiApp:
     async def _execute_runtime_management(
         self, runtime_id: str, command: str
     ) -> tuple[bool, str, JsonValue, str | None]:
+        """Execute runtime management.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+            command: Command or operation name to execute.
+
+        Returns:
+            The `tuple[bool, str, JsonValue, str | None]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._execute_runtime_management`. It delegates to
+            `frozenset`, `execute`, `log_payload`, `json_value` while keeping intermediate state local to
+            the owning operation.
+        """
         caller = ManagementCaller(runtime_id, "runtime", frozenset())
         try:
             _definition, result = await self.management.registry.execute(caller, command)
@@ -1398,6 +1967,20 @@ class LiteyukiApp:
         return True, result.text, data, None
 
     def _authorize_action(self, event: EventEnvelope | None, action: ActionEnvelope) -> ActionResult | None:
+        """Authorize action.
+
+        Args:
+            event: Event associated with the operation.
+            action: Action request being processed.
+
+        Returns:
+            The `ActionResult | None` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._authorize_action`. It delegates to
+            `_permission_service`, `getattr`, `callable`, `decide` while keeping intermediate state local to
+            the owning operation.
+        """
         if not isinstance(action.action, CallApi):
             return None
         if event is None:
@@ -1440,6 +2023,19 @@ class LiteyukiApp:
         )
 
     async def _execute_event_action(self, event: EventEnvelope, action: ActionEnvelope) -> ActionResult:
+        """Execute event action.
+
+        Args:
+            event: Event associated with the operation.
+            action: Action request being processed.
+
+        Returns:
+            The `ActionResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._execute_event_action`. It delegates to
+            `execute_action`, `execute` while keeping intermediate state local to the owning operation.
+        """
         if self._kernel_broker_peer is not None:
             result = await self._kernel_broker_peer.execute_action(event, action)
             if result is not None:
@@ -1447,6 +2043,19 @@ class LiteyukiApp:
         return await self.actions.execute(action, event=event)
 
     async def _clear_agent_history(self, event: EventEnvelope) -> int:
+        """Clear agent history.
+
+        Args:
+            event: Event associated with the operation.
+
+        Returns:
+            The `int` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._clear_agent_history`. It delegates to
+            `_permission_service`, `getattr`, `callable`, `decide` while keeping intermediate state local to
+            the owning operation.
+        """
         permissions = _permission_service(self.services)
         decide = getattr(permissions, "decide", None)
         allows = getattr(permissions, "allows", None)
@@ -1498,6 +2107,18 @@ class LiteyukiApp:
         return cleared
 
     def _event_routes(self, settings: AppSettings) -> tuple[RuntimeEventRoute, ...]:
+        """Implement the event routes operation for the liteyuki app.
+
+        Args:
+            settings: Validated application settings.
+
+        Returns:
+            The `tuple[RuntimeEventRoute, ...]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._event_routes`. It delegates to `discover`,
+            `items`, `get`, `append` while keeping intermediate state local to the owning operation.
+        """
         routes = list(settings.runtime_event_routes)
         configured_targets = {route.target for route in routes}
         runtime_plugins = RuntimeCatalog().discover()
@@ -1523,6 +2144,19 @@ class LiteyukiApp:
         return tuple(routes)
 
     async def _forward_runtime_event(self, event: EventEnvelope) -> None:
+        """Implement the forward runtime event operation for the liteyuki app.
+
+        Args:
+            event: Event associated with the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._forward_runtime_event`. It delegates to
+            `gather`, `_deliver_runtime_event`, `next` while keeping intermediate state local to the owning
+            operation.
+        """
         targets = tuple(
             route.target
             for route in self._runtime_event_routes
@@ -1551,6 +2185,19 @@ class LiteyukiApp:
             raise ExceptionGroup("runtime event delivery failed", errors)
 
     async def _deliver_runtime_event(self, runtime_id: str, event: EventEnvelope) -> None:
+        """Implement the deliver runtime event operation for the liteyuki app.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+            event: Event associated with the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._deliver_runtime_event`. It delegates to
+            `dispatch_event`, `model_dump` while keeping intermediate state local to the owning operation.
+        """
         result = await self.runtimes.dispatch_event(
             runtime_id,
             event.id,
@@ -1562,6 +2209,18 @@ class LiteyukiApp:
 
     @staticmethod
     def _plugin_configs(config: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
+        """Implement the plugin configs operation for the liteyuki app.
+
+        Args:
+            config: Validated configuration used by the operation.
+
+        Returns:
+            The `dict[str, Mapping[str, Any]]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `LiteyukiApp._plugin_configs`. It delegates to `items` while
+            keeping intermediate state local to the owning operation.
+        """
         normalized: dict[str, Mapping[str, Any]] = {}
         for plugin_id, value in config.items():
             if not isinstance(value, Mapping):
@@ -1574,6 +2233,18 @@ __all__ = ["ActionService", "AppState", "LiteyukiApp"]
 
 
 def _json_safe_tool_value(value: object) -> EventJsonValue:
+    """Implement the json safe tool value operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `EventJsonValue` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_json_safe_tool_value`. It delegates to `isfinite`, `cast`,
+        `_json_safe_tool_value`, `all` while keeping intermediate state local to the owning operation.
+    """
     if value is None or isinstance(value, (bool, int, str)):
         return value
     if isinstance(value, float):

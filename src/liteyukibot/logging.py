@@ -24,7 +24,14 @@ from .config.redaction import redact_config
 
 
 def configure_logging(settings: LoggingSettings) -> Logger:
-    """Install the sinks selected by the immutable application settings."""
+    """Install the sinks selected by the immutable application settings.
+
+    Args:
+        settings: Validated application settings.
+
+    Returns:
+        The `Logger` result produced by the operation.
+    """
 
     console = ConsoleSink(level=settings.level) if settings.console else None
     json_sink = JsonSink(level=settings.level) if settings.json_lines else None
@@ -44,6 +51,11 @@ def configure_logging(settings: LoggingSettings) -> Logger:
 
 
 def shutdown_logging() -> None:
+    """Implement the shutdown logging operation for the component.
+
+    Returns:
+        None.
+    """
     shutdown()
 
 
@@ -55,7 +67,18 @@ def log_payload(
     payload: Mapping[str, Any],
     runtime_id: str | None = None,
 ) -> None:
-    """Emit a redacted structured payload only when full payload logging is selected."""
+    """Emit a redacted structured payload only when full payload logging is selected.
+
+    Args:
+        logger: Structured logger used for diagnostics.
+        settings: Validated application settings.
+        operation: The operation value used by the operation.
+        payload: JSON-safe payload carried by the operation.
+        runtime_id: Stable runtime identifier.
+
+    Returns:
+        None.
+    """
 
     if settings.payload_mode != "full" or (runtime_id is not None and runtime_id in settings.payload_exclude_runtimes):
         return
@@ -68,7 +91,11 @@ def log_payload(
 
 
 def configure_runtime_child_logging() -> Logger:
-    """Configure a child host from supervisor-provided logging environment."""
+    """Configure a child host from supervisor-provided logging environment.
+
+    Returns:
+        The `Logger` result produced by the operation.
+    """
 
     configure_child_runtime(level=os.environ.get("LITEYUKI_RUNTIME_LOG_LEVEL", "INFO"))
     intercept_stdlib_logging()

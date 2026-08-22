@@ -24,6 +24,14 @@ from .service import PROFILE_SERVICE, SQLiteProfileService, language_value, nick
 
 
 async def setup(context: PluginContext) -> None:
+    """Implement the setup operation for the component.
+
+    Args:
+        context: Runtime or authorization context for the operation.
+
+    Returns:
+        None.
+    """
     if any(context.config.get(key) == 1 for key in ("api_version", "schema_version", "version")):
         raise RuntimeError("migration_required")
     if context.paths is None:
@@ -54,10 +62,36 @@ async def setup(context: PluginContext) -> None:
     context.services.provide(PROFILE_SERVICE, service)
 
     async def inspect_tool(authorization: AuthorizationContext, _arguments: Mapping[str, Any]) -> dict[str, str]:
+        """Inspect tool.
+
+        Args:
+            authorization: Authenticated authorization context for the request.
+            _arguments: The arguments value used by the operation.
+
+        Returns:
+            The `dict[str, str]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `setup.inspect_tool`. It delegates to `get`, `_principal`
+            while keeping intermediate state local to the owning operation.
+        """
         profile = await service.get(_principal(authorization))
         return {"nickname": profile.nickname, "language": profile.language}
 
     async def set_tool(authorization: AuthorizationContext, arguments: Mapping[str, Any]) -> dict[str, bool]:
+        """Set tool.
+
+        Args:
+            authorization: Authenticated authorization context for the request.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `dict[str, bool]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `setup.set_tool`. It delegates to `_field`, `_value`, `get`,
+            `_principal` while keeping intermediate state local to the owning operation.
+        """
         field = _field(arguments)
         value = _value(arguments)
         resource_field = _PROFILE_FIELDS.get(field)
@@ -67,6 +101,19 @@ async def setup(context: PluginContext) -> None:
         return {"updated": True}
 
     async def delete_tool(authorization: AuthorizationContext, arguments: Mapping[str, Any]) -> dict[str, bool]:
+        """Delete tool.
+
+        Args:
+            authorization: Authenticated authorization context for the request.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `dict[str, bool]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `setup.delete_tool`. It delegates to `_field`, `get`,
+            `delete`, `_principal` while keeping intermediate state local to the owning operation.
+        """
         field = _field(arguments)
         resource_field = _PROFILE_FIELDS.get(field)
         if resource_field is None:
@@ -79,6 +126,15 @@ async def setup(context: PluginContext) -> None:
     context.register_tool("liteyukibot.profile.delete", cast(ToolCallback, delete_tool))
 
     async def close() -> None:
+        """Close the setup and release its owned resources.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `setup.close`. It delegates to `unregister`, `close` while
+            keeping intermediate state local to the owning operation.
+        """
         resources.unregister(registration)
         await service.close()
 
@@ -86,6 +142,14 @@ async def setup(context: PluginContext) -> None:
 
 
 def create_plugin(version: str) -> PluginDefinition:
+    """Create plugin.
+
+    Args:
+        version: The version value used by the operation.
+
+    Returns:
+        The `PluginDefinition` result produced by the operation.
+    """
     return PluginDefinition(
         manifest=PluginManifest(
             id="liteyukibot.profile",
@@ -179,6 +243,18 @@ _DELETED_SCHEMA: dict[str, object] = {
 
 
 def _principal(context: AuthorizationContext) -> Any:
+    """Implement the principal operation for the component.
+
+    Args:
+        context: Runtime or authorization context for the operation.
+
+    Returns:
+        The `Any` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_principal`. It performs the local state transition directly
+        and is not a stable extension boundary.
+    """
     if context.actor_id is None:
         raise ValueError("profile Tools require an actor")
     from liteyukibot_permissions import Principal
@@ -187,6 +263,18 @@ def _principal(context: AuthorizationContext) -> Any:
 
 
 def _field(arguments: Mapping[str, Any]) -> str:
+    """Implement the field operation for the component.
+
+    Args:
+        arguments: JSON-safe arguments supplied to the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_field`. It delegates to `get`, `cast` while keeping
+        intermediate state local to the owning operation.
+    """
     field = arguments.get("field")
     if field not in _PROFILE_FIELDS:
         raise ValueError("unsupported profile Tool field")
@@ -194,6 +282,18 @@ def _field(arguments: Mapping[str, Any]) -> str:
 
 
 def _value(arguments: Mapping[str, Any]) -> str:
+    """Implement the value operation for the component.
+
+    Args:
+        arguments: JSON-safe arguments supplied to the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_value`. It delegates to `get` while keeping intermediate
+        state local to the owning operation.
+    """
     value = arguments.get("value")
     if not isinstance(value, str):
         raise ValueError("invalid profile Tool value")

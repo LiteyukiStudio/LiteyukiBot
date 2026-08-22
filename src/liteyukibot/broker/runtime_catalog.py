@@ -13,6 +13,19 @@ PORTABLE_RUNTIME_API_VERSION = "1.2"
 
 
 def _identifier(value: str, field: str) -> str:
+    """Implement the identifier operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        field: The field value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_identifier`. It delegates to `strip` while keeping
+        intermediate state local to the owning operation.
+    """
     if not isinstance(value, str) or not value.strip() or value != value.strip():
         raise ValueError(f"{field} must be a non-empty trimmed string")
     return value
@@ -30,6 +43,11 @@ class RuntimeApiOperation:
     capabilities: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        """Validate and normalize the runtime api operation after initialization.
+
+        Returns:
+            None.
+        """
         _identifier(self.namespace, "runtime API namespace")
         _identifier(self.operation, "runtime API operation")
         _identifier(self.version, "runtime API version")
@@ -44,7 +62,14 @@ class RuntimeApiOperation:
         object.__setattr__(self, "capabilities", capabilities)
 
     def declaration(self, runtime_kind: str) -> RuntimeApiDeclaration:
-        """Bind this operation to one authenticated runtime provider kind."""
+        """Bind this operation to one authenticated runtime provider kind.
+
+        Args:
+            runtime_kind: The runtime kind value used by the operation.
+
+        Returns:
+            The `RuntimeApiDeclaration` result produced by the operation.
+        """
 
         runtime_kind = _identifier(runtime_kind, "runtime API runtime kind")
         capability_prefix = f"runtime.{runtime_kind}.{self.namespace}.{self.operation}"
@@ -66,7 +91,15 @@ class RuntimeApiOperation:
 def runtime_api_catalog(
     runtime_kind: str, operations: Sequence[RuntimeApiOperation]
 ) -> tuple[RuntimeApiDeclaration, ...]:
-    """Build and validate the immutable catalog advertised by one bridge."""
+    """Build and validate the immutable catalog advertised by one bridge.
+
+    Args:
+        runtime_kind: The runtime kind value used by the operation.
+        operations: The operations value used by the operation.
+
+    Returns:
+        The `tuple[RuntimeApiDeclaration, ...]` result produced by the operation.
+    """
 
     declarations = tuple(operation.declaration(runtime_kind) for operation in operations)
     identifiers = tuple(declaration.api_id for declaration in declarations)
@@ -76,7 +109,11 @@ def runtime_api_catalog(
 
 
 def portable_message_schema() -> dict[str, object]:
-    """Return the Draft 2020-12 schema for the protocol-neutral Message DTO."""
+    """Return the Draft 2020-12 schema for the protocol-neutral Message DTO.
+
+    Returns:
+        The `dict[str, object]` result produced by the operation.
+    """
 
     return {
         "type": "object",
@@ -100,7 +137,11 @@ def portable_message_schema() -> dict[str, object]:
 
 
 def portable_conversation_schema() -> dict[str, object]:
-    """Return the Draft 2020-12 schema for the ConversationRef DTO."""
+    """Return the Draft 2020-12 schema for the ConversationRef DTO.
+
+    Returns:
+        The `dict[str, object]` result produced by the operation.
+    """
 
     return {
         "type": "object",
@@ -115,25 +156,41 @@ def portable_conversation_schema() -> dict[str, object]:
 
 
 def portable_event_snapshot_schema() -> dict[str, object]:
-    """Return the canonical EventSnapshot JSON schema."""
+    """Return the canonical EventSnapshot JSON schema.
+
+    Returns:
+        The `dict[str, object]` result produced by the operation.
+    """
 
     return cast(dict[str, object], EventSnapshot.model_json_schema())
 
 
 def portable_bot_snapshot_schema() -> dict[str, object]:
-    """Return the canonical BotSnapshot JSON schema."""
+    """Return the canonical BotSnapshot JSON schema.
+
+    Returns:
+        The `dict[str, object]` result produced by the operation.
+    """
 
     return cast(dict[str, object], BotSnapshot.model_json_schema())
 
 
 def portable_send_result_schema() -> dict[str, object]:
-    """Return the canonical SendResult JSON schema."""
+    """Return the canonical SendResult JSON schema.
+
+    Returns:
+        The `dict[str, object]` result produced by the operation.
+    """
 
     return cast(dict[str, object], SendResult.model_json_schema())
 
 
 def portable_runtime_api_operations() -> tuple[RuntimeApiOperation, ...]:
-    """Build the complete Alpha10.1 portable operation catalog."""
+    """Build the complete Alpha10.1 portable operation catalog.
+
+    Returns:
+        The `tuple[RuntimeApiOperation, ...]` result produced by the operation.
+    """
 
     empty_input = {"type": "object", "additionalProperties": False}
     message_input = {
@@ -192,13 +249,27 @@ def portable_runtime_api_operations() -> tuple[RuntimeApiOperation, ...]:
 
 
 def portable_runtime_api_catalog(runtime_kind: str) -> tuple[RuntimeApiDeclaration, ...]:
-    """Bind the complete portable catalog to one provider runtime kind."""
+    """Bind the complete portable catalog to one provider runtime kind.
+
+    Args:
+        runtime_kind: The runtime kind value used by the operation.
+
+    Returns:
+        The `tuple[RuntimeApiDeclaration, ...]` result produced by the operation.
+    """
 
     return runtime_api_catalog(runtime_kind, portable_runtime_api_operations())
 
 
 def portable_runtime_api_catalog_fingerprint(runtime_kind: str) -> str:
-    """Return the fingerprint for one provider's complete portable catalog."""
+    """Return the fingerprint for one provider's complete portable catalog.
+
+    Args:
+        runtime_kind: The runtime kind value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+    """
 
     return runtime_api_catalog_fingerprint(portable_runtime_api_catalog(runtime_kind))
 

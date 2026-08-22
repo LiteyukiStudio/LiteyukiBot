@@ -14,6 +14,18 @@ from .sandbox import run_worker_callable
 
 
 async def _run(request: Mapping[str, Any]) -> dict[str, JsonValue]:
+    """Run the component operation.
+
+    Args:
+        request: Validated request object to process.
+
+    Returns:
+        The `dict[str, JsonValue]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_run`. It delegates to `get`, `run_worker_callable` while
+        keeping intermediate state local to the owning operation.
+    """
     correlation_id = request.get("correlation_id")
     worker_ref = request.get("worker_ref")
     arguments = request.get("arguments")
@@ -35,6 +47,11 @@ async def _run(request: Mapping[str, Any]) -> dict[str, JsonValue]:
 
 
 def main() -> int:
+    """Run the command-line entry point.
+
+    Returns:
+        The `int` result produced by the operation.
+    """
     line = sys.stdin.buffer.readline()
     try:
         request = json.loads(line)
