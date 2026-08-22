@@ -15,15 +15,17 @@
 ## About
 
 LiteyukiBot v7 is a CPython 3.14 chatbot kernel. It owns configuration,
-native-plugin lifecycle, routing, permissions, logging, and local runtime IPC.
-Framework integrations run as separately installed supervised child runtimes;
-they exchange frozen Event and Action models with the kernel rather than SDK
-objects.
+native-plugin lifecycle, routing, permissions, logging, and broker-peer IPC.
+Framework integrations run as separately installed B7 broker bridges and
+exchange frozen protocol-neutral models with the kernel rather than SDK
+objects. The supervised child-runtime path remains only as historical
+compatibility support.
 
 The default branch is the maintained LiteyukiBot v7 line. The prior v6 line is
-preserved on the `v6` branch. The current source is the `7.0.0a2` Alpha bundle
-baseline; it is not a PyPI release. The earlier `7.0.0b2` B7 package is
-historical release evidence.
+preserved on the `v6` branch. The current source pre-release is the `7.0.0a9`
+Alpha lockstep baseline; it is not a PyPI release. Alpha10.1 freezes the
+portable runtime facade, and Alpha10.2 proves the broker-peer and wheel-
+contributor path.
 
 ## Features
 
@@ -33,14 +35,14 @@ historical release evidence.
   material for configuration upgrades;
 - native plugins with explicit entry points, lifecycle hooks, services,
   managed tasks, private storage, resource packs, and localized text;
-- authenticated loopback IPC, child-runtime supervision, per-conversation
-  event ordering, bounded concurrency, and routed protocol-neutral actions;
+- authenticated B7 broker-peer IPC, per-conversation event ordering, bounded
+  concurrency, lease-bound deliveries, and routed protocol-neutral actions;
 - retained and verifiable runtime plugin generations with source indexes,
   rollback, disable/enable, and garbage collection commands;
 - first-party command, permission, resource, profile, essential-command, and
   agent packages;
 - bounded LiteyukiBot v6 compatibility and separate NoneBot2, native OneBot
-  v11, AstrBot, and Neo-MoFox runtime packages.
+  v11, AstrBot, and Neo-MoFox bridge packages.
 
 ## Install And Run
 
@@ -88,14 +90,16 @@ enabled in `liteyuki.toml`.
 | `liteyukibot-v7-profile` | Persistent per-bot nickname and language profiles. |
 | `liteyukibot-v7-essentials` | Help and protected status commands. |
 | `liteyukibot-v7-functions` | v6 `.lyf`, `.lyfunction`, and `.mcfunction` executor. |
-| `liteyukibot-v7-runtime-nonebot` | Supervised NoneBot2 runtime host. |
-| `liteyukibot-v7-runtime-adapter` | Supervised Python platform-adapter host. |
+| `liteyukibot-v7-runtime-nonebot` | B7 NoneBot2 broker bridge. |
+| `liteyukibot-v7-runtime-nonebot-api` | NoneBot-independent typed Runtime API v1.2 facade. |
+| `liteyukibot-v7-runtime-adapter` | Python platform-adapter broker bridge. |
 | `liteyukibot-v7-adapter-onebot` | Native OneBot v11 HTTP Post and HTTP API adapter. |
 | `liteyukibot-v7-runtime-v6` | Bounded LiteyukiBot v6 compatibility runtime. |
 | `liteyukibot-v7-agent-resolver` | Declarative agent module and tool resolver. |
 | `liteyukibot-v7-agent` | OpenAI-compatible native agent runtime. |
-| `liteyukibot-v7-runtime-astrbot` | Headless AstrBot agent runtime. |
-| `liteyukibot-v7-runtime-mofox` | Headless Neo-MoFox agent runtime. |
+| `liteyukibot-v7-runtime-astrbot` | AstrBot B7 platform gateway. |
+| `liteyukibot-v7-runtime-astrbot-api` | AstrBot-independent typed Runtime API v1.2 facade. |
+| `liteyukibot-v7-runtime-mofox` | Headless Neo-MoFox agent bridge. |
 
 Read the package README in [`packages/`](packages/README.md) before enabling a
 package. The kernel does not install framework integrations implicitly.
@@ -130,6 +134,7 @@ tokens, or message payloads in public reports.
 - [v6 compatibility](docs/migration-v6.md)
 - [Native plugin development](docs/development/native-plugins.md)
 - [Custom runtime development](docs/development/custom-runtimes.md)
+- [Runtime API and provider conformance](docs/development/runtime-api-conformance.md)
 - [Contributor guide](CONTRIBUTING.md)
 - [Release procedure](docs/development/releasing.md)
 

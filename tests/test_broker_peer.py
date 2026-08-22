@@ -20,8 +20,10 @@ from liteyukibot.broker import (
     BrokerPeerServer,
     BrokerPeerService,
     BrokerWireError,
+    RuntimeApiDeclaration,
     decode_broker_message,
     encode_broker_message,
+    runtime_api_catalog_fingerprint,
 )
 from liteyukibot.lyip import LyipError, LyipFrame, LyipLane, LyipOfferResult, ZmqLyipDealer
 
@@ -62,6 +64,7 @@ def test_manifest_is_immutable_json_safe_and_rejects_invalid_declarations() -> N
         "tools": [],
         "controls": [],
         "runtime_apis": [],
+        "runtime_api_fingerprint": None,
     }
     with pytest.raises(ValidationError, match="duplicates"):
         BridgeManifest(
@@ -71,6 +74,31 @@ def test_manifest_is_immutable_json_safe_and_rejects_invalid_declarations() -> N
         )
     with pytest.raises(ValidationError, match="non-empty"):
         BridgeManifest(bridge_id=" ", access=BridgeAccess.LIMITED)
+
+
+def test_manifest_records_and_validates_runtime_api_catalog_fingerprint() -> None:
+    declaration = RuntimeApiDeclaration(
+        runtime_kind="example",
+        namespace="experimental",
+        operation="echo",
+        version="1.0",
+        input_schema={"type": "object"},
+        output_schema={"type": "object"},
+    )
+    manifest = BridgeManifest(
+        bridge_id="example",
+        access=BridgeAccess.LIMITED,
+        runtime_apis=(declaration,),
+    )
+
+    assert manifest.runtime_api_fingerprint == runtime_api_catalog_fingerprint((declaration,))
+    with pytest.raises(ValidationError, match="fingerprint"):
+        BridgeManifest(
+            bridge_id="example",
+            access=BridgeAccess.LIMITED,
+            runtime_apis=(declaration,),
+            runtime_api_fingerprint="0" * 64,
+        )
 
 
 def test_event_ledger_defaults_are_consistent_across_broker_hosts() -> None:

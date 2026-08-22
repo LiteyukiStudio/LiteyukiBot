@@ -41,6 +41,12 @@ instance token, and immutable manifest. The manifest declares an access class
 declarations `(kind, resource)` or `(kind, resource_prefix)`. A declaration
 must select exactly one matching mode.
 
+The manifest may also declare Runtime API operations. When `runtime_apis` is
+non-empty, `runtime_api_fingerprint` records the SHA-256 digest of the
+canonical sorted declarations; the broker rejects a supplied digest that does
+not match. Stable Alpha10.1 providers use the kernel-owned v1.2 portable
+catalog, while provider-only operations remain explicitly experimental.
+
 The broker authenticates the token, binds the ZMQ peer identity, and returns a
 broker-generated session ID in `bridge.registered`. Unknown bridges, invalid
 tokens, already-live bridge IDs, identity rebinding, malformed messages, and

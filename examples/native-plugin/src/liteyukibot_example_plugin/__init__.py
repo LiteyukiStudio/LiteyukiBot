@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from liteyukibot import PluginContext, PluginDefinition, PluginManifest
+from typing import Any
+
+from liteyukibot import PluginContext, PluginDefinition, PluginManifest, RuntimeRequirement, RuntimeUnavailable, runtime
 from liteyukibot.events import (
     ActionEnvelope,
     EventEnvelope,
@@ -11,6 +13,20 @@ from liteyukibot.events import (
     Segment,
     SendMessage,
 )
+
+
+@runtime("astrbot", api="event", version="^1.2", optional=True, as_="astrbot")
+async def observe_provider_event(event: EventEnvelope, *, astrbot: Any) -> HandlerResult | None:
+    if not getattr(astrbot, "available", False):
+        return None
+    snapshot = getattr(astrbot, "snapshot", None)
+    if not callable(snapshot):
+        return None
+    try:
+        await snapshot()
+    except RuntimeUnavailable:
+        return None
+    return None
 
 
 async def setup(context: PluginContext) -> None:
@@ -39,6 +55,11 @@ async def setup(context: PluginContext) -> None:
     context.defer_cleanup(lambda: context.events.unsubscribe(subscription))
 
 
+async def setup_runtime_facade(context: PluginContext) -> None:
+    subscription = context.events.subscribe(observe_provider_event, name="example.runtime_probe")
+    context.defer_cleanup(lambda: context.events.unsubscribe(subscription))
+
+
 plugin = PluginDefinition(
     manifest=PluginManifest(
         id="example.echo",
@@ -49,4 +70,22 @@ plugin = PluginDefinition(
     setup=setup,
 )
 
-__all__ = ["plugin"]
+runtime_facade_plugin = PluginDefinition(
+    manifest=PluginManifest(
+        id="example.runtime",
+        name="Runtime facade example",
+        version="0.1.0",
+        runtime_requirements=(
+            RuntimeRequirement(
+                runtime="astrbot",
+                api="event",
+                version="^1.2",
+                operations=("snapshot",),
+                optional=True,
+            ),
+        ),
+    ),
+    setup=setup_runtime_facade,
+)
+
+__all__ = ["observe_provider_event", "plugin", "runtime_facade_plugin"]

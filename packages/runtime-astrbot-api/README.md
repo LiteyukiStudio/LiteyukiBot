@@ -11,3 +11,9 @@ result types are kernel-owned portable DTOs; AstrBot platform/session fields
 remain under the `astrbot` extension namespace. The old text projection is
 available as `message_text`; `event.snapshot().message` is now a portable
 `Message`.
+
+Native/Cordis extensions declare a matching `RuntimeRequirement` and use the
+kernel `@runtime` decorator. Keep the requirement optional when AstrBot is an
+enhancement; check `proxy.available` before calling it and handle
+`RuntimeUnavailable` or stable `RUNTIME_*` errors. The installed facade keeps
+AstrBot-specific values under `extensions["astrbot"]`.

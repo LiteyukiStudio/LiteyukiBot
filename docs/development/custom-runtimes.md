@@ -53,6 +53,38 @@ that action only while dispatching the matching active broker delivery. `CallApi
 message editing, and a generic function/decorator DSL are deferred to later
 version planning.
 
+The installable [B7 broker-peer example](../../examples/broker-peer) runs this
+lifecycle over the real ZMQ transport, including registration, ingress, a
+lease-bound experimental runtime API, completion, unregister, and shutdown.
+Use it as a protocol smoke test, not as a framework adapter template.
+
+## Runtime API facade for plugins
+
+Native and Cordis extensions share the kernel-owned `RuntimeRequirement` and
+`@runtime` declarations. A provider facade is an optional dependency of the
+extension, not a kernel import:
+
+```python
+from typing import Any
+
+from liteyukibot import runtime
+
+
+@runtime("astrbot", api="event", version="^1.2", optional=True, as_="astrbot")
+async def handler(event: object, *, astrbot: Any) -> None:
+    if not astrbot.available:
+        return
+    snapshot = getattr(astrbot, "snapshot", None)
+    if callable(snapshot):
+        await snapshot()
+```
+
+The manifest must contain the same runtime, API, version, optional flag, and
+operation list. Use `bridge_id` on both declarations when targeting one named
+bridge. The full portable operation set, catalog fingerprint rule, provider
+checklist, and failure guide are in
+[`runtime-api-conformance.md`](runtime-api-conformance.md).
+
 The v6 and MoFox compatibility packages are limited bridge examples. v6 keeps
 its matcher/session compatibility process-local and loads only configured
 `liteyukibot.v6_plugins` entry points. MoFox loads only a configured isolated

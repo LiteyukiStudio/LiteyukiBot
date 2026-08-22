@@ -49,5 +49,6 @@ add another provider or expand the Runtime API catalog.
 Portable snapshot/result DTO convergence is specified in the
 [Alpha10.1 plan](v7-alpha-10-1-portable-facade.md). Provider conformance
 tooling, catalog fingerprints, API package CI coverage, and B7 author examples
-remain Alpha10.2 work. A third-party provider pilot and all Alpha11+ work stay
-outside these Alpha10 gates.
+are specified in the [Alpha10.2 plan](v7-alpha-10-2-ecosystem-proof.md). A
+third-party provider pilot and all Alpha11+ work stay outside these Alpha10
+gates.

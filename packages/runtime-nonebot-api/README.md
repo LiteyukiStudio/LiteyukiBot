@@ -10,3 +10,9 @@ The supported portable surface includes `event.snapshot()`,
 never expose NoneBot objects, adapter objects, or arbitrary API passthrough.
 Snapshot and send result types are kernel-owned portable DTOs; provider-specific
 values are available only under explicit extensions.
+
+Native/Cordis extensions declare a matching `RuntimeRequirement` and use the
+kernel `@runtime` decorator. Keep the requirement optional when the provider
+is an enhancement; check `proxy.available` before calling it and handle
+`RuntimeUnavailable` or stable `RUNTIME_*` errors. The isolated API verifier
+is the reference for the installed entry-point and DTO boundary.

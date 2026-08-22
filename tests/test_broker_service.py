@@ -18,6 +18,7 @@ from liteyukibot.broker.protocol import (
     BridgeRegister,
     BridgeRegistered,
     BridgeRejected,
+    RuntimeApiDeclaration,
     decode_broker_message,
     encode_broker_message,
 )
@@ -209,6 +210,49 @@ def test_authoritative_service_rejects_token_matched_manifest_mismatch() -> None
 
     assert isinstance(reply, BridgeRejected)
     assert reply.code == "manifest_mismatch"
+
+
+def test_authoritative_service_preserves_dynamic_runtime_catalog_fingerprint() -> None:
+    configured = BridgeManifest(
+        bridge_id="provider",
+        access=BridgeAccess.LIMITED,
+    )
+    declaration = RuntimeApiDeclaration(
+        runtime_kind="example",
+        namespace="experimental",
+        operation="echo",
+        version="1.0",
+        input_schema={"type": "object"},
+        output_schema={"type": "object"},
+    )
+    service = _AuthoritativePeerService(
+        manifests={"provider": configured},
+        instance_tokens={"provider": "secret"},
+        generation=1,
+        active_capacity=1024,
+        terminal_capacity=16384,
+        terminal_ttl_seconds=3600,
+        delivery_timeout_seconds=30,
+        dynamic_runtime_api_bridge_ids=frozenset({"provider"}),
+        runtime_kinds={"provider": "example"},
+    )
+    manifest = BridgeManifest(
+        bridge_id="provider",
+        access=BridgeAccess.LIMITED,
+        runtime_apis=(declaration,),
+    )
+    frame = encode_broker_message(
+        BridgeRegister(bridge_id="provider", instance_token="secret", manifest=manifest),
+        generation=1,
+        stream_id="bridge:provider:control",
+        sequence=0,
+        lease_id="registration",
+    )
+
+    reply = decode_broker_message(service.handle_control(b"provider-peer", frame))
+
+    assert isinstance(reply, BridgeRegistered)
+    assert service.sessions[0].manifest.runtime_api_fingerprint == manifest.runtime_api_fingerprint
 
 
 def test_authoritative_service_allows_only_dynamic_kernel_tool_and_control_fields() -> None:
