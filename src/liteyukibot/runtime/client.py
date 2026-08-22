@@ -48,6 +48,7 @@ _LYIP_BOOTSTRAP_REQUIRED = (
 
 
 class RuntimeClient:
+    """Represent the runtime client contract."""
     def __init__(
         self,
         *,
@@ -62,6 +63,23 @@ class RuntimeClient:
         protocol_version: ProtocolVersion = PROTOCOL_VERSION,
         context: zmq.asyncio.Context | None = None,
     ) -> None:
+        """Initialize the runtime client.
+
+        Args:
+            business_endpoint: The business endpoint value used by the operation.
+            control_endpoint: The control endpoint value used by the operation.
+            generation: Positive protocol or deployment generation.
+            lease_id: Stable identifier for the lease.
+            identity: The identity value used by the operation.
+            runtime_id: Stable runtime identifier.
+            kind: The kind value used by the operation.
+            token: Authentication token presented at the boundary.
+            protocol_version: The protocol version value used by the operation.
+            context: Runtime or authorization context for the operation.
+
+        Returns:
+            None.
+        """
         if not all(
             value and value == value.strip()
             for value in (business_endpoint, control_endpoint, lease_id, identity, runtime_id, kind, token)
@@ -107,6 +125,16 @@ class RuntimeClient:
         *,
         protocol_version: ProtocolVersion = PROTOCOL_VERSION,
     ) -> RuntimeClient:
+        """Create the runtime client from environment.
+
+        Args:
+            kind: The kind value used by the operation.
+            environment: The environment value used by the operation.
+            protocol_version: The protocol version value used by the operation.
+
+        Returns:
+            The `RuntimeClient` result produced by the operation.
+        """
         values = os.environ if environment is None else environment
         missing = tuple(name for name in _LYIP_ENVIRONMENT_NAMES if not values.get(name, "").strip())
         if missing:
@@ -132,9 +160,19 @@ class RuntimeClient:
 
     @property
     def connected(self) -> bool:
+        """Return the runtime client's connected.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
         return self._dealer is not None and not self._closed
 
     async def connect(self) -> Mapping[str, JsonValue]:
+        """Connect the runtime client operation.
+
+        Returns:
+            The `Mapping[str, JsonValue]` result produced by the operation.
+        """
         if self._dealer is not None or self._closed:
             raise RuntimeError("runtime client connection is single-use")
         self._dealer = ZmqLyipDealer(
@@ -175,6 +213,14 @@ class RuntimeClient:
             raise
 
     async def ready(self, capabilities: Sequence[str] = ()) -> None:
+        """Implement the ready operation for the runtime client.
+
+        Args:
+            capabilities: The capabilities value used by the operation.
+
+        Returns:
+            None.
+        """
         if self._heartbeat_task is not None:
             raise RuntimeError("runtime client is already ready")
         normalized = tuple(capabilities)
@@ -187,6 +233,11 @@ class RuntimeClient:
         )
 
     async def receive(self) -> WireMessage:
+        """Receive the runtime client operation.
+
+        Returns:
+            The `WireMessage` result produced by the operation.
+        """
         if self._dealer is None or self._closed:
             raise ConnectionError("runtime client is not connected")
         if self._receive_lock.locked():
@@ -218,6 +269,17 @@ class RuntimeClient:
         delivery_correlation_id: str | None = None,
         timeout_seconds: float = 30.0,
     ) -> ActionResponse:
+        """Execute action.
+
+        Args:
+            correlation_id: Stable identifier for the correlation.
+            payload: JSON-safe payload carried by the operation.
+            delivery_correlation_id: Stable identifier for the delivery correlation.
+            timeout_seconds: Maximum duration to wait, in seconds.
+
+        Returns:
+            The `ActionResponse` result produced by the operation.
+        """
         if timeout_seconds <= 0:
             raise ValueError("runtime action timeout must be positive")
         if self.negotiated_protocol not in (3, 4, 5):
@@ -248,6 +310,14 @@ class RuntimeClient:
             self._pending_actions.pop(correlation_id, None)
 
     async def send(self, message: WireMessage) -> None:
+        """Send the runtime client operation.
+
+        Args:
+            message: Message content associated with the operation.
+
+        Returns:
+            None.
+        """
         dealer = self._dealer
         if dealer is None or self._closed:
             raise ConnectionError("runtime client is not connected")
@@ -262,6 +332,16 @@ class RuntimeClient:
     async def execute_management(
         self, correlation_id: str, command: str, timeout_seconds: float = 30.0
     ) -> ManagementResponse:
+        """Execute management.
+
+        Args:
+            correlation_id: Stable identifier for the correlation.
+            command: Command or operation name to execute.
+            timeout_seconds: Maximum duration to wait, in seconds.
+
+        Returns:
+            The `ManagementResponse` result produced by the operation.
+        """
         if not command.strip() or timeout_seconds <= 0:
             raise ValueError("management command and timeout must be positive")
         if self.negotiated_protocol != 5 or "runtime.management.execute" not in self._capabilities:
@@ -278,6 +358,11 @@ class RuntimeClient:
             self._pending_management.pop(correlation_id, None)
 
     async def close(self) -> None:
+        """Close the runtime client and release its owned resources.
+
+        Returns:
+            None.
+        """
         if self._closed:
             return
         self._closed = True
@@ -299,6 +384,18 @@ class RuntimeClient:
                 dealer.close()
 
     def _encode(self, message: WireMessage) -> LyipFrame:
+        """Encode the runtime client operation.
+
+        Args:
+            message: Message content associated with the operation.
+
+        Returns:
+            The `LyipFrame` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `RuntimeClient._encode`. It delegates to
+            `encode_runtime_message`, `get` while keeping intermediate state local to the owning operation.
+        """
         probe = encode_runtime_message(
             message,
             generation=self.generation,
@@ -316,6 +413,19 @@ class RuntimeClient:
         )
 
     async def _receive_lane(self, lane: LyipLane) -> WireMessage:
+        """Receive lane.
+
+        Args:
+            lane: The lane value used by the operation.
+
+        Returns:
+            The `WireMessage` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `RuntimeClient._receive_lane`. It delegates to `pop`,
+            `create_task`, `receive`, `_decode` while keeping intermediate state local to the owning
+            operation.
+        """
         task = self._lane_receives.pop(lane, None)
         if task is None:
             dealer = self._dealer
@@ -326,6 +436,16 @@ class RuntimeClient:
         return self._decode(frame, lane)
 
     async def _receive_any_lane(self) -> WireMessage:
+        """Receive any lane.
+
+        Returns:
+            The `WireMessage` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `RuntimeClient._receive_any_lane`. It delegates to
+            `create_task`, `receive`, `wait`, `values` while keeping intermediate state local to the owning
+            operation.
+        """
         for lane in LyipLane:
             if lane not in self._lane_receives:
                 dealer = self._dealer
@@ -339,6 +459,19 @@ class RuntimeClient:
         return await self._receive_lane(lane)
 
     def _decode(self, frame: LyipFrame, lane: LyipLane) -> WireMessage:
+        """Decode the runtime client operation.
+
+        Args:
+            frame: The frame value used by the operation.
+            lane: The lane value used by the operation.
+
+        Returns:
+            The `WireMessage` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `RuntimeClient._decode`. It delegates to
+            `decode_runtime_message` while keeping intermediate state local to the owning operation.
+        """
         if frame.lease_id != self.lease_id:
             raise LyipError("LYIP frame lease does not match runtime lease")
         if frame.lane is not lane:
@@ -349,6 +482,18 @@ class RuntimeClient:
         return decode_runtime_message(frame)
 
     def _fail_pending(self, error: BaseException) -> None:
+        """Implement the fail pending operation for the runtime client.
+
+        Args:
+            error: The error value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeClient._fail_pending`. It delegates to `values`,
+            `done`, `set_exception`, `clear` while keeping intermediate state local to the owning operation.
+        """
         for pending in (
             self._pending_actions,
             self._pending_management,
@@ -359,6 +504,18 @@ class RuntimeClient:
             pending.clear()
 
     async def _heartbeat(self, interval: float) -> None:
+        """Implement the heartbeat operation for the runtime client.
+
+        Args:
+            interval: The interval value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeClient._heartbeat`. It delegates to `sleep`, `send`,
+            `monotonic` while keeping intermediate state local to the owning operation.
+        """
         while True:
             await asyncio.sleep(interval)
             await self.send(Heartbeat(monotonic=time.monotonic()))

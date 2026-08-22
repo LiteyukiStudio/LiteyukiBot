@@ -19,6 +19,15 @@ const record = (value: Json | undefined): JsonObject => value && typeof value ==
 const string = (value: Json | undefined, fallback = "-"): string => typeof value === "string" ? value : fallback;
 const list = (value: Json | undefined): Json[] => Array.isArray(value) ? value : [];
 
+/**
+ * Projects loosely typed daemon snapshots into the stable view model consumed by workspace components.
+ * @param bootstrap - Bootstrap snapshot and instance metadata.
+ * @param ledger - Bounded operation-ledger response.
+ * @param catalog - Operations available to the current session.
+ * @param audit - Redacted audit records.
+ * @returns A defensive dashboard model with explicit fallbacks for absent fields.
+ * @remarks This is a presentation boundary, not protocol validation; the daemon remains the source of truth.
+ */
 export function projectDashboard(bootstrap: JsonObject, ledger: JsonObject, catalog: WebUiOperation[], audit: WebUiOperationRecord[]): Dashboard {
   const snapshot = record(bootstrap.snapshot);
   const status = record(snapshot.status);

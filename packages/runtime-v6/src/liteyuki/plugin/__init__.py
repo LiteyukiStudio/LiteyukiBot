@@ -13,6 +13,14 @@ _plugins: dict[str, Plugin] = {}
 
 
 def load_plugin(module_path: str | Path) -> Plugin | None:
+    """Load plugin.
+
+    Args:
+        module_path: Filesystem path for the module.
+
+    Returns:
+        The `Plugin | None` result produced by the operation.
+    """
     module_name = _module_name(module_path)
     try:
         module = import_module(module_name)
@@ -36,6 +44,15 @@ def load_plugin(module_path: str | Path) -> Plugin | None:
 
 
 def load_plugins(*plugin_dirs: str, ignore_warning: bool = True) -> set[Plugin]:
+    """Load plugins.
+
+    Args:
+        ignore_warning: The ignore warning value used by the operation.
+        *plugin_dirs: The plugin dirs value used by the operation.
+
+    Returns:
+        The `set[Plugin]` result produced by the operation.
+    """
     loaded: set[Plugin] = set()
     for raw_directory in plugin_dirs:
         directory = Path(raw_directory)
@@ -57,10 +74,27 @@ def load_plugins(*plugin_dirs: str, ignore_warning: bool = True) -> set[Plugin]:
 
 
 def get_loaded_plugins() -> dict[str, Plugin]:
+    """Return loaded plugins.
+
+    Returns:
+        The requested `dict[str, Plugin]` value.
+    """
     return dict(_plugins)
 
 
 def _module_name(value: str | Path) -> str:
+    """Implement the module name operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_module_name`. It delegates to `resolve`, `cwd`,
+        `relative_to`, `with_suffix` while keeping intermediate state local to the owning operation.
+    """
     if isinstance(value, str):
         return value
     resolved = value.resolve(strict=False)
@@ -77,6 +111,19 @@ def _module_name(value: str | Path) -> str:
 
 
 def _coerce_metadata(candidate: object, module_name: str) -> PluginMetadata:
+    """Implement the coerce metadata operation for the component.
+
+    Args:
+        candidate: The candidate value used by the operation.
+        module_name: The module name value used by the operation.
+
+    Returns:
+        The `PluginMetadata` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_coerce_metadata`. It delegates to `getattr` while keeping
+        intermediate state local to the owning operation.
+    """
     if isinstance(candidate, PluginMetadata):
         return candidate
     if candidate is None:

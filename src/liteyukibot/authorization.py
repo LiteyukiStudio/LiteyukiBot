@@ -6,6 +6,19 @@ from dataclasses import dataclass
 
 
 def _required(value: str, field: str) -> str:
+    """Implement the required operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        field: The field value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_required`. It delegates to `strip` while keeping
+        intermediate state local to the owning operation.
+    """
     if not isinstance(value, str) or not value or value != value.strip():
         raise ValueError(f"authorization {field} must be a non-empty trimmed string")
     return value
@@ -21,6 +34,11 @@ class AuthorizationContext:
     actor_id: str | None = None
 
     def __post_init__(self) -> None:
+        """Validate and normalize the authorization context after initialization.
+
+        Returns:
+            None.
+        """
         for field in ("event_id", "runtime_id", "bot_id"):
             object.__setattr__(self, field, _required(getattr(self, field), field))
         if self.actor_id is not None:

@@ -31,20 +31,60 @@ class VaultError(LiteyukiError):
 
 
 class SecretVault:
-    """Encrypt named strings in the local secrets.v1.json file."""
+    """Encrypt named runtime secrets in an authenticated local vault file.
+
+    The vault protects secrets at rest and detects modification. It does not
+    isolate secrets from code running with the same user and filesystem access.
+    """
 
     filename = "secrets.v1.json"
 
     def __init__(self, directory: str | os.PathLike[str]) -> None:
+        """Initialize the secret vault.
+
+        Args:
+            directory: The directory value used by the operation.
+
+        Returns:
+            None.
+        """
         self.directory = Path(directory).resolve()
         self.path = self.directory / self.filename
 
     def initialize(self, password: str, values: Mapping[str, str] = {}) -> None:
+        """Create a new vault without overwriting an existing secret file.
+
+        Args:
+            password: Non-empty password used to derive the encryption key.
+            values: Initial validated secret names and plaintext values.
+
+        Returns:
+            None.
+
+        Security:
+            Plaintext values are held briefly in process memory. The capability
+            is retained because child runtimes need provisioned credentials;
+            authenticated encryption and owner-only atomic writes protect the
+            persistent form.
+        """
         if self.path.exists():
             raise VaultError(f"secret vault already exists: {self.path}")
         self._write(password, self._validate_values(values))
 
     def read(self, password: str) -> dict[str, str]:
+        """Authenticate, decrypt, and validate all named vault values.
+
+        Args:
+            password: Password used to derive the candidate decryption key.
+
+        Returns:
+            Fresh mapping of secret names to plaintext values.
+
+        Security:
+            This intentionally returns plaintext to trusted runtime setup code.
+            AES-GCM authentication rejects a wrong password or modified file;
+            error messages never include decrypted material.
+        """
         try:
             raw = self.path.read_bytes()
         except OSError as error:
@@ -56,11 +96,30 @@ class SecretVault:
         return self._decrypt_document(document, password)
 
     def set(self, password: str, name: str, value: str) -> None:
+        """Set the secret vault operation.
+
+        Args:
+            password: The password value used by the operation.
+            name: Stable name used to identify the value.
+            value: Value to validate, transform, or store.
+
+        Returns:
+            None.
+        """
         values = self.read(password) if self.path.exists() else {}
         values[name] = value
         self._write(password, self._validate_values(values))
 
     def delete(self, password: str, name: str) -> bool:
+        """Delete the secret vault operation.
+
+        Args:
+            password: The password value used by the operation.
+            name: Stable name used to identify the value.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
         values = self.read(password)
         if name not in values:
             return False
@@ -69,13 +128,42 @@ class SecretVault:
         return True
 
     def list_names(self, password: str) -> tuple[str, ...]:
+        """List names.
+
+        Args:
+            password: The password value used by the operation.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+        """
         return tuple(sorted(self.read(password)))
 
     def rotate(self, password: str, replacement_password: str) -> None:
+        """Re-encrypt the current vault under a replacement password.
+
+        Args:
+            password: The password value used by the operation.
+            replacement_password: The replacement password value used by the operation.
+
+        Returns:
+            None.
+        """
         self._write(replacement_password, self.read(password))
 
     @classmethod
     def _validate_values(cls, values: Mapping[str, str]) -> dict[str, str]:
+        """Validate values.
+
+        Args:
+            values: The values value used by the operation.
+
+        Returns:
+            The `dict[str, str]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `SecretVault._validate_values`. It delegates to `items`,
+            `fullmatch` while keeping intermediate state local to the owning operation.
+        """
         result: dict[str, str] = {}
         for name, value in values.items():
             if not isinstance(name, str) or not _IDENTIFIER.fullmatch(name):
@@ -86,6 +174,25 @@ class SecretVault:
         return result
 
     def _write(self, password: str, values: Mapping[str, str]) -> None:
+        """Encrypt and atomically replace the vault with owner-only permissions.
+
+        Args:
+            password: Password used for scrypt key derivation.
+            values: Validated plaintext values to serialize and encrypt.
+
+        Returns:
+            None.
+
+        Notes:
+            A fresh salt and nonce are generated for every rewrite. The temporary
+            file is flushed and atomically replaced before best-effort permission
+            normalization.
+
+        Security:
+            Writing secrets is inherently sensitive but required for runtime
+            credential provisioning. AES-256-GCM, scrypt, fresh randomness,
+            authenticated format metadata, and mode `0600` bound the risk.
+        """
         encoded_password = self._password_bytes(password)
         salt = secrets.token_bytes(_SALT_LENGTH)
         kdf = {"name": "scrypt", "salt": _encode(salt), "n": 16384, "r": 8, "p": 1}
@@ -125,6 +232,24 @@ class SecretVault:
                 temporary.unlink()
 
     def _decrypt_document(self, document: Any, password: str) -> dict[str, str]:
+        """Validate vault metadata and decrypt authenticated ciphertext.
+
+        Args:
+            document: Untrusted JSON value loaded from the vault file.
+            password: Password used to derive the candidate key.
+
+        Returns:
+            Validated plaintext secret mapping.
+
+        Notes:
+            Format, cipher, nonce, ciphertext, KDF, authentication tag, JSON
+            shape, and secret identifiers are checked in that order.
+
+        Security:
+            Vault files are attacker-controlled input at this boundary. KDF
+            parameters are bounded before derivation and authentication failures
+            do not reveal whether ciphertext or password was wrong.
+        """
         if not isinstance(document, Mapping) or document.get("version") != _FORMAT_VERSION:
             raise VaultError("secret vault has an unsupported format version")
         kdf = document.get("kdf")
@@ -152,12 +277,37 @@ class SecretVault:
 
     @staticmethod
     def _password_bytes(password: str) -> bytes:
+        """Implement the password bytes operation for the secret vault.
+
+        Args:
+            password: The password value used by the operation.
+
+        Returns:
+            The `bytes` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `SecretVault._password_bytes`. It delegates to `encode` while
+            keeping intermediate state local to the owning operation.
+        """
         if not isinstance(password, str) or not password:
             raise VaultError("vault password must not be empty")
         return password.encode("utf-8")
 
     @staticmethod
     def _derive(password: bytes, kdf: Mapping[str, Any]) -> bytes:
+        """Implement the derive operation for the secret vault.
+
+        Args:
+            password: The password value used by the operation.
+            kdf: The kdf value used by the operation.
+
+        Returns:
+            The `bytes` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `SecretVault._derive`. It delegates to `get`, `_decode`,
+            `scrypt` while keeping intermediate state local to the owning operation.
+        """
         if kdf.get("name") != "scrypt":
             raise VaultError("secret vault uses an unsupported key derivation function")
         salt = _decode(kdf.get("salt"), "KDF salt")
@@ -195,10 +345,35 @@ class SecretVault:
 
 
 def _encode(value: bytes) -> str:
+    """Encode the component operation.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_encode`. It delegates to `decode`, `b64encode` while
+        keeping intermediate state local to the owning operation.
+    """
     return base64.b64encode(value).decode("ascii")
 
 
 def _decode(value: Any, name: str) -> bytes:
+    """Decode the component operation.
+
+    Args:
+        value: Value to validate, transform, or store.
+        name: Stable name used to identify the value.
+
+    Returns:
+        The `bytes` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_decode`. It delegates to `b64decode`, `encode` while
+        keeping intermediate state local to the owning operation.
+    """
     if not isinstance(value, str):
         raise VaultError(f"secret vault {name} must be base64 text")
     try:

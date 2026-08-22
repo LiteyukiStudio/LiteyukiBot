@@ -102,7 +102,7 @@ def test_manifest_records_and_validates_runtime_api_catalog_fingerprint() -> Non
 
 
 def test_event_ledger_defaults_are_consistent_across_broker_hosts() -> None:
-    expected = (1024, 16384, 3600.0, 30.0)
+    expected = (1024, 4096, 16 * 1024 * 1024, 3600.0, 30.0)
 
     ledger = BrokerLedger()
     service = BrokerPeerService(instance_tokens={"astrbot": "token"}, generation=1)
@@ -118,6 +118,7 @@ def test_event_ledger_defaults_are_consistent_across_broker_hosts() -> None:
             assert (
                 candidate.active_capacity,
                 candidate.terminal_capacity,
+                candidate.terminal_content_bytes_capacity,
                 candidate.terminal_ttl_seconds,
                 candidate.delivery_timeout_seconds,
             ) == expected

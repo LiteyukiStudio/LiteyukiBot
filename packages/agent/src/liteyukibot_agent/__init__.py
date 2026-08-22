@@ -10,6 +10,11 @@ from .host import launch, launch_sandbox
 
 
 def bridge_definition() -> BridgeDefinition:
+    """Implement the bridge definition operation for the component.
+
+    Returns:
+        The `BridgeDefinition` result produced by the operation.
+    """
     return BridgeDefinition(
         kind="agent",
         grade=BridgeSupportGrade.EXPERIMENTAL,
@@ -19,6 +24,11 @@ def bridge_definition() -> BridgeDefinition:
 
 
 def sandbox_bridge_definition() -> BridgeDefinition:
+    """Implement the sandbox bridge definition operation for the component.
+
+    Returns:
+        The `BridgeDefinition` result produced by the operation.
+    """
     return BridgeDefinition(
         kind="agent-sandbox",
         grade=BridgeSupportGrade.EXPERIMENTAL,

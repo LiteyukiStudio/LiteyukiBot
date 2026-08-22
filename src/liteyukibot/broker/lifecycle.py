@@ -38,6 +38,19 @@ class BrokerLifecycleClient:
         management_token: str,
         control_hwm: int = 100,
     ) -> None:
+        """Initialize the broker lifecycle client.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+            endpoints: The endpoints value used by the operation.
+            generation: Positive protocol or deployment generation.
+            identity: The identity value used by the operation.
+            management_token: The management token value used by the operation.
+            control_hwm: The control hwm value used by the operation.
+
+        Returns:
+            None.
+        """
         token = management_token.strip()
         if not token:
             raise ValueError("broker management token must be non-empty")
@@ -67,6 +80,19 @@ class BrokerLifecycleClient:
         management_token: str,
         control_hwm: int = 100,
     ) -> BrokerLifecycleClient:
+        """Create the broker lifecycle client from broker endpoint.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+            endpoint: Transport endpoint used for the connection.
+            generation: Positive protocol or deployment generation.
+            identity: The identity value used by the operation.
+            management_token: The management token value used by the operation.
+            control_hwm: The control hwm value used by the operation.
+
+        Returns:
+            The `BrokerLifecycleClient` result produced by the operation.
+        """
         parsed = urlsplit(endpoint)
         if parsed.scheme != "tcp" or parsed.hostname is None or parsed.port is None or parsed.port >= 65_535:
             raise ValueError("broker lifecycle client requires a TCP endpoint with a free business port")
@@ -85,22 +111,57 @@ class BrokerLifecycleClient:
         )
 
     async def freeze(self, reason: str = "instance update") -> BrokerLifecycleStatusResult:
+        """Freeze the broker lifecycle client operation.
+
+        Args:
+            reason: The reason value used by the operation.
+
+        Returns:
+            The `BrokerLifecycleStatusResult` result produced by the operation.
+        """
         response = await self._request(BrokerLifecycleFreeze(token=self._token, reason=reason))
         return self._expect_status(response)
 
     async def drain(self) -> BrokerLifecycleStatusResult:
+        """Implement the drain operation for the broker lifecycle client.
+
+        Returns:
+            The `BrokerLifecycleStatusResult` result produced by the operation.
+        """
         response = await self._request(BrokerLifecycleDrain(token=self._token))
         return self._expect_status(response)
 
     async def unfreeze(self) -> BrokerLifecycleStatusResult:
+        """Implement the unfreeze operation for the broker lifecycle client.
+
+        Returns:
+            The `BrokerLifecycleStatusResult` result produced by the operation.
+        """
         response = await self._request(BrokerLifecycleUnfreeze(token=self._token))
         return self._expect_status(response)
 
     def close(self) -> None:
+        """Close the broker lifecycle client and release its owned resources.
+
+        Returns:
+            None.
+        """
         self._dealer.close()
 
     @staticmethod
     def _expect_status(response: BrokerWireMessage) -> BrokerLifecycleStatusResult:
+        """Implement the expect status operation for the broker lifecycle client.
+
+        Args:
+            response: The response value used by the operation.
+
+        Returns:
+            The `BrokerLifecycleStatusResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `BrokerLifecycleClient._expect_status`. It performs the local
+            state transition directly and is not a stable extension boundary.
+        """
         if not isinstance(response, BrokerLifecycleStatusResult):
             raise BrokerLifecycleError("broker returned an unexpected lifecycle response")
         return response
@@ -109,6 +170,19 @@ class BrokerLifecycleClient:
         self,
         message: BrokerLifecycleFreeze | BrokerLifecycleDrain | BrokerLifecycleUnfreeze,
     ) -> BrokerWireMessage:
+        """Request the broker lifecycle client operation.
+
+        Args:
+            message: Message content associated with the operation.
+
+        Returns:
+            The `BrokerWireMessage` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `BrokerLifecycleClient._request`. It delegates to
+            `encode_broker_message`, `offer`, `decode_broker_message`, `receive` while keeping intermediate
+            state local to the owning operation.
+        """
         async with self._lock:
             frame = encode_broker_message(
                 message,

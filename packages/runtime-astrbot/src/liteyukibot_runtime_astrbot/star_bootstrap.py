@@ -14,4 +14,12 @@ class LiteyukiBrokerIngressPlugin(star.Star):
 
     @filter.event_message_type(EventMessageType.ALL)
     async def forward(self, event: AstrMessageEvent) -> None:
+        """Implement the forward operation for the liteyuki broker ingress plugin.
+
+        Args:
+            event: Event associated with the operation.
+
+        Returns:
+            None.
+        """
         await forward_native_event(event)

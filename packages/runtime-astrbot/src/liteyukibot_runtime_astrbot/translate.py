@@ -8,7 +8,16 @@ from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope, Message
 
 
 def to_event_envelope(event: Any, *, reply_token: str, runtime_id: str = "astrbot") -> EventEnvelope:
-    """Project the stable public AstrBot event properties into a portable message."""
+    """Project the stable public AstrBot event properties into a portable message.
+
+    Args:
+        event: Event associated with the operation.
+        reply_token: The reply token value used by the operation.
+        runtime_id: Stable runtime identifier.
+
+    Returns:
+        The `EventEnvelope` result produced by the operation.
+    """
 
     message = getattr(event, "message_obj", None)
     platform_id = _identifier(event.get_platform_id(), "platform ID")
@@ -42,6 +51,19 @@ def to_event_envelope(event: Any, *, reply_token: str, runtime_id: str = "astrbo
 
 
 def _segments(items: Any, text: str) -> tuple[Segment, ...]:
+    """Implement the segments operation for the component.
+
+    Args:
+        items: The items value used by the operation.
+        text: The text value used by the operation.
+
+    Returns:
+        The `tuple[Segment, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_segments`. It delegates to `getattr`, `append` while
+        keeping intermediate state local to the owning operation.
+    """
     rendered: list[Segment] = []
     for item in items:
         kind = type(item).__name__
@@ -66,6 +88,19 @@ def _segments(items: Any, text: str) -> tuple[Segment, ...]:
 
 
 def _identifier(value: object, name: str) -> str:
+    """Implement the identifier operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        name: Stable name used to identify the value.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_identifier`. It delegates to `strip` while keeping
+        intermediate state local to the owning operation.
+    """
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"AstrBot {name} must be a non-empty string")
     return value.strip()

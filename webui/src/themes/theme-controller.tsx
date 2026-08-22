@@ -24,6 +24,12 @@ function initialAccent(): Accent {
   }
 }
 
+/**
+ * Provides persistent theme mode and accent state to the WebUI tree.
+ * @param props - Child React nodes rendered inside the theme controller.
+ * @returns The theme context provider.
+ * @remarks Storage failures are intentionally non-fatal; the current page retains its in-memory choice.
+ */
 export function ThemeControllerProvider({ children }: { children: ReactNode }) {
   const { theme, setTheme } = useTheme();
   const [accent, setAccentState] = useState<Accent>(initialAccent);
@@ -61,6 +67,11 @@ export function ThemeControllerProvider({ children }: { children: ReactNode }) {
   return <ThemeControllerContext.Provider value={value}>{children}</ThemeControllerContext.Provider>;
 }
 
+/**
+ * Reads theme state and mutation methods from the nearest provider.
+ * @returns The current accent, mode, and setters.
+ * @throws When called outside `ThemeControllerProvider`.
+ */
 export function useThemeController() {
   const value = useContext(ThemeControllerContext);
   if (value === null) throw new Error("useThemeController must be rendered inside ThemeControllerProvider");

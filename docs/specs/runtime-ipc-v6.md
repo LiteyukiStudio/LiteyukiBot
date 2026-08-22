@@ -167,13 +167,15 @@ The in-memory ledger defaults are:
 | Setting | Default |
 | --- | ---: |
 | Active event capacity | `1024` |
-| Terminal event capacity | `16384` |
+| Terminal event capacity | `4096` |
+| Terminal retained-content capacity | `16777216` bytes |
 | Terminal retention TTL | `3600` seconds |
 | Delivery timeout | `30` seconds |
 
 Active capacity exhaustion rejects new ingress. When an event settles, its
 active delivery and FIFO indices are released. Terminal records, including
-retained action results, are evicted when capacity or TTL requires it.
+retained action results, are evicted when count, retained-content capacity, or
+TTL requires it.
 
 ## Action Routing
 

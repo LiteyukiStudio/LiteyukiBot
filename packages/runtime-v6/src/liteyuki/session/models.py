@@ -34,10 +34,12 @@ from pydantic import BaseModel, ConfigDict
 
 
 class LegacySessionModel(BaseModel):
+    """Represent the validated legacy session model contract."""
     model_config = ConfigDict(extra="ignore")
 
 
 class SceneType(IntEnum):
+    """Enumerate the supported scene type values."""
     PRIVATE = 0
     GROUP = 1
     GUILD = 2
@@ -47,6 +49,7 @@ class SceneType(IntEnum):
 
 
 class User(LegacySessionModel):
+    """Represent the validated user contract."""
     id: str
     name: str | None = None
     nick: str | None = None
@@ -55,6 +58,7 @@ class User(LegacySessionModel):
 
 
 class Scene(LegacySessionModel):
+    """Represent the validated scene contract."""
     id: str
     type: SceneType
     name: str | None = None
@@ -63,12 +67,14 @@ class Scene(LegacySessionModel):
 
 
 class Role(LegacySessionModel):
+    """Represent the validated role contract."""
     id: str
     level: int | None = None
     name: str | None = None
 
 
 class Member(LegacySessionModel):
+    """Represent the validated member contract."""
     user: User
     nickname: str | None = None
     role: Role | None = None
@@ -77,6 +83,7 @@ class Member(LegacySessionModel):
 
 
 class Session(LegacySessionModel):
+    """Represent the validated session contract."""
     self_id: str
     adapter: str
     scope: SceneType
@@ -87,6 +94,11 @@ class Session(LegacySessionModel):
 
     @property
     def session_id(self) -> str:
+        """Return the session's session id.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         if self.scope is SceneType.PRIVATE:
             target = self.user.id
         else:
@@ -95,6 +107,11 @@ class Session(LegacySessionModel):
 
     @property
     def target_id(self) -> str:
+        """Return the session's target id.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         if self.scope is SceneType.PRIVATE:
             return f"{self.scope.value}:{self.user.id}"
         return f"{self.scope.value}:{self.scene.id}:{self.user.id}"

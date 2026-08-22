@@ -8,7 +8,11 @@ from .host import launch
 
 
 def bridge_definition() -> BridgeDefinition:
-    """Describe the experimental AstrBot gateway without importing AstrBot eagerly."""
+    """Describe the experimental AstrBot gateway without importing AstrBot eagerly.
+
+    Returns:
+        The `BridgeDefinition` result produced by the operation.
+    """
 
     return BridgeDefinition(
         kind="astrbot",

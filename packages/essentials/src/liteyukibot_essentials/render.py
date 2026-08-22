@@ -16,6 +16,7 @@ type Language = Literal["zh-CN", "en"]
 
 @dataclass(frozen=True, slots=True)
 class _Messages:
+    """Represent the messages contract."""
     help_summary: str
     status_summary: str
     help_header: str
@@ -37,6 +38,15 @@ class _Messages:
 
 
 def messages(language: Language, translator: Translator) -> _Messages:
+    """Implement the messages operation for the component.
+
+    Args:
+        language: The language value used by the operation.
+        translator: The translator value used by the operation.
+
+    Returns:
+        The `_Messages` result produced by the operation.
+    """
     locale = "en-US" if language == "en" else language
     return _Messages(
         **{
@@ -54,6 +64,18 @@ def render_help(
     translator: Translator,
     target: tuple[str, ...] | None = None,
 ) -> str:
+    """Render help.
+
+    Args:
+        registrations: The registrations value used by the operation.
+        prefix: The prefix value used by the operation.
+        language: The language value used by the operation.
+        translator: The translator value used by the operation.
+        target: Target value or location for the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+    """
     text = messages(language, translator)
     lines = [text.help_header]
     selected = registrations if target is None else tuple(
@@ -95,10 +117,34 @@ def render_help(
 
 
 def render_parse_error(error: CommandParseError, *, language: Language, translator: Translator) -> str:
+    """Render parse error.
+
+    Args:
+        error: The error value used by the operation.
+        language: The language value used by the operation.
+        translator: The translator value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+    """
     return messages(language, translator).invalid_command
 
 
 def _usage(label: str, arguments: tuple[ArgumentSpec, ...], options: tuple[OptionSpec, ...]) -> str:
+    """Implement the usage operation for the component.
+
+    Args:
+        label: The label value used by the operation.
+        arguments: JSON-safe arguments supplied to the operation.
+        options: Validated optional settings for the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_usage`. It delegates to `upper`, `append`, `join` while
+        keeping intermediate state local to the owning operation.
+    """
     positional = []
     for argument in arguments:
         name = argument.metavar or argument.name.upper()
@@ -113,6 +159,19 @@ def _usage(label: str, arguments: tuple[ArgumentSpec, ...], options: tuple[Optio
 
 
 def _render_argument(argument: ArgumentSpec, text: _Messages) -> str:
+    """Render argument.
+
+    Args:
+        argument: The argument value used by the operation.
+        text: The text value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_render_argument`. It performs the local state transition
+        directly and is not a stable extension boundary.
+    """
     label = argument.metavar or argument.name
     requirement = text.required if argument.required else text.optional
     suffix = "..." if argument.variadic else ""
@@ -120,6 +179,19 @@ def _render_argument(argument: ArgumentSpec, text: _Messages) -> str:
 
 
 def _render_option(option: OptionSpec, text: _Messages) -> str:
+    """Render option.
+
+    Args:
+        option: The option value used by the operation.
+        text: The text value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_render_option`. It delegates to `join` while keeping
+        intermediate state local to the owning operation.
+    """
     labels = [f"--{option.name}", *(f"-{alias}" for alias in option.aliases)]
     requirement = text.required if option.required else text.optional
     suffix = " repeatable" if option.repeatable else ""
@@ -127,6 +199,16 @@ def _render_option(option: OptionSpec, text: _Messages) -> str:
 
 
 def render_status(snapshot: KernelStatusSnapshot, *, language: Language, translator: Translator) -> str:
+    """Render status.
+
+    Args:
+        snapshot: The snapshot value used by the operation.
+        language: The language value used by the operation.
+        translator: The translator value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+    """
     text = messages(language, translator)
     lines = [
         f"LiteyukiBot {snapshot.version}",
@@ -142,6 +224,19 @@ def render_status(snapshot: KernelStatusSnapshot, *, language: Language, transla
 
 
 def _render_states(states: Mapping[str, str], *, empty: str) -> tuple[str, ...]:
+    """Render states.
+
+    Args:
+        states: The states value used by the operation.
+        empty: The empty value used by the operation.
+
+    Returns:
+        The `tuple[str, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_render_states`. It delegates to `sorted`, `items` while
+        keeping intermediate state local to the owning operation.
+    """
     items = sorted(states.items())
     if not items:
         return (f"- {empty}",)

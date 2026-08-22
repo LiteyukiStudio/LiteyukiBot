@@ -20,6 +20,19 @@ RUNTIME_BINDINGS_ATTRIBUTE = "__liteyuki_runtime_bindings__"
 
 
 def _identifier(value: str, field: str) -> str:
+    """Implement the identifier operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        field: The field value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_identifier`. It delegates to `strip` while keeping
+        intermediate state local to the owning operation.
+    """
     if not isinstance(value, str) or not value.strip() or value != value.strip():
         raise ValueError(f"{field} must be a non-empty trimmed string")
     return value
@@ -40,11 +53,28 @@ class RuntimeRequirement(BaseModel):
     @field_validator("runtime", "api", "version")
     @classmethod
     def validate_text(cls, value: str, info: Any) -> str:
+        """Validate text.
+
+        Args:
+            value: Value to validate, transform, or store.
+            info: The info value used by the operation.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         return _identifier(value, info.field_name)
 
     @field_validator("operations")
     @classmethod
     def validate_operations(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        """Validate operations.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+        """
         if not value or any(not _identifier(operation, "runtime API operation") for operation in value):
             raise ValueError("runtime API requirements must declare at least one operation")
         if len(value) != len(set(value)):
@@ -54,10 +84,23 @@ class RuntimeRequirement(BaseModel):
     @field_validator("bridge_id")
     @classmethod
     def validate_bridge_id(cls, value: str | None) -> str | None:
+        """Validate bridge id.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `str | None` result produced by the operation.
+        """
         return None if value is None else _identifier(value, "runtime API bridge_id")
 
     @property
     def capability_names(self) -> tuple[str, ...]:
+        """Return the runtime requirement's capability names.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+        """
         return tuple(f"runtime.{self.runtime}.{self.api}.{operation}" for operation in self.operations)
 
 
@@ -83,19 +126,42 @@ class RuntimeCallContext:
 
 
 class RuntimeApiBackend(Protocol):
+    """Define the structural interface required from a runtime api backend."""
     async def invoke(
         self,
         binding: RuntimeBinding,
         operation: str,
         arguments: Mapping[str, JsonValue],
         context: RuntimeCallContext,
-    ) -> JsonValue: ...
+    ) -> JsonValue:
+        """Invoke the runtime api backend operation.
+
+        Args:
+            binding: The binding value used by the operation.
+            operation: The operation value used by the operation.
+            arguments: JSON-safe arguments supplied to the operation.
+            context: Runtime or authorization context for the operation.
+
+        Returns:
+            The `JsonValue` result produced by the operation.
+        """
+        ...
 
 
 class RuntimeUnavailable(RuntimeError):
     """Raised when an optional runtime dependency has no compatible provider."""
 
     def __init__(self, runtime: str, api: str, reason: str = "unavailable") -> None:
+        """Initialize the runtime unavailable.
+
+        Args:
+            runtime: The runtime value used by the operation.
+            api: The api value used by the operation.
+            reason: The reason value used by the operation.
+
+        Returns:
+            None.
+        """
         self.runtime = runtime
         self.api = api
         self.reason = reason
@@ -106,6 +172,18 @@ class RuntimeApiError(RuntimeError):
     """Raised for a stable provider-side runtime API failure."""
 
     def __init__(self, runtime: str, api: str, operation: str, code: str, details: JsonValue = None) -> None:
+        """Initialize the runtime api error.
+
+        Args:
+            runtime: The runtime value used by the operation.
+            api: The api value used by the operation.
+            operation: The operation value used by the operation.
+            code: The code value used by the operation.
+            details: The details value used by the operation.
+
+        Returns:
+            None.
+        """
         self.runtime = runtime
         self.api = api
         self.operation = operation
@@ -125,6 +203,17 @@ class RuntimeNamespaceProxy:
         *,
         reason: str = "unavailable",
     ) -> None:
+        """Initialize the runtime namespace proxy.
+
+        Args:
+            binding: The binding value used by the operation.
+            backend: The backend value used by the operation.
+            context: Runtime or authorization context for the operation.
+            reason: The reason value used by the operation.
+
+        Returns:
+            None.
+        """
         self.binding = binding
         self._backend = backend
         self._context = context
@@ -132,9 +221,23 @@ class RuntimeNamespaceProxy:
 
     @property
     def available(self) -> bool:
+        """Return the runtime namespace proxy's available.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
         return self._backend is not None and self._context is not None
 
     async def call(self, operation: str, arguments: Mapping[str, JsonValue] | None = None) -> JsonValue:
+        """Implement the call operation for the runtime namespace proxy.
+
+        Args:
+            operation: The operation value used by the operation.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `JsonValue` result produced by the operation.
+        """
         if not self.available:
             raise RuntimeUnavailable(self.binding.runtime, self.binding.api, self._reason)
         assert self._backend is not None
@@ -157,7 +260,17 @@ def create_runtime_proxy(
     *,
     reason: str = "unavailable",
 ) -> RuntimeNamespaceProxy:
-    """Load an optional typed SDK facade without making it a kernel dependency."""
+    """Load an optional typed SDK facade without making it a kernel dependency.
+
+    Args:
+        binding: The binding value used by the operation.
+        backend: The backend value used by the operation.
+        context: Runtime or authorization context for the operation.
+        reason: The reason value used by the operation.
+
+    Returns:
+        The `RuntimeNamespaceProxy` result produced by the operation.
+    """
 
     candidates = tuple(
         entry
@@ -185,7 +298,19 @@ def runtime(
     as_: str,
     bridge_id: str | None = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """Declare and later inject one runtime namespace proxy into a callable."""
+    """Declare and later inject one runtime namespace proxy into a callable.
+
+    Args:
+        runtime_name: The runtime name value used by the operation.
+        api: The api value used by the operation.
+        version: The version value used by the operation.
+        optional: The optional value used by the operation.
+        as_: The as value used by the operation.
+        bridge_id: Stable identifier for the bridge.
+
+    Returns:
+        The `Callable[[Callable[..., Any]], Callable[..., Any]]` result produced by the operation.
+    """
 
     binding = RuntimeBinding(
         runtime=_identifier(runtime_name, "runtime name"),
@@ -197,6 +322,18 @@ def runtime(
     )
 
     def decorate(function: Callable[..., Any]) -> Callable[..., Any]:
+        """Implement the decorate operation for the runtime.
+
+        Args:
+            function: The function value used by the operation.
+
+        Returns:
+            The `Callable[..., Any]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `runtime.decorate`. It delegates to `callable`, `signature`,
+            `getattr`, `any` while keeping intermediate state local to the owning operation.
+        """
         if not callable(function):
             raise TypeError("@runtime can decorate only callables")
         try:
@@ -215,7 +352,14 @@ def runtime(
 
 
 def runtime_bindings(function: Callable[..., Any]) -> tuple[RuntimeBinding, ...]:
-    """Return static runtime metadata without importing a framework SDK."""
+    """Return static runtime metadata without importing a framework SDK.
+
+    Args:
+        function: The function value used by the operation.
+
+    Returns:
+        The `tuple[RuntimeBinding, ...]` result produced by the operation.
+    """
 
     return tuple(getattr(function, RUNTIME_BINDINGS_ATTRIBUTE, ()))
 
@@ -223,7 +367,15 @@ def runtime_bindings(function: Callable[..., Any]) -> tuple[RuntimeBinding, ...]
 def validate_runtime_bindings(
     function: Callable[..., Any], requirements: tuple[RuntimeRequirement, ...]
 ) -> None:
-    """Reject undeclared or ambiguous runtime namespaces at host registration time."""
+    """Reject undeclared or ambiguous runtime namespaces at host registration time.
+
+    Args:
+        function: The function value used by the operation.
+        requirements: The requirements value used by the operation.
+
+    Returns:
+        None.
+    """
 
     for binding in runtime_bindings(function):
         candidates = [
@@ -252,7 +404,18 @@ async def invoke_with_runtime(
     context_factory: RuntimeContextFactory,
     resolver: RuntimeResolver,
 ) -> Any:
-    """Invoke one decorated callable with host-owned namespace proxies."""
+    """Invoke one decorated callable with host-owned namespace proxies.
+
+    Args:
+        function: The function value used by the operation.
+        args: The args value used by the operation.
+        kwargs: The kwargs value used by the operation.
+        context_factory: The context factory value used by the operation.
+        resolver: The resolver value used by the operation.
+
+    Returns:
+        The `Any` result produced by the operation.
+    """
 
     bound_kwargs = dict(kwargs)
     context = context_factory(args, bound_kwargs)
@@ -270,7 +433,16 @@ def runtime_handler(
     context_factory: RuntimeContextFactory,
     resolver: RuntimeResolver,
 ) -> Callable[..., Awaitable[Any]]:
-    """Return an async lifecycle wrapper for an existing host callback."""
+    """Return an async lifecycle wrapper for an existing host callback.
+
+    Args:
+        function: The function value used by the operation.
+        context_factory: The context factory value used by the operation.
+        resolver: The resolver value used by the operation.
+
+    Returns:
+        The `Callable[..., Awaitable[Any]]` result produced by the operation.
+    """
 
     if not runtime_bindings(function):
         async def plain(*args: Any, **kwargs: Any) -> Any:
@@ -281,6 +453,19 @@ def runtime_handler(
 
     @wraps(function)
     async def wrapped(*args: Any, **kwargs: Any) -> Any:
+        """Implement the wrapped operation for the runtime handler.
+
+        Args:
+            *args: The args value used by the operation.
+            **kwargs: The kwargs value used by the operation.
+
+        Returns:
+            The `Any` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `runtime_handler.wrapped`. It delegates to
+            `invoke_with_runtime` while keeping intermediate state local to the owning operation.
+        """
         return await invoke_with_runtime(
             function,
             args,

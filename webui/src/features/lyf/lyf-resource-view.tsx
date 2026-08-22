@@ -8,6 +8,12 @@ import { useLocale } from "@/i18n/locale";
 import type { LyfResourcePage } from "@/models/api";
 import { cn } from "@/lib/utils";
 
+/**
+ * Displays the daemon's read-only LYF resource projection and parser diagnostics.
+ * @param props - One bounded resource page returned by the local API.
+ * @returns A resource selector and source viewer.
+ * @remarks Source is rendered as text inside `code`; this surface deliberately offers no write or execution action.
+ */
 export function LyfResourceView({ page }: { page: LyfResourcePage }) {
   const { t } = useLocale();
   const [selectedPath, setSelectedPath] = useState(page.items[0]?.path ?? "");

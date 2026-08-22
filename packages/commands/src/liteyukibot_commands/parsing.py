@@ -10,6 +10,19 @@ type ValueConverter = Callable[[str], object]
 
 
 def _validate_name(kind: str, value: object) -> str:
+    """Validate name.
+
+    Args:
+        kind: The kind value used by the operation.
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_validate_name`. It delegates to `strip`, `any`, `isspace`,
+        `startswith` while keeping intermediate state local to the owning operation.
+    """
     if not isinstance(value, str):
         raise TypeError(f"command {kind} must be a string")
     if (
@@ -24,18 +37,50 @@ def _validate_name(kind: str, value: object) -> str:
 
 
 def string_value(value: str) -> str:
+    """Implement the string value operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `str` result produced by the operation.
+    """
     return value
 
 
 def integer_value(value: str) -> int:
+    """Implement the integer value operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `int` result produced by the operation.
+    """
     return int(value, 10)
 
 
 def float_value(value: str) -> float:
+    """Implement the float value operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `float` result produced by the operation.
+    """
     return float(value)
 
 
 def boolean_value(value: str) -> bool:
+    """Implement the boolean value operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        Whether the requested condition is satisfied.
+    """
     normalized = value.casefold()
     if normalized == "true":
         return True
@@ -46,6 +91,7 @@ def boolean_value(value: str) -> bool:
 
 @dataclass(frozen=True, slots=True)
 class ArgumentSpec:
+    """Represent the argument spec contract."""
     name: str
     converter: ValueConverter = string_value
     required: bool = True
@@ -54,6 +100,11 @@ class ArgumentSpec:
     metavar: str = ""
 
     def __post_init__(self) -> None:
+        """Validate and normalize the argument spec after initialization.
+
+        Returns:
+            None.
+        """
         _validate_name("argument name", self.name)
         if not callable(self.converter):
             raise TypeError(f"command argument {self.name} converter must be callable")
@@ -69,6 +120,7 @@ class ArgumentSpec:
 
 @dataclass(frozen=True, slots=True)
 class OptionSpec:
+    """Represent the option spec contract."""
     name: str
     aliases: tuple[str, ...] = ()
     converter: ValueConverter = string_value
@@ -79,6 +131,11 @@ class OptionSpec:
     metavar: str = ""
 
     def __post_init__(self) -> None:
+        """Validate and normalize the option spec after initialization.
+
+        Returns:
+            None.
+        """
         _validate_name("option name", self.name)
         if isinstance(self.aliases, str):
             raise TypeError(f"command option {self.name} aliases must be a sequence")
@@ -104,10 +161,16 @@ class OptionSpec:
 
 @dataclass(frozen=True, slots=True)
 class CommandSchema:
+    """Represent the command schema contract."""
     arguments: tuple[ArgumentSpec, ...] = ()
     options: tuple[OptionSpec, ...] = ()
 
     def __post_init__(self) -> None:
+        """Validate and normalize the command schema after initialization.
+
+        Returns:
+            None.
+        """
         if isinstance(self.arguments, (str, bytes)) or isinstance(self.options, (str, bytes)):
             raise TypeError("command schema arguments and options must be sequences")
         arguments = tuple(self.arguments)
@@ -146,16 +209,33 @@ class CommandSchema:
 
 @dataclass(frozen=True, slots=True)
 class ParsedCommand:
+    """Represent the parsed command contract."""
     arguments: Mapping[str, object]
     options: Mapping[str, object]
 
     def __post_init__(self) -> None:
+        """Validate and normalize the parsed command after initialization.
+
+        Returns:
+            None.
+        """
         object.__setattr__(self, "arguments", MappingProxyType(dict(self.arguments)))
         object.__setattr__(self, "options", MappingProxyType(dict(self.options)))
 
 
 class CommandParseError(ValueError):
+    """Raised when the command parse contract cannot be satisfied."""
     def __init__(self, code: str, *, subject: str | None = None, token: str | None = None) -> None:
+        """Initialize the command parse error.
+
+        Args:
+            code: The code value used by the operation.
+            subject: The subject value used by the operation.
+            token: Authentication token presented at the boundary.
+
+        Returns:
+            None.
+        """
         self.code = code
         self.subject = subject
         self.token = token
@@ -168,6 +248,14 @@ class CommandParseError(ValueError):
 
 
 def tokenize_command(value: str) -> tuple[str, ...]:
+    """Implement the tokenize command operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `tuple[str, ...]` result produced by the operation.
+    """
     if not isinstance(value, str):
         raise TypeError("command input must be a string")
     tokens: list[str] = []
@@ -214,6 +302,20 @@ def tokenize_command(value: str) -> tuple[str, ...]:
 
 
 def _converted(converter: ValueConverter, value: str, *, subject: str) -> object:
+    """Implement the converted operation for the component.
+
+    Args:
+        converter: The converter value used by the operation.
+        value: Value to validate, transform, or store.
+        subject: The subject value used by the operation.
+
+    Returns:
+        The `object` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_converted`. It delegates to `converter` while keeping
+        intermediate state local to the owning operation.
+    """
     try:
         return converter(value)
     except Exception as error:
@@ -221,10 +323,35 @@ def _converted(converter: ValueConverter, value: str, *, subject: str) -> object
 
 
 def _option_value(option: OptionSpec, value: str) -> object:
+    """Implement the option value operation for the component.
+
+    Args:
+        option: The option value used by the operation.
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `object` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_option_value`. It delegates to `_converted` while keeping
+        intermediate state local to the owning operation.
+    """
     return _converted(option.converter, value, subject=f"--{option.name}")
 
 
 def _default_option(option: OptionSpec) -> object:
+    """Implement the default option operation for the component.
+
+    Args:
+        option: The option value used by the operation.
+
+    Returns:
+        The `object` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_default_option`. It performs the local state transition
+        directly and is not a stable extension boundary.
+    """
     if option.flag:
         return 0 if option.repeatable else False
     if option.repeatable:
@@ -232,10 +359,101 @@ def _default_option(option: OptionSpec) -> object:
     return option.default
 
 
-def parse_command(value: str, schema: CommandSchema) -> ParsedCommand:
-    if not isinstance(schema, CommandSchema):
-        raise TypeError("command schema must be CommandSchema")
-    tokens = tokenize_command(value)
+def _resolve_option(
+    token: str,
+    long_options: Mapping[str, OptionSpec],
+    short_options: Mapping[str, OptionSpec],
+) -> tuple[OptionSpec | None, str | None]:
+    """Resolve option.
+
+    Args:
+        token: Authentication token presented at the boundary.
+        long_options: The long options value used by the operation.
+        short_options: The short options value used by the operation.
+
+    Returns:
+        The `tuple[OptionSpec | None, str | None]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_resolve_option`. It delegates to `startswith`, `partition`,
+        `get` while keeping intermediate state local to the owning operation.
+    """
+    prefix_length = 2 if token.startswith("--") else 1
+    name, separator, inline = token[prefix_length:].partition("=")
+    options = long_options if prefix_length == 2 else short_options
+    return options.get(name), inline if separator else None
+
+
+def _consume_option(
+    tokens: tuple[str, ...],
+    index: int,
+    option: OptionSpec,
+    inline_value: str | None,
+    parsed: dict[str, object],
+    repeated: dict[str, list[object]],
+) -> int:
+    """Consume one option and return the next unread token index.
+
+    Args:
+        tokens: The tokens value used by the operation.
+        index: The index value used by the operation.
+        option: The option value used by the operation.
+        inline_value: The inline value value used by the operation.
+        parsed: The parsed value used by the operation.
+        repeated: The repeated value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_consume_option`. It delegates to `get`, `_option_value`,
+        `append`, `setdefault` while keeping intermediate state local to the owning operation.
+    """
+
+    if option.flag:
+        if inline_value is not None:
+            raise CommandParseError("unexpected_option_value", subject=option.name, token=inline_value)
+        if option.repeatable:
+            current = parsed.get(option.name, 0)
+            if not isinstance(current, int):
+                raise RuntimeError(f"command option {option.name} flag count is not an integer")
+            parsed[option.name] = current + 1
+        elif option.name in parsed:
+            raise CommandParseError("duplicate_option", subject=option.name)
+        else:
+            parsed[option.name] = True
+        return index + 1
+
+    if not option.repeatable and option.name in parsed:
+        raise CommandParseError("duplicate_option", subject=option.name)
+    if inline_value is None:
+        index += 1
+        if index >= len(tokens):
+            raise CommandParseError("missing_option_value", subject=option.name)
+        inline_value = tokens[index]
+    converted = _option_value(option, inline_value)
+    if option.repeatable:
+        repeated.setdefault(option.name, []).append(converted)
+    else:
+        parsed[option.name] = converted
+    return index + 1
+
+
+def _parse_options(tokens: tuple[str, ...], schema: CommandSchema) -> tuple[list[str], dict[str, object]]:
+    """Parse options.
+
+    Args:
+        tokens: The tokens value used by the operation.
+        schema: The schema value used by the operation.
+
+    Returns:
+        The `tuple[list[str], dict[str, object]]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_parse_options`. It delegates to `startswith`,
+        `_resolve_option`, `_consume_option`, `append` while keeping intermediate state local to the
+        owning operation.
+    """
     long_options = {option.name: option for option in schema.options}
     short_options = {alias: option for option in schema.options for alias in option.aliases}
     parsed_options: dict[str, object] = {}
@@ -250,48 +468,11 @@ def parse_command(value: str, schema: CommandSchema) -> ParsedCommand:
             index += 1
             continue
 
-        option: OptionSpec | None = None
-        inline_value: str | None = None
-        if options_enabled and token.startswith("--") and len(token) > 2:
-            name, separator, inline = token[2:].partition("=")
-            option = long_options.get(name)
-            inline_value = inline if separator else None
-        elif options_enabled and token.startswith("-") and len(token) > 1:
-            name, separator, inline = token[1:].partition("=")
-            option = short_options.get(name)
-            inline_value = inline if separator else None
-
         if options_enabled and token.startswith("-") and token != "-":
+            option, inline_value = _resolve_option(token, long_options, short_options)
             if option is None:
                 raise CommandParseError("unknown_option", token=token)
-            if option.flag:
-                if inline_value is not None:
-                    raise CommandParseError("unexpected_option_value", subject=option.name, token=inline_value)
-                if option.repeatable:
-                    current = parsed_options.get(option.name, 0)
-                    if not isinstance(current, int):
-                        raise RuntimeError(f"command option {option.name} flag count is not an integer")
-                    parsed_options[option.name] = current + 1
-                elif option.name in parsed_options:
-                    raise CommandParseError("duplicate_option", subject=option.name)
-                else:
-                    parsed_options[option.name] = True
-                index += 1
-                continue
-
-            if not option.repeatable and option.name in parsed_options:
-                raise CommandParseError("duplicate_option", subject=option.name)
-            if inline_value is None:
-                index += 1
-                if index >= len(tokens):
-                    raise CommandParseError("missing_option_value", subject=option.name)
-                inline_value = tokens[index]
-            converted = _option_value(option, inline_value)
-            if option.repeatable:
-                repeated.setdefault(option.name, []).append(converted)
-            else:
-                parsed_options[option.name] = converted
-            index += 1
+            index = _consume_option(tokens, index, option, inline_value, parsed_options, repeated)
             continue
 
         positional.append(token)
@@ -304,7 +485,23 @@ def parse_command(value: str, schema: CommandSchema) -> ParsedCommand:
             if option.required:
                 raise CommandParseError("missing_option", subject=option.name)
             parsed_options[option.name] = _default_option(option)
+    return positional, parsed_options
 
+
+def _parse_arguments(positional: list[str], schema: CommandSchema) -> dict[str, object]:
+    """Parse arguments.
+
+    Args:
+        positional: The positional value used by the operation.
+        schema: The schema value used by the operation.
+
+    Returns:
+        The `dict[str, object]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_parse_arguments`. It delegates to `_converted` while
+        keeping intermediate state local to the owning operation.
+    """
     parsed_arguments: dict[str, object] = {}
     position = 0
     for argument in schema.arguments:
@@ -330,6 +527,23 @@ def parse_command(value: str, schema: CommandSchema) -> ParsedCommand:
         position += 1
     if position < len(positional):
         raise CommandParseError("unexpected_argument", token=positional[position])
+    return parsed_arguments
+
+
+def parse_command(value: str, schema: CommandSchema) -> ParsedCommand:
+    """Parse command.
+
+    Args:
+        value: Value to validate, transform, or store.
+        schema: The schema value used by the operation.
+
+    Returns:
+        The `ParsedCommand` result produced by the operation.
+    """
+    if not isinstance(schema, CommandSchema):
+        raise TypeError("command schema must be CommandSchema")
+    positional, parsed_options = _parse_options(tokenize_command(value), schema)
+    parsed_arguments = _parse_arguments(positional, schema)
     return ParsedCommand(parsed_arguments, parsed_options)
 
 

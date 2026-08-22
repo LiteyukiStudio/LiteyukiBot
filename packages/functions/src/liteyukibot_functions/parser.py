@@ -216,35 +216,52 @@ LYF_GRAMMAR = _GRAMMAR
 
 @dataclass(frozen=True, slots=True)
 class _Version:
+    """Represent the version contract."""
     value: str
     span: SourceSpan
 
 
 @dataclass(frozen=True, slots=True)
 class _ParsedFile:
+    """Represent the parsed file contract."""
     versions: tuple[_Version, ...]
     declarations: tuple[object, ...]
 
 
 @dataclass(frozen=True, slots=True)
 class _MemberPart:
+    """Represent the member part contract."""
     name: str
     span: SourceSpan
 
 
 @dataclass(frozen=True, slots=True)
 class _CallPart:
+    """Represent the call part contract."""
     arguments: tuple[Expr, ...]
     span: SourceSpan
 
 
 @dataclass(frozen=True, slots=True)
 class _IndexPart:
+    """Represent the index part contract."""
     index: Expr
     span: SourceSpan
 
 
 def _span(meta: Any) -> SourceSpan:
+    """Implement the span operation for the component.
+
+    Args:
+        meta: The meta value used by the operation.
+
+    Returns:
+        The `SourceSpan` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_span`. It performs the local state transition directly and
+        is not a stable extension boundary.
+    """
     return SourceSpan(
         SourcePosition(meta.start_pos, meta.line, meta.column),
         SourcePosition(meta.end_pos, meta.end_line, meta.end_column),
@@ -252,10 +269,35 @@ def _span(meta: Any) -> SourceSpan:
 
 
 def _node_span(node: object) -> SourceSpan:
+    """Implement the node span operation for the component.
+
+    Args:
+        node: The node value used by the operation.
+
+    Returns:
+        The `SourceSpan` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_node_span`. It delegates to `cast` while keeping
+        intermediate state local to the owning operation.
+    """
     return cast(AstNode, node).span
 
 
 def _join_span(first: object, last: object) -> SourceSpan:
+    """Implement the join span operation for the component.
+
+    Args:
+        first: The first value used by the operation.
+        last: The last value used by the operation.
+
+    Returns:
+        The `SourceSpan` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_join_span`. It delegates to `_node_span` while keeping
+        intermediate state local to the owning operation.
+    """
     left = _node_span(first)
     right = _node_span(last)
     return SourceSpan(left.start, right.end)
@@ -263,7 +305,21 @@ def _join_span(first: object, last: object) -> SourceSpan:
 
 @v_args(meta=True)
 class _AstTransformer(Transformer[Any, Any]):
+    """Represent the ast transformer contract."""
     def start(self, meta: Any, children: list[Any]) -> _ParsedFile:
+        """Start the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `_ParsedFile` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.start`. It delegates to `_ParsedFile` while
+            keeping intermediate state local to the owning operation.
+        """
         versions = tuple(item for item in children if isinstance(item, _Version))
         declarations = tuple(
             item
@@ -275,6 +331,19 @@ class _AstTransformer(Transformer[Any, Any]):
         return _ParsedFile(versions, declarations)
 
     def declaration(self, _meta: Any, children: list[Any]) -> object:
+        """Implement the declaration operation for the ast transformer.
+
+        Args:
+            _meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `object` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.declaration`. It delegates to `all`, `cast`,
+            `replace`, `join` while keeping intermediate state local to the owning operation.
+        """
         docs: tuple[str, ...] = ()
         item: object | None = None
         for child in children:
@@ -289,6 +358,19 @@ class _AstTransformer(Transformer[Any, Any]):
         return item
 
     def doc_block(self, _meta: Any, children: list[Any]) -> tuple[str, ...]:
+        """Implement the doc block operation for the ast transformer.
+
+        Args:
+            _meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.doc_block`. It delegates to `strip` while
+            keeping intermediate state local to the owning operation.
+        """
         return tuple(
             str(child).strip()[3:].strip()
             for child in children
@@ -296,21 +378,73 @@ class _AstTransformer(Transformer[Any, Any]):
         )
 
     def version_decl(self, meta: Any, children: list[Any]) -> _Version:
+        """Implement the version decl operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `_Version` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.version_decl`. It delegates to `_Version`,
+            `next`, `_span` while keeping intermediate state local to the owning operation.
+        """
         return _Version(
             next(str(item) for item in children if isinstance(item, Token) and item.type == "NUMBER"), _span(meta)
         )
 
     def use_decl(self, meta: Any, children: list[Any]) -> UseDeclaration:
+        """Implement the use decl operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `UseDeclaration` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.use_decl`. It delegates to `_span` while
+            keeping intermediate state local to the owning operation.
+        """
         names = [str(child) for child in children if isinstance(child, Token) and child.type in {"NAME", "PROVIDER"}]
         provider = names[1] if len(names) > 1 else None
         return UseDeclaration(_span(meta), names[0], provider)
 
     def decorated_function(self, meta: Any, children: list[Any]) -> FunctionDeclaration:
+        """Implement the decorated function operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `FunctionDeclaration` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.decorated_function`. It delegates to `next`,
+            `replace`, `_span` while keeping intermediate state local to the owning operation.
+        """
         function = next(item for item in children if isinstance(item, FunctionDeclaration))
         decorators = tuple(item for item in children if isinstance(item, Decorator))
         return replace(function, decorators=decorators, span=_span(meta))
 
     def agent_decorator(self, meta: Any, children: list[Any]) -> AgentDecorator:
+        """Implement the agent decorator operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `AgentDecorator` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.agent_decorator`. It delegates to `next`,
+            `all`, `_span`, `cast` while keeping intermediate state local to the owning operation.
+        """
         kind = next(str(item) for item in children if isinstance(item, Token) and item.type == "AGENT_KIND")
         arguments = next(
             (
@@ -323,6 +457,19 @@ class _AstTransformer(Transformer[Any, Any]):
         return AgentDecorator(_span(meta), "agent", kind, cast(tuple[DecoratorArgument, ...], arguments))
 
     def events_decorator(self, meta: Any, children: list[Any]) -> EventsDecorator:
+        """Implement the events decorator operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `EventsDecorator` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.events_decorator`. It delegates to `next`,
+            `all`, `_span`, `cast` while keeping intermediate state local to the owning operation.
+        """
         topic = next(item for item in children if isinstance(item, Expr))
         arguments = next(
             (
@@ -335,6 +482,19 @@ class _AstTransformer(Transformer[Any, Any]):
         return EventsDecorator(_span(meta), "events", topic, cast(tuple[DecoratorArgument, ...], arguments))
 
     def unknown_decorator(self, meta: Any, children: list[Any]) -> UnknownDecorator:
+        """Implement the unknown decorator operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `UnknownDecorator` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.unknown_decorator`. It delegates to `next`,
+            `all`, `_span`, `cast` while keeping intermediate state local to the owning operation.
+        """
         name = next(str(item)[1:] for item in children if isinstance(item, Token) and item.type == "DECORATOR_NAME")
         arguments = next(
             (
@@ -347,12 +507,51 @@ class _AstTransformer(Transformer[Any, Any]):
         return UnknownDecorator(_span(meta), name, cast(tuple[DecoratorArgument, ...], arguments))
 
     def decorator_arguments(self, _meta: Any, children: list[Any]) -> tuple[DecoratorArgument, ...]:
+        """Implement the decorator arguments operation for the ast transformer.
+
+        Args:
+            _meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `tuple[DecoratorArgument, ...]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.decorator_arguments`. It performs the local
+            state transition directly and is not a stable extension boundary.
+        """
         return tuple(item for item in children if isinstance(item, DecoratorArgument))
 
     def decorator_argument(self, meta: Any, children: list[Any]) -> DecoratorArgument:
+        """Implement the decorator argument operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `DecoratorArgument` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.decorator_argument`. It delegates to
+            `_span`, `cast` while keeping intermediate state local to the owning operation.
+        """
         return DecoratorArgument(_span(meta), str(children[0]), cast(Expr, children[-1]))
 
     def function_decl(self, meta: Any, children: list[Any]) -> FunctionDeclaration:
+        """Implement the function decl operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `FunctionDeclaration` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.function_decl`. It delegates to `next`,
+            `all`, `reversed`, `_span` while keeping intermediate state local to the owning operation.
+        """
         modifier = next((str(item) for item in children if isinstance(item, str) and item in {"async", "sync"}), None)
         name = next(str(item) for item in children if isinstance(item, Token) and item.type == "NAME")
         tuples = [item for item in children if isinstance(item, tuple)]
@@ -368,31 +567,122 @@ class _AstTransformer(Transformer[Any, Any]):
         )
 
     def function_params(self, _meta: Any, children: list[Any]) -> tuple[str, ...]:
+        """Implement the function params operation for the ast transformer.
+
+        Args:
+            _meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.function_params`. It performs the local
+            state transition directly and is not a stable extension boundary.
+        """
         return tuple(str(item) for item in children if isinstance(item, Token) and item.type == "NAME")
 
     def function_modifier(self, _meta: Any, children: list[Any]) -> str:
+        """Implement the function modifier operation for the ast transformer.
+
+        Args:
+            _meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `str` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.function_modifier`. It performs the local
+            state transition directly and is not a stable extension boundary.
+        """
         return str(children[0])
 
     def block(self, _meta: Any, children: list[Any]) -> tuple[Statement, ...]:
+        """Implement the block operation for the ast transformer.
+
+        Args:
+            _meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `tuple[Statement, ...]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.block`. It performs the local state
+            transition directly and is not a stable extension boundary.
+        """
         return tuple(item for item in children if isinstance(item, Statement))
 
     def binding_stmt(self, meta: Any, children: list[Any]) -> BindingStatement:
+        """Implement the binding stmt operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `BindingStatement` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.binding_stmt`. It delegates to `next`,
+            `_span` while keeping intermediate state local to the owning operation.
+        """
         kind = str(next(item for item in children if isinstance(item, Token) and item.type == "BINDING_KIND"))
         target = next(item for item in children if isinstance(item, BindingTarget))
         value = next(item for item in children if isinstance(item, Expr))
         return BindingStatement(_span(meta), kind, target, value)
 
     def name_assignment_stmt(self, meta: Any, children: list[Any]) -> AssignmentStatement:
+        """Implement the name assignment stmt operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `AssignmentStatement` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.name_assignment_stmt`. It delegates to
+            `_span`, `next` while keeping intermediate state local to the owning operation.
+        """
         target = NameTarget(_span(meta), str(next(item for item in children if isinstance(item, Token))))
         value = next(item for item in children if isinstance(item, Expr))
         return AssignmentStatement(_span(meta), target, value)
 
     def discard_assignment_stmt(self, meta: Any, children: list[Any]) -> AssignmentStatement:
+        """Implement the discard assignment stmt operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `AssignmentStatement` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.discard_assignment_stmt`. It delegates to
+            `_span`, `next` while keeping intermediate state local to the owning operation.
+        """
         target = DiscardTarget(_span(meta))
         value = next(item for item in children if isinstance(item, Expr))
         return AssignmentStatement(_span(meta), target, value)
 
     def compound_assignment_stmt(self, meta: Any, _children: list[Any]) -> UnsupportedStatement:
+        """Implement the compound assignment stmt operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            _children: The children value used by the operation.
+
+        Returns:
+            The `UnsupportedStatement` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.compound_assignment_stmt`. It delegates to
+            `_span` while keeping intermediate state local to the owning operation.
+        """
         return UnsupportedStatement(
             _span(meta),
             "compound-assignment",
@@ -400,6 +690,19 @@ class _AstTransformer(Transformer[Any, Any]):
         )
 
     def tuple_assignment_stmt(self, meta: Any, children: list[Any]) -> AssignmentStatement:
+        """Implement the tuple assignment stmt operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `AssignmentStatement` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.tuple_assignment_stmt`. It delegates to
+            `_span`, `next` while keeping intermediate state local to the owning operation.
+        """
         targets = tuple(
             NameTarget(_span(meta), str(item))
             if isinstance(item, Token) and item.type == "NAME"
@@ -411,40 +714,157 @@ class _AstTransformer(Transformer[Any, Any]):
         return AssignmentStatement(_span(meta), TupleTarget(_span(meta), targets), value)
 
     def return_stmt(self, meta: Any, children: list[Any]) -> ReturnStatement:
+        """Implement the return stmt operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `ReturnStatement` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.return_stmt`. It delegates to `next`,
+            `_span` while keeping intermediate state local to the owning operation.
+        """
         value = next((item for item in children if isinstance(item, Expr)), None)
         return ReturnStatement(_span(meta), value)
 
     def return_value(self, meta: Any, children: list[Any]) -> Expr:
+        """Implement the return value operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `Expr` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.return_value`. It delegates to `_span` while
+            keeping intermediate state local to the owning operation.
+        """
         values = tuple(item for item in children if isinstance(item, Expr))
         if len(values) == 1:
             return values[0]
         return TupleExpr(_span(meta), values)
 
     def pass_stmt(self, meta: Any, _children: list[Any]) -> PassStatement:
+        """Implement the pass stmt operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            _children: The children value used by the operation.
+
+        Returns:
+            The `PassStatement` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.pass_stmt`. It delegates to `_span` while
+            keeping intermediate state local to the owning operation.
+        """
         return PassStatement(_span(meta))
 
     def while_stmt(self, meta: Any, children: list[Any]) -> UnsupportedStatement:
+        """Implement the while stmt operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `UnsupportedStatement` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.while_stmt`. It delegates to `next`, `_span`
+            while keeping intermediate state local to the owning operation.
+        """
         body = next((item for item in children if isinstance(item, tuple)), ())
         return UnsupportedStatement(_span(meta), "while", "while loops are parse-only in Alpha 7", body)
 
     def for_in_stmt(self, meta: Any, children: list[Any]) -> UnsupportedStatement:
+        """Implement the for in stmt operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `UnsupportedStatement` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.for_in_stmt`. It delegates to `next`,
+            `_span` while keeping intermediate state local to the owning operation.
+        """
         body = next((item for item in children if isinstance(item, tuple)), ())
         return UnsupportedStatement(_span(meta), "for", "for loops are parse-only in Alpha 7", body)
 
     def c_for_stmt(self, meta: Any, children: list[Any]) -> UnsupportedStatement:
+        """Implement the c for stmt operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `UnsupportedStatement` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.c_for_stmt`. It delegates to `next`, `_span`
+            while keeping intermediate state local to the owning operation.
+        """
         body = next((item for item in children if isinstance(item, tuple)), ())
         return UnsupportedStatement(_span(meta), "for-c", "C-style for loops are parse-only in Alpha 7", body)
 
     def command_stmt(self, meta: Any, children: list[Any]) -> ExpressionStatement:
+        """Implement the command stmt operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `ExpressionStatement` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.command_stmt`. It delegates to `next`,
+            `_span` while keeping intermediate state local to the owning operation.
+        """
         value = next(item for item in children if isinstance(item, Expr))
         command = str(next(item for item in children if isinstance(item, Token)))
         callee = MemberExpr(_span(meta), NameExpr(_span(meta), "terminal"), command)
         return ExpressionStatement(_span(meta), CallExpr(_span(meta), callee, (value,)))
 
     def legacy_await_stmt(self, meta: Any, _children: list[Any]) -> UnsupportedStatement:
+        """Implement the legacy await stmt operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            _children: The children value used by the operation.
+
+        Returns:
+            The `UnsupportedStatement` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.legacy_await_stmt`. It delegates to `_span`
+            while keeping intermediate state local to the owning operation.
+        """
         return UnsupportedStatement(_span(meta), "migration_required", "v6 await instruction requires migration")
 
     def legacy_stmt(self, meta: Any, children: list[Any]) -> UnsupportedStatement:
+        """Implement the legacy stmt operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `UnsupportedStatement` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.legacy_stmt`. It delegates to `strip`,
+            `_span` while keeping intermediate state local to the owning operation.
+        """
         head = str(children[0])
         tail = str(children[1]).strip() if len(children) > 1 else ""
         return UnsupportedStatement(
@@ -452,27 +872,131 @@ class _AstTransformer(Transformer[Any, Any]):
         )
 
     def ellipsis_stmt(self, meta: Any, _children: list[Any]) -> UnsupportedStatement:
+        """Implement the ellipsis stmt operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            _children: The children value used by the operation.
+
+        Returns:
+            The `UnsupportedStatement` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.ellipsis_stmt`. It delegates to `_span`
+            while keeping intermediate state local to the owning operation.
+        """
         return UnsupportedStatement(_span(meta), "placeholder", "ellipsis is a parse-only placeholder")
 
     def expression_stmt(self, meta: Any, children: list[Any]) -> ExpressionStatement:
+        """Implement the expression stmt operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `ExpressionStatement` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.expression_stmt`. It delegates to `_span`,
+            `cast` while keeping intermediate state local to the owning operation.
+        """
         return ExpressionStatement(_span(meta), cast(Expr, children[0]))
 
     def name_target(self, meta: Any, children: list[Any]) -> NameTarget:
+        """Implement the name target operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `NameTarget` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.name_target`. It delegates to `_span` while
+            keeping intermediate state local to the owning operation.
+        """
         return NameTarget(_span(meta), str(children[0]))
 
     def discard_target(self, meta: Any, _children: list[Any]) -> DiscardTarget:
+        """Implement the discard target operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            _children: The children value used by the operation.
+
+        Returns:
+            The `DiscardTarget` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.discard_target`. It delegates to `_span`
+            while keeping intermediate state local to the owning operation.
+        """
         return DiscardTarget(_span(meta))
 
     def tuple_target(self, meta: Any, children: list[Any]) -> TupleTarget:
+        """Implement the tuple target operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `TupleTarget` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.tuple_target`. It delegates to `_span` while
+            keeping intermediate state local to the owning operation.
+        """
         return TupleTarget(_span(meta), tuple(item for item in children if isinstance(item, BindingTarget)))
 
     def name_expr(self, meta: Any, children: list[Any]) -> NameExpr:
+        """Implement the name expr operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `NameExpr` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.name_expr`. It delegates to `_span` while
+            keeping intermediate state local to the owning operation.
+        """
         return NameExpr(_span(meta), str(children[0]))
 
     def string_literal(self, meta: Any, children: list[Any]) -> LiteralExpr:
+        """Implement the string literal operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `LiteralExpr` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.string_literal`. It delegates to `_span`,
+            `freeze_json`, `loads` while keeping intermediate state local to the owning operation.
+        """
         return LiteralExpr(_span(meta), freeze_json(json.loads(str(children[0]))))
 
     def number_literal(self, meta: Any, children: list[Any]) -> LiteralExpr:
+        """Implement the number literal operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `LiteralExpr` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.number_literal`. It delegates to `all`,
+            `int`, `float`, `isfinite` while keeping intermediate state local to the owning operation.
+        """
         value = str(children[0])
         parsed: int | float = int(value) if all(character not in value for character in ".eE") else float(value)
         if not math.isfinite(parsed):
@@ -480,49 +1004,231 @@ class _AstTransformer(Transformer[Any, Any]):
         return LiteralExpr(_span(meta), parsed)
 
     def true_literal(self, meta: Any, _children: list[Any]) -> LiteralExpr:
+        """Implement the true literal operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            _children: The children value used by the operation.
+
+        Returns:
+            The `LiteralExpr` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.true_literal`. It delegates to `_span` while
+            keeping intermediate state local to the owning operation.
+        """
         return LiteralExpr(_span(meta), True)
 
     def false_literal(self, meta: Any, _children: list[Any]) -> LiteralExpr:
+        """Implement the false literal operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            _children: The children value used by the operation.
+
+        Returns:
+            The `LiteralExpr` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.false_literal`. It delegates to `_span`
+            while keeping intermediate state local to the owning operation.
+        """
         return LiteralExpr(_span(meta), False)
 
     def null_literal(self, meta: Any, _children: list[Any]) -> LiteralExpr:
+        """Implement the null literal operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            _children: The children value used by the operation.
+
+        Returns:
+            The `LiteralExpr` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.null_literal`. It delegates to `_span` while
+            keeping intermediate state local to the owning operation.
+        """
         return LiteralExpr(_span(meta), None)
 
     def grouped_expr(self, _meta: Any, children: list[Any]) -> Expr:
+        """Implement the grouped expr operation for the ast transformer.
+
+        Args:
+            _meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `Expr` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.grouped_expr`. It delegates to `cast` while
+            keeping intermediate state local to the owning operation.
+        """
         return cast(Expr, children[0])
 
     def empty_tuple(self, meta: Any, _children: list[Any]) -> TupleExpr:
+        """Implement the empty tuple operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            _children: The children value used by the operation.
+
+        Returns:
+            The `TupleExpr` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.empty_tuple`. It delegates to `_span` while
+            keeping intermediate state local to the owning operation.
+        """
         return TupleExpr(_span(meta), ())
 
     def tuple_literal(self, meta: Any, children: list[Any]) -> TupleExpr:
+        """Implement the tuple literal operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `TupleExpr` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.tuple_literal`. It delegates to `_span`
+            while keeping intermediate state local to the owning operation.
+        """
         return TupleExpr(_span(meta), tuple(item for item in children if isinstance(item, Expr)))
 
     def list_literal(self, meta: Any, children: list[Any]) -> ListExpr:
+        """List literal.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `ListExpr` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.list_literal`. It delegates to `next`,
+            `_span`, `cast` while keeping intermediate state local to the owning operation.
+        """
         values = next((item for item in children if isinstance(item, tuple)), ())
         return ListExpr(_span(meta), cast(tuple[Expr, ...], values))
 
     def object_literal(self, meta: Any, children: list[Any]) -> ObjectExpr:
+        """Implement the object literal operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `ObjectExpr` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.object_literal`. It delegates to `next`,
+            `_span`, `cast` while keeping intermediate state local to the owning operation.
+        """
         entries = next((item for item in children if isinstance(item, tuple)), ())
         return ObjectExpr(_span(meta), cast(tuple[ObjectEntry, ...], entries))
 
     def arguments(self, _meta: Any, children: list[Any]) -> tuple[Expr, ...]:
+        """Implement the arguments operation for the ast transformer.
+
+        Args:
+            _meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `tuple[Expr, ...]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.arguments`. It performs the local state
+            transition directly and is not a stable extension boundary.
+        """
         return tuple(item for item in children if isinstance(item, Expr))
 
     def object_entries(self, _meta: Any, children: list[Any]) -> tuple[ObjectEntry, ...]:
+        """Implement the object entries operation for the ast transformer.
+
+        Args:
+            _meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `tuple[ObjectEntry, ...]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.object_entries`. It performs the local state
+            transition directly and is not a stable extension boundary.
+        """
         return tuple(item for item in children if isinstance(item, ObjectEntry))
 
     def object_entry(self, meta: Any, children: list[Any]) -> ObjectEntry:
+        """Implement the object entry operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `ObjectEntry` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.object_entry`. It delegates to `next`,
+            `_span` while keeping intermediate state local to the owning operation.
+        """
         key = next(item for item in children if isinstance(item, str))
         value = next(item for item in children if isinstance(item, Expr))
         return ObjectEntry(_span(meta), key, value)
 
     def string_key(self, _meta: Any, children: list[Any]) -> str:
+        """Implement the string key operation for the ast transformer.
+
+        Args:
+            _meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `str` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.string_key`. It delegates to `cast`, `loads`
+            while keeping intermediate state local to the owning operation.
+        """
         return cast(str, json.loads(str(children[0])))
 
     def name_key(self, _meta: Any, children: list[Any]) -> str:
+        """Implement the name key operation for the ast transformer.
+
+        Args:
+            _meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `str` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.name_key`. It performs the local state
+            transition directly and is not a stable extension boundary.
+        """
         return str(children[0])
 
     def postfix_expr(self, meta: Any, children: list[Any]) -> Expr:
+        """Implement the postfix expr operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `Expr` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.postfix_expr`. It delegates to `cast`,
+            `replace`, `_span` while keeping intermediate state local to the owning operation.
+        """
         expression = cast(Expr, children[0])
         for part in children[1:]:
             if isinstance(part, _MemberPart):
@@ -534,26 +1240,104 @@ class _AstTransformer(Transformer[Any, Any]):
         return replace(expression, span=_span(meta))
 
     def member_part(self, meta: Any, children: list[Any]) -> _MemberPart:
+        """Implement the member part operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `_MemberPart` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.member_part`. It delegates to `_MemberPart`,
+            `next`, `_span` while keeping intermediate state local to the owning operation.
+        """
         return _MemberPart(
             next(str(item) for item in children if isinstance(item, Token) and item.type == "NAME"), _span(meta)
         )
 
     def call_part(self, meta: Any, children: list[Any]) -> _CallPart:
+        """Implement the call part operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `_CallPart` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.call_part`. It delegates to `next`,
+            `_CallPart`, `cast`, `_span` while keeping intermediate state local to the owning operation.
+        """
         arguments = next((item for item in children if isinstance(item, tuple)), ())
         return _CallPart(cast(tuple[Expr, ...], arguments), _span(meta))
 
     def index_part(self, meta: Any, children: list[Any]) -> _IndexPart:
+        """Implement the index part operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `_IndexPart` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.index_part`. It delegates to `_IndexPart`,
+            `next`, `_span` while keeping intermediate state local to the owning operation.
+        """
         return _IndexPart(next(item for item in children if isinstance(item, Expr)), _span(meta))
 
     def await_expr(self, meta: Any, children: list[Any]) -> AwaitExpr:
+        """Implement the await expr operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `AwaitExpr` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.await_expr`. It delegates to `_span`, `next`
+            while keeping intermediate state local to the owning operation.
+        """
         return AwaitExpr(_span(meta), next(item for item in children if isinstance(item, Expr)))
 
     def unary_expr(self, meta: Any, children: list[Any]) -> UnaryExpr:
+        """Implement the unary expr operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `UnaryExpr` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.unary_expr`. It delegates to `next`, `_span`
+            while keeping intermediate state local to the owning operation.
+        """
         operator = str(next(item for item in children if isinstance(item, Token)))
         value = next(item for item in children if isinstance(item, Expr))
         return UnaryExpr(_span(meta), operator, value)
 
     def binary_chain(self, meta: Any, children: list[Any]) -> Expr:
+        """Implement the binary chain operation for the ast transformer.
+
+        Args:
+            meta: The meta value used by the operation.
+            children: The children value used by the operation.
+
+        Returns:
+            The `Expr` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_AstTransformer.binary_chain`. It delegates to `zip`,
+            `replace`, `_span` while keeping intermediate state local to the owning operation.
+        """
         values = [item for item in children if isinstance(item, Expr)]
         operators = [str(item) for item in children if isinstance(item, Token)]
         if not values:
@@ -575,6 +1359,19 @@ _PARSER = Lark(
 
 
 def _error_span(error: UnexpectedInput, source: str) -> SourceSpan:
+    """Implement the error span operation for the component.
+
+    Args:
+        error: The error value used by the operation.
+        source: Source value or location to process.
+
+    Returns:
+        The `SourceSpan` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_error_span`. It delegates to `max`, `min`, `int`, `getattr`
+        while keeping intermediate state local to the owning operation.
+    """
     offset = max(0, min(len(source), int(getattr(error, "pos_in_stream", 0) or 0)))
     line = int(getattr(error, "line", 1) or 1)
     column = int(getattr(error, "column", 1) or 1)
@@ -585,6 +1382,19 @@ def _error_span(error: UnexpectedInput, source: str) -> SourceSpan:
 
 
 def _semantic_diagnostics(parsed: _ParsedFile, source_id: str) -> tuple[Diagnostic, ...]:
+    """Implement the semantic diagnostics operation for the component.
+
+    Args:
+        parsed: The parsed value used by the operation.
+        source_id: Stable identifier for the source.
+
+    Returns:
+        The `tuple[Diagnostic, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_semantic_diagnostics`. It delegates to `append`, `next`,
+        `iter`, `_node_span` while keeping intermediate state local to the owning operation.
+    """
     diagnostics: list[Diagnostic] = []
     if not parsed.versions:
         diagnostics.append(
@@ -621,7 +1431,15 @@ def _semantic_diagnostics(parsed: _ParsedFile, source_id: str) -> tuple[Diagnost
 
 
 def parse(source: str, *, source_id: str = "<memory>") -> ParseResult:
-    """Parse LYF source into an immutable :class:`FunctionProgram`."""
+    """Parse LYF source into an immutable :class:`FunctionProgram`.
+
+    Args:
+        source: Source value or location to process.
+        source_id: Stable identifier for the source.
+
+    Returns:
+        The `ParseResult` result produced by the operation.
+    """
 
     try:
         tree = _PARSER.parse(source)

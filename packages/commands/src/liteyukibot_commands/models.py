@@ -20,6 +20,19 @@ from .parsing import CommandSchema, ParsedCommand, parse_command
 
 
 def _validate_token(name: str, value: str) -> None:
+    """Validate token.
+
+    Args:
+        name: Stable name used to identify the value.
+        value: Value to validate, transform, or store.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_validate_token`. It delegates to `strip`, `any`, `isspace`
+        while keeping intermediate state local to the owning operation.
+    """
     if not isinstance(value, str):
         raise TypeError(f"command {name} must be a string")
     if not value or value != value.strip() or any(character.isspace() for character in value):
@@ -28,6 +41,7 @@ def _validate_token(name: str, value: str) -> None:
 
 @dataclass(frozen=True, slots=True)
 class CommandSpec:
+    """Represent the command spec contract."""
     name: str
     aliases: tuple[str, ...] = ()
     summary: str = ""
@@ -37,6 +51,11 @@ class CommandSpec:
     path: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        """Validate and normalize the command spec after initialization.
+
+        Returns:
+            None.
+        """
         _validate_token("name", self.name)
         if isinstance(self.aliases, str):
             raise TypeError("command aliases must be a sequence of tokens")
@@ -68,11 +87,17 @@ class CommandSpec:
 
     @property
     def command_path(self) -> tuple[str, ...]:
+        """Return the command spec's command path.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+        """
         return (*self.path, self.name)
 
 
 @dataclass(frozen=True, slots=True)
 class CommandInvocation:
+    """Represent the command invocation contract."""
     event: EventEnvelope
     command: str
     invoked_as: str
@@ -82,9 +107,22 @@ class CommandInvocation:
     command_path: tuple[str, ...] = ()
 
     def parse(self) -> ParsedCommand:
+        """Parse the command invocation operation.
+
+        Returns:
+            The `ParsedCommand` result produced by the operation.
+        """
         return parse_command(self.raw_arguments, self.schema)
 
     def reply(self, message: Message | str) -> HandlerResult:
+        """Implement the reply operation for the command invocation.
+
+        Args:
+            message: Message content associated with the operation.
+
+        Returns:
+            The `HandlerResult` result produced by the operation.
+        """
         if isinstance(message, str):
             message = Message(segments=(Segment(type="text", data={"text": message}),))
         return HandlerResult(
@@ -112,6 +150,7 @@ type CommandHandler = Callable[
 
 @dataclass(frozen=True, slots=True)
 class CommandRegistration:
+    """Represent the command registration contract."""
     id: int
     owner: str
     spec: CommandSpec

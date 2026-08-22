@@ -15,21 +15,53 @@ class ManagedGraphError(RuntimeError):
 
 
 class ProcessLike(Protocol):
+    """Define the structural interface required from a process like."""
     @property
-    def pid(self) -> int: ...
+    def pid(self) -> int:
+        """Return the process like's pid.
+
+        Returns:
+            The `int` result produced by the operation.
+        """
+        ...
 
     @property
-    def returncode(self) -> int | None: ...
+    def returncode(self) -> int | None:
+        """Return the process like's returncode.
 
-    def terminate(self) -> None: ...
+        Returns:
+            The `int | None` result produced by the operation.
+        """
+        ...
 
-    def kill(self) -> None: ...
+    def terminate(self) -> None:
+        """Implement the terminate operation for the process like.
 
-    async def wait(self) -> int: ...
+        Returns:
+            None.
+        """
+        ...
+
+    def kill(self) -> None:
+        """Implement the kill operation for the process like.
+
+        Returns:
+            None.
+        """
+        ...
+
+    async def wait(self) -> int:
+        """Wait for the process like operation.
+
+        Returns:
+            The `int` result produced by the operation.
+        """
+        ...
 
 
 @dataclass(frozen=True, slots=True)
 class ProcessSpec:
+    """Represent the process spec contract."""
     name: str
     command: tuple[str, ...]
     environment: Mapping[str, str]
@@ -39,11 +71,26 @@ ProcessLauncher = Callable[[ProcessSpec], Awaitable[ProcessLike]]
 
 
 async def launch_process(spec: ProcessSpec) -> ProcessLike:
+    """Launch process.
+
+    Args:
+        spec: The spec value used by the operation.
+
+    Returns:
+        The `ProcessLike` result produced by the operation.
+    """
     return await asyncio.create_subprocess_exec(*spec.command, env=dict(spec.environment))
 
 
 async def terminate_process_tree(pid: int) -> None:
-    """Best-effort termination for a process recorded before daemon restart."""
+    """Best-effort termination for a process recorded before daemon restart.
+
+    Args:
+        pid: The pid value used by the operation.
+
+    Returns:
+        None.
+    """
 
     if pid <= 0:
         return
@@ -79,6 +126,17 @@ class ManagedProcessGraph:
         startup_timeout_seconds: float = 30.0,
         stop_timeout_seconds: float = 10.0,
     ) -> None:
+        """Initialize the managed process graph.
+
+        Args:
+            specs: The specs value used by the operation.
+            launcher: The launcher value used by the operation.
+            startup_timeout_seconds: Configured startup timeout duration, in seconds.
+            stop_timeout_seconds: Configured stop timeout duration, in seconds.
+
+        Returns:
+            None.
+        """
         names = tuple(spec.name for spec in specs)
         if len(names) != len(set(names)) or "kernel" not in names:
             raise ValueError("managed graph must contain one uniquely named kernel")
@@ -92,17 +150,37 @@ class ManagedProcessGraph:
 
     @property
     def start_order(self) -> tuple[str, ...]:
+        """Return the managed process graph's start order.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+        """
         return tuple(spec.name for spec in self.specs)
 
     @property
     def stop_order(self) -> tuple[str, ...]:
+        """Return the managed process graph's stop order.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+        """
         return tuple(reversed(self.start_order))
 
     @property
     def managed(self) -> bool:
+        """Return the managed process graph's managed.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
         return self.start_order[0] == "broker" and "kernel" in self.start_order
 
     async def start(self) -> None:
+        """Start the managed process graph.
+
+        Returns:
+            None.
+        """
         if self.processes:
             if all(process.returncode is not None for process in self.processes.values()):
                 self.processes.clear()
@@ -118,6 +196,11 @@ class ManagedProcessGraph:
             raise
 
     async def stop(self) -> None:
+        """Stop the managed process graph and release its owned resources.
+
+        Returns:
+            None.
+        """
         for name in self.stop_order:
             process = self.processes.pop(name, None)
             if process is None or process.returncode is not None:
@@ -131,6 +214,19 @@ class ManagedProcessGraph:
                 await process.wait()
 
     async def _wait_ready(self, name: str, process: ProcessLike) -> None:
+        """Wait for ready.
+
+        Args:
+            name: Stable name used to identify the value.
+            process: The process value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `ManagedProcessGraph._wait_ready`. It delegates to
+            `wait_for`, `sleep` while keeping intermediate state local to the owning operation.
+        """
         try:
             await asyncio.wait_for(asyncio.sleep(0.02), timeout=self.startup_timeout_seconds)
         except TimeoutError as error:
@@ -139,6 +235,11 @@ class ManagedProcessGraph:
             raise ManagedGraphError(f"managed process {name!r} exited before readiness: {process.returncode}")
 
     def status(self) -> dict[str, object]:
+        """Return the status of the managed process graph operation.
+
+        Returns:
+            The requested `dict[str, object]` value.
+        """
         return {
             "managed": self.managed,
             "start_order": list(self.start_order),

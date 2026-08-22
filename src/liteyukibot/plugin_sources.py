@@ -18,11 +18,17 @@ _MAX_INDEX_BYTES = 8 * 1024 * 1024
 
 @dataclass(frozen=True, slots=True)
 class PluginSource:
+    """Represent the plugin source contract."""
     id: str
     url: str
     priority: int = 100
 
     def __post_init__(self) -> None:
+        """Validate and normalize the plugin source after initialization.
+
+        Returns:
+            None.
+        """
         if not self.id or self.id != self.id.strip() or any(character.isspace() for character in self.id):
             raise PluginStoreError("plugin source ID must be a non-empty whitespace-free string")
         if not isinstance(self.priority, int) or isinstance(self.priority, bool):
@@ -32,6 +38,11 @@ class PluginSource:
             raise PluginStoreError("plugin source URL must be credential-free HTTPS")
 
     def document(self) -> dict[str, object]:
+        """Return the serialized document for the plugin source operation.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+        """
         return {"id": self.id, "url": self.url, "priority": self.priority}
 
 
@@ -42,15 +53,36 @@ class PluginSourceStore:
     """Persist only custom source declarations; the official source is always present."""
 
     def __init__(self, workspace: str | Path) -> None:
+        """Initialize the plugin source store.
+
+        Args:
+            workspace: The workspace value used by the operation.
+
+        Returns:
+            None.
+        """
         management = Path(workspace).resolve() / ".liteyuki"
         self.path = management / "plugin-sources.json"
         self.cache_directory = management / "plugins" / "indexes"
 
     def list(self) -> tuple[PluginSource, ...]:
+        """List the plugin source store operation.
+
+        Returns:
+            The `tuple[PluginSource, ...]` result produced by the operation.
+        """
         custom = self._custom()
         return (OFFICIAL_SOURCE, *sorted(custom.values(), key=lambda item: (item.priority, item.id)))
 
     def add(self, source: PluginSource) -> None:
+        """Add the plugin source store operation.
+
+        Args:
+            source: Source value or location to process.
+
+        Returns:
+            None.
+        """
         if source.id == OFFICIAL_SOURCE_ID:
             raise PluginStoreError(f"plugin source {OFFICIAL_SOURCE_ID!r} is reserved")
         custom = self._custom()
@@ -58,6 +90,14 @@ class PluginSourceStore:
         self._write_sources(custom)
 
     def remove(self, source_id: str) -> None:
+        """Remove the plugin source store operation.
+
+        Args:
+            source_id: Stable identifier for the source.
+
+        Returns:
+            None.
+        """
         if source_id == OFFICIAL_SOURCE_ID:
             raise PluginStoreError(f"plugin source {OFFICIAL_SOURCE_ID!r} is reserved")
         custom = self._custom()
@@ -67,6 +107,15 @@ class PluginSourceStore:
         self._write_sources(custom)
 
     def fetch(self, source_id: str, *, refresh: bool = False) -> PluginIndex:
+        """Fetch the plugin source store operation.
+
+        Args:
+            source_id: Stable identifier for the source.
+            refresh: The refresh value used by the operation.
+
+        Returns:
+            The `PluginIndex` result produced by the operation.
+        """
         source = next((item for item in self.list() if item.id == source_id), None)
         if source is None:
             raise PluginStoreError(f"plugin source {source_id!r} is not configured")
@@ -95,6 +144,14 @@ class PluginSourceStore:
         return index
 
     def cached_digest(self, source_id: str) -> str | None:
+        """Implement the cached digest operation for the plugin source store.
+
+        Args:
+            source_id: Stable identifier for the source.
+
+        Returns:
+            The `str | None` result produced by the operation.
+        """
         path = self.cache_directory / f"{source_id}.sha256"
         try:
             value = path.read_text(encoding="utf-8").strip()
@@ -105,6 +162,15 @@ class PluginSourceStore:
         return value
 
     def _custom(self) -> dict[str, PluginSource]:
+        """Implement the custom operation for the plugin source store.
+
+        Returns:
+            The `dict[str, PluginSource]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `PluginSourceStore._custom`. It delegates to `is_file`,
+            `loads`, `read_text`, `get` while keeping intermediate state local to the owning operation.
+        """
         if not self.path.is_file():
             return {}
         try:
@@ -124,11 +190,36 @@ class PluginSourceStore:
 
     @staticmethod
     def _source(value: object) -> PluginSource:
+        """Implement the source operation for the plugin source store.
+
+        Args:
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `PluginSource` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `PluginSourceStore._source`. It delegates to `get` while
+            keeping intermediate state local to the owning operation.
+        """
         if not isinstance(value, dict):
             raise PluginStoreError("plugin source configuration entry must be an object")
         return PluginSource(str(value["id"]), str(value["url"]), value.get("priority", 100))
 
     def _write_sources(self, sources: dict[str, PluginSource]) -> None:
+        """Write sources.
+
+        Args:
+            sources: The sources value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `PluginSourceStore._write_sources`. It delegates to
+            `document`, `sorted`, `values`, `_write_text` while keeping intermediate state local to the
+            owning operation.
+        """
         document = {
             "schema": 1,
             "sources": [source.document() for source in sorted(sources.values(), key=lambda item: item.id)],
@@ -140,6 +231,20 @@ class PluginSourceStore:
 
     @staticmethod
     def _write_text(path: Path, text: str) -> None:
+        """Write text.
+
+        Args:
+            path: Filesystem or logical resource path.
+            text: The text value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `PluginSourceStore._write_text`. It delegates to `mkdir`,
+            `with_suffix`, `write_text`, `replace` while keeping intermediate state local to the owning
+            operation.
+        """
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.with_suffix(path.suffix + ".tmp")
         temporary.write_text(text, encoding="utf-8")

@@ -25,16 +25,35 @@ class ProfileMigrationRequiredError(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class ProfileSnapshot:
+    """Represent the validated profile snapshot contract."""
     principal: Principal
     nickname: str = ""
     language: str = _DEFAULT_LANGUAGE
 
 
 class ProfileService(Protocol):
-    async def get(self, principal: Principal) -> ProfileSnapshot: ...
+    """Define the structural interface required from a profile service."""
+    async def get(self, principal: Principal) -> ProfileSnapshot:
+        """Return the profile service operation.
+
+        Args:
+            principal: Authenticated principal requesting the operation.
+
+        Returns:
+            The `ProfileSnapshot` result produced by the operation.
+        """
+        ...
 
 
 def nickname_value(value: str) -> str:
+    """Implement the nickname value operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `str` result produced by the operation.
+    """
     normalized = value.strip()
     if not normalized or len(normalized) > 32:
         raise ValueError("nickname must contain 1 to 32 characters")
@@ -42,13 +61,30 @@ def nickname_value(value: str) -> str:
 
 
 def language_value(value: str) -> str:
+    """Implement the language value operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `str` result produced by the operation.
+    """
     if value not in _VALID_LANGUAGES:
         raise ValueError("language must be 'zh-CN' or 'en'")
     return value
 
 
 class SQLiteProfileService(ProfileService, ResourceProvider):
+    """Represent the s q lite profile service contract."""
     def __init__(self, database: Path) -> None:
+        """Initialize the s q lite profile service.
+
+        Args:
+            database: The database value used by the operation.
+
+        Returns:
+            None.
+        """
         self._connection = sqlite3.connect(database)
         self._lock = asyncio.Lock()
         self._closed = False
@@ -60,6 +96,15 @@ class SQLiteProfileService(ProfileService, ResourceProvider):
             raise
 
     def _initialize(self) -> None:
+        """Initialize the s q lite profile service operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `SQLiteProfileService._initialize`. It delegates to
+            `fetchone`, `execute`, `int` while keeping intermediate state local to the owning operation.
+        """
         with self._connection:
             version = self._connection.execute("PRAGMA user_version").fetchone()
             if version is None:
@@ -85,6 +130,14 @@ class SQLiteProfileService(ProfileService, ResourceProvider):
                 self._connection.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
 
     async def get(self, principal: Principal) -> ProfileSnapshot:
+        """Return the s q lite profile service operation.
+
+        Args:
+            principal: Authenticated principal requesting the operation.
+
+        Returns:
+            The `ProfileSnapshot` result produced by the operation.
+        """
         async with self._lock:
             self._ensure_open()
             row = self._connection.execute(
@@ -96,10 +149,29 @@ class SQLiteProfileService(ProfileService, ResourceProvider):
         return ProfileSnapshot(principal, nickname=str(row[0]), language=str(row[1]))
 
     async def inspect(self, principal: Principal, field: ResourceField) -> object:
+        """Inspect the s q lite profile service operation.
+
+        Args:
+            principal: Authenticated principal requesting the operation.
+            field: The field value used by the operation.
+
+        Returns:
+            The `object` result produced by the operation.
+        """
         profile = await self.get(principal)
         return getattr(profile, field.name)
 
     async def set(self, principal: Principal, field: ResourceField, value: object) -> None:
+        """Set the s q lite profile service operation.
+
+        Args:
+            principal: Authenticated principal requesting the operation.
+            field: The field value used by the operation.
+            value: Value to validate, transform, or store.
+
+        Returns:
+            None.
+        """
         if field.name not in {"nickname", "language"}:
             raise ValueError(f"unsupported profile field: {field.name}")
         if not isinstance(value, str):
@@ -122,6 +194,15 @@ class SQLiteProfileService(ProfileService, ResourceProvider):
                 )
 
     async def delete(self, principal: Principal, field: ResourceField) -> None:
+        """Delete the s q lite profile service operation.
+
+        Args:
+            principal: Authenticated principal requesting the operation.
+            field: The field value used by the operation.
+
+        Returns:
+            None.
+        """
         if field.name not in {"nickname", "language"}:
             raise ValueError(f"unsupported profile field: {field.name}")
         async with self._lock:
@@ -149,12 +230,29 @@ class SQLiteProfileService(ProfileService, ResourceProvider):
                 )
 
     async def close(self) -> None:
+        """Close the s q lite profile service and release its owned resources.
+
+        Returns:
+            None.
+        """
         async with self._lock:
             if not self._closed:
                 self._connection.close()
                 self._closed = True
 
     def _row_locked(self, principal: Principal) -> ProfileSnapshot:
+        """Implement the row locked operation for the s q lite profile service.
+
+        Args:
+            principal: Authenticated principal requesting the operation.
+
+        Returns:
+            The `ProfileSnapshot` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `SQLiteProfileService._row_locked`. It delegates to
+            `fetchone`, `execute` while keeping intermediate state local to the owning operation.
+        """
         row = self._connection.execute(
             "SELECT nickname, language FROM profiles WHERE runtime_id = ? AND bot_id = ? AND actor_id = ?",
             (principal.runtime_id, principal.bot_id, principal.actor_id),
@@ -162,6 +260,15 @@ class SQLiteProfileService(ProfileService, ResourceProvider):
         return ProfileSnapshot(principal) if row is None else ProfileSnapshot(principal, str(row[0]), str(row[1]))
 
     def _ensure_open(self) -> None:
+        """Implement the ensure open operation for the s q lite profile service.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `SQLiteProfileService._ensure_open`. It performs the local
+            state transition directly and is not a stable extension boundary.
+        """
         if self._closed:
             raise RuntimeError("profile service is closed")
 

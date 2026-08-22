@@ -26,16 +26,33 @@ class ConfigWorkspace:
     filename = "liteyuki.toml"
 
     def __init__(self, directory: str | os.PathLike[str] = ".") -> None:
+        """Initialize the config workspace.
+
+        Args:
+            directory: The directory value used by the operation.
+
+        Returns:
+            None.
+        """
         self.directory = Path(directory).resolve()
         self.path = self.directory / self.filename
         self.management_directory = self.directory / ".liteyuki"
 
     @staticmethod
     def is_docker() -> bool:
+        """Implement the is docker operation for the config workspace.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
         return Path("/.dockerenv").is_file() or os.environ.get("container") == "docker"
 
     def prepare(self) -> Path:
-        """Return the primary path after applying Docker/bootstrap upgrade policy."""
+        """Return the primary path after applying Docker/bootstrap upgrade policy.
+
+        Returns:
+            The `Path` result produced by the operation.
+        """
 
         if not self.path.exists():
             if self.is_docker():
@@ -61,7 +78,14 @@ class ConfigWorkspace:
         return self.path
 
     def upgrade(self, *, refresh: bool = False) -> Path | None:
-        """Generate upgrade material for an older root configuration."""
+        """Generate upgrade material for an older root configuration.
+
+        Args:
+            refresh: The refresh value used by the operation.
+
+        Returns:
+            The `Path | None` result produced by the operation.
+        """
 
         if not self.path.exists():
             raise ConfigurationError(
@@ -100,6 +124,27 @@ class ConfigWorkspace:
         runtimes: dict[str, dict[str, Any]] | None = None,
         runtime_event_routes: tuple[dict[str, Any], ...] = (),
     ) -> Path:
+        """Initialize the config workspace operation.
+
+        Args:
+            data_dir: Filesystem path for the data.
+            cache_dir: Filesystem path for the cache.
+            logging_level: The logging level value used by the operation.
+            logging_console: The logging console value used by the operation.
+            logging_json_lines: The logging json lines value used by the operation.
+            payload_mode: The payload mode value used by the operation.
+            payload_exclude_runtimes: The payload exclude runtimes value used by the operation.
+            locale: The locale value used by the operation.
+            plugins: The plugins value used by the operation.
+            plugin_config: The plugin config value used by the operation.
+            cordis_plugins: The cordis plugins value used by the operation.
+            cordis_config: The cordis config value used by the operation.
+            runtimes: The runtimes value used by the operation.
+            runtime_event_routes: The runtime event routes value used by the operation.
+
+        Returns:
+            The `Path` result produced by the operation.
+        """
         if self.path.exists():
             raise ConfigurationError([ConfigIssue(self.path, "project configuration already exists")])
         logging = LoggingSettings.model_validate(
@@ -136,6 +181,15 @@ class ConfigWorkspace:
         return self.path
 
     def _read_root_document(self) -> dict[str, Any]:
+        """Read root document.
+
+        Returns:
+            The `dict[str, Any]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `ConfigWorkspace._read_root_document`. It delegates to
+            `loads`, `read_text` while keeping intermediate state local to the owning operation.
+        """
         try:
             value = tomllib.loads(self.path.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
@@ -149,9 +203,36 @@ class ConfigWorkspace:
         return value
 
     def _upgrade(self, *, version: int | None, refresh: bool) -> None:
+        """Implement the upgrade operation for the config workspace.
+
+        Args:
+            version: The version value used by the operation.
+            refresh: The refresh value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `ConfigWorkspace._upgrade`. It delegates to
+            `_write_upgrade_material` while keeping intermediate state local to the owning operation.
+        """
         self._write_upgrade_material(version=version, refresh=refresh)
 
     def _write_upgrade_material(self, *, version: int | None, refresh: bool) -> None:
+        """Write upgrade material.
+
+        Args:
+            version: The version value used by the operation.
+            refresh: The refresh value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `ConfigWorkspace._write_upgrade_material`. It delegates to
+            `strftime`, `now`, `exists`, `mkdir` while keeping intermediate state local to the owning
+            operation.
+        """
         timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
         backup = self.management_directory / "config-backups" / timestamp / self.filename
         upgrade_directory = self.management_directory / "config-upgrades"

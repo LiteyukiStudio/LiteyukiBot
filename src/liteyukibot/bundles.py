@@ -50,6 +50,11 @@ class VerifiedBundle:
 
     @property
     def release_tag(self) -> str:
+        """Return the verified bundle's release tag.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         release = self.manifest.get("release")
         if not isinstance(release, dict):
             raise BundleError("bundle manifest release tag is invalid")
@@ -60,6 +65,11 @@ class VerifiedBundle:
 
     @property
     def release_version(self) -> str:
+        """Return the verified bundle's release version.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         release = self.manifest.get("release")
         if not isinstance(release, dict):
             raise BundleError("bundle manifest release version is invalid")
@@ -70,6 +80,11 @@ class VerifiedBundle:
 
     @property
     def requirements(self) -> tuple[str, ...]:
+        """Return the verified bundle's requirements.
+
+        Returns:
+            The requested `tuple[str, ...]` value.
+        """
         value = self.dependency_lock.get("requirements", ())
         if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
             raise BundleError("dependency lock requirements are invalid")
@@ -77,16 +92,39 @@ class VerifiedBundle:
 
 
 def canonical_json(value: object) -> bytes:
-    """Serialize a JSON value in the format covered by signatures."""
+    """Serialize a JSON value in the format covered by signatures.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `bytes` result produced by the operation.
+    """
 
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
 
 
 def sha256_file(path: Path) -> str:
+    """Implement the sha256 file operation for the component.
+
+    Args:
+        path: Filesystem or logical resource path.
+
+    Returns:
+        The `str` result produced by the operation.
+    """
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def read_canonical_json(path: Path) -> dict[str, object]:
+    """Read canonical json.
+
+    Args:
+        path: Filesystem or logical resource path.
+
+    Returns:
+        The requested `dict[str, object]` value.
+    """
     try:
         raw = path.read_bytes()
         value = json.loads(raw)
@@ -98,7 +136,14 @@ def read_canonical_json(path: Path) -> dict[str, object]:
 
 
 def artifact_metadata(path: Path) -> tuple[str, str]:
-    """Read distribution metadata without importing or installing the artifact."""
+    """Read distribution metadata without importing or installing the artifact.
+
+    Args:
+        path: Filesystem or logical resource path.
+
+    Returns:
+        The `tuple[str, str]` result produced by the operation.
+    """
 
     try:
         if path.suffix == ".whl":
@@ -134,6 +179,14 @@ def artifact_metadata(path: Path) -> tuple[str, str]:
 
 
 def artifact_kind(path: Path) -> str:
+    """Implement the artifact kind operation for the component.
+
+    Args:
+        path: Filesystem or logical resource path.
+
+    Returns:
+        The `str` result produced by the operation.
+    """
     if path.suffix == ".whl":
         return "wheel"
     if path.name.endswith(".tar.gz"):
@@ -142,6 +195,14 @@ def artifact_kind(path: Path) -> str:
 
 
 def artifact_record(path: Path) -> dict[str, object]:
+    """Implement the artifact record operation for the component.
+
+    Args:
+        path: Filesystem or logical resource path.
+
+    Returns:
+        The `dict[str, object]` result produced by the operation.
+    """
     distribution, version = artifact_metadata(path)
     return {
         "filename": path.name,
@@ -154,6 +215,14 @@ def artifact_record(path: Path) -> dict[str, object]:
 
 
 def artifact_records(bundle: Path) -> tuple[Mapping[str, object], ...]:
+    """Implement the artifact records operation for the component.
+
+    Args:
+        bundle: The bundle value used by the operation.
+
+    Returns:
+        The `tuple[Mapping[str, object], ...]` result produced by the operation.
+    """
     records: list[Mapping[str, object]] = []
     for path in sorted(bundle.iterdir()):
         if not path.is_file() or path.name in {
@@ -170,6 +239,18 @@ def artifact_records(bundle: Path) -> tuple[Mapping[str, object], ...]:
 
 
 def _record_key(record: Mapping[str, object]) -> tuple[object, ...]:
+    """Record key.
+
+    Args:
+        record: The record value used by the operation.
+
+    Returns:
+        The `tuple[object, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_record_key`. It delegates to `get` while keeping
+        intermediate state local to the owning operation.
+    """
     return (
         record.get("filename"),
         record.get("bytes"),
@@ -186,6 +267,20 @@ def _validate_records(
     *,
     enforce_disk_set: bool,
 ) -> None:
+    """Validate records.
+
+    Args:
+        bundle: The bundle value used by the operation.
+        records: The records value used by the operation.
+        enforce_disk_set: The enforce disk set value used by the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_validate_records`. It delegates to `get`, `add`,
+        `is_symlink`, `is_file` while keeping intermediate state local to the owning operation.
+    """
     filenames: set[str] = set()
     for record in records:
         filename = record.get("filename")
@@ -229,6 +324,20 @@ def _verify_dependency_lock(
     manifest: Mapping[str, object],
     records: Sequence[Mapping[str, object]],
 ) -> Mapping[str, object]:
+    """Verify dependency lock.
+
+    Args:
+        bundle: The bundle value used by the operation.
+        manifest: Validated manifest describing the component contract.
+        records: The records value used by the operation.
+
+    Returns:
+        The `Mapping[str, object]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_verify_dependency_lock`. It delegates to `get`,
+        `is_symlink`, `is_file`, `stat` while keeping intermediate state local to the owning operation.
+    """
     reference = manifest.get("dependency_lock")
     if not isinstance(reference, dict):
         raise BundleError("bundle manifest is missing its dependency lock reference")
@@ -261,6 +370,20 @@ def _verify_dependency_lock(
 
 
 def _verify_sbom(bundle: Path, manifest: Mapping[str, object], records: Sequence[Mapping[str, object]]) -> None:
+    """Verify sbom.
+
+    Args:
+        bundle: The bundle value used by the operation.
+        manifest: Validated manifest describing the component contract.
+        records: The records value used by the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_verify_sbom`. It delegates to `read_canonical_json`, `get`,
+        `all`, `cast` while keeping intermediate state local to the owning operation.
+    """
     sbom = read_canonical_json(bundle / BUNDLE_SBOM_NAME)
     if sbom.get("bomFormat") != "CycloneDX" or sbom.get("specVersion") != "1.5":
         raise BundleError("bundle SBOM is not CycloneDX 1.5")
@@ -292,6 +415,22 @@ def _verify_signature(
     command: str,
     verifier: SignatureVerifier | None,
 ) -> None:
+    """Verify signature.
+
+    Args:
+        signature: The signature value used by the operation.
+        manifest: Validated manifest describing the component contract.
+        tag: The tag value used by the operation.
+        command: Command or operation name to execute.
+        verifier: The verifier value used by the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_verify_signature`. It delegates to `verifier`, `run`,
+        `split` while keeping intermediate state local to the owning operation.
+    """
     if verifier is not None:
         verifier(signature, manifest, tag)
         return
@@ -324,7 +463,17 @@ def verify_bundle(
     sigstore_command: str = "sigstore",
     signature_verifier: SignatureVerifier | None = None,
 ) -> VerifiedBundle:
-    """Verify a signed, complete, offline bundle before any profile mutation."""
+    """Verify a signed, complete, offline bundle before any profile mutation.
+
+    Args:
+        bundle: The bundle value used by the operation.
+        tag: The tag value used by the operation.
+        sigstore_command: The sigstore command value used by the operation.
+        signature_verifier: The signature verifier value used by the operation.
+
+    Returns:
+        The `VerifiedBundle` result produced by the operation.
+    """
 
     bundle = bundle.resolve()
     if tag != BUNDLE_TAG:
@@ -374,7 +523,14 @@ def verify_bundle(
 
 
 def requirements_from_lock(verified: VerifiedBundle) -> tuple[str, ...]:
-    """Return exact install requirements, with a deterministic fixture fallback."""
+    """Return exact install requirements, with a deterministic fixture fallback.
+
+    Args:
+        verified: The verified value used by the operation.
+
+    Returns:
+        The requested `tuple[str, ...]` value.
+    """
 
     requirements = verified.requirements
     if requirements:

@@ -48,9 +48,35 @@ class _HeadlessMessageSender:
     """Forward upstream output to the active source bridge delivery."""
 
     def __init__(self, sink: ContextVar[MessageSink | None]) -> None:
+        """Initialize the headless message sender.
+
+        Args:
+            sink: The sink value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_HeadlessMessageSender.__init__`. It performs the local
+            state transition directly and is not a stable extension boundary.
+        """
         self._sink = sink
 
     async def send_message(self, message: Any, adapter_signature: str | None = None) -> bool:
+        """Send message.
+
+        Args:
+            message: Message content associated with the operation.
+            adapter_signature: The adapter signature value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+
+        Notes:
+            Internal implementation detail for `_HeadlessMessageSender.send_message`. It delegates to `get`,
+            `_portable_message_from_mofox`, `sink`, `getattr` while keeping intermediate state local to the
+            owning operation.
+        """
         del adapter_signature
         sink = self._sink.get()
         if sink is None:
@@ -70,7 +96,19 @@ class _HeadlessMessageSender:
 
 
 def _portable_message_from_mofox(message: Any) -> Message | None:
-    """Use an upstream structured reply when it matches the portable schema."""
+    """Use an upstream structured reply when it matches the portable schema.
+
+    Args:
+        message: Message content associated with the operation.
+
+    Returns:
+        The `Message | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_portable_message_from_mofox`. It delegates to `getattr`,
+        `get`, `append`, `model_validate` while keeping intermediate state local to the owning
+        operation.
+    """
 
     candidate = getattr(message, "message_segment", None)
     if candidate is None:
@@ -95,6 +133,15 @@ class MoFoxHeadlessEngine:
     """Own one isolated Neo-MoFox workspace without managed projections."""
 
     def __init__(self, workspace: Path, options: Mapping[str, object]) -> None:
+        """Initialize the mo fox headless engine.
+
+        Args:
+            workspace: The workspace value used by the operation.
+            options: Validated optional settings for the operation.
+
+        Returns:
+            None.
+        """
         self.workspace = workspace
         self.options = options
         self._bot: Any | None = None
@@ -104,6 +151,11 @@ class MoFoxHeadlessEngine:
         self._had_src_module = False
 
     async def start(self) -> None:
+        """Start the mo fox headless engine.
+
+        Returns:
+            None.
+        """
         root = self.workspace.resolve()
         root.mkdir(parents=True, exist_ok=True)
         self._previous_cwd = Path.cwd()
@@ -129,6 +181,15 @@ class MoFoxHeadlessEngine:
             raise
 
     async def process(self, event: EventEnvelope, sink: MessageSink) -> None:
+        """Implement the process operation for the mo fox headless engine.
+
+        Args:
+            event: Event associated with the operation.
+            sink: The sink value used by the operation.
+
+        Returns:
+            None.
+        """
         bot = self._bot
         if bot is None or bot.message_receiver is None:
             raise RuntimeError("MoFox headless lifecycle is not started")
@@ -143,6 +204,11 @@ class MoFoxHeadlessEngine:
             self._sink.reset(token)
 
     async def close(self) -> None:
+        """Close the mo fox headless engine and release its owned resources.
+
+        Returns:
+            None.
+        """
         bot, self._bot = self._bot, None
         try:
             if bot is not None:
@@ -152,11 +218,29 @@ class MoFoxHeadlessEngine:
             self._restore_working_directory()
 
     def _restore_working_directory(self) -> None:
+        """Implement the restore working directory operation for the mo fox headless engine.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `MoFoxHeadlessEngine._restore_working_directory`. It
+            delegates to `chdir` while keeping intermediate state local to the owning operation.
+        """
         previous, self._previous_cwd = self._previous_cwd, None
         if previous is not None:
             os.chdir(previous)
 
     def _restore_upstream_namespace(self) -> None:
+        """Implement the restore upstream namespace operation for the mo fox headless engine.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `MoFoxHeadlessEngine._restore_upstream_namespace`. It
+            delegates to `pop` while keeping intermediate state local to the owning operation.
+        """
         if self._previous_cwd is None and not self._had_src_module:
             return
         if self._had_src_module:
@@ -169,11 +253,29 @@ class MoFoxHeadlessEngine:
 
 
 class MoFoxBridgeHost:
+    """Represent the mo fox bridge host contract."""
     def __init__(self, engine: MoFoxHeadlessEngine, *, max_concurrent_events: int) -> None:
+        """Initialize the mo fox bridge host.
+
+        Args:
+            engine: The engine value used by the operation.
+            max_concurrent_events: Maximum number of events dispatched concurrently.
+
+        Returns:
+            None.
+        """
         self.engine = engine
         self._capacity = asyncio.Semaphore(max_concurrent_events)
 
     async def handle_delivery(self, delivery: BrokerDelivery) -> None:
+        """Handle delivery.
+
+        Args:
+            delivery: The delivery value used by the operation.
+
+        Returns:
+            None.
+        """
         async with self._capacity:
             broker_event = delivery.message.event
             event = EventEnvelope.model_validate(broker_event.payload)
@@ -201,7 +303,16 @@ class MoFoxBridgeHost:
 
 
 async def launch(settings: AppSettings, bridge_id: str, token: str) -> None:
-    """Launch one limited MoFox bridge through the standalone Broker."""
+    """Launch one limited MoFox bridge through the standalone Broker.
+
+    Args:
+        settings: Validated application settings.
+        bridge_id: Stable identifier for the bridge.
+        token: Authentication token presented at the boundary.
+
+    Returns:
+        None.
+    """
 
     bridge = settings.broker.bridges.get(bridge_id)
     if bridge is None:
@@ -251,6 +362,21 @@ def _validate_bridge_settings(
     action_resources: Sequence[Any],
     options: Mapping[str, Any],
 ) -> None:
+    """Validate bridge settings.
+
+    Args:
+        access: The access value used by the operation.
+        subscriptions: The subscriptions value used by the operation.
+        action_resources: The action resources value used by the operation.
+        options: Validated optional settings for the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_validate_bridge_settings`. It delegates to `sorted`,
+        `difference`, `join`, `get` while keeping intermediate state local to the owning operation.
+    """
     if access != BridgeAccess.LIMITED.value:
         raise RuntimeError("MoFox compatibility bridge must use limited access")
     if not subscriptions:
@@ -267,6 +393,20 @@ def _validate_bridge_settings(
 
 
 def _workspace_path(settings: AppSettings, bridge_id: str, options: Mapping[str, object]) -> Path:
+    """Implement the workspace path operation for the component.
+
+    Args:
+        settings: Validated application settings.
+        bridge_id: Stable identifier for the bridge.
+        options: Validated optional settings for the operation.
+
+    Returns:
+        The `Path` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_workspace_path`. It delegates to `get`, `strip`,
+        `expanduser`, `resolve` while keeping intermediate state local to the owning operation.
+    """
     configured = options.get("workspace")
     if configured is None:
         path = settings.core.data_dir / "bridges" / bridge_id / "mofox"
@@ -281,6 +421,20 @@ def _workspace_path(settings: AppSettings, bridge_id: str, options: Mapping[str,
 
 
 def _positive_int(options: Mapping[str, object], key: str, default: int) -> int:
+    """Implement the positive int operation for the component.
+
+    Args:
+        options: Validated optional settings for the operation.
+        key: Stable FIFO ordering key for the queued work.
+        default: The default value used by the operation.
+
+    Returns:
+        The `int` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_positive_int`. It delegates to `get` while keeping
+        intermediate state local to the owning operation.
+    """
     value = options.get(key, default)
     if not isinstance(value, int) or isinstance(value, bool) or value < 1:
         raise ValueError(f"MoFox bridge option {key!r} must be a positive integer")
@@ -288,7 +442,16 @@ def _positive_int(options: Mapping[str, object], key: str, default: int) -> int:
 
 
 def _install_upstream_namespace() -> None:
-    """Restore Neo-MoFox's ``src.*`` imports from its installed wheel layout."""
+    """Restore Neo-MoFox's ``src.*`` imports from its installed wheel layout.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_install_upstream_namespace`. It delegates to
+        `distribution`, `locate_file`, `all`, `is_dir` while keeping intermediate state local to the
+        owning operation.
+    """
 
     try:
         distribution = importlib.metadata.distribution("neo-mofox")
@@ -305,7 +468,19 @@ def _install_upstream_namespace() -> None:
 
 
 def _enforce_headless_config(path: Path) -> None:
-    """Keep Neo-MoFox's private lifecycle non-interactive and non-listening."""
+    """Keep Neo-MoFox's private lifecycle non-interactive and non-listening.
+
+    Args:
+        path: Filesystem or logical resource path.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_enforce_headless_config`. It delegates to `is_file`,
+        `read_text`, `_set_toml_boolean`, `mkdir` while keeping intermediate state local to the owning
+        operation.
+    """
 
     document = path.read_text(encoding="utf-8") if path.is_file() else ""
     for section, key in (
@@ -321,7 +496,21 @@ def _enforce_headless_config(path: Path) -> None:
 
 
 def _set_toml_boolean(document: str, section: str, key: str, value: bool) -> str:
-    """Replace one simple TOML boolean while preserving unrelated user settings."""
+    """Replace one simple TOML boolean while preserving unrelated user settings.
+
+    Args:
+        document: The document value used by the operation.
+        section: The section value used by the operation.
+        key: Stable FIFO ordering key for the queued work.
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_set_toml_boolean`. It delegates to `compile`, `escape`,
+        `search`, `endswith` while keeping intermediate state local to the owning operation.
+    """
 
     rendered = "true" if value else "false"
     section_pattern = re.compile(rf"(?ms)(^\[{re.escape(section)}\]\r?\n)(.*?)(?=^\[|\Z)")
@@ -339,6 +528,18 @@ def _set_toml_boolean(document: str, section: str, key: str, value: bool) -> str
 
 
 def _broker_endpoints(endpoint: str) -> dict[LyipLane, str]:
+    """Implement the broker endpoints operation for the component.
+
+    Args:
+        endpoint: Transport endpoint used for the connection.
+
+    Returns:
+        The `dict[LyipLane, str]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_broker_endpoints`. It delegates to `urlparse` while keeping
+        intermediate state local to the owning operation.
+    """
     parsed = urlparse(endpoint)
     if parsed.scheme != "tcp" or parsed.hostname is None or parsed.port is None:
         raise ValueError("broker endpoint must be a valid tcp URL")

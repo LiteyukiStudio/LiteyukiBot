@@ -24,13 +24,91 @@ _IDENTIFIER = re.compile(r"[a-z][a-z0-9-]{0,63}")
 _BUNDLE_IDENTIFIER = re.compile(r"[a-z][a-z0-9.-]{0,127}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _MAX_ARTIFACT_BYTES = 256 * 1024 * 1024
+_MAX_ARCHIVE_MEMBERS = 10_000
+_MAX_ARCHIVE_MEMBER_BYTES = 256 * 1024 * 1024
+_MAX_ARCHIVE_EXTRACTED_BYTES = 1024 * 1024 * 1024
 
 
 class PluginStoreError(LiteyukiError):
     """Raised when a plugin artifact, index, or deployment is unsafe or invalid."""
 
 
+def _archive_member_path(member: zipfile.ZipInfo) -> PurePosixPath:
+    """Validate and normalize one ZIP member's payload-relative path.
+
+    Args:
+        member: ZIP directory entry supplied by the verified archive.
+
+    Returns:
+        Safe relative path suitable for joining below the extraction root.
+
+    Notes:
+        Absolute paths, empty/dot components, traversal, symbolic links, and
+        oversized members are rejected before any member is written.
+
+    Security:
+        ZIP metadata controls destination paths and claimed output size. This
+        validator is retained because plugins are distributed as archives; it
+        prevents traversal, link escape, and per-member decompression abuse.
+        See `docs/security/trusted-boundaries.md#plugin-artifacts-and-native-code`.
+    """
+    path = PurePosixPath(member.filename)
+    is_symlink = member.external_attr >> 16 & 0o170000 == 0o120000
+    if (
+        not member.filename
+        or path.is_absolute()
+        or any(part in {"", ".", ".."} for part in path.parts)
+        or is_symlink
+    ):
+        raise PluginStoreError(f"plugin archive contains unsafe path: {member.filename!r}")
+    if member.file_size > _MAX_ARCHIVE_MEMBER_BYTES:
+        raise PluginStoreError(f"plugin archive member is too large: {member.filename!r}")
+    return path
+
+
+def _validated_archive_members(archive: zipfile.ZipFile) -> tuple[tuple[zipfile.ZipInfo, PurePosixPath], ...]:
+    """Validate an entire ZIP directory before extraction starts.
+
+    Args:
+        archive: Open plugin archive whose central directory is inspected.
+
+    Returns:
+        Members paired with normalized, safe relative paths.
+
+    Notes:
+        Member count and total declared expanded bytes are checked before the
+        first filesystem write, avoiding partially extracted invalid archives.
+
+    Security:
+        Compressed input can expand into excessive files or bytes. The archive
+        capability is retained for installable plugins, bounded by count,
+        member size, total size, and path checks. See
+        `docs/security/trusted-boundaries.md#plugin-artifacts-and-native-code`.
+    """
+    members = archive.infolist()
+    if len(members) > _MAX_ARCHIVE_MEMBERS:
+        raise PluginStoreError("plugin archive contains too many members")
+    validated = tuple((member, _archive_member_path(member)) for member in members)
+    if sum(member.file_size for member, _path in validated) > _MAX_ARCHIVE_EXTRACTED_BYTES:
+        raise PluginStoreError("plugin archive exceeds the extracted size limit")
+    return validated
+
+
 def _identifier(value: object, subject: str, *, bundle: bool = False) -> str:
+    """Implement the identifier operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        subject: The subject value used by the operation.
+        bundle: The bundle value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_identifier`. It delegates to `fullmatch` while keeping
+        intermediate state local to the owning operation.
+    """
     pattern = _BUNDLE_IDENTIFIER if bundle else _IDENTIFIER
     if not isinstance(value, str) or not pattern.fullmatch(value):
         raise PluginStoreError(f"{subject} must be a lowercase identifier")
@@ -38,24 +116,75 @@ def _identifier(value: object, subject: str, *, bundle: bool = False) -> str:
 
 
 def _sha256(value: object, subject: str) -> str:
+    """Implement the sha256 operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        subject: The subject value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_sha256`. It delegates to `fullmatch` while keeping
+        intermediate state local to the owning operation.
+    """
     if not isinstance(value, str) or not _SHA256.fullmatch(value):
         raise PluginStoreError(f"{subject} must be a lowercase SHA-256 digest")
     return value
 
 
 def _machine(value: object) -> str:
+    """Implement the machine operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_machine`. It delegates to `_identifier`, `replace`, `lower`
+        while keeping intermediate state local to the owning operation.
+    """
     if not isinstance(value, str):
         raise PluginStoreError("platform machine must be a lowercase identifier")
     return _identifier(value.lower().replace("_", "-"), "platform machine")
 
 
 def _strings(value: object, subject: str) -> tuple[str, ...]:
+    """Implement the strings operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        subject: The subject value used by the operation.
+
+    Returns:
+        The `tuple[str, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_strings`. It delegates to `any`, `strip` while keeping
+        intermediate state local to the owning operation.
+    """
     if not isinstance(value, list) or any(not isinstance(item, str) or not item.strip() for item in value):
         raise PluginStoreError(f"{subject} must be an array of non-empty strings")
     return tuple(value)
 
 
 def _json_object(value: object, subject: str) -> dict[str, Any]:
+    """Implement the json object operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        subject: The subject value used by the operation.
+
+    Returns:
+        The `dict[str, Any]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_json_object`. It delegates to `dumps`, `items` while
+        keeping intermediate state local to the owning operation.
+    """
     if not isinstance(value, dict):
         raise PluginStoreError(f"{subject} must be an object")
     try:
@@ -66,6 +195,19 @@ def _json_object(value: object, subject: str) -> dict[str, Any]:
 
 
 def _artifact_specs(value: list[object], subject: str) -> tuple[ArtifactSpec, ...]:
+    """Implement the artifact specs operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        subject: The subject value used by the operation.
+
+    Returns:
+        The `tuple[ArtifactSpec, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_artifact_specs`. It delegates to `_json_object` while
+        keeping intermediate state local to the owning operation.
+    """
     return tuple(
         ArtifactSpec(
             str(_json_object(raw_artifact, subject)["url"]),
@@ -84,6 +226,11 @@ class PlatformTarget:
     python: str
 
     def __post_init__(self) -> None:
+        """Validate and normalize the platform target after initialization.
+
+        Returns:
+            None.
+        """
         object.__setattr__(self, "system", _identifier(self.system.lower(), "platform system"))
         object.__setattr__(self, "machine", _machine(self.machine))
         if not re.fullmatch(r"\d+\.\d+", self.python):
@@ -91,19 +238,35 @@ class PlatformTarget:
 
     @classmethod
     def current(cls) -> PlatformTarget:
+        """Implement the current operation for the platform target.
+
+        Returns:
+            The `PlatformTarget` result produced by the operation.
+        """
         return cls(platform.system(), platform.machine(), f"{sys.version_info.major}.{sys.version_info.minor}")
 
     def document(self) -> dict[str, str]:
+        """Return the serialized document for the platform target operation.
+
+        Returns:
+            The `dict[str, str]` result produced by the operation.
+        """
         return {"system": self.system, "machine": self.machine, "python": self.python}
 
 
 @dataclass(frozen=True, slots=True)
 class PlatformConstraint:
+    """Represent the platform constraint contract."""
     systems: tuple[str, ...] = ()
     machines: tuple[str, ...] = ()
     pythons: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        """Validate and normalize the platform constraint after initialization.
+
+        Returns:
+            None.
+        """
         object.__setattr__(
             self,
             "systems",
@@ -114,6 +277,14 @@ class PlatformConstraint:
             raise PluginStoreError("platform Python constraints must use major.minor form")
 
     def matches(self, target: PlatformTarget) -> bool:
+        """Implement the matches operation for the platform constraint.
+
+        Args:
+            target: Target value or location for the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
         return (
             (not self.systems or target.system in self.systems)
             and (not self.machines or target.machine in self.machines)
@@ -121,6 +292,11 @@ class PlatformConstraint:
         )
 
     def document(self) -> dict[str, list[str]]:
+        """Return the serialized document for the platform constraint operation.
+
+        Returns:
+            The `dict[str, list[str]]` result produced by the operation.
+        """
         return {
             "systems": list(self.systems),
             "machines": list(self.machines),
@@ -136,12 +312,22 @@ class ArtifactSpec:
     sha256: str
 
     def __post_init__(self) -> None:
+        """Validate and normalize the artifact spec after initialization.
+
+        Returns:
+            None.
+        """
         parsed = urlsplit(self.url)
         if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
             raise PluginStoreError("artifact URL must be credential-free HTTPS")
         object.__setattr__(self, "sha256", _sha256(self.sha256, "artifact"))
 
     def document(self) -> dict[str, str]:
+        """Return the serialized document for the artifact spec operation.
+
+        Returns:
+            The `dict[str, str]` result produced by the operation.
+        """
         return {"url": self.url, "sha256": self.sha256}
 
 
@@ -157,6 +343,11 @@ class PluginFacet:
     capabilities: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        """Validate and normalize the plugin facet after initialization.
+
+        Returns:
+            None.
+        """
         object.__setattr__(self, "runtime_kind", _identifier(self.runtime_kind, "runtime kind"))
         if not self.artifacts and not self.wheels:
             raise PluginStoreError("plugin facet requires at least one artifact or wheel")
@@ -168,6 +359,11 @@ class PluginFacet:
         object.__setattr__(self, "load", _json_object(self.load, "plugin facet load plan"))
 
     def document(self) -> dict[str, Any]:
+        """Return the serialized document for the plugin facet operation.
+
+        Returns:
+            The `dict[str, Any]` result produced by the operation.
+        """
         return {
             "runtime_kind": self.runtime_kind,
             "artifacts": [item.document() for item in self.artifacts],
@@ -188,6 +384,11 @@ class PluginBundle:
     dependencies: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        """Validate and normalize the plugin bundle after initialization.
+
+        Returns:
+            None.
+        """
         object.__setattr__(self, "id", _identifier(self.id, "plugin bundle id", bundle=True))
         if not self.version.strip():
             raise PluginStoreError("plugin bundle version must not be empty")
@@ -202,6 +403,15 @@ class PluginBundle:
         )
 
     def facet_for(self, runtime_kind: str, target: PlatformTarget) -> PluginFacet:
+        """Implement the facet for operation for the plugin bundle.
+
+        Args:
+            runtime_kind: The runtime kind value used by the operation.
+            target: Target value or location for the operation.
+
+        Returns:
+            The `PluginFacet` result produced by the operation.
+        """
         normalized = _identifier(runtime_kind, "runtime kind")
         for facet in self.facets:
             if facet.runtime_kind == normalized:
@@ -213,6 +423,11 @@ class PluginBundle:
         raise PluginStoreError(f"plugin {self.id!r} has no {normalized!r} facet")
 
     def document(self) -> dict[str, Any]:
+        """Return the serialized document for the plugin bundle operation.
+
+        Returns:
+            The `dict[str, Any]` result produced by the operation.
+        """
         return {
             "id": self.id,
             "version": self.version,
@@ -225,12 +440,28 @@ class PluginIndex:
     """Strict reader for a versioned metadata-only plugin index document."""
 
     def __init__(self, bundles: tuple[PluginBundle, ...]) -> None:
+        """Initialize the plugin index.
+
+        Args:
+            bundles: The bundles value used by the operation.
+
+        Returns:
+            None.
+        """
         if len({bundle.id for bundle in bundles}) != len(bundles):
             raise PluginStoreError("plugin index contains duplicate bundle IDs")
         self._bundles = {bundle.id: bundle for bundle in bundles}
 
     @classmethod
     def parse(cls, document: object) -> PluginIndex:
+        """Parse the plugin index operation.
+
+        Args:
+            document: The document value used by the operation.
+
+        Returns:
+            The `PluginIndex` result produced by the operation.
+        """
         value = _json_object(document, "plugin index")
         if value.get("schema") != 1:
             raise PluginStoreError("plugin index schema must be 1")
@@ -283,13 +514,31 @@ class PluginIndex:
 
     @property
     def digest(self) -> str:
+        """Return the plugin index's digest.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         document = {"schema": 1, "bundles": [bundle.document() for bundle in self.bundles()]}
         return hashlib.sha256(json.dumps(document, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
     def bundles(self) -> tuple[PluginBundle, ...]:
+        """Implement the bundles operation for the plugin index.
+
+        Returns:
+            The `tuple[PluginBundle, ...]` result produced by the operation.
+        """
         return tuple(self._bundles[key] for key in sorted(self._bundles))
 
     def require(self, bundle_id: str) -> PluginBundle:
+        """Return the plugin index operation, failing when it is unavailable.
+
+        Args:
+            bundle_id: Stable identifier for the bundle.
+
+        Returns:
+            The requested `PluginBundle` value.
+        """
         try:
             return self._bundles[_identifier(bundle_id, "plugin bundle id", bundle=True)]
         except KeyError as error:
@@ -300,12 +549,43 @@ class ArtifactStore:
     """Content-addressed local storage for verified immutable plugin artifacts."""
 
     def __init__(self, workspace: str | Path) -> None:
+        """Initialize the artifact store.
+
+        Args:
+            workspace: The workspace value used by the operation.
+
+        Returns:
+            None.
+        """
         self.root = Path(workspace).resolve() / ".liteyuki" / "plugins" / "store"
 
     def path_for(self, digest: str) -> Path:
+        """Implement the path for operation for the artifact store.
+
+        Args:
+            digest: Expected lowercase SHA-256 digest.
+
+        Returns:
+            The `Path` result produced by the operation.
+        """
         return self.root / _sha256(digest, "artifact") / "artifact"
 
     def import_file(self, source: str | Path, expected_digest: str | None = None) -> Path:
+        """Import a regular file into immutable content-addressed storage.
+
+        Args:
+            source: Existing regular file to copy into the artifact store.
+            expected_digest: Optional index digest that the source must match.
+
+        Returns:
+            Stable cache path for the verified artifact bytes.
+
+        Security:
+            Source files may change while copied. The digest is calculated
+            before and after copying; links and non-regular files are rejected.
+            Content-addressed import remains necessary for local and downloaded
+            plugin artifacts.
+        """
         source_path = Path(source).resolve(strict=True)
         if not source_path.is_file() or source_path.is_symlink():
             raise PluginStoreError("plugin artifact source must be a regular file")
@@ -327,7 +607,21 @@ class ArtifactStore:
         return destination
 
     def fetch(self, artifact: ArtifactSpec) -> Path:
-        """Download one declared artifact once, retaining only its verified bytes."""
+        """Download one declared artifact once, retaining only its verified bytes.
+
+        Args:
+            artifact: HTTPS URL and mandatory SHA-256 digest declared by the index.
+
+        Returns:
+            Stable cache path containing exactly the verified bytes.
+
+        Security:
+            Remote content and redirects are untrusted. Fetching is retained for
+            plugin distribution, but redirects must remain credential-free HTTPS,
+            downloads are capped at 256 MiB, and bytes are activated only after
+            digest verification. See
+            `docs/security/trusted-boundaries.md#plugin-artifacts-and-native-code`.
+        """
 
         destination = self.path_for(artifact.sha256)
         if destination.is_file():
@@ -361,7 +655,18 @@ class ArtifactStore:
             temporary.unlink(missing_ok=True)
 
     def require(self, digest: str) -> Path:
-        """Return one verified cached artifact without contacting an artifact source."""
+        """Return one verified cached artifact without contacting an artifact source.
+
+        Args:
+            digest: Expected lowercase SHA-256 digest.
+
+        Returns:
+            The requested `Path` value.
+
+        Security:
+            Cached artifacts are rehashed on every trust-boundary lookup so a
+            local mutation cannot bypass the index digest before extraction.
+        """
 
         normalized = _sha256(digest, "artifact")
         destination = self.path_for(normalized)
@@ -372,9 +677,22 @@ class ArtifactStore:
         return destination
 
     def extract_zip(self, digest: str, destination: str | Path) -> Path:
-        artifact = self.path_for(digest)
-        if not artifact.is_file():
-            raise PluginStoreError(f"plugin artifact {digest!r} is not available")
+        """Atomically extract a verified plugin ZIP into one generation directory.
+
+        Args:
+            digest: Expected lowercase SHA-256 digest.
+            destination: Generation payload directory replaced after validation.
+
+        Returns:
+            Resolved extraction directory after atomic replacement.
+
+        Security:
+            Archives are a path and resource-exhaustion boundary. Extraction is
+            retained for wheel/plugin payloads, but digest, member count, path,
+            link, individual size, and total size checks run before activation.
+            See `docs/security/trusted-boundaries.md#plugin-artifacts-and-native-code`.
+        """
+        artifact = self.require(digest)
         target = Path(destination).resolve()
         temporary = target.with_name(target.name + ".tmp")
         if temporary.exists():
@@ -382,16 +700,7 @@ class ArtifactStore:
         temporary.mkdir(parents=True)
         try:
             with zipfile.ZipFile(artifact) as archive:
-                for member in archive.infolist():
-                    member_path = PurePosixPath(member.filename)
-                    is_symlink = member.external_attr >> 16 & 0o170000 == 0o120000
-                    if (
-                        not member.filename
-                        or member_path.is_absolute()
-                        or any(part in {"", ".", ".."} for part in member_path.parts)
-                        or is_symlink
-                    ):
-                        raise PluginStoreError(f"plugin archive contains unsafe path: {member.filename!r}")
+                for member, member_path in _validated_archive_members(archive):
                     output = temporary.joinpath(*member_path.parts)
                     output.parent.mkdir(parents=True, exist_ok=True)
                     if member.is_dir():
@@ -409,6 +718,18 @@ class ArtifactStore:
 
     @staticmethod
     def _digest(path: Path) -> str:
+        """Implement the digest operation for the artifact store.
+
+        Args:
+            path: Filesystem or logical resource path.
+
+        Returns:
+            The `str` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `ArtifactStore._digest`. It delegates to `sha256`, `open`,
+            `iter`, `read` while keeping intermediate state local to the owning operation.
+        """
         hasher = hashlib.sha256()
         with path.open("rb") as handle:
             for chunk in iter(lambda: handle.read(1024 * 1024), b""):
@@ -418,6 +739,7 @@ class ArtifactStore:
 
 @dataclass(frozen=True, slots=True)
 class RuntimeGeneration:
+    """Represent the runtime generation contract."""
     id: str
     runtime_id: str
     runtime_kind: str
@@ -433,6 +755,11 @@ class RuntimeGeneration:
     disabled_roots: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        """Validate and normalize the runtime generation after initialization.
+
+        Returns:
+            None.
+        """
         object.__setattr__(self, "id", _identifier(self.id, "generation id"))
         object.__setattr__(self, "runtime_id", _identifier(self.runtime_id, "runtime id"))
         object.__setattr__(self, "runtime_kind", _identifier(self.runtime_kind, "runtime kind"))
@@ -474,6 +801,11 @@ class RuntimeGeneration:
                 raise PluginStoreError("runtime generation resolved bundles do not match bundle IDs")
 
     def document(self) -> dict[str, Any]:
+        """Return the serialized document for the runtime generation operation.
+
+        Returns:
+            The `dict[str, Any]` result produced by the operation.
+        """
         return {
             "schema": 2,
             "id": self.id,
@@ -501,16 +833,27 @@ class RuntimeGeneration:
 
     @property
     def digest(self) -> str:
+        """Return the runtime generation's digest.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         return hashlib.sha256(json.dumps(self.document(), sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
 class Deployment:
+    """Represent the deployment contract."""
     kernel_profile: str | None
     runtime_generations: dict[str, str]
     previous: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        """Validate and normalize the deployment after initialization.
+
+        Returns:
+            None.
+        """
         if self.kernel_profile is not None:
             object.__setattr__(self, "kernel_profile", _identifier(self.kernel_profile, "kernel profile"))
         object.__setattr__(
@@ -531,6 +874,11 @@ class Deployment:
         )
 
     def document(self) -> dict[str, Any]:
+        """Return the serialized document for the deployment operation.
+
+        Returns:
+            The `dict[str, Any]` result produced by the operation.
+        """
         return {
             "schema": 2,
             "kernel_profile": self.kernel_profile,
@@ -543,11 +891,28 @@ class RuntimeGenerationStore:
     """Persist verified generation manifests and atomically switch deployment pointers."""
 
     def __init__(self, workspace: str | Path) -> None:
+        """Initialize the runtime generation store.
+
+        Args:
+            workspace: The workspace value used by the operation.
+
+        Returns:
+            None.
+        """
         self.workspace = Path(workspace).resolve()
         self.root = self.workspace / ".liteyuki" / "plugins" / "runtimes"
         self.lock = self.workspace / "liteyuki.lock"
 
     def path_for(self, runtime_id: str, generation_id: str) -> Path:
+        """Implement the path for operation for the runtime generation store.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+            generation_id: Stable identifier for the generation.
+
+        Returns:
+            The `Path` result produced by the operation.
+        """
         return (
             self.root
             / _identifier(runtime_id, "runtime id")
@@ -557,10 +922,26 @@ class RuntimeGenerationStore:
 
     @staticmethod
     def python_path(generation_path: str | Path) -> Path:
+        """Implement the python path operation for the runtime generation store.
+
+        Args:
+            generation_path: Filesystem path for the generation.
+
+        Returns:
+            The `Path` result produced by the operation.
+        """
         root = Path(generation_path)
         return root / "venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
     def write(self, generation: RuntimeGeneration) -> Path:
+        """Write the runtime generation store operation.
+
+        Args:
+            generation: Positive protocol or deployment generation.
+
+        Returns:
+            The `Path` result produced by the operation.
+        """
         path = self.path_for(generation.runtime_id, generation.id)
         manifest = path / "manifest.json"
         if manifest.exists():
@@ -573,6 +954,15 @@ class RuntimeGenerationStore:
         return path
 
     def read(self, runtime_id: str, generation_id: str) -> RuntimeGeneration:
+        """Read the runtime generation store operation.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+            generation_id: Stable identifier for the generation.
+
+        Returns:
+            The `RuntimeGeneration` result produced by the operation.
+        """
         path = self.path_for(runtime_id, generation_id) / "manifest.json"
         try:
             value = json.loads(path.read_text(encoding="utf-8"))
@@ -624,6 +1014,11 @@ class RuntimeGenerationStore:
         return generation
 
     def active(self) -> Deployment:
+        """Implement the active operation for the runtime generation store.
+
+        Returns:
+            The `Deployment` result produced by the operation.
+        """
         if not self.lock.is_file():
             return Deployment(None, {})
         try:
@@ -642,6 +1037,21 @@ class RuntimeGenerationStore:
             raise PluginStoreError("plugin deployment lock is invalid") from error
 
     def activate(self, runtime_id: str, generation_id: str) -> Deployment:
+        """Atomically select a previously verified runtime generation.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+            generation_id: Stable identifier for the generation.
+
+        Returns:
+            New deployment snapshot including rollback history.
+
+        Security:
+            Activation changes executable plugin code. It is retained for
+            upgrades and rollback, but only `read`-verified immutable generations
+            can enter the deployment lock. Native plugins remain trusted code;
+            see `docs/security/trusted-boundaries.md#plugin-artifacts-and-native-code`.
+        """
         generation = self.read(runtime_id, generation_id)
         current = self.active()
         runtimes = dict(current.runtime_generations)
@@ -655,6 +1065,14 @@ class RuntimeGenerationStore:
         return deployment
 
     def rollback(self, runtime_id: str) -> Deployment:
+        """Implement the rollback operation for the runtime generation store.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+
+        Returns:
+            The `Deployment` result produced by the operation.
+        """
         current = self.active()
         normalized = _identifier(runtime_id, "runtime id")
         try:
@@ -673,6 +1091,14 @@ class RuntimeGenerationStore:
         return deployment
 
     def deactivate(self, runtime_id: str) -> Deployment:
+        """Implement the deactivate operation for the runtime generation store.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+
+        Returns:
+            The `Deployment` result produced by the operation.
+        """
         current = self.active()
         normalized = _identifier(runtime_id, "runtime id")
         runtimes = dict(current.runtime_generations)
@@ -687,6 +1113,14 @@ class RuntimeGenerationStore:
         return deployment
 
     def list_generations(self, runtime_id: str | None = None) -> tuple[RuntimeGeneration, ...]:
+        """List generations.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+
+        Returns:
+            The `tuple[RuntimeGeneration, ...]` result produced by the operation.
+        """
         if self.root.exists() and (self.root.is_symlink() or not self.root.is_dir()):
             raise PluginStoreError("plugin runtime directory is unsafe")
         runtime_ids: tuple[str, ...]
@@ -706,6 +1140,14 @@ class RuntimeGenerationStore:
         return tuple(generations)
 
     def collect(self, runtime_id: str | None = None) -> tuple[RuntimeGeneration, ...]:
+        """Collect the runtime generation store operation.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+
+        Returns:
+            The `tuple[RuntimeGeneration, ...]` result produced by the operation.
+        """
         deployment = self.active()
         retained = {
             (current_runtime_id, generation_id)
@@ -725,6 +1167,20 @@ class RuntimeGenerationStore:
         return tuple(collected)
 
     def _directory_ids(self, directory: Path, subject: str) -> tuple[str, ...]:
+        """Implement the directory ids operation for the runtime generation store.
+
+        Args:
+            directory: The directory value used by the operation.
+            subject: The subject value used by the operation.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `RuntimeGenerationStore._directory_ids`. It delegates to
+            `is_symlink`, `is_dir`, `sorted`, `iterdir` while keeping intermediate state local to the owning
+            operation.
+        """
         if directory.is_symlink() or not directory.is_dir():
             raise PluginStoreError(f"plugin {subject} directory is unsafe")
         identifiers: list[str] = []
@@ -735,6 +1191,19 @@ class RuntimeGenerationStore:
         return tuple(identifiers)
 
     def _prune_empty_generation_directories(self, runtime_id: str | None) -> None:
+        """Implement the prune empty generation directories operation for the runtime generation store.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeGenerationStore._prune_empty_generation_directories`.
+            It delegates to `exists`, `_directory_ids`, `_identifier`, `rmdir` while keeping intermediate
+            state local to the owning operation.
+        """
         if not self.root.exists():
             return
         runtime_ids = (runtime_id,) if runtime_id is not None else tuple(self._directory_ids(self.root, "runtime id"))
@@ -751,10 +1220,29 @@ class RuntimeGenerationStore:
 
     @staticmethod
     def new_generation_id() -> str:
+        """Implement the new generation id operation for the runtime generation store.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         return "g" + datetime.now(UTC).strftime("%Y%m%d-%H%M%S-") + hashlib.sha256(os.urandom(16)).hexdigest()[:8]
 
     @staticmethod
     def _write_json(path: Path, value: dict[str, Any]) -> None:
+        """Write json.
+
+        Args:
+            path: Filesystem or logical resource path.
+            value: Value to validate, transform, or store.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeGenerationStore._write_json`. It delegates to
+            `mkdir`, `with_suffix`, `write_text`, `dumps` while keeping intermediate state local to the
+            owning operation.
+        """
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.with_suffix(path.suffix + ".tmp")
         temporary.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")

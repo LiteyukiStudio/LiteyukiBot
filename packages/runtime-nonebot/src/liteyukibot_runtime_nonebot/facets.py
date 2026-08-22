@@ -21,6 +21,16 @@ class NoneBotFacetInstaller:
         generation: Path,
         facets: Mapping[str, PluginFacet],
     ) -> dict[str, Any]:
+        """Materialize the none bot facet installer operation.
+
+        Args:
+            artifacts: The artifacts value used by the operation.
+            generation: Positive protocol or deployment generation.
+            facets: The facets value used by the operation.
+
+        Returns:
+            The `dict[str, Any]` result produced by the operation.
+        """
         payload = generation / "payload"
         payload.mkdir(parents=True, exist_ok=True)
         plugins: list[str] = []
@@ -50,6 +60,18 @@ class NoneBotFacetInstaller:
 
 
 def _module_list(load: Mapping[str, object]) -> tuple[str, ...]:
+    """Implement the module list operation for the component.
+
+    Args:
+        load: The load value used by the operation.
+
+    Returns:
+        The `tuple[str, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_module_list`. It delegates to `get`, `any`, `fullmatch`
+        while keeping intermediate state local to the owning operation.
+    """
     value = load.get("plugins", [])
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
         raise PluginStoreError("NoneBot facet load 'plugins' must be an array of module names")
@@ -60,6 +82,18 @@ def _module_list(load: Mapping[str, object]) -> tuple[str, ...]:
 
 
 def _directory_list(load: Mapping[str, object]) -> tuple[PurePosixPath, ...]:
+    """Implement the directory list operation for the component.
+
+    Args:
+        load: The load value used by the operation.
+
+    Returns:
+        The `tuple[PurePosixPath, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_directory_list`. It delegates to `get`, `is_absolute`,
+        `any`, `append` while keeping intermediate state local to the owning operation.
+    """
     value = load.get("directories", [])
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
         raise PluginStoreError("NoneBot facet load 'directories' must be an array")

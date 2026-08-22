@@ -8,15 +8,18 @@ from pydantic import BaseModel
 
 
 class BaseSeg(BaseModel):
+    """Represent the validated base seg contract."""
     type: str = "Segment"
     data: dict[str, Any]
 
 
 class Text(BaseSeg):
+    """Represent the text contract."""
     content: str
 
 
 class Image(BaseSeg):
+    """Represent the image contract."""
     url: str
 
 

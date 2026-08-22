@@ -13,6 +13,14 @@ DEFAULT_INSTANCE = "default"
 
 
 def normalize_instance_name(value: str) -> str:
+    """Normalize instance name.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `str` result produced by the operation.
+    """
     name = value.strip()
     if not _INSTANCE_NAME.fullmatch(name):
         raise ValueError("instance name must use 1-63 lower-case ASCII letters, digits, or hyphens")
@@ -28,41 +36,97 @@ class InstancePaths:
 
     @classmethod
     def from_workspace(cls, workspace: ConfigWorkspace, name: str) -> InstancePaths:
+        """Create the instance paths from workspace.
+
+        Args:
+            workspace: The workspace value used by the operation.
+            name: Stable name used to identify the value.
+
+        Returns:
+            The `InstancePaths` result produced by the operation.
+        """
         return cls(workspace.directory, normalize_instance_name(name))
 
     @property
     def root(self) -> Path:
+        """Return the instance paths's root.
+
+        Returns:
+            The `Path` result produced by the operation.
+        """
         return self.workspace / ".liteyuki" / "instances" / self.name
 
     @property
     def overlay_path(self) -> Path:
+        """Return the instance paths's overlay path.
+
+        Returns:
+            The `Path` result produced by the operation.
+        """
         return self.workspace / ".liteyuki" / "instances" / f"{self.name}.toml"
 
     @property
     def data_dir(self) -> Path:
+        """Return the instance paths's data dir.
+
+        Returns:
+            The `Path` result produced by the operation.
+        """
         return self.root / "data"
 
     @property
     def cache_dir(self) -> Path:
+        """Return the instance paths's cache dir.
+
+        Returns:
+            The `Path` result produced by the operation.
+        """
         return self.root / "cache"
 
     @property
     def log_file(self) -> Path:
+        """Return the instance paths's log file.
+
+        Returns:
+            The `Path` result produced by the operation.
+        """
         return self.root / "logs" / "kernel.log"
 
     @property
     def daemon_descriptor(self) -> Path:
+        """Return the instance paths's daemon descriptor.
+
+        Returns:
+            The `Path` result produced by the operation.
+        """
         return self.root / "daemon.json"
 
     @property
     def daemon_lock(self) -> Path:
+        """Return the instance paths's daemon lock.
+
+        Returns:
+            The `Path` result produced by the operation.
+        """
         return self.root / "daemon.lock"
 
     def overlay_paths(self) -> tuple[Path, ...]:
+        """Implement the overlay paths operation for the instance paths.
+
+        Returns:
+            The `tuple[Path, ...]` result produced by the operation.
+        """
         return (self.overlay_path,) if self.name != DEFAULT_INSTANCE and self.overlay_path.exists() else ()
 
     def apply_storage(self, settings: AppSettings) -> AppSettings:
-        """Keep the default instance stable; derive all named-instance storage."""
+        """Keep the default instance stable; derive all named-instance storage.
+
+        Args:
+            settings: Validated application settings.
+
+        Returns:
+            The `AppSettings` result produced by the operation.
+        """
 
         if self.name == DEFAULT_INSTANCE:
             return settings

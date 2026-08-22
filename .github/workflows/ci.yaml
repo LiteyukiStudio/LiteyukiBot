@@ -58,9 +58,12 @@ jobs:
           uv run python scripts/check_release.py --package runtime-mofox
           uv run python scripts/check_release.py --package webui
           uv run python scripts/check_release.py --package ipc-native
+          uv run python scripts/check_api_docs.py
           uv run ruff check src tests scripts examples packages
           uv run mypy
           uv run pytest
+          uv run pip-audit --local --progress-spinner off --vulnerability-service osv
+          pnpm --dir webui audit --prod
           uv build
           uv build --all-packages --out-dir dist/workspace --clear
           uv run python -m scripts.run_tool_install_smoke
@@ -92,13 +95,17 @@ jobs:
         run: |
           pnpm --dir webui exec playwright install --with-deps chromium
           pnpm --dir webui test:e2e
-      - name: Capture baseline
+      - name: Capture qualification baselines
         working-directory: LiteyukiBot
-        run: uv run python scripts/benchmark_v7.py --samples 3 --output benchmark.json
+        run: |
+          uv run python scripts/benchmark_v7.py --profile bare --samples 3 --output benchmark-bare.json
+          uv run python scripts/benchmark_v7.py --profile installed-first-party --samples 3 --output benchmark-installed-first-party.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: v7-baseline-${{ matrix.os }}
-          path: LiteyukiBot/benchmark.json
+          name: v7-qualification-${{ matrix.os }}
+          path: |
+            LiteyukiBot/benchmark-bare.json
+            LiteyukiBot/benchmark-installed-first-party.json
 
   published-install:
     strategy:

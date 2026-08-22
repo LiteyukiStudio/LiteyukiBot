@@ -6,7 +6,11 @@ from .host import launch
 
 
 def bridge_definition() -> BridgeDefinition:
-    """Describe the stable NoneBot bridge without importing NoneBot eagerly."""
+    """Describe the stable NoneBot bridge without importing NoneBot eagerly.
+
+    Returns:
+        The `BridgeDefinition` result produced by the operation.
+    """
 
     return BridgeDefinition(
         kind="nonebot",

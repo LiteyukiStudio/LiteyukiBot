@@ -26,6 +26,14 @@ from .service import RESOURCE_SERVICE, create_resource_service
 
 
 async def setup(context: PluginContext) -> PluginHandle:
+    """Implement the setup operation for the component.
+
+    Args:
+        context: Runtime or authorization context for the operation.
+
+    Returns:
+        The `PluginHandle` result produced by the operation.
+    """
     if any(context.config.get(key) == 1 for key in ("api_version", "schema_version", "version")):
         raise RuntimeError("migration_required")
     permissions = cast(PermissionService, context.services.require(PERMISSION_SERVICE))
@@ -38,13 +46,52 @@ async def setup(context: PluginContext) -> PluginHandle:
         authorization: AuthorizationContext,
         arguments: Mapping[str, Any],
     ) -> dict[str, object]:
+        """Inspect tool.
+
+        Args:
+            authorization: Authenticated authorization context for the request.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `setup.inspect_tool`. It delegates to `inspect_context`,
+            `_path` while keeping intermediate state local to the owning operation.
+        """
         return dict(await service.inspect_context(authorization, _path(arguments)))
 
     async def set_tool(authorization: AuthorizationContext, arguments: Mapping[str, Any]) -> dict[str, object]:
+        """Set tool.
+
+        Args:
+            authorization: Authenticated authorization context for the request.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `setup.set_tool`. It delegates to `set_context`, `_path`,
+            `_field`, `_value` while keeping intermediate state local to the owning operation.
+        """
         await service.set_context(authorization, _path(arguments), _field(arguments), _value(arguments))
         return {"updated": True}
 
     async def delete_tool(authorization: AuthorizationContext, arguments: Mapping[str, Any]) -> dict[str, object]:
+        """Delete tool.
+
+        Args:
+            authorization: Authenticated authorization context for the request.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `setup.delete_tool`. It delegates to `delete_context`,
+            `_path`, `_field` while keeping intermediate state local to the owning operation.
+        """
         await service.delete_context(authorization, _path(arguments), _field(arguments))
         return {"deleted": True}
 
@@ -55,6 +102,14 @@ async def setup(context: PluginContext) -> PluginHandle:
 
 
 def create_plugin(version: str) -> PluginDefinition:
+    """Create plugin.
+
+    Args:
+        version: The version value used by the operation.
+
+    Returns:
+        The `PluginDefinition` result produced by the operation.
+    """
     return PluginDefinition(
         manifest=PluginManifest(
             id="liteyukibot.resources",
@@ -155,6 +210,18 @@ _INSPECT_OUTPUT_SCHEMA: dict[str, object] = {
 
 
 def _path(arguments: Mapping[str, Any]) -> tuple[str, ...]:
+    """Implement the path operation for the component.
+
+    Args:
+        arguments: JSON-safe arguments supplied to the operation.
+
+    Returns:
+        The `tuple[str, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_path`. It delegates to `get`, `all` while keeping
+        intermediate state local to the owning operation.
+    """
     path = arguments.get("path")
     if not isinstance(path, list) or not path or not all(isinstance(part, str) and part for part in path):
         raise ValueError("invalid resource Tool path")
@@ -162,6 +229,18 @@ def _path(arguments: Mapping[str, Any]) -> tuple[str, ...]:
 
 
 def _field(arguments: Mapping[str, Any]) -> str:
+    """Implement the field operation for the component.
+
+    Args:
+        arguments: JSON-safe arguments supplied to the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_field`. It delegates to `get` while keeping intermediate
+        state local to the owning operation.
+    """
     field = arguments.get("field")
     if not isinstance(field, str) or not field:
         raise ValueError("invalid resource Tool field")
@@ -169,6 +248,18 @@ def _field(arguments: Mapping[str, Any]) -> str:
 
 
 def _value(arguments: Mapping[str, Any]) -> str:
+    """Implement the value operation for the component.
+
+    Args:
+        arguments: JSON-safe arguments supplied to the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_value`. It delegates to `get` while keeping intermediate
+        state local to the owning operation.
+    """
     value = arguments.get("value")
     if not isinstance(value, str):
         raise ValueError("invalid resource Tool value")

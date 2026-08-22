@@ -13,7 +13,16 @@ AGENT_HISTORY_SERVICE = ServiceKey("liteyukibot.agent_history", 1)
 class AgentHistoryService(Protocol):
     """Clear the requesting principal's history through the Agent bridge."""
 
-    async def clear(self, event: EventEnvelope) -> int: ...
+    async def clear(self, event: EventEnvelope) -> int:
+        """Clear the agent history service operation.
+
+        Args:
+            event: Event associated with the operation.
+
+        Returns:
+            The `int` result produced by the operation.
+        """
+        ...
 
 
 __all__ = ["AGENT_HISTORY_SERVICE", "AgentHistoryService"]

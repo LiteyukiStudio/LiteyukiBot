@@ -11,7 +11,18 @@ type StatusProvider = Callable[[], Mapping[str, Any]]
 
 
 class HttpServer:
+    """Represent the http server contract."""
     def __init__(self, host: str, port: int, *, status_provider: StatusProvider) -> None:
+        """Initialize the http server.
+
+        Args:
+            host: The host value used by the operation.
+            port: The port value used by the operation.
+            status_provider: The status provider value used by the operation.
+
+        Returns:
+            None.
+        """
         self.host = host
         self.port = port
         self.status_provider = status_provider
@@ -19,6 +30,11 @@ class HttpServer:
         self._task: asyncio.Task[None] | None = None
 
     async def start(self) -> None:
+        """Start the http server.
+
+        Returns:
+            None.
+        """
         try:
             fastapi = importlib.import_module("fastapi")
             uvicorn = importlib.import_module("uvicorn")
@@ -30,19 +46,64 @@ class HttpServer:
         app = fastapi.FastAPI(title="LiteyukiBot", docs_url=None, redoc_url=None, openapi_url=None)
 
         async def health() -> dict[str, str]:
+            """Implement the health operation for the start.
+
+            Returns:
+                The `dict[str, str]` result produced by the operation.
+
+            Notes:
+                Internal implementation detail for `HttpServer.start.health`. It performs the local state
+                transition directly and is not a stable extension boundary.
+            """
             return {"status": "ok"}
 
         async def readiness() -> dict[str, Any]:
+            """Implement the readiness operation for the start.
+
+            Returns:
+                The `dict[str, Any]` result produced by the operation.
+
+            Notes:
+                Internal implementation detail for `HttpServer.start.readiness`. It delegates to
+                `status_provider`, `get` while keeping intermediate state local to the owning operation.
+            """
             status = self.status_provider()
             return {"ready": status.get("state") == "ready", "state": status.get("state")}
 
         async def status() -> Mapping[str, Any]:
+            """Return the status of the start operation.
+
+            Returns:
+                The requested `Mapping[str, Any]` value.
+
+            Notes:
+                Internal implementation detail for `HttpServer.start.status`. It delegates to `status_provider`
+                while keeping intermediate state local to the owning operation.
+            """
             return self.status_provider()
 
         async def plugins() -> Any:
+            """Implement the plugins operation for the start.
+
+            Returns:
+                The `Any` result produced by the operation.
+
+            Notes:
+                Internal implementation detail for `HttpServer.start.plugins`. It delegates to `get`,
+                `status_provider` while keeping intermediate state local to the owning operation.
+            """
             return self.status_provider().get("plugins", {})
 
         async def runtimes() -> Any:
+            """Implement the runtimes operation for the start.
+
+            Returns:
+                The `Any` result produced by the operation.
+
+            Notes:
+                Internal implementation detail for `HttpServer.start.runtimes`. It delegates to `get`,
+                `status_provider` while keeping intermediate state local to the owning operation.
+            """
             return self.status_provider().get("runtime_health", {})
 
         app.add_api_route("/health", health, methods=["GET"])
@@ -68,6 +129,11 @@ class HttpServer:
                 await asyncio.sleep(0.01)
 
     async def stop(self) -> None:
+        """Stop the http server and release its owned resources.
+
+        Returns:
+            None.
+        """
         if self._server is not None:
             self._server.should_exit = True
         if self._task is not None:

@@ -47,6 +47,16 @@ class AdapterHost:
     """Load configured adapter instances and expose only Broker-safe traffic."""
 
     def __init__(self, runner: BrokerBridgeRunner, bridge_id: str, plugins: Mapping[str, AdapterPlugin]) -> None:
+        """Initialize the adapter host.
+
+        Args:
+            runner: The runner value used by the operation.
+            bridge_id: Stable identifier for the bridge.
+            plugins: The plugins value used by the operation.
+
+        Returns:
+            None.
+        """
         self.runner = runner
         self.bridge_id = bridge_id
         self.plugins = dict(plugins)
@@ -54,6 +64,14 @@ class AdapterHost:
         self._emit_lock = asyncio.Lock()
 
     async def start(self, options: Mapping[str, Any]) -> None:
+        """Start the adapter host.
+
+        Args:
+            options: Validated optional settings for the operation.
+
+        Returns:
+            None.
+        """
         adapters = _adapter_instances(options)
         for instance_id, instance in adapters.items():
             kind = _required_string(instance, "kind")
@@ -87,7 +105,15 @@ class AdapterHost:
                 raise
 
     async def emit(self, bot_id: str, event: EventEnvelope) -> None:
-        """Convert one driver event into the fixed Alpha 4 ingress contract."""
+        """Convert one driver event into the fixed Alpha 4 ingress contract.
+
+        Args:
+            bot_id: Stable identifier for the bot.
+            event: Event associated with the operation.
+
+        Returns:
+            None.
+        """
 
         if event.runtime_id != self.bridge_id:
             raise ValueError("adapter event bridge_id does not match this bridge")
@@ -108,7 +134,14 @@ class AdapterHost:
             )
 
     async def execute(self, request: ActionRequest) -> ActionOutcome:
-        """Handle the only action accepted by an Alpha 4 adapter bridge."""
+        """Handle the only action accepted by an Alpha 4 adapter bridge.
+
+        Args:
+            request: Validated request object to process.
+
+        Returns:
+            The `ActionOutcome` result produced by the operation.
+        """
 
         try:
             payload = parse_message_send_request(request, owner_bridge_id=self.bridge_id)
@@ -123,10 +156,23 @@ class AdapterHost:
         return ActionOutcome(success=True, payload=cast(EventJsonValue, result))
 
     async def close(self) -> None:
+        """Close the adapter host and release its owned resources.
+
+        Returns:
+            None.
+        """
         connections, self.connections = tuple(self.connections.values()), {}
         await asyncio.gather(*(connection.close() for connection in connections), return_exceptions=True)
 
     async def run(self, options: Mapping[str, Any]) -> None:
+        """Run the adapter host until its lifecycle completes.
+
+        Args:
+            options: Validated optional settings for the operation.
+
+        Returns:
+            None.
+        """
         await self.start(options)
         serving = asyncio.create_task(self.runner.serve_forever(), name=f"adapter-bridge:{self.bridge_id}")
         failures = tuple(
@@ -151,7 +197,14 @@ class AdapterHost:
 
 
 def discover_adapter_plugins(allowed: Sequence[str] | None = None) -> dict[str, AdapterPlugin]:
-    """Discover and validate selected driver entry points."""
+    """Discover and validate selected driver entry points.
+
+    Args:
+        allowed: The allowed value used by the operation.
+
+    Returns:
+        The `dict[str, AdapterPlugin]` result produced by the operation.
+    """
 
     permitted = None if allowed is None else frozenset(allowed)
     plugins: dict[str, AdapterPlugin] = {}
@@ -192,7 +245,16 @@ def discover_adapter_plugins(allowed: Sequence[str] | None = None) -> dict[str, 
 
 
 async def launch(settings: AppSettings, bridge_id: str, token: str) -> None:
-    """Launch one configured adapter bridge through the standalone Broker."""
+    """Launch one configured adapter bridge through the standalone Broker.
+
+    Args:
+        settings: Validated application settings.
+        bridge_id: Stable identifier for the bridge.
+        token: Authentication token presented at the boundary.
+
+    Returns:
+        None.
+    """
 
     bridge = settings.broker.bridges.get(bridge_id)
     if bridge is None:
@@ -220,6 +282,18 @@ async def launch(settings: AppSettings, bridge_id: str, token: str) -> None:
     host: AdapterHost | None = None
 
     async def execute_action(request: ActionRequest) -> ActionOutcome:
+        """Execute action.
+
+        Args:
+            request: Validated request object to process.
+
+        Returns:
+            The `ActionOutcome` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `launch.execute_action`. It delegates to `execute` while
+            keeping intermediate state local to the owning operation.
+        """
         if host is None:
             return ActionOutcome(success=False, payload={"error": "adapter_not_ready"})
         return await host.execute(request)
@@ -244,6 +318,22 @@ def _adapter_manifest(
     configured_resources: Sequence[Any],
     adapters: Mapping[str, Mapping[str, Any]],
 ) -> BridgeManifest:
+    """Implement the adapter manifest operation for the component.
+
+    Args:
+        bridge_id: Stable identifier for the bridge.
+        access: The access value used by the operation.
+        subscriptions: The subscriptions value used by the operation.
+        configured_resources: The configured resources value used by the operation.
+        adapters: The adapters value used by the operation.
+
+    Returns:
+        The `BridgeManifest` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_adapter_manifest`. It delegates to `_required_string`,
+        `values`, `any` while keeping intermediate state local to the owning operation.
+    """
     if access != BridgeAccess.LIMITED.value:
         raise RuntimeError("adapter bridge must use limited access")
     if subscriptions:
@@ -276,6 +366,18 @@ def _adapter_manifest(
 
 
 def _broker_endpoints(endpoint: str) -> dict[LyipLane, str]:
+    """Implement the broker endpoints operation for the component.
+
+    Args:
+        endpoint: Transport endpoint used for the connection.
+
+    Returns:
+        The `dict[LyipLane, str]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_broker_endpoints`. It delegates to `urlparse` while keeping
+        intermediate state local to the owning operation.
+    """
     parsed = urlparse(endpoint)
     if parsed.scheme != "tcp" or parsed.hostname is None or parsed.port is None:
         raise ValueError("broker endpoint must be a valid tcp URL")
@@ -287,6 +389,18 @@ def _broker_endpoints(endpoint: str) -> dict[LyipLane, str]:
 
 
 def _adapter_instances(options: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
+    """Implement the adapter instances operation for the component.
+
+    Args:
+        options: Validated optional settings for the operation.
+
+    Returns:
+        The `dict[str, Mapping[str, Any]]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_adapter_instances`. It delegates to `get`, `items`, `strip`
+        while keeping intermediate state local to the owning operation.
+    """
     value = options.get("adapters", {})
     if not isinstance(value, Mapping):
         raise ValueError("adapter bridge option 'adapters' must be an object")
@@ -301,6 +415,19 @@ def _adapter_instances(options: Mapping[str, Any]) -> dict[str, Mapping[str, Any
 
 
 def _required_string(value: Mapping[str, Any], key: str) -> str:
+    """Implement the required string operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        key: Stable FIFO ordering key for the queued work.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_required_string`. It delegates to `get`, `strip` while
+        keeping intermediate state local to the owning operation.
+    """
     item = value.get(key)
     if not isinstance(item, str) or not item or item != item.strip():
         raise ValueError(f"adapter instance {key!r} must be a non-empty trimmed string")
@@ -308,6 +435,19 @@ def _required_string(value: Mapping[str, Any], key: str) -> str:
 
 
 def _json_object(value: object, subject: str) -> dict[str, Any]:
+    """Implement the json object operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        subject: The subject value used by the operation.
+
+    Returns:
+        The `dict[str, Any]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_json_object`. It delegates to `json_value` while keeping
+        intermediate state local to the owning operation.
+    """
     try:
         normalized = json_value(value)
     except (TypeError, ValueError) as error:
@@ -318,6 +458,18 @@ def _json_object(value: object, subject: str) -> dict[str, Any]:
 
 
 def _entry_distribution_name(entry: metadata.EntryPoint) -> str | None:
+    """Implement the entry distribution name operation for the component.
+
+    Args:
+        entry: The entry value used by the operation.
+
+    Returns:
+        The `str | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_entry_distribution_name`. It delegates to `getattr`, `get`
+        while keeping intermediate state local to the owning operation.
+    """
     distribution = getattr(entry, "dist", None)
     if distribution is None:
         return None
@@ -326,6 +478,18 @@ def _entry_distribution_name(entry: metadata.EntryPoint) -> str | None:
 
 
 def _canonical_distribution_name(name: str) -> str:
+    """Implement the canonical distribution name operation for the component.
+
+    Args:
+        name: Stable name used to identify the value.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_canonical_distribution_name`. It delegates to `lower`,
+        `sub` while keeping intermediate state local to the owning operation.
+    """
     return re.sub(r"[-_.]+", "-", name).lower()
 
 

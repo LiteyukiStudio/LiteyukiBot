@@ -17,6 +17,7 @@ ACTIVE_TOOL_LIMIT = 32
 
 @dataclass(frozen=True, slots=True)
 class CatalogSearchResult:
+    """Represent the validated catalog search result contract."""
     tools: tuple[AgentToolDescriptor, ...]
 
 
@@ -28,6 +29,11 @@ class SandboxToolDefinition:
     worker_ref: str
 
     def __post_init__(self) -> None:
+        """Validate and normalize the sandbox tool definition after initialization.
+
+        Returns:
+            None.
+        """
         if not self.worker_ref or self.worker_ref != self.worker_ref.strip() or ":" not in self.worker_ref:
             raise ValueError("sandbox worker reference must be a non-empty module:path value")
 
@@ -36,6 +42,14 @@ class AgentCatalog:
     """Own the static Tool universe visible to one Agent bridge process."""
 
     def __init__(self, tools: Iterable[AgentToolDescriptor] = ()) -> None:
+        """Initialize the agent catalog.
+
+        Args:
+            tools: The tools value used by the operation.
+
+        Returns:
+            None.
+        """
         ordered = tuple(sorted(tools, key=lambda tool: tool.id))
         ids = tuple(tool.id for tool in ordered)
         if len(ids) != len(set(ids)):
@@ -47,12 +61,30 @@ class AgentCatalog:
 
     @property
     def tools(self) -> tuple[AgentToolDescriptor, ...]:
+        """Return the agent catalog's tools.
+
+        Returns:
+            The `tuple[AgentToolDescriptor, ...]` result produced by the operation.
+        """
         return self._tools
 
     def initial(self) -> tuple[AgentToolDescriptor, ...]:
+        """Implement the initial operation for the agent catalog.
+
+        Returns:
+            The `tuple[AgentToolDescriptor, ...]` result produced by the operation.
+        """
         return self._tools[: INITIAL_TOOL_LIMIT - 1]
 
     def search(self, query: str) -> CatalogSearchResult:
+        """Implement the search operation for the agent catalog.
+
+        Args:
+            query: The query value used by the operation.
+
+        Returns:
+            The `CatalogSearchResult` result produced by the operation.
+        """
         normalized = query.strip().casefold()
         if not normalized:
             return CatalogSearchResult(())
@@ -67,11 +99,23 @@ class AgentCatalog:
         )
 
     def get(self, tool_id: str) -> AgentToolDescriptor | None:
+        """Return the agent catalog operation.
+
+        Args:
+            tool_id: Stable identifier for the tool.
+
+        Returns:
+            The `AgentToolDescriptor | None` result produced by the operation.
+        """
         return self._by_id.get(tool_id)
 
 
 def discover_sandbox_tool_definitions() -> tuple[SandboxToolDefinition, ...]:
-    """Load static declarations and worker references without executing a Tool."""
+    """Load static declarations and worker references without executing a Tool.
+
+    Returns:
+        The `tuple[SandboxToolDefinition, ...]` result produced by the operation.
+    """
 
     tools: list[SandboxToolDefinition] = []
     for entry in metadata.entry_points(group=SANDBOX_TOOL_ENTRY_POINT_GROUP):
@@ -92,13 +136,24 @@ def discover_sandbox_tool_definitions() -> tuple[SandboxToolDefinition, ...]:
 
 
 def discover_sandbox_tool_descriptors() -> tuple[AgentToolDescriptor, ...]:
-    """Return only static metadata for catalog construction."""
+    """Return only static metadata for catalog construction.
+
+    Returns:
+        The `tuple[AgentToolDescriptor, ...]` result produced by the operation.
+    """
 
     return tuple(definition.descriptor for definition in discover_sandbox_tool_definitions())
 
 
 def openai_tool_schema(tool: AgentToolDescriptor) -> Mapping[str, object]:
-    """Convert one resolver declaration to the OpenAI-compatible function shape."""
+    """Convert one resolver declaration to the OpenAI-compatible function shape.
+
+    Args:
+        tool: The tool value used by the operation.
+
+    Returns:
+        The `Mapping[str, object]` result produced by the operation.
+    """
 
     return {
         "type": "function",
@@ -111,6 +166,11 @@ def openai_tool_schema(tool: AgentToolDescriptor) -> Mapping[str, object]:
 
 
 def catalog_search_schema() -> Mapping[str, object]:
+    """Implement the catalog search schema operation for the component.
+
+    Returns:
+        The `Mapping[str, object]` result produced by the operation.
+    """
     return {
         "type": "function",
         "function": {

@@ -46,7 +46,18 @@ def build_initialization_plan(
     locale: str = "auto",
     logging_settings: tuple[str, bool, bool, str, tuple[str, ...]] | None = None,
 ) -> InitializationPlan:
-    """Collect a safe configuration using only package-owned initialization metadata."""
+    """Collect a safe configuration using only package-owned initialization metadata.
+
+    Args:
+        prompt: The prompt value used by the operation.
+        output: The output value used by the operation.
+        secret_prompt: The secret prompt value used by the operation.
+        locale: The locale value used by the operation.
+        logging_settings: The logging settings value used by the operation.
+
+    Returns:
+        The `InitializationPlan` result produced by the operation.
+    """
 
     plugin_definitions, plugin_diagnostics = PluginManager.discover_installed()
     runtime_plugins, runtime_diagnostics = RuntimeCatalog().discover_installed()
@@ -124,6 +135,21 @@ def _select_plugins(
     output: Output,
     translator: Translator,
 ) -> tuple[str, ...]:
+    """Select plugins.
+
+    Args:
+        definitions: The definitions value used by the operation.
+        prompt: The prompt value used by the operation.
+        output: The output value used by the operation.
+        translator: The translator value used by the operation.
+
+    Returns:
+        The `tuple[str, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_select_plugins`. It delegates to `items`, `get`, `sorted`,
+        `_confirm` while keeping intermediate state local to the owning operation.
+    """
     selected: set[str] = set()
     providers: dict[ServiceKey, tuple[str, ...]] = {}
     for plugin_id, definition in definitions.items():
@@ -131,6 +157,18 @@ def _select_plugins(
             providers[service] = (*providers.get(service, ()), plugin_id)
 
     def select(plugin_id: str) -> None:
+        """Select the select plugins operation.
+
+        Args:
+            plugin_id: Stable identifier for the plugin.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_select_plugins.select`. It delegates to `add`, `sorted`,
+            `get`, `_choose_provider` while keeping intermediate state local to the owning operation.
+        """
         if plugin_id in selected:
             return
         definition = definitions[plugin_id]
@@ -183,6 +221,23 @@ def _choose_provider(
     output: Output,
     translator: Translator,
 ) -> str | None:
+    """Implement the choose provider operation for the component.
+
+    Args:
+        consumer: The consumer value used by the operation.
+        service: Service implementation used by the operation.
+        candidates: The candidates value used by the operation.
+        prompt: The prompt value used by the operation.
+        output: The output value used by the operation.
+        translator: The translator value used by the operation.
+
+    Returns:
+        The `str | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_choose_provider`. It delegates to `_confirm`, `text`,
+        `output`, `join` while keeping intermediate state local to the owning operation.
+    """
     if len(candidates) == 1:
         provider = candidates[0]
         if _confirm(
@@ -226,6 +281,21 @@ def _collect_plugin_config(
     prompt: Prompt,
     translator: Translator,
 ) -> dict[str, dict[str, Any]]:
+    """Collect plugin config.
+
+    Args:
+        selected: The selected value used by the operation.
+        definitions: The definitions value used by the operation.
+        prompt: The prompt value used by the operation.
+        translator: The translator value used by the operation.
+
+    Returns:
+        The `dict[str, dict[str, Any]]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_collect_plugin_config`. It delegates to `_collect_fields`
+        while keeping intermediate state local to the owning operation.
+    """
     config: dict[str, dict[str, Any]] = {}
     for plugin_id in selected:
         spec = definitions[plugin_id].init_spec
@@ -245,6 +315,22 @@ def _select_runtimes(
     secret_prompt: SecretPrompt | None,
     translator: Translator,
 ) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
+    """Select runtimes.
+
+    Args:
+        plugins: The plugins value used by the operation.
+        prompt: The prompt value used by the operation.
+        output: The output value used by the operation.
+        secret_prompt: The secret prompt value used by the operation.
+        translator: The translator value used by the operation.
+
+    Returns:
+        The `tuple[dict[str, dict[str, Any]], dict[str, str]]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_select_runtimes`. It delegates to `sorted`, `items`,
+        `output`, `text` while keeping intermediate state local to the owning operation.
+    """
     runtimes: dict[str, dict[str, Any]] = {}
     secrets: dict[str, str] = {}
     for kind, plugin in sorted(plugins.items()):
@@ -312,6 +398,21 @@ def _collect_fields(
     subject: str,
     translator: Translator,
 ) -> dict[str, Any]:
+    """Collect fields.
+
+    Args:
+        fields: Structured fields attached to the operation.
+        prompt: The prompt value used by the operation.
+        subject: The subject value used by the operation.
+        translator: The translator value used by the operation.
+
+    Returns:
+        The `dict[str, Any]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_collect_fields`. It delegates to `_read_field` while
+        keeping intermediate state local to the owning operation.
+    """
     values: dict[str, Any] = {}
     for field in fields:
         if field.kind is InitFieldKind.SECRET:
@@ -321,6 +422,21 @@ def _collect_fields(
 
 
 def _read_field(field: InitFieldSpec, *, prompt: Prompt, subject: str, translator: Translator) -> Any:
+    """Read field.
+
+    Args:
+        field: The field value used by the operation.
+        prompt: The prompt value used by the operation.
+        subject: The subject value used by the operation.
+        translator: The translator value used by the operation.
+
+    Returns:
+        The `Any` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_read_field`. It delegates to `_format_default`,
+        `_field_label`, `prompt`, `join` while keeping intermediate state local to the owning operation.
+    """
     default = _format_default(field.default)
     label = f"{subject}: {_field_label(field, translator)}"
     value = prompt(label, default)
@@ -345,10 +461,37 @@ def _read_field(field: InitFieldSpec, *, prompt: Prompt, subject: str, translato
 
 
 def _field_label(field: InitFieldSpec, translator: Translator) -> str:
+    """Implement the field label operation for the component.
+
+    Args:
+        field: The field value used by the operation.
+        translator: The translator value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_field_label`. It delegates to `text` while keeping
+        intermediate state local to the owning operation.
+    """
     return translator.text(field.label_key, field.label) if field.label_key is not None else field.label
 
 
 def _confirm(prompt: Prompt, label: str, *, default: bool) -> bool:
+    """Implement the confirm operation for the component.
+
+    Args:
+        prompt: The prompt value used by the operation.
+        label: The label value used by the operation.
+        default: The default value used by the operation.
+
+    Returns:
+        Whether the requested condition is satisfied.
+
+    Notes:
+        Internal implementation detail for `_confirm`. It delegates to `prompt`, `lower` while keeping
+        intermediate state local to the owning operation.
+    """
     value = prompt(f"{label} [y/N]" if not default else f"{label} [Y/n]", "y" if default else "n")
     normalized = value.lower()
     if normalized in {"y", "yes", "1", "true"}:
@@ -359,10 +502,34 @@ def _confirm(prompt: Prompt, label: str, *, default: bool) -> bool:
 
 
 def _split_values(value: str) -> tuple[str, ...]:
+    """Implement the split values operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `tuple[str, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_split_values`. It delegates to `strip`, `split` while
+        keeping intermediate state local to the owning operation.
+    """
     return tuple(item.strip() for item in value.split(",") if item.strip())
 
 
 def _format_default(value: Any) -> str:
+    """Implement the format default operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_format_default`. It delegates to `join` while keeping
+        intermediate state local to the owning operation.
+    """
     if value is None:
         return ""
     if isinstance(value, tuple):

@@ -6,7 +6,14 @@ logger = get_loguru_logger(component="legacy", runtime="v6")
 
 
 def init_log(config: dict[str, object] | None = None) -> None:
-    """Retained compatibility hook; sink ownership belongs to the v7 runtime."""
+    """Retained compatibility hook; sink ownership belongs to the v7 runtime.
+
+    Args:
+        config: Validated configuration used by the operation.
+
+    Returns:
+        None.
+    """
 
     logger.debug("v6 init_log() left sink configuration with the v7 runtime")
 

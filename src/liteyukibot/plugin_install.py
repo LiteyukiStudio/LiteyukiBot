@@ -46,6 +46,15 @@ class PluginInstallationService:
     """Resolve source metadata into a runtime-owned, independently restartable generation."""
 
     def __init__(self, workspace: str | Path, *, run: CommandRunner | None = None) -> None:
+        """Initialize the plugin installation service.
+
+        Args:
+            workspace: The workspace value used by the operation.
+            run: The run value used by the operation.
+
+        Returns:
+            None.
+        """
         self.workspace = Path(workspace).resolve()
         self.sources = PluginSourceStore(self.workspace)
         self.artifacts = ArtifactStore(self.workspace)
@@ -60,6 +69,17 @@ class PluginInstallationService:
         runtime_kind: str,
         source_id: str | None = None,
     ) -> PluginInstallResult:
+        """Install the plugin installation service operation.
+
+        Args:
+            bundle_id: Stable identifier for the bundle.
+            runtime_id: Stable runtime identifier.
+            runtime_kind: The runtime kind value used by the operation.
+            source_id: Stable identifier for the source.
+
+        Returns:
+            The `PluginInstallResult` result produced by the operation.
+        """
         current = self._active_generation(runtime_id, runtime_kind)
         roots: tuple[str, ...]
         disabled_roots: tuple[str, ...]
@@ -85,6 +105,16 @@ class PluginInstallationService:
         runtime_kind: str,
         source_id: str | None = None,
     ) -> PluginInstallResult:
+        """Update the plugin installation service operation.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+            runtime_kind: The runtime kind value used by the operation.
+            source_id: Stable identifier for the source.
+
+        Returns:
+            The `PluginInstallResult` result produced by the operation.
+        """
         current = self._require_active_generation(runtime_id, runtime_kind)
         self._require_resolution(current)
         source, index = self._refresh_source(current, source_id)
@@ -97,6 +127,16 @@ class PluginInstallationService:
         runtime_id: str,
         runtime_kind: str,
     ) -> PluginInstallResult:
+        """Implement the disable operation for the plugin installation service.
+
+        Args:
+            bundle_id: Stable identifier for the bundle.
+            runtime_id: Stable runtime identifier.
+            runtime_kind: The runtime kind value used by the operation.
+
+        Returns:
+            The `PluginInstallResult` result produced by the operation.
+        """
         current = self._require_active_generation(runtime_id, runtime_kind)
         self._require_resolution(current)
         if bundle_id not in current.roots:
@@ -130,6 +170,16 @@ class PluginInstallationService:
         runtime_id: str,
         runtime_kind: str,
     ) -> PluginInstallResult:
+        """Implement the enable operation for the plugin installation service.
+
+        Args:
+            bundle_id: Stable identifier for the bundle.
+            runtime_id: Stable runtime identifier.
+            runtime_kind: The runtime kind value used by the operation.
+
+        Returns:
+            The `PluginInstallResult` result produced by the operation.
+        """
         current = self._require_active_generation(runtime_id, runtime_kind)
         self._require_resolution(current)
         if bundle_id not in current.disabled_roots:
@@ -152,6 +202,16 @@ class PluginInstallationService:
         runtime_id: str,
         runtime_kind: str,
     ) -> PluginUninstallResult:
+        """Implement the uninstall operation for the plugin installation service.
+
+        Args:
+            bundle_id: Stable identifier for the bundle.
+            runtime_id: Stable runtime identifier.
+            runtime_kind: The runtime kind value used by the operation.
+
+        Returns:
+            The `PluginUninstallResult` result produced by the operation.
+        """
         current = self._require_active_generation(runtime_id, runtime_kind)
         self._require_resolution(current)
         if bundle_id not in current.roots:
@@ -189,6 +249,26 @@ class PluginInstallationService:
         *,
         fetch_missing: bool = True,
     ) -> PluginInstallResult:
+        """Build the plugin installation service operation.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+            runtime_kind: The runtime kind value used by the operation.
+            source_id: Stable identifier for the source.
+            index: The index value used by the operation.
+            roots: The roots value used by the operation.
+            disabled_roots: The disabled roots value used by the operation.
+            index_digest: The index digest value used by the operation.
+            fetch_missing: The fetch missing value used by the operation.
+
+        Returns:
+            The `PluginInstallResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `PluginInstallationService._build`. It delegates to
+            `_resolve_bundles`, `current`, `facet_for`, `items` while keeping intermediate state local to
+            the owning operation.
+        """
         bundles = _resolve_bundles(index, roots)
         target = PlatformTarget.current()
         facets = {bundle.id: bundle.facet_for(runtime_kind, target) for bundle in bundles}
@@ -241,6 +321,20 @@ class PluginInstallationService:
         return PluginInstallResult(source_id, generation)
 
     def _resolve_source(self, bundle_id: str, source_id: str | None) -> tuple[PluginSource, PluginIndex]:
+        """Resolve source.
+
+        Args:
+            bundle_id: Stable identifier for the bundle.
+            source_id: Stable identifier for the source.
+
+        Returns:
+            The `tuple[PluginSource, PluginIndex]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `PluginInstallationService._resolve_source`. It delegates to
+            `fetch`, `require`, `next`, `append` while keeping intermediate state local to the owning
+            operation.
+        """
         if source_id is not None:
             index = self.sources.fetch(source_id, refresh=True)
             index.require(bundle_id)
@@ -258,6 +352,19 @@ class PluginInstallationService:
         raise PluginStoreError(f"plugin bundle {bundle_id!r} was not found in any source ({details})")
 
     def _refresh_source(self, generation: RuntimeGeneration, source_id: str | None) -> tuple[PluginSource, PluginIndex]:
+        """Implement the refresh source operation for the plugin installation service.
+
+        Args:
+            generation: Positive protocol or deployment generation.
+            source_id: Stable identifier for the source.
+
+        Returns:
+            The `tuple[PluginSource, PluginIndex]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `PluginInstallationService._refresh_source`. It delegates to
+            `fetch`, `next` while keeping intermediate state local to the owning operation.
+        """
         if source_id is not None and source_id != generation.source_id:
             raise PluginStoreError("an active runtime generation cannot combine plugin sources")
         if generation.source_id is None:
@@ -267,6 +374,19 @@ class PluginInstallationService:
         return source, index
 
     def _active_generation(self, runtime_id: str, runtime_kind: str) -> RuntimeGeneration | None:
+        """Implement the active generation operation for the plugin installation service.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+            runtime_kind: The runtime kind value used by the operation.
+
+        Returns:
+            The `RuntimeGeneration | None` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `PluginInstallationService._active_generation`. It delegates
+            to `active`, `get`, `read` while keeping intermediate state local to the owning operation.
+        """
         deployment = self.generations.active()
         generation_id = deployment.runtime_generations.get(runtime_id)
         if generation_id is None:
@@ -279,6 +399,20 @@ class PluginInstallationService:
         return generation
 
     def _require_active_generation(self, runtime_id: str, runtime_kind: str) -> RuntimeGeneration:
+        """Return active generation, failing when it is unavailable.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+            runtime_kind: The runtime kind value used by the operation.
+
+        Returns:
+            The `RuntimeGeneration` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `PluginInstallationService._require_active_generation`. It
+            delegates to `_active_generation` while keeping intermediate state local to the owning
+            operation.
+        """
         generation = self._active_generation(runtime_id, runtime_kind)
         if generation is None:
             raise PluginStoreError(f"runtime {runtime_id!r} has no active plugin generation")
@@ -286,11 +420,35 @@ class PluginInstallationService:
 
     @staticmethod
     def _require_resolution(generation: RuntimeGeneration) -> None:
+        """Return resolution, failing when it is unavailable.
+
+        Args:
+            generation: Positive protocol or deployment generation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `PluginInstallationService._require_resolution`. It performs
+            the local state transition directly and is not a stable extension boundary.
+        """
         if generation.source_id is None:
             raise PluginStoreError("active runtime generation has no source provenance; reinstall its plugin roots")
 
     @staticmethod
     def _require_runtime(runtime_kind: str) -> RuntimePlugin:
+        """Return runtime, failing when it is unavailable.
+
+        Args:
+            runtime_kind: The runtime kind value used by the operation.
+
+        Returns:
+            The `RuntimePlugin` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `PluginInstallationService._require_runtime`. It delegates to
+            `get`, `discover` while keeping intermediate state local to the owning operation.
+        """
         runtime = RuntimeCatalog().discover().get(runtime_kind)
         if runtime is None:
             raise PluginStoreError(f"runtime kind {runtime_kind!r} is not installed")
@@ -306,6 +464,22 @@ class PluginInstallationService:
         *,
         offline: bool,
     ) -> None:
+        """Create environment.
+
+        Args:
+            generation_path: Filesystem path for the generation.
+            runtime: The runtime value used by the operation.
+            facets: The facets value used by the operation.
+            offline: The offline value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `PluginInstallationService._create_environment`. It delegates
+            to `version`, `python_path`, `_run`, `append` while keeping intermediate state local to the
+            owning operation.
+        """
         if runtime.distribution is None:
             raise AssertionError("managed runtime distribution is required")
         try:
@@ -331,7 +505,20 @@ class PluginInstallationService:
             self._run(["uv", "pip", "install", "--no-index", "--no-deps", "--python", str(python), *wheel_paths])
 
     def _probe_generation(self, generation_path: Path, runtime: RuntimePlugin) -> None:
-        """Verify the isolated runtime host imports before changing deployment state."""
+        """Verify the isolated runtime host imports before changing deployment state.
+
+        Args:
+            generation_path: Filesystem path for the generation.
+            runtime: The runtime value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `PluginInstallationService._probe_generation`. It delegates
+            to `_runtime_module`, `python_path`, `_run` while keeping intermediate state local to the owning
+            operation.
+        """
 
         module = _runtime_module(runtime)
         python = self.generations.python_path(generation_path)
@@ -349,11 +536,36 @@ class PluginInstallationService:
 
 
 def _resolve_bundles(index: PluginIndex, roots: tuple[str, ...]) -> tuple[PluginBundle, ...]:
+    """Resolve bundles.
+
+    Args:
+        index: The index value used by the operation.
+        roots: The roots value used by the operation.
+
+    Returns:
+        The `tuple[PluginBundle, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_resolve_bundles`. It delegates to `visit` while keeping
+        intermediate state local to the owning operation.
+    """
     resolved: list[PluginBundle] = []
     visiting: set[str] = set()
     visited: set[str] = set()
 
     def visit(current_id: str) -> None:
+        """Implement the visit operation for the resolve bundles.
+
+        Args:
+            current_id: Stable identifier for the current.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_resolve_bundles.visit`. It delegates to `add`, `require`,
+            `visit`, `remove` while keeping intermediate state local to the owning operation.
+        """
         if current_id in visited:
             return
         if current_id in visiting:
@@ -372,6 +584,18 @@ def _resolve_bundles(index: PluginIndex, roots: tuple[str, ...]) -> tuple[Plugin
 
 
 def _runtime_module(runtime: RuntimePlugin) -> str:
+    """Implement the runtime module operation for the component.
+
+    Args:
+        runtime: The runtime value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_runtime_module`. It delegates to `index`, `startswith`
+        while keeping intermediate state local to the owning operation.
+    """
     try:
         marker = runtime.command.index("-m")
         module = runtime.command[marker + 1]
@@ -385,6 +609,20 @@ def _runtime_module(runtime: RuntimePlugin) -> str:
 
 
 def _roots_requiring(index: PluginIndex, roots: tuple[str, ...], bundle_id: str) -> tuple[str, ...]:
+    """Implement the roots requiring operation for the component.
+
+    Args:
+        index: The index value used by the operation.
+        roots: The roots value used by the operation.
+        bundle_id: Stable identifier for the bundle.
+
+    Returns:
+        The `tuple[str, ...]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_roots_requiring`. It delegates to `_resolve_bundles` while
+        keeping intermediate state local to the owning operation.
+    """
     return tuple(
         root
         for root in roots
@@ -393,6 +631,18 @@ def _roots_requiring(index: PluginIndex, roots: tuple[str, ...], bundle_id: str)
 
 
 def _run_command(command: list[str]) -> None:
+    """Run command.
+
+    Args:
+        command: Command or operation name to execute.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_run_command`. It delegates to `run` while keeping
+        intermediate state local to the owning operation.
+    """
     try:
         subprocess.run(command, check=True)
     except (OSError, subprocess.CalledProcessError) as error:
@@ -400,6 +650,18 @@ def _run_command(command: list[str]) -> None:
 
 
 def _prune_empty_generation_parents(generation_path: Path) -> None:
+    """Implement the prune empty generation parents operation for the component.
+
+    Args:
+        generation_path: Filesystem path for the generation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_prune_empty_generation_parents`. It delegates to `rmdir`
+        while keeping intermediate state local to the owning operation.
+    """
     for directory in (generation_path.parent, generation_path.parent.parent):
         try:
             directory.rmdir()
@@ -408,6 +670,15 @@ def _prune_empty_generation_parents(generation_path: Path) -> None:
 
 
 def _utc_now() -> str:
+    """Implement the utc now operation for the component.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_utc_now`. It delegates to `isoformat`, `now` while keeping
+        intermediate state local to the owning operation.
+    """
     from datetime import UTC, datetime
 
     return datetime.now(UTC).isoformat()

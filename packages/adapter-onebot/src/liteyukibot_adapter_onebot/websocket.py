@@ -40,6 +40,21 @@ class OneBotWebSocketTransport:
         handle_event: JsonHandler,
         on_failure: FailureHandler | None = None,
     ) -> None:
+        """Initialize the one bot web socket transport.
+
+        Args:
+            mode: The mode value used by the operation.
+            url: The url value used by the operation.
+            host: The host value used by the operation.
+            port: The port value used by the operation.
+            path: Filesystem or logical resource path.
+            access_token: The access token value used by the operation.
+            handle_event: The handle event value used by the operation.
+            on_failure: The on failure value used by the operation.
+
+        Returns:
+            None.
+        """
         if mode not in {"forward_websocket", "reverse_websocket"}:
             raise OneBotWebSocketError("WebSocket mode must be forward_websocket or reverse_websocket")
         self.mode = mode
@@ -59,6 +74,11 @@ class OneBotWebSocketTransport:
         self._failure_notified = False
 
     async def start(self) -> None:
+        """Start the one bot web socket transport.
+
+        Returns:
+            None.
+        """
         self._closed = False
         self._failure_notified = False
         self._connected.clear()
@@ -86,6 +106,15 @@ class OneBotWebSocketTransport:
         self._server = await serve(self._accept, self.host, self.port, max_size=_MAX_MESSAGE_BYTES)
 
     async def execute(self, api: str, params: Mapping[str, Any]) -> dict[str, Any]:
+        """Execute one request through the one bot web socket transport.
+
+        Args:
+            api: The api value used by the operation.
+            params: The params value used by the operation.
+
+        Returns:
+            The `dict[str, Any]` result produced by the operation.
+        """
         connection = self._connection
         if connection is None:
             raise OneBotWebSocketError("OneBot WebSocket is not connected")
@@ -101,6 +130,11 @@ class OneBotWebSocketTransport:
             self._pending.pop(correlation_id, None)
 
     async def close(self) -> None:
+        """Close the one bot web socket transport and release its owned resources.
+
+        Returns:
+            None.
+        """
         self._closed = True
         task, self._task = self._task, None
         if task is not None:
@@ -120,6 +154,16 @@ class OneBotWebSocketTransport:
         self._pending.clear()
 
     async def _forward_loop(self) -> None:
+        """Implement the forward loop operation for the one bot web socket transport.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `OneBotWebSocketTransport._forward_loop`. It delegates to
+            `connect`, `_run_connection`, `clear`, `on_failure` while keeping intermediate state local to
+            the owning operation.
+        """
         assert self.url is not None
         headers = {"Authorization": f"Bearer {self.access_token}"} if self.access_token else None
         retry_index = 0
@@ -144,6 +188,19 @@ class OneBotWebSocketTransport:
                     retry_index += 1
 
     async def _accept(self, connection: ServerConnection) -> None:
+        """Accept the one bot web socket transport operation.
+
+        Args:
+            connection: The connection value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `OneBotWebSocketTransport._accept`. It delegates to `close`,
+            `get`, `compare_digest`, `_run_connection` while keeping intermediate state local to the owning
+            operation.
+        """
         request = connection.request
         if request is None or (self.path and request.path != self.path):
             await connection.close(code=1008, reason="unexpected path")
@@ -157,6 +214,18 @@ class OneBotWebSocketTransport:
         await self._run_connection(connection)
 
     async def _run_connection(self, connection: Any) -> None:
+        """Run connection.
+
+        Args:
+            connection: The connection value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `OneBotWebSocketTransport._run_connection`. It delegates to
+            `close`, `loads`, `get`, `done` while keeping intermediate state local to the owning operation.
+        """
         if self._connection is not None:
             await connection.close(code=1013, reason="connection already active")
             return

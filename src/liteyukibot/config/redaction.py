@@ -16,7 +16,14 @@ _SENSITIVE_MARKERS = (
 
 
 def redact_config(value: Any) -> Any:
-    """Copy JSON-compatible configuration while replacing sensitive values."""
+    """Copy JSON-compatible configuration while replacing sensitive values.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `Any` result produced by the operation.
+    """
 
     if isinstance(value, Mapping):
         result: dict[str, Any] = {}
@@ -30,7 +37,14 @@ def redact_config(value: Any) -> Any:
 
 
 def toml_compatible_config(value: Any) -> Any:
-    """Drop optional null object fields before rendering TOML diagnostics."""
+    """Drop optional null object fields before rendering TOML diagnostics.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `Any` result produced by the operation.
+    """
 
     if isinstance(value, Mapping):
         return {
@@ -46,6 +60,18 @@ def toml_compatible_config(value: Any) -> Any:
 
 
 def _is_sensitive(key: str) -> bool:
+    """Implement the is sensitive operation for the component.
+
+    Args:
+        key: Stable FIFO ordering key for the queued work.
+
+    Returns:
+        Whether the requested condition is satisfied.
+
+    Notes:
+        Internal implementation detail for `_is_sensitive`. It delegates to `replace`, `lower`, `any`
+        while keeping intermediate state local to the owning operation.
+    """
     normalized = key.lower().replace("-", "_")
     return any(marker in normalized for marker in _SENSITIVE_MARKERS)
 

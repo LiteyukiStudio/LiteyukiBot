@@ -10,6 +10,7 @@ from typing import Any, Protocol, cast
 
 @dataclass(frozen=True, slots=True)
 class ToolCall:
+    """Represent the tool call contract."""
     id: str
     tool_id: str
     arguments: Mapping[str, object]
@@ -17,17 +18,29 @@ class ToolCall:
 
 @dataclass(frozen=True, slots=True)
 class ModelReply:
+    """Represent the model reply contract."""
     text: str = ""
     tool_calls: tuple[ToolCall, ...] = ()
 
 
 class AgentEngine(Protocol):
+    """Define the structural interface required from a agent engine."""
     async def complete(
         self,
         messages: Sequence[Mapping[str, object]],
         *,
         tools: Sequence[Mapping[str, object]] = (),
-    ) -> ModelReply: ...
+    ) -> ModelReply:
+        """Complete the agent engine operation.
+
+        Args:
+            messages: The messages value used by the operation.
+            tools: The tools value used by the operation.
+
+        Returns:
+            The `ModelReply` result produced by the operation.
+        """
+        ...
 
 
 class OpenAIChatEngine:
@@ -40,6 +53,16 @@ class OpenAIChatEngine:
         base_url: str | None,
         model: str,
     ) -> None:
+        """Initialize the open a i chat engine.
+
+        Args:
+            api_key: The api key value used by the operation.
+            base_url: The base url value used by the operation.
+            model: The model value used by the operation.
+
+        Returns:
+            None.
+        """
         if not api_key or not model:
             raise ValueError("agent API key and model must not be empty")
         self.api_key = api_key
@@ -52,6 +75,15 @@ class OpenAIChatEngine:
         *,
         tools: Sequence[Mapping[str, object]] = (),
     ) -> ModelReply:
+        """Complete the open a i chat engine operation.
+
+        Args:
+            messages: The messages value used by the operation.
+            tools: The tools value used by the operation.
+
+        Returns:
+            The `ModelReply` result produced by the operation.
+        """
         try:
             from openai import AsyncOpenAI
         except ModuleNotFoundError as error:

@@ -20,3 +20,13 @@ standard deviation, minimum, and maximum. It measures independent-event
 concurrency 1/10/100, same-conversation FIFO, successful Action execution, and
 function dispatch. It remains an auditable review artifact rather than an
 automatic regression gate.
+
+Alpha11 adds resident EventBus and Broker workloads. They record current RSS
+change and GC-after-workload retained Python allocations while the owning
+object remains alive, plus the final sizes of bounded queues, workers, ledgers,
+indices, and lanes. Run the complete local qualification pair with:
+
+```bash
+uv run python scripts/benchmark_v7.py --profile bare --samples 3 --output benchmark-bare.json
+uv run python scripts/benchmark_v7.py --profile installed-first-party --samples 3 --output benchmark-installed-first-party.json
+```

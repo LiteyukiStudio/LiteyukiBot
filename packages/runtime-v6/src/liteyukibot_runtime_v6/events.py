@@ -13,6 +13,14 @@ _PORTABLE_SEGMENT_TYPES = frozenset({"text", "media", "mention", "reply", "adapt
 
 
 def to_legacy_message_event(envelope: EventEnvelope) -> MessageEvent | None:
+    """Convert the value to legacy message event.
+
+    Args:
+        envelope: The envelope value used by the operation.
+
+    Returns:
+        The `MessageEvent | None` result produced by the operation.
+    """
     if envelope.message is None:
         return None
     dumped = envelope.model_dump(mode="json")
@@ -35,12 +43,31 @@ def to_legacy_message_event(envelope: EventEnvelope) -> MessageEvent | None:
 
 
 def reply_to_message(reply: ReplyPayload) -> Message:
-    """Convert one v6 reply intent into the portable broker message body."""
+    """Convert one v6 reply intent into the portable broker message body.
+
+    Args:
+        reply: The reply value used by the operation.
+
+    Returns:
+        The `Message` result produced by the operation.
+    """
 
     return _reply_message(reply)
 
 
 def _reply_message(reply: ReplyPayload) -> Message:
+    """Implement the reply message operation for the component.
+
+    Args:
+        reply: The reply value used by the operation.
+
+    Returns:
+        The `Message` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_reply_message`. It delegates to `get`, `_json_mapping`,
+        `model_validate` while keeping intermediate state local to the owning operation.
+    """
     if isinstance(reply, str):
         return Message(segments=(Segment(type="text", data={"text": reply}),))
 
@@ -62,10 +89,34 @@ def _reply_message(reply: ReplyPayload) -> Message:
 
 
 def _json_mapping(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Implement the json mapping operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `dict[str, Any]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_json_mapping`. It delegates to `_json_value`, `items` while
+        keeping intermediate state local to the owning operation.
+    """
     return {str(key): _json_value(item) for key, item in value.items()}
 
 
 def _json_value(value: Any) -> Any:
+    """Implement the json value operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `Any` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_json_value`. It delegates to `_json_mapping`, `_json_value`
+        while keeping intermediate state local to the owning operation.
+    """
     if isinstance(value, Mapping):
         return _json_mapping(value)
     if isinstance(value, (list, tuple)):

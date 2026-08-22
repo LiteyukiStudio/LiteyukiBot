@@ -47,6 +47,14 @@ class SatoriConnection(AdapterConnection):
     """Connect to one external Satori gateway and own its account actions."""
 
     def __init__(self, context: AdapterContext) -> None:
+        """Initialize the satori connection.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+
+        Returns:
+            None.
+        """
         self.context = context
         self._gateway_url = _required_websocket_url(context.config, "gateway_url")
         self._api_root = _required_http_url(context.config, "api_root")
@@ -61,6 +69,14 @@ class SatoriConnection(AdapterConnection):
         self._failure: BaseException | None = None
 
     async def start(self, emit: EventEmitter) -> None:
+        """Start the satori connection.
+
+        Args:
+            emit: The emit value used by the operation.
+
+        Returns:
+            None.
+        """
         self._closed = False
         self._sequence = None
         self._reply_routes.clear()
@@ -83,6 +99,14 @@ class SatoriConnection(AdapterConnection):
         raise SatoriError("Satori gateway did not send READY")
 
     async def send_message(self, payload: MessageSendPayload) -> JsonValue:
+        """Send message.
+
+        Args:
+            payload: JSON-safe payload carried by the operation.
+
+        Returns:
+            The `JsonValue` result produced by the operation.
+        """
         conversation = payload.conversation
         if conversation is None:
             if payload.reply_token is None:
@@ -96,6 +120,11 @@ class SatoriConnection(AdapterConnection):
         )
 
     async def close(self) -> None:
+        """Close the satori connection and release its owned resources.
+
+        Returns:
+            None.
+        """
         self._closed = True
         task, self._task = self._task, None
         if task is not None:
@@ -106,12 +135,26 @@ class SatoriConnection(AdapterConnection):
         self._reply_routes.clear()
 
     async def wait_failure(self) -> None:
+        """Wait for failure.
+
+        Returns:
+            None.
+        """
         await self._failure_event.wait()
         if self._failure is not None:
             raise self._failure
         raise RuntimeError("Satori connection failed without a diagnostic")
 
     async def _gateway_loop(self) -> None:
+        """Implement the gateway loop operation for the satori connection.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `SatoriConnection._gateway_loop`. It delegates to `connect`,
+            `send`, `dumps`, `_json_object` while keeping intermediate state local to the owning operation.
+        """
         headers = {"Authorization": f"Bearer {self._access_token}"} if self._access_token else None
         retry_index = 0
         while not self._closed:
@@ -149,6 +192,19 @@ class SatoriConnection(AdapterConnection):
                     retry_index += 1
 
     async def _handle_event(self, body: object) -> None:
+        """Handle event.
+
+        Args:
+            body: The body value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `SatoriConnection._handle_event`. It delegates to `get`,
+            `_normalize_event`, `pop`, `next` while keeping intermediate state local to the owning
+            operation.
+        """
         if not isinstance(body, Mapping):
             raise SatoriError("Satori EVENT body must be an object")
         sequence = body.get("sn")
@@ -165,6 +221,20 @@ class SatoriConnection(AdapterConnection):
             await self._emit(event)
 
     async def _call_api(self, api: str, params: Mapping[str, Any]) -> JsonValue:
+        """Implement the call api operation for the satori connection.
+
+        Args:
+            api: The api value used by the operation.
+            params: The params value used by the operation.
+
+        Returns:
+            The `JsonValue` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `SatoriConnection._call_api`. It delegates to `any`,
+            `isspace`, `_post_json`, `json_value` while keeping intermediate state local to the owning
+            operation.
+        """
         if not api or any(character.isspace() for character in api):
             raise SatoriError("Satori API name must be a non-empty token")
         response = await _post_json(self._api_root, api, params, self._access_token)
@@ -172,6 +242,20 @@ class SatoriConnection(AdapterConnection):
 
 
 def _normalize_event(context: AdapterContext, value: Mapping[str, Any]) -> EventEnvelope | None:
+    """Normalize event.
+
+    Args:
+        context: Runtime or authorization context for the operation.
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `EventEnvelope | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_normalize_event`. It delegates to `get`,
+        `_from_satori_content`, `uuid4`, `json_value` while keeping intermediate state local to the
+        owning operation.
+    """
     if value.get("type") not in {"message-created", "message"}:
         return None
     if str(value.get("self_id", "")) != context.bot_id:
@@ -218,6 +302,18 @@ def _normalize_event(context: AdapterContext, value: Mapping[str, Any]) -> Event
 
 
 def _from_satori_content(content: str) -> Message:
+    """Implement the from satori content operation for the component.
+
+    Args:
+        content: The content value used by the operation.
+
+    Returns:
+        The `Message` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_from_satori_content`. It delegates to `fromstring`,
+        `append`, `items`, `get` while keeping intermediate state local to the owning operation.
+    """
     try:
         root = ElementTree.fromstring(f"<root>{content}</root>")
     except ElementTree.ParseError:
@@ -251,6 +347,18 @@ def _from_satori_content(content: str) -> Message:
 
 
 def _to_satori_content(message: Message) -> str:
+    """Implement the to satori content operation for the component.
+
+    Args:
+        message: Message content associated with the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_to_satori_content`. It delegates to `model_dump`, `append`,
+        `escape`, `get` while keeping intermediate state local to the owning operation.
+    """
     rendered: list[str] = []
     for segment in message.segments:
         data = segment.model_dump(mode="json")["data"]
@@ -300,6 +408,21 @@ def _to_satori_content(message: Message) -> str:
 
 
 async def _post_json(api_root: str, api: str, params: Mapping[str, Any], token: str | None) -> dict[str, Any]:
+    """Implement the post json operation for the component.
+
+    Args:
+        api_root: The api root value used by the operation.
+        api: The api value used by the operation.
+        params: The params value used by the operation.
+        token: Authentication token presented at the boundary.
+
+    Returns:
+        The `dict[str, Any]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_post_json`. It delegates to `urlsplit`, `encode`, `dumps`,
+        `json_value` while keeping intermediate state local to the owning operation.
+    """
     url = urlsplit(f"{api_root}/{api}")
     if url.scheme not in {"http", "https"} or not url.hostname:
         raise SatoriError("Satori api_root must be an absolute HTTP(S) URL")
@@ -359,6 +482,19 @@ async def _post_json(api_root: str, api: str, params: Mapping[str, Any], token: 
 
 
 def _json_object(value: str, subject: str) -> dict[str, Any]:
+    """Implement the json object operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        subject: The subject value used by the operation.
+
+    Returns:
+        The `dict[str, Any]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_json_object`. It delegates to `loads`, `json_value` while
+        keeping intermediate state local to the owning operation.
+    """
     parsed = json.loads(value)
     normalized = json_value(parsed)
     if not isinstance(normalized, dict):
@@ -367,6 +503,19 @@ def _json_object(value: str, subject: str) -> dict[str, Any]:
 
 
 def _required_websocket_url(config: Mapping[str, JsonValue], key: str) -> str:
+    """Implement the required websocket url operation for the component.
+
+    Args:
+        config: Validated configuration used by the operation.
+        key: Stable FIFO ordering key for the queued work.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_required_websocket_url`. It delegates to `get`,
+        `startswith`, `any`, `isspace` while keeping intermediate state local to the owning operation.
+    """
     value = config.get(key)
     if (
         not isinstance(value, str)
@@ -378,6 +527,19 @@ def _required_websocket_url(config: Mapping[str, JsonValue], key: str) -> str:
 
 
 def _required_http_url(config: Mapping[str, JsonValue], key: str) -> str:
+    """Implement the required http url operation for the component.
+
+    Args:
+        config: Validated configuration used by the operation.
+        key: Stable FIFO ordering key for the queued work.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_required_http_url`. It delegates to `get`, `startswith`,
+        `any`, `isspace` while keeping intermediate state local to the owning operation.
+    """
     value = config.get(key)
     if (
         not isinstance(value, str)
@@ -389,6 +551,19 @@ def _required_http_url(config: Mapping[str, JsonValue], key: str) -> str:
 
 
 def _optional_token(config: Mapping[str, JsonValue], key: str) -> str | None:
+    """Implement the optional token operation for the component.
+
+    Args:
+        config: Validated configuration used by the operation.
+        key: Stable FIFO ordering key for the queued work.
+
+    Returns:
+        The `str | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_optional_token`. It delegates to `get`, `strip` while
+        keeping intermediate state local to the owning operation.
+    """
     value = config.get(key)
     if value is None:
         return None
@@ -398,6 +573,14 @@ def _optional_token(config: Mapping[str, JsonValue], key: str) -> str | None:
 
 
 async def create_satori(context: AdapterContext) -> AdapterConnection:
+    """Create satori.
+
+    Args:
+        context: Runtime or authorization context for the operation.
+
+    Returns:
+        The `AdapterConnection` result produced by the operation.
+    """
     return SatoriConnection(context)
 
 

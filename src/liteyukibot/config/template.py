@@ -27,6 +27,27 @@ def render_config_template(
     runtimes: dict[str, dict[str, Any]] | None = None,
     runtime_event_routes: Iterable[dict[str, Any]] = (),
 ) -> str:
+    """Render config template.
+
+    Args:
+        data_dir: Filesystem path for the data.
+        cache_dir: Filesystem path for the cache.
+        logging_level: The logging level value used by the operation.
+        logging_console: The logging console value used by the operation.
+        logging_json_lines: The logging json lines value used by the operation.
+        payload_mode: The payload mode value used by the operation.
+        payload_exclude_runtimes: The payload exclude runtimes value used by the operation.
+        locale: The locale value used by the operation.
+        plugins: The plugins value used by the operation.
+        plugin_config: The plugin config value used by the operation.
+        cordis_plugins: The cordis plugins value used by the operation.
+        cordis_config: The cordis config value used by the operation.
+        runtimes: The runtimes value used by the operation.
+        runtime_event_routes: The runtime event routes value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+    """
     document = {
         "config_version": CONFIG_VERSION,
         "core": {
@@ -82,7 +103,8 @@ def render_config_template(
             "endpoint": "tcp://127.0.0.1:20217",
             "generation": 1,
             "active_capacity": 1024,
-            "terminal_capacity": 16384,
+            "terminal_capacity": 4096,
+            "terminal_content_bytes_capacity": 16777216,
             "terminal_ttl_seconds": 3600,
             "delivery_timeout_seconds": 30,
             "bridges": {},

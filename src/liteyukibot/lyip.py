@@ -15,28 +15,36 @@ import zmq.asyncio
 
 from .config.models import LyipSettings
 
+MAX_LYIP_PAYLOAD_SIZE = 8 * 1024 * 1024
+MAX_LYIP_WIRE_FRAME_SIZE = 12 * 1024 * 1024
+
 
 class LyipError(RuntimeError):
+    """Raised when the lyip contract cannot be satisfied."""
     pass
 
 
 class LyipLane(StrEnum):
+    """Enumerate the supported lyip lane values."""
     BUSINESS = "business"
     CONTROL = "control"
 
 
 class LyipOfferResult(StrEnum):
+    """Enumerate the supported lyip offer result values."""
     ACCEPTED = "accepted"
     FULL = "full"
 
 
 class LyipBackend(StrEnum):
+    """Enumerate the supported lyip backend values."""
     SHM = "shm"
     ZMQ = "zmq"
 
 
 @dataclass(frozen=True, slots=True)
 class LyipFrame:
+    """Carry one generation-scoped, sequenced LYIP transport payload."""
     protocol: Literal[1]
     generation: int
     lane: LyipLane
@@ -47,10 +55,23 @@ class LyipFrame:
     payload: bytes
 
     def __post_init__(self) -> None:
+        """Validate frame identity fields and the opaque payload size.
+
+        Returns:
+            None.
+
+        Security:
+            Payloads originate at process boundaries and may be malformed or
+            oversized. Validation is retained because bridges require opaque
+            transport; the 8 MiB cap bounds content retained by downstream
+            queues. See `docs/security/trusted-boundaries.md#lyip-frames`.
+        """
         if self.generation < 1 or self.type_id < 0 or self.sequence < 0:
             raise ValueError("LYIP generation, type ID, and sequence must be non-negative")
         if not self.stream_id or self.stream_id != self.stream_id.strip() or not self.lease_id:
             raise ValueError("LYIP stream and lease identifiers must be non-empty")
+        if len(self.payload) > MAX_LYIP_PAYLOAD_SIZE:
+            raise ValueError(f"LYIP payload exceeds {MAX_LYIP_PAYLOAD_SIZE} bytes")
 
 
 def select_lyip_backend(
@@ -59,7 +80,16 @@ def select_lyip_backend(
     *,
     native_shared_memory_available: bool = False,
 ) -> LyipBackend:
-    """Resolve one runtime link without claiming an unavailable native transport."""
+    """Resolve one runtime link without claiming an unavailable native transport.
+
+    Args:
+        settings: Validated application settings.
+        runtime_id: Stable runtime identifier.
+        native_shared_memory_available: The native shared memory available value used by the operation.
+
+    Returns:
+        The `LyipBackend` result produced by the operation.
+    """
 
     link = settings.links.get(runtime_id)
     requested = link.backend if link is not None and link.backend is not None else settings.default_backend
@@ -74,6 +104,16 @@ class InMemoryLyipLink:
     """Bounded deterministic link used as the semantic reference backend."""
 
     def __init__(self, *, generation: int, business_capacity: int, control_capacity: int) -> None:
+        """Initialize the in memory lyip link.
+
+        Args:
+            generation: Positive protocol or deployment generation.
+            business_capacity: Maximum retained business count.
+            control_capacity: Maximum retained control count.
+
+        Returns:
+            None.
+        """
         if generation < 1 or business_capacity < 1 or control_capacity < 1:
             raise ValueError("LYIP generation and lane capacities must be positive")
         self.generation = generation
@@ -82,6 +122,14 @@ class InMemoryLyipLink:
         self._next_sequence: dict[str, int] = {}
 
     def offer(self, frame: LyipFrame) -> LyipOfferResult:
+        """Append a correctly sequenced frame when its lane has capacity.
+
+        Args:
+            frame: The frame value used by the operation.
+
+        Returns:
+            The `LyipOfferResult` result produced by the operation.
+        """
         if frame.generation != self.generation:
             raise LyipError("LYIP frame generation does not match link generation")
         expected = self._next_sequence.get(frame.stream_id, 0)
@@ -95,15 +143,48 @@ class InMemoryLyipLink:
         return LyipOfferResult.ACCEPTED
 
     def receive(self, lane: LyipLane) -> LyipFrame | None:
+        """Remove and return the oldest frame from one lane.
+
+        Args:
+            lane: The lane value used by the operation.
+
+        Returns:
+            The `LyipFrame | None` result produced by the operation.
+        """
         frames = self._frames[lane]
         return frames.popleft() if frames else None
 
     def pressure(self, lane: LyipLane) -> tuple[int, int]:
+        """Return the lane's current depth and configured capacity.
+
+        Args:
+            lane: The lane value used by the operation.
+
+        Returns:
+            The `tuple[int, int]` result produced by the operation.
+        """
         return len(self._frames[lane]), self._capacities[lane]
 
 
 def _encode_frame(frame: LyipFrame) -> bytes:
-    return json.dumps(
+    """Encode one LYIP frame as deterministic JSON with base64 payload data.
+
+    Args:
+        frame: Validated frame to serialize for transport.
+
+    Returns:
+        Encoded wire bytes ready for a ZMQ socket.
+
+    Notes:
+        Base64 is used because the reference ZMQ codec is JSON. Encoded size is
+        checked after serialization so metadata and base64 expansion are also bounded.
+
+    Security:
+        Opaque bridge content can consume memory before entering an HWM-bounded
+        queue. The 12 MiB wire cap is retained with the JSON transport to bound
+        that exposure. See `docs/security/trusted-boundaries.md#lyip-frames`.
+    """
+    encoded = json.dumps(
         {
             "protocol": frame.protocol,
             "generation": frame.generation,
@@ -117,9 +198,32 @@ def _encode_frame(frame: LyipFrame) -> bytes:
         separators=(",", ":"),
         sort_keys=True,
     ).encode("utf-8")
+    if len(encoded) > MAX_LYIP_WIRE_FRAME_SIZE:
+        raise LyipError(f"LYIP wire frame exceeds {MAX_LYIP_WIRE_FRAME_SIZE} bytes")
+    return encoded
 
 
 def _decode_frame(raw: bytes) -> LyipFrame:
+    """Decode and validate one bounded LYIP JSON wire frame.
+
+    Args:
+        raw: Untrusted bytes received from a local transport peer.
+
+    Returns:
+        Validated frame with strictly decoded base64 payload bytes.
+
+    Notes:
+        Size is rejected before JSON and base64 decoding. Field-level generation,
+        sequence, and lane checks remain the endpoint's responsibility.
+
+    Security:
+        A registered peer can still send malformed bytes. Strict JSON shape,
+        base64 validation, and the wire limit are retained because LYIP must
+        accept framework bridge traffic. See
+        `docs/security/trusted-boundaries.md#lyip-frames`.
+    """
+    if len(raw) > MAX_LYIP_WIRE_FRAME_SIZE:
+        raise LyipError(f"LYIP wire frame exceeds {MAX_LYIP_WIRE_FRAME_SIZE} bytes")
     try:
         value = json.loads(raw)
         if not isinstance(value, dict):
@@ -133,12 +237,38 @@ def _decode_frame(raw: bytes) -> LyipFrame:
 
 
 class _ZmqEndpoint:
+    """Track per-peer stream sequences shared by ZMQ router and dealer endpoints."""
     def __init__(self, generation: int) -> None:
+        """Initialize the zmq endpoint.
+
+        Args:
+            generation: Positive protocol or deployment generation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_ZmqEndpoint.__init__`. It performs the local state
+            transition directly and is not a stable extension boundary.
+        """
         self.generation = generation
         self._sent: dict[tuple[bytes | None, str], int] = {}
         self._received: dict[tuple[bytes | None, str], int] = {}
 
     def _validate_offer(self, frame: LyipFrame, *, peer: bytes | None = None) -> int:
+        """Validate offer.
+
+        Args:
+            frame: The frame value used by the operation.
+            peer: The peer value used by the operation.
+
+        Returns:
+            The `int` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_ZmqEndpoint._validate_offer`. It delegates to `get` while
+            keeping intermediate state local to the owning operation.
+        """
         if frame.generation != self.generation:
             raise LyipError("LYIP frame generation does not match link generation")
         expected = self._sent.get((peer, frame.stream_id), 0)
@@ -147,9 +277,36 @@ class _ZmqEndpoint:
         return expected
 
     def _commit_offer(self, frame: LyipFrame, expected: int, *, peer: bytes | None = None) -> None:
+        """Implement the commit offer operation for the zmq endpoint.
+
+        Args:
+            frame: The frame value used by the operation.
+            expected: The expected value used by the operation.
+            peer: The peer value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_ZmqEndpoint._commit_offer`. It performs the local state
+            transition directly and is not a stable extension boundary.
+        """
         self._sent[(peer, frame.stream_id)] = expected + 1
 
     def _receive(self, frame: LyipFrame, *, peer: bytes | None = None) -> LyipFrame:
+        """Receive the zmq endpoint operation.
+
+        Args:
+            frame: The frame value used by the operation.
+            peer: The peer value used by the operation.
+
+        Returns:
+            The `LyipFrame` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_ZmqEndpoint._receive`. It delegates to `get` while keeping
+            intermediate state local to the owning operation.
+        """
         if frame.generation != self.generation:
             raise LyipError("LYIP frame generation does not match link generation")
         expected = self._received.get((peer, frame.stream_id), 0)
@@ -171,6 +328,18 @@ class ZmqLyipRouter(_ZmqEndpoint):
         business_hwm: int,
         control_hwm: int,
     ) -> None:
+        """Initialize the zmq lyip router.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+            endpoint: Transport endpoint used for the connection.
+            generation: Positive protocol or deployment generation.
+            business_hwm: The business hwm value used by the operation.
+            control_hwm: The control hwm value used by the operation.
+
+        Returns:
+            None.
+        """
         super().__init__(generation)
         self.endpoints: dict[LyipLane, str] = {}
         self._sockets: dict[LyipLane, zmq.asyncio.Socket] = {}
@@ -178,6 +347,7 @@ class ZmqLyipRouter(_ZmqEndpoint):
             socket = context.socket(zmq.ROUTER)
             socket.sndhwm = hwm
             socket.rcvhwm = hwm
+            socket.setsockopt(zmq.MAXMSGSIZE, MAX_LYIP_WIRE_FRAME_SIZE)
             if endpoint.startswith("tcp://") and endpoint.rsplit(":", 1)[-1] in {"0", "*"}:
                 base_endpoint = endpoint.rsplit(":", 1)[0]
                 port = socket.bind_to_random_port(base_endpoint)
@@ -199,6 +369,20 @@ class ZmqLyipRouter(_ZmqEndpoint):
             self._sockets[lane] = socket
 
     async def receive(self, lane: LyipLane) -> tuple[bytes, LyipFrame]:
+        """Receive, decode, and sequence-check one frame from a router lane.
+
+        Args:
+            lane: The lane value used by the operation.
+
+        Returns:
+            Authenticated socket identity and validated frame.
+
+        Security:
+            ZMQ allocates inbound messages at the transport boundary. The socket
+            `MAXMSGSIZE` limit and codec validation remain necessary because HWM
+            limits message count, not individual size. See
+            `docs/security/trusted-boundaries.md#lyip-frames`.
+        """
         identity, raw = await self._sockets[lane].recv_multipart()
         frame = self._receive(_decode_frame(raw), peer=identity)
         if frame.lane is not lane:
@@ -206,6 +390,15 @@ class ZmqLyipRouter(_ZmqEndpoint):
         return identity, frame
 
     async def offer(self, identity: bytes, frame: LyipFrame) -> LyipOfferResult:
+        """Offer one sequenced frame to a specific router identity.
+
+        Args:
+            identity: The identity value used by the operation.
+            frame: The frame value used by the operation.
+
+        Returns:
+            The `LyipOfferResult` result produced by the operation.
+        """
         expected = self._validate_offer(frame, peer=identity)
         try:
             await self._sockets[frame.lane].send_multipart((identity, _encode_frame(frame)), flags=zmq.NOBLOCK)
@@ -215,7 +408,14 @@ class ZmqLyipRouter(_ZmqEndpoint):
         return LyipOfferResult.ACCEPTED
 
     def disconnect(self, identity: bytes) -> None:
-        """Forget per-peer stream state after a broker session is terminalized."""
+        """Forget per-peer stream state after a broker session is terminalized.
+
+        Args:
+            identity: The identity value used by the operation.
+
+        Returns:
+            None.
+        """
 
         for state in (self._sent, self._received):
             for key in tuple(state):
@@ -223,6 +423,11 @@ class ZmqLyipRouter(_ZmqEndpoint):
                     state.pop(key, None)
 
     def close(self) -> None:
+        """Close the zmq lyip router and release its owned resources.
+
+        Returns:
+            None.
+        """
         for socket in self._sockets.values():
             socket.close(linger=0)
 
@@ -240,6 +445,19 @@ class ZmqLyipDealer(_ZmqEndpoint):
         business_hwm: int,
         control_hwm: int,
     ) -> None:
+        """Initialize the zmq lyip dealer.
+
+        Args:
+            context: Runtime or authorization context for the operation.
+            endpoints: The endpoints value used by the operation.
+            generation: Positive protocol or deployment generation.
+            identity: The identity value used by the operation.
+            business_hwm: The business hwm value used by the operation.
+            control_hwm: The control hwm value used by the operation.
+
+        Returns:
+            None.
+        """
         super().__init__(generation)
         self._sockets: dict[LyipLane, zmq.asyncio.Socket] = {}
         for lane, hwm in ((LyipLane.BUSINESS, business_hwm), (LyipLane.CONTROL, control_hwm)):
@@ -247,10 +465,19 @@ class ZmqLyipDealer(_ZmqEndpoint):
             socket.identity = identity
             socket.sndhwm = hwm
             socket.rcvhwm = hwm
+            socket.setsockopt(zmq.MAXMSGSIZE, MAX_LYIP_WIRE_FRAME_SIZE)
             socket.connect(endpoints[lane])
             self._sockets[lane] = socket
 
     async def offer(self, frame: LyipFrame) -> LyipOfferResult:
+        """Offer the zmq lyip dealer operation.
+
+        Args:
+            frame: The frame value used by the operation.
+
+        Returns:
+            The `LyipOfferResult` result produced by the operation.
+        """
         expected = self._validate_offer(frame)
         try:
             await self._sockets[frame.lane].send(_encode_frame(frame), flags=zmq.NOBLOCK)
@@ -260,11 +487,24 @@ class ZmqLyipDealer(_ZmqEndpoint):
         return LyipOfferResult.ACCEPTED
 
     async def receive(self, lane: LyipLane) -> LyipFrame:
+        """Receive the zmq lyip dealer operation.
+
+        Args:
+            lane: The lane value used by the operation.
+
+        Returns:
+            The `LyipFrame` result produced by the operation.
+        """
         frame = self._receive(_decode_frame(await self._sockets[lane].recv()))
         if frame.lane is not lane:
             raise LyipError("LYIP ZMQ frame arrived on the wrong lane")
         return frame
 
     def close(self) -> None:
+        """Close the zmq lyip dealer and release its owned resources.
+
+        Returns:
+            None.
+        """
         for socket in self._sockets.values():
             socket.close(linger=0)

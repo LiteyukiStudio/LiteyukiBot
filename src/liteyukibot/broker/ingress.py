@@ -33,6 +33,18 @@ class BoundedIngressPublisher[T]:
         on_error: IngressErrorHandler | None = None,
         task_name: str = "liteyuki-ingress-publisher",
     ) -> None:
+        """Initialize the bounded ingress publisher.
+
+        Args:
+            handler: Callable that handles the dispatched value.
+            capacity: The capacity value used by the operation.
+            timeout_seconds: Maximum duration to wait, in seconds.
+            on_error: The on error value used by the operation.
+            task_name: The task name value used by the operation.
+
+        Returns:
+            None.
+        """
         if capacity < 1:
             raise ValueError("capacity must be at least 1")
         if timeout_seconds <= 0:
@@ -53,10 +65,20 @@ class BoundedIngressPublisher[T]:
 
     @property
     def closed(self) -> bool:
+        """Return the bounded ingress publisher's closed.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
         return self._closed
 
     @property
     def stats(self) -> IngressPublisherStats:
+        """Return the bounded ingress publisher's stats.
+
+        Returns:
+            The `IngressPublisherStats` result produced by the operation.
+        """
         return IngressPublisherStats(
             accepted=self._accepted,
             completed=self._completed,
@@ -66,7 +88,11 @@ class BoundedIngressPublisher[T]:
         )
 
     async def start(self) -> None:
-        """Start the single FIFO delivery worker."""
+        """Start the single FIFO delivery worker.
+
+        Returns:
+            None.
+        """
 
         if self._closed:
             raise RuntimeError("ingress publisher is closed")
@@ -74,7 +100,14 @@ class BoundedIngressPublisher[T]:
             self._task = asyncio.create_task(self._run(), name=self._task_name)
 
     def submit(self, item: T) -> bool:
-        """Queue one item immediately, returning false when it cannot be queued."""
+        """Queue one item immediately, returning false when it cannot be queued.
+
+        Args:
+            item: The item value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
 
         if self._closed or self._task is None:
             self._dropped += 1
@@ -88,7 +121,11 @@ class BoundedIngressPublisher[T]:
         return True
 
     async def close(self) -> None:
-        """Stop delivery and account for items left in the bounded queue."""
+        """Stop delivery and account for items left in the bounded queue.
+
+        Returns:
+            None.
+        """
 
         if self._closed:
             return
@@ -105,6 +142,16 @@ class BoundedIngressPublisher[T]:
             self._dropped += 1
 
     async def _run(self) -> None:
+        """Run the bounded ingress publisher operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `BoundedIngressPublisher._run`. It delegates to `get`,
+            `wait_for`, `_handler`, `_report_error` while keeping intermediate state local to the owning
+            operation.
+        """
         while True:
             item = await self._queue.get()
             try:
@@ -118,6 +165,18 @@ class BoundedIngressPublisher[T]:
                 self._completed += 1
 
     def _report_error(self, error: Exception) -> None:
+        """Implement the report error operation for the bounded ingress publisher.
+
+        Args:
+            error: The error value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `BoundedIngressPublisher._report_error`. It delegates to
+            `_on_error` while keeping intermediate state local to the owning operation.
+        """
         if self._on_error is None:
             return
         try:

@@ -21,6 +21,11 @@ export const navigation: { id: Workspace; labelKey: string; icon: typeof Activit
   { id: "configuration", labelKey: "webui.nav.configuration", icon: Cog },
 ];
 
+/**
+ * Renders current kernel health plus locale, theme, navigation, and refresh controls.
+ * @param props - Dashboard state, active workspace, and shell command callbacks.
+ * @returns The memoized top status bar.
+ */
 export const TopStatusBar = memo(function TopStatusBar({ dashboard, workspace, openNavigation, refresh }: { dashboard: Dashboard; workspace: Workspace; openNavigation: () => void; refresh: () => void }) {
   const { locale, setLocale, t } = useLocale();
   const { accent, mode, setAccent, setMode } = useThemeController();
@@ -36,6 +41,11 @@ export const TopStatusBar = memo(function TopStatusBar({ dashboard, workspace, o
   return <header className="webui-topbar"><div className="webui-topbar-page"><Button className="lg:hidden" variant="outline" size="icon" onClick={openNavigation} aria-label={t("webui.header.open_navigation")}><Menu /></Button><h1>{pageTitle}</h1></div><div className="webui-topbar-actions"><div className={cn("webui-topbar-state", !ready && "webui-topbar-state--attention")} aria-label={`Kernel ${dashboard.kernelState}`}><span className="webui-status-dot" /><span className="font-medium">{ready ? t("webui.status.ready") : dashboard.kernelState}</span><span className="webui-topbar-runtime-summary">{runtimeSummary}</span></div><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label={t("webui.header.language")}><Languages size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={locale} onValueChange={applyLocale}><DropdownMenuRadioItem value="en-US">English</DropdownMenuRadioItem><DropdownMenuRadioItem value="zh-CN">简体中文</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu><DropdownMenu><DropdownMenuTrigger asChild><Button ref={themeButton} variant="outline" size="icon" aria-label={t("webui.header.theme")}><SunMoon size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={mode} onValueChange={applyMode}><DropdownMenuRadioItem value="system">{t("webui.theme.system")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="light">{t("webui.theme.light")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="dark">{t("webui.theme.dark")}</DropdownMenuRadioItem></DropdownMenuRadioGroup><Separator className="my-1" /><DropdownMenuRadioGroup value={accent} onValueChange={applyAccent}>{accents.map((item) => <DropdownMenuRadioItem value={item} key={item}><span className={`webui-theme-swatch webui-theme-swatch--${item}`} />{t(`webui.theme.${item}`)}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu><Tooltip><TooltipTrigger asChild><Button variant="outline" size="icon" onClick={refresh} aria-label={t("webui.action.refresh")}><RefreshCw size={16} /></Button></TooltipTrigger><TooltipContent>{t("webui.action.refresh")}</TooltipContent></Tooltip></div></header>;
 });
 
+/**
+ * Renders primary workspace navigation for either desktop or drawer placement.
+ * @param props - Active route, dashboard metadata, placement mode, and navigation callback.
+ * @returns The memoized sidebar navigation surface.
+ */
 export const Sidebar = memo(function Sidebar({ active, dashboard, drawer = false, navigate }: { active: Workspace; dashboard: Dashboard; drawer?: boolean; navigate: (workspace: Workspace) => void }) {
   const { presentation, t } = useLocale();
   const isOverview = active === "overview";

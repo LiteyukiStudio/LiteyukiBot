@@ -26,6 +26,14 @@ from .service import COMMAND_SERVICE, create_command_service
 
 
 async def setup(context: PluginContext) -> None:
+    """Implement the setup operation for the component.
+
+    Args:
+        context: Runtime or authorization context for the operation.
+
+    Returns:
+        None.
+    """
     if any(context.config.get(key) == 1 for key in ("api_version", "schema_version", "version")):
         raise RuntimeError("migration_required")
     permissions = cast(PermissionService, context.services.require(PERMISSION_SERVICE))
@@ -85,6 +93,14 @@ async def setup(context: PluginContext) -> None:
 
 
 def create_plugin(version: str) -> PluginDefinition:
+    """Create plugin.
+
+    Args:
+        version: The version value used by the operation.
+
+    Returns:
+        The `PluginDefinition` result produced by the operation.
+    """
     return PluginDefinition(
         manifest=PluginManifest(
             id="liteyukibot.commands",

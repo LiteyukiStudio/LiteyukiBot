@@ -11,7 +11,11 @@ from .v12 import create_v12
 
 
 def onebot_v11_plugin() -> AdapterPlugin:
-    """Return the separately discoverable OneBot v11 adapter contract."""
+    """Return the separately discoverable OneBot v11 adapter contract.
+
+    Returns:
+        The `AdapterPlugin` result produced by the operation.
+    """
 
     return AdapterPlugin(
         kind="onebot-v11",
@@ -22,7 +26,11 @@ def onebot_v11_plugin() -> AdapterPlugin:
 
 
 def onebot_v12_plugin() -> AdapterPlugin:
-    """Return the separately discoverable OneBot v12 adapter contract."""
+    """Return the separately discoverable OneBot v12 adapter contract.
+
+    Returns:
+        The `AdapterPlugin` result produced by the operation.
+    """
 
     return AdapterPlugin(
         kind="onebot-v12",

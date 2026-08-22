@@ -9,6 +9,11 @@ from liteyukibot.config import AppSettings
 
 
 def bridge_definition() -> BridgeDefinition:
+    """Implement the bridge definition operation for the component.
+
+    Returns:
+        The `BridgeDefinition` result produced by the operation.
+    """
     return BridgeDefinition(
         kind="mofox",
         grade=BridgeSupportGrade.EXPERIMENTAL,
@@ -18,6 +23,20 @@ def bridge_definition() -> BridgeDefinition:
 
 
 def _launch(settings: AppSettings, bridge_id: str, token: str) -> Awaitable[None]:
+    """Launch the component operation.
+
+    Args:
+        settings: Validated application settings.
+        bridge_id: Stable identifier for the bridge.
+        token: Authentication token presented at the boundary.
+
+    Returns:
+        The `Awaitable[None]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_launch`. It delegates to `launch` while keeping
+        intermediate state local to the owning operation.
+    """
     from .host import launch
 
     return launch(settings, bridge_id, token)

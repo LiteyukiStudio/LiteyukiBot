@@ -26,12 +26,37 @@ class ResourcePackError(ValueError):
 
 
 def _token(value: object, subject: str) -> str:
+    """Implement the token operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        subject: The subject value used by the operation.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_token`. It delegates to `strip` while keeping intermediate
+        state local to the owning operation.
+    """
     if not isinstance(value, str) or not value.strip() or value != value.strip():
         raise ResourcePackError(f"resource pack {subject} must be a non-empty trimmed string")
     return value
 
 
 def _relative_path(value: str) -> str:
+    """Implement the relative path operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_relative_path`. It delegates to `is_absolute`, `any`,
+        `as_posix` while keeping intermediate state local to the owning operation.
+    """
     path = PurePosixPath(value)
     if path.is_absolute() or not path.parts or any(part in {"", ".", ".."} for part in path.parts):
         raise ResourcePackError(f"resource path is unsafe: {value!r}")
@@ -39,10 +64,34 @@ def _relative_path(value: str) -> str:
 
 
 def _canonical_json(value: object) -> bytes:
+    """Implement the canonical json operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `bytes` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_canonical_json`. It delegates to `encode`, `dumps` while
+        keeping intermediate state local to the owning operation.
+    """
     return json.dumps(value, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode("utf-8")
 
 
 def _manifest_payload(files: Mapping[str, bytes]) -> dict[str, object]:
+    """Implement the manifest payload operation for the component.
+
+    Args:
+        files: The files value used by the operation.
+
+    Returns:
+        The `dict[str, object]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_manifest_payload`. It delegates to `hexdigest`, `sha256`,
+        `sorted`, `items` while keeping intermediate state local to the owning operation.
+    """
     entries = [
         {"path": path, "sha256": sha256(content).hexdigest(), "size": len(content)}
         for path, content in sorted(files.items())
@@ -52,7 +101,14 @@ def _manifest_payload(files: Mapping[str, bytes]) -> dict[str, object]:
 
 
 def write_resource_manifest(root: str | Path) -> Path:
-    """Write the explicit integrity manifest for one directory resource pack."""
+    """Write the explicit integrity manifest for one directory resource pack.
+
+    Args:
+        root: The root value used by the operation.
+
+    Returns:
+        The `Path` result produced by the operation.
+    """
 
     directory = Path(root).resolve()
     if not directory.is_dir():
@@ -73,7 +129,14 @@ def write_resource_manifest(root: str | Path) -> Path:
 
 
 def verify_resource_manifest(root: str | Path) -> None:
-    """Verify a directory resource pack without loading it into a catalog."""
+    """Verify a directory resource pack without loading it into a catalog.
+
+    Args:
+        root: The root value used by the operation.
+
+    Returns:
+        None.
+    """
 
     directory = Path(root).resolve()
     if not directory.is_dir():
@@ -97,12 +160,18 @@ class ResourcePackDeclaration:
     root: str = "resources"
 
     def __post_init__(self) -> None:
+        """Validate and normalize the resource pack declaration after initialization.
+
+        Returns:
+            None.
+        """
         _token(self.package, "package")
         _relative_path(self.root)
 
 
 @dataclass(frozen=True, slots=True)
 class ResourcePackMetadata:
+    """Represent the resource pack metadata contract."""
     id: str
     name: str
     version: str
@@ -115,19 +184,34 @@ class ResourcePackMetadata:
 
 @dataclass(frozen=True, slots=True)
 class ResourceFile:
+    """Represent the resource file contract."""
     pack_id: str
     path: str
     _read: Callable[[], bytes]
 
     def read_bytes(self) -> bytes:
+        """Read bytes.
+
+        Returns:
+            The requested `bytes` value.
+        """
         return self._read()
 
     def read_text(self, encoding: str = "utf-8") -> str:
+        """Read text.
+
+        Args:
+            encoding: The encoding value used by the operation.
+
+        Returns:
+            The requested `str` value.
+        """
         return self.read_bytes().decode(encoding)
 
 
 @dataclass(frozen=True, slots=True)
 class ResourcePack:
+    """Represent the resource pack contract."""
     metadata: ResourcePackMetadata
     files: Mapping[str, ResourceFile]
 
@@ -136,6 +220,14 @@ class ResourceCatalog:
     """A deterministic overlay of resource-pack paths without extraction or copying."""
 
     def __init__(self, packs: Iterable[ResourcePack]) -> None:
+        """Initialize the resource catalog.
+
+        Args:
+            packs: The packs value used by the operation.
+
+        Returns:
+            None.
+        """
         ordered = tuple(packs)
         ids: set[str] = set()
         files: dict[str, ResourceFile] = {}
@@ -149,16 +241,36 @@ class ResourceCatalog:
 
     @property
     def packs(self) -> tuple[ResourcePackMetadata, ...]:
+        """Return the resource catalog's packs.
+
+        Returns:
+            The `tuple[ResourcePackMetadata, ...]` result produced by the operation.
+        """
         return tuple(pack.metadata for pack in self._packs)
 
     def pack(self, pack_id: str) -> ResourcePackMetadata:
+        """Implement the pack operation for the resource catalog.
+
+        Args:
+            pack_id: Stable identifier for the pack.
+
+        Returns:
+            The `ResourcePackMetadata` result produced by the operation.
+        """
         for pack in self._packs:
             if pack.metadata.id == pack_id:
                 return pack.metadata
         raise ResourcePackError(f"resource pack does not exist: {pack_id}")
 
     def pack_for_declaration(self, declaration: ResourcePackDeclaration) -> ResourcePack:
-        """Return the installed package pack owned by one extension declaration."""
+        """Return the installed package pack owned by one extension declaration.
+
+        Args:
+            declaration: The declaration value used by the operation.
+
+        Returns:
+            The `ResourcePack` result produced by the operation.
+        """
 
         origin = f"package:{declaration.package}:{declaration.root}"
         matches = tuple(pack for pack in self._packs if pack.metadata.origin == origin)
@@ -169,7 +281,15 @@ class ResourceCatalog:
         return matches[0]
 
     def pack_files(self, pack_id: str, prefix: str = "") -> tuple[ResourceFile, ...]:
-        """Return files from one pack without applying the catalog overlay."""
+        """Return files from one pack without applying the catalog overlay.
+
+        Args:
+            pack_id: Stable identifier for the pack.
+            prefix: The prefix value used by the operation.
+
+        Returns:
+            The `tuple[ResourceFile, ...]` result produced by the operation.
+        """
 
         for pack in self._packs:
             if pack.metadata.id == pack_id:
@@ -180,7 +300,14 @@ class ResourceCatalog:
         raise ResourcePackError(f"resource pack does not exist: {pack_id}")
 
     def icon(self, pack_id: str) -> ResourceFile | None:
-        """Return a validated package icon for a future local presentation client."""
+        """Return a validated package icon for a future local presentation client.
+
+        Args:
+            pack_id: Stable identifier for the pack.
+
+        Returns:
+            The `ResourceFile | None` result produced by the operation.
+        """
 
         for pack in self._packs:
             if pack.metadata.id == pack_id:
@@ -188,20 +315,51 @@ class ResourceCatalog:
         raise ResourcePackError(f"resource pack does not exist: {pack_id}")
 
     def get(self, path: str) -> ResourceFile | None:
+        """Return the resource catalog operation.
+
+        Args:
+            path: Filesystem or logical resource path.
+
+        Returns:
+            The `ResourceFile | None` result produced by the operation.
+        """
         return self._files.get(_relative_path(path))
 
     def require(self, path: str) -> ResourceFile:
+        """Return the resource catalog operation, failing when it is unavailable.
+
+        Args:
+            path: Filesystem or logical resource path.
+
+        Returns:
+            The requested `ResourceFile` value.
+        """
         resource = self.get(path)
         if resource is None:
             raise ResourcePackError(f"resource does not exist: {path}")
         return resource
 
     def paths(self, prefix: str = "") -> tuple[str, ...]:
+        """Implement the paths operation for the resource catalog.
+
+        Args:
+            prefix: The prefix value used by the operation.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+        """
         normalized = "" if not prefix else _relative_path(prefix).rstrip("/") + "/"
         return tuple(path for path in sorted(self._files) if path.startswith(normalized))
 
     def files(self, prefix: str = "") -> tuple[ResourceFile, ...]:
-        """Return layered files without collapsing same-path catalog entries."""
+        """Return layered files without collapsing same-path catalog entries.
+
+        Args:
+            prefix: The prefix value used by the operation.
+
+        Returns:
+            The `tuple[ResourceFile, ...]` result produced by the operation.
+        """
 
         normalized = "" if not prefix else _relative_path(prefix).rstrip("/") + "/"
         return tuple(
@@ -218,6 +376,15 @@ class ResourceCatalog:
         *,
         plugin_packs: Iterable[ResourcePackDeclaration] = (),
     ) -> ResourceCatalog:
+        """Load the resource catalog operation.
+
+        Args:
+            workspace: The workspace value used by the operation.
+            plugin_packs: The plugin packs value used by the operation.
+
+        Returns:
+            The `ResourceCatalog` result produced by the operation.
+        """
         builtin = Path(__file__).with_name("builtin_resources") / "vanilla_language"
         packs = [_load_directory(builtin, "kernel")]
         for declaration in sorted(plugin_packs, key=lambda item: (item.package, item.root)):
@@ -228,6 +395,21 @@ class ResourceCatalog:
 
 
 def _metadata(value: object, origin: str, fallback_id: str) -> ResourcePackMetadata:
+    """Implement the metadata operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        origin: The origin value used by the operation.
+        fallback_id: Stable identifier for the fallback.
+
+    Returns:
+        The `ResourcePackMetadata` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_metadata`. It delegates to `_token`, `get`,
+        `_optional_token`, `_relative_path` while keeping intermediate state local to the owning
+        operation.
+    """
     if not isinstance(value, dict):
         raise ResourcePackError(f"resource pack metadata must be an object: {origin}")
     pack_id = _token(value.get("id", fallback_id), "id")
@@ -251,12 +433,39 @@ def _metadata(value: object, origin: str, fallback_id: str) -> ResourcePackMetad
 
 
 def _optional_token(value: object, subject: str) -> str | None:
+    """Implement the optional token operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+        subject: The subject value used by the operation.
+
+    Returns:
+        The `str | None` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_optional_token`. It delegates to `_token` while keeping
+        intermediate state local to the owning operation.
+    """
     if value is None:
         return None
     return _token(value, subject)
 
 
 def _read_metadata(raw: str, origin: str, fallback_id: str) -> ResourcePackMetadata:
+    """Read metadata.
+
+    Args:
+        raw: The raw value used by the operation.
+        origin: The origin value used by the operation.
+        fallback_id: Stable identifier for the fallback.
+
+    Returns:
+        The `ResourcePackMetadata` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_read_metadata`. It delegates to `safe_load`, `_metadata`
+        while keeping intermediate state local to the owning operation.
+    """
     try:
         value: Any = yaml.safe_load(raw)
     except yaml.YAMLError as error:
@@ -265,6 +474,18 @@ def _read_metadata(raw: str, origin: str, fallback_id: str) -> ResourcePackMetad
 
 
 def _verify_manifest(files: Mapping[str, ResourceFile]) -> None:
+    """Verify manifest.
+
+    Args:
+        files: The files value used by the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_verify_manifest`. It delegates to `read_bytes`, `loads`,
+        `get`, `_relative_path` while keeping intermediate state local to the owning operation.
+    """
     try:
         raw = files[RESOURCE_MANIFEST_FILENAME].read_bytes()
     except KeyError as error:
@@ -309,6 +530,19 @@ def _verify_manifest(files: Mapping[str, ResourceFile]) -> None:
 
 
 def _load_directory(root: Path, origin: str) -> ResourcePack:
+    """Load directory.
+
+    Args:
+        root: The root value used by the operation.
+        origin: The origin value used by the operation.
+
+    Returns:
+        The `ResourcePack` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_load_directory`. It delegates to `resolve`, `is_file`,
+        `_read_metadata`, `read_text` while keeping intermediate state local to the owning operation.
+    """
     root = root.resolve()
     metadata_path = root / "metadata.yml"
     if not metadata_path.is_file():
@@ -328,6 +562,19 @@ def _load_directory(root: Path, origin: str) -> ResourcePack:
 
 
 def _load_traversable(root: resources.abc.Traversable, origin: str) -> ResourcePack:
+    """Load traversable.
+
+    Args:
+        root: The root value used by the operation.
+        origin: The origin value used by the operation.
+
+    Returns:
+        The `ResourcePack` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_load_traversable`. It delegates to `joinpath`, `is_file`,
+        `_read_metadata`, `read_text` while keeping intermediate state local to the owning operation.
+    """
     metadata_file = root.joinpath("metadata.yml")
     if not metadata_file.is_file():
         raise ResourcePackError(f"resource pack has no metadata.yml: {origin}")
@@ -335,6 +582,20 @@ def _load_traversable(root: resources.abc.Traversable, origin: str) -> ResourceP
     files: dict[str, ResourceFile] = {}
 
     def visit(node: resources.abc.Traversable, prefix: str = "") -> None:
+        """Implement the visit operation for the load traversable.
+
+        Args:
+            node: The node value used by the operation.
+            prefix: The prefix value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_load_traversable.visit`. It delegates to `iterdir`,
+            `_relative_path`, `is_dir`, `visit` while keeping intermediate state local to the owning
+            operation.
+        """
         for child in node.iterdir():
             relative = _relative_path(f"{prefix}/{child.name}" if prefix else child.name)
             if child.is_dir():
@@ -349,6 +610,18 @@ def _load_traversable(root: resources.abc.Traversable, origin: str) -> ResourceP
 
 
 def _load_zip(path: Path) -> ResourcePack:
+    """Load zip.
+
+    Args:
+        path: Filesystem or logical resource path.
+
+    Returns:
+        The `ResourcePack` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_load_zip`. It delegates to `infolist`, `is_dir`, `items`,
+        `_relative_path` while keeping intermediate state local to the owning operation.
+    """
     try:
         with zipfile.ZipFile(path) as archive:
             entries = {entry.filename: entry for entry in archive.infolist() if not entry.is_dir()}
@@ -377,6 +650,19 @@ def _load_zip(path: Path) -> ResourcePack:
 
 
 def _validate_icon(metadata: ResourcePackMetadata, files: Mapping[str, ResourceFile]) -> None:
+    """Validate icon.
+
+    Args:
+        metadata: The metadata value used by the operation.
+        files: The files value used by the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_validate_icon`. It delegates to `read_bytes`, `from_bytes`
+        while keeping intermediate state local to the owning operation.
+    """
     if metadata.icon is None:
         return
     try:
@@ -397,11 +683,36 @@ def _validate_icon(metadata: ResourcePackMetadata, files: Mapping[str, ResourceF
 
 
 def _read_zip_entry(path: Path, name: str) -> bytes:
+    """Read zip entry.
+
+    Args:
+        path: Filesystem or logical resource path.
+        name: Stable name used to identify the value.
+
+    Returns:
+        The `bytes` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_read_zip_entry`. It delegates to `read` while keeping
+        intermediate state local to the owning operation.
+    """
     with zipfile.ZipFile(path) as archive:
         return archive.read(name)
 
 
 def _load_workspace_packs(workspace: Path) -> list[ResourcePack]:
+    """Load workspace packs.
+
+    Args:
+        workspace: The workspace value used by the operation.
+
+    Returns:
+        The `list[ResourcePack]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_load_workspace_packs`. It delegates to `resolve`, `exists`,
+        `loads`, `read_text` while keeping intermediate state local to the owning operation.
+    """
     root = workspace.resolve() / "resources"
     index = root / "index.json"
     if not index.exists():

@@ -11,6 +11,7 @@ from liteyukibot.events import EventEnvelope, Message, Segment
 
 @dataclass(frozen=True, slots=True)
 class MoFoxEventInput:
+    """Represent the mo fox event input contract."""
     runtime_id: str
     adapter: str
     bot_id: str
@@ -24,10 +25,23 @@ class MoFoxEventInput:
 
     @property
     def text(self) -> str:
+        """Return the mo fox event input's text.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         return self.message.plain_text
 
 
 def to_mofox_event_input(event: EventEnvelope) -> MoFoxEventInput:
+    """Convert the value to mofox event input.
+
+    Args:
+        event: Event associated with the operation.
+
+    Returns:
+        The `MoFoxEventInput` result produced by the operation.
+    """
     if event.message is None:
         raise ValueError("MoFox agent runtime only accepts message events")
     actor = event.actor
@@ -46,7 +60,14 @@ def to_mofox_event_input(event: EventEnvelope) -> MoFoxEventInput:
 
 
 def to_mofox_envelope(value: MoFoxEventInput) -> dict[str, Any]:
-    """Build the documented ``mofox-wire`` envelope consumed by MessageReceiver."""
+    """Build the documented ``mofox-wire`` envelope consumed by MessageReceiver.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `dict[str, Any]` result produced by the operation.
+    """
     user_info: dict[str, str] = {
         "platform": f"liteyuki:{value.adapter}",
         "user_id": value.actor_id or "unknown",
@@ -83,7 +104,18 @@ def to_mofox_envelope(value: MoFoxEventInput) -> dict[str, Any]:
 
 
 def _to_mofox_segment(segment: Segment) -> dict[str, Any]:
-    """Preserve portable segments while matching MoFox's scalar text wire shape."""
+    """Preserve portable segments while matching MoFox's scalar text wire shape.
+
+    Args:
+        segment: The segment value used by the operation.
+
+    Returns:
+        The `dict[str, Any]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_to_mofox_segment`. It delegates to `model_dump` while
+        keeping intermediate state local to the owning operation.
+    """
 
     data = segment.model_dump(mode="json")["data"]
     assert isinstance(data, dict)

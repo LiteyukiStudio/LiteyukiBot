@@ -31,33 +31,101 @@ CORDIS_HOST_ENTRY_POINT_GROUP = "liteyukibot.cordis_hosts"
 class CordisHost(Protocol):
     """An optional host managed by :class:`LiteyukiApp`."""
 
-    async def start(self) -> None: ...
+    async def start(self) -> None:
+        """Start the cordis host.
 
-    async def aclose(self) -> None: ...
+        Returns:
+            None.
+        """
+        ...
 
-    @property
-    def plugin_identities(self) -> tuple[ExtensionIdentity, ...]: ...
+    async def aclose(self) -> None:
+        """Close the cordis host asynchronously.
 
-    @property
-    def plugin_access(self) -> Mapping[str, str]: ...
-
-    @property
-    def tool_declarations(self) -> tuple[ToolDeclaration, ...]: ...
-
-    @property
-    def tool_handlers(self) -> Mapping[str, ToolCallback]: ...
-
-    def bind_function_hosts(self, hosts: Mapping[str, FunctionHost]) -> None: ...
+        Returns:
+            None.
+        """
+        ...
 
     @property
-    def runtime_manifests(self) -> Mapping[str, object]: ...
+    def plugin_identities(self) -> tuple[ExtensionIdentity, ...]:
+        """Return the cordis host's plugin identities.
+
+        Returns:
+            The `tuple[ExtensionIdentity, ...]` result produced by the operation.
+        """
+        ...
 
     @property
-    def function_resource_packs(self) -> Mapping[str, tuple[ResourcePackDeclaration, ...]]: ...
+    def plugin_access(self) -> Mapping[str, str]:
+        """Return the cordis host's plugin access.
+
+        Returns:
+            The `Mapping[str, str]` result produced by the operation.
+        """
+        ...
+
+    @property
+    def tool_declarations(self) -> tuple[ToolDeclaration, ...]:
+        """Return the cordis host's tool declarations.
+
+        Returns:
+            The `tuple[ToolDeclaration, ...]` result produced by the operation.
+        """
+        ...
+
+    @property
+    def tool_handlers(self) -> Mapping[str, ToolCallback]:
+        """Return the cordis host's tool handlers.
+
+        Returns:
+            The `Mapping[str, ToolCallback]` result produced by the operation.
+        """
+        ...
+
+    def bind_function_hosts(self, hosts: Mapping[str, FunctionHost]) -> None:
+        """Bind function hosts.
+
+        Args:
+            hosts: Function hosts keyed by their stable provider identifiers.
+
+        Returns:
+            None.
+        """
+        ...
+
+    @property
+    def runtime_manifests(self) -> Mapping[str, object]:
+        """Return the cordis host's runtime manifests.
+
+        Returns:
+            The `Mapping[str, object]` result produced by the operation.
+        """
+        ...
+
+    @property
+    def function_resource_packs(self) -> Mapping[str, tuple[ResourcePackDeclaration, ...]]:
+        """Return the cordis host's function resource packs.
+
+        Returns:
+            The `Mapping[str, tuple[ResourcePackDeclaration, ...]]` result produced by the operation.
+        """
+        ...
 
 
 class ActionServiceLike(Protocol):
-    async def execute(self, action: ActionEnvelope, *, event: EventEnvelope | None = None) -> ActionResult: ...
+    """Define the structural interface required from a action service like."""
+    async def execute(self, action: ActionEnvelope, *, event: EventEnvelope | None = None) -> ActionResult:
+        """Execute one request through the action service like.
+
+        Args:
+            action: Action request being processed.
+            event: Event associated with the operation.
+
+        Returns:
+            The `ActionResult` result produced by the operation.
+        """
+        ...
 
 
 CordisHostFactory = Callable[..., CordisHost]
@@ -68,6 +136,13 @@ def validate_extension_topology(native: Iterable[ExtensionIdentity], cordis: Ite
 
     This validates only startup ownership. Third-party plugins remain responsible
     for their own semantic compatibility with either host.
+
+    Args:
+        native: The native value used by the operation.
+        cordis: The cordis value used by the operation.
+
+    Returns:
+        None.
     """
 
     native_by_id = _index_identities(native, host="Native")
@@ -85,6 +160,19 @@ def validate_extension_topology(native: Iterable[ExtensionIdentity], cordis: Ite
 
 
 def _index_identities(identities: Iterable[ExtensionIdentity], *, host: str) -> dict[str, ExtensionIdentity]:
+    """Implement the index identities operation for the component.
+
+    Args:
+        identities: The identities value used by the operation.
+        host: The host value used by the operation.
+
+    Returns:
+        The `dict[str, ExtensionIdentity]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_index_identities`. It performs the local state transition
+        directly and is not a stable extension boundary.
+    """
     values: dict[str, ExtensionIdentity] = {}
     for identity in identities:
         if identity.id in values:
@@ -106,7 +194,23 @@ def discover_cordis_host(
     runtime_resolver: RuntimeResolver | None = None,
     runtime_targets: Mapping[str, str] | None = None,
 ) -> CordisHost | None:
-    """Resolve the one configured host without importing optional packages eagerly."""
+    """Resolve the one configured host without importing optional packages eagerly.
+
+    Args:
+        settings: Validated application settings.
+        events: The events value used by the operation.
+        actions: The actions value used by the operation.
+        logger: Structured logger used for diagnostics.
+        services: The services value used by the operation.
+        data_dir: Filesystem path for the data.
+        cache_dir: Filesystem path for the cache.
+        runtime_context_factory: The runtime context factory value used by the operation.
+        runtime_resolver: The runtime resolver value used by the operation.
+        runtime_targets: The runtime targets value used by the operation.
+
+    Returns:
+        The `CordisHost | None` result produced by the operation.
+    """
 
     if not settings.enabled:
         return None

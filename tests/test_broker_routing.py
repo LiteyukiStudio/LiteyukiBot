@@ -171,6 +171,35 @@ def test_settlement_immediately_enforces_terminal_capacity() -> None:
     assert ledger.terminal_count == 1
 
 
+def test_terminal_retention_enforces_total_content_bytes() -> None:
+    source = _session("source", subscriptions=())
+    target = _session("target")
+    reference = BrokerLedger()
+    _, delivery_id, lease_id = _active_delivery(reference, source, target)
+    reference.complete_delivery(target, delivery_id, lease_id, success=True)
+    one_record_bytes = reference.terminal_content_bytes
+
+    ledger = BrokerLedger(terminal_content_bytes_capacity=one_record_bytes)
+    _, first_delivery_id, first_lease_id = _active_delivery(ledger, source, target)
+    ledger.complete_delivery(target, first_delivery_id, first_lease_id, success=True)
+    _, second_delivery_id, second_lease_id = _active_delivery(ledger, source, target)
+    ledger.complete_delivery(target, second_delivery_id, second_lease_id, success=True)
+
+    assert ledger.terminal_count == 1
+    assert ledger.terminal_content_bytes <= one_record_bytes
+
+
+def test_terminal_record_larger_than_content_budget_is_not_retained() -> None:
+    ledger = BrokerLedger(terminal_content_bytes_capacity=1)
+    source = _session("source", subscriptions=())
+    target = _session("target")
+    _, delivery_id, lease_id = _active_delivery(ledger, source, target)
+    ledger.complete_delivery(target, delivery_id, lease_id, success=True)
+
+    assert ledger.terminal_count == 0
+    assert ledger.terminal_content_bytes == 0
+
+
 def test_terminal_retention_evicts_delivery_and_lane_indices() -> None:
     clock = Clock()
     ledger = BrokerLedger(terminal_capacity=1, terminal_ttl_seconds=5, monotonic=clock)

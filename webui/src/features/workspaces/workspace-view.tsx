@@ -37,6 +37,11 @@ type WorkspaceViewProps = {
   reloadEventDeliveries: () => Promise<void>;
 };
 
+/**
+ * Selects the active operational workspace and owns the cross-workspace operation dialog.
+ * @param props - Active workspace, projected data, API client, and refresh commands.
+ * @returns The memoized active workspace with any pending operation overlay.
+ */
 export const WorkspaceView = memo(function WorkspaceView({ workspace, dashboard, eventDeliveries, lyfResources, api, reload, reloadEventDeliveries }: WorkspaceViewProps) {
   const [operation, setOperation] = useState<WebUiOperation | null>(null);
   const openOperation = useCallback((next: WebUiOperation) => setOperation(next), []);

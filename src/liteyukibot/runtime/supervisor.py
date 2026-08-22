@@ -50,6 +50,7 @@ DeliveryCompletionSink = Callable[[str, EventCompleted], Awaitable[None]]
 
 @dataclass(frozen=True, slots=True)
 class ActionSinkResult:
+    """Represent the validated action sink result contract."""
     ok: bool
     data: JsonValue = None
     error: str | None = None
@@ -71,6 +72,7 @@ ManagementSink = Callable[[str, str], Awaitable[tuple[bool, str, JsonValue, str 
 
 
 class RuntimeState(StrEnum):
+    """Enumerate the supported runtime state values."""
     STOPPED = "stopped"
     STARTING = "starting"
     READY = "ready"
@@ -80,6 +82,7 @@ class RuntimeState(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class RuntimeSpec:
+    """Represent the runtime spec contract."""
     id: str
     kind: str
     options: Mapping[str, Any] = field(default_factory=dict)
@@ -97,6 +100,11 @@ class RuntimeSpec:
     max_inbound_events: int = 100
 
     def __post_init__(self) -> None:
+        """Validate and normalize the runtime spec after initialization.
+
+        Returns:
+            None.
+        """
         if not self.id or not self.kind:
             raise ValueError("runtime id and kind must not be empty")
         if self.restart_limit < 1 or self.restart_window <= 0:
@@ -113,6 +121,7 @@ class RuntimeSpec:
 
 @dataclass(slots=True)
 class RuntimeRecord:
+    """Represent the runtime record contract."""
     spec: RuntimeSpec
     token: str
     state: RuntimeState = RuntimeState.STOPPED
@@ -151,6 +160,7 @@ class RuntimeRecord:
 
 
 class RuntimeSupervisor:
+    """Represent the runtime supervisor contract."""
     def __init__(
         self,
         *,
@@ -163,6 +173,21 @@ class RuntimeSupervisor:
         secret_values: Mapping[str, str] | None = None,
         lyip_settings: LyipSettings | None = None,
     ) -> None:
+        """Initialize the runtime supervisor.
+
+        Args:
+            logger: Structured logger used for diagnostics.
+            event_sink: The event sink value used by the operation.
+            action_sink: The action sink value used by the operation.
+            management_sink: The management sink value used by the operation.
+            output_sink: The output sink value used by the operation.
+            delivery_completion_sink: The delivery completion sink value used by the operation.
+            secret_values: The secret values value used by the operation.
+            lyip_settings: The lyip settings value used by the operation.
+
+        Returns:
+            None.
+        """
         self.logger = logger
         self.event_sink = event_sink
         self.action_sink = action_sink
@@ -179,28 +204,65 @@ class RuntimeSupervisor:
         self._logging_settings = LoggingSettings()
 
     def add(self, spec: RuntimeSpec) -> None:
+        """Add the runtime supervisor operation.
+
+        Args:
+            spec: The spec value used by the operation.
+
+        Returns:
+            None.
+        """
         if spec.id in self.records:
             raise ValueError(f"duplicate runtime id: {spec.id}")
         self.records[spec.id] = RuntimeRecord(spec=spec, token=secrets.token_urlsafe(32))
 
     def set_management_sink(self, sink: ManagementSink | None) -> None:
+        """Set management sink.
+
+        Args:
+            sink: The sink value used by the operation.
+
+        Returns:
+            None.
+        """
         if self._transport_started:
             raise RuntimeError("management sink cannot change after runtime startup")
         self.management_sink = sink
 
     def set_logging_settings(self, settings: LoggingSettings) -> None:
+        """Set logging settings.
+
+        Args:
+            settings: Validated application settings.
+
+        Returns:
+            None.
+        """
         if self._transport_started:
             raise RuntimeError("runtime logging settings cannot change after runtime startup")
         self._logging_settings = settings
 
     def merge_options(self, runtime_id: str, options: Mapping[str, Any]) -> None:
+        """Implement the merge options operation for the runtime supervisor.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+            options: Validated optional settings for the operation.
+
+        Returns:
+            None.
+        """
         if self._transport_started:
             raise RuntimeError("runtime options cannot change after runtime startup")
         record = self.records[runtime_id]
         record.spec = replace(record.spec, options={**record.spec.options, **options})
 
     def health(self) -> dict[str, dict[str, object]]:
-        """Return redacted runtime liveness and IPC pressure for local control planes."""
+        """Return redacted runtime liveness and IPC pressure for local control planes.
+
+        Returns:
+            The `dict[str, dict[str, object]]` result produced by the operation.
+        """
 
         now = time.monotonic()
         snapshots: dict[str, dict[str, object]] = {}
@@ -227,6 +289,11 @@ class RuntimeSupervisor:
         return snapshots
 
     async def start(self) -> None:
+        """Start the runtime supervisor.
+
+        Returns:
+            None.
+        """
         self._transport_started = True
         self._heartbeat_task = asyncio.create_task(self._watch_heartbeats(), name="runtime-heartbeats")
         for record in self.records.values():
@@ -245,6 +312,19 @@ class RuntimeSupervisor:
 
     @staticmethod
     async def _wait_until_ready(record: RuntimeRecord) -> None:
+        """Wait for until ready.
+
+        Args:
+            record: The record value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._wait_until_ready`. It delegates to
+            `create_task`, `wait`, `result`, `cancel` while keeping intermediate state local to the owning
+            operation.
+        """
         if record.runner is None:
             raise RuntimeError(f"runtime {record.spec.id} has no supervisor task")
         ready = asyncio.create_task(record.ready.wait(), name=f"runtime-ready:{record.spec.id}")
@@ -261,6 +341,19 @@ class RuntimeSupervisor:
         raise RuntimeError(f"runtime {record.spec.id} stopped before becoming ready")
 
     async def _run(self, record: RuntimeRecord) -> None:
+        """Run the runtime supervisor operation.
+
+        Args:
+            record: The record value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._run`. It delegates to `clear`,
+            `_default_command`, `info`, `bind` while keeping intermediate state local to the owning
+            operation.
+        """
         delay = 1.0
         while record.desired and not self._closing:
             record.state = RuntimeState.STARTING
@@ -341,6 +434,18 @@ class RuntimeSupervisor:
 
     @staticmethod
     def _register_failure(record: RuntimeRecord) -> bool:
+        """Register failure.
+
+        Args:
+            record: The record value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._register_failure`. It delegates to
+            `monotonic`, `append`, `popleft` while keeping intermediate state local to the owning operation.
+        """
         now = time.monotonic()
         record.failures.append(now)
         while record.failures and now - record.failures[0] > record.spec.restart_window:
@@ -351,7 +456,18 @@ class RuntimeSupervisor:
         return True
 
     def _child_environment(self, record: RuntimeRecord) -> dict[str, str]:
-        """Construct a child-only environment without retaining vault credentials."""
+        """Construct a child-only environment without retaining vault credentials.
+
+        Args:
+            record: The record value used by the operation.
+
+        Returns:
+            The `dict[str, str]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._child_environment`. It delegates to
+            `copy`, `pop`, `update`, `items` while keeping intermediate state local to the owning operation.
+        """
 
         env = os.environ.copy()
         env.pop("LITEYUKI_VAULT_PASSWORD", None)
@@ -367,9 +483,34 @@ class RuntimeSupervisor:
 
     @staticmethod
     def _default_command(spec: RuntimeSpec) -> tuple[str, ...]:
+        """Implement the default command operation for the runtime supervisor.
+
+        Args:
+            spec: The spec value used by the operation.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._default_command`. It delegates to
+            `command_for` while keeping intermediate state local to the owning operation.
+        """
         return RuntimeCatalog().command_for(spec.kind)
 
     def _prepare_transport(self, record: RuntimeRecord) -> None:
+        """Implement the prepare transport operation for the runtime supervisor.
+
+        Args:
+            record: The record value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._prepare_transport`. It delegates to
+            `token_urlsafe`, `encode`, `resolve_link`, `create_task` while keeping intermediate state local
+            to the owning operation.
+        """
         if record.router is not None:
             raise RuntimeError(f"runtime {record.spec.id} already has an active LYIP transport")
         record.generation += 1
@@ -400,12 +541,39 @@ class RuntimeSupervisor:
         )
 
     async def _watch_handshake(self, record: RuntimeRecord, generation: int) -> None:
+        """Implement the watch handshake operation for the runtime supervisor.
+
+        Args:
+            record: The record value used by the operation.
+            generation: Positive protocol or deployment generation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._watch_handshake`. It delegates to
+            `sleep`, `error`, `terminate` while keeping intermediate state local to the owning operation.
+        """
         await asyncio.sleep(record.spec.handshake_timeout)
         if record.generation == generation and record.identity is None and record.process is not None:
             self.logger.error("runtime {} did not complete its LYIP handshake", record.spec.id)
             record.process.terminate()
 
     async def _receive_loop(self, record: RuntimeRecord, lane: LyipLane) -> None:
+        """Receive loop.
+
+        Args:
+            record: The record value used by the operation.
+            lane: The lane value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._receive_loop`. It delegates to `receive`,
+            `_receive_frame`, `warning`, `error` while keeping intermediate state local to the owning
+            operation.
+        """
         while True:
             router = record.router
             if router is None:
@@ -427,6 +595,22 @@ class RuntimeSupervisor:
         identity: bytes,
         frame: LyipFrame,
     ) -> None:
+        """Receive frame.
+
+        Args:
+            record: The record value used by the operation.
+            lane: The lane value used by the operation.
+            identity: The identity value used by the operation.
+            frame: The frame value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._receive_frame`. It delegates to
+            `compare_digest`, `_inbound_stream_id`, `decode_runtime_message`, `monotonic` while keeping
+            intermediate state local to the owning operation.
+        """
         if record.expected_identity is None or not secrets.compare_digest(identity, record.expected_identity):
             raise LyipError("LYIP identity does not match the current runtime launch")
         if record.lease_id is None or not secrets.compare_digest(frame.lease_id, record.lease_id):
@@ -459,13 +643,53 @@ class RuntimeSupervisor:
 
     @staticmethod
     def _inbound_stream_id(record: RuntimeRecord, lane: LyipLane) -> str:
+        """Implement the inbound stream id operation for the runtime supervisor.
+
+        Args:
+            record: The record value used by the operation.
+            lane: The lane value used by the operation.
+
+        Returns:
+            The `str` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._inbound_stream_id`. It performs the local
+            state transition directly and is not a stable extension boundary.
+        """
         return f"runtime:{record.spec.id}:{lane.value}"
 
     @staticmethod
     def _outbound_stream_id(record: RuntimeRecord, lane: LyipLane) -> str:
+        """Implement the outbound stream id operation for the runtime supervisor.
+
+        Args:
+            record: The record value used by the operation.
+            lane: The lane value used by the operation.
+
+        Returns:
+            The `str` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._outbound_stream_id`. It performs the
+            local state transition directly and is not a stable extension boundary.
+        """
         return f"kernel:{record.spec.id}:{lane.value}"
 
     async def _handle_message(self, record: RuntimeRecord, message: WireMessage) -> None:
+        """Handle message.
+
+        Args:
+            record: The record value used by the operation.
+            message: Message content associated with the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._handle_message`. It delegates to
+            `frozenset`, `info`, `bind`, `sorted` while keeping intermediate state local to the owning
+            operation.
+        """
         if isinstance(message, Ready):
             record.capabilities = frozenset(message.capabilities)
             record.state = RuntimeState.READY
@@ -514,6 +738,19 @@ class RuntimeSupervisor:
             self.logger.debug("ignored runtime {} message {}", record.spec.id, message.type)
 
     async def _accept_event_completed(self, record: RuntimeRecord, message: EventCompleted) -> None:
+        """Accept event completed.
+
+        Args:
+            record: The record value used by the operation.
+            message: Message content associated with the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._accept_event_completed`. It delegates to
+            `warning`, `pop`, `info`, `bind` while keeping intermediate state local to the owning operation.
+        """
         if record.protocol_version not in (4, 5) or "runtime.events.complete" not in record.capabilities:
             self.logger.warning(
                 "runtime {} sent an unsupported event outcome over protocol v{}",
@@ -545,6 +782,20 @@ class RuntimeSupervisor:
             await self.delivery_completion_sink(record.spec.id, message)
 
     async def _accept_child_event(self, record: RuntimeRecord, message: EventMessage) -> None:
+        """Accept child event.
+
+        Args:
+            record: The record value used by the operation.
+            message: Message content associated with the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._accept_child_event`. It delegates to
+            `_send`, `create_task`, `_execute_child_event` while keeping intermediate state local to the
+            owning operation.
+        """
         if message.correlation_id in record.inbound_events:
             await self._send(
                 record,
@@ -572,6 +823,20 @@ class RuntimeSupervisor:
         record.inbound_events[message.correlation_id] = task
 
     async def _execute_child_event(self, record: RuntimeRecord, message: EventMessage) -> None:
+        """Execute child event.
+
+        Args:
+            record: The record value used by the operation.
+            message: Message content associated with the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._execute_child_event`. It delegates to
+            `event_sink`, `error`, `_send`, `pop` while keeping intermediate state local to the owning
+            operation.
+        """
         detail: str | None = None
         try:
             status = "accepted" if self.event_sink is None else await self.event_sink(record.spec.id, message.payload)
@@ -599,6 +864,20 @@ class RuntimeSupervisor:
             record.inbound_events.pop(message.correlation_id, None)
 
     async def _accept_child_action(self, record: RuntimeRecord, request: ActionRequest) -> None:
+        """Accept child action.
+
+        Args:
+            record: The record value used by the operation.
+            request: Validated request object to process.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._accept_child_action`. It delegates to
+            `_reject_child_action`, `_clear_expired_delivery_contexts`, `get`, `create_task` while keeping
+            intermediate state local to the owning operation.
+        """
         if record.protocol_version not in (3, 4, 5):
             await self._reject_child_action(
                 record,
@@ -667,6 +946,21 @@ class RuntimeSupervisor:
         request: ActionRequest,
         provenance: ActionProvenance | None,
     ) -> None:
+        """Execute child action.
+
+        Args:
+            record: The record value used by the operation.
+            request: Validated request object to process.
+            provenance: The provenance value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._execute_child_action`. It delegates to
+            `_log_payload`, `action_sink`, `error`, `bind` while keeping intermediate state local to the
+            owning operation.
+        """
         try:
             assert self.action_sink is not None
             self._log_payload(
@@ -710,6 +1004,20 @@ class RuntimeSupervisor:
         request: ActionRequest,
         error: str,
     ) -> None:
+        """Implement the reject child action operation for the runtime supervisor.
+
+        Args:
+            record: The record value used by the operation.
+            request: Validated request object to process.
+            error: The error value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._reject_child_action`. It delegates to
+            `_send` while keeping intermediate state local to the owning operation.
+        """
         await self._send(
             record,
             ActionResponse(
@@ -720,6 +1028,20 @@ class RuntimeSupervisor:
         )
 
     async def _accept_management_request(self, record: RuntimeRecord, request: ManagementRequest) -> None:
+        """Accept management request.
+
+        Args:
+            record: The record value used by the operation.
+            request: Validated request object to process.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._accept_management_request`. It delegates
+            to `_reject_management_request`, `create_task`, `_execute_management_request` while keeping
+            intermediate state local to the owning operation.
+        """
         if record.protocol_version != 5 or "runtime.management.execute" not in record.capabilities:
             await self._reject_management_request(record, request, "runtime management is unavailable")
             return
@@ -736,6 +1058,20 @@ class RuntimeSupervisor:
         record.inbound_management[request.correlation_id] = task
 
     async def _execute_management_request(self, record: RuntimeRecord, request: ManagementRequest) -> None:
+        """Execute management request.
+
+        Args:
+            record: The record value used by the operation.
+            request: Validated request object to process.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._execute_management_request`. It delegates
+            to `management_sink`, `_send`, `pop` while keeping intermediate state local to the owning
+            operation.
+        """
         try:
             assert self.management_sink is not None
             ok, text, data, error = await self.management_sink(record.spec.id, request.command)
@@ -758,10 +1094,37 @@ class RuntimeSupervisor:
     async def _reject_management_request(
         self, record: RuntimeRecord, request: ManagementRequest, error: str
     ) -> None:
+        """Implement the reject management request operation for the runtime supervisor.
+
+        Args:
+            record: The record value used by the operation.
+            request: Validated request object to process.
+            error: The error value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._reject_management_request`. It delegates
+            to `_send` while keeping intermediate state local to the owning operation.
+        """
         await self._send(record, ManagementResponse(correlation_id=request.correlation_id, ok=False, error=error))
 
     @staticmethod
     def _clear_expired_delivery_contexts(record: RuntimeRecord) -> None:
+        """Clear expired delivery contexts.
+
+        Args:
+            record: The record value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._clear_expired_delivery_contexts`. It
+            delegates to `monotonic`, `items`, `pop` while keeping intermediate state local to the owning
+            operation.
+        """
         now = time.monotonic()
         for correlation_id, (deadline, _payload, _trace) in tuple(record.active_delivery_contexts.items()):
             if deadline <= now:
@@ -774,6 +1137,17 @@ class RuntimeSupervisor:
         payload: Mapping[str, Any],
         timeout_seconds: float = 30.0,
     ) -> ActionResponse:
+        """Execute action.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+            correlation_id: Stable identifier for the correlation.
+            payload: JSON-safe payload carried by the operation.
+            timeout_seconds: Maximum duration to wait, in seconds.
+
+        Returns:
+            The `ActionResponse` result produced by the operation.
+        """
         if timeout_seconds <= 0:
             raise ValueError("runtime action timeout must be positive")
         record = self.records[runtime_id]
@@ -808,6 +1182,17 @@ class RuntimeSupervisor:
         payload: Mapping[str, Any],
         timeout_seconds: float = 30.0,
     ) -> EventAccepted:
+        """Dispatch event.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+            correlation_id: Stable identifier for the correlation.
+            payload: JSON-safe payload carried by the operation.
+            timeout_seconds: Maximum duration to wait, in seconds.
+
+        Returns:
+            The `EventAccepted` result produced by the operation.
+        """
         if timeout_seconds <= 0:
             raise ValueError("runtime event timeout must be positive")
         record = self.records[runtime_id]
@@ -851,6 +1236,14 @@ class RuntimeSupervisor:
             record.pending_event_traces.pop(correlation_id, None)
 
     async def restart(self, runtime_id: str) -> None:
+        """Implement the restart operation for the runtime supervisor.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+
+        Returns:
+            None.
+        """
         record = self.records[runtime_id]
         record.failures.clear()
         process = record.process
@@ -873,7 +1266,14 @@ class RuntimeSupervisor:
             await record.ready.wait()
 
     async def start_runtime(self, runtime_id: str) -> None:
-        """Start one configured runtime without restarting the supervisor."""
+        """Start one configured runtime without restarting the supervisor.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+
+        Returns:
+            None.
+        """
 
         if self._closing or not self._transport_started:
             raise RuntimeError("runtime supervisor is not running")
@@ -894,7 +1294,14 @@ class RuntimeSupervisor:
             await record.ready.wait()
 
     async def stop_runtime(self, runtime_id: str) -> None:
-        """Stop one runtime while keeping the supervisor available to others."""
+        """Stop one runtime while keeping the supervisor available to others.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+
+        Returns:
+            None.
+        """
 
         record = self.records[runtime_id]
         await self._request_stop(record, "management stop")
@@ -902,6 +1309,11 @@ class RuntimeSupervisor:
             await record.runner
 
     async def stop(self) -> None:
+        """Stop the runtime supervisor and release its owned resources.
+
+        Returns:
+            None.
+        """
         self._closing = True
         if self._heartbeat_task is not None:
             self._heartbeat_task.cancel()
@@ -916,6 +1328,19 @@ class RuntimeSupervisor:
         self._transport_started = False
 
     async def _request_stop(self, record: RuntimeRecord, reason: str) -> None:
+        """Request stop.
+
+        Args:
+            record: The record value used by the operation.
+            reason: The reason value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._request_stop`. It delegates to `_send`,
+            `current_task`, `done`, `cancel` while keeping intermediate state local to the owning operation.
+        """
         record.desired = False
         record.state = RuntimeState.STOPPING
         if record.identity is not None:
@@ -944,6 +1369,20 @@ class RuntimeSupervisor:
                 await process.wait()
 
     async def _send(self, record: RuntimeRecord, message: WireMessage) -> None:
+        """Send the runtime supervisor operation.
+
+        Args:
+            record: The record value used by the operation.
+            message: Message content associated with the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._send`. It delegates to
+            `encode_runtime_message`, `_outbound_stream_id`, `offer` while keeping intermediate state local
+            to the owning operation.
+        """
         router = record.router
         identity = record.identity
         lease_id = record.lease_id
@@ -975,6 +1414,19 @@ class RuntimeSupervisor:
             record.send_sequences[lane] = sequence + 1
 
     async def _disconnect(self, record: RuntimeRecord) -> None:
+        """Implement the disconnect operation for the runtime supervisor.
+
+        Args:
+            record: The record value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._disconnect`. It delegates to
+            `current_task`, `cancel`, `gather`, `close` while keeping intermediate state local to the owning
+            operation.
+        """
         router, record.router = record.router, None
         record.identity = None
         record.expected_identity = None
@@ -1035,6 +1487,20 @@ class RuntimeSupervisor:
         stream: asyncio.StreamReader,
         channel: Literal["stdout", "stderr"],
     ) -> None:
+        """Implement the capture output operation for the runtime supervisor.
+
+        Args:
+            record: The record value used by the operation.
+            stream: The stream value used by the operation.
+            channel: The channel value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._capture_output`. It delegates to `bind`,
+            `readline`, `rstrip`, `decode` while keeping intermediate state local to the owning operation.
+        """
         logger = self.logger.bind(
             runtime=record.spec.id,
             component="runtime",
@@ -1056,6 +1522,19 @@ class RuntimeSupervisor:
 
     @staticmethod
     def _emit_structured_output(logger: Any, payload: Mapping[str, object]) -> None:
+        """Implement the emit structured output operation for the runtime supervisor.
+
+        Args:
+            logger: Structured logger used for diagnostics.
+            payload: JSON-safe payload carried by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._emit_structured_output`. It delegates to
+            `get`, `update`, `items`, `bind` while keeping intermediate state local to the owning operation.
+        """
         context = {
             key: payload[key]
             for key in (
@@ -1082,6 +1561,18 @@ class RuntimeSupervisor:
         method("{}", str(payload.get("message", "")))
 
     def _payload_mode(self, record: RuntimeRecord) -> str:
+        """Implement the payload mode operation for the runtime supervisor.
+
+        Args:
+            record: The record value used by the operation.
+
+        Returns:
+            The `str` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._payload_mode`. It performs the local
+            state transition directly and is not a stable extension boundary.
+        """
         if record.spec.id in self._logging_settings.payload_exclude_runtimes:
             return "metadata"
         return self._logging_settings.payload_mode
@@ -1095,6 +1586,23 @@ class RuntimeSupervisor:
         *,
         trace: EventTrace | None = None,
     ) -> None:
+        """Implement the log payload operation for the runtime supervisor.
+
+        Args:
+            record: The record value used by the operation.
+            operation: The operation value used by the operation.
+            correlation_id: Stable identifier for the correlation.
+            payload: JSON-safe payload carried by the operation.
+            trace: The trace value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._log_payload`. It delegates to
+            `json_mapping`, `sorted`, `dumps`, `update` while keeping intermediate state local to the owning
+            operation.
+        """
         serialized = json_mapping(payload)
         context: dict[str, Any] = {
             "runtime": record.spec.id,
@@ -1120,6 +1628,20 @@ class RuntimeSupervisor:
         correlation_id: str,
         payload: Mapping[str, JsonValue],
     ) -> EventTrace:
+        """Implement the event trace operation for the runtime supervisor.
+
+        Args:
+            record: The record value used by the operation.
+            correlation_id: Stable identifier for the correlation.
+            payload: JSON-safe payload carried by the operation.
+
+        Returns:
+            The `EventTrace` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._event_trace`. It delegates to `get` while
+            keeping intermediate state local to the owning operation.
+        """
         source_runtime_id = payload.get("runtime_id")
         source_event_id = payload.get("id")
         if (
@@ -1140,6 +1662,16 @@ class RuntimeSupervisor:
         )
 
     async def _watch_heartbeats(self) -> None:
+        """Implement the watch heartbeats operation for the runtime supervisor.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `RuntimeSupervisor._watch_heartbeats`. It delegates to
+            `sleep`, `monotonic`, `values`, `error` while keeping intermediate state local to the owning
+            operation.
+        """
         while True:
             await asyncio.sleep(5.0)
             now = time.monotonic()

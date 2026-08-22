@@ -92,3 +92,18 @@ a hand-maintained package list. Compare only artifacts whose profile and
 resolved `extension_manifest` match. The profile artifacts are evidence for
 manual review; they are not automatic CI performance gates. This document does
 not define the later 72-hour soak or the full-workspace theoretical benchmark.
+
+## Alpha11 Resident-State Workloads
+
+Schema 2 additionally records EventBus and Broker residency under 20,000
+unique-conversation events carrying independent 1 KiB payloads. EventBus must
+drain outstanding work and per-key queues/workers to zero. Broker uses its
+4,096-event and 16 MiB retained-content capacities and must evict older
+terminal records while removing delivery indices and ordering lanes.
+
+Each owner remains alive through measurement. Samples record current RSS before
+and after the workload, RSS delta, and GC-after-workload `tracemalloc` retained
+and peak bytes. These numbers expose the cost of bounded retention; they do not
+establish a universal byte threshold because allocator and platform behavior
+differs. Compare artifacts only when resident event count, payload bytes,
+profile manifest, Python minor version, and platform match.

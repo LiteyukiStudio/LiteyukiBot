@@ -18,12 +18,14 @@ type ActionGuard = Callable[[EventEnvelope, ActionEnvelope], Awaitable[ActionRes
 
 @dataclass(frozen=True, slots=True)
 class Subscription:
+    """Represent the subscription contract."""
     id: int
     name: str
 
 
 @dataclass(frozen=True, slots=True)
 class _RegisteredHandler:
+    """Represent the registered handler contract."""
     order: int
     sequence: int
     subscription: Subscription
@@ -32,6 +34,7 @@ class _RegisteredHandler:
 
 @dataclass(slots=True)
 class _QueuedEvent:
+    """Represent the validated queued event contract."""
     event: EventEnvelope
     future: asyncio.Future[DispatchResult]
 
@@ -50,6 +53,20 @@ class EventBus:
         action_guard: ActionGuard | None = None,
         logger: Logger | None = None,
     ) -> None:
+        """Initialize the event bus.
+
+        Args:
+            queue_capacity: Maximum number of events admitted but not yet completed.
+            enqueue_timeout: Maximum time to wait for event capacity, in seconds.
+            handler_timeout: Maximum time allowed for one handler invocation, in seconds.
+            max_concurrent_events: Maximum number of events dispatched concurrently.
+            action_executor: Executor that routes actions to the owning runtime.
+            action_guard: Optional policy hook that can reject an action before execution.
+            logger: Structured logger used for diagnostics.
+
+        Returns:
+            None.
+        """
         if queue_capacity < 1:
             raise ValueError("queue_capacity must be at least 1")
         if enqueue_timeout < 0:
@@ -80,13 +97,33 @@ class EventBus:
 
     @property
     def closed(self) -> bool:
+        """Return the event bus's closed.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
         return not self._accepting
 
     @property
     def outstanding(self) -> int:
+        """Return the event bus's outstanding.
+
+        Returns:
+            The `int` result produced by the operation.
+        """
         return self._outstanding
 
     def subscribe(self, handler: EventHandler, *, order: int = 0, name: str | None = None) -> Subscription:
+        """Register a handler and return its subscription.
+
+        Args:
+            handler: Callable that handles the dispatched value.
+            order: Relative handler ordering; lower values run first.
+            name: Stable name used to identify the value.
+
+        Returns:
+            The `Subscription` result produced by the operation.
+        """
         if not callable(handler):
             raise TypeError("handler must be callable")
         sequence = self._next_subscription_id
@@ -99,6 +136,14 @@ class EventBus:
         return subscription
 
     def unsubscribe(self, subscription: Subscription) -> bool:
+        """Remove a previously registered subscription.
+
+        Args:
+            subscription: Previously returned subscription to remove.
+
+        Returns:
+            Whether the requested condition is satisfied.
+        """
         for index, registered in enumerate(self._handlers):
             if registered.subscription.id == subscription.id:
                 del self._handlers[index]
@@ -106,12 +151,25 @@ class EventBus:
         return False
 
     async def start(self) -> None:
+        """Start the event bus.
+
+        Returns:
+            None.
+        """
         if not self._accepting:
             raise RuntimeError("event bus is closed")
         if self._dispatcher is None:
             self._dispatcher = asyncio.create_task(self._dispatch_loop(), name="liteyukibot-event-dispatcher")
 
     async def publish(self, event: EventEnvelope) -> DispatchResult:
+        """Publish one event and wait for its dispatch result.
+
+        Args:
+            event: Event associated with the operation.
+
+        Returns:
+            The `DispatchResult` result produced by the operation.
+        """
         if not self._accepting:
             return DispatchResult(event_id=event.id, status="closed")
         await self.start()
@@ -138,6 +196,11 @@ class EventBus:
         return await asyncio.shield(future)
 
     async def aclose(self) -> None:
+        """Close the event bus asynchronously.
+
+        Returns:
+            None.
+        """
         if not self._accepting:
             return
         self._accepting = False
@@ -149,13 +212,35 @@ class EventBus:
             self._dispatcher = None
 
     async def __aenter__(self) -> EventBus:
+        """Enter the event bus context.
+
+        Returns:
+            The `EventBus` result produced by the operation.
+        """
         await self.start()
         return self
 
     async def __aexit__(self, *_exc_info: object) -> None:
+        """Exit the event bus context.
+
+        Args:
+            *_exc_info: Exception context supplied by the asynchronous context manager.
+
+        Returns:
+            None.
+        """
         await self.aclose()
 
     async def _dispatch_loop(self) -> None:
+        """Dispatch loop.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `EventBus._dispatch_loop`. It delegates to `get`,
+            `setdefault`, `deque`, `append` while keeping intermediate state local to the owning operation.
+        """
         while True:
             queued = await self._ingress.get()
             key = queued.event.ordering_key
@@ -169,6 +254,19 @@ class EventBus:
             self._ingress.task_done()
 
     async def _run_key_queue(self, key: tuple[str, str, str]) -> None:
+        """Run key queue.
+
+        Args:
+            key: Stable FIFO ordering key for the queued work.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `EventBus._run_key_queue`. It delegates to `popleft`,
+            `_dispatch`, `done`, `set_result` while keeping intermediate state local to the owning
+            operation.
+        """
         key_queue = self._key_queues[key]
         try:
             while key_queue:
@@ -194,6 +292,18 @@ class EventBus:
             del self._key_workers[key]
 
     async def _dispatch(self, event: EventEnvelope) -> DispatchResult:
+        """Dispatch the event bus operation.
+
+        Args:
+            event: Event associated with the operation.
+
+        Returns:
+            The `DispatchResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `EventBus._dispatch`. It delegates to `bind`, `timeout`,
+            `callback`, `isawaitable` while keeping intermediate state local to the owning operation.
+        """
         event_logger = self._logger.bind(
             event_id=event.id,
             runtime=event.runtime_id,
@@ -263,6 +373,20 @@ class EventBus:
         )
 
     async def _execute_action(self, event: EventEnvelope, action: ActionEnvelope) -> ActionResult:
+        """Execute action.
+
+        Args:
+            event: Event associated with the operation.
+            action: Action request being processed.
+
+        Returns:
+            The `ActionResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `EventBus._execute_action`. It delegates to `_action_guard`,
+            `isawaitable`, `exception`, `bind` while keeping intermediate state local to the owning
+            operation.
+        """
         if self._action_guard is not None:
             try:
                 guarded: Any = self._action_guard(event, action)

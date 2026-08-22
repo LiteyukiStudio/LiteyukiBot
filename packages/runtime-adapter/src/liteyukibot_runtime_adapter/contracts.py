@@ -28,16 +28,38 @@ class AdapterConnection(Protocol):
     """One live platform connection; SDK objects never leave this process."""
 
     async def start(self, emit: EventEmitter) -> None:
-        """Connect and return only after the adapter can accept message.send."""
+        """Connect and return only after the adapter can accept message.send.
+
+        Args:
+            emit: The emit value used by the operation.
+
+        Returns:
+            None.
+        """
 
     async def send_message(self, payload: MessageSendPayload) -> JsonValue:
-        """Execute one portable message.send already routed to this bot ID."""
+        """Execute one portable message.send already routed to this bot ID.
+
+        Args:
+            payload: JSON-safe payload carried by the operation.
+
+        Returns:
+            The `JsonValue` result produced by the operation.
+        """
 
     async def close(self) -> None:
-        """Release platform connections and background tasks."""
+        """Release platform connections and background tasks.
+
+        Returns:
+            None.
+        """
 
     async def wait_failure(self) -> None:
-        """Wait until an unrecoverable background connection failure occurs."""
+        """Wait until an unrecoverable background connection failure occurs.
+
+        Returns:
+            None.
+        """
 
 
 AdapterFactory = Callable[[AdapterContext], Awaitable[AdapterConnection]]
@@ -53,6 +75,11 @@ class AdapterPlugin:
     create: AdapterFactory
 
     def __post_init__(self) -> None:
+        """Validate and normalize the adapter plugin after initialization.
+
+        Returns:
+            None.
+        """
         if not self.kind or self.kind != self.kind.strip():
             raise ValueError("adapter kind must be a non-empty trimmed string")
         if not self.distribution or self.distribution != self.distribution.strip():

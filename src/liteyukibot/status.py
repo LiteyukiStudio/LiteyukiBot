@@ -13,6 +13,19 @@ KERNEL_STATUS_SERVICE = ServiceKey("liteyukibot.kernel.status", 1)
 
 
 def _freeze_states(name: str, states: Mapping[str, str]) -> Mapping[str, str]:
+    """Freeze states.
+
+    Args:
+        name: Stable name used to identify the value.
+        states: The states value used by the operation.
+
+    Returns:
+        The `Mapping[str, str]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_freeze_states`. It delegates to `items`, `sorted` while
+        keeping intermediate state local to the owning operation.
+    """
     normalized: dict[str, str] = {}
     for identifier, state in states.items():
         if not isinstance(identifier, str) or not identifier:
@@ -26,6 +39,18 @@ def _freeze_states(name: str, states: Mapping[str, str]) -> Mapping[str, str]:
 def _freeze_runtime_health(
     values: Mapping[str, Mapping[str, object]],
 ) -> Mapping[str, Mapping[str, object]]:
+    """Freeze runtime health.
+
+    Args:
+        values: The values value used by the operation.
+
+    Returns:
+        The `Mapping[str, Mapping[str, object]]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_freeze_runtime_health`. It delegates to `items`, `sorted`
+        while keeping intermediate state local to the owning operation.
+    """
     normalized: dict[str, Mapping[str, object]] = {}
     for runtime_id, value in values.items():
         if not isinstance(runtime_id, str) or not runtime_id:
@@ -38,6 +63,7 @@ def _freeze_runtime_health(
 
 @dataclass(frozen=True, slots=True)
 class KernelStatusSnapshot:
+    """Represent the validated kernel status snapshot contract."""
     version: str
     state: str
     uptime_seconds: float
@@ -47,6 +73,11 @@ class KernelStatusSnapshot:
     events_outstanding: int = 0
 
     def __post_init__(self) -> None:
+        """Validate and normalize the kernel status snapshot after initialization.
+
+        Returns:
+            None.
+        """
         if not self.version:
             raise ValueError("kernel version must not be empty")
         if not self.state:
@@ -60,6 +91,11 @@ class KernelStatusSnapshot:
         object.__setattr__(self, "runtime_health", _freeze_runtime_health(self.runtime_health))
 
     def as_dict(self) -> dict[str, object]:
+        """Implement the as dict operation for the kernel status snapshot.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+        """
         return {
             "version": self.version,
             "state": self.state,
@@ -74,7 +110,14 @@ class KernelStatusSnapshot:
 
 
 class KernelStatusProvider(Protocol):
-    def snapshot(self) -> KernelStatusSnapshot: ...
+    """Define the structural interface required from a kernel status provider."""
+    def snapshot(self) -> KernelStatusSnapshot:
+        """Return an immutable snapshot of the kernel status provider state.
+
+        Returns:
+            The requested `KernelStatusSnapshot` value.
+        """
+        ...
 
 
 __all__ = [

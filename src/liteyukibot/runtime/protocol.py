@@ -22,10 +22,12 @@ MAX_FRAME_SIZE = 8 * 1024 * 1024
 
 
 class WireModel(BaseModel):
+    """Represent the validated wire model contract."""
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
 class Hello(WireModel):
+    """Represent the validated hello contract."""
     type: Literal["hello"] = "hello"
     protocol: ProtocolVersion = PROTOCOL_VERSION
     runtime_id: str
@@ -34,27 +36,32 @@ class Hello(WireModel):
 
 
 class Welcome(WireModel):
+    """Represent the validated welcome contract."""
     type: Literal["welcome"] = "welcome"
     protocol: ProtocolVersion = PROTOCOL_VERSION
     heartbeat_interval: float = 10.0
 
 
 class ConfigMessage(WireModel):
+    """Represent the validated config message contract."""
     type: Literal["config"] = "config"
     options: dict[str, JsonValue] = Field(default_factory=dict)
 
 
 class Ready(WireModel):
+    """Represent the validated ready contract."""
     type: Literal["ready"] = "ready"
     capabilities: tuple[str, ...] = ()
 
 
 class Heartbeat(WireModel):
+    """Represent the validated heartbeat contract."""
     type: Literal["heartbeat"] = "heartbeat"
     monotonic: float
 
 
 class Shutdown(WireModel):
+    """Represent the validated shutdown contract."""
     type: Literal["shutdown"] = "shutdown"
     reason: str = "requested"
 
@@ -68,6 +75,7 @@ class EventTrace(WireModel):
 
 
 class EventMessage(WireModel):
+    """Represent the validated event message contract."""
     type: Literal["event"] = "event"
     correlation_id: str
     payload: dict[str, JsonValue]
@@ -75,6 +83,7 @@ class EventMessage(WireModel):
 
 
 class EventAccepted(WireModel):
+    """Represent the validated event accepted contract."""
     type: Literal["event_accepted"] = "event_accepted"
     correlation_id: str
     status: Literal["accepted", "overloaded", "invalid"]
@@ -91,6 +100,7 @@ class EventCompleted(WireModel):
 
 
 class ActionRequest(WireModel):
+    """Represent the validated action request contract."""
     type: Literal["action"] = "action"
     correlation_id: str
     payload: dict[str, JsonValue]
@@ -98,6 +108,7 @@ class ActionRequest(WireModel):
 
 
 class ActionResponse(WireModel):
+    """Represent the validated action response contract."""
     type: Literal["action_result"] = "action_result"
     correlation_id: str
     ok: bool
@@ -114,6 +125,7 @@ class ManagementRequest(WireModel):
 
 
 class ManagementResponse(WireModel):
+    """Represent the validated management response contract."""
     type: Literal["management_result"] = "management_result"
     correlation_id: str = Field(min_length=1)
     ok: bool
@@ -123,6 +135,7 @@ class ManagementResponse(WireModel):
 
 
 class ErrorMessage(WireModel):
+    """Represent the validated error message contract."""
     type: Literal["error"] = "error"
     code: str
     message: str
@@ -152,6 +165,15 @@ WIRE_ADAPTER: TypeAdapter[WireMessage] = TypeAdapter(WireMessage)
 async def read_message(
     reader: asyncio.StreamReader, *, max_size: int = MAX_FRAME_SIZE
 ) -> WireMessage:
+    """Read message.
+
+    Args:
+        reader: The reader value used by the operation.
+        max_size: The max size value used by the operation.
+
+    Returns:
+        The requested `WireMessage` value.
+    """
     try:
         header = await reader.readexactly(4)
     except asyncio.IncompleteReadError as exc:
@@ -170,6 +192,15 @@ async def read_message(
 
 
 async def write_message(writer: asyncio.StreamWriter, message: WireMessage) -> None:
+    """Write message.
+
+    Args:
+        writer: The writer value used by the operation.
+        message: Message content associated with the operation.
+
+    Returns:
+        None.
+    """
     payload = message.model_dump_json(exclude_none=True).encode("utf-8")
     if not payload or len(payload) > MAX_FRAME_SIZE:
         raise RuntimeProtocolError(f"runtime message is too large: {len(payload)}")
@@ -179,7 +210,14 @@ async def write_message(writer: asyncio.StreamWriter, message: WireMessage) -> N
 
 
 def json_mapping(value: Mapping[str, Any]) -> dict[str, JsonValue]:
-    """Validate an arbitrary mapping as JSON-safe data."""
+    """Validate an arbitrary mapping as JSON-safe data.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `dict[str, JsonValue]` result produced by the operation.
+    """
 
     decoded = json_value(value)
     if not isinstance(decoded, dict):
@@ -188,7 +226,14 @@ def json_mapping(value: Mapping[str, Any]) -> dict[str, JsonValue]:
 
 
 def json_value(value: Any) -> JsonValue:
-    """Validate an arbitrary value as JSON-safe protocol data."""
+    """Validate an arbitrary value as JSON-safe protocol data.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `JsonValue` result produced by the operation.
+    """
 
     encoded = json.dumps(
         _mutable_json(value),
@@ -201,6 +246,18 @@ def json_value(value: Any) -> JsonValue:
 
 
 def _mutable_json(value: Any) -> Any:
+    """Implement the mutable json operation for the component.
+
+    Args:
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `Any` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_mutable_json`. It delegates to `_mutable_json`, `items`
+        while keeping intermediate state local to the owning operation.
+    """
     if isinstance(value, Mapping):
         return {str(key): _mutable_json(item) for key, item in value.items()}
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):

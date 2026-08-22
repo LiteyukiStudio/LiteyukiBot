@@ -10,6 +10,11 @@ from .connection import create_satori
 
 
 def satori_plugin() -> AdapterPlugin:
+    """Implement the satori plugin operation for the component.
+
+    Returns:
+        The `AdapterPlugin` result produced by the operation.
+    """
     return AdapterPlugin(
         kind="satori",
         distribution="liteyukibot-v7-adapter-satori",

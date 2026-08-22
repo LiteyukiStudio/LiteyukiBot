@@ -246,6 +246,8 @@ async def test_daemon_projects_broker_diagnostics_without_exposing_broker_wire_f
                 active_capacity=16,
                 terminal_events=2,
                 terminal_capacity=64,
+                terminal_content_bytes=1_024,
+                terminal_content_bytes_capacity=4_096,
                 sessions=("astrbot",),
             )
 
@@ -302,6 +304,8 @@ async def test_daemon_projects_broker_diagnostics_without_exposing_broker_wire_f
         "active_capacity": 16,
         "terminal": 2,
         "terminal_capacity": 64,
+        "terminal_content_bytes": 1_024,
+        "terminal_content_bytes_capacity": 4_096,
         "bridges": [{"id": "astrbot", "state": "connected", "session_state": "registered"}],
     }
     assert page["items"] == [

@@ -13,6 +13,19 @@ type ResourceConverter = Callable[[str], object]
 
 
 def _token(kind: str, value: object) -> str:
+    """Implement the token operation for the component.
+
+    Args:
+        kind: The kind value used by the operation.
+        value: Value to validate, transform, or store.
+
+    Returns:
+        The `str` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_token`. It delegates to `strip`, `any`, `isspace` while
+        keeping intermediate state local to the owning operation.
+    """
     if not isinstance(value, str):
         raise TypeError(f"resource {kind} must be a string")
     if not value or value != value.strip() or any(character.isspace() for character in value):
@@ -22,6 +35,7 @@ def _token(kind: str, value: object) -> str:
 
 @dataclass(frozen=True, slots=True)
 class ResourceField:
+    """Represent the resource field contract."""
     name: str
     converter: ResourceConverter
     description: str = ""
@@ -33,6 +47,11 @@ class ResourceField:
     delete_capability: str | None = None
 
     def __post_init__(self) -> None:
+        """Validate and normalize the resource field after initialization.
+
+        Returns:
+            None.
+        """
         _token("field name", self.name)
         if not callable(self.converter):
             raise TypeError(f"resource field {self.name} converter must be callable")
@@ -56,6 +75,14 @@ class ResourceField:
             raise ValueError(f"resource field {self.name} must enable at least one operation")
 
     def capability_for(self, operation: ResourceOperation) -> str | None:
+        """Implement the capability for operation for the resource field.
+
+        Args:
+            operation: The operation value used by the operation.
+
+        Returns:
+            The `str | None` result produced by the operation.
+        """
         return {
             "inspect": self.inspect_capability,
             "set": self.set_capability,
@@ -65,12 +92,18 @@ class ResourceField:
 
 @dataclass(frozen=True, slots=True)
 class ResourceSpec:
+    """Represent the resource spec contract."""
     name: str
     path: tuple[str, ...] = ()
     summary: str = ""
     fields: tuple[ResourceField, ...] = ()
 
     def __post_init__(self) -> None:
+        """Validate and normalize the resource spec after initialization.
+
+        Returns:
+            None.
+        """
         _token("name", self.name)
         if isinstance(self.path, str):
             raise TypeError("resource path must be a sequence of tokens")
@@ -90,19 +123,57 @@ class ResourceSpec:
 
     @property
     def resource_path(self) -> tuple[str, ...]:
+        """Return the resource spec's resource path.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+        """
         return (*self.path, self.name)
 
 
 class ResourceProvider(Protocol):
-    def inspect(self, principal: Principal, field: ResourceField) -> Awaitable[object]: ...
+    """Define the structural interface required from a resource provider."""
+    def inspect(self, principal: Principal, field: ResourceField) -> Awaitable[object]:
+        """Inspect the resource provider operation.
 
-    def set(self, principal: Principal, field: ResourceField, value: object) -> Awaitable[None]: ...
+        Args:
+            principal: Authenticated principal requesting the operation.
+            field: The field value used by the operation.
 
-    def delete(self, principal: Principal, field: ResourceField) -> Awaitable[None]: ...
+        Returns:
+            The `Awaitable[object]` result produced by the operation.
+        """
+        ...
+
+    def set(self, principal: Principal, field: ResourceField, value: object) -> Awaitable[None]:
+        """Set the resource provider operation.
+
+        Args:
+            principal: Authenticated principal requesting the operation.
+            field: The field value used by the operation.
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `Awaitable[None]` result produced by the operation.
+        """
+        ...
+
+    def delete(self, principal: Principal, field: ResourceField) -> Awaitable[None]:
+        """Delete the resource provider operation.
+
+        Args:
+            principal: Authenticated principal requesting the operation.
+            field: The field value used by the operation.
+
+        Returns:
+            The `Awaitable[None]` result produced by the operation.
+        """
+        ...
 
 
 @dataclass(frozen=True, slots=True)
 class ResourceRegistration:
+    """Represent the resource registration contract."""
     id: int
     owner: str
     spec: ResourceSpec

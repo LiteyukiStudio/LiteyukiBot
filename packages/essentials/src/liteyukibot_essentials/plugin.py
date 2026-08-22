@@ -42,14 +42,41 @@ _PROFILE_SERVICE = ServiceKey("liteyukibot.profile", 2)
 
 
 class _ProfileSnapshot(Protocol):
+    """Define the structural interface required from a profile snapshot."""
     language: str
 
 
 class _ProfileService(Protocol):
-    async def get(self, principal: Principal) -> _ProfileSnapshot: ...
+    """Define the structural interface required from a profile service."""
+    async def get(self, principal: Principal) -> _ProfileSnapshot:
+        """Return the profile service operation.
+
+        Args:
+            principal: Authenticated principal requesting the operation.
+
+        Returns:
+            The `_ProfileSnapshot` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_ProfileService.get`. It performs the local state transition
+            directly and is not a stable extension boundary.
+        """
+        ...
 
 
 def _language(config: Mapping[str, Any]) -> Language:
+    """Implement the language operation for the component.
+
+    Args:
+        config: Validated configuration used by the operation.
+
+    Returns:
+        The `Language` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_language`. It delegates to `join`, `sorted`, `get`, `cast`
+        while keeping intermediate state local to the owning operation.
+    """
     unknown = set(config) - {"language"}
     if unknown:
         raise ValueError(f"unknown essentials config keys: {', '.join(sorted(unknown))}")
@@ -60,6 +87,14 @@ def _language(config: Mapping[str, Any]) -> Language:
 
 
 async def setup(context: PluginContext) -> None:
+    """Implement the setup operation for the component.
+
+    Args:
+        context: Runtime or authorization context for the operation.
+
+    Returns:
+        None.
+    """
     if any(context.config.get(key) == 1 for key in ("api_version", "schema_version", "version")):
         raise RuntimeError("migration_required")
     language = _language(context.config)
@@ -70,6 +105,18 @@ async def setup(context: PluginContext) -> None:
     text = messages(language, translator)
 
     async def event_language(invocation: CommandInvocation) -> Language:
+        """Implement the event language operation for the setup.
+
+        Args:
+            invocation: The invocation value used by the operation.
+
+        Returns:
+            The `Language` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `setup.event_language`. It delegates to `get`, `warning`,
+            `cast` while keeping intermediate state local to the owning operation.
+        """
         if profile_service is None or invocation.event.actor is None:
             return language
         try:
@@ -85,6 +132,19 @@ async def setup(context: PluginContext) -> None:
         return cast(Language, profile.language) if profile.language in {"zh-CN", "en"} else language
 
     async def help_command(invocation: CommandInvocation) -> HandlerResult:
+        """Implement the help command operation for the setup.
+
+        Args:
+            invocation: The invocation value used by the operation.
+
+        Returns:
+            The `HandlerResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `setup.help_command`. It delegates to `event_language`,
+            `parse`, `reply`, `render_parse_error` while keeping intermediate state local to the owning
+            operation.
+        """
         current_language = await event_language(invocation)
         try:
             parsed = invocation.parse()
@@ -110,6 +170,19 @@ async def setup(context: PluginContext) -> None:
         )
 
     async def status_command(invocation: CommandInvocation) -> HandlerResult:
+        """Return the status of command.
+
+        Args:
+            invocation: The invocation value used by the operation.
+
+        Returns:
+            The requested `HandlerResult` value.
+
+        Notes:
+            Internal implementation detail for `setup.status_command`. It delegates to `reply`,
+            `render_status`, `snapshot`, `event_language` while keeping intermediate state local to the
+            owning operation.
+        """
         return invocation.reply(
             render_status(status_provider.snapshot(), language=await event_language(invocation), translator=translator)
         )
@@ -141,6 +214,19 @@ async def setup(context: PluginContext) -> None:
     context.defer_cleanup(lambda: command_service.unregister_owner(context.id))
 
     async def help_tool(authorization: AuthorizationContext, _arguments: Mapping[str, Any]) -> dict[str, object]:
+        """Implement the help tool operation for the setup.
+
+        Args:
+            authorization: Authenticated authorization context for the request.
+            _arguments: The arguments value used by the operation.
+
+        Returns:
+            The `dict[str, object]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `setup.help_tool`. It delegates to `visible_context` while
+            keeping intermediate state local to the owning operation.
+        """
         return {
             "commands": [
                 {
@@ -152,6 +238,19 @@ async def setup(context: PluginContext) -> None:
         }
 
     async def status_tool(_authorization: AuthorizationContext, _arguments: Mapping[str, Any]) -> dict[str, object]:
+        """Return the status of tool.
+
+        Args:
+            _authorization: The authorization value used by the operation.
+            _arguments: The arguments value used by the operation.
+
+        Returns:
+            The requested `dict[str, object]` value.
+
+        Notes:
+            Internal implementation detail for `setup.status_tool`. It delegates to `snapshot` while keeping
+            intermediate state local to the owning operation.
+        """
         snapshot = status_provider.snapshot()
         return {
             "version": snapshot.version,
@@ -167,6 +266,14 @@ async def setup(context: PluginContext) -> None:
 
 
 def create_plugin(version: str) -> PluginDefinition:
+    """Create plugin.
+
+    Args:
+        version: The version value used by the operation.
+
+    Returns:
+        The `PluginDefinition` result produced by the operation.
+    """
     return PluginDefinition(
         manifest=PluginManifest(
             id="liteyukibot.essentials",

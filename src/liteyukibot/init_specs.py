@@ -10,6 +10,7 @@ from typing import Any
 
 
 class InitFieldKind(StrEnum):
+    """Enumerate the supported init field kind values."""
     STRING = "string"
     INTEGER = "integer"
     BOOLEAN = "boolean"
@@ -33,6 +34,11 @@ class InitFieldSpec:
     secret_environment: str | None = None
 
     def __post_init__(self) -> None:
+        """Validate and normalize the init field spec after initialization.
+
+        Returns:
+            None.
+        """
         if not self.key or self.key != self.key.strip() or "." in self.key:
             raise ValueError("initialization field key must be a non-empty simple identifier")
         if not self.label.strip():
@@ -51,16 +57,23 @@ class InitFieldSpec:
 
 @dataclass(frozen=True, slots=True)
 class PluginInitSpec:
+    """Represent the plugin init spec contract."""
     description: str = ""
     description_key: str | None = None
     fields: tuple[InitFieldSpec, ...] = ()
 
     def __post_init__(self) -> None:
+        """Validate and normalize the plugin init spec after initialization.
+
+        Returns:
+            None.
+        """
         _validate_fields(self.fields)
 
 
 @dataclass(frozen=True, slots=True)
 class RuntimeInitSpec:
+    """Represent the runtime init spec contract."""
     default_id: str
     description: str = ""
     description_key: str | None = None
@@ -68,6 +81,11 @@ class RuntimeInitSpec:
     fields: tuple[InitFieldSpec, ...] = ()
 
     def __post_init__(self) -> None:
+        """Validate and normalize the runtime init spec after initialization.
+
+        Returns:
+            None.
+        """
         if not self.default_id or self.default_id != self.default_id.strip():
             raise ValueError("runtime initialization default_id must be a non-empty trimmed string")
         _validate_fields(self.fields)
@@ -75,6 +93,18 @@ class RuntimeInitSpec:
 
 
 def _validate_fields(fields: tuple[InitFieldSpec, ...]) -> None:
+    """Validate fields.
+
+    Args:
+        fields: Structured fields attached to the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_validate_fields`. It performs the local state transition
+        directly and is not a stable extension boundary.
+    """
     if len({field.key for field in fields}) != len(fields):
         raise ValueError("initialization field keys must be unique")
 

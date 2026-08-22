@@ -30,10 +30,12 @@ MANAGEMENT_ADMIN = "liteyukibot.management.admin"
 
 
 class ManagementError(RuntimeError):
+    """Raised when the management contract cannot be satisfied."""
     pass
 
 
 class ManagementDanger(StrEnum):
+    """Enumerate the supported management danger values."""
     NONE = "none"
     CONFIRM = "confirm"
 
@@ -47,16 +49,27 @@ class ManagementCaller:
     capabilities: frozenset[str]
 
     def __post_init__(self) -> None:
+        """Validate and normalize the management caller after initialization.
+
+        Returns:
+            None.
+        """
         if not self.id or self.id != self.id.strip() or not self.kind or self.kind != self.kind.strip():
             raise ValueError("management caller identity must be non-empty and trimmed")
 
     @classmethod
     def local_terminal(cls) -> ManagementCaller:
+        """Implement the local terminal operation for the management caller.
+
+        Returns:
+            The `ManagementCaller` result produced by the operation.
+        """
         return cls("local-terminal", "terminal", frozenset({MANAGEMENT_ADMIN}))
 
 
 @dataclass(frozen=True, slots=True)
 class ManagementCommand:
+    """Represent the management command contract."""
     name: tuple[str, ...]
     summary: str
     capability: str = MANAGEMENT_ADMIN
@@ -64,6 +77,11 @@ class ManagementCommand:
     owner: str = "liteyukibot.kernel"
 
     def __post_init__(self) -> None:
+        """Validate and normalize the management command after initialization.
+
+        Returns:
+            None.
+        """
         if not self.name or any(not token or token != token.strip() for token in self.name):
             raise ValueError("management command name must contain non-empty tokens")
         if not self.summary.strip() or not self.capability.strip() or not self.owner.strip():
@@ -72,6 +90,7 @@ class ManagementCommand:
 
 @dataclass(frozen=True, slots=True)
 class ManagementResult:
+    """Represent the validated management result contract."""
     text: str
     data: Mapping[str, Any] | Sequence[Any] | str | int | float | bool | None = None
 
@@ -86,12 +105,28 @@ class ManagementOperationRoute:
     target_field: str | None = None
 
     def target_for(self, input: Mapping[str, Any]) -> str:
+        """Implement the target for operation for the management operation route.
+
+        Args:
+            input: The input value used by the operation.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
         if self.target_field is None:
             return "kernel"
         target = input.get(self.target_field)
         return target if isinstance(target, str) else ""
 
     def arguments_from_input(self, input: Mapping[str, Any]) -> tuple[str, ...]:
+        """Implement the arguments from input operation for the management operation route.
+
+        Args:
+            input: The input value used by the operation.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+        """
         arguments: list[str] = []
         for field in self.argument_fields:
             value = input.get(field)
@@ -103,6 +138,14 @@ class ManagementOperationRoute:
         return tuple(arguments)
 
     def input_from_arguments(self, arguments: tuple[str, ...]) -> dict[str, str]:
+        """Implement the input from arguments operation for the management operation route.
+
+        Args:
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `dict[str, str]` result produced by the operation.
+        """
         if len(arguments) > len(self.argument_fields):
             raise ManagementError(f"too many arguments for operation: {self.definition.id}")
         return {field: arguments[index] for index, field in enumerate(self.argument_fields[: len(arguments)])}
@@ -116,28 +159,74 @@ class ManagementRegistry:
     """Atomic, capability-gated command registry with no shell escape hatch."""
 
     def __init__(self) -> None:
+        """Initialize the management registry.
+
+        Returns:
+            None.
+        """
         self._commands: dict[tuple[str, ...], tuple[ManagementCommand, ManagementHandler]] = {}
         self._authorizer: ManagementAuthorizer | None = None
 
     def set_authorizer(self, authorizer: ManagementAuthorizer | None) -> None:
+        """Set authorizer.
+
+        Args:
+            authorizer: The authorizer value used by the operation.
+
+        Returns:
+            None.
+        """
         self._authorizer = authorizer
 
     def register(self, command: ManagementCommand, handler: ManagementHandler) -> None:
+        """Register the management registry operation.
+
+        Args:
+            command: Command or operation name to execute.
+            handler: Callable that handles the dispatched value.
+
+        Returns:
+            None.
+        """
         if command.name in self._commands:
             raise ManagementError(f"management command already registered: {' '.join(command.name)}")
         self._commands[command.name] = (command, handler)
 
     def command(self, name: tuple[str, ...]) -> ManagementCommand:
+        """Implement the command operation for the management registry.
+
+        Args:
+            name: Stable name used to identify the value.
+
+        Returns:
+            The `ManagementCommand` result produced by the operation.
+        """
         try:
             return self._commands[name][0]
         except KeyError as error:
             raise ManagementError(f"management command is not registered: {' '.join(name)}") from error
 
     def unregister_owner(self, owner: str) -> None:
+        """Unregister owner.
+
+        Args:
+            owner: Stable owner identity for the registration.
+
+        Returns:
+            None.
+        """
         for name in [name for name, (command, _handler) in self._commands.items() if command.owner == owner]:
             del self._commands[name]
 
     def commands(self, caller: ManagementCaller) -> tuple[ManagementCommand, ...]:
+        """Implement the commands operation for the management registry.
+
+        Args:
+            caller: The caller value used by the operation.
+
+        Returns:
+            The `tuple[ManagementCommand, ...]` result produced by the operation.
+        """
         return tuple(
             command
             for command, _handler in sorted(self._commands.values(), key=lambda item: item[0].name)
@@ -145,6 +234,15 @@ class ManagementRegistry:
         )
 
     def resolve(self, caller: ManagementCaller, line: str) -> tuple[ManagementCommand, tuple[str, ...]]:
+        """Resolve the management registry operation.
+
+        Args:
+            caller: The caller value used by the operation.
+            line: The line value used by the operation.
+
+        Returns:
+            The requested `tuple[ManagementCommand, tuple[str, ...]]` value.
+        """
         try:
             tokens = tuple(shlex.split(line))
         except ValueError as error:
@@ -165,21 +263,55 @@ class ManagementRegistry:
         return command, tokens[consumed:]
 
     def _allows(self, caller: ManagementCaller, capability: str) -> bool:
+        """Determine whether the management registry operation is allowed.
+
+        Args:
+            caller: The caller value used by the operation.
+            capability: The capability value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+
+        Notes:
+            Internal implementation detail for `ManagementRegistry._allows`. It delegates to `_authorizer`
+            while keeping intermediate state local to the owning operation.
+        """
         if caller.kind == "terminal" and caller.id == "local-terminal":
             return capability in caller.capabilities
         return self._authorizer(caller, capability) if self._authorizer is not None else False
 
     async def execute(self, caller: ManagementCaller, line: str) -> tuple[ManagementCommand, ManagementResult]:
+        """Execute one request through the management registry.
+
+        Args:
+            caller: The caller value used by the operation.
+            line: The line value used by the operation.
+
+        Returns:
+            The `tuple[ManagementCommand, ManagementResult]` result produced by the operation.
+        """
         command, arguments = self.resolve(caller, line)
         return command, await self._commands[command.name][1](caller, arguments)
 
 
 class ManagementService(Protocol):
+    """Define the structural interface required from a management service."""
     registry: ManagementRegistry
 
 
 class KernelManagement:
+    """Represent the kernel management contract."""
     def __init__(self, app: Any, workspace: str, stop: Callable[[], None]) -> None:
+        """Initialize the kernel management.
+
+        Args:
+            app: The app value used by the operation.
+            workspace: The workspace value used by the operation.
+            stop: The stop value used by the operation.
+
+        Returns:
+            None.
+        """
         self.registry = ManagementRegistry()
         self._app = app
         self._workspace = workspace
@@ -190,7 +322,14 @@ class KernelManagement:
         self._register_kernel_commands()
 
     async def start_operations(self, data_dir: Path) -> None:
-        """Start durable command execution after all command providers are registered."""
+        """Start durable command execution after all command providers are registered.
+
+        Args:
+            data_dir: Filesystem path for the data.
+
+        Returns:
+            None.
+        """
 
         if self.operations is not None:
             return
@@ -200,7 +339,14 @@ class KernelManagement:
         await ledger.start()
 
     def bind_operations(self, ledger: OperationLedger) -> None:
-        """Bind a daemon-owned ledger without starting or closing it."""
+        """Bind a daemon-owned ledger without starting or closing it.
+
+        Args:
+            ledger: The ledger value used by the operation.
+
+        Returns:
+            None.
+        """
 
         if self.operations is not None and self.operations is not ledger:
             raise ManagementError("management operation service is already bound")
@@ -211,6 +357,11 @@ class KernelManagement:
             ledger.register(route.definition, self.execute_structured_operation)
 
     async def close_operations(self) -> None:
+        """Close operations.
+
+        Returns:
+            None.
+        """
         if self.operations is not None and self._owns_operations:
             await self.operations.close()
         self.operations = None
@@ -225,7 +376,18 @@ class KernelManagement:
         confirmed: bool,
         idempotency_key: str,
     ) -> OperationRecord:
-        """Queue an authorized management command without persisting its raw arguments."""
+        """Queue an authorized management command without persisting its raw arguments.
+
+        Args:
+            principal: Authenticated principal requesting the operation.
+            command_name: The command name value used by the operation.
+            arguments: JSON-safe arguments supplied to the operation.
+            confirmed: The confirmed value used by the operation.
+            idempotency_key: The idempotency key value used by the operation.
+
+        Returns:
+            The `OperationRecord` result produced by the operation.
+        """
 
         if self.operations is None:
             raise ManagementError("management operation service is not running")
@@ -269,7 +431,14 @@ class KernelManagement:
         )
 
     def operation_catalog(self, principal: ManagementPrincipal) -> tuple[dict[str, Any], ...]:
-        """Return WebUI-safe operation metadata, without exposing command strings."""
+        """Return WebUI-safe operation metadata, without exposing command strings.
+
+        Args:
+            principal: Authenticated principal requesting the operation.
+
+        Returns:
+            The `tuple[dict[str, Any], ...]` result produced by the operation.
+        """
 
         return tuple(
             route.definition.catalog_entry()
@@ -288,7 +457,20 @@ class KernelManagement:
         confirmation_target: str | None,
         idempotency_key: str,
     ) -> OperationRecord:
-        """Submit a catalogued operation without accepting a raw command line."""
+        """Submit a catalogued operation without accepting a raw command line.
+
+        Args:
+            principal: Authenticated principal requesting the operation.
+            operation_id: Stable identifier for the operation.
+            target: Target value or location for the operation.
+            input: The input value used by the operation.
+            confirmed: The confirmed value used by the operation.
+            confirmation_target: The confirmation target value used by the operation.
+            idempotency_key: The idempotency key value used by the operation.
+
+        Returns:
+            The `OperationRecord` result produced by the operation.
+        """
 
         if self.operations is None:
             raise ManagementError("management operation service is not running")
@@ -310,7 +492,15 @@ class KernelManagement:
         )
 
     async def execute_structured_operation(self, principal: ManagementPrincipal, request: OperationRequest) -> str:
-        """Execute one validated route for a daemon-owned ledger worker bridge."""
+        """Execute one validated route for a daemon-owned ledger worker bridge.
+
+        Args:
+            principal: Authenticated principal requesting the operation.
+            request: Validated request object to process.
+
+        Returns:
+            The `str` result produced by the operation.
+        """
 
         route = self._operation_routes.get(request.operation)
         if route is None:
@@ -323,6 +513,20 @@ class KernelManagement:
         return await self._execute_operation(principal, request)
 
     async def _execute_operation(self, principal: ManagementPrincipal, request: OperationRequest) -> str:
+        """Execute operation.
+
+        Args:
+            principal: Authenticated principal requesting the operation.
+            request: Validated request object to process.
+
+        Returns:
+            The `str` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._execute_operation`. It delegates to
+            `_command_name`, `get`, `arguments_from_input`, `all` while keeping intermediate state local to
+            the owning operation.
+        """
         command_name = self._command_name(request.operation)
         route = self._operation_routes.get(request.operation)
         if route is not None:
@@ -341,6 +545,19 @@ class KernelManagement:
         return "ok"
 
     def _route_is_authorized(self, principal: ManagementPrincipal, route: ManagementOperationRoute) -> bool:
+        """Route is authorized.
+
+        Args:
+            principal: Authenticated principal requesting the operation.
+            route: The route value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._route_is_authorized`. It delegates to
+            `allows`, `resolve`, `join` while keeping intermediate state local to the owning operation.
+        """
         if not principal.allows(route.definition.capability):
             return False
         caller = ManagementCaller(principal.subject, principal.kind.value, principal.capabilities)
@@ -352,10 +569,35 @@ class KernelManagement:
 
     @staticmethod
     def _operation_name(command_name: tuple[str, ...]) -> str:
+        """Implement the operation name operation for the kernel management.
+
+        Args:
+            command_name: The command name value used by the operation.
+
+        Returns:
+            The `str` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._operation_name`. It delegates to `join`
+            while keeping intermediate state local to the owning operation.
+        """
         return f"management.{'.'.join(command_name)}"
 
     @staticmethod
     def _command_name(operation_name: str) -> tuple[str, ...]:
+        """Implement the command name operation for the kernel management.
+
+        Args:
+            operation_name: The operation name value used by the operation.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._command_name`. It delegates to
+            `startswith`, `split`, `removeprefix`, `any` while keeping intermediate state local to the
+            owning operation.
+        """
         if not operation_name.startswith("management."):
             raise ManagementError("invalid management operation")
         tokens = tuple(operation_name.removeprefix("management.").split("."))
@@ -365,6 +607,18 @@ class KernelManagement:
 
     @staticmethod
     def _audit_key(data_dir: Path) -> bytes:
+        """Implement the audit key operation for the kernel management.
+
+        Args:
+            data_dir: Filesystem path for the data.
+
+        Returns:
+            The `bytes` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._audit_key`. It delegates to `read_bytes`,
+            `token_bytes`, `open`, `fdopen` while keeping intermediate state local to the owning operation.
+        """
         path = data_dir / "operations.audit-key"
         try:
             key = path.read_bytes()
@@ -383,6 +637,16 @@ class KernelManagement:
         return key
 
     def _register_kernel_commands(self) -> None:
+        """Register kernel commands.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._register_kernel_commands`. It delegates to
+            `register`, `_register_operation_routes` while keeping intermediate state local to the owning
+            operation.
+        """
         registrations = (
             (("help",), "List available management commands", self._help, ManagementDanger.NONE),
             (("status",), "Show kernel status", self._status, ManagementDanger.NONE),
@@ -415,6 +679,15 @@ class KernelManagement:
         self._register_operation_routes()
 
     def _register_operation_routes(self) -> None:
+        """Register operation routes.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._register_operation_routes`. It delegates
+            to `register` while keeping intermediate state local to the owning operation.
+        """
         object_schema = {"type": "object", "additionalProperties": False}
 
         def register(
@@ -426,6 +699,24 @@ class KernelManagement:
             confirmation: OperationConfirmation = OperationConfirmation.EXPLICIT,
             target_field: str | None = "runtime_id",
         ) -> None:
+            """Register the register operation routes operation.
+
+            Args:
+                command_name: The command name value used by the operation.
+                fields: Structured fields attached to the operation.
+                schema: The schema value used by the operation.
+                impact: The impact value used by the operation.
+                confirmation: The confirmation value used by the operation.
+                target_field: The target field value used by the operation.
+
+            Returns:
+                None.
+
+            Notes:
+                Internal implementation detail for `KernelManagement._register_operation_routes.register`. It
+                delegates to `_operation_name`, `command` while keeping intermediate state local to the owning
+                operation.
+            """
             operation_id = self._operation_name(command_name)
             command = self.registry.command(command_name)
             self._operation_routes[operation_id] = ManagementOperationRoute(
@@ -481,6 +772,19 @@ class KernelManagement:
         )
 
     async def _help(self, caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
+        """Implement the help operation for the kernel management.
+
+        Args:
+            caller: The caller value used by the operation.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `ManagementResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._help`. It delegates to `join`, `commands`
+            while keeping intermediate state local to the owning operation.
+        """
         if arguments:
             raise ManagementError("usage: help")
         text = "\n".join(
@@ -489,11 +793,37 @@ class KernelManagement:
         return ManagementResult(text)
 
     async def _status(self, _caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
+        """Return the status of the kernel management operation.
+
+        Args:
+            _caller: The caller value used by the operation.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `ManagementResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._status`. It delegates to `status` while
+            keeping intermediate state local to the owning operation.
+        """
         if arguments:
             raise ManagementError("usage: status")
         return ManagementResult(str(self._app.status()), self._app.status())
 
     async def _runtime_list(self, _caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
+        """Implement the runtime list operation for the kernel management.
+
+        Args:
+            _caller: The caller value used by the operation.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `ManagementResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._runtime_list`. It delegates to `health`,
+            `join`, `items` while keeping intermediate state local to the owning operation.
+        """
         if arguments:
             raise ManagementError("usage: runtime list")
         health = self._app.runtimes.health()
@@ -501,24 +831,75 @@ class KernelManagement:
         return ManagementResult(text, health)
 
     async def _runtime_restart(self, _caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
+        """Implement the runtime restart operation for the kernel management.
+
+        Args:
+            _caller: The caller value used by the operation.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `ManagementResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._runtime_restart`. It delegates to
+            `restart` while keeping intermediate state local to the owning operation.
+        """
         if len(arguments) != 1:
             raise ManagementError("usage: runtime restart <runtime-id>")
         await self._app.runtimes.restart(arguments[0])
         return ManagementResult(f"restarted {arguments[0]}")
 
     async def _runtime_start(self, _caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
+        """Implement the runtime start operation for the kernel management.
+
+        Args:
+            _caller: The caller value used by the operation.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `ManagementResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._runtime_start`. It delegates to
+            `start_runtime` while keeping intermediate state local to the owning operation.
+        """
         if len(arguments) != 1:
             raise ManagementError("usage: runtime start <runtime-id>")
         await self._app.runtimes.start_runtime(arguments[0])
         return ManagementResult(f"started {arguments[0]}")
 
     async def _runtime_stop(self, _caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
+        """Implement the runtime stop operation for the kernel management.
+
+        Args:
+            _caller: The caller value used by the operation.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `ManagementResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._runtime_stop`. It delegates to
+            `stop_runtime` while keeping intermediate state local to the owning operation.
+        """
         if len(arguments) != 1:
             raise ManagementError("usage: runtime stop <runtime-id>")
         await self._app.runtimes.stop_runtime(arguments[0])
         return ManagementResult(f"stopped {arguments[0]}")
 
     def _runtime(self, runtime_id: str) -> Any:
+        """Implement the runtime operation for the kernel management.
+
+        Args:
+            runtime_id: Stable runtime identifier.
+
+        Returns:
+            The `Any` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._runtime`. It performs the local state
+            transition directly and is not a stable extension boundary.
+        """
         try:
             runtime = self._app.settings.runtimes[runtime_id]
         except KeyError as error:
@@ -528,6 +909,19 @@ class KernelManagement:
         return runtime
 
     async def _plugin_list(self, _caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
+        """Implement the plugin list operation for the kernel management.
+
+        Args:
+            _caller: The caller value used by the operation.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `ManagementResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._plugin_list`. It delegates to
+            `list_generations`, `join` while keeping intermediate state local to the owning operation.
+        """
         if len(arguments) > 1:
             raise ManagementError("usage: plugin list [runtime-id]")
         store = RuntimeGenerationStore(self._workspace)
@@ -536,6 +930,19 @@ class KernelManagement:
         return ManagementResult(text or "no runtime plugin generations")
 
     async def _plugin_install(self, _caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
+        """Implement the plugin install operation for the kernel management.
+
+        Args:
+            _caller: The caller value used by the operation.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `ManagementResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._plugin_install`. It delegates to
+            `_runtime`, `install` while keeping intermediate state local to the owning operation.
+        """
         if len(arguments) not in (2, 3):
             raise ManagementError("usage: plugin install <runtime-id> <bundle-id> [source-id]")
         runtime = self._runtime(arguments[0])
@@ -548,6 +955,19 @@ class KernelManagement:
         return ManagementResult(f"installed {arguments[1]} as {result.generation.id}")
 
     async def _plugin_update(self, _caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
+        """Implement the plugin update operation for the kernel management.
+
+        Args:
+            _caller: The caller value used by the operation.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `ManagementResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._plugin_update`. It delegates to
+            `_runtime`, `update` while keeping intermediate state local to the owning operation.
+        """
         if len(arguments) not in (1, 2):
             raise ManagementError("usage: plugin update <runtime-id> [source-id]")
         runtime = self._runtime(arguments[0])
@@ -559,12 +979,51 @@ class KernelManagement:
         return ManagementResult(f"updated {arguments[0]} as {result.generation.id}")
 
     async def _plugin_enable(self, _caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
+        """Implement the plugin enable operation for the kernel management.
+
+        Args:
+            _caller: The caller value used by the operation.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `ManagementResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._plugin_enable`. It delegates to
+            `_change_plugin` while keeping intermediate state local to the owning operation.
+        """
         return await self._change_plugin("enable", arguments)
 
     async def _plugin_disable(self, _caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
+        """Implement the plugin disable operation for the kernel management.
+
+        Args:
+            _caller: The caller value used by the operation.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `ManagementResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._plugin_disable`. It delegates to
+            `_change_plugin` while keeping intermediate state local to the owning operation.
+        """
         return await self._change_plugin("disable", arguments)
 
     async def _change_plugin(self, operation: str, arguments: tuple[str, ...]) -> ManagementResult:
+        """Implement the change plugin operation for the kernel management.
+
+        Args:
+            operation: The operation value used by the operation.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `ManagementResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._change_plugin`. It delegates to
+            `_runtime`, `getattr` while keeping intermediate state local to the owning operation.
+        """
         if len(arguments) != 2:
             raise ManagementError(f"usage: plugin {operation} <runtime-id> <bundle-id>")
         runtime = self._runtime(arguments[0])
@@ -573,6 +1032,19 @@ class KernelManagement:
         return ManagementResult(f"{operation}d {arguments[1]} as {result.generation.id}")
 
     async def _plugin_uninstall(self, _caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
+        """Implement the plugin uninstall operation for the kernel management.
+
+        Args:
+            _caller: The caller value used by the operation.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `ManagementResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._plugin_uninstall`. It delegates to
+            `_runtime`, `uninstall` while keeping intermediate state local to the owning operation.
+        """
         if len(arguments) != 2:
             raise ManagementError("usage: plugin uninstall <runtime-id> <bundle-id>")
         runtime = self._runtime(arguments[0])
@@ -583,18 +1055,57 @@ class KernelManagement:
         return ManagementResult(f"uninstalled {arguments[1]}; {generation}")
 
     async def _plugin_rollback(self, _caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
+        """Implement the plugin rollback operation for the kernel management.
+
+        Args:
+            _caller: The caller value used by the operation.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `ManagementResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._plugin_rollback`. It delegates to
+            `rollback` while keeping intermediate state local to the owning operation.
+        """
         if len(arguments) != 1:
             raise ManagementError("usage: plugin rollback <runtime-id>")
         deployment = RuntimeGenerationStore(self._workspace).rollback(arguments[0])
         return ManagementResult(f"activated {deployment.runtime_generations[arguments[0]]}")
 
     async def _plugin_gc(self, _caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
+        """Implement the plugin gc operation for the kernel management.
+
+        Args:
+            _caller: The caller value used by the operation.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `ManagementResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._plugin_gc`. It delegates to `collect`
+            while keeping intermediate state local to the owning operation.
+        """
         if len(arguments) > 1:
             raise ManagementError("usage: plugin gc [runtime-id]")
         collected = RuntimeGenerationStore(self._workspace).collect(arguments[0] if arguments else None)
         return ManagementResult(f"collected {len(collected)} runtime plugin generation(s)")
 
     async def _stop_command(self, _caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
+        """Stop command.
+
+        Args:
+            _caller: The caller value used by the operation.
+            arguments: JSON-safe arguments supplied to the operation.
+
+        Returns:
+            The `ManagementResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `KernelManagement._stop_command`. It delegates to `_stop`
+            while keeping intermediate state local to the owning operation.
+        """
         if arguments:
             raise ManagementError("usage: stop")
         self._stop()

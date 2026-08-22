@@ -98,6 +98,47 @@ def test_artifact_store_rejects_zip_path_traversal(tmp_path: Path) -> None:
         store.extract_zip(digest, tmp_path / "generation" / "payload")
 
 
+def test_artifact_store_rejects_too_many_zip_members(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    archive = tmp_path / "many.zip"
+    with zipfile.ZipFile(archive, "w") as value:
+        value.writestr("first.txt", "1")
+        value.writestr("second.txt", "2")
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    store = ArtifactStore(tmp_path)
+    store.import_file(archive, digest)
+    monkeypatch.setattr("liteyukibot.plugin_store._MAX_ARCHIVE_MEMBERS", 1)
+
+    with pytest.raises(PluginStoreError, match="too many members"):
+        store.extract_zip(digest, tmp_path / "generation" / "payload")
+
+
+def test_artifact_store_rejects_large_zip_member(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    archive = tmp_path / "large-member.zip"
+    with zipfile.ZipFile(archive, "w") as value:
+        value.writestr("large.txt", "12")
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    store = ArtifactStore(tmp_path)
+    store.import_file(archive, digest)
+    monkeypatch.setattr("liteyukibot.plugin_store._MAX_ARCHIVE_MEMBER_BYTES", 1)
+
+    with pytest.raises(PluginStoreError, match="member is too large"):
+        store.extract_zip(digest, tmp_path / "generation" / "payload")
+
+
+def test_artifact_store_rejects_large_total_extracted_size(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    archive = tmp_path / "large-total.zip"
+    with zipfile.ZipFile(archive, "w") as value:
+        value.writestr("first.txt", "12")
+        value.writestr("second.txt", "34")
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    store = ArtifactStore(tmp_path)
+    store.import_file(archive, digest)
+    monkeypatch.setattr("liteyukibot.plugin_store._MAX_ARCHIVE_EXTRACTED_BYTES", 3)
+
+    with pytest.raises(PluginStoreError, match="extracted size limit"):
+        store.extract_zip(digest, tmp_path / "generation" / "payload")
+
+
 def test_artifact_store_requires_a_verified_local_artifact(tmp_path: Path) -> None:
     archive = tmp_path / "plugin.zip"
     archive.write_bytes(b"verified payload")

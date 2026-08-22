@@ -25,20 +25,38 @@ type PluginFactory = Callable[[Scope], Awaitable[None] | None]
 
 
 class ActionServiceLike(Protocol):
-    async def execute(self, action: ActionEnvelope, *, event: EventEnvelope | None = None) -> ActionResult: ...
+    """Define the structural interface required from a action service like."""
+    async def execute(self, action: ActionEnvelope, *, event: EventEnvelope | None = None) -> ActionResult:
+        """Execute one request through the action service like.
+
+        Args:
+            action: Action request being processed.
+            event: Event associated with the operation.
+
+        Returns:
+            The `ActionResult` result produced by the operation.
+        """
+        ...
 
 
 @dataclass(frozen=True, slots=True)
 class CordisEvent:
+    """Represent the validated cordis event contract."""
     envelope: EventEnvelope
 
     @property
     def raw(self) -> EventEnvelope:
+        """Return the cordis event's raw.
+
+        Returns:
+            The `EventEnvelope` result produced by the operation.
+        """
         return self.envelope
 
 
 @dataclass(slots=True)
 class CordisSession:
+    """Represent the cordis session contract."""
     event: CordisEvent
     scope: Scope
     actions: ActionServiceLike
@@ -46,15 +64,43 @@ class CordisSession:
     _action_results: list[ActionResult] = field(default_factory=list)
 
     def emit(self, action: ActionEnvelope) -> None:
+        """Implement the emit operation for the cordis session.
+
+        Args:
+            action: Action request being processed.
+
+        Returns:
+            None.
+        """
         self._emitted.append(self._bind(action))
 
     async def execute(self, action: ActionEnvelope) -> ActionResult:
+        """Execute one request through the cordis session.
+
+        Args:
+            action: Action request being processed.
+
+        Returns:
+            The `ActionResult` result produced by the operation.
+        """
         action = self._bind(action)
         result = await self.actions.execute(action, event=self.event.envelope)
         self._action_results.append(result)
         return result
 
     def _bind(self, action: ActionEnvelope) -> ActionEnvelope:
+        """Bind the cordis session operation.
+
+        Args:
+            action: Action request being processed.
+
+        Returns:
+            The `ActionEnvelope` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `CordisSession._bind`. It delegates to `model_copy` while
+            keeping intermediate state local to the owning operation.
+        """
         if action.event_id not in (None, self.event.envelope.id):
             raise ValueError("Cordis action event_id must match the wrapped event")
         if action.event_id is None:
@@ -64,6 +110,7 @@ class CordisSession:
 
 @dataclass(frozen=True, slots=True)
 class CordisDispatchResult:
+    """Represent the validated cordis dispatch result contract."""
     actions: tuple[ActionEnvelope, ...]
     failures: tuple[str, ...]
     action_results: tuple[ActionResult, ...] = ()
@@ -71,6 +118,7 @@ class CordisDispatchResult:
 
 @dataclass(frozen=True, slots=True)
 class _Registration:
+    """Represent the registration contract."""
     scope: Scope
     kind: str
     value: object
@@ -89,6 +137,18 @@ class CordisManager(RegistrationSink):
         runtime_context_factory: Callable[[str], RuntimeContextFactory] | None = None,
         runtime_resolver: RuntimeResolver | None = None,
     ) -> None:
+        """Initialize the cordis manager.
+
+        Args:
+            events: The events value used by the operation.
+            actions: The actions value used by the operation.
+            audit: The audit value used by the operation.
+            runtime_context_factory: The runtime context factory value used by the operation.
+            runtime_resolver: The runtime resolver value used by the operation.
+
+        Returns:
+            None.
+        """
         self.events = events
         self.actions = actions
         self.audit = audit or CordisAuditService()
@@ -108,6 +168,11 @@ class CordisManager(RegistrationSink):
 
     @property
     def tool_handlers(self) -> Mapping[str, object]:
+        """Return the cordis manager's tool handlers.
+
+        Returns:
+            The `Mapping[str, object]` result produced by the operation.
+        """
         handlers: dict[str, object] = {}
         for registration in self._registrations:
             if registration.kind != "tool":
@@ -118,7 +183,11 @@ class CordisManager(RegistrationSink):
 
     @property
     def active_plugin_ids(self) -> tuple[str, ...]:
-        """Return activated plugin IDs without exposing the internal scope map."""
+        """Return activated plugin IDs without exposing the internal scope map.
+
+        Returns:
+            The `tuple[str, ...]` result produced by the operation.
+        """
 
         return tuple(self._plugin_scopes)
 
@@ -130,6 +199,17 @@ class CordisManager(RegistrationSink):
         declared_tools: tuple[str, ...] = (),
         runtime_requirements: tuple[RuntimeRequirement, ...] = (),
     ) -> Scope:
+        """Activate the cordis manager operation.
+
+        Args:
+            plugin_id: Stable identifier for the plugin.
+            factory: The factory value used by the operation.
+            declared_tools: The declared tools value used by the operation.
+            runtime_requirements: The runtime requirements value used by the operation.
+
+        Returns:
+            The `Scope` result produced by the operation.
+        """
         if plugin_id in self._plugin_scopes:
             raise ValueError(f"Cordis plugin {plugin_id!r} is already activated")
         scope = self.scope.child(plugin_id=plugin_id, runtime_requirements=runtime_requirements)
@@ -169,12 +249,27 @@ class CordisManager(RegistrationSink):
         return scope
 
     async def start(self) -> None:
+        """Start the cordis manager.
+
+        Returns:
+            None.
+        """
         if self._closed:
             raise RuntimeError("Cordis manager is closed")
         if self._subscription is None:
             self._subscription = self.events.subscribe(self._handle_event, name="cordis.manager")
 
     def register(self, scope: Scope, kind: str, value: object) -> Disposer:
+        """Register the cordis manager operation.
+
+        Args:
+            scope: The scope value used by the operation.
+            kind: The kind value used by the operation.
+            value: Value to validate, transform, or store.
+
+        Returns:
+            The `Disposer` result produced by the operation.
+        """
         if self._closed:
             raise RuntimeError("Cordis manager is closed")
         registration = _Registration(scope, kind, value, self._sequence)
@@ -188,6 +283,15 @@ class CordisManager(RegistrationSink):
                 scope.own(_task_set_disposer(tasks))
 
         def dispose() -> None:
+            """Implement the dispose operation for the register.
+
+            Returns:
+                None.
+
+            Notes:
+                Internal implementation detail for `CordisManager.register.dispose`. It delegates to `suppress`,
+                `remove`, `any`, `pop` while keeping intermediate state local to the owning operation.
+            """
             with contextlib.suppress(ValueError):
                 self._registrations.remove(registration)
             if kind == "scheduler" and not any(
@@ -198,10 +302,30 @@ class CordisManager(RegistrationSink):
         return dispose
 
     async def _handle_event(self, envelope: EventEnvelope) -> HandlerResult:
+        """Handle event.
+
+        Args:
+            envelope: The envelope value used by the operation.
+
+        Returns:
+            The `HandlerResult` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `CordisManager._handle_event`. It delegates to `dispatch`
+            while keeping intermediate state local to the owning operation.
+        """
         result = await self.dispatch(envelope)
         return HandlerResult(actions=result.actions)
 
     async def dispatch(self, envelope: EventEnvelope) -> CordisDispatchResult:
+        """Dispatch the cordis manager operation.
+
+        Args:
+            envelope: The envelope value used by the operation.
+
+        Returns:
+            The `CordisDispatchResult` result produced by the operation.
+        """
         event = CordisEvent(envelope)
         event_scope = self.scope.child(plugin_id="event")
         session = CordisSession(event, event_scope, self.actions)
@@ -220,6 +344,20 @@ class CordisManager(RegistrationSink):
     async def _run_ordered(
         self, session: CordisSession, registrations: tuple[_Registration, ...], failures: list[str]
     ) -> None:
+        """Run ordered.
+
+        Args:
+            session: The session value used by the operation.
+            registrations: The registrations value used by the operation.
+            failures: The failures value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `CordisManager._run_ordered`. It delegates to `sorted`,
+            `cast`, `_invoke` while keeping intermediate state local to the owning operation.
+        """
         ordered = sorted(
             (item for item in registrations if item.kind == "ordered"),
             key=lambda item: (cast(tuple[int, object], item.value)[0], item.sequence),
@@ -236,11 +374,38 @@ class CordisManager(RegistrationSink):
     async def _run_parallel(
         self, session: CordisSession, registrations: tuple[_Registration, ...], failures: list[str]
     ) -> None:
+        """Run parallel.
+
+        Args:
+            session: The session value used by the operation.
+            registrations: The registrations value used by the operation.
+            failures: The failures value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `CordisManager._run_parallel`. It delegates to `gather`,
+            `run_branch`, `extend` while keeping intermediate state local to the owning operation.
+        """
         branches = [item for item in registrations if item.kind == "parallel"]
         if not branches:
             return
 
         async def run_branch(item: _Registration) -> tuple[CordisSession, list[str]]:
+            """Run branch.
+
+            Args:
+                item: The item value used by the operation.
+
+            Returns:
+                The `tuple[CordisSession, list[str]]` result produced by the operation.
+
+            Notes:
+                Internal implementation detail for `CordisManager._run_parallel.run_branch`. It delegates to
+                `child`, `_invoke`, `_session_callback`, `cast` while keeping intermediate state local to the
+                owning operation.
+            """
             branch_scope = session.scope.child(plugin_id=item.scope.plugin_id)
             branch = CordisSession(session.event, branch_scope, self.actions)
             branch_failures: list[str] = []
@@ -262,15 +427,50 @@ class CordisManager(RegistrationSink):
     async def _run_waterfall(
         self, session: CordisSession, registrations: tuple[_Registration, ...], failures: list[str]
     ) -> None:
+        """Run waterfall.
+
+        Args:
+            session: The session value used by the operation.
+            registrations: The registrations value used by the operation.
+            failures: The failures value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `CordisManager._run_waterfall`. It delegates to `call` while
+            keeping intermediate state local to the owning operation.
+        """
         stages = [item for item in registrations if item.kind == "waterfall"]
 
         async def call(index: int) -> None:
+            """Implement the call operation for the run waterfall.
+
+            Args:
+                index: The index value used by the operation.
+
+            Returns:
+                None.
+
+            Notes:
+                Internal implementation detail for `CordisManager._run_waterfall.call`. It delegates to
+                `_invoke`, `cast` while keeping intermediate state local to the owning operation.
+            """
             if index >= len(stages):
                 return
             item = stages[index]
             called = False
 
             async def next_stage() -> None:
+                """Implement the next stage operation for the call.
+
+                Returns:
+                    None.
+
+                Notes:
+                    Internal implementation detail for `CordisManager._run_waterfall.call.next_stage`. It delegates
+                    to `call` while keeping intermediate state local to the owning operation.
+                """
                 nonlocal called
                 if called:
                     raise RuntimeError("Cordis waterfall next() may be called at most once")
@@ -290,6 +490,21 @@ class CordisManager(RegistrationSink):
     async def _run_routes(
         self, session: CordisSession, registrations: tuple[_Registration, ...], failures: list[str]
     ) -> None:
+        """Run routes.
+
+        Args:
+            session: The session value used by the operation.
+            registrations: The registrations value used by the operation.
+            failures: The failures value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `CordisManager._run_routes`. It delegates to `cast`,
+            `predicate`, `isawaitable`, `_record_failure` while keeping intermediate state local to the
+            owning operation.
+        """
         for item in (item for item in registrations if item.kind == "route"):
             name, predicate, handler = cast(tuple[str, RoutePredicate, OrderedHandler], item.value)
             try:
@@ -313,6 +528,20 @@ class CordisManager(RegistrationSink):
                 )
 
     def _schedule_custom(self, event: CordisEvent, registrations: tuple[_Registration, ...]) -> None:
+        """Implement the schedule custom operation for the cordis manager.
+
+        Args:
+            event: Event associated with the operation.
+            registrations: The registrations value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `CordisManager._schedule_custom`. It delegates to
+            `setdefault`, `create_task`, `_run_scheduler`, `add` while keeping intermediate state local to
+            the owning operation.
+        """
         work = tuple(item.value for item in registrations if item.kind != "scheduler")
         for item in (item for item in registrations if item.kind == "scheduler"):
             tasks = self._scheduler_tasks.setdefault(item.scope, set())
@@ -323,9 +552,32 @@ class CordisManager(RegistrationSink):
             task.add_done_callback(tasks.discard)
 
     async def _run_scheduler(self, item: _Registration, event: CordisEvent, work: tuple[object, ...]) -> None:
+        """Run scheduler.
+
+        Args:
+            item: The item value used by the operation.
+            event: Event associated with the operation.
+            work: The work value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `CordisManager._run_scheduler`. It delegates to `cast`,
+            `_invoke` while keeping intermediate state local to the owning operation.
+        """
         scheduler = cast(Scheduler, item.value)
 
         def invoke() -> Awaitable[None] | None:
+            """Invoke the run scheduler operation.
+
+            Returns:
+                The `Awaitable[None] | None` result produced by the operation.
+
+            Notes:
+                Internal implementation detail for `CordisManager._run_scheduler.invoke`. It delegates to
+                `scheduler` while keeping intermediate state local to the owning operation.
+            """
             return scheduler(event, work)
 
         await self._invoke(item, "scheduler", event.envelope.id, invoke, [])
@@ -338,6 +590,23 @@ class CordisManager(RegistrationSink):
         callback: Callable[[], object],
         failures: list[str],
     ) -> bool:
+        """Invoke the cordis manager operation.
+
+        Args:
+            item: The item value used by the operation.
+            operation: The operation value used by the operation.
+            event_id: Stable event identifier.
+            callback: Callback invoked by the operation.
+            failures: The failures value used by the operation.
+
+        Returns:
+            Whether the requested condition is satisfied.
+
+        Notes:
+            Internal implementation detail for `CordisManager._invoke`. It delegates to `monotonic`,
+            `callback`, `isawaitable`, `_record_failure` while keeping intermediate state local to the
+            owning operation.
+        """
         started = monotonic()
         try:
             result = callback()
@@ -367,6 +636,23 @@ class CordisManager(RegistrationSink):
         error: Exception,
         started: float | None = None,
     ) -> None:
+        """Record failure.
+
+        Args:
+            item: The item value used by the operation.
+            operation: The operation value used by the operation.
+            event_id: Stable event identifier.
+            failures: The failures value used by the operation.
+            error: The error value used by the operation.
+            started: The started value used by the operation.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `CordisManager._record_failure`. It delegates to `append`,
+            `record` while keeping intermediate state local to the owning operation.
+        """
         failures.append(f"{operation}: {type(error).__name__}")
         self.audit.record(
             plugin_id=item.scope.plugin_id,
@@ -379,6 +665,11 @@ class CordisManager(RegistrationSink):
         )
 
     async def aclose(self) -> None:
+        """Close the cordis manager asynchronously.
+
+        Returns:
+            None.
+        """
         if self._closed:
             return
         self._closed = True
@@ -389,26 +680,94 @@ class CordisManager(RegistrationSink):
 
 
 async def _cancel_task(task: asyncio.Task[object]) -> None:
+    """Implement the cancel task operation for the component.
+
+    Args:
+        task: The task value used by the operation.
+
+    Returns:
+        None.
+
+    Notes:
+        Internal implementation detail for `_cancel_task`. It delegates to `cancel`, `suppress` while
+        keeping intermediate state local to the owning operation.
+    """
     task.cancel()
     with contextlib.suppress(asyncio.CancelledError):
         await task
 
 
 def _session_callback(session: CordisSession, handler: OrderedHandler) -> Callable[[], Awaitable[None] | None]:
+    """Implement the session callback operation for the component.
+
+    Args:
+        session: The session value used by the operation.
+        handler: Callable that handles the dispatched value.
+
+    Returns:
+        The `Callable[[], Awaitable[None] | None]` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_session_callback`. It performs the local state transition
+        directly and is not a stable extension boundary.
+    """
     def invoke() -> Awaitable[None] | None:
+        """Invoke the session callback operation.
+
+        Returns:
+            The `Awaitable[None] | None` result produced by the operation.
+
+        Notes:
+            Internal implementation detail for `_session_callback.invoke`. It delegates to `handler` while
+            keeping intermediate state local to the owning operation.
+        """
         return handler(session)
 
     return invoke
 
 
 def _task_set_disposer(tasks: set[asyncio.Task[None]]) -> Disposer:
+    """Implement the task set disposer operation for the component.
+
+    Args:
+        tasks: The tasks value used by the operation.
+
+    Returns:
+        The `Disposer` result produced by the operation.
+
+    Notes:
+        Internal implementation detail for `_task_set_disposer`. It performs the local state transition
+        directly and is not a stable extension boundary.
+    """
     async def dispose() -> None:
+        """Implement the dispose operation for the task set disposer.
+
+        Returns:
+            None.
+
+        Notes:
+            Internal implementation detail for `_task_set_disposer.dispose`. It delegates to `gather`,
+            `_cancel_task` while keeping intermediate state local to the owning operation.
+        """
         await asyncio.gather(*(_cancel_task(task) for task in tuple(tasks)), return_exceptions=True)
 
     return dispose
 
 
 def _scope_belongs_to(scope: Scope, parent: Scope) -> bool:
+    """Implement the scope belongs to operation for the component.
+
+    Args:
+        scope: The scope value used by the operation.
+        parent: The parent value used by the operation.
+
+    Returns:
+        Whether the requested condition is satisfied.
+
+    Notes:
+        Internal implementation detail for `_scope_belongs_to`. It performs the local state transition
+        directly and is not a stable extension boundary.
+    """
     current: Scope | None = scope
     while current is not None:
         if current is parent:
