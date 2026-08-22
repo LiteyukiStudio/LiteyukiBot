@@ -373,6 +373,7 @@ class AstrBotGateway:
             BotSnapshot(
                 bot_id=bot_id,
                 adapter=platform_name,
+                capabilities=("message.send",),
                 extensions={
                     "astrbot": {
                         "platform_id": platform_id,

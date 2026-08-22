@@ -268,7 +268,7 @@ async def test_astrbot_runtime_api_accepts_portable_message_and_exact_bot_send(
     assert bot_snapshot.result == {
         "bot_id": "bot-1",
         "adapter": "aiocqhttp",
-        "capabilities": [],
+        "capabilities": ["message.send"],
         "extensions": {"astrbot": {"platform_id": "qq", "platform_name": "aiocqhttp"}},
     }
 
