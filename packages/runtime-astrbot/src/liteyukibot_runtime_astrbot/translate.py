@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope, Message, Segment
+from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope, Message, Segment, canonical_source_event_id
 
 
-def to_event_envelope(event: Any, *, reply_token: str) -> EventEnvelope:
+def to_event_envelope(event: Any, *, reply_token: str, runtime_id: str = "astrbot") -> EventEnvelope:
     """Project the stable public AstrBot event properties into a portable message."""
 
     message = getattr(event, "message_obj", None)
@@ -22,8 +22,8 @@ def to_event_envelope(event: Any, *, reply_token: str) -> EventEnvelope:
     text = str(event.get_message_str() or "")
     segments = _segments(event.get_messages(), text)
     return EventEnvelope(
-        id=source_event_id,
-        runtime_id="astrbot",
+        id=canonical_source_event_id(runtime_id, f"{platform_id}:{bot_id}", source_event_id),
+        runtime_id=runtime_id,
         adapter=_identifier(event.get_platform_name(), "platform name"),
         bot_id=bot_id,
         type="message.created",
@@ -34,6 +34,7 @@ def to_event_envelope(event: Any, *, reply_token: str) -> EventEnvelope:
         raw={
             "astrbot": {
                 "platform_id": platform_id,
+                "source_event_id": source_event_id,
                 "message_type": str(event.get_message_type()),
             }
         },

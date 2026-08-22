@@ -24,7 +24,7 @@ from liteyukibot.broker import (
     RuntimeApiInvoke,
 )
 from liteyukibot.config import AppSettings
-from liteyukibot.events import ConversationRef, JsonValue, Message, Segment
+from liteyukibot.events import ConversationRef, JsonValue, Message, Segment, canonical_source_event_id
 
 
 class FakeAstrEvent:
@@ -124,12 +124,19 @@ def test_astrbot_bridge_declares_experimental_package_metadata() -> None:
 def test_astrbot_ingress_projects_native_event_without_suppressing_pipeline() -> None:
     envelope = to_event_envelope(FakeAstrEvent(), reply_token="qq:message-1")
 
-    assert envelope.id == "message-1"
+    assert envelope.id == canonical_source_event_id("astrbot", "qq:bot-1", "message-1")
     assert envelope.runtime_id == "astrbot"
     assert envelope.adapter == "aiocqhttp"
     assert envelope.conversation == ConversationRef(id="group-1", type="group")
     assert envelope.message == Message(segments=(Segment(type="text", data={"text": "hello"}),))
     assert envelope.reply_token == "qq:message-1"
+
+
+def test_astrbot_event_identity_uses_the_configured_bridge_id() -> None:
+    envelope = to_event_envelope(FakeAstrEvent(), reply_token="qq:message-1", runtime_id="astrbot-qq")
+
+    assert envelope.runtime_id == "astrbot-qq"
+    assert envelope.id == canonical_source_event_id("astrbot-qq", "qq:bot-1", "message-1")
 
 
 def test_astrbot_event_snapshot_includes_portable_message_details() -> None:
@@ -147,13 +154,15 @@ async def test_astrbot_gateway_publishes_broker_ingress_and_retains_reply_route(
     async def send(ingress: object) -> None:
         published.append(ingress)
 
-    gateway = AstrBotGateway(Path("workspace"), "astrbot", RecordingLogger())
+    gateway = AstrBotGateway(Path("workspace"), "astrbot-prod", RecordingLogger())
     gateway._ingress_sink = send
     await gateway._publish_ingress(FakeAstrEvent())
 
     ingress = cast(EventIngress, published[0])
     assert ingress.topic == MESSAGE_CREATED_TOPIC
     assert ingress.ordering_key == "group:group-1"
+    assert ingress.source_event_id == canonical_source_event_id("astrbot-prod", "qq:bot-1", "message-1")
+    assert ingress.payload["runtime_id"] == "astrbot-prod"
     assert "qq:message-1" in gateway._reply_events
     assert gateway._bot_platforms == {"bot-1": "qq"}
 

@@ -23,6 +23,7 @@ from liteyukibot.broker import (
     ActionOutcome,
     ActionRequest,
     ActionResourceDeclaration,
+    BoundedIngressPublisher,
     BridgeAccess,
     BridgeClient,
     BridgeManifest,
@@ -108,7 +109,7 @@ class AstrBotGateway:
         self._log_bridge: AstrBotLogBridge | None = None
         self._import_root: str | None = None
         self._ingress_sink: IngressSink | None = None
-        self._ingress_tasks: set[asyncio.Task[None]] = set()
+        self._ingress_publisher: BoundedIngressPublisher[Any] | None = None
         self._reply_events: OrderedDict[str, tuple[str, Any]] = OrderedDict()
         self._events_by_source_id: OrderedDict[str, Any] = OrderedDict()
         self._bot_platforms: dict[str, str] = {}
@@ -131,6 +132,12 @@ class AstrBotGateway:
         try:
             await lifecycle.initialize()
             self._ingress_sink = ingress_sink
+            self._ingress_publisher = BoundedIngressPublisher(
+                self._publish_ingress,
+                on_error=self._report_ingress_error,
+                task_name=f"liteyuki-astrbot-ingress:{self.bridge_id}",
+            )
+            await self._ingress_publisher.start()
             if self._logging_settings is not None:
                 configured = configure_logging(self._logging_settings)
                 self._output = configured.bind(component="astrbot", bridge=self.bridge_id)
@@ -138,6 +145,9 @@ class AstrBotGateway:
             log_bridge.start(astrbot_core.LogManager, astrbot_core.logger)
         except BaseException:
             configure_publisher(None)
+            if self._ingress_publisher is not None:
+                await self._ingress_publisher.close()
+                self._ingress_publisher = None
             if log_bridge is not None:
                 await log_bridge.close()
             self._remove_import_root()
@@ -156,13 +166,10 @@ class AstrBotGateway:
         lifecycle, self._lifecycle = self._lifecycle, None
         lifecycle_task, self._lifecycle_task = self._lifecycle_task, None
         log_bridge, self._log_bridge = self._log_bridge, None
-        ingress_tasks = tuple(self._ingress_tasks)
-        self._ingress_tasks.clear()
-        for task in ingress_tasks:
-            task.cancel()
-        if ingress_tasks:
-            await asyncio.gather(*ingress_tasks, return_exceptions=True)
+        ingress_publisher, self._ingress_publisher = self._ingress_publisher, None
         try:
+            if ingress_publisher is not None:
+                await ingress_publisher.close()
             if lifecycle_task is not None and not lifecycle_task.done():
                 lifecycle_task.cancel()
                 await asyncio.gather(lifecycle_task, return_exceptions=True)
@@ -199,7 +206,10 @@ class AstrBotGateway:
         if request.api_id == "event.snapshot":
             if request.arguments:
                 return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_INVALID_ARGUMENTS")
-            return RuntimeApiOutcome(success=True, result=self._event_snapshot(event))
+            return RuntimeApiOutcome(
+                success=True,
+                result=self._event_snapshot(event, runtime_id=self.bridge_id),
+            )
         if request.api_id == "event.send":
             if request.authorization.bot_id != str(event.get_self_id()):
                 return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_AUTHORIZATION_MISMATCH")
@@ -242,9 +252,15 @@ class AstrBotGateway:
         return RuntimeApiOutcome(success=False, error_code="RUNTIME_API_NOT_REGISTERED")
 
     def _spawn_ingress(self, event: Any) -> None:
-        task = asyncio.create_task(self._publish_ingress(event), name="astrbot-broker-ingress")
-        self._ingress_tasks.add(task)
-        task.add_done_callback(self._ingress_tasks.discard)
+        publisher = self._ingress_publisher
+        if publisher is not None:
+            publisher.submit(event)
+
+    def _report_ingress_error(self, error: Exception) -> None:
+        self._output.bind(runtime=self.bridge_id, component="ingress").warning(
+            "AstrBot broker ingress delivery failed: {}",
+            type(error).__name__,
+        )
 
     async def _publish_ingress(self, event: Any) -> None:
         sink = self._ingress_sink
@@ -256,7 +272,7 @@ class AstrBotGateway:
             self._output.warning("AstrBot event cannot be published without platform and message IDs")
             return
         reply_token = f"{platform_id}:{source_event_id}"
-        envelope = to_event_envelope(event, reply_token=reply_token)
+        envelope = to_event_envelope(event, reply_token=reply_token, runtime_id=self.bridge_id)
         self._reply_events[reply_token] = (envelope.bot_id, event)
         self._events_by_source_id[envelope.id] = event
         self._reply_events.move_to_end(reply_token)
@@ -310,10 +326,11 @@ class AstrBotGateway:
         raise ValueError("AstrBot platform is no longer available")
 
     @staticmethod
-    def _event_snapshot(event: Any) -> dict[str, JsonValue]:
+    def _event_snapshot(event: Any, *, runtime_id: str = "astrbot") -> dict[str, JsonValue]:
         envelope = to_event_envelope(
             event,
             reply_token=f"{event.get_platform_id()}:{getattr(getattr(event, 'message_obj', None), 'message_id', '')}",
+            runtime_id=runtime_id,
         )
         message = envelope.message
         assert message is not None

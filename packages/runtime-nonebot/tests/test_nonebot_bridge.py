@@ -145,6 +145,74 @@ def test_nonebot_host_wires_bridge_local_options_into_nonebot(monkeypatch: pytes
 
 
 @pytest.mark.asyncio
+async def test_nonebot_host_passes_configured_bridge_id_to_event_normalizer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeDriver:
+        def on_startup(self, _callback: Any) -> None:
+            return None
+
+        def on_shutdown(self, _callback: Any) -> None:
+            return None
+
+    class FakeNoneBot:
+        def __init__(self) -> None:
+            self.driver = FakeDriver()
+
+        def init(self, **_options: Any) -> None:
+            return None
+
+        def get_driver(self) -> FakeDriver:
+            return self.driver
+
+        def load_plugin(self, _name: str) -> object:
+            return object()
+
+        def load_plugins(self, _directory: str) -> list[object]:
+            return [object()]
+
+    callbacks: list[Any] = []
+    adapters_module = ModuleType("nonebot.adapters")
+    adapters_module.Bot = object  # type: ignore[attr-defined]
+    adapters_module.Event = object  # type: ignore[attr-defined]
+    message_module = ModuleType("nonebot.message")
+
+    def register_callback(callback: Any) -> Any:
+        callbacks.append(callback)
+        return callback
+
+    message_module.event_preprocessor = register_callback  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "nonebot.adapters", adapters_module)
+    monkeypatch.setitem(sys.modules, "nonebot.message", message_module)
+
+    envelope = EventEnvelope(
+        id="source-event",
+        runtime_id="nonebot-prod",
+        adapter="test",
+        bot_id="bot",
+        type="message.created",
+        conversation=ConversationRef(id="conversation"),
+    )
+    runtime_ids: list[str | None] = []
+
+    def normalize(_bot: object, _event: object, *, runtime_id: str | None = None) -> EventEnvelope:
+        runtime_ids.append(runtime_id)
+        return envelope
+
+    monkeypatch.setattr("liteyukibot_runtime_nonebot.host.normalize_event", normalize)
+    host = NoneBotHost(
+        FakeNoneBot(),
+        cast(Any, SimpleNamespace(client=SimpleNamespace())),
+        "nonebot-prod",
+    )
+    host.install()
+
+    await callbacks[0](object(), object())
+
+    assert runtime_ids == ["nonebot-prod"]
+
+
+@pytest.mark.asyncio
 async def test_nonebot_runtime_api_uses_portable_dtos_and_exact_bot_identity(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

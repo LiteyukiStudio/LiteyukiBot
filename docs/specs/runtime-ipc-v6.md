@@ -108,6 +108,25 @@ JSON-safe payload. It has no kernel event ID and cannot select recipients. The
 broker creates the immutable `kernel_event_id`, attaches the registered source
 bridge ID as provenance, and freezes the admitted event.
 
+### Alpha10 source identity and provider ingress
+
+The source event ID is provider-owned and must equal the `id` inside the
+`EventEnvelope` carried by the ingress payload. The Alpha10 reference bridges
+use the shared form
+`v1:<bridge-id>:<provider-scope>:<upstream-id>`, with each component URL-encoded
+and validated as a non-empty trimmed string. The bridge ID is the configured
+authenticated bridge ID, not merely the provider kind. This keeps source IDs
+distinct across bridge instances, provider sessions, and upstream ID spaces;
+the broker still assigns the separate `kernel_event_id`.
+
+NoneBot and AstrBot use a bounded FIFO best-effort publisher at their local
+framework boundary. It accepts at most 256 pending items, applies a one-second
+deadline to each broker send, and records queue drops, conversion failures,
+timeouts, and broker failures without propagating them into the provider's
+local event pipeline. Closing a provider stops this publisher before the broker
+session and may discard items still pending in its queue. This is a local
+reliability policy, not a broker persistence or exactly-once guarantee.
+
 ## Event Delivery And Ledger
 
 The broker selects subscribers from registered manifests: `full` bridges

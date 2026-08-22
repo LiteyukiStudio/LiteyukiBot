@@ -14,6 +14,12 @@ bridge publishes the Alpha9 v1.1 `event.snapshot`, `event.send`,
 `bot.snapshot`, and `bot.send` runtime APIs. Only portable JSON DTOs cross the
 Broker boundary.
 
+The configured bridge ID is passed into every translated event and snapshot.
+Source event IDs use the shared `v1:` composite of bridge ID, platform/bot
+scope, and upstream event ID. Ingress forwarding is bounded and best-effort:
+temporary broker failures or queue overflow do not fail AstrBot's local
+pipeline.
+
 The `experimental` grade is declared by this package's bridge definition. The
 gateway uses AstrBot's public extension surface and does not use the legacy
 Liteyuki child-runtime protocol or runtime event routes.

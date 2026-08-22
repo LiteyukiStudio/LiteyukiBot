@@ -17,6 +17,7 @@ from liteyukibot.broker import (
     ActionOutcome,
     ActionRequest,
     ActionResourceDeclaration,
+    BoundedIngressPublisher,
     BridgeAccess,
     BridgeClient,
     BridgeManifest,
@@ -60,6 +61,7 @@ class NoneBotHost:
         self.events: OrderedDict[str, tuple[Any, Any]] = OrderedDict()
         self._events_by_source_id: OrderedDict[str, tuple[Any, Any, EventEnvelope]] = OrderedDict()
         self._serve_task: asyncio.Task[None] | None = None
+        self._ingress_publisher: BoundedIngressPublisher[EventIngress] | None = None
 
     def install(self) -> None:
         """Install the fixed B5 ingress and message.send action owner."""
@@ -84,7 +86,7 @@ class NoneBotHost:
                 raise RuntimeError(f"NoneBot plugin directory loaded no plugins: {directory}")
 
         async def forward(bot: Any, event: Any) -> None:
-            envelope = normalize_event(bot, event)
+            envelope = normalize_event(bot, event, runtime_id=self.bridge_id)
             if envelope.reply_token is not None:
                 self.events[envelope.reply_token] = (bot, event)
                 self.events.move_to_end(envelope.reply_token)
@@ -94,7 +96,9 @@ class NoneBotHost:
             self._events_by_source_id.move_to_end(envelope.id)
             while len(self._events_by_source_id) > 2048:
                 self._events_by_source_id.popitem(last=False)
-            await runner.client.send_event_ingress(self.event_ingress(envelope))
+            publisher = self._ingress_publisher
+            if publisher is not None:
+                publisher.submit(self.event_ingress(envelope))
 
         adapters = importlib.import_module("nonebot.adapters")
         forward.__annotations__ = {
@@ -104,8 +108,19 @@ class NoneBotHost:
         }
         importlib.import_module("nonebot.message").event_preprocessor(forward)
 
+        async def send_ingress(ingress: EventIngress) -> None:
+            await runner.client.send_event_ingress(ingress)
+
+        self._ingress_publisher = BoundedIngressPublisher(
+            send_ingress,
+            on_error=self._report_ingress_error,
+            task_name=f"liteyuki-nonebot-ingress:{self.bridge_id}",
+        )
+
         async def on_startup() -> None:
             await runner.start()
+            assert self._ingress_publisher is not None
+            await self._ingress_publisher.start()
             self._serve_task = asyncio.create_task(runner.serve_forever(), name="liteyuki-nonebot-broker")
 
         async def on_shutdown() -> None:
@@ -113,11 +128,21 @@ class NoneBotHost:
                 self._serve_task.cancel()
                 await asyncio.gather(self._serve_task, return_exceptions=True)
                 self._serve_task = None
-            await runner.stop()
-            runner.close()
+            try:
+                if self._ingress_publisher is not None:
+                    await self._ingress_publisher.close()
+            finally:
+                await runner.stop()
+                runner.close()
 
         driver.on_startup(on_startup)
         driver.on_shutdown(on_shutdown)
+
+    def _report_ingress_error(self, error: Exception) -> None:
+        logger.bind(runtime=self.bridge_id, component="ingress").warning(
+            "NoneBot broker ingress delivery failed: {}",
+            type(error).__name__,
+        )
 
     @staticmethod
     def event_ingress(envelope: EventEnvelope) -> EventIngress:
