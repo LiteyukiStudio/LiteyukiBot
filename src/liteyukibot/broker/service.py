@@ -184,6 +184,7 @@ class _AuthoritativePeerService(BrokerPeerService):
                         ),
                     )
                 updates["runtime_apis"] = message.manifest.runtime_apis
+                updates["runtime_api_fingerprint"] = message.manifest.runtime_api_fingerprint
             if updates:
                 expected = expected.model_copy(update=updates)
         if expected is not None and message.manifest != expected:

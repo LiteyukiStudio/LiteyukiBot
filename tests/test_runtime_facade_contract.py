@@ -9,7 +9,11 @@ from liteyukibot_runtime_nonebot.host import _runtime_api_declarations as nonebo
 from liteyukibot_runtime_nonebot_api import NoneBotBotSnapshot, NoneBotEventSnapshot
 from pydantic import ValidationError
 
-from liteyukibot.broker import PORTABLE_RUNTIME_API_VERSION
+from liteyukibot.broker import (
+    PORTABLE_RUNTIME_API_VERSION,
+    portable_runtime_api_catalog,
+    runtime_api_catalog_fingerprint,
+)
 from liteyukibot.events import ActorRef, ConversationRef, JsonValue, Message, Segment
 from liteyukibot.runtime_api import BotSnapshot, EventSnapshot, SendResult
 
@@ -50,6 +54,12 @@ def test_provider_catalogs_share_the_canonical_portable_contract() -> None:
 
     assert set(nonebot) == {"event.snapshot", "event.send", "bot.snapshot", "bot.send"}
     assert set(astrbot) == set(nonebot)
+    assert tuple(nonebot.values()) == portable_runtime_api_catalog("nonebot")
+    assert tuple(astrbot.values()) == portable_runtime_api_catalog("astrbot")
+    nonebot_fingerprint = runtime_api_catalog_fingerprint(tuple(nonebot.values()))
+    astrbot_fingerprint = runtime_api_catalog_fingerprint(tuple(astrbot.values()))
+    assert nonebot_fingerprint == runtime_api_catalog_fingerprint(tuple(reversed(tuple(nonebot.values()))))
+    assert astrbot_fingerprint == runtime_api_catalog_fingerprint(tuple(reversed(tuple(astrbot.values()))))
     for api_id in nonebot:
         assert nonebot[api_id].version == PORTABLE_RUNTIME_API_VERSION
         assert astrbot[api_id].version == PORTABLE_RUNTIME_API_VERSION

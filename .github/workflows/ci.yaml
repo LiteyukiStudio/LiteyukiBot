@@ -81,6 +81,11 @@ jobs:
           uv run python -m scripts.run_astrbot_runtime_install
           uv run python -m scripts.run_mofox_runtime_install
           uv run python -m scripts.run_webui_install
+          uv run python scripts/run_isolated_install.py --with dist/workspace/liteyukibot_v7-7.0.0a9-py3-none-any.whl --with dist/workspace/liteyukibot_v7_runtime_nonebot_api-7.0.0a9-py3-none-any.whl --verifier scripts/verify_nonebot_api_install.py -- --expected-version 7.0.0a9
+          uv run python scripts/run_isolated_install.py --with dist/workspace/liteyukibot_v7-7.0.0a9-py3-none-any.whl --with dist/workspace/liteyukibot_v7_runtime_astrbot_api-7.0.0a9-py3-none-any.whl --verifier scripts/verify_astrbot_api_install.py -- --expected-version 7.0.0a9
+          uv build --project examples/broker-peer --out-dir dist/examples
+          uv run python scripts/run_isolated_install.py --with dist/workspace/liteyukibot_v7-7.0.0a9-py3-none-any.whl --with dist/examples/liteyukibot_example_broker_peer-0.1.0-py3-none-any.whl --verifier scripts/verify_broker_peer_example.py
+          uv run python scripts/run_isolated_install.py --with dist/workspace/liteyukibot_v7-7.0.0a9-py3-none-any.whl --with dist/examples/liteyukibot_example_plugin-0.1.0-py3-none-any.whl --verifier scripts/verify_native_plugin_example.py
       - name: Run WebUI browser checks
         if: matrix.os == 'ubuntu-latest'
         working-directory: LiteyukiBot

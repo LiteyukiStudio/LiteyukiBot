@@ -1,0 +1,23 @@
+[project]
+name = "liteyukibot-example-broker-peer"
+version = "0.1.0"
+description = "Minimal installable LiteyukiBot v7 B7 broker-peer example."
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "liteyukibot-v7>=7.0.0a9,<8",
+]
+
+[project.scripts]
+liteyuki-example-broker-peer = "liteyukibot_example_broker_peer:main"
+
+[build-system]
+requires = ["uv_build>=0.11.32,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+liteyukibot-v7 = { workspace = true }
+
+[tool.uv.build-backend]
+module-root = "src"
+module-name = "liteyukibot_example_broker_peer"

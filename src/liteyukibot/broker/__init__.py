@@ -58,6 +58,7 @@ from .protocol import (
     RuntimeApiDeclaration,
     decode_broker_message,
     encode_broker_message,
+    runtime_api_catalog_fingerprint,
 )
 from .routing import (
     ActionRequest,
@@ -90,6 +91,9 @@ from .runtime_catalog import (
     portable_conversation_schema,
     portable_event_snapshot_schema,
     portable_message_schema,
+    portable_runtime_api_catalog,
+    portable_runtime_api_catalog_fingerprint,
+    portable_runtime_api_operations,
     portable_send_result_schema,
     runtime_api_catalog,
 )
@@ -134,6 +138,7 @@ __all__ = [
     "BridgeControlResult",
     "BrokerToolDeclaration",
     "RuntimeApiDeclaration",
+    "runtime_api_catalog_fingerprint",
     "RuntimeApiOperation",
     "PORTABLE_RUNTIME_API_VERSION",
     "BridgeAccess",
@@ -186,6 +191,9 @@ __all__ = [
     "portable_bot_snapshot_schema",
     "portable_event_snapshot_schema",
     "portable_message_schema",
+    "portable_runtime_api_catalog",
+    "portable_runtime_api_catalog_fingerprint",
+    "portable_runtime_api_operations",
     "portable_send_result_schema",
     "decode_broker_message",
     "decode_business_message",

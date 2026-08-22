@@ -181,7 +181,8 @@ bridge IDs and temporary broker failure before expanding the ecosystem.
 define collision-safe source event IDs, and use bounded best-effort ingress in
 the NoneBot and AstrBot hosts. Keep portable DTO convergence, catalog
 fingerprints, and new providers for later Alpha10.x gates. Alpha10.1 converges
-the portable DTOs; Alpha10.2 proves the third-party author and release path.
+the portable DTOs; [Alpha10.2](v7-alpha-10-2-ecosystem-proof.md) proves the
+third-party author and release path.
 
 **Exit criteria:** non-default bridge IDs pass provider and kernel identity
 checks; source IDs remain distinct across provider scopes; broker failure,

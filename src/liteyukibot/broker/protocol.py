@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import hashlib
+import json
+from collections.abc import Mapping, Sequence
 from enum import StrEnum
 from typing import Annotated, Final, Literal
 
@@ -182,6 +184,19 @@ class RuntimeApiDeclaration(BrokerWireModel):
         return f"{self.namespace}.{self.operation}"
 
 
+def runtime_api_catalog_fingerprint(declarations: Sequence[RuntimeApiDeclaration]) -> str:
+    """Return a deterministic digest for one runtime API catalog."""
+
+    serialized = [declaration.model_dump(mode="json") for declaration in declarations]
+    serialized.sort(
+        key=lambda value: tuple(
+            str(value[field]) for field in ("runtime_kind", "namespace", "operation", "version")
+        )
+    )
+    payload = json.dumps(serialized, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
 class AuthorizationContextWire(BrokerWireModel):
     """Only event identity and principal fields may cross the Tool wire."""
 
@@ -210,6 +225,12 @@ class BridgeManifest(BrokerWireModel):
     tools: tuple[BrokerToolDeclaration, ...] = ()
     controls: tuple[str, ...] = ()
     runtime_apis: tuple[RuntimeApiDeclaration, ...] = ()
+    runtime_api_fingerprint: str | None = Field(
+        default=None,
+        min_length=64,
+        max_length=64,
+        pattern=r"^[0-9a-f]{64}$",
+    )
 
     @field_validator("bridge_id", mode="before")
     @classmethod
@@ -253,6 +274,14 @@ class BridgeManifest(BrokerWireModel):
         api_ids = tuple((api.runtime_kind, api.api_id) for api in self.runtime_apis)
         if len(api_ids) != len(set(api_ids)):
             raise ValueError("runtime API declarations must not contain duplicate IDs")
+        if self.runtime_apis:
+            expected_fingerprint = runtime_api_catalog_fingerprint(self.runtime_apis)
+            if self.runtime_api_fingerprint is None:
+                object.__setattr__(self, "runtime_api_fingerprint", expected_fingerprint)
+            elif self.runtime_api_fingerprint != expected_fingerprint:
+                raise ValueError("runtime API catalog fingerprint does not match its declarations")
+        elif self.runtime_api_fingerprint is not None:
+            raise ValueError("runtime API catalog fingerprint requires runtime API declarations")
         return self
 
 

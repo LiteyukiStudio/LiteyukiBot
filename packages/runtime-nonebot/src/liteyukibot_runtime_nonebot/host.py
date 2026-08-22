@@ -14,7 +14,6 @@ import zmq.asyncio
 
 from liteyukibot.broker import (
     MESSAGE_SEND_KIND,
-    PORTABLE_RUNTIME_API_VERSION,
     ActionOutcome,
     ActionRequest,
     ActionResourceDeclaration,
@@ -27,15 +26,9 @@ from liteyukibot.broker import (
     MessageSendPayload,
     RuntimeApiDeclaration,
     RuntimeApiInvoke,
-    RuntimeApiOperation,
     RuntimeApiOutcome,
     parse_message_send_request,
-    portable_bot_snapshot_schema,
-    portable_conversation_schema,
-    portable_event_snapshot_schema,
-    portable_message_schema,
-    portable_send_result_schema,
-    runtime_api_catalog,
+    portable_runtime_api_catalog,
 )
 from liteyukibot.config import AppSettings
 from liteyukibot.events import ConversationRef, EventEnvelope, JsonValue, Message, Segment
@@ -379,60 +372,7 @@ def _runtime_conversation(value: object) -> ConversationRef:
 
 
 def _runtime_api_declarations() -> tuple[RuntimeApiDeclaration, ...]:
-    return runtime_api_catalog(
-        "nonebot",
-        (
-            RuntimeApiOperation(
-                namespace="event",
-                operation="snapshot",
-                version=PORTABLE_RUNTIME_API_VERSION,
-                input_schema={"type": "object", "additionalProperties": False},
-                output_schema=portable_event_snapshot_schema(),
-            ),
-            RuntimeApiOperation(
-                namespace="event",
-                operation="send",
-                version=PORTABLE_RUNTIME_API_VERSION,
-                input_schema={
-                    "type": "object",
-                    "properties": {
-                        "message": {
-                            "oneOf": [
-                                {"type": "string", "minLength": 1},
-                                portable_message_schema(),
-                            ]
-                        }
-                    },
-                    "required": ["message"],
-                    "additionalProperties": False,
-                },
-                output_schema=portable_send_result_schema(),
-            ),
-            RuntimeApiOperation(
-                namespace="bot",
-                operation="snapshot",
-                version=PORTABLE_RUNTIME_API_VERSION,
-                input_schema={"type": "object", "additionalProperties": False},
-                output_schema=portable_bot_snapshot_schema(),
-            ),
-            RuntimeApiOperation(
-                namespace="bot",
-                operation="send",
-                version=PORTABLE_RUNTIME_API_VERSION,
-                input_schema={
-                    "type": "object",
-                    "properties": {
-                        "bot_id": {"type": "string", "minLength": 1},
-                        "message": portable_message_schema(),
-                        "conversation": portable_conversation_schema(),
-                    },
-                    "required": ["bot_id", "message", "conversation"],
-                    "additionalProperties": False,
-                },
-                output_schema=portable_send_result_schema(),
-            ),
-        ),
-    )
+    return portable_runtime_api_catalog("nonebot")
 
 
 def _mapping_option(options: Mapping[str, Any], key: str) -> dict[str, Any]:

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import cast
 
 from ..runtime_api_models import BotSnapshot, EventSnapshot, SendResult
-from .protocol import RuntimeApiDeclaration
+from .protocol import RuntimeApiDeclaration, runtime_api_catalog_fingerprint
 
 PORTABLE_RUNTIME_API_VERSION = "1.2"
 
@@ -132,6 +132,77 @@ def portable_send_result_schema() -> dict[str, object]:
     return cast(dict[str, object], SendResult.model_json_schema())
 
 
+def portable_runtime_api_operations() -> tuple[RuntimeApiOperation, ...]:
+    """Build the complete Alpha10.1 portable operation catalog."""
+
+    empty_input = {"type": "object", "additionalProperties": False}
+    message_input = {
+        "type": "object",
+        "properties": {
+            "message": {
+                "oneOf": [
+                    {"type": "string", "minLength": 1},
+                    portable_message_schema(),
+                ]
+            }
+        },
+        "required": ["message"],
+        "additionalProperties": False,
+    }
+    bot_send_input = {
+        "type": "object",
+        "properties": {
+            "bot_id": {"type": "string", "minLength": 1},
+            "message": portable_message_schema(),
+            "conversation": portable_conversation_schema(),
+        },
+        "required": ["bot_id", "message", "conversation"],
+        "additionalProperties": False,
+    }
+    return (
+        RuntimeApiOperation(
+            namespace="event",
+            operation="snapshot",
+            version=PORTABLE_RUNTIME_API_VERSION,
+            input_schema=empty_input,
+            output_schema=portable_event_snapshot_schema(),
+        ),
+        RuntimeApiOperation(
+            namespace="event",
+            operation="send",
+            version=PORTABLE_RUNTIME_API_VERSION,
+            input_schema=message_input,
+            output_schema=portable_send_result_schema(),
+        ),
+        RuntimeApiOperation(
+            namespace="bot",
+            operation="snapshot",
+            version=PORTABLE_RUNTIME_API_VERSION,
+            input_schema=empty_input,
+            output_schema=portable_bot_snapshot_schema(),
+        ),
+        RuntimeApiOperation(
+            namespace="bot",
+            operation="send",
+            version=PORTABLE_RUNTIME_API_VERSION,
+            input_schema=bot_send_input,
+            output_schema=portable_send_result_schema(),
+        ),
+    )
+
+
+def portable_runtime_api_catalog(runtime_kind: str) -> tuple[RuntimeApiDeclaration, ...]:
+    """Bind the complete portable catalog to one provider runtime kind."""
+
+    return runtime_api_catalog(runtime_kind, portable_runtime_api_operations())
+
+
+def portable_runtime_api_catalog_fingerprint(runtime_kind: str) -> str:
+    """Return the fingerprint for one provider's complete portable catalog."""
+
+    return runtime_api_catalog_fingerprint(portable_runtime_api_catalog(runtime_kind))
+
+
 __all__ = [
     "PORTABLE_RUNTIME_API_VERSION",
     "RuntimeApiOperation",
@@ -139,6 +210,9 @@ __all__ = [
     "portable_conversation_schema",
     "portable_event_snapshot_schema",
     "portable_message_schema",
+    "portable_runtime_api_catalog",
+    "portable_runtime_api_catalog_fingerprint",
+    "portable_runtime_api_operations",
     "portable_send_result_schema",
     "runtime_api_catalog",
 ]
