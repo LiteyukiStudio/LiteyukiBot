@@ -107,3 +107,19 @@ and peak bytes. These numbers expose the cost of bounded retention; they do not
 establish a universal byte threshold because allocator and platform behavior
 differs. Compare artifacts only when resident event count, payload bytes,
 profile manifest, Python minor version, and platform match.
+
+## Alpha12 Plugin-Ecosystem Workloads
+
+Schema 2 now also records 25 parses and searches over a deterministic 256-entry
+schema-2 plugin index. License validation reuses a single SPDX catalog and a
+bounded 256-expression LRU cache; the workload caught the previous per-bundle
+catalog reconstruction cost. The artifact reports parse/search elapsed time and
+operations per second without applying a shared-runner threshold.
+
+The generation-churn resident workload performs 100 activation and collection
+transitions while `RuntimeGenerationStore` and `ArtifactStore` remain alive.
+Every transition creates unique content, then applies the production
+active/previous generation and referenced-artifact collection policy. Samples
+record RSS, tracemalloc, throughput, final store bytes, and final generation and
+artifact counts. A workload result with more than two retained generations or
+artifacts is invalid before timing is reviewed.

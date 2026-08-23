@@ -5,6 +5,8 @@ They are not templates copied into production unchanged.
 
 - `native-plugin/` demonstrates a native plugin entry point, EventBus cleanup,
   protocol-neutral replies, and the optional Native/Cordis runtime facade.
+- `nonebot-plugin/` is the independently versioned reference artifact used by
+  the managed NoneBot generation E2E.
 - `broker-peer/` demonstrates a real B7 `BridgeClient` registration, event
   lease, experimental runtime API call, completion, and shutdown.
 - `custom-runtime/` preserves a protocol-v5 child-runtime example using the
@@ -16,6 +18,7 @@ in `docs/development/`. Build them from the repository root:
 
 ```bash
 uv build --project examples/native-plugin --out-dir dist/examples
+uv build --project examples/nonebot-plugin --out-dir dist/examples
 uv build --project examples/broker-peer --out-dir dist/examples
 uv build --project examples/custom-runtime --out-dir dist/examples
 ```

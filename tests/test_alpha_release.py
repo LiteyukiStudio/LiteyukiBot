@@ -72,6 +72,12 @@ def test_bundle_manifest_is_canonical_and_verifies_artifact_metadata(tmp_path: P
     assert manifest["components"][-1]["id"] == "devcli"
     assert manifest["components"][-1]["reserved"] is True
     assert manifest["components"][-1]["version"] == ALPHA_VERSION
+    assert any(
+        component["id"] == "example-nonebot-plugin"
+        and component["distribution"] == "liteyukibot-v7-example-nonebot-plugin"
+        and component["version"] == "0.1.0"
+        for component in manifest["components"]
+    )
     assert manifest["dependency_lock"]["filename"] == "dependencies.lock.json"
     assert b"\n" not in (bundle / MANIFEST_NAME).read_bytes()
 

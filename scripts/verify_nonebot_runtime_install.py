@@ -29,6 +29,8 @@ def verify(expected_version: str | None = None) -> None:
         definition.kind != "nonebot"
         or definition.grade != "stable"
         or definition.distribution != "liteyukibot-v7-runtime-nonebot"
+        or definition.facet_installer is None
+        or definition.probe_module != "liteyukibot_runtime_nonebot"
     ):
         raise RuntimeError(f"unexpected NoneBot bridge definition: {definition!r}")
     legacy = [

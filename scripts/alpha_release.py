@@ -74,6 +74,12 @@ LOCKSTEP_COMPONENTS: tuple[AlphaComponent, ...] = (
     AlphaComponent("devcli", "packages/devcli", "liteyukibot-v7-devcli", reserved=True),
 )
 INDEPENDENT_COMPONENTS: tuple[AlphaComponent, ...] = (
+    AlphaComponent(
+        "example-nonebot-plugin",
+        "examples/nonebot-plugin",
+        "liteyukibot-v7-example-nonebot-plugin",
+        version="0.1.0",
+    ),
     AlphaComponent("permissions", "packages/permissions", "liteyukibot-v7-permissions", version="0.3.0a2"),
     AlphaComponent("commands", "packages/commands", "liteyukibot-v7-commands", version="0.3.0a1"),
     AlphaComponent("resources", "packages/resources", "liteyukibot-v7-resources", version="0.2.0a1"),
@@ -140,7 +146,7 @@ def validate_source_registry(root: Path) -> None:
         raise AlphaReleaseError("root webui extra must pin the Alpha WebUI wheel exactly")
 
     for component in RELEASE_COMPONENTS:
-        if component.component_id in {"kernel", "ipc-native", "webui"}:
+        if component.component_id in {"kernel", "ipc-native", "webui", "example-nonebot-plugin"}:
             continue
         project = _project(root, component)
         dependencies = project.get("dependencies")

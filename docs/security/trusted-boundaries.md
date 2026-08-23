@@ -28,8 +28,13 @@ indices are removed on settlement.
 Plugin installation downloads immutable, digest-addressed archives from
 credential-free HTTPS sources. Downloads, ZIP member count, individual member
 size, total extracted size, paths, and symbolic links are checked before a
-generation is activated. Native plugins still execute as trusted Python code
-inside the kernel. The capability is retained for first-party and explicitly
+generation is activated. Alpha12 also bounds index size, dependency closure,
+generation inputs, cumulative downloaded bytes, and retained active/previous
+generation state. The stable NoneBot bridge probes a candidate load plan before
+activation and the daemon restores the previous graph when candidate startup
+fails. Native plugins still execute as trusted Python code inside the kernel;
+managed generations are lifecycle and reproducibility boundaries, not hostile
+code sandboxes. The capability is retained for first-party and explicitly
 trusted extensions; untrusted code belongs in an external runtime or sandbox.
 
 ## Local control and diagnostics

@@ -207,6 +207,24 @@ EventBus transient state drains to zero; Broker state stays within its terminal
 capacity with no retained delivery indices or lanes; and both three-sample
 profile artifacts pass the complete repository gate.
 
+### Alpha 12: Plugin ecosystem activation
+
+**Goal:** make the official plugin index and managed plugin lifecycle usable
+with the current stable broker-bridge architecture.
+
+**Work:** implement the [Alpha 12 ecosystem activation plan]
+(v7-alpha-12-ecosystem-activation.md): publish the governed official index,
+add digest-covered schema-2 discovery metadata, migrate public v7 artifacts to
+LSO-Common v1.4, connect managed generations to the stable NoneBot bridge, and
+bound retained generations and content-addressed artifacts. Keep experimental
+bridges and hostile-code containment outside this stage.
+
+**Exit criteria:** schema-1 clients remain compatible; schema-2 search and
+license metadata are canonical and validated; a NoneBot plugin installs,
+restarts, rolls back, uninstalls, and collects through an external workspace;
+the public post-release index path repeats that proof from immutable Alpha12
+artifacts; and the complete repository and three-sample benchmark gates pass.
+
 ## Shared release gates
 
 Every Alpha must pass the complete repository pytest suite, Ruff, Mypy,
@@ -215,10 +233,12 @@ wire, lifecycle, permission, disconnect, and upgrade-boundary tests. Artifacts
 must be generated from a clean checkout and retain the exact manifest and
 SHA-256 evidence used for verification.
 
-Alpha11 runs the two parallel qualification profiles: bare kernel and kernel
-with all installed first-party packages. The 72-hour soak and external-host
-end-to-end workload remain post-Alpha qualification work. Their reviewed
-artifacts are prerequisites for a future Beta decision.
+Alpha11 and later performance-sensitive stages run the two parallel
+qualification profiles: bare kernel and kernel with all installed first-party
+packages. Alpha12 promotes the external-host end-to-end workload into its
+release gate. The 72-hour soak is deferred to stable-release qualification and
+must not be claimed by an Alpha, Beta, or RC merely because shorter CI and
+local endurance runs pass.
 
 ## Non-goals
 

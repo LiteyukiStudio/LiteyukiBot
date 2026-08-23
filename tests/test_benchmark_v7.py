@@ -77,6 +77,30 @@ def _sample(
             }
             for name in ("event_bus", "broker")
         },
+        "plugins": {
+            "index": {
+                "bundle_count": 4,
+                "iterations": 2,
+                "parse_elapsed_ms": 1.0,
+                "parse_operations_per_second": throughput,
+                "search_elapsed_ms": 1.0,
+                "search_operations_per_second": throughput,
+                "matched_releases": 1,
+            },
+            "generation_churn": {
+                "elapsed_ms": 1.0,
+                "throughput_events_per_second": throughput,
+                "rss_before_bytes": 1_000,
+                "rss_after_bytes": 1_100,
+                "rss_delta_bytes": 100,
+                "tracemalloc_retained_bytes": 50,
+                "tracemalloc_peak_bytes": 200,
+                "processed_events": 4,
+                "retained_generations": 2,
+                "retained_artifacts": 2,
+                "artifact_store_bytes": 20,
+            },
+        },
     }
 
 
@@ -89,6 +113,9 @@ def test_benchmark_sample_covers_all_event_workloads() -> None:
             function_calls=0,
             resident_events=100,
             resident_payload_bytes=16,
+            plugin_index_bundles=4,
+            plugin_index_iterations=2,
+            plugin_generation_churn=5,
         )
     )
 
@@ -108,8 +135,29 @@ def test_benchmark_sample_covers_all_event_workloads() -> None:
     assert result["resident"]["broker"]["terminal_content_bytes"] <= result["resident"]["broker"][
         "terminal_content_bytes_capacity"
     ]
+    assert result["plugins"]["index"]["matched_releases"] == 1
+    assert result["plugins"]["generation_churn"]["retained_generations"] <= 2
+    assert result["plugins"]["generation_churn"]["retained_artifacts"] <= 2
     assert result["resident"]["broker"]["delivery_indexes"] == 0
     assert result["resident"]["broker"]["retained_lanes"] == 0
+
+
+def test_plugin_index_benchmark_parses_and_searches_schema_two() -> None:
+    result = benchmark_v7._benchmark_plugin_index(bundle_count=4, iterations=2)
+
+    assert result["bundle_count"] == 4
+    assert result["iterations"] == 2
+    assert result["matched_releases"] == 1
+    assert result["parse_operations_per_second"] > 0
+    assert result["search_operations_per_second"] > 0
+
+
+def test_plugin_generation_churn_retains_only_active_and_previous() -> None:
+    result = asyncio.run(benchmark_v7._measure_resident_state(lambda: benchmark_v7._plugin_generation_churn(5)))
+
+    assert result["processed_events"] == 5
+    assert result["retained_generations"] == 2
+    assert result["retained_artifacts"] == 2
 
 
 def test_function_benchmark_reports_missing_executor(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -39,14 +39,15 @@ configured PyPI Trusted Publisher environment. SBOMs, checksum manifests, and
 other release evidence are retained as workflow artifacts rather than uploaded
 as distributions.
 
-## Alpha 9 Bundle
+## Alpha 12 Bundle
 
-The source Alpha9 contract uses the exact `7.0.0a9` version for the kernel,
+The source Alpha12 contract uses the exact `7.0.0a12` version for the kernel,
 Native IPC, Cordis, NoneBot bridge and API facade, AstrBot bridge and API
 facade, generic adapter bridge, WebUI, and DevCLI. DevCLI is a real reserved
 bundle component and is not a PyPI publication target. Independent business
 packages do not join this lockstep set. Every first-party artifact declares
-the exact Alpha9 kernel dependency it consumes.
+the exact Alpha12 kernel dependency it consumes. The independently versioned
+reference NoneBot plugin is included as `0.1.0` without a kernel dependency.
 
 `scripts/alpha_release.py` validates source metadata, writes canonical UTF-8
 `artifacts.manifest.json`, a canonical resolved dependency lock, and the

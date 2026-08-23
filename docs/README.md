@@ -24,7 +24,10 @@ boundaries. Alpha8b implements the signed offline bundle, daemon update graph,
 read-only editor artifacts, and WebUI resource diagnostics.
 The [Alpha 9 runtime ecosystem plan](roadmap/v7-alpha-9-runtime-ecosystem.md)
 extends the runtime proof with a bounded portable facade and an additional
-provider facet.
+provider facet. The [Alpha 12 ecosystem activation plan]
+(roadmap/v7-alpha-12-ecosystem-activation.md) covers the governed plugin index
+and managed NoneBot generations. Alpha13 remains deferred and is outside this
+implementation.
 
 - `specs/` contains the versioned, normative public contracts.
 - `architecture/` describes the current system boundary and lifecycle.
