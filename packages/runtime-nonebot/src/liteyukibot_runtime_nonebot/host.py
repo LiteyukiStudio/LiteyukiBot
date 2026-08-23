@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import json
+import os
 from collections import OrderedDict
 from collections.abc import Mapping, Sequence
+from pathlib import Path, PurePosixPath
 from typing import Any, cast
 from urllib.parse import urlparse
 from uuid import uuid4
@@ -34,12 +37,14 @@ from liteyukibot.config import AppSettings
 from liteyukibot.events import ConversationRef, EventEnvelope, JsonValue, Message, Segment
 from liteyukibot.logging import get_logger
 from liteyukibot.lyip import LyipLane
+from liteyukibot.plugin_store import PLUGIN_GENERATION_ENV
 from liteyukibot.runtime_api import BotSnapshot, EventSnapshot, SendResult
 
 from .contracts import AdapterContractError, adapter_id, json_value, normalize_event, send_proactive, to_native_message
 
 logger = get_logger(component="nonebot")
 MESSAGE_CREATED_TOPIC = "message.created"
+_MAX_LOAD_PLAN_BYTES = 64 * 1024
 
 
 class NoneBotHost:
@@ -86,6 +91,12 @@ class NoneBotHost:
         configured_adapters = _string_list_option(self.options, "adapters")
         configured_plugins = _string_list_option(self.options, "plugins")
         configured_directories = _string_list_option(self.options, "plugin_dirs")
+        generation_value = os.environ.get(PLUGIN_GENERATION_ENV)
+        managed_plugins, managed_directories = _managed_load_plan(generation_value)
+        if generation_value is not None and (configured_plugins or configured_directories):
+            raise RuntimeError("managed NoneBot generation cannot be combined with plugins or plugin_dirs options")
+        configured_plugins = managed_plugins or configured_plugins
+        configured_directories = managed_directories or configured_directories
         self.nonebot.init(**config)
         driver = self.nonebot.get_driver()
         for spec in configured_adapters:
@@ -663,6 +674,74 @@ def _string_list_option(options: Mapping[str, Any], key: str) -> tuple[str, ...]
     return tuple(item.strip() for item in value)
 
 
+def _managed_load_plan(generation_value: str | None) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Load and validate one daemon-selected NoneBot generation plan.
+
+    Args:
+        generation_value: Absolute generation directory supplied by the daemon,
+            or `None` when manual bridge options remain authoritative.
+
+    Returns:
+        Plugin module names and absolute plugin directories.
+
+    Notes:
+        An absent generation selects the manual configuration path. A present
+        generation is parsed as one exact, bounded plan rooted below its
+        immutable payload directory.
+
+    Security:
+        The environment variable is process-launch configuration, not plugin
+        input. The selected directory, plan size/schema, and every resolved
+        payload path are still checked to detect local tampering before code is
+        imported. Plugin code intentionally runs with this bridge process's OS
+        privileges; it is not a hostile-code sandbox.
+    """
+    if generation_value is None:
+        return (), ()
+    generation = Path(generation_value)
+    if not generation.is_absolute() or generation.is_symlink() or not generation.is_dir():
+        raise RuntimeError("managed NoneBot generation directory is unsafe")
+    plan_path = generation / "load-plan.json"
+    if plan_path.is_symlink() or not plan_path.is_file() or plan_path.stat().st_size > _MAX_LOAD_PLAN_BYTES:
+        raise RuntimeError("managed NoneBot load plan is unavailable or too large")
+    try:
+        plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise RuntimeError("managed NoneBot load plan is invalid") from error
+    if not isinstance(plan, dict) or set(plan) != {"plugins", "directories"}:
+        raise RuntimeError("managed NoneBot load plan has an unexpected schema")
+    manifest_path = generation / "manifest.json"
+    if manifest_path.is_symlink() or not manifest_path.is_file():
+        raise RuntimeError("managed NoneBot generation manifest is unavailable")
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise RuntimeError("managed NoneBot generation manifest is invalid") from error
+    if not isinstance(manifest, dict) or manifest.get("load_plan") != plan:
+        raise RuntimeError("managed NoneBot load plan does not match its manifest")
+    plugins = _string_list_option(plan, "plugins")
+    relative_directories = _string_list_option(plan, "directories")
+    payload_path = generation / "payload"
+    if payload_path.is_symlink() or not payload_path.is_dir():
+        raise RuntimeError("managed NoneBot payload directory is unsafe")
+    payload = payload_path.resolve()
+    directories: list[str] = []
+    for raw_directory in relative_directories:
+        relative = PurePosixPath(raw_directory)
+        if relative.is_absolute() or any(part in {"", ".", ".."} for part in relative.parts):
+            raise RuntimeError("managed NoneBot plugin directory must be a safe relative path")
+        candidate_path = payload_path
+        for part in relative.parts:
+            candidate_path /= part
+            if candidate_path.is_symlink():
+                raise RuntimeError("managed NoneBot plugin directory contains a symbolic link")
+        candidate = candidate_path.resolve()
+        if not candidate.is_relative_to(payload) or not candidate.is_dir():
+            raise RuntimeError("managed NoneBot plugin directory is outside the generation payload")
+        directories.append(str(candidate))
+    return plugins, tuple(directories)
+
+
 def _load_symbol(spec: str) -> Any:
     """Load symbol.
 
@@ -682,4 +761,4 @@ def _load_symbol(spec: str) -> Any:
     return getattr(importlib.import_module(module_name), attribute)
 
 
-__all__ = ["MESSAGE_CREATED_TOPIC", "NoneBotHost", "launch"]
+__all__ = ["MESSAGE_CREATED_TOPIC", "PLUGIN_GENERATION_ENV", "NoneBotHost", "launch"]

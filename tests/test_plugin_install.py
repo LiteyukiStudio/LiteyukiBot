@@ -174,8 +174,9 @@ def test_installer_stages_hash_verified_wheels_without_index_resolution(
     result = service.install("example.root", runtime_id="legacy", runtime_kind="v6")
 
     assert commands[2][:6] == ["uv", "pip", "install", "--no-index", "--no-deps", "--python"]
-    assert Path(commands[2][-1]).parent.name == "wheels"
-    assert Path(commands[2][-1]).name == f"{wheel_digest}.whl"
+    assert Path(commands[2][-1]).parent.parent.name == "wheels"
+    assert Path(commands[2][-1]).parent.name == wheel_digest
+    assert Path(commands[2][-1]).name == "dependency.whl"
     assert Path(commands[2][-1]).is_file()
     assert wheel_digest in result.generation.artifacts
 
@@ -194,6 +195,28 @@ def test_installer_rejects_dependency_cycles_before_creating_generation(
     with pytest.raises(PluginStoreError, match="cycle"):
         service.install("example.root", runtime_id="legacy", runtime_kind="v6")
 
+    assert not (tmp_path / ".liteyuki" / "plugins" / "runtimes").exists()
+
+
+def test_installer_rejects_an_index_changed_after_confirmation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    archive, digest = _archive(tmp_path)
+    index = _index(digest)
+    monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: index)
+
+    service = PluginInstallationService(tmp_path)
+    preview = service.preview("example.root")
+    assert preview.index_digest == index.digest
+
+    with pytest.raises(PluginStoreError, match="changed after installation confirmation"):
+        service.install(
+            "example.root",
+            runtime_id="legacy",
+            runtime_kind="v6",
+            expected_index_digest="f" * 64,
+        )
     assert not (tmp_path / ".liteyuki" / "plugins" / "runtimes").exists()
 
 
@@ -224,6 +247,7 @@ def test_failed_environment_creation_does_not_activate_or_retain_generation(
     store = RuntimeGenerationStore(tmp_path)
     assert store.active().runtime_generations == {}
     assert not (tmp_path / ".liteyuki" / "plugins" / "runtimes" / "legacy" / "generations").exists()
+    assert not service.artifacts.path_for(digest).exists()
 
 
 def test_failed_generation_probe_keeps_the_previous_runtime_generation(
@@ -448,9 +472,16 @@ def test_disable_and_enable_rebuild_the_load_plan_without_fetching_sources(
     assert disabled.generation.bundles == ("example.dependency", "example.root", "example.second")
     assert disabled.generation.load_plan["modules"] == ["example.dependency", "example.root"]
     assert any(command[:4] == ["uv", "pip", "install", "--offline"] for command in commands)
+    orphan = tmp_path / "orphan.zip"
+    orphan.write_bytes(b"unreferenced")
+    orphan_digest = hashlib.sha256(orphan.read_bytes()).hexdigest()
+    orphan_stored = service.artifacts.import_file(orphan, orphan_digest)
     enabled = service.enable("example.second", runtime_id="legacy", runtime_kind="v6")
     assert enabled.generation.disabled_roots == ()
     assert enabled.generation.load_plan["modules"] == ["example.dependency", "example.root", "example.second"]
+    retained = service.generations.list_generations("legacy")
+    assert {generation.id for generation in retained} == {disabled.generation.id, enabled.generation.id}
+    assert not orphan_stored.exists()
 
 
 def test_disable_and_uninstall_reject_a_root_required_by_another_root(
@@ -595,5 +626,5 @@ def test_plugin_rollback_cli_rejects_legacy_runtime_under_config_v5(
     store.activate("legacy", second.id)
 
     assert main(["--workspace", str(tmp_path), "plugin", "rollback", "--runtime", "legacy"]) == 2
-    assert "runtime 'legacy' is not configured" in capsys.readouterr().err
+    assert "plugin target 'legacy' is not configured" in capsys.readouterr().err
     assert store.active().runtime_generations == {"legacy": "second"}

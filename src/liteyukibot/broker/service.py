@@ -16,6 +16,7 @@ import zmq.asyncio
 from ..config.models import AppSettings, BrokerBridgeSettings, JsonValue
 from ..config.vault import SecretVault
 from ..lyip import LyipFrame
+from ..runtime.facets import RuntimeFacetInstaller
 from .peer import BridgeRegistrationError, BrokerPeerServer, BrokerPeerService
 from .protocol import (
     ActionResourceDeclaration,
@@ -60,6 +61,8 @@ class BridgeDefinition:
     grade: BridgeSupportGrade
     distribution: str
     launch: BridgeLauncher
+    facet_installer: RuntimeFacetInstaller | None = None
+    probe_module: str | None = None
 
 
 class BridgeCatalog:
@@ -127,6 +130,14 @@ class BridgeCatalog:
             raise RuntimeError(f"bridge entry point {entry_name!r} has an invalid support grade")
         if not callable(definition.launch):
             raise RuntimeError(f"bridge entry point {entry_name!r} has a non-callable launcher")
+        if (definition.facet_installer is None) != (definition.probe_module is None):
+            raise RuntimeError(
+                f"bridge entry point {entry_name!r} must declare both a facet installer and probe module"
+            )
+        if definition.probe_module is not None and (
+            not definition.probe_module or definition.probe_module != definition.probe_module.strip()
+        ):
+            raise RuntimeError(f"bridge entry point {entry_name!r} has an invalid probe module")
 
     async def launch(self, settings: AppSettings, bridge_id: str, token: str) -> None:
         """Launch the bridge catalog operation.

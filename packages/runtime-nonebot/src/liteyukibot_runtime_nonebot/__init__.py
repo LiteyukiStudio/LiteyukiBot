@@ -2,6 +2,7 @@
 
 from liteyukibot.broker import BridgeDefinition, BridgeSupportGrade
 
+from .facets import NoneBotFacetInstaller
 from .host import launch
 
 
@@ -17,6 +18,8 @@ def bridge_definition() -> BridgeDefinition:
         grade=BridgeSupportGrade.STABLE,
         distribution="liteyukibot-v7-runtime-nonebot",
         launch=launch,
+        facet_installer=NoneBotFacetInstaller(),
+        probe_module="liteyukibot_runtime_nonebot",
     )
 
 

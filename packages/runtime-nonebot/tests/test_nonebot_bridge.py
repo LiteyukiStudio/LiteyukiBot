@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import sys
 from collections.abc import Mapping
+from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from typing import Any, cast
 
@@ -11,6 +13,7 @@ from liteyukibot_runtime_nonebot.host import (
     MESSAGE_CREATED_TOPIC,
     NoneBotHost,
     _broker_endpoints,
+    _managed_load_plan,
     _runtime_api_declarations,
 )
 
@@ -28,7 +31,65 @@ def test_nonebot_bridge_declares_stable_package_metadata() -> None:
 
     assert definition.kind == "nonebot"
     assert definition.grade == "stable"
+    assert definition.facet_installer is not None
+    assert definition.probe_module == "liteyukibot_runtime_nonebot"
     assert definition.distribution == "liteyukibot-v7-runtime-nonebot"
+
+
+def test_managed_load_plan_resolves_only_generation_payload_directories(tmp_path: Path) -> None:
+    generation = tmp_path / "generation"
+    directory = generation / "payload" / ("a" * 64) / "plugins"
+    directory.mkdir(parents=True)
+    (generation / "load-plan.json").write_text(
+        json.dumps({"plugins": ["example.plugin"], "directories": [f"{'a' * 64}/plugins"]}),
+        encoding="utf-8",
+    )
+    (generation / "manifest.json").write_text(
+        json.dumps(
+            {
+                "load_plan": {"plugins": ["example.plugin"], "directories": [f"{'a' * 64}/plugins"]}
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    plugins, directories = _managed_load_plan(str(generation.resolve()))
+
+    assert plugins == ("example.plugin",)
+    assert directories == (str(directory.resolve()),)
+
+
+def test_managed_load_plan_rejects_payload_traversal(tmp_path: Path) -> None:
+    generation = tmp_path / "generation"
+    generation.mkdir()
+    (generation / "payload").mkdir()
+    (generation / "load-plan.json").write_text(
+        json.dumps({"plugins": [], "directories": ["../outside"]}),
+        encoding="utf-8",
+    )
+    (generation / "manifest.json").write_text(
+        json.dumps({"load_plan": {"plugins": [], "directories": ["../outside"]}}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="safe relative path"):
+        _managed_load_plan(str(generation.resolve()))
+
+
+def test_managed_load_plan_rejects_manifest_mismatch(tmp_path: Path) -> None:
+    generation = tmp_path / "generation"
+    generation.mkdir()
+    (generation / "load-plan.json").write_text(
+        json.dumps({"plugins": ["example.plugin"], "directories": []}),
+        encoding="utf-8",
+    )
+    (generation / "manifest.json").write_text(
+        json.dumps({"load_plan": {"plugins": [], "directories": []}}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="does not match its manifest"):
+        _managed_load_plan(str(generation.resolve()))
 
 
 def test_nonebot_runtime_catalog_contains_alpha9_portable_operations() -> None:
