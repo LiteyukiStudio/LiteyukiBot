@@ -1353,8 +1353,8 @@ class InstanceDaemon:
                     f"migration_required: candidate profile requires config v{candidate.config_version}; "
                     f"active daemon contract is v{CONFIG_VERSION}"
                 )
-            if candidate.bundle_tag != "v7.0.0a9" or candidate.bundle_version != "7.0.0a9":
-                raise UpdateError("candidate profile is not an Alpha9 verified bundle")
+            if candidate.bundle_tag != "v7.0.0a12" or candidate.bundle_version != "7.0.0a12":
+                raise UpdateError("candidate profile is not an Alpha12 verified bundle")
             self.update_journal.begin(candidate_profile=profile_id, previous_profile=active)
             admission_frozen = False
             kernel_frozen = False
