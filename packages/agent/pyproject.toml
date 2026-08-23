@@ -4,7 +4,8 @@ version = "0.1.0a9"
 description = "Experimental Agent and sandbox bridges for LiteyukiBot v7."
 readme = "README.md"
 requires-python = ">=3.14"
-license = "LicenseRef-LSO"
+license = "LicenseRef-LSO-Common-1.4"
+license-files = ["LICENSE", "LICENSE.en", "LICENSE.zh-CN"]
 authors = [
     { name = "LiteyukiStudio" },
 ]

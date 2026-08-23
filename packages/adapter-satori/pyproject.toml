@@ -4,8 +4,8 @@ version = "0.1.0a2"
 description = "Native Satori v1 adapter for LiteyukiBot v7."
 readme = "README.md"
 requires-python = ">=3.14"
-license = "LicenseRef-LSO"
-license-files = ["LICENSE"]
+license = "LicenseRef-LSO-Common-1.4"
+license-files = ["LICENSE", "LICENSE.en", "LICENSE.zh-CN"]
 authors = [{ name = "LiteyukiStudio" }]
 dependencies = [
     "liteyukibot-v7>=7.0.0a1,<8",

@@ -1,0 +1,68 @@
+LSO-Common License v1.4
+Liteyuki Studio Open Source License (Common)
+
+IMPORTANT NOTICE:
+1. This Agreement is issued by Liteyuki Studio LiteyukiBot Dev Team (the "Licensor").
+2. Any natural person, legal person, or other organization (the "Licensee") that copies, modifies, distributes, or otherwise exercises rights in the Software is deemed to have read, understood, and accepted this Agreement.
+3. If any inconsistency exists between the Chinese and English versions, the Chinese version shall prevail unless otherwise agreed in writing.
+
+Article 1. Definitions
+1.1 "Software" means the program, components, and related documentation released by the Licensor in source code, object code, or other readable forms.
+1.2 "Copy" means any full or partial reproduction of the Software.
+1.3 "Modified Work" means any adaptation, translation, refactoring, extension, or other derivative work based on the Software.
+1.4 "Distribution" means making the Software or its Copies available to any third party, including publication, transmission, sale, gift, and availability through SaaS.
+1.5 "Contribution" means any code, documentation, or other copyrightable work submitted to the Software by a person or entity legally authorized to license it.
+
+Article 2. Grant of Rights
+2.1 Subject to continuous compliance with this Agreement, Licensor grants Licensee a worldwide, non-exclusive, royalty-free license, with the right to sublicense only within the scope of this Agreement, to:
+(a) use and run the Software;
+(b) copy the Software;
+(c) modify the Software and create Modified Works;
+(d) merge, publish, distribute, sublicense, and sell the Software or its Copies.
+2.2 No rights are granted by implication beyond those expressly stated in this Agreement.
+2.3 Licensor grants a patent license, within the scope of Article 2.1, for patent claims necessarily infringed by the Software as released by Licensor or accepted Contributions, excluding patent claims unrelated to the Software or introduced solely by Licensee.
+
+Article 3. Conditions
+3.1 When distributing the Software or any Copy, Licensee must retain in a reasonable location:
+(a) copyright notice;
+(b) the full text of this Agreement or an accessible complete copy;
+(c) disclaimer and limitation of liability provisions.
+3.2 When distributing Modified Works, Licensee must prominently mark modifications and modification date.
+3.3 Licensee shall not impose additional legal or technical restrictions on downstream recipients' rights granted under this Agreement.
+3.4 Third-party components remain subject to their own license terms; in case of conflict, applicable third-party license terms prevail for those components.
+
+Article 4. Trademarks and Branding
+4.1 Except for nominative reference reasonably necessary to identify origin, this Agreement does not grant any rights to use Licensor's trade names, trademarks, service marks, logos, or other branding assets.
+4.2 Licensee shall not state or imply any investment, agency, endorsement, or other specific legal relationship with Licensor.
+
+Article 5. Termination and Reinstatement
+5.1 Licensor may terminate all granted rights upon Licensee's material breach, effective upon delivery of notice.
+5.2 If Licensee cures the breach within thirty (30) days after receiving notice and confirms cure in writing, Licensor may reinstate rights.
+5.3 Termination does not affect rights lawfully granted to compliant downstream recipients before termination.
+
+Article 6. Disclaimer of Warranty
+6.1 To the maximum extent permitted by applicable law, the Software is provided "AS IS" and "AS AVAILABLE" without warranties of any kind, express or implied.
+6.2 Excluded warranties include, without limitation, merchantability, fitness for a particular purpose, non-infringement, availability, error-free operation, and security.
+
+Article 7. Limitation of Liability
+7.1 To the maximum extent permitted by applicable law, Licensor shall not be liable for any indirect, incidental, special, exemplary, punitive, consequential, loss-of-profit, loss-of-data, or loss-of-goodwill damages.
+7.2 Regardless of legal theory (contract, tort, strict liability, or otherwise), Licensor's aggregate liability shall not exceed the total license fee actually paid by Licensee for obtaining the Software; if no fee is paid, liability cap is zero.
+
+Article 8. Indemnity
+If Licensee separately provides warranties, undertakings, or liabilities to third parties in relation to the Software, Licensee shall bear sole responsibility and indemnify Licensor against resulting claims, penalties, and losses.
+
+Article 9. Governing Law and Dispute Resolution
+9.1 This Agreement shall be governed by the laws of the People's Republic of China, excluding conflict-of-law rules.
+9.2 Any dispute arising out of or in connection with this Agreement shall first be resolved through friendly negotiation for thirty (30) days; failing settlement, the dispute shall be submitted to Beijing Arbitration Commission under its then-effective rules.
+9.3 Without prejudice to Article 9.2, Licensor may seek interim injunctive relief for intellectual property infringement.
+
+Article 10. Miscellaneous
+10.1 If any provision is held invalid or unenforceable, remaining provisions remain effective.
+10.2 Failure or delay to enforce any right does not constitute waiver.
+10.3 This Agreement constitutes the entire agreement regarding licensing of the Software and supersedes prior oral or written arrangements on the same matter.
+
+Version: LSO-Common v1.4
+Last Updated: 2026-04-12
+Instantiated for:
+- Liteyuki Studio LiteyukiBot Dev Team
+- Beijing Arbitration Commission

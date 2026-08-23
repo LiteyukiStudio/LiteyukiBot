@@ -4,13 +4,13 @@ version = "0.3.0a2"
 description = "Versioned access policy service for LiteyukiBot v7 native plugins."
 readme = "README.md"
 requires-python = ">=3.14"
-license = "LicenseRef-LSO"
-license-files = ["LICENSE"]
+license = "LicenseRef-LSO-Common-1.4"
+license-files = ["LICENSE", "LICENSE.en", "LICENSE.zh-CN"]
 authors = [
     { name = "LiteyukiStudio" },
 ]
 dependencies = [
-    "liteyukibot-v7==7.0.0a9",
+    "liteyukibot-v7==7.0.0a12",
 ]
 
 [project.entry-points."liteyukibot.plugins"]
@@ -20,7 +20,7 @@ dependencies = [
 "liteyukibot.permissions" = "liteyukibot_permissions.cordis:cordis_plugin"
 
 [project.optional-dependencies]
-cordis = ["liteyukibot-v7-cordis==7.0.0a9"]
+cordis = ["liteyukibot-v7-cordis==7.0.0a12"]
 
 [build-system]
 requires = ["uv_build>=0.11.32,<0.12"]

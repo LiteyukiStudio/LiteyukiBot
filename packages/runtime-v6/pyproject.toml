@@ -4,8 +4,8 @@ version = "0.1.0a2"
 description = "Bounded LiteyukiBot v6 compatibility runtime for LiteyukiBot v7."
 readme = "README.md"
 requires-python = ">=3.14"
-license = "LicenseRef-LSO"
-license-files = ["LICENSE"]
+license = "LicenseRef-LSO-Common-1.4"
+license-files = ["LICENSE", "LICENSE.en", "LICENSE.zh-CN"]
 authors = [
     { name = "LiteyukiStudio" },
 ]

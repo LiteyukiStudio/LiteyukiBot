@@ -4,12 +4,13 @@ version = "0.2.0a1"
 description = "Declarative agent module and tool resolver for LiteyukiBot v7."
 readme = "README.md"
 requires-python = ">=3.14"
-license = "LicenseRef-LSO"
+license = "LicenseRef-LSO-Common-1.4"
+license-files = ["LICENSE", "LICENSE.en", "LICENSE.zh-CN"]
 authors = [
     { name = "LiteyukiStudio" },
 ]
 dependencies = [
-    "liteyukibot-v7==7.0.0a9",
+    "liteyukibot-v7==7.0.0a12",
 ]
 
 [build-system]

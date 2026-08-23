@@ -5,6 +5,6 @@ from importlib.metadata import PackageNotFoundError, version
 try:
     __version__ = version("liteyukibot-v7-devcli")
 except PackageNotFoundError:
-    __version__ = "7.0.0a9"
+    __version__ = "7.0.0a12"
 
 __all__ = ["__version__"]
