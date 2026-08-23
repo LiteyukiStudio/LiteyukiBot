@@ -282,6 +282,14 @@ class _PublicRedirectHandler(HTTPRedirectHandler):
     """Reject unsafe redirect destinations before urllib opens them."""
 
     def __init__(self, subject: str) -> None:
+        """Initialize the redirect handler with a validation subject.
+
+        Args:
+            subject: Human-readable field name used in validation errors.
+
+        Returns:
+            None.
+        """
         super().__init__()
         self.subject = subject
 
@@ -294,12 +302,38 @@ class _PublicRedirectHandler(HTTPRedirectHandler):
         headers: Any,
         new_url: str,
     ) -> Request | None:
+        """Validate a redirect destination before following it.
+
+        Args:
+            request: Original request being redirected.
+            response: Response that supplied the redirect.
+            code: HTTP redirect status code.
+            message: HTTP redirect message.
+            headers: Response headers.
+            new_url: Redirect destination to validate.
+
+        Returns:
+            The validated redirect request, or None when urllib declines it.
+        """
         _https_url(new_url, self.subject)
         return super().redirect_request(request, response, code, message, headers, new_url)
 
 
 def _open_public_url(request: Request, *, timeout: float, subject: str) -> Any:
-    """Open one validated URL while checking every redirect hop."""
+    """Open one validated URL while checking every redirect hop.
+
+    Args:
+        request: Validated URL request to open.
+        timeout: Maximum wait for the network operation, in seconds.
+        subject: Human-readable field name used in validation errors.
+
+    Returns:
+        The response returned by urllib after redirect validation.
+
+    Notes:
+        The custom handler validates each redirect destination before urllib
+        opens it, including redirects that cross hostnames.
+    """
 
     return build_opener(_PublicRedirectHandler(subject)).open(request, timeout=timeout)
 
@@ -1352,7 +1386,15 @@ class ArtifactStore:
         return hasher.hexdigest()
 
     def _validate_root(self) -> None:
-        """Reject a redirected or replaced artifact-store root."""
+        """Reject a redirected or replaced artifact-store root.
+
+        Returns:
+            None.
+
+        Notes:
+            This private check protects the store boundary before filesystem
+            reads and writes use the configured root.
+        """
 
         if self.root.is_symlink() or (self.root.exists() and not self.root.is_dir()):
             raise PluginStoreError("plugin artifact store directory is unsafe")
