@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7-runtime-nonebot-api"
-version = "7.0.0a12"
+version = "7.0.0a13"
 description = "Framework-neutral typed NoneBot runtime API facade."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -8,7 +8,7 @@ license = "LicenseRef-LSO-Common-1.4"
 license-files = ["LICENSE", "LICENSE.en", "LICENSE.zh-CN"]
 authors = [{ name = "LiteyukiStudio" }]
 dependencies = [
-    "liteyukibot-v7==7.0.0a12",
+    "liteyukibot-v7==7.0.0a13",
 ]
 
 [project.entry-points."liteyukibot.runtime_api_proxies"]

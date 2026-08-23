@@ -10,7 +10,7 @@ authors = [
     { name = "LiteyukiStudio" },
 ]
 dependencies = [
-    "liteyukibot-v7==7.0.0a12",
+    "liteyukibot-v7==7.0.0a13",
 ]
 
 [build-system]
