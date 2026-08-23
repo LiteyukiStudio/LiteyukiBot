@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir uv==0.11.16
 COPY pyproject.toml uv.lock README.md LICENSE ./
 COPY src ./src
 COPY packages ./packages
+COPY examples ./examples
 
 RUN uv sync --locked --no-dev --no-editable \
     --package liteyukibot-v7 \
