@@ -13,6 +13,13 @@ from liteyukibot.control import ControlServer, request_control
 from liteyukibot.daemon import InstanceDaemon
 from liteyukibot.instance_daemon import InstanceDaemonService
 from liteyukibot.instances import InstancePaths
+from liteyukibot.managed_graph import ProcessSpec
+from liteyukibot.plugin_store import (
+    PLUGIN_GENERATION_ENV,
+    PlatformTarget,
+    RuntimeGeneration,
+    RuntimeGenerationStore,
+)
 
 
 @pytest.mark.asyncio
@@ -57,6 +64,186 @@ async def test_daemon_bounds_abnormal_worker_restarts(tmp_path: Path) -> None:
     assert await asyncio.wait_for(daemon.run(), timeout=10) == 7
     assert daemon.status()["failures_in_window"] == 3
     assert daemon.status()["last_restart_reason"] == "worker exited with code 7"
+
+
+def test_daemon_selects_generation_python_and_environment_per_bridge(tmp_path: Path) -> None:
+    paths = InstancePaths.from_workspace(ConfigWorkspace(tmp_path), "managed")
+    generations = RuntimeGenerationStore(tmp_path)
+    generation = RuntimeGeneration(
+        "candidate",
+        "chat",
+        "nonebot",
+        "2026-08-22T00:00:00+00:00",
+        PlatformTarget("windows", "amd64", "3.14"),
+        ("example.echo",),
+        ("a" * 64,),
+        {"plugins": ["example.echo"], "directories": []},
+    )
+    generation_path = generations.write(generation)
+    generation_python = generations.python_path(generation_path)
+    generation_python.parent.mkdir(parents=True)
+    generation_python.write_text("", encoding="utf-8")
+    generations.activate("chat", generation.id)
+
+    daemon = InstanceDaemon(
+        paths,
+        DaemonSettings(),
+        (sys.executable, "-m", "liteyukibot.cli", "run"),
+        {},
+        bridge_commands={"chat": (sys.executable, "-m", "liteyukibot.cli", "bridge", "run", "chat")},
+        bridge_kinds={"chat": "nonebot"},
+    )
+
+    bridge = next(spec for spec in daemon._graph.specs if spec.name == "bridge:chat")
+    assert bridge.command[0] == str(generation_python)
+    assert bridge.environment[PLUGIN_GENERATION_ENV] == str(generation_path)
+
+
+@pytest.mark.asyncio
+async def test_daemon_rolls_back_plugin_generation_when_candidate_bridge_fails_startup(tmp_path: Path) -> None:
+    class FakeProcess:
+        def __init__(self, pid: int, returncode: int | None = None) -> None:
+            self.pid = pid
+            self.returncode = returncode
+            self._exited = asyncio.Event()
+            if returncode is not None:
+                self._exited.set()
+
+        def terminate(self) -> None:
+            self.returncode = 0
+            self._exited.set()
+
+        def kill(self) -> None:
+            self.terminate()
+
+        async def wait(self) -> int:
+            await self._exited.wait()
+            assert self.returncode is not None
+            return self.returncode
+
+    paths = InstancePaths.from_workspace(ConfigWorkspace(tmp_path), "rollback")
+    generations = RuntimeGenerationStore(tmp_path)
+
+    def write_generation(generation_id: str, digest: str) -> Path:
+        generation = RuntimeGeneration(
+            generation_id,
+            "chat",
+            "nonebot",
+            "2026-08-22T00:00:00+00:00",
+            PlatformTarget("windows", "amd64", "3.14"),
+            (f"example.{generation_id}",),
+            (digest,),
+            {"plugins": [f"example.{generation_id}"], "directories": []},
+        )
+        path = generations.write(generation)
+        python = generations.python_path(path)
+        python.parent.mkdir(parents=True)
+        python.write_text("", encoding="utf-8")
+        return path
+
+    previous_path = write_generation("previous", "a" * 64)
+    candidate_path = write_generation("candidate", "b" * 64)
+    generations.activate("chat", "previous")
+    next_pid = 100
+
+    async def launch(spec: ProcessSpec) -> FakeProcess:
+        nonlocal next_pid
+        next_pid += 1
+        failed = spec.name == "bridge:chat" and spec.environment.get(PLUGIN_GENERATION_ENV) == str(candidate_path)
+        return FakeProcess(next_pid, 7 if failed else None)
+
+    daemon = InstanceDaemon(
+        paths,
+        DaemonSettings(),
+        (sys.executable, "-m", "liteyukibot.cli", "run"),
+        {},
+        bridge_commands={"chat": (sys.executable, "-m", "liteyukibot.cli", "bridge", "run", "chat")},
+        bridge_kinds={"chat": "nonebot"},
+        process_launcher=launch,
+    )
+    await daemon._start_worker()
+    generations.activate("chat", "candidate")
+    daemon._restart_plugin_target = "chat"
+
+    await daemon._restart_worker_graph()
+
+    assert generations.active().runtime_generations == {"chat": "previous"}
+    assert daemon.worker is not None
+    assert "failed startup and was rolled back" in str(daemon.status()["last_restart_reason"])
+    bridge = next(spec for spec in daemon._graph.specs if spec.name == "bridge:chat")
+    assert bridge.environment[PLUGIN_GENERATION_ENV] == str(previous_path)
+    await daemon._terminate_worker()
+    await daemon.operations.close()
+
+
+@pytest.mark.asyncio
+async def test_daemon_deactivates_first_plugin_generation_when_candidate_fails_startup(tmp_path: Path) -> None:
+    class FakeProcess:
+        def __init__(self, pid: int, returncode: int | None = None) -> None:
+            self.pid = pid
+            self.returncode = returncode
+            self._exited = asyncio.Event()
+            if returncode is not None:
+                self._exited.set()
+
+        def terminate(self) -> None:
+            self.returncode = 0
+            self._exited.set()
+
+        def kill(self) -> None:
+            self.terminate()
+
+        async def wait(self) -> int:
+            await self._exited.wait()
+            assert self.returncode is not None
+            return self.returncode
+
+    paths = InstancePaths.from_workspace(ConfigWorkspace(tmp_path), "first-install")
+    generations = RuntimeGenerationStore(tmp_path)
+    candidate = RuntimeGeneration(
+        "candidate",
+        "chat",
+        "nonebot",
+        "2026-08-22T00:00:00+00:00",
+        PlatformTarget("windows", "amd64", "3.14"),
+        ("example.candidate",),
+        ("a" * 64,),
+        {"plugins": ["example.candidate"], "directories": []},
+    )
+    candidate_path = generations.write(candidate)
+    generation_python = generations.python_path(candidate_path)
+    generation_python.parent.mkdir(parents=True)
+    generation_python.write_text("", encoding="utf-8")
+    next_pid = 200
+
+    async def launch(spec: ProcessSpec) -> FakeProcess:
+        nonlocal next_pid
+        next_pid += 1
+        failed = spec.name == "bridge:chat" and spec.environment.get(PLUGIN_GENERATION_ENV) == str(candidate_path)
+        return FakeProcess(next_pid, 7 if failed else None)
+
+    daemon = InstanceDaemon(
+        paths,
+        DaemonSettings(),
+        (sys.executable, "-m", "liteyukibot.cli", "run"),
+        {},
+        bridge_commands={"chat": (sys.executable, "-m", "liteyukibot.cli", "bridge", "run", "chat")},
+        bridge_kinds={"chat": "nonebot"},
+        process_launcher=launch,
+    )
+    await daemon._start_worker()
+    generations.activate("chat", "candidate")
+    daemon._restart_plugin_target = "chat"
+
+    await daemon._restart_worker_graph()
+
+    assert generations.active().runtime_generations == {}
+    assert daemon.worker is not None
+    bridge = next(spec for spec in daemon._graph.specs if spec.name == "bridge:chat")
+    assert bridge.environment.get(PLUGIN_GENERATION_ENV) != str(candidate_path)
+    assert "failed startup and was rolled back" in str(daemon.status()["last_restart_reason"])
+    await daemon._terminate_worker()
+    await daemon.operations.close()
 
 
 @pytest.mark.asyncio

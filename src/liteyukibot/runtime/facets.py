@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -30,4 +30,19 @@ class RuntimeFacetInstaller(Protocol):
         """
 
 
-__all__ = ["RuntimeFacetInstaller"]
+class RuntimeFacetProbe(Protocol):
+    """Optional framework-owned startup probe for a materialized generation."""
+
+    def probe_command(self, python: Path, generation: Path) -> Sequence[str]:
+        """Return the isolated command that must succeed before activation.
+
+        Args:
+            python: Generation virtual environment interpreter.
+            generation: Materialized generation root.
+
+        Returns:
+            Non-empty child process command for the framework startup probe.
+        """
+
+
+__all__ = ["RuntimeFacetInstaller", "RuntimeFacetProbe"]

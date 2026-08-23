@@ -36,6 +36,7 @@ from .operations import (
     OperationRequest,
     PrincipalKind,
 )
+from .plugin_store import PLUGIN_GENERATION_ENV, PluginStoreError, RuntimeGenerationStore
 from .profiles import ProfileError, ProfileStore
 from .update import UpdateError, UpdateJournal, UpdatePhase
 
@@ -60,6 +61,7 @@ class InstanceDaemon:
         broker_diagnostics_token: str | None = None,
         broker_command: Sequence[str] | None = None,
         bridge_commands: Mapping[str, Sequence[str]] | None = None,
+        bridge_kinds: Mapping[str, str] | None = None,
         broker_management_token: str | None = None,
         process_launcher: Callable[[ProcessSpec], Any] | None = None,
         orphan_process_terminator: Callable[[int], Awaitable[None]] | None = None,
@@ -81,6 +83,7 @@ class InstanceDaemon:
             broker_diagnostics_token: The broker diagnostics token value used by the operation.
             broker_command: The broker command value used by the operation.
             bridge_commands: The bridge commands value used by the operation.
+            bridge_kinds: Configured runtime kind for each managed bridge ID.
             broker_management_token: The broker management token value used by the operation.
             process_launcher: The process launcher value used by the operation.
             orphan_process_terminator: The orphan process terminator value used by the operation.
@@ -123,6 +126,9 @@ class InstanceDaemon:
             )
         self._broker_command = tuple(broker_command) if broker_command is not None else None
         self._bridge_commands = {bridge_id: tuple(command) for bridge_id, command in (bridge_commands or {}).items()}
+        self._bridge_kinds = dict(bridge_kinds or {})
+        if not set(self._bridge_kinds).issubset(self._bridge_commands):
+            raise ValueError("managed bridge kinds must refer to configured bridge commands")
         self._process_launcher = cast(Any, process_launcher or launch_process)
         self._orphan_process_terminator = orphan_process_terminator or terminate_process_tree
         self._graph = self._build_graph()
@@ -132,6 +138,7 @@ class InstanceDaemon:
         self._failures: deque[float] = deque()
         self._last_exit_code: int | None = None
         self._last_restart_reason: str | None = None
+        self._restart_plugin_target: str | None = None
         self._watch_task: asyncio.Task[None] | None = None
         self._webui_server: Any = None
         self._webui_tickets: dict[str, float] = {}
@@ -179,6 +186,8 @@ class InstanceDaemon:
             operation.
         """
         base_environment = {**os.environ, **self.worker_environment}
+        generations = RuntimeGenerationStore(self.paths.workspace)
+        deployment = generations.active()
 
         def command_for(command: Sequence[str]) -> tuple[str, ...]:
             """Implement the command for operation for the build graph.
@@ -201,10 +210,28 @@ class InstanceDaemon:
         if self.settings.manage_broker and self._broker_command is not None:
             specs.append(ProcessSpec("broker", command_for(self._broker_command), base_environment))
         if self.settings.manage_bridges:
-            specs.extend(
-                ProcessSpec(f"bridge:{bridge_id}", command_for(command), base_environment)
-                for bridge_id, command in sorted(self._bridge_commands.items())
-            )
+            for bridge_id, command in sorted(self._bridge_commands.items()):
+                bridge_environment = dict(base_environment)
+                generation_id = deployment.runtime_generations.get(bridge_id)
+                if generation_id is None:
+                    bridge_command = command_for(command)
+                else:
+                    generation = generations.read(bridge_id, generation_id)
+                    configured_kind = self._bridge_kinds.get(bridge_id)
+                    if configured_kind is None:
+                        raise ManagedGraphError(f"bridge {bridge_id!r} has a generation but no configured kind")
+                    if generation.runtime_kind != configured_kind:
+                        raise ManagedGraphError(
+                            f"bridge {bridge_id!r} generation kind {generation.runtime_kind!r} does not match "
+                            f"configured kind {configured_kind!r}"
+                        )
+                    generation_path = generations.path_for(bridge_id, generation_id)
+                    generation_python = generations.python_path(generation_path)
+                    if not generation_python.is_file():
+                        raise ManagedGraphError(f"bridge {bridge_id!r} generation Python is unavailable")
+                    bridge_command = (str(generation_python), *tuple(command)[1:])
+                    bridge_environment[PLUGIN_GENERATION_ENV] = str(generation_path)
+                specs.append(ProcessSpec(f"bridge:{bridge_id}", bridge_command, bridge_environment))
         worker_environment = {
             **base_environment,
             "LITEYUKI_DAEMON_DESCRIPTOR": str(self.paths.daemon_descriptor),
@@ -262,10 +289,7 @@ class InstanceDaemon:
                 if outcome == "stop":
                     break
                 if outcome == "restart":
-                    await self._terminate_worker()
-                    self._failures.clear()
-                    self._restart_event.clear()
-                    await self._start_worker()
+                    await self._restart_worker_graph()
                     continue
                 if self.worker is None:
                     break
@@ -303,6 +327,47 @@ class InstanceDaemon:
         if self.worker is None:
             raise ManagedGraphError("managed graph did not start its kernel process")
         await self._publish_webui_event("reset", {"reason": "worker_started"})
+
+    async def _restart_worker_graph(self) -> None:
+        """Rebuild the graph and roll back a failed plugin generation candidate.
+
+        Returns:
+            None.
+
+        Notes:
+            The prior graph is retained until the candidate graph starts. Only
+            plugin-target restarts mutate deployment state on failure; ordinary
+            restart failures continue to propagate.
+
+        Security:
+            A plugin lifecycle restart may introduce arbitrary bridge-process
+            code. The prior process graph and deployment pointer are retained
+            until the candidate survives managed startup readiness. This is a
+            rollback boundary, not a sandbox for hostile plugins.
+        """
+        previous_graph = self._graph
+        kernel_spec = next(spec for spec in previous_graph.specs if spec.name == "kernel")
+        profile_python = Path(kernel_spec.command[0])
+        plugin_target = self._restart_plugin_target
+        await self._terminate_worker()
+        try:
+            self._graph = self._build_graph(profile_python)
+            await self._start_worker()
+        except Exception as error:
+            if plugin_target is None:
+                raise
+            generations = RuntimeGenerationStore(self.paths.workspace)
+            try:
+                generations.rollback(plugin_target)
+            except PluginStoreError:
+                generations.deactivate(plugin_target)
+            self._graph = previous_graph
+            await self._start_worker()
+            self._last_restart_reason = f"plugin target {plugin_target!r} failed startup and was rolled back: {error}"
+        finally:
+            self._failures.clear()
+            self._restart_event.clear()
+            self._restart_plugin_target = None
 
     async def _wait_for_worker_change(self) -> str:
         """Wait for for worker change.
@@ -1580,6 +1645,10 @@ class InstanceDaemon:
         if not isinstance(reason, str) or not reason.strip():
             raise ValueError("restart reason must be a non-empty string")
         self._last_restart_reason = reason.strip()
+        plugin_target = _request.get("plugin_target")
+        if plugin_target is not None and (not isinstance(plugin_target, str) or not plugin_target.strip()):
+            raise ValueError("plugin restart target must be a non-empty string")
+        self._restart_plugin_target = plugin_target.strip() if isinstance(plugin_target, str) else None
         self._restart_event.set()
         return {"accepted": True}
 

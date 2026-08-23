@@ -5,11 +5,14 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from importlib import metadata
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+from typing import cast
+from urllib.parse import unquote, urlsplit
 
+from .broker.service import BridgeCatalog, BridgeSupportGrade
 from .plugin_sources import PluginSource, PluginSourceStore
 from .plugin_store import (
     ArtifactStore,
@@ -22,8 +25,19 @@ from .plugin_store import (
     RuntimeGenerationStore,
 )
 from .runtime import RuntimeCatalog, RuntimePlugin
+from .runtime.facets import RuntimeFacetInstaller
 
 CommandRunner = Callable[[list[str]], None]
+
+
+@dataclass(frozen=True, slots=True)
+class _ManagedPluginTarget:
+    """Normalized install boundary shared by legacy runtimes and stable bridges."""
+
+    kind: str
+    distribution: str
+    facet_installer: RuntimeFacetInstaller
+    probe_module: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +46,15 @@ class PluginInstallResult:
 
     source_id: str
     generation: RuntimeGeneration
+
+
+@dataclass(frozen=True, slots=True)
+class PluginInstallPreview:
+    """Immutable metadata shown before executable plugin content is installed."""
+
+    source_id: str
+    index_digest: str
+    bundle: PluginBundle
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +77,10 @@ class PluginInstallationService:
 
         Returns:
             None.
+
+        Notes:
+            Stores share the resolved workspace root. Supplying `run` replaces
+            subprocess execution for deterministic lifecycle tests.
         """
         self.workspace = Path(workspace).resolve()
         self.sources = PluginSourceStore(self.workspace)
@@ -68,6 +95,7 @@ class PluginInstallationService:
         runtime_id: str,
         runtime_kind: str,
         source_id: str | None = None,
+        expected_index_digest: str | None = None,
     ) -> PluginInstallResult:
         """Install the plugin installation service operation.
 
@@ -76,6 +104,8 @@ class PluginInstallationService:
             runtime_id: Stable runtime identifier.
             runtime_kind: The runtime kind value used by the operation.
             source_id: Stable identifier for the source.
+            expected_index_digest: Optional digest previously confirmed by the
+                caller; installation aborts if refreshed metadata changed.
 
         Returns:
             The `PluginInstallResult` result produced by the operation.
@@ -96,7 +126,29 @@ class PluginInstallationService:
             source, index = self._refresh_source(current, source_id)
             roots = (*current.roots, bundle_id)
             disabled_roots = current.disabled_roots
+        if expected_index_digest is not None and index.digest != expected_index_digest:
+            raise PluginStoreError("plugin index changed after installation confirmation; review it again")
         return self._build(runtime_id, runtime_kind, source.id, index, roots, disabled_roots)
+
+    def preview(self, bundle_id: str, *, source_id: str | None = None) -> PluginInstallPreview:
+        """Resolve the exact bundle metadata that a caller must confirm.
+
+        Args:
+            bundle_id: Stable plugin bundle identifier.
+            source_id: Optional source restriction.
+
+        Returns:
+            Source identity, canonical index digest, and release metadata.
+
+        Raises:
+            PluginStoreError: If the bundle is absent or yanked.
+        """
+        source, index = self._resolve_source(bundle_id, source_id)
+        bundle = index.require(bundle_id)
+        if bundle.status == "yanked":
+            reason = f": {bundle.yanked_reason}" if bundle.yanked_reason else ""
+            raise PluginStoreError(f"plugin bundle {bundle_id!r} is yanked{reason}")
+        return PluginInstallPreview(source.id, index.digest, bundle)
 
     def update(
         self,
@@ -147,7 +199,7 @@ class PluginInstallationService:
         enabled_roots = tuple(
             root for root in current.roots if root != bundle_id and root not in current.disabled_roots
         )
-        dependents = _roots_requiring(index, enabled_roots, bundle_id)
+        dependents = _roots_requiring(index, enabled_roots, bundle_id, allow_yanked=True)
         if dependents:
             raise PluginStoreError(
                 f"plugin bundle {bundle_id!r} is required by enabled roots: {', '.join(dependents)}"
@@ -161,6 +213,7 @@ class PluginInstallationService:
             (*current.disabled_roots, bundle_id),
             current.index_digest,
             fetch_missing=False,
+            allow_yanked=True,
         )
 
     def enable(
@@ -193,6 +246,7 @@ class PluginInstallationService:
             tuple(root for root in current.disabled_roots if root != bundle_id),
             current.index_digest,
             fetch_missing=False,
+            allow_yanked=True,
         )
 
     def uninstall(
@@ -218,11 +272,12 @@ class PluginInstallationService:
             raise PluginStoreError(f"plugin bundle {bundle_id!r} is not an enabled root")
         roots = tuple(item for item in current.roots if item != bundle_id)
         index = PluginIndex(current.resolved_bundles)
-        dependents = _roots_requiring(index, roots, bundle_id)
+        dependents = _roots_requiring(index, roots, bundle_id, allow_yanked=True)
         if dependents:
             raise PluginStoreError(f"plugin bundle {bundle_id!r} is required by roots: {', '.join(dependents)}")
         if not roots:
             self.generations.deactivate(runtime_id)
+            self._collect_unreferenced(runtime_id)
             return PluginUninstallResult(current.source_id or "", None)
         disabled_roots = tuple(root for root in current.disabled_roots if root != bundle_id)
         result = self._build(
@@ -234,6 +289,7 @@ class PluginInstallationService:
             disabled_roots,
             current.index_digest,
             fetch_missing=False,
+            allow_yanked=True,
         )
         return PluginUninstallResult(result.source_id, result.generation)
 
@@ -248,6 +304,7 @@ class PluginInstallationService:
         index_digest: str | None = None,
         *,
         fetch_missing: bool = True,
+        allow_yanked: bool = False,
     ) -> PluginInstallResult:
         """Build the plugin installation service operation.
 
@@ -260,6 +317,7 @@ class PluginInstallationService:
             disabled_roots: The disabled roots value used by the operation.
             index_digest: The index digest value used by the operation.
             fetch_missing: The fetch missing value used by the operation.
+            allow_yanked: Whether locally retained yanked releases may be rebuilt.
 
         Returns:
             The `PluginInstallResult` result produced by the operation.
@@ -269,23 +327,33 @@ class PluginInstallationService:
             `_resolve_bundles`, `current`, `facet_for`, `items` while keeping intermediate state local to
             the owning operation.
         """
-        bundles = _resolve_bundles(index, roots)
+        bundles = _resolve_bundles(index, roots, allow_yanked=allow_yanked)
         target = PlatformTarget.current()
         facets = {bundle.id: bundle.facet_for(runtime_kind, target) for bundle in bundles}
+        inputs = tuple(artifact for facet in facets.values() for artifact in (*facet.artifacts, *facet.wheels))
+        if len(inputs) > 256:
+            raise PluginStoreError("resolved plugin generation exceeds the 256-input limit")
         enabled_roots = tuple(root for root in roots if root not in disabled_roots)
-        enabled_bundle_ids = {bundle.id for bundle in _resolve_bundles(index, enabled_roots)}
+        enabled_bundle_ids = {
+            bundle.id for bundle in _resolve_bundles(index, enabled_roots, allow_yanked=allow_yanked)
+        }
         enabled_facets = {bundle_id: facet for bundle_id, facet in facets.items() if bundle_id in enabled_bundle_ids}
         runtime = self._require_runtime(runtime_kind)
         generation_id = self.generations.new_generation_id()
         generation_path = self.generations.path_for(runtime_id, generation_id)
         try:
             generation_path.mkdir(parents=True)
+            total_input_bytes = 0
             for facet in facets.values():
                 for artifact in (*facet.artifacts, *facet.wheels):
                     if fetch_missing:
-                        self.artifacts.fetch(artifact)
+                        artifact_path = self.artifacts.fetch(artifact)
                     else:
-                        self.artifacts.require(artifact.sha256)
+                        artifact_path = self.artifacts.require(artifact.sha256)
+                    total_input_bytes += artifact_path.stat().st_size
+                    if total_input_bytes > 1024**3:
+                        raise PluginStoreError("resolved plugin generation exceeds the 1 GiB input limit")
+            self.artifacts.validate_expanded_total(artifact.sha256 for artifact in inputs)
             self._create_environment(generation_path, runtime, facets, offline=not fetch_missing)
             installer = runtime.facet_installer
             if installer is None:
@@ -317,8 +385,32 @@ class PluginInstallationService:
         except BaseException:
             shutil.rmtree(generation_path, ignore_errors=True)
             _prune_empty_generation_parents(generation_path)
+            self._collect_unreferenced(runtime_id)
             raise
+        self._collect_unreferenced(runtime_id)
         return PluginInstallResult(source_id, generation)
+
+    def _collect_unreferenced(self, runtime_id: str) -> None:
+        """Retain only active/previous generations and their referenced artifacts.
+
+        Args:
+            runtime_id: Target whose superseded generations are collected.
+
+        Returns:
+            None.
+
+        Notes:
+            Generation collection runs before artifact collection so the
+            content-addressed keep set is derived only from active and previous
+            state across every target.
+        """
+        self.generations.collect(runtime_id)
+        retained_artifacts = {
+            digest
+            for generation in self.generations.list_generations()
+            for digest in generation.artifacts
+        }
+        self.artifacts.collect(retained_artifacts)
 
     def _resolve_source(self, bundle_id: str, source_id: str | None) -> tuple[PluginSource, PluginIndex]:
         """Resolve source.
@@ -436,30 +528,49 @@ class PluginInstallationService:
             raise PluginStoreError("active runtime generation has no source provenance; reinstall its plugin roots")
 
     @staticmethod
-    def _require_runtime(runtime_kind: str) -> RuntimePlugin:
+    def _require_runtime(runtime_kind: str) -> _ManagedPluginTarget:
         """Return runtime, failing when it is unavailable.
 
         Args:
             runtime_kind: The runtime kind value used by the operation.
 
         Returns:
-            The `RuntimePlugin` result produced by the operation.
+            Normalized managed target for environment creation and probing.
 
         Notes:
             Internal implementation detail for `PluginInstallationService._require_runtime`. It delegates to
             `get`, `discover` while keeping intermediate state local to the owning operation.
         """
         runtime = RuntimeCatalog().discover().get(runtime_kind)
-        if runtime is None:
-            raise PluginStoreError(f"runtime kind {runtime_kind!r} is not installed")
-        if runtime.facet_installer is None or runtime.distribution is None:
-            raise PluginStoreError(f"runtime kind {runtime_kind!r} does not support managed plugin installation")
-        return runtime
+        if runtime is not None:
+            if runtime.facet_installer is None or runtime.distribution is None:
+                raise PluginStoreError(f"runtime kind {runtime_kind!r} does not support managed plugin installation")
+            return _ManagedPluginTarget(
+                runtime.kind,
+                runtime.distribution,
+                runtime.facet_installer,
+                _runtime_module(runtime),
+            )
+        bridge = BridgeCatalog().discover().get(runtime_kind)
+        if bridge is None:
+            raise PluginStoreError(f"plugin target kind {runtime_kind!r} is not installed")
+        if (
+            bridge.grade is not BridgeSupportGrade.STABLE
+            or bridge.facet_installer is None
+            or bridge.probe_module is None
+        ):
+            raise PluginStoreError(f"bridge kind {runtime_kind!r} does not support managed plugin installation")
+        return _ManagedPluginTarget(
+            bridge.kind,
+            bridge.distribution,
+            bridge.facet_installer,
+            bridge.probe_module,
+        )
 
     def _create_environment(
         self,
         generation_path: Path,
-        runtime: RuntimePlugin,
+        runtime: _ManagedPluginTarget,
         facets: Mapping[str, PluginFacet],
         *,
         offline: bool,
@@ -480,8 +591,6 @@ class PluginInstallationService:
             to `version`, `python_path`, `_run`, `append` while keeping intermediate state local to the
             owning operation.
         """
-        if runtime.distribution is None:
-            raise AssertionError("managed runtime distribution is required")
         try:
             version = metadata.version(runtime.distribution)
         except metadata.PackageNotFoundError as error:
@@ -499,12 +608,13 @@ class PluginInstallationService:
             wheel_directory.mkdir()
             wheel_paths: list[str] = []
             for wheel in wheels:
-                staged = wheel_directory / f"{wheel.sha256}.whl"
+                staged = wheel_directory / wheel.sha256 / _wheel_filename(wheel.url)
+                staged.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(self.artifacts.path_for(wheel.sha256), staged)
                 wheel_paths.append(str(staged))
             self._run(["uv", "pip", "install", "--no-index", "--no-deps", "--python", str(python), *wheel_paths])
 
-    def _probe_generation(self, generation_path: Path, runtime: RuntimePlugin) -> None:
+    def _probe_generation(self, generation_path: Path, runtime: _ManagedPluginTarget) -> None:
         """Verify the isolated runtime host imports before changing deployment state.
 
         Args:
@@ -520,7 +630,6 @@ class PluginInstallationService:
             operation.
         """
 
-        module = _runtime_module(runtime)
         python = self.generations.python_path(generation_path)
         self._run(
             [
@@ -529,18 +638,30 @@ class PluginInstallationService:
                 "import importlib, importlib.metadata, sys; "
                 "importlib.metadata.distribution(sys.argv[1]); "
                 "importlib.import_module(sys.argv[2])",
-                runtime.distribution or "",
-                module,
+                runtime.distribution,
+                runtime.probe_module,
             ]
         )
+        probe = getattr(runtime.facet_installer, "probe_command", None)
+        if callable(probe):
+            command = cast(Callable[[Path, Path], Sequence[str]], probe)(python, generation_path)
+            if not command or any(not argument for argument in command):
+                raise PluginStoreError(f"managed runtime kind {runtime.kind!r} returned an invalid probe command")
+            self._run(list(command))
 
 
-def _resolve_bundles(index: PluginIndex, roots: tuple[str, ...]) -> tuple[PluginBundle, ...]:
+def _resolve_bundles(
+    index: PluginIndex,
+    roots: tuple[str, ...],
+    *,
+    allow_yanked: bool = False,
+) -> tuple[PluginBundle, ...]:
     """Resolve bundles.
 
     Args:
         index: The index value used by the operation.
         roots: The roots value used by the operation.
+        allow_yanked: Whether locally retained yanked releases may be rebuilt.
 
     Returns:
         The `tuple[PluginBundle, ...]` result produced by the operation.
@@ -572,6 +693,9 @@ def _resolve_bundles(index: PluginIndex, roots: tuple[str, ...]) -> tuple[Plugin
             raise PluginStoreError(f"plugin dependency cycle includes {current_id!r}")
         visiting.add(current_id)
         bundle = index.require(current_id)
+        if bundle.status == "yanked" and not allow_yanked:
+            reason = f": {bundle.yanked_reason}" if bundle.yanked_reason else ""
+            raise PluginStoreError(f"plugin bundle {current_id!r} is yanked{reason}")
         for dependency in bundle.dependencies:
             visit(dependency)
         visiting.remove(current_id)
@@ -608,13 +732,20 @@ def _runtime_module(runtime: RuntimePlugin) -> str:
     return module
 
 
-def _roots_requiring(index: PluginIndex, roots: tuple[str, ...], bundle_id: str) -> tuple[str, ...]:
+def _roots_requiring(
+    index: PluginIndex,
+    roots: tuple[str, ...],
+    bundle_id: str,
+    *,
+    allow_yanked: bool = False,
+) -> tuple[str, ...]:
     """Implement the roots requiring operation for the component.
 
     Args:
         index: The index value used by the operation.
         roots: The roots value used by the operation.
         bundle_id: Stable identifier for the bundle.
+        allow_yanked: Whether locally retained yanked releases may be resolved.
 
     Returns:
         The `tuple[str, ...]` result produced by the operation.
@@ -626,8 +757,30 @@ def _roots_requiring(index: PluginIndex, roots: tuple[str, ...], bundle_id: str)
     return tuple(
         root
         for root in roots
-        if bundle_id in {bundle.id for bundle in _resolve_bundles(index, (root,))}
+        if bundle_id in {
+            bundle.id for bundle in _resolve_bundles(index, (root,), allow_yanked=allow_yanked)
+        }
     )
+
+
+def _wheel_filename(url: str) -> str:
+    """Extract a valid install filename from an artifact URL.
+
+    Args:
+        url: Validated artifact URL declared by a plugin wheel input.
+
+    Returns:
+        URL basename retained for wheel filename parsing by the installer.
+
+    Notes:
+        The containing directory is still addressed by SHA-256, so equal
+        filenames from different releases cannot collide. The package installer
+        performs the final wheel filename and metadata validation.
+    """
+    filename = PurePosixPath(unquote(urlsplit(url).path)).name
+    if not filename or not filename.casefold().endswith(".whl"):
+        raise PluginStoreError(f"plugin wheel URL does not contain a wheel filename: {url}")
+    return filename
 
 
 def _run_command(command: list[str]) -> None:
@@ -684,4 +837,4 @@ def _utc_now() -> str:
     return datetime.now(UTC).isoformat()
 
 
-__all__ = ["PluginInstallResult", "PluginInstallationService", "PluginUninstallResult"]
+__all__ = ["PluginInstallPreview", "PluginInstallResult", "PluginInstallationService", "PluginUninstallResult"]

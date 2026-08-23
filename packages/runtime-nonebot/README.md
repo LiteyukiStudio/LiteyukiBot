@@ -19,6 +19,16 @@ initialization is configured under `broker.bridges.<id>.options` with
 `config`, `adapters`, `plugins`, and `plugin_dirs`; generic `CallApi` and
 message editing are not part of this bridge contract.
 
+Alpha12 plugin-store deployments use immutable managed generations. The kernel
+creates an isolated environment, materializes the complete NoneBot load plan,
+and runs a real NoneBot initialization probe before activation. The daemon then
+restarts the bridge with `LITEYUKI_PLUGIN_GENERATION` pointing at that
+generation. Managed generations reject `plugins` and `plugin_dirs` in bridge
+configuration so manually configured and store-managed plugins cannot be
+loaded together accidentally. A failed candidate startup restores the previous
+generation; garbage collection retains only the active and previous
+generations and their referenced artifacts.
+
 With the separately installed `liteyukibot-v7-runtime-nonebot-api` package, the
 bridge publishes the Alpha10.1 v1.2 `event.snapshot`, `event.send`,
 `bot.snapshot`, and `bot.send` runtime APIs. Only kernel-owned portable JSON
@@ -39,4 +49,6 @@ objects and credentials remain in this package; the kernel never imports them.
 Keep NoneBot imports and adapter conversion in this package. Event forwarding
 must not suppress NoneBot matcher dispatch. Run
 `uv run pytest packages/runtime-nonebot/tests` and
-`uv run python -m scripts.run_nonebot_runtime_install` after changes.
+`uv run python -m scripts.run_nonebot_runtime_install` after changes. Plugin
+generation changes additionally require `uv run python
+scripts/run_nonebot_plugin_e2e.py` against built workspace wheels.

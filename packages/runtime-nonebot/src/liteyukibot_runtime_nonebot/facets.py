@@ -58,6 +58,18 @@ class NoneBotFacetInstaller:
             raise PluginStoreError("NoneBot load plan cannot repeat plugins or directories")
         return {"plugins": plugins, "directories": directories}
 
+    def probe_command(self, python: Path, generation: Path) -> tuple[str, ...]:
+        """Return the isolated NoneBot startup probe for one generation.
+
+        Args:
+            python: Generation virtual environment interpreter.
+            generation: Materialized generation root.
+
+        Returns:
+            Command that initializes NoneBot and loads the complete plan.
+        """
+        return (str(python), "-m", "liteyukibot_runtime_nonebot.probe", str(generation))
+
 
 def _module_list(load: Mapping[str, object]) -> tuple[str, ...]:
     """Implement the module list operation for the component.

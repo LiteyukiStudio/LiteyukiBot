@@ -43,9 +43,9 @@ from .daemon import InstanceDaemon
 from .exceptions import LiteyukiError
 from .init_wizard import WizardCancelled, build_custom_initialization_plan, run_init_wizard
 from .instances import DEFAULT_INSTANCE, InstancePaths
-from .plugin_install import PluginInstallationService
+from .plugin_install import PluginInstallationService, PluginInstallPreview
 from .plugin_sources import OFFICIAL_SOURCE_ID, PluginSource, PluginSourceStore
-from .plugin_store import RuntimeGenerationStore
+from .plugin_store import ArtifactStore, RuntimeGenerationStore
 from .profiles import ProfileManifest, ProfileStore
 from .resource_packs import verify_resource_manifest, write_resource_manifest
 from .terminal import run_local_console, supports_local_console
@@ -127,27 +127,28 @@ def build_parser() -> argparse.ArgumentParser:
     plugin_search.add_argument("--refresh", action="store_true")
     plugin_search.add_argument("--json", action="store_true", dest="json_output")
     plugin_list = plugin_commands.add_parser("list")
-    plugin_list.add_argument("--runtime", dest="runtime_id")
+    plugin_list.add_argument("--target", "--runtime", dest="runtime_id")
     plugin_install = plugin_commands.add_parser("install", help="install a runtime plugin bundle")
     plugin_install.add_argument("bundle_id")
-    plugin_install.add_argument("--runtime", required=True, dest="runtime_id")
+    plugin_install.add_argument("--target", "--runtime", required=True, dest="runtime_id")
     plugin_install.add_argument("--source", dest="source_id")
+    plugin_install.add_argument("--yes", action="store_true", help="confirm installation without prompting")
     plugin_update = plugin_commands.add_parser("update", help="rebuild a runtime plugin generation from its source")
-    plugin_update.add_argument("--runtime", required=True, dest="runtime_id")
+    plugin_update.add_argument("--target", "--runtime", required=True, dest="runtime_id")
     plugin_update.add_argument("--source", dest="source_id")
     plugin_disable = plugin_commands.add_parser("disable", help="disable one retained runtime plugin bundle root")
     plugin_disable.add_argument("bundle_id")
-    plugin_disable.add_argument("--runtime", required=True, dest="runtime_id")
+    plugin_disable.add_argument("--target", "--runtime", required=True, dest="runtime_id")
     plugin_enable = plugin_commands.add_parser("enable", help="re-enable one retained runtime plugin bundle root")
     plugin_enable.add_argument("bundle_id")
-    plugin_enable.add_argument("--runtime", required=True, dest="runtime_id")
+    plugin_enable.add_argument("--target", "--runtime", required=True, dest="runtime_id")
     plugin_uninstall = plugin_commands.add_parser("uninstall", help="remove one runtime plugin bundle root")
     plugin_uninstall.add_argument("bundle_id")
-    plugin_uninstall.add_argument("--runtime", required=True, dest="runtime_id")
+    plugin_uninstall.add_argument("--target", "--runtime", required=True, dest="runtime_id")
     plugin_gc = plugin_commands.add_parser("gc", help="remove unreferenced runtime plugin generations")
-    plugin_gc.add_argument("--runtime", dest="runtime_id")
+    plugin_gc.add_argument("--target", "--runtime", dest="runtime_id")
     plugin_rollback = plugin_commands.add_parser("rollback", help="restore a runtime's previous plugin generation")
-    plugin_rollback.add_argument("--runtime", required=True, dest="runtime_id")
+    plugin_rollback.add_argument("--target", "--runtime", required=True, dest="runtime_id")
     plugin_source = plugin_commands.add_parser("source", help="plugin index source operations")
     plugin_source_commands = plugin_source.add_subparsers(dest="plugin_source_command", required=True)
     plugin_source_commands.add_parser("list")
@@ -555,6 +556,50 @@ def _plugin_search(args: argparse.Namespace) -> int:
     return 0
 
 
+def _confirm_plugin_install(preview: PluginInstallPreview, *, confirmed: bool) -> bool:
+    """Display exact release metadata and obtain executable-code confirmation.
+
+    Args:
+        preview: Digest-bound bundle metadata returned by the install service.
+        confirmed: Whether `--yes` already provided explicit confirmation.
+
+    Returns:
+        Whether installation should continue.
+
+    Notes:
+        The displayed source digest is passed back to installation so metadata
+        changed after review cannot be installed under the prior confirmation.
+    """
+    bundle = preview.bundle
+    publisher = (
+        f"{bundle.publisher.name} ({bundle.publisher.id})"
+        if bundle.publisher is not None
+        else "unknown (legacy schema 1)"
+    )
+    license_expression = bundle.license.expression if bundle.license is not None else "unknown (legacy schema 1)"
+    print(f"Plugin: {bundle.display_name or bundle.id} ({bundle.id})")
+    print(f"Version: {bundle.version}")
+    print(f"Publisher: {publisher}")
+    print(f"License: {license_expression}")
+    print(f"Source: {preview.source_id} ({preview.index_digest})")
+    capabilities = sorted({capability for facet in bundle.facets for capability in facet.capabilities})
+    inputs = tuple(artifact for facet in bundle.facets for artifact in (*facet.artifacts, *facet.wheels))
+    total_bytes = sum(artifact.bytes for artifact in inputs if artifact.bytes is not None)
+    exact_bytes = total_bytes if all(artifact.bytes is not None for artifact in inputs) else "unknown (legacy schema 1)"
+    print(f"Capabilities: {','.join(capabilities) or '-'}")
+    print(f"Artifact bytes: {exact_bytes}")
+    if bundle.repository is not None:
+        print(f"Repository: {bundle.repository}")
+    if bundle.summary is not None:
+        print(f"Summary: {bundle.summary}")
+    print("Security: plugin code executes in the target runtime process with the current OS user's privileges.")
+    if confirmed:
+        return True
+    if not sys.stdin.isatty():
+        raise ValueError("plugin installation requires --yes in non-interactive mode")
+    return input("Install this plugin? [y/N]: ").strip().casefold() in {"y", "yes"}
+
+
 def _plugin_install(args: argparse.Namespace, settings: AppSettings, workspace: ConfigWorkspace) -> int:
     """Implement the plugin install operation for the component.
 
@@ -572,13 +617,20 @@ def _plugin_install(args: argparse.Namespace, settings: AppSettings, workspace: 
         operation.
     """
     runtime = _configured_runtime(args.runtime_id, settings)
+    service = PluginInstallationService(workspace.directory)
+    preview = service.preview(args.bundle_id, source_id=args.source_id)
+    if not _confirm_plugin_install(preview, confirmed=args.yes):
+        print("installation cancelled")
+        return 1
     with _exclusive_workspace(workspace):
-        result = PluginInstallationService(workspace.directory).install(
+        result = service.install(
             args.bundle_id,
             runtime_id=args.runtime_id,
             runtime_kind=runtime.kind,
             source_id=args.source_id,
+            expected_index_digest=preview.index_digest,
         )
+    _request_plugin_restart(args, workspace, args.runtime_id, f"plugin install {args.bundle_id}")
     print(f"installed {args.bundle_id} from {result.source_id} as {result.generation.id}")
     return 0
 
@@ -598,10 +650,10 @@ def _plugin_rollback(args: argparse.Namespace, settings: AppSettings, workspace:
         Internal implementation detail for `_plugin_rollback`. It delegates to `_exclusive_workspace`,
         `rollback`, `print` while keeping intermediate state local to the owning operation.
     """
-    if args.runtime_id not in settings.runtimes:
-        raise ValueError(f"runtime {args.runtime_id!r} is not configured")
+    _configured_runtime(args.runtime_id, settings)
     with _exclusive_workspace(workspace):
         deployment = RuntimeGenerationStore(workspace.directory).rollback(args.runtime_id)
+    _request_plugin_restart(args, workspace, args.runtime_id, "plugin rollback")
     print(f"activated {deployment.runtime_generations[args.runtime_id]}")
     return 0
 
@@ -629,6 +681,7 @@ def _plugin_update(args: argparse.Namespace, settings: AppSettings, workspace: C
             runtime_kind=runtime.kind,
             source_id=args.source_id,
         )
+    _request_plugin_restart(args, workspace, args.runtime_id, "plugin update")
     print(f"updated {args.runtime_id} from {result.source_id} as {result.generation.id}")
     return 0
 
@@ -656,6 +709,7 @@ def _plugin_uninstall(args: argparse.Namespace, settings: AppSettings, workspace
             runtime_id=args.runtime_id,
             runtime_kind=runtime.kind,
         )
+    _request_plugin_restart(args, workspace, args.runtime_id, f"plugin uninstall {args.bundle_id}")
     if result.generation is None:
         print(f"uninstalled {args.bundle_id}; deactivated {args.runtime_id}")
     else:
@@ -686,6 +740,7 @@ def _plugin_disable(args: argparse.Namespace, settings: AppSettings, workspace: 
             runtime_id=args.runtime_id,
             runtime_kind=runtime.kind,
         )
+    _request_plugin_restart(args, workspace, args.runtime_id, f"plugin disable {args.bundle_id}")
     print(f"disabled {args.bundle_id}; activated {result.generation.id}")
     return 0
 
@@ -713,6 +768,7 @@ def _plugin_enable(args: argparse.Namespace, settings: AppSettings, workspace: C
             runtime_id=args.runtime_id,
             runtime_kind=runtime.kind,
         )
+    _request_plugin_restart(args, workspace, args.runtime_id, f"plugin enable {args.bundle_id}")
     print(f"enabled {args.bundle_id}; activated {result.generation.id}")
     return 0
 
@@ -732,34 +788,80 @@ def _plugin_gc(args: argparse.Namespace, workspace: ConfigWorkspace) -> int:
         `collect`, `print` while keeping intermediate state local to the owning operation.
     """
     with _exclusive_workspace(workspace):
-        collected = RuntimeGenerationStore(workspace.directory).collect(args.runtime_id)
+        generations = RuntimeGenerationStore(workspace.directory)
+        collected = generations.collect(args.runtime_id)
+        retained_artifacts = {
+            digest for generation in generations.list_generations() for digest in generation.artifacts
+        }
+        collected_artifacts = ArtifactStore(workspace.directory).collect(retained_artifacts)
     for generation in collected:
         print(f"collected\t{generation.runtime_id}\t{generation.id}")
     print(f"collected {len(collected)} runtime plugin generation(s)")
+    print(f"collected {len(collected_artifacts)} plugin artifact(s)")
     return 0
 
 
 def _configured_runtime(runtime_id: str, settings: AppSettings) -> Any:
-    """Implement the configured runtime operation for the component.
+    """Resolve one enabled managed-plugin target across runtime generations and bridges.
 
     Args:
-        runtime_id: Stable runtime identifier.
+        runtime_id: Stable target identifier.
         settings: Validated application settings.
 
     Returns:
-        The `Any` result produced by the operation.
+        The configured target exposing its runtime `kind`.
 
     Notes:
-        Internal implementation detail for `_configured_runtime`. It performs the local state transition
-        directly and is not a stable extension boundary.
+        Runtime and broker-bridge namespaces are checked together because both
+        may own managed generations, but one target ID cannot resolve to both.
     """
-    try:
-        runtime = settings.runtimes[runtime_id]
-    except KeyError as error:
-        raise ValueError(f"runtime {runtime_id!r} is not configured") from error
-    if not runtime.enabled:
+    runtime = settings.runtimes.get(runtime_id)
+    bridge = settings.broker.bridges.get(runtime_id)
+    if runtime is not None and bridge is not None:
+        raise ValueError(f"plugin target {runtime_id!r} is ambiguous between runtimes and broker bridges")
+    if runtime is None and bridge is None:
+        raise ValueError(f"plugin target {runtime_id!r} is not configured")
+    if runtime is not None and not runtime.enabled:
         raise ValueError(f"runtime {runtime_id!r} is disabled")
-    return runtime
+    return runtime if runtime is not None else bridge
+
+
+def _request_plugin_restart(
+    args: argparse.Namespace,
+    workspace: ConfigWorkspace,
+    target_id: str,
+    reason: str,
+) -> None:
+    """Ask a running instance daemon to rebuild its graph after plugin changes.
+
+    Args:
+        args: Parsed CLI namespace containing the selected instance name.
+        workspace: Workspace owning the instance descriptor.
+        target_id: Runtime or bridge target whose generation changed.
+        reason: Human-readable lifecycle operation recorded by the daemon.
+
+    Returns:
+        None. An offline workspace requires no restart.
+
+    Notes:
+        The generation pointer is already atomic when this function runs. A
+        live daemon rebuilds its graph; otherwise the CLI reports the required
+        operator restart without treating the deployment write as failed.
+    """
+    descriptor = InstancePaths.from_workspace(workspace, args.instance).daemon_descriptor
+    if not descriptor.is_file():
+        print(f"restart required for plugin target {target_id}")
+        return
+    response = asyncio.run(
+        request_control(
+            descriptor,
+            "restart",
+            reason=reason,
+            plugin_target=target_id,
+        )
+    )
+    if response != {"accepted": True}:
+        raise RuntimeError("instance daemon rejected the plugin target restart")
 
 
 def _profile_unlocked(args: argparse.Namespace, workspace: ConfigWorkspace) -> int:
@@ -1277,6 +1379,11 @@ def _run(settings: AppSettings, workspace: ConfigWorkspace, args: argparse.Names
                     broker_diagnostics_token=diagnostics_token,
                     broker_command=_daemon_component_command(workspace, args, "broker", "run"),
                     bridge_commands=bridge_commands,
+                    bridge_kinds={
+                        bridge_id: bridge.kind
+                        for bridge_id, bridge in settings.broker.bridges.items()
+                        if bridge.kind != "kernel"
+                    },
                     broker_management_token=management_token,
                 ).run()
             )
