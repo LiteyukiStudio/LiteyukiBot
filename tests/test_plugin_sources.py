@@ -7,7 +7,7 @@ import pytest
 
 from liteyukibot.cli import main
 from liteyukibot.plugin_sources import OFFICIAL_SOURCE_ID, PluginSource, PluginSourceStore
-from liteyukibot.plugin_store import PluginStoreError
+from liteyukibot.plugin_store import PluginIndex, PluginStoreError
 
 
 def test_source_store_keeps_official_source_and_orders_custom_sources(tmp_path: Path) -> None:
@@ -27,6 +27,9 @@ def test_source_store_rejects_reserved_or_insecure_sources(tmp_path: Path) -> No
     with pytest.raises(PluginStoreError, match="HTTPS"):
         PluginSource("insecure", "http://example.invalid/index.json")
 
+    with pytest.raises(PluginStoreError, match="lowercase identifier"):
+        PluginSource("../escape", "https://example.invalid/index.json")
+
 
 def test_source_cli_manages_workspace_owned_configuration(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert (
@@ -42,3 +45,45 @@ def test_source_cli_manages_workspace_owned_configuration(tmp_path: Path, capsys
 
     assert main(["--workspace", str(tmp_path), "plugin", "source", "remove", "local"]) == 0
     assert "removed local" in capsys.readouterr().out
+
+
+def test_search_cli_emits_machine_readable_discovery_metadata(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    index = PluginIndex.parse(
+        {
+            "schema": 1,
+            "bundles": [
+                {
+                    "id": "example.echo",
+                    "version": "1.0.0",
+                    "dependencies": [],
+                    "facets": [
+                        {
+                            "runtime_kind": "nonebot",
+                            "artifacts": [
+                                {"url": "https://example.invalid/echo.zip", "sha256": "a" * 64}
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+    fetched_sources: list[str] = []
+
+    def fetch(_self: PluginSourceStore, source_id: str, **_kwargs: object) -> PluginIndex:
+        fetched_sources.append(source_id)
+        return index
+
+    monkeypatch.setattr(PluginSourceStore, "fetch", fetch)
+
+    assert main(["--workspace", str(tmp_path), "plugin", "search", "echo", "--json"]) == 0
+
+    output = json.loads(capsys.readouterr().out)
+    assert output[0]["id"] == "example.echo"
+    assert output[0]["runtime_kinds"] == ["nonebot"]
+    assert output[0]["source"] == OFFICIAL_SOURCE_ID
+    assert fetched_sources == [OFFICIAL_SOURCE_ID]
