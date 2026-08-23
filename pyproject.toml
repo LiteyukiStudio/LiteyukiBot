@@ -1,11 +1,11 @@
 [project]
 name = "liteyukibot-v7"
-version = "7.0.0a9"
+version = "7.0.0a12"
 description = "A protocol-neutral, multi-runtime chatbot kernel."
 readme = "README.md"
 requires-python = ">=3.14"
-license = "LicenseRef-LSO"
-license-files = ["LICENSE"]
+license = "LicenseRef-LSO-Common-1.4"
+license-files = ["LICENSE", "LICENSE.en", "LICENSE.zh-CN"]
 authors = [
     { name = "LiteyukiStudio" },
 ]
@@ -19,6 +19,7 @@ dependencies = [
     "tomli-w>=1.2,<2",
     "yukilog>=1,<2",
     "jsonschema>=4.26,<5",
+    "license-expression>=30.4.4",
     "tornado>=6.1,<7",
 ]
 
@@ -33,7 +34,7 @@ http = [
 webui = [
     "fastapi>=0.141,<1",
     "uvicorn>=0.52,<1",
-    "liteyukibot-v7-webui[server]==7.0.0a9",
+    "liteyukibot-v7-webui[server]==7.0.0a12",
 ]
 
 [project.scripts]
@@ -66,7 +67,7 @@ requires = ["uv_build>=0.11.32,<0.12"]
 build-backend = "uv_build"
 
 [tool.uv.workspace]
-members = ["packages/*"]
+members = ["packages/*", "examples/nonebot-plugin"]
 
 [tool.uv.sources]
 liteyukibot-v7-webui = { workspace = true }

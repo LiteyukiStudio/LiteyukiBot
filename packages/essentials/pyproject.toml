@@ -4,13 +4,13 @@ version = "0.3.0a1"
 description = "Essential help and status commands for LiteyukiBot v7."
 readme = "README.md"
 requires-python = ">=3.14"
-license = "LicenseRef-LSO"
-license-files = ["LICENSE"]
+license = "LicenseRef-LSO-Common-1.4"
+license-files = ["LICENSE", "LICENSE.en", "LICENSE.zh-CN"]
 authors = [
     { name = "LiteyukiStudio" },
 ]
 dependencies = [
-    "liteyukibot-v7==7.0.0a9",
+    "liteyukibot-v7==7.0.0a12",
     "liteyukibot-v7-commands==0.3.0a1",
 ]
 

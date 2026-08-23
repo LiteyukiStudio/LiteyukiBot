@@ -21,6 +21,7 @@ members = [
     "liteyukibot-v7-cordis",
     "liteyukibot-v7-devcli",
     "liteyukibot-v7-essentials",
+    "liteyukibot-v7-example-nonebot-plugin",
     "liteyukibot-v7-functions",
     "liteyukibot-v7-ipc-native",
     "liteyukibot-v7-permissions",
@@ -1361,12 +1362,13 @@ wheels = [
 
 [[package]]
 name = "liteyukibot-v7"
-version = "7.0.0a9"
+version = "7.0.0a12"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
     { name = "filelock" },
     { name = "jsonschema" },
+    { name = "license-expression" },
     { name = "prompt-toolkit" },
     { name = "pydantic" },
     { name = "pyyaml" },
@@ -1417,6 +1419,7 @@ requires-dist = [
     { name = "fastapi", marker = "extra == 'webui'", specifier = ">=0.141,<1" },
     { name = "filelock", specifier = ">=3.19,<4" },
     { name = "jsonschema", specifier = ">=4.26,<5" },
+    { name = "license-expression", specifier = ">=30.4.4" },
     { name = "liteyukibot-v7-webui", extras = ["server"], marker = "extra == 'webui'", editable = "packages/webui" },
     { name = "prompt-toolkit", specifier = ">=3.0,<4" },
     { name = "pydantic", specifier = ">=2.13,<3" },
@@ -1530,7 +1533,7 @@ requires-dist = [
 
 [[package]]
 name = "liteyukibot-v7-cordis"
-version = "7.0.0a9"
+version = "7.0.0a12"
 source = { editable = "packages/cordis" }
 dependencies = [
     { name = "liteyukibot-v7" },
@@ -1541,7 +1544,7 @@ requires-dist = [{ name = "liteyukibot-v7", editable = "." }]
 
 [[package]]
 name = "liteyukibot-v7-devcli"
-version = "7.0.0a9"
+version = "7.0.0a12"
 source = { editable = "packages/devcli" }
 dependencies = [
     { name = "liteyukibot-v7" },
@@ -1570,6 +1573,17 @@ requires-dist = [
 ]
 
 [[package]]
+name = "liteyukibot-v7-example-nonebot-plugin"
+version = "0.1.0"
+source = { editable = "examples/nonebot-plugin" }
+dependencies = [
+    { name = "nonebot2" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "nonebot2", specifier = ">=2.5,<3" }]
+
+[[package]]
 name = "liteyukibot-v7-functions"
 version = "0.1.0a3"
 source = { editable = "packages/functions" }
@@ -1588,7 +1602,7 @@ requires-dist = [
 
 [[package]]
 name = "liteyukibot-v7-ipc-native"
-version = "7.0.0a9"
+version = "7.0.0a12"
 source = { editable = "packages/ipc-native" }
 
 [[package]]
@@ -1645,7 +1659,7 @@ requires-dist = [
 
 [[package]]
 name = "liteyukibot-v7-runtime-adapter"
-version = "7.0.0a9"
+version = "7.0.0a12"
 source = { editable = "packages/runtime-adapter" }
 dependencies = [
     { name = "liteyukibot-v7" },
@@ -1656,7 +1670,7 @@ requires-dist = [{ name = "liteyukibot-v7", editable = "." }]
 
 [[package]]
 name = "liteyukibot-v7-runtime-astrbot"
-version = "7.0.0a9"
+version = "7.0.0a12"
 source = { editable = "packages/runtime-astrbot" }
 dependencies = [
     { name = "astrbot" },
@@ -1675,7 +1689,7 @@ requires-dist = [
 
 [[package]]
 name = "liteyukibot-v7-runtime-astrbot-api"
-version = "7.0.0a9"
+version = "7.0.0a12"
 source = { editable = "packages/runtime-astrbot-api" }
 dependencies = [
     { name = "liteyukibot-v7" },
@@ -1697,7 +1711,7 @@ requires-dist = [{ name = "liteyukibot-v7", editable = "." }]
 
 [[package]]
 name = "liteyukibot-v7-runtime-nonebot"
-version = "7.0.0a9"
+version = "7.0.0a12"
 source = { editable = "packages/runtime-nonebot" }
 dependencies = [
     { name = "h2" },
@@ -1727,7 +1741,7 @@ provides-extras = ["onebot", "satori"]
 
 [[package]]
 name = "liteyukibot-v7-runtime-nonebot-api"
-version = "7.0.0a9"
+version = "7.0.0a12"
 source = { editable = "packages/runtime-nonebot-api" }
 dependencies = [
     { name = "liteyukibot-v7" },
@@ -1749,7 +1763,7 @@ requires-dist = [{ name = "liteyukibot-v7", editable = "." }]
 
 [[package]]
 name = "liteyukibot-v7-webui"
-version = "7.0.0a9"
+version = "7.0.0a12"
 source = { editable = "packages/webui" }
 
 [package.optional-dependencies]
