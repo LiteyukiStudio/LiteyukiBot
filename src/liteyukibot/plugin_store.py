@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
 import os
 import platform
@@ -10,13 +11,17 @@ import re
 import shutil
 import sys
 import zipfile
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from functools import lru_cache
 from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.error import URLError
 from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
+
+from license_expression import ExpressionError, get_spdx_licensing
 
 from .exceptions import LiteyukiError
 
@@ -24,13 +29,60 @@ _IDENTIFIER = re.compile(r"[a-z][a-z0-9-]{0,63}")
 _BUNDLE_IDENTIFIER = re.compile(r"[a-z][a-z0-9.-]{0,127}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _MAX_ARTIFACT_BYTES = 256 * 1024 * 1024
+_MAX_BUNDLES = 10_000
+_MAX_RESOLVED_BUNDLES = 128
+_MAX_GENERATION_INPUTS = 256
+_MAX_GENERATION_INPUT_BYTES = 1024 * 1024 * 1024
+_MAX_LOAD_PLAN_BYTES = 64 * 1024
 _MAX_ARCHIVE_MEMBERS = 10_000
 _MAX_ARCHIVE_MEMBER_BYTES = 256 * 1024 * 1024
 _MAX_ARCHIVE_EXTRACTED_BYTES = 1024 * 1024 * 1024
+PLUGIN_GENERATION_ENV = "LITEYUKI_PLUGIN_GENERATION"
+_ALLOWED_LICENSE_REFS = frozenset({"LicenseRef-LSO-Common-1.4", "LicenseRef-LSO-Commercial-1.4"})
 
 
 class PluginStoreError(LiteyukiError):
     """Raised when a plugin artifact, index, or deployment is unsafe or invalid."""
+
+
+@lru_cache(maxsize=1)
+def _spdx_licensing() -> Any:
+    """Return the immutable SPDX catalog without rebuilding its symbol table.
+
+    Returns:
+        The `license_expression` SPDX licensing catalog.
+
+    Notes:
+        Catalog construction is expensive and immutable, so one process-local
+        instance is shared by the separately bounded expression cache.
+    """
+    return get_spdx_licensing()  # type: ignore[no-untyped-call]
+
+
+@lru_cache(maxsize=256)
+def _validate_license_expression(expression: str) -> None:
+    """Validate one SPDX expression with a bounded process-local cache.
+
+    Args:
+        expression: Trimmed schema-2 license expression.
+
+    Returns:
+        None when syntax and identifiers are acceptable.
+
+    Notes:
+        Constructing the SPDX catalog is comparatively expensive. The bounded
+        cache prevents repeated index entries from rebuilding it while avoiding
+        unbounded retention of publisher-controlled expressions.
+    """
+    licensing = _spdx_licensing()
+    try:
+        licensing.parse(expression, validate=False, strict=True)
+    except ExpressionError as error:
+        raise PluginStoreError("plugin license expression has invalid SPDX syntax") from error
+    validation = licensing.validate(expression, strict=True)
+    invalid_symbols = tuple(str(symbol) for symbol in validation.invalid_symbols)
+    if any(symbol not in _ALLOWED_LICENSE_REFS for symbol in invalid_symbols):
+        raise PluginStoreError("plugin license expression contains an unknown SPDX identifier")
 
 
 def _archive_member_path(member: zipfile.ZipInfo) -> PurePosixPath:
@@ -171,6 +223,144 @@ def _strings(value: object, subject: str) -> tuple[str, ...]:
     return tuple(value)
 
 
+def _bounded_string(value: object, subject: str, maximum: int) -> str:
+    """Validate one trimmed, non-empty, length-bounded string.
+
+    Args:
+        value: Candidate value supplied by plugin index metadata.
+        subject: Human-readable field name used in validation errors.
+        maximum: Maximum accepted Unicode code-point count.
+
+    Returns:
+        The validated string without modifying its contents.
+
+    Notes:
+        Validation rejects implicit trimming so canonical index serialization
+        covers the exact publisher-supplied value.
+    """
+    if not isinstance(value, str) or not value or value != value.strip() or len(value) > maximum:
+        raise PluginStoreError(f"{subject} must be a trimmed string of at most {maximum} characters")
+    return value
+
+
+def _https_url(value: object, subject: str) -> str:
+    """Validate a public, credential-free HTTPS URL from schema-2 metadata.
+
+    Args:
+        value: Candidate URL value.
+        subject: Human-readable field name used in validation errors.
+
+    Returns:
+        The validated URL.
+
+    Notes:
+        This validates metadata before fetch. Redirect destinations are checked
+        again by the artifact download path.
+
+    Security:
+        Literal loopback, private, link-local, and reserved addresses are
+        rejected. DNS can still change after validation, so artifact redirects
+        are validated independently at fetch time.
+    """
+    text = _bounded_string(value, subject, 2048)
+    parsed = urlsplit(text)
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+        raise PluginStoreError(f"{subject} must be credential-free HTTPS")
+    hostname = parsed.hostname.lower().rstrip(".")
+    if hostname == "localhost" or hostname.endswith((".localhost", ".local")):
+        raise PluginStoreError(f"{subject} must not target a local hostname")
+    try:
+        address = ipaddress.ip_address(hostname.strip("[]"))
+    except ValueError:
+        return text
+    if not address.is_global:
+        raise PluginStoreError(f"{subject} must not target a private or reserved address")
+    return text
+
+
+class _PublicRedirectHandler(HTTPRedirectHandler):
+    """Reject unsafe redirect destinations before urllib opens them."""
+
+    def __init__(self, subject: str) -> None:
+        """Initialize the redirect handler with a validation subject.
+
+        Args:
+            subject: Human-readable field name used in validation errors.
+
+        Returns:
+            None.
+        """
+        super().__init__()
+        self.subject = subject
+
+    def redirect_request(
+        self,
+        request: Any,
+        response: Any,
+        code: int,
+        message: str,
+        headers: Any,
+        new_url: str,
+    ) -> Request | None:
+        """Validate a redirect destination before following it.
+
+        Args:
+            request: Original request being redirected.
+            response: Response that supplied the redirect.
+            code: HTTP redirect status code.
+            message: HTTP redirect message.
+            headers: Response headers.
+            new_url: Redirect destination to validate.
+
+        Returns:
+            The validated redirect request, or None when urllib declines it.
+        """
+        _https_url(new_url, self.subject)
+        return super().redirect_request(request, response, code, message, headers, new_url)
+
+
+def _open_public_url(request: Request, *, timeout: float, subject: str) -> Any:
+    """Open one validated URL while checking every redirect hop.
+
+    Args:
+        request: Validated URL request to open.
+        timeout: Maximum wait for the network operation, in seconds.
+        subject: Human-readable field name used in validation errors.
+
+    Returns:
+        The response returned by urllib after redirect validation.
+
+    Notes:
+        The custom handler validates each redirect destination before urllib
+        opens it, including redirects that cross hostnames.
+    """
+
+    return build_opener(_PublicRedirectHandler(subject)).open(request, timeout=timeout)
+
+
+def _exact_object(value: object, subject: str, required: set[str], optional: set[str] | None = None) -> dict[str, Any]:
+    """Validate an object whose schema does not permit unknown properties.
+
+    Args:
+        value: Candidate JSON object.
+        subject: Human-readable object name used in validation errors.
+        required: Required property names.
+        optional: Optional property names.
+
+    Returns:
+        The validated JSON-safe object.
+
+    Notes:
+        Exact-key validation prevents unknown schema-2 metadata from escaping
+        canonical digest coverage.
+    """
+    document = _json_object(value, subject)
+    allowed = required | (optional or set())
+    if not required.issubset(document) or set(document) - allowed:
+        raise PluginStoreError(f"{subject} has missing or unknown fields")
+    return document
+
+
 def _json_object(value: object, subject: str) -> dict[str, Any]:
     """Implement the json object operation for the component.
 
@@ -194,12 +384,13 @@ def _json_object(value: object, subject: str) -> dict[str, Any]:
     return {str(key): item for key, item in value.items()}
 
 
-def _artifact_specs(value: list[object], subject: str) -> tuple[ArtifactSpec, ...]:
+def _artifact_specs(value: list[object], subject: str, *, schema: int = 1) -> tuple[ArtifactSpec, ...]:
     """Implement the artifact specs operation for the component.
 
     Args:
         value: Value to validate, transform, or store.
         subject: The subject value used by the operation.
+        schema: Parent index schema controlling exact keys and byte metadata.
 
     Returns:
         The `tuple[ArtifactSpec, ...]` result produced by the operation.
@@ -208,13 +399,21 @@ def _artifact_specs(value: list[object], subject: str) -> tuple[ArtifactSpec, ..
         Internal implementation detail for `_artifact_specs`. It delegates to `_json_object` while
         keeping intermediate state local to the owning operation.
     """
-    return tuple(
-        ArtifactSpec(
-            str(_json_object(raw_artifact, subject)["url"]),
-            str(_json_object(raw_artifact, subject)["sha256"]),
+    specifications: list[ArtifactSpec] = []
+    for raw_artifact in value:
+        artifact = (
+            _exact_object(raw_artifact, subject, {"url", "sha256", "bytes"})
+            if schema == 2
+            else _json_object(raw_artifact, subject)
         )
-        for raw_artifact in value
-    )
+        specifications.append(
+            ArtifactSpec(
+                artifact["url"],
+                artifact["sha256"],
+                artifact.get("bytes") if schema == 2 else None,
+            )
+        )
+    return tuple(specifications)
 
 
 @dataclass(frozen=True, slots=True)
@@ -310,6 +509,7 @@ class ArtifactSpec:
 
     url: str
     sha256: str
+    bytes: int | None = None
 
     def __post_init__(self) -> None:
         """Validate and normalize the artifact spec after initialization.
@@ -317,18 +517,83 @@ class ArtifactSpec:
         Returns:
             None.
         """
-        parsed = urlsplit(self.url)
-        if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
-            raise PluginStoreError("artifact URL must be credential-free HTTPS")
+        _https_url(self.url, "artifact URL")
         object.__setattr__(self, "sha256", _sha256(self.sha256, "artifact"))
+        if self.bytes is not None and (
+            isinstance(self.bytes, bool)
+            or not isinstance(self.bytes, int)
+            or not 1 <= self.bytes <= _MAX_ARTIFACT_BYTES
+        ):
+            raise PluginStoreError("artifact byte size is outside the allowed range")
 
-    def document(self) -> dict[str, str]:
+    def document(self) -> dict[str, str | int]:
         """Return the serialized document for the artifact spec operation.
 
         Returns:
-            The `dict[str, str]` result produced by the operation.
+            The JSON-safe artifact declaration. Schema-1 declarations omit
+            `bytes`; schema-2 declarations retain the exact expected length.
         """
-        return {"url": self.url, "sha256": self.sha256}
+        return {
+            "url": self.url,
+            "sha256": self.sha256,
+            **({"bytes": self.bytes} if self.bytes is not None else {}),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class PluginPublisher:
+    """Verified publisher identity displayed for one schema-2 plugin release."""
+
+    id: str
+    name: str
+    url: str
+
+    def __post_init__(self) -> None:
+        """Validate publisher identity fields.
+
+        Returns:
+            None.
+        """
+        object.__setattr__(self, "id", _identifier(self.id, "plugin publisher ID"))
+        _bounded_string(self.name, "plugin publisher name", 80)
+        _https_url(self.url, "plugin publisher URL")
+
+    def document(self) -> dict[str, str]:
+        """Return the canonical publisher document.
+
+        Returns:
+            Publisher ID, display name, and public HTTPS URL.
+        """
+        return {"id": self.id, "name": self.name, "url": self.url}
+
+
+@dataclass(frozen=True, slots=True)
+class PluginLicense:
+    """SPDX-compatible license declaration for one schema-2 plugin release."""
+
+    expression: str
+    url: str | None = None
+
+    def __post_init__(self) -> None:
+        """Validate the expression syntax and custom-license evidence URL.
+
+        Returns:
+            None.
+        """
+        expression = _bounded_string(self.expression, "plugin license expression", 128)
+        _validate_license_expression(expression)
+        if "LicenseRef-" in expression and self.url is None:
+            raise PluginStoreError("plugin custom license requires a URL")
+        if self.url is not None:
+            _https_url(self.url, "plugin license URL")
+
+    def document(self) -> dict[str, str]:
+        """Return the canonical license document.
+
+        Returns:
+            License expression and optional custom-license evidence URL.
+        """
+        return {"expression": self.expression, **({"url": self.url} if self.url is not None else {})}
 
 
 @dataclass(frozen=True, slots=True)
@@ -382,6 +647,14 @@ class PluginBundle:
     version: str
     facets: tuple[PluginFacet, ...]
     dependencies: tuple[str, ...] = ()
+    display_name: str | None = None
+    summary: str | None = None
+    publisher: PluginPublisher | None = None
+    license: PluginLicense | None = None
+    repository: str | None = None
+    homepage: str | None = None
+    status: str = "active"
+    yanked_reason: str | None = None
 
     def __post_init__(self) -> None:
         """Validate and normalize the plugin bundle after initialization.
@@ -390,8 +663,7 @@ class PluginBundle:
             None.
         """
         object.__setattr__(self, "id", _identifier(self.id, "plugin bundle id", bundle=True))
-        if not self.version.strip():
-            raise PluginStoreError("plugin bundle version must not be empty")
+        _bounded_string(self.version, "plugin bundle version", 64)
         if not self.facets:
             raise PluginStoreError("plugin bundle requires at least one facet")
         if len({facet.runtime_kind for facet in self.facets}) != len(self.facets):
@@ -401,6 +673,23 @@ class PluginBundle:
             "dependencies",
             tuple(_identifier(item, "plugin dependency", bundle=True) for item in self.dependencies),
         )
+        metadata = (self.display_name, self.summary, self.publisher, self.license, self.repository)
+        if any(item is not None for item in metadata) and not all(item is not None for item in metadata):
+            raise PluginStoreError("schema-2 plugin bundle metadata must be complete")
+        if self.display_name is not None:
+            _bounded_string(self.display_name, "plugin display name", 120)
+            _bounded_string(self.summary, "plugin summary", 240)
+            _https_url(self.repository, "plugin repository")
+            if self.homepage is not None:
+                _https_url(self.homepage, "plugin homepage")
+            if self.status not in {"active", "yanked"}:
+                raise PluginStoreError("plugin status must be active or yanked")
+            if self.status == "yanked":
+                _bounded_string(self.yanked_reason, "plugin yanked reason", 240)
+            elif self.yanked_reason is not None:
+                raise PluginStoreError("active plugin release cannot have a yanked reason")
+        elif self.homepage is not None or self.status != "active" or self.yanked_reason is not None:
+            raise PluginStoreError("schema-1 plugin bundle cannot contain schema-2 metadata")
 
     def facet_for(self, runtime_kind: str, target: PlatformTarget) -> PluginFacet:
         """Implement the facet for operation for the plugin bundle.
@@ -428,28 +717,255 @@ class PluginBundle:
         Returns:
             The `dict[str, Any]` result produced by the operation.
         """
-        return {
+        document: dict[str, Any] = {
             "id": self.id,
             "version": self.version,
             "dependencies": list(self.dependencies),
             "facets": [facet.document() for facet in self.facets],
         }
+        if self.display_name is not None:
+            if self.publisher is None or self.license is None or self.repository is None or self.summary is None:
+                raise AssertionError("validated schema-2 metadata is incomplete")
+            document.update(
+                {
+                    "display_name": self.display_name,
+                    "summary": self.summary,
+                    "publisher": self.publisher.document(),
+                    "license": self.license.document(),
+                    "repository": self.repository,
+                    "status": self.status,
+                }
+            )
+            if self.homepage is not None:
+                document["homepage"] = self.homepage
+            if self.yanked_reason is not None:
+                document["yanked_reason"] = self.yanked_reason
+        return document
+
+
+def _parse_platform(value: object, schema: int) -> PlatformConstraint:
+    """Parse version-aware platform constraints for one plugin facet.
+
+    Args:
+        value: Parsed platform object.
+        schema: Parent plugin index schema version.
+
+    Returns:
+        Validated immutable platform constraints.
+
+    Notes:
+        Schema 1 preserves the permissive legacy shape. Schema 2 requires exact
+        keys, bounded unique values, and deterministic tuple ordering.
+    """
+    document = (
+        _exact_object(value, "plugin facet platform", {"systems", "machines", "pythons"})
+        if schema == 2
+        else _json_object(value, "plugin facet platform")
+    )
+    systems = _strings(document.get("systems", []), "platform systems")
+    machines = _strings(document.get("machines", []), "platform machines")
+    pythons = _strings(document.get("pythons", []), "platform Pythons")
+    if schema == 2:
+        bounded = ((systems, 16), (machines, 32), (pythons, 16))
+        if any(len(items) > maximum or len(set(items)) != len(items) for items, maximum in bounded):
+            raise PluginStoreError("plugin facet platform constraints exceed the allowed unique entries")
+    return PlatformConstraint(systems=systems, machines=machines, pythons=pythons)
+
+
+def _validate_schema_two_facet(
+    raw_artifacts: list[object],
+    raw_wheels: list[object],
+    load: dict[str, Any],
+    capabilities: tuple[str, ...],
+) -> None:
+    """Apply schema-2-only resource and uniqueness bounds to one facet.
+
+    Args:
+        raw_artifacts: Archive declarations.
+        raw_wheels: Wheel declarations.
+        load: JSON-safe framework load plan.
+        capabilities: Declared capability identifiers.
+
+    Returns:
+        None.
+
+    Notes:
+        Aggregate per-bundle limits are checked after facets are parsed; this
+        helper enforces the independent per-facet input and load-plan bounds.
+    """
+    if not 1 <= len(raw_artifacts) + len(raw_wheels) <= _MAX_GENERATION_INPUTS:
+        raise PluginStoreError("plugin facet input count is outside the allowed range")
+    if len(json.dumps(load, sort_keys=True, separators=(",", ":")).encode()) > _MAX_LOAD_PLAN_BYTES:
+        raise PluginStoreError("plugin facet load plan is too large")
+    if (
+        len(capabilities) > 128
+        or len(set(capabilities)) != len(capabilities)
+        or any(item != item.strip() or len(item) > 128 for item in capabilities)
+    ):
+        raise PluginStoreError("plugin facet capabilities exceed the allowed unique entries")
+
+
+def _parse_facet(raw_facet: object, position: int, schema: int) -> PluginFacet:
+    """Parse one version-aware facet.
+
+    Args:
+        raw_facet: Parsed JSON value for the facet.
+        position: Facet offset used in validation diagnostics.
+        schema: Parent plugin index schema version.
+
+    Returns:
+        A validated immutable plugin facet.
+
+    Notes:
+        Parsing selects the schema-1 compatibility path or the exact schema-2
+        path before constructing the shared immutable facet representation.
+    """
+    subject = f"plugin index facet {position}"
+    facet = (
+        _exact_object(
+            raw_facet,
+            subject,
+            {"runtime_kind", "artifacts", "wheels", "platform", "load", "capabilities"},
+        )
+        if schema == 2
+        else _json_object(raw_facet, subject)
+    )
+    if "requirements" in facet:
+        raise PluginStoreError("plugin facet requirements are unsupported; declare hash-verified wheels")
+    raw_artifacts = facet.get("artifacts")
+    raw_wheels = facet.get("wheels", [])
+    if not isinstance(raw_artifacts, list) or not isinstance(raw_wheels, list):
+        raise PluginStoreError("plugin facet artifacts and wheels must be arrays")
+    load = _json_object(facet.get("load", {}), "plugin facet load plan")
+    capabilities = _strings(facet.get("capabilities", []), "plugin facet capabilities")
+    if schema == 2:
+        _validate_schema_two_facet(raw_artifacts, raw_wheels, load, capabilities)
+    return PluginFacet(
+        runtime_kind=facet["runtime_kind"],
+        artifacts=_artifact_specs(raw_artifacts, "plugin artifact", schema=schema),
+        wheels=_artifact_specs(raw_wheels, "plugin wheel", schema=schema),
+        platform=_parse_platform(facet.get("platform", {}), schema),
+        load=load,
+        capabilities=capabilities,
+    )
+
+
+def _schema_two_bundle(
+    bundle: dict[str, Any],
+    facets: tuple[PluginFacet, ...],
+    dependencies: tuple[str, ...],
+) -> PluginBundle:
+    """Build one schema-2 bundle after validating its discovery metadata.
+
+    Args:
+        bundle: Exact-key JSON bundle object.
+        facets: Parsed framework facets.
+        dependencies: Parsed dependency bundle IDs.
+
+    Returns:
+        A complete schema-2 plugin bundle.
+
+    Notes:
+        Facet inputs are already individually validated. This step enforces the
+        release-wide budget and attaches digest-covered discovery metadata.
+    """
+    if len(dependencies) > 64 or len(set(dependencies)) != len(dependencies):
+        raise PluginStoreError("plugin dependencies exceed the allowed unique entries")
+    inputs = tuple(artifact for facet in facets for artifact in (*facet.artifacts, *facet.wheels))
+    input_bytes = sum(artifact.bytes or 0 for artifact in inputs)
+    if len(inputs) > _MAX_GENERATION_INPUTS or input_bytes > _MAX_GENERATION_INPUT_BYTES:
+        raise PluginStoreError("plugin bundle exceeds the generation input budget")
+    publisher = _exact_object(bundle["publisher"], "plugin publisher", {"id", "name", "url"})
+    license_value = _exact_object(bundle["license"], "plugin license", {"expression"}, {"url"})
+    return PluginBundle(
+        id=bundle["id"],
+        version=bundle["version"],
+        facets=facets,
+        dependencies=dependencies,
+        display_name=bundle["display_name"],
+        summary=bundle["summary"],
+        publisher=PluginPublisher(publisher["id"], publisher["name"], publisher["url"]),
+        license=PluginLicense(
+            license_value["expression"],
+            license_value["url"] if "url" in license_value else None,
+        ),
+        repository=bundle["repository"],
+        homepage=bundle["homepage"] if "homepage" in bundle else None,
+        status=bundle["status"],
+        yanked_reason=bundle["yanked_reason"] if "yanked_reason" in bundle else None,
+    )
+
+
+def _parse_bundle(raw_bundle: object, position: int, schema: int) -> PluginBundle:
+    """Parse one bundle under its parent index schema.
+
+    Args:
+        raw_bundle: Parsed JSON value for the bundle.
+        position: Bundle offset used in validation diagnostics.
+        schema: Parent plugin index schema version.
+
+    Returns:
+        A validated immutable plugin bundle.
+
+    Notes:
+        Schema 1 retains its historical minimal representation. Schema 2
+        requires exact discovery fields and delegates their aggregate checks to
+        `_schema_two_bundle`.
+    """
+    subject = f"plugin index bundle {position}"
+    required = {
+        "id",
+        "version",
+        "display_name",
+        "summary",
+        "publisher",
+        "license",
+        "repository",
+        "status",
+        "dependencies",
+        "facets",
+    }
+    bundle = (
+        _exact_object(raw_bundle, subject, required, {"homepage", "yanked_reason"})
+        if schema == 2
+        else _json_object(raw_bundle, subject)
+    )
+    raw_facets = bundle.get("facets")
+    if not isinstance(raw_facets, list) or (schema == 2 and not 1 <= len(raw_facets) <= 16):
+        raise PluginStoreError("plugin index bundle facets must be an array")
+    facets = tuple(_parse_facet(value, offset, schema) for offset, value in enumerate(raw_facets))
+    dependencies = _strings(bundle.get("dependencies", []), "plugin dependencies")
+    if schema == 2:
+        return _schema_two_bundle(bundle, facets, dependencies)
+    return PluginBundle(
+        id=str(bundle["id"]),
+        version=str(bundle["version"]),
+        facets=facets,
+        dependencies=dependencies,
+    )
 
 
 class PluginIndex:
     """Strict reader for a versioned metadata-only plugin index document."""
 
-    def __init__(self, bundles: tuple[PluginBundle, ...]) -> None:
+    def __init__(self, bundles: tuple[PluginBundle, ...], schema: int | None = None) -> None:
         """Initialize the plugin index.
 
         Args:
-            bundles: The bundles value used by the operation.
+            bundles: Validated plugin bundle releases.
+            schema: Explicit index schema, or inferred from bundle metadata.
 
         Returns:
             None.
         """
         if len({bundle.id for bundle in bundles}) != len(bundles):
             raise PluginStoreError("plugin index contains duplicate bundle IDs")
+        inferred = 2 if any(bundle.display_name is not None for bundle in bundles) else 1
+        self.schema = inferred if schema is None else schema
+        if self.schema not in {1, 2}:
+            raise PluginStoreError("plugin index schema must be 1 or 2")
+        if any((bundle.display_name is not None) != (self.schema == 2) for bundle in bundles):
+            raise PluginStoreError("plugin bundle metadata does not match the index schema")
         self._bundles = {bundle.id: bundle for bundle in bundles}
 
     @classmethod
@@ -463,54 +979,20 @@ class PluginIndex:
             The `PluginIndex` result produced by the operation.
         """
         value = _json_object(document, "plugin index")
-        if value.get("schema") != 1:
-            raise PluginStoreError("plugin index schema must be 1")
+        schema = value.get("schema")
+        if isinstance(schema, bool) or schema not in {1, 2}:
+            raise PluginStoreError("plugin index schema must be 1 or 2")
+        if schema == 2:
+            value = _exact_object(value, "plugin index", {"schema", "bundles"})
         raw_bundles = value.get("bundles")
-        if not isinstance(raw_bundles, list):
+        if not isinstance(raw_bundles, list) or (schema == 2 and len(raw_bundles) > _MAX_BUNDLES):
             raise PluginStoreError("plugin index bundles must be an array")
-        bundles: list[PluginBundle] = []
-        for position, raw_bundle in enumerate(raw_bundles):
-            bundle = _json_object(raw_bundle, f"plugin index bundle {position}")
-            raw_facets = bundle.get("facets")
-            if not isinstance(raw_facets, list):
-                raise PluginStoreError("plugin index bundle facets must be an array")
-            facets: list[PluginFacet] = []
-            for facet_position, raw_facet in enumerate(raw_facets):
-                facet = _json_object(raw_facet, f"plugin index facet {facet_position}")
-                raw_artifacts = facet.get("artifacts")
-                if not isinstance(raw_artifacts, list):
-                    raise PluginStoreError("plugin facet artifacts must be an array")
-                if "requirements" in facet:
-                    raise PluginStoreError("plugin facet requirements are unsupported; declare hash-verified wheels")
-                artifacts = _artifact_specs(raw_artifacts, "plugin artifact")
-                raw_wheels = facet.get("wheels", [])
-                if not isinstance(raw_wheels, list):
-                    raise PluginStoreError("plugin facet wheels must be an array")
-                raw_platform = facet.get("platform", {})
-                platform_document = _json_object(raw_platform, "plugin facet platform")
-                facets.append(
-                    PluginFacet(
-                        runtime_kind=str(facet["runtime_kind"]),
-                        artifacts=artifacts,
-                        wheels=_artifact_specs(raw_wheels, "plugin wheel"),
-                        platform=PlatformConstraint(
-                            systems=_strings(platform_document.get("systems", []), "platform systems"),
-                            machines=_strings(platform_document.get("machines", []), "platform machines"),
-                            pythons=_strings(platform_document.get("pythons", []), "platform Pythons"),
-                        ),
-                        load=_json_object(facet.get("load", {}), "plugin facet load plan"),
-                        capabilities=_strings(facet.get("capabilities", []), "plugin facet capabilities"),
-                    )
-                )
-            bundles.append(
-                PluginBundle(
-                    id=str(bundle["id"]),
-                    version=str(bundle["version"]),
-                    facets=tuple(facets),
-                    dependencies=_strings(bundle.get("dependencies", []), "plugin dependencies"),
-                )
-            )
-        return cls(tuple(bundles))
+        bundles = tuple(_parse_bundle(raw_bundle, position, schema) for position, raw_bundle in enumerate(raw_bundles))
+        index = cls(bundles, schema=schema)
+        if schema == 2:
+            for parsed_bundle in index.bundles():
+                _validate_dependency_closure(index, parsed_bundle.id)
+        return index
 
     @property
     def digest(self) -> str:
@@ -519,7 +1001,7 @@ class PluginIndex:
         Returns:
             The `str` result produced by the operation.
         """
-        document = {"schema": 1, "bundles": [bundle.document() for bundle in self.bundles()]}
+        document = {"schema": self.schema, "bundles": [bundle.document() for bundle in self.bundles()]}
         return hashlib.sha256(json.dumps(document, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
     def bundles(self) -> tuple[PluginBundle, ...]:
@@ -529,6 +1011,31 @@ class PluginIndex:
             The `tuple[PluginBundle, ...]` result produced by the operation.
         """
         return tuple(self._bundles[key] for key in sorted(self._bundles))
+
+    def search(self, query: str = "") -> tuple[PluginBundle, ...]:
+        """Search bundles by identity and human-facing schema-2 metadata.
+
+        Args:
+            query: Case-insensitive text. Empty or whitespace-only text matches
+                every bundle, including visible yanked releases.
+
+        Returns:
+            Matching bundles in deterministic ID order.
+        """
+        needle = query.strip().casefold()
+        matches: list[PluginBundle] = []
+        for bundle in self.bundles():
+            publisher = bundle.publisher
+            values = (
+                bundle.id,
+                bundle.display_name or "",
+                bundle.summary or "",
+                publisher.id if publisher is not None else "",
+                publisher.name if publisher is not None else "",
+            )
+            if not needle or needle in "\n".join(values).casefold():
+                matches.append(bundle)
+        return tuple(matches)
 
     def require(self, bundle_id: str) -> PluginBundle:
         """Return the plugin index operation, failing when it is unavailable.
@@ -543,6 +1050,51 @@ class PluginIndex:
             return self._bundles[_identifier(bundle_id, "plugin bundle id", bundle=True)]
         except KeyError as error:
             raise PluginStoreError(f"plugin bundle {bundle_id!r} is not in the index") from error
+
+
+def _validate_dependency_closure(index: PluginIndex, root: str) -> None:
+    """Validate one schema-2 dependency closure for cycles and size.
+
+    Args:
+        index: Parsed plugin index containing every referenced dependency.
+        root: Bundle ID whose transitive closure is validated.
+
+    Returns:
+        None.
+
+    Notes:
+        A depth-first walk uses separate visiting and visited sets to reject
+        cycles and cap every root's transitive closure.
+    """
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(bundle_id: str) -> None:
+        """Visit one dependency and accumulate its validated transitive closure.
+
+        Args:
+            bundle_id: Bundle identifier at the current traversal position.
+
+        Returns:
+            None.
+
+        Notes:
+            `visiting` identifies cycles while `visited` prevents repeated work
+            and supplies the closure-size counter.
+        """
+        if bundle_id in visited:
+            return
+        if bundle_id in visiting:
+            raise PluginStoreError(f"plugin dependency cycle includes {bundle_id!r}")
+        visiting.add(bundle_id)
+        for dependency in index.require(bundle_id).dependencies:
+            visit(dependency)
+        visiting.remove(bundle_id)
+        visited.add(bundle_id)
+        if len(visited) > _MAX_RESOLVED_BUNDLES:
+            raise PluginStoreError(f"plugin dependency closure exceeds {_MAX_RESOLVED_BUNDLES} bundles")
+
+    visit(root)
 
 
 class ArtifactStore:
@@ -570,12 +1122,18 @@ class ArtifactStore:
         """
         return self.root / _sha256(digest, "artifact") / "artifact"
 
-    def import_file(self, source: str | Path, expected_digest: str | None = None) -> Path:
+    def import_file(
+        self,
+        source: str | Path,
+        expected_digest: str | None = None,
+        expected_bytes: int | None = None,
+    ) -> Path:
         """Import a regular file into immutable content-addressed storage.
 
         Args:
             source: Existing regular file to copy into the artifact store.
             expected_digest: Optional index digest that the source must match.
+            expected_bytes: Optional exact byte length declared by schema 2.
 
         Returns:
             Stable cache path for the verified artifact bytes.
@@ -586,15 +1144,32 @@ class ArtifactStore:
             Content-addressed import remains necessary for local and downloaded
             plugin artifacts.
         """
-        source_path = Path(source).resolve(strict=True)
-        if not source_path.is_file() or source_path.is_symlink():
+        source_path = Path(source)
+        if source_path.is_symlink():
             raise PluginStoreError("plugin artifact source must be a regular file")
+        source_path = source_path.resolve(strict=True)
+        if not source_path.is_file():
+            raise PluginStoreError("plugin artifact source must be a regular file")
+        source_size = source_path.stat().st_size
+        if source_size > _MAX_ARTIFACT_BYTES:
+            raise PluginStoreError("plugin artifact exceeds the 256 MiB limit")
+        if expected_bytes is not None and source_size != expected_bytes:
+            raise PluginStoreError("plugin artifact byte size does not match the index")
         digest = self._digest(source_path)
         if expected_digest is not None and digest != _sha256(expected_digest, "artifact"):
             raise PluginStoreError("plugin artifact digest does not match the index")
+        self._validate_root()
         destination = self.path_for(digest)
+        if destination.is_symlink() or (destination.exists() and not destination.is_file()):
+            raise PluginStoreError("plugin artifact destination is unsafe")
         if destination.is_file():
+            if self._digest(destination) != digest:
+                raise PluginStoreError("cached plugin artifact is corrupt")
+            if expected_bytes is not None and destination.stat().st_size != expected_bytes:
+                raise PluginStoreError("cached plugin artifact byte size does not match the index")
             return destination
+        if destination.exists():
+            raise PluginStoreError("plugin artifact destination is unsafe")
         temporary = destination.with_name("artifact.tmp")
         destination.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -623,32 +1198,43 @@ class ArtifactStore:
             `docs/security/trusted-boundaries.md#plugin-artifacts-and-native-code`.
         """
 
+        self._validate_root()
         destination = self.path_for(artifact.sha256)
+        if destination.is_symlink() or (destination.exists() and not destination.is_file()):
+            raise PluginStoreError(f"cached plugin artifact {artifact.sha256!r} is unsafe")
         if destination.is_file():
             if self._digest(destination) != artifact.sha256:
                 raise PluginStoreError(f"cached plugin artifact {artifact.sha256!r} is corrupt")
+            if destination.stat().st_size > _MAX_ARTIFACT_BYTES:
+                raise PluginStoreError(f"cached plugin artifact {artifact.sha256!r} exceeds the 256 MiB limit")
+            if artifact.bytes is not None and destination.stat().st_size != artifact.bytes:
+                raise PluginStoreError(f"cached plugin artifact {artifact.sha256!r} has the wrong byte size")
             return destination
         destination.parent.mkdir(parents=True, exist_ok=True)
         temporary = destination.with_name("download.tmp")
         try:
             request = Request(artifact.url, headers={"User-Agent": "liteyukibot-v7-plugin-store"})
-            with urlopen(request, timeout=30) as response:  # noqa: S310 - artifact URL is validated HTTPS index data.
-                redirected = urlsplit(response.geturl())
-                if (
-                    redirected.scheme != "https"
-                    or not redirected.netloc
-                    or redirected.username
-                    or redirected.password
-                ):
-                    raise PluginStoreError("plugin artifact redirect must remain credential-free HTTPS")
+            with _open_public_url(
+                request,
+                timeout=30,
+                subject="plugin artifact redirect",
+            ) as response:
+                try:
+                    _https_url(response.geturl(), "plugin artifact redirect")
+                except PluginStoreError as error:
+                    raise PluginStoreError(
+                        "plugin artifact redirect must remain public credential-free HTTPS"
+                    ) from error
                 with temporary.open("xb") as handle:
                     received = 0
                     while chunk := response.read(1024 * 1024):
                         received += len(chunk)
                         if received > _MAX_ARTIFACT_BYTES:
                             raise PluginStoreError("plugin artifact exceeded the 256 MiB limit")
+                        if artifact.bytes is not None and received > artifact.bytes:
+                            raise PluginStoreError("plugin artifact exceeded its declared byte size")
                         handle.write(chunk)
-            return self.import_file(temporary, artifact.sha256)
+            return self.import_file(temporary, artifact.sha256, artifact.bytes)
         except (OSError, URLError) as error:
             raise PluginStoreError(f"cannot fetch plugin artifact {artifact.sha256!r}: {error}") from error
         finally:
@@ -669,12 +1255,48 @@ class ArtifactStore:
         """
 
         normalized = _sha256(digest, "artifact")
+        self._validate_root()
         destination = self.path_for(normalized)
-        if not destination.is_file() or destination.is_symlink():
+        if destination.is_symlink() or not destination.is_file():
             raise PluginStoreError(f"cached plugin artifact {normalized!r} is unavailable")
+        if destination.stat().st_size > _MAX_ARTIFACT_BYTES:
+            raise PluginStoreError(f"cached plugin artifact {normalized!r} exceeds the 256 MiB limit")
         if self._digest(destination) != normalized:
             raise PluginStoreError(f"cached plugin artifact {normalized!r} is corrupt")
         return destination
+
+    def collect(self, retained_digests: set[str] | frozenset[str]) -> tuple[str, ...]:
+        """Delete content-addressed artifacts not referenced by retained generations.
+
+        Args:
+            retained_digests: SHA-256 directory identities still referenced by
+                active or rollback generations across every runtime target.
+
+        Returns:
+            Sorted digests removed from the local artifact store.
+
+        Security:
+            Store entries are validated as real digest-named directories before
+            deletion. Symbolic links and unexpected entries abort collection so
+            cleanup cannot escape the workspace-owned store.
+        """
+        retained = {_sha256(digest, "retained artifact") for digest in retained_digests}
+        if not self.root.exists():
+            return ()
+        if self.root.is_symlink() or not self.root.is_dir():
+            raise PluginStoreError("plugin artifact store directory is unsafe")
+        collected: list[str] = []
+        for entry in sorted(self.root.iterdir(), key=lambda path: path.name):
+            digest = _sha256(entry.name, "artifact store entry")
+            if entry.is_symlink() or not entry.is_dir():
+                raise PluginStoreError(f"plugin artifact store entry {digest!r} is unsafe")
+            artifact = entry / "artifact"
+            if artifact.is_symlink() or not artifact.is_file():
+                raise PluginStoreError(f"plugin artifact store entry {digest!r} is incomplete")
+            if digest not in retained:
+                shutil.rmtree(entry)
+                collected.append(digest)
+        return tuple(collected)
 
     def extract_zip(self, digest: str, destination: str | Path) -> Path:
         """Atomically extract a verified plugin ZIP into one generation directory.
@@ -716,6 +1338,33 @@ class ArtifactStore:
             raise
         return target
 
+    def validate_expanded_total(self, digests: Iterable[str], *, maximum: int = _MAX_ARCHIVE_EXTRACTED_BYTES) -> int:
+        """Validate cumulative expanded bytes for generation archive inputs.
+
+        Args:
+            digests: Content-addressed ZIP or wheel artifacts in the generation.
+            maximum: Maximum cumulative central-directory file size.
+
+        Returns:
+            Total declared expanded bytes across unique artifacts.
+
+        Security:
+            Per-archive checks alone allow a dependency closure to multiply the
+            extraction budget. This preflight validates every central directory
+            and applies one cumulative generation ceiling before any runtime
+            environment or payload extraction starts.
+        """
+        total = 0
+        for digest in dict.fromkeys(digests):
+            try:
+                with zipfile.ZipFile(self.require(digest)) as archive:
+                    total += sum(member.file_size for member, _path in _validated_archive_members(archive))
+            except zipfile.BadZipFile as error:
+                raise PluginStoreError(f"plugin artifact {digest!r} is not a valid ZIP archive") from error
+            if total > maximum:
+                raise PluginStoreError("plugin generation exceeds the cumulative extracted size limit")
+        return total
+
     @staticmethod
     def _digest(path: Path) -> str:
         """Implement the digest operation for the artifact store.
@@ -735,6 +1384,20 @@ class ArtifactStore:
             for chunk in iter(lambda: handle.read(1024 * 1024), b""):
                 hasher.update(chunk)
         return hasher.hexdigest()
+
+    def _validate_root(self) -> None:
+        """Reject a redirected or replaced artifact-store root.
+
+        Returns:
+            None.
+
+        Notes:
+            This private check protects the store boundary before filesystem
+            reads and writes use the configured root.
+        """
+
+        if self.root.is_symlink() or (self.root.exists() and not self.root.is_dir()):
+            raise PluginStoreError("plugin artifact store directory is unsafe")
 
 
 @dataclass(frozen=True, slots=True)
@@ -988,7 +1651,10 @@ class RuntimeGenerationStore:
                 raw_bundles = resolution["bundles"]
                 if not isinstance(raw_bundles, list):
                     raise ValueError("generation resolution bundles must be an array")
-                resolved = PluginIndex.parse({"schema": 1, "bundles": raw_bundles})
+                index_schema = 2 if any(
+                    isinstance(raw_bundle, dict) and "display_name" in raw_bundle for raw_bundle in raw_bundles
+                ) else 1
+                resolved = PluginIndex.parse({"schema": index_schema, "bundles": raw_bundles})
                 by_id = {bundle.id: bundle for bundle in resolved.bundles()}
                 resolved_bundles = tuple(by_id[item] for item in bundles)
             generation = RuntimeGeneration(
@@ -1006,10 +1672,18 @@ class RuntimeGenerationStore:
                 resolved_bundles=resolved_bundles,
                 disabled_roots=disabled_roots,
             )
+            load_plan_path = self.path_for(runtime_id, generation_id) / "load-plan.json"
+            if load_plan_path.is_symlink() or not load_plan_path.is_file():
+                raise ValueError("generation load plan is unavailable")
+            stored_load_plan = _json_object(
+                json.loads(load_plan_path.read_text(encoding="utf-8")),
+                "generation load plan",
+            )
+            if stored_load_plan != generation.load_plan:
+                raise ValueError("generation load plan does not match its manifest")
         except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError) as error:
             raise PluginStoreError(f"runtime generation {generation_id!r} is not verified") from error
-        load_plan = self.path_for(runtime_id, generation_id) / "load-plan.json"
-        if generation.runtime_id != runtime_id or not load_plan.is_file():
+        if generation.runtime_id != runtime_id:
             raise PluginStoreError(f"runtime generation {generation_id!r} is not verified")
         return generation
 
@@ -1255,9 +1929,12 @@ __all__ = [
     "Deployment",
     "PlatformConstraint",
     "PlatformTarget",
+    "PLUGIN_GENERATION_ENV",
     "PluginBundle",
     "PluginFacet",
     "PluginIndex",
+    "PluginLicense",
+    "PluginPublisher",
     "PluginStoreError",
     "RuntimeGeneration",
     "RuntimeGenerationStore",

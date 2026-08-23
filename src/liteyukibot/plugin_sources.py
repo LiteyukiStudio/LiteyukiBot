@@ -6,10 +6,9 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.error import URLError
-from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
-from .plugin_store import PluginIndex, PluginStoreError
+from .plugin_store import PluginBundle, PluginIndex, PluginStoreError, _https_url, _identifier, _open_public_url
 
 OFFICIAL_SOURCE_ID = "liteyukibot-v7-plugins"
 OFFICIAL_SOURCE_URL = "https://raw.githubusercontent.com/LiteyukiStudio/liteyukibot-v7-plugins/main/index.json"
@@ -29,13 +28,11 @@ class PluginSource:
         Returns:
             None.
         """
-        if not self.id or self.id != self.id.strip() or any(character.isspace() for character in self.id):
-            raise PluginStoreError("plugin source ID must be a non-empty whitespace-free string")
+        normalized_id = _identifier(self.id, "plugin source ID")
+        object.__setattr__(self, "id", normalized_id)
         if not isinstance(self.priority, int) or isinstance(self.priority, bool):
             raise PluginStoreError("plugin source priority must be an integer")
-        parsed = urlsplit(self.url)
-        if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
-            raise PluginStoreError("plugin source URL must be credential-free HTTPS")
+        _https_url(self.url, "plugin source URL")
 
     def document(self) -> dict[str, object]:
         """Return the serialized document for the plugin source operation.
@@ -44,6 +41,14 @@ class PluginSource:
             The `dict[str, object]` result produced by the operation.
         """
         return {"id": self.id, "url": self.url, "priority": self.priority}
+
+
+@dataclass(frozen=True, slots=True)
+class PluginSearchResult:
+    """One discoverable bundle paired with the source that published it."""
+
+    source: PluginSource
+    bundle: PluginBundle
 
 
 OFFICIAL_SOURCE = PluginSource(OFFICIAL_SOURCE_ID, OFFICIAL_SOURCE_URL, priority=0)
@@ -120,14 +125,19 @@ class PluginSourceStore:
         if source is None:
             raise PluginStoreError(f"plugin source {source_id!r} is not configured")
         cache = self.cache_directory / f"{source.id}.json"
+        if cache.is_symlink() or (cache.exists() and not cache.is_file()):
+            raise PluginStoreError(f"cached plugin index {source.id!r} is unsafe")
         if cache.is_file() and not refresh:
+            if cache.stat().st_size > _MAX_INDEX_BYTES:
+                raise PluginStoreError(f"cached plugin index {source.id!r} exceeded the 8 MiB limit")
             try:
                 return PluginIndex.parse(json.loads(cache.read_text(encoding="utf-8")))
             except (OSError, ValueError, json.JSONDecodeError) as error:
                 raise PluginStoreError(f"cached plugin index {source.id!r} is invalid") from error
         try:
             request = Request(source.url, headers={"User-Agent": "liteyukibot-v7-plugin-index"})
-            with urlopen(request, timeout=15) as response:  # noqa: S310 - source URL is validated HTTPS configuration.
+            with _open_public_url(request, timeout=15, subject="plugin source redirect") as response:
+                _https_url(response.geturl(), "plugin source redirect")
                 payload = response.read(_MAX_INDEX_BYTES + 1)
         except (OSError, URLError) as error:
             raise PluginStoreError(f"cannot fetch plugin source {source.id!r}: {error}") from error
@@ -142,6 +152,47 @@ class PluginSourceStore:
         self._write_text(cache, text)
         self._write_text(cache.with_suffix(".sha256"), index.digest + "\n")
         return index
+
+    def search(
+        self,
+        query: str = "",
+        *,
+        source_id: str | None = None,
+        refresh: bool = False,
+    ) -> tuple[PluginSearchResult, ...]:
+        """Search cached or refreshed plugin indexes by human-facing metadata.
+
+        Args:
+            query: Case-insensitive text matched against identity, display name,
+                summary, and publisher fields. Empty text returns every release.
+            source_id: Optional single source to search.
+            refresh: Whether to bypass existing source caches.
+
+        Returns:
+            Deterministically ordered matching source and bundle pairs.
+
+        Raises:
+            PluginStoreError: If the selected source is unavailable, or every
+                configured source fails before any index can be searched.
+        """
+        needle = query.strip().casefold()
+        selected = tuple(source for source in self.list() if source_id is None or source.id == source_id)
+        if not selected:
+            raise PluginStoreError(f"plugin source {source_id!r} is not configured")
+        results: list[PluginSearchResult] = []
+        failures: list[str] = []
+        succeeded = 0
+        for source in selected:
+            try:
+                index = self.fetch(source.id, refresh=refresh)
+            except PluginStoreError as error:
+                failures.append(f"{source.id}: {error}")
+                continue
+            succeeded += 1
+            results.extend(PluginSearchResult(source, bundle) for bundle in index.search(needle))
+        if succeeded == 0:
+            raise PluginStoreError(f"cannot search plugin sources ({'; '.join(failures)})")
+        return tuple(sorted(results, key=lambda item: (item.bundle.id, item.source.priority, item.source.id)))
 
     def cached_digest(self, source_id: str) -> str | None:
         """Implement the cached digest operation for the plugin source store.
@@ -182,7 +233,7 @@ class PluginSourceStore:
                 for raw in value["sources"]
                 for source in [self._source(raw)]
             }
-        except (AttributeError, OSError, TypeError, ValueError, json.JSONDecodeError) as error:
+        except (AttributeError, KeyError, OSError, TypeError, ValueError, json.JSONDecodeError) as error:
             raise PluginStoreError("plugin source configuration is invalid") from error
         if len(sources) != len(value["sources"]) or OFFICIAL_SOURCE_ID in sources:
             raise PluginStoreError("plugin source configuration contains duplicate or reserved IDs")
@@ -204,7 +255,7 @@ class PluginSourceStore:
         """
         if not isinstance(value, dict):
             raise PluginStoreError("plugin source configuration entry must be an object")
-        return PluginSource(str(value["id"]), str(value["url"]), value.get("priority", 100))
+        return PluginSource(value["id"], value["url"], value.get("priority", 100))
 
     def _write_sources(self, sources: dict[str, PluginSource]) -> None:
         """Write sources.
@@ -256,5 +307,6 @@ __all__ = [
     "OFFICIAL_SOURCE_ID",
     "OFFICIAL_SOURCE_URL",
     "PluginSource",
+    "PluginSearchResult",
     "PluginSourceStore",
 ]

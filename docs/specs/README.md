@@ -22,6 +22,7 @@ and tests in the same pull request.
 - [Extension API v2](extension-api-v2.md)
 - [Permission v2](permissions-v2.md)
 - [Plugin WebUI Contribution v1](plugin-webui-contribution-v1.md)
+- [Plugin Index and Managed Generation v2](plugin-index-v2.md)
 - [Local WebUI Service v1](webui-service-v1.md)
 - [Management and Command v1](management-command-v1.md)
 - [Release and Maintenance v1](release-maintenance-v1.md)

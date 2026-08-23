@@ -44,7 +44,7 @@ from .exceptions import LiteyukiError
 from .init_wizard import WizardCancelled, build_custom_initialization_plan, run_init_wizard
 from .instances import DEFAULT_INSTANCE, InstancePaths
 from .plugin_install import PluginInstallationService
-from .plugin_sources import PluginSource, PluginSourceStore
+from .plugin_sources import OFFICIAL_SOURCE_ID, PluginSource, PluginSourceStore
 from .plugin_store import RuntimeGenerationStore
 from .profiles import ProfileManifest, ProfileStore
 from .resource_packs import verify_resource_manifest, write_resource_manifest
@@ -121,6 +121,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     plugin = subcommands.add_parser("plugin", help="plugin operations")
     plugin_commands = plugin.add_subparsers(dest="plugin_command", required=True)
+    plugin_search = plugin_commands.add_parser("search", help="search plugin index metadata")
+    plugin_search.add_argument("query", nargs="?", default="")
+    plugin_search.add_argument("--source", dest="source_id")
+    plugin_search.add_argument("--refresh", action="store_true")
+    plugin_search.add_argument("--json", action="store_true", dest="json_output")
     plugin_list = plugin_commands.add_parser("list")
     plugin_list.add_argument("--runtime", dest="runtime_id")
     plugin_install = plugin_commands.add_parser("install", help="install a runtime plugin bundle")
@@ -226,6 +231,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _profile(args)
         if args.command == "plugin" and args.plugin_command == "source":
             return _plugin_source(args)
+        if args.command == "plugin" and args.plugin_command == "search":
+            return _plugin_search(args)
         if args.command == "instance":
             return _instance_command(args)
         workspace = ConfigWorkspace(args.workspace)
@@ -497,6 +504,55 @@ def _plugin_source(args: argparse.Namespace) -> int:
             print(f"removed {args.id}")
             return 0
     raise RuntimeError(f"unknown plugin source command: {args.plugin_source_command}")
+
+
+def _plugin_search(args: argparse.Namespace) -> int:
+    """Search configured plugin indexes without loading runtime configuration.
+
+    Args:
+        args: Parsed search query, source restriction, refresh, and output mode.
+
+    Returns:
+        Zero after emitting every matching release.
+
+    Notes:
+        Search reads only validated index metadata. JSON output is stable and
+        human output remains intentionally compact for terminal discovery.
+    """
+    store = PluginSourceStore(Path(args.workspace))
+    results = store.search(
+        args.query,
+        source_id=args.source_id or OFFICIAL_SOURCE_ID,
+        refresh=args.refresh,
+    )
+    if args.json_output:
+        document = [
+            {
+                "source": result.source.id,
+                "id": result.bundle.id,
+                "version": result.bundle.version,
+                "display_name": result.bundle.display_name,
+                "summary": result.bundle.summary,
+                "publisher": result.bundle.publisher.document() if result.bundle.publisher is not None else None,
+                "license": result.bundle.license.document() if result.bundle.license is not None else None,
+                "repository": result.bundle.repository,
+                "homepage": result.bundle.homepage,
+                "status": result.bundle.status,
+                "yanked_reason": result.bundle.yanked_reason,
+                "runtime_kinds": sorted(facet.runtime_kind for facet in result.bundle.facets),
+            }
+            for result in results
+        ]
+        print(json.dumps(document, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0
+    for result in results:
+        bundle = result.bundle
+        publisher = bundle.publisher.name if bundle.publisher is not None else "legacy schema-1 publisher"
+        print(
+            f"{bundle.id}\t{bundle.version}\t{bundle.status}\t{result.source.id}\t"
+            f"{bundle.display_name or bundle.id}\t{publisher}"
+        )
+    return 0
 
 
 def _plugin_install(args: argparse.Namespace, settings: AppSettings, workspace: ConfigWorkspace) -> int:

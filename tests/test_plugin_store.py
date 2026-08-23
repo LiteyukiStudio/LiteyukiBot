@@ -4,7 +4,9 @@ import hashlib
 import io
 import json
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -20,7 +22,7 @@ from liteyukibot.plugin_store import (
 )
 
 
-def _index() -> dict[str, object]:
+def _index() -> dict[str, Any]:
     digest = "a" * 64
     return {
         "schema": 1,
@@ -44,6 +46,30 @@ def _index() -> dict[str, object]:
     }
 
 
+def _schema_two_index() -> dict[str, Any]:
+    document = _index()
+    document["schema"] = 2
+    bundle = document["bundles"][0]
+    artifact = bundle["facets"][0]["artifacts"][0]
+    artifact["bytes"] = 123
+    bundle.update(
+        {
+            "display_name": "Example Echo",
+            "summary": "A deterministic schema-2 fixture.",
+            "publisher": {
+                "id": "liteyuki",
+                "name": "Liteyuki Studio",
+                "url": "https://example.invalid/publishers/liteyuki",
+            },
+            "license": {"expression": "MIT"},
+            "repository": "https://example.invalid/repository",
+            "homepage": "https://example.invalid/plugins/echo",
+            "status": "active",
+        }
+    )
+    return document
+
+
 def test_index_has_deterministic_digest_and_targeted_facets() -> None:
     index = PluginIndex.parse(_index())
 
@@ -62,6 +88,58 @@ def test_index_rejects_unpinned_requirements_in_favor_of_wheels() -> None:
     facet["requirements"] = ["requests>=2"]
 
     with pytest.raises(PluginStoreError, match="hash-verified wheels"):
+        PluginIndex.parse(document)
+
+
+def test_schema_two_index_preserves_discovery_metadata_in_digest() -> None:
+    document = _schema_two_index()
+    index = PluginIndex.parse(document)
+    bundle = index.require("example.echo")
+
+    assert index.schema == 2
+    assert bundle.display_name == "Example Echo"
+    assert bundle.publisher is not None and bundle.publisher.id == "liteyuki"
+    assert bundle.license is not None and bundle.license.expression == "MIT"
+    assert bundle.facets[0].artifacts[0].bytes == 123
+
+    changed = json.loads(json.dumps(document))
+    changed["bundles"][0]["summary"] = "Changed summary."
+    assert PluginIndex.parse(changed).digest != index.digest
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda document: document["bundles"][0]["facets"][0]["artifacts"][0].pop("bytes"), "fields"),
+        (lambda document: document["bundles"][0].update({"unknown": True}), "fields"),
+        (
+            lambda document: document["bundles"][0].update({"repository": "https://127.0.0.1/repository"}),
+            "private or reserved",
+        ),
+        (lambda document: document["bundles"][0].update({"license": {"expression": "MIT AND"}}), "SPDX"),
+        (lambda document: document["bundles"][0].update({"license": {"expression": "UnknownLicense"}}), "unknown"),
+        (
+            lambda document: document["bundles"][0].update(
+                {
+                    "license": {
+                        "expression": "LicenseRef-LSO-Private-1.4",
+                        "url": "https://example.invalid/licenses/private",
+                    }
+                }
+            ),
+            "unknown",
+        ),
+        (lambda document: document["bundles"][0].update({"display_name": 1}), "trimmed string"),
+    ],
+)
+def test_schema_two_index_rejects_incomplete_or_unsafe_metadata(
+    mutation: Callable[[Any], object],
+    message: str,
+) -> None:
+    document = _schema_two_index()
+    mutation(document)
+
+    with pytest.raises(PluginStoreError, match=message):
         PluginIndex.parse(document)
 
 
@@ -139,6 +217,21 @@ def test_artifact_store_rejects_large_total_extracted_size(tmp_path: Path, monke
         store.extract_zip(digest, tmp_path / "generation" / "payload")
 
 
+def test_artifact_store_bounds_cumulative_generation_extraction(tmp_path: Path) -> None:
+    store = ArtifactStore(tmp_path)
+    digests: list[str] = []
+    for name, contents in (("first.zip", "12"), ("second.zip", "34")):
+        archive = tmp_path / name
+        with zipfile.ZipFile(archive, "w") as value:
+            value.writestr("payload.txt", contents)
+        digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+        store.import_file(archive, digest)
+        digests.append(digest)
+
+    with pytest.raises(PluginStoreError, match="cumulative extracted size limit"):
+        store.validate_expanded_total(digests, maximum=3)
+
+
 def test_artifact_store_requires_a_verified_local_artifact(tmp_path: Path) -> None:
     archive = tmp_path / "plugin.zip"
     archive.write_bytes(b"verified payload")
@@ -164,7 +257,7 @@ def test_artifact_store_rejects_https_downgrade_redirect(tmp_path: Path, monkeyp
             return "http://example.invalid/plugin.zip"
 
     digest = "a" * 64
-    monkeypatch.setattr("liteyukibot.plugin_store.urlopen", lambda *_args, **_kwargs: _Response(b"payload"))
+    monkeypatch.setattr("liteyukibot.plugin_store._open_public_url", lambda *_args, **_kwargs: _Response(b"payload"))
 
     with pytest.raises(PluginStoreError, match="redirect"):
         ArtifactStore(tmp_path).fetch(ArtifactSpec("https://example.invalid/plugin.zip", digest))
@@ -199,6 +292,19 @@ def test_runtime_generation_activation_and_rollback_share_one_lock(tmp_path: Pat
     assert rolled_back.runtime_generations == {"legacy": "first"}
     assert rolled_back.previous == {"legacy": "second"}
     assert json.loads((tmp_path / "liteyuki.lock").read_text(encoding="utf-8"))["schema"] == 2
+
+
+def test_runtime_generation_rejects_a_tampered_load_plan(tmp_path: Path) -> None:
+    store = RuntimeGenerationStore(tmp_path)
+    generation = _generation("first")
+    path = store.write(generation)
+    (path / "load-plan.json").write_text(
+        json.dumps({"modules": ["tampered"]}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(PluginStoreError, match="not verified"):
+        store.read(generation.runtime_id, generation.id)
 
 
 def test_runtime_generation_gc_retains_active_and_previous_generations(tmp_path: Path) -> None:
