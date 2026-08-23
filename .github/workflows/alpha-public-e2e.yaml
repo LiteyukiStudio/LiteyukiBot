@@ -1,0 +1,44 @@
+name: Verify public Alpha plugin index
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Immutable Alpha GitHub Release tag
+        required: true
+        default: v7.0.0a12
+      release_version:
+        description: Python version encoded in the release wheel filenames
+        required: true
+        default: 7.0.0a12
+      index_url:
+        description: Public schema-2 plugin index URL
+        required: true
+        default: https://raw.githubusercontent.com/LiteyukiStudio/liteyukibot-v7-plugins/main/index.json
+
+permissions:
+  contents: read
+
+jobs:
+  public-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: astral-sh/setup-uv@11f9893b081b58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.16"
+      - name: Download immutable release wheels
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p dist/release
+          gh release download "${{ inputs.release_tag }}" --repo LiteyukiStudio/LiteyukiBot --pattern '*.whl' --dir dist/release
+      - name: Run public-index NoneBot lifecycle proof
+        run: >-
+          uv run --no-project --python 3.14 --find-links dist/release
+          --with dist/release/liteyukibot_v7-${{ inputs.release_version }}-py3-none-any.whl
+          --with dist/release/liteyukibot_v7_runtime_nonebot-${{ inputs.release_version }}-py3-none-any.whl
+          python scripts/run_nonebot_plugin_e2e.py
+          --wheel-dir dist/release
+          --workspace tmp/alpha-public-nonebot-e2e
+          --index-url "${{ inputs.index_url }}"

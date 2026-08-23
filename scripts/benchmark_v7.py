@@ -6,6 +6,7 @@ import argparse
 import asyncio
 import ctypes
 import gc
+import hashlib
 import importlib
 import json
 import math
@@ -37,6 +38,13 @@ from liteyukibot.events import (
     HandlerResult,
 )
 from liteyukibot.functions import FunctionCall, FunctionDispatcher
+from liteyukibot.plugin_store import (
+    ArtifactStore,
+    PlatformTarget,
+    PluginIndex,
+    RuntimeGeneration,
+    RuntimeGenerationStore,
+)
 from liteyukibot.resource_packs import ResourceCatalog, write_resource_manifest
 
 SCHEMA_VERSION = 2
@@ -48,6 +56,9 @@ DEFAULT_SAMPLES = 3
 DEFAULT_RESIDENT_EVENTS = 20_000
 DEFAULT_RESIDENT_PAYLOAD_BYTES = 1_024
 RESIDENT_TERMINAL_CAPACITY = 4_096
+PLUGIN_INDEX_BUNDLES = 256
+PLUGIN_INDEX_ITERATIONS = 25
+PLUGIN_GENERATION_CHURN = 100
 
 type WorkloadKind = Literal["independent", "fifo", "action"]
 type BenchmarkProfile = Literal["bare", "installed-first-party"]
@@ -301,6 +312,9 @@ async def benchmark_sample(
     resident_payload_bytes: int = DEFAULT_RESIDENT_PAYLOAD_BYTES,
     profile: BenchmarkProfile = "bare",
     extension_manifest: Sequence[Mapping[str, Any]] = (),
+    plugin_index_bundles: int = PLUGIN_INDEX_BUNDLES,
+    plugin_index_iterations: int = PLUGIN_INDEX_ITERATIONS,
+    plugin_generation_churn: int = PLUGIN_GENERATION_CHURN,
 ) -> dict[str, Any]:
     """Collect one isolated-process sample without spawning a child process.
 
@@ -313,6 +327,9 @@ async def benchmark_sample(
         resident_payload_bytes: Configured resident payload size, in bytes.
         profile: Named runtime or benchmark profile.
         extension_manifest: The extension manifest value used by the operation.
+        plugin_index_bundles: Schema-2 releases parsed by the plugin workload.
+        plugin_index_iterations: Parse and search operations per sample.
+        plugin_generation_churn: Generation activation/collection transitions.
 
     Returns:
         The `dict[str, Any]` result produced by the operation.
@@ -375,6 +392,15 @@ async def benchmark_sample(
             event_count=resident_events,
             payload_bytes=resident_payload_bytes,
         ),
+        "plugins": {
+            "index": _benchmark_plugin_index(
+                bundle_count=plugin_index_bundles,
+                iterations=plugin_index_iterations,
+            ),
+            "generation_churn": await _measure_resident_state(
+                lambda: _plugin_generation_churn(plugin_generation_churn)
+            ),
+        },
     }
 
 
@@ -721,6 +747,154 @@ async def _benchmark_resident_workloads(*, event_count: int, payload_bytes: int)
     }
 
 
+def _plugin_index_document(bundle_count: int) -> dict[str, object]:
+    """Build deterministic schema-2 metadata for index parse/search benchmarks.
+
+    Args:
+        bundle_count: Number of independent bundle releases to generate.
+
+    Returns:
+        JSON-safe schema-2 plugin index document.
+
+    Notes:
+        Entries vary only by deterministic identifiers and digests so samples
+        exercise parser cost without network or random-data variance.
+    """
+    return {
+        "schema": 2,
+        "bundles": [
+            {
+                "id": f"benchmark.plugin-{index}",
+                "version": "1.0.0",
+                "display_name": f"Benchmark Plugin {index}",
+                "summary": f"Deterministic plugin index benchmark entry {index}.",
+                "publisher": {
+                    "id": "benchmark",
+                    "name": "Benchmark Publisher",
+                    "url": "https://example.invalid/publisher",
+                },
+                "license": {"expression": "MIT"},
+                "repository": f"https://example.invalid/plugin-{index}",
+                "status": "active",
+                "dependencies": [],
+                "facets": [
+                    {
+                        "runtime_kind": "nonebot",
+                        "artifacts": [
+                            {
+                                "url": f"https://example.invalid/plugin-{index}.zip",
+                                "sha256": hashlib.sha256(f"plugin-{index}".encode()).hexdigest(),
+                                "bytes": 1,
+                            }
+                        ],
+                        "wheels": [],
+                        "platform": {"systems": [], "machines": [], "pythons": []},
+                        "load": {"plugins": [f"benchmark_plugin_{index}"], "directories": []},
+                        "capabilities": [],
+                    }
+                ],
+            }
+            for index in range(bundle_count)
+        ],
+    }
+
+
+def _benchmark_plugin_index(*, bundle_count: int, iterations: int) -> dict[str, Any]:
+    """Measure schema-2 JSON parsing and metadata search.
+
+    Args:
+        bundle_count: Number of releases in the deterministic index.
+        iterations: Independent parse and search operations in this sample.
+
+    Returns:
+        Counts, elapsed times, throughput, and deterministic match evidence.
+
+    Notes:
+        Parsing and searching are timed separately against one fixed serialized
+        document; SPDX catalog setup is shared through the production cache.
+    """
+    payload = json.dumps(_plugin_index_document(bundle_count), separators=(",", ":"))
+    parse_started = time.perf_counter()
+    index = PluginIndex.parse(json.loads(payload))
+    for _ in range(iterations - 1):
+        index = PluginIndex.parse(json.loads(payload))
+    parse_seconds = time.perf_counter() - parse_started
+    query = f"Benchmark Plugin {bundle_count - 1}"
+    search_started = time.perf_counter()
+    matches: tuple[object, ...] = ()
+    for _ in range(iterations):
+        matches = index.search(query)
+    search_seconds = time.perf_counter() - search_started
+    if len(matches) != 1:
+        raise RuntimeError("plugin index benchmark search did not return exactly one release")
+    return {
+        "bundle_count": bundle_count,
+        "iterations": iterations,
+        "parse_elapsed_ms": parse_seconds * 1000,
+        "parse_operations_per_second": iterations / parse_seconds,
+        "search_elapsed_ms": search_seconds * 1000,
+        "search_operations_per_second": iterations / search_seconds,
+        "matched_releases": len(matches),
+    }
+
+
+async def _plugin_generation_churn(count: int) -> tuple[dict[str, Any], object]:
+    """Repeatedly activate and collect small generations while stores remain live.
+
+    Args:
+        count: Number of generation transitions to execute.
+
+    Returns:
+        Final bounded residency counters and owners retained for memory sampling.
+
+    Notes:
+        Each transition creates a unique artifact and generation, then runs the
+        production active/previous and artifact collection sequence while store
+        owners remain alive for the resident-state measurement.
+    """
+    temporary = tempfile.TemporaryDirectory()
+    root = Path(temporary.name)
+    generations = RuntimeGenerationStore(root)
+    artifacts = ArtifactStore(root)
+    source = root / "source.bin"
+    for index in range(count):
+        source.write_bytes(f"artifact-{index}".encode())
+        digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        artifacts.import_file(source, digest)
+        generation = RuntimeGeneration(
+            id=f"g{index:04d}",
+            runtime_id="benchmark",
+            runtime_kind="nonebot",
+            created_at="2026-08-22T00:00:00+00:00",
+            target=PlatformTarget("windows", "amd64", "3.14"),
+            bundles=("benchmark.plugin",),
+            artifacts=(digest,),
+            load_plan={"plugins": ["benchmark_plugin"], "directories": []},
+        )
+        generations.write(generation)
+        generations.activate("benchmark", generation.id)
+        generations.collect("benchmark")
+        retained_digests = {
+            retained_digest
+            for retained_generation in generations.list_generations()
+            for retained_digest in retained_generation.artifacts
+        }
+        artifacts.collect(retained_digests)
+    retained_generations = generations.list_generations("benchmark")
+    retained_artifacts = tuple(artifacts.root.iterdir()) if artifacts.root.exists() else ()
+    if len(retained_generations) > 2 or len(retained_artifacts) > 2:
+        raise RuntimeError("plugin generation churn exceeded active/previous residency")
+    return (
+        {
+            "processed_events": count,
+            "retained_generations": len(retained_generations),
+            "retained_artifacts": len(retained_artifacts),
+            "artifact_store_bytes": sum((entry / "artifact").stat().st_size for entry in retained_artifacts),
+        },
+        (temporary, generations, artifacts),
+    )
+
+
 def _latency_summary(latencies: Sequence[float]) -> dict[str, float]:
     """Implement the latency summary operation for the component.
 
@@ -941,6 +1115,7 @@ def aggregate_samples(samples: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
                     "workloads": sample["workloads"],
                     "functions": sample["functions"],
                     "resident": sample["resident"],
+                    "plugins": sample["plugins"],
                 }
                 for sample in samples
             ]

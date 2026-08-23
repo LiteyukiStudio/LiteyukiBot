@@ -45,6 +45,11 @@ dependency lock, DevCLI wheel, read-only LYF VSIX, daemon graph lifecycle
 evidence, and the typed AstrBot/NoneBot runtime API packages. It remains a
 GitHub Release artifact and is not a PyPI publication.
 
+[Alpha 12](../roadmap/v7-alpha-12-ecosystem-activation.md) advances the current
+source identity to `v7.0.0a12`, adds the independently versioned reference
+NoneBot plugin to the signed bundle, and requires the managed-generation
+external-host E2E before release. The 72-hour soak remains deferred to stable.
+
 Kernel, IPC, WebUI, DevCLI, Cordis, and broker-bridge components use the
 lockstep Alpha version. Business plugins and independently distributed PyPI
 packages retain their own versions and must declare the compatible kernel

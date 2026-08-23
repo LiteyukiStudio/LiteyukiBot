@@ -93,12 +93,12 @@ Build from the repository root, then verify from a clean non-project directory:
 uv build --all-packages --out-dir dist/workspace --clear
 uv build --project examples/broker-peer --out-dir dist/examples
 uv run python scripts/run_isolated_install.py \
-  --with dist/workspace/liteyukibot_v7-7.0.0a9-py3-none-any.whl \
-  --with dist/workspace/liteyukibot_v7_runtime_nonebot_api-7.0.0a9-py3-none-any.whl \
+  --with dist/workspace/liteyukibot_v7-7.0.0a12-py3-none-any.whl \
+  --with dist/workspace/liteyukibot_v7_runtime_nonebot_api-7.0.0a12-py3-none-any.whl \
   --verifier scripts/verify_nonebot_api_install.py \
-  -- --expected-version 7.0.0a9
+  -- --expected-version 7.0.0a12
 uv run python scripts/run_isolated_install.py \
-  --with dist/workspace/liteyukibot_v7-7.0.0a9-py3-none-any.whl \
+  --with dist/workspace/liteyukibot_v7-7.0.0a12-py3-none-any.whl \
   --with dist/examples/liteyukibot_example_broker_peer-0.1.0-py3-none-any.whl \
   --verifier scripts/verify_broker_peer_example.py
 ```

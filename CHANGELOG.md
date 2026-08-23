@@ -1,5 +1,17 @@
 # Changelog
 
+## 7.0.0a12 - 2026-08-22
+
+- migrated LSO-licensed distributions to LSO Common 1.4 while preserving the
+  explicitly AGPL AstrBot and MoFox runtime packages;
+- added governed plugin index schema 2 metadata, exact artifact sizes, search,
+  confirmation-bound installation, and cumulative generation limits;
+- activated managed plugin generations for the stable NoneBot bridge with
+  active/previous retention, artifact collection, daemon restart, and startup
+  rollback;
+- added the independently versioned reference NoneBot plugin and external-host
+  E2E verifier. Alpha13 WebUI and TextMate package work remains deferred.
+
 ## 7.0.0b2 - 2026-08-13
 
 - added `EditMessage` to the portable action model and the separately

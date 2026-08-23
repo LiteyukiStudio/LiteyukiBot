@@ -188,6 +188,30 @@ def run(bundle: Path) -> None:
     with tempfile.TemporaryDirectory(prefix="liteyuki-alpha-bundle-") as directory:
         for verification in VERIFICATIONS:
             subprocess.run(command_for(bundle, verification, uv), cwd=directory, env=environment, check=True)
+        reference_wheel = wheels_for(bundle, "liteyukibot-v7-example-nonebot-plugin")[0]
+        e2e_command = [
+            uv,
+            "run",
+            "--no-project",
+            "--python",
+            "3.14",
+            "--no-index",
+            "--find-links",
+            str(bundle.resolve()),
+            "--with",
+            str(wheels_for(bundle, "liteyukibot-v7")[0].resolve()),
+            "--with",
+            str(wheels_for(bundle, "liteyukibot-v7-runtime-nonebot")[0].resolve()),
+            "--with",
+            str(reference_wheel.resolve()),
+            "python",
+            str((ROOT / "scripts" / "run_nonebot_plugin_e2e.py").resolve()),
+            "--wheel-dir",
+            str(bundle.resolve()),
+            "--workspace",
+            str((Path(directory) / "nonebot-e2e").resolve()),
+        ]
+        subprocess.run(e2e_command, cwd=directory, env=environment, check=True)
 
 
 def main() -> int:
