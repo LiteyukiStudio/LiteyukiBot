@@ -15,6 +15,7 @@ from typing import Any, cast
 import zmq.asyncio
 
 from .broker.lifecycle import BrokerLifecycleClient, BrokerLifecycleError
+from .broker.service import BridgeCatalog
 from .config import CONFIG_VERSION, DaemonSettings, DevelopmentSettings, WebUISettings
 from .control import ControlServer, request_control
 from .instances import InstancePaths
@@ -36,9 +37,107 @@ from .operations import (
     OperationRequest,
     PrincipalKind,
 )
-from .plugin_store import PLUGIN_GENERATION_ENV, PluginStoreError, RuntimeGenerationStore
+from .plugin_install import PluginInstallationService
+from .plugin_sources import OFFICIAL_SOURCE_ID, PluginSourceStore
+from .plugin_store import (
+    PLUGIN_GENERATION_ENV,
+    PlatformTarget,
+    PluginBundle,
+    PluginIndex,
+    PluginStoreError,
+    RuntimeGeneration,
+    RuntimeGenerationStore,
+)
 from .profiles import ProfileError, ProfileStore
+from .runtime import RuntimeCatalog
 from .update import UpdateError, UpdateJournal, UpdatePhase
+
+_MAX_PLUGIN_QUERY_LENGTH = 128
+_MAX_PLUGIN_RESULTS = 10_000
+_MAX_PLUGIN_PAGE_SIZE = 100
+_MAX_PLUGIN_CLOSURE = 128
+
+
+def _plugin_source_document(source: Any, digest: str | None) -> dict[str, object]:
+    """Project source identity without exposing workspace cache paths."""
+    return {
+        "id": source.id,
+        "priority": source.priority,
+        "official": source.id == OFFICIAL_SOURCE_ID,
+        "url": source.url,
+        "cache_state": "cached" if digest is not None else "uncached",
+        "digest": digest,
+    }
+
+
+def _plugin_bundle_document(bundle: PluginBundle) -> dict[str, object]:
+    """Project publisher-controlled bundle metadata as JSON-safe text and counts."""
+    inputs = tuple(artifact for facet in bundle.facets for artifact in (*facet.artifacts, *facet.wheels))
+    known_bytes = tuple(artifact.bytes for artifact in inputs)
+    exact_bytes = tuple(value for value in known_bytes if value is not None)
+    publisher = bundle.publisher
+    license_value = bundle.license
+    return {
+        "bundle_id": bundle.id,
+        "version": bundle.version,
+        "display_name": bundle.display_name or bundle.id,
+        "summary": bundle.summary or "",
+        "publisher": publisher.document() if publisher is not None else None,
+        "license": license_value.document() if license_value is not None else None,
+        "status": bundle.status,
+        "yanked_reason": bundle.yanked_reason,
+        "runtime_kinds": sorted({facet.runtime_kind for facet in bundle.facets}),
+        "requested_capabilities": sorted({capability for facet in bundle.facets for capability in facet.capabilities}),
+        "dependencies": list(bundle.dependencies),
+        "repository": bundle.repository,
+        "homepage": bundle.homepage,
+        "download_bytes": sum(exact_bytes) if len(exact_bytes) == len(known_bytes) else None,
+        "download_bytes_exact": all(value is not None for value in known_bytes),
+    }
+
+
+def _resolve_plugin_closure(index: PluginIndex, root: str) -> tuple[PluginBundle, ...]:
+    """Resolve one bounded dependency closure in installation order."""
+    visiting: set[str] = set()
+    visited: set[str] = set()
+    resolved: list[PluginBundle] = []
+
+    def visit(bundle_id: str) -> None:
+        if bundle_id in visited:
+            return
+        if bundle_id in visiting:
+            raise PluginStoreError("plugin dependency cycle")
+        if len(visited) >= _MAX_PLUGIN_CLOSURE:
+            raise PluginStoreError("plugin dependency closure exceeds the WebUI limit")
+        visiting.add(bundle_id)
+        bundle = index.require(bundle_id)
+        for dependency in bundle.dependencies:
+            visit(dependency)
+        visiting.remove(bundle_id)
+        visited.add(bundle_id)
+        resolved.append(bundle)
+
+    visit(root)
+    return tuple(resolved)
+
+
+def _plugin_generation_document(generation: RuntimeGeneration | None) -> dict[str, object] | None:
+    """Project generation identity while excluding load plans and artifact paths."""
+    if generation is None:
+        return None
+    enabled = tuple(root for root in generation.roots if root not in generation.disabled_roots)
+    return {
+        "id": generation.id,
+        "runtime_id": generation.runtime_id,
+        "runtime_kind": generation.runtime_kind,
+        "created_at": generation.created_at,
+        "bundles": list(generation.bundles),
+        "roots": list(generation.roots),
+        "disabled_roots": list(generation.disabled_roots),
+        "enabled_bundle_set": list(enabled),
+        "source_id": generation.source_id,
+        "index_digest": generation.index_digest,
+    }
 
 
 class InstanceDaemon:
@@ -782,6 +881,202 @@ class InstanceDaemon:
         """
         value = await self._worker_webui_control("daemon.webui.plugin_surfaces")
         return value if isinstance(value, dict) else {"generation": 0, "surfaces": [], "diagnostics": []}
+
+    async def plugin_discovery(
+        self,
+        _principal: Any,
+        query: str,
+        source_id: str | None,
+        runtime_kind: str | None,
+        status: str | None,
+        refresh: bool,
+        cursor: str | None,
+        limit: int,
+    ) -> dict[str, object]:
+        """Search bounded plugin indexes and return metadata-only discovery records."""
+        if len(query) > _MAX_PLUGIN_QUERY_LENGTH or not 1 <= limit <= _MAX_PLUGIN_PAGE_SIZE:
+            raise ValueError("invalid plugin discovery bounds")
+        offset = int(cursor or "0")
+        if offset < 0:
+            raise ValueError("invalid plugin discovery cursor")
+        store = PluginSourceStore(self.paths.workspace)
+        sources = tuple(source for source in store.list() if source_id is None or source.id == source_id)
+        if not sources:
+            raise ValueError("plugin source is not configured")
+        source_documents = [_plugin_source_document(source, store.cached_digest(source.id)) for source in sources]
+        diagnostics: list[dict[str, object]] = []
+        matches: list[dict[str, object]] = []
+        normalized_status = None if status in {None, "all"} else status
+        for source, source_document in zip(sources, source_documents, strict=True):
+            try:
+                index = store.fetch(source.id, refresh=refresh)
+            except PluginStoreError:
+                diagnostics.append({"source_id": source.id, "code": "plugin.source_unavailable"})
+                continue
+            source_document["cache_state"] = "cached"
+            source_document["digest"] = index.digest
+            for bundle in index.search(query):
+                if normalized_status is not None and bundle.status != normalized_status:
+                    continue
+                if runtime_kind is not None and runtime_kind not in {facet.runtime_kind for facet in bundle.facets}:
+                    continue
+                matches.append(
+                    {
+                        **_plugin_bundle_document(bundle),
+                        "source": source.id,
+                        "source_priority": source.priority,
+                        "official": source.id == OFFICIAL_SOURCE_ID,
+                        "index_digest": index.digest,
+                    }
+                )
+        matches.sort(
+            key=lambda item: (
+                str(item["bundle_id"]),
+                int(cast(int, item["source_priority"])),
+                str(item["source"]),
+            )
+        )
+        page = matches[offset : offset + limit]
+        next_cursor = str(offset + limit) if offset + limit < len(matches) else None
+        return {
+            "query": query,
+            "filters": {"source_id": source_id, "runtime_kind": runtime_kind, "status": status or "all"},
+            "sources": source_documents,
+            "items": page,
+            "next_cursor": next_cursor,
+            "total": min(len(matches), _MAX_PLUGIN_RESULTS),
+            "diagnostics": diagnostics,
+        }
+
+    async def plugin_targets(self, _principal: Any) -> dict[str, object]:
+        """Project configured runtime and bridge targets with safe generation summaries."""
+        snapshot = await self._worker_webui_control("daemon.webui.snapshot")
+        topology = snapshot.get("topology", {}) if isinstance(snapshot, Mapping) else {}
+        runtime_items = topology.get("runtimes", ()) if isinstance(topology, Mapping) else ()
+        targets: dict[str, dict[str, object]] = {}
+        for item in runtime_items if isinstance(runtime_items, list) else ():
+            if not isinstance(item, Mapping) or not isinstance(item.get("id"), str):
+                continue
+            runtime_id = cast(str, item["id"])
+            raw_health = item.get("health")
+            health = raw_health if isinstance(raw_health, Mapping) else {}
+            targets[runtime_id] = {
+                "id": runtime_id,
+                "kind": item.get("kind", ""),
+                "target_type": "runtime",
+                "state": health.get("state", "configured"),
+            }
+        for bridge_id, kind in sorted(self._bridge_kinds.items()):
+            targets.setdefault(
+                bridge_id,
+                {"id": bridge_id, "kind": kind, "target_type": "bridge", "state": "configured"},
+            )
+        try:
+            bridge_definitions = BridgeCatalog().discover()
+        except Exception:
+            bridge_definitions = {}
+        try:
+            runtime_definitions, _runtime_diagnostics = RuntimeCatalog().discover_installed()
+        except Exception:
+            runtime_definitions = {}
+        deployment = RuntimeGenerationStore(self.paths.workspace).active()
+        result: list[dict[str, object]] = []
+        for target_id, target in sorted(targets.items()):
+            kind = str(target["kind"])
+            bridge = bridge_definitions.get(kind)
+            if bridge is not None:
+                support_grade = bridge.grade.value
+            elif kind in runtime_definitions:
+                support_grade = "available"
+            else:
+                support_grade = "unavailable"
+            active_id = deployment.runtime_generations.get(target_id)
+            previous_id = deployment.previous.get(target_id)
+            store = RuntimeGenerationStore(self.paths.workspace)
+            active = store.read(target_id, active_id) if active_id is not None else None
+            previous = store.read(target_id, previous_id) if previous_id is not None else None
+            active_document = _plugin_generation_document(active)
+            enabled_bundle_set: list[object] = []
+            if active_document is not None:
+                raw_enabled_bundle_set = active_document.get("enabled_bundle_set", [])
+                if isinstance(raw_enabled_bundle_set, list):
+                    enabled_bundle_set = raw_enabled_bundle_set
+            target.update(
+                {
+                    "support_grade": support_grade,
+                    "active_generation": active_document,
+                    "previous_generation": _plugin_generation_document(previous),
+                    "enabled_bundle_set": enabled_bundle_set,
+                    "restart_required": self._restart_plugin_target == target_id,
+                }
+            )
+            result.append(target)
+        return {"items": result, "limit": len(result)}
+
+    async def plugin_preview(
+        self,
+        _principal: Any,
+        bundle_id: str,
+        source_id: str,
+        target_id: str,
+    ) -> dict[str, object]:
+        """Resolve a target-specific install preview without returning executable inputs."""
+        from liteyukibot_webui import WebUiServiceError
+
+        targets = await self.plugin_targets(_principal)
+        target_items = targets.get("items", [])
+        target = next(
+            (item for item in target_items if isinstance(item, Mapping) and item.get("id") == target_id),
+            None,
+        ) if isinstance(target_items, list) else None
+        if not isinstance(target, Mapping):
+            raise WebUiServiceError("webui.plugin_target_not_found", 404)
+        runtime_kind = target.get("kind")
+        if not isinstance(runtime_kind, str):
+            raise WebUiServiceError("webui.plugin_target_invalid", 409)
+        service = PluginInstallationService(self.paths.workspace)
+        try:
+            preview = service.preview(bundle_id, source_id=source_id)
+            index = service.sources.fetch(source_id, refresh=False)
+            if index.digest != preview.index_digest:
+                raise PluginStoreError("plugin index changed during preview")
+            closure = _resolve_plugin_closure(index, bundle_id)
+            target_platform = PlatformTarget.current()
+            facets = tuple(bundle.facet_for(runtime_kind, target_platform) for bundle in closure)
+        except PluginStoreError as error:
+            message = str(error)
+            if "yanked" in message:
+                raise WebUiServiceError("webui.plugin_yanked", 409) from error
+            if "compatible" in message or "no " in message and "facet" in message:
+                raise WebUiServiceError("webui.plugin_target_incompatible", 409) from error
+            raise WebUiServiceError("webui.plugin_preview_unavailable", 409) from error
+        capabilities = sorted({capability for facet in facets for capability in facet.capabilities})
+        inputs = tuple(artifact for facet in facets for artifact in (*facet.artifacts, *facet.wheels))
+        known_bytes = tuple(artifact.bytes for artifact in inputs)
+        exact_bytes = tuple(value for value in known_bytes if value is not None)
+        return {
+            "source": _plugin_source_document(
+                next(source for source in service.sources.list() if source.id == source_id),
+                preview.index_digest,
+            ),
+            "index_digest": preview.index_digest,
+            "selected_target": {
+                "id": target_id,
+                "kind": runtime_kind,
+                "support_grade": target.get("support_grade"),
+            },
+            "bundle": _plugin_bundle_document(preview.bundle),
+            "resolved_closure": [_plugin_bundle_document(bundle) for bundle in closure],
+            "requested_capabilities": capabilities,
+            "download_bytes": sum(exact_bytes) if len(exact_bytes) == len(known_bytes) else None,
+            "download_bytes_exact": all(value is not None for value in known_bytes),
+            "security": {
+                "execution_boundary": "selected_runtime",
+                "artifact_bytes_exposed": False,
+                "load_plan_exposed": False,
+                "credentials_exposed": False,
+            },
+        }
 
     async def lyf_resources(self, _principal: Any) -> dict[str, object]:
         """Implement the lyf resources operation for the instance daemon.

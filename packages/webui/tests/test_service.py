@@ -53,6 +53,40 @@ class Bridge:
     async def plugin_surfaces(self, _principal: WebUiPrincipal) -> JsonObject:
         return {"generation": 1, "surfaces": []}
 
+    async def plugin_discovery(
+        self,
+        _principal: WebUiPrincipal,
+        query: str,
+        source_id: str | None,
+        runtime_kind: str | None,
+        status: str | None,
+        refresh: bool,
+        cursor: str | None,
+        limit: int,
+    ) -> JsonObject:
+        return {
+            "query": query,
+            "source_id": source_id,
+            "runtime_kind": runtime_kind,
+            "status": status,
+            "refresh": refresh,
+            "cursor": cursor,
+            "limit": limit,
+            "items": [],
+        }
+
+    async def plugin_targets(self, _principal: WebUiPrincipal) -> JsonObject:
+        return {"items": []}
+
+    async def plugin_preview(
+        self,
+        _principal: WebUiPrincipal,
+        bundle_id: str,
+        source_id: str,
+        target_id: str,
+    ) -> JsonObject:
+        return {"bundle_id": bundle_id, "source_id": source_id, "target_id": target_id}
+
     async def lyf_resources(self, _principal: WebUiPrincipal) -> JsonObject:
         return {"read_only": True, "grammar": "source.lyf", "items": []}
 
@@ -195,6 +229,30 @@ def test_event_deliveries_are_authenticated_and_filter_inputs_are_bounded(tmp_pa
     }
     assert client.get("/api/v1/event-deliveries", params={"limit": 501}).json() == {
         "error": {"code": "webui.invalid_page_size"}
+    }
+
+
+def test_plugin_routes_keep_search_and_preview_inputs_bounded(tmp_path: Path) -> None:
+    client, _bridge = _client(tmp_path)
+    _session(client)
+
+    discovery = client.get(
+        "/api/v1/plugins/discovery",
+        params={"query": "echo", "runtime_kind": "v6", "status": "active", "limit": 20},
+    )
+    assert discovery.status_code == 200
+    assert discovery.json()["runtime_kind"] == "v6"
+    assert discovery.json()["limit"] == 20
+    assert client.get("/api/v1/plugins/targets").json() == {"items": []}
+    assert client.get(
+        "/api/v1/plugins/preview/example.echo",
+        params={"source_id": "official", "target_id": "v6-primary"},
+    ).json() == {"bundle_id": "example.echo", "source_id": "official", "target_id": "v6-primary"}
+    assert client.get("/api/v1/plugins/discovery", params={"query": "x" * 129}).json() == {
+        "error": {"code": "webui.invalid_plugin_filter"}
+    }
+    assert client.get("/api/v1/plugins/preview/example.echo", params={"source_id": "official"}).json() == {
+        "error": {"code": "webui.plugin_target_required"}
     }
 
 

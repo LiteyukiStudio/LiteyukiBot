@@ -36,6 +36,9 @@ _MAX_EVENT_REPLAY = 4096
 _SSE_REAUTHORIZATION_SECONDS = 15.0
 _MAX_EVENT_DELIVERY_FILTER_LENGTH = 256
 _MAX_EVENT_DELIVERY_ID_LENGTH = 256
+_MAX_PLUGIN_FILTER_LENGTH = 128
+_MAX_PLUGIN_ID_LENGTH = 256
+_MAX_PLUGIN_PAGE_SIZE = 100
 
 
 class WebUiUnavailableError(RuntimeError):
@@ -253,6 +256,34 @@ class WebUiBridge(Protocol):
         Returns:
             The `MaybeAwaitable[JsonObject]` result produced by the operation.
         """
+        ...
+
+    def plugin_discovery(
+        self,
+        principal: WebUiPrincipal,
+        query: str,
+        source_id: str | None,
+        runtime_kind: str | None,
+        status: str | None,
+        refresh: bool,
+        cursor: str | None,
+        limit: int,
+    ) -> MaybeAwaitable[JsonObject]:
+        """Return bounded, server-side plugin discovery results."""
+        ...
+
+    def plugin_targets(self, principal: WebUiPrincipal) -> MaybeAwaitable[JsonObject]:
+        """Return configured managed plugin targets and generation summaries."""
+        ...
+
+    def plugin_preview(
+        self,
+        principal: WebUiPrincipal,
+        bundle_id: str,
+        source_id: str,
+        target_id: str,
+    ) -> MaybeAwaitable[JsonObject]:
+        """Return digest-bound metadata for one target-specific install preview."""
         ...
 
     def lyf_resources(self, principal: WebUiPrincipal) -> MaybeAwaitable[JsonObject]:
@@ -919,6 +950,66 @@ def create_app(
         """
         session = await authenticated(request)
         return await invoke(bridge.plugin_surfaces(session.principal))
+
+    @app.get("/api/v1/plugins/discovery")
+    async def plugin_discovery(
+        request: Request,
+        query: str = "",
+        source_id: str | None = None,
+        runtime_kind: str | None = None,
+        status: str | None = None,
+        refresh: bool = False,
+        cursor: str | None = None,
+        limit: int = 50,
+    ) -> JsonObject:
+        """Return bounded server-side plugin discovery results."""
+        session = await authenticated(request)
+        if len(query) > _MAX_PLUGIN_FILTER_LENGTH:
+            raise WebUiServiceError("webui.invalid_plugin_filter", 400)
+        for value in (source_id, runtime_kind, status):
+            if value is not None and (not value or len(value) > _MAX_PLUGIN_FILTER_LENGTH):
+                raise WebUiServiceError("webui.invalid_plugin_filter", 400)
+        if status is not None and status not in {"active", "yanked", "all"}:
+            raise WebUiServiceError("webui.invalid_plugin_status", 400)
+        if cursor is not None and (not cursor.isdigit() or len(cursor) > 12):
+            raise WebUiServiceError("webui.invalid_plugin_cursor", 400)
+        if not 1 <= limit <= _MAX_PLUGIN_PAGE_SIZE:
+            raise WebUiServiceError("webui.invalid_page_size", 400)
+        return await invoke(
+            bridge.plugin_discovery(
+                session.principal,
+                query,
+                source_id,
+                runtime_kind,
+                status,
+                refresh,
+                cursor,
+                limit,
+            )
+        )
+
+    @app.get("/api/v1/plugins/targets")
+    async def plugin_targets(request: Request) -> JsonObject:
+        """Return configured managed plugin targets."""
+        session = await authenticated(request)
+        return await invoke(bridge.plugin_targets(session.principal))
+
+    @app.get("/api/v1/plugins/preview/{bundle_id}")
+    async def plugin_preview(
+        request: Request,
+        bundle_id: str,
+        source_id: str | None = None,
+        target_id: str | None = None,
+    ) -> JsonObject:
+        """Return a target-specific, digest-bound plugin install preview."""
+        session = await authenticated(request)
+        if not bundle_id or len(bundle_id) > _MAX_PLUGIN_ID_LENGTH:
+            raise WebUiServiceError("webui.invalid_plugin_id", 400)
+        if source_id is None or not source_id or len(source_id) > _MAX_PLUGIN_FILTER_LENGTH:
+            raise WebUiServiceError("webui.invalid_plugin_source", 400)
+        if target_id is None or not target_id or len(target_id) > _MAX_PLUGIN_FILTER_LENGTH:
+            raise WebUiServiceError("webui.plugin_target_required", 400)
+        return await invoke(bridge.plugin_preview(session.principal, bundle_id, source_id, target_id))
 
     @app.get("/api/v1/lyf/resources")
     async def lyf_resources(request: Request) -> JsonObject:

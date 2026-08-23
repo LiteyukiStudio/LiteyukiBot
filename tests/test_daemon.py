@@ -4,6 +4,7 @@ import asyncio
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 
@@ -14,9 +15,11 @@ from liteyukibot.daemon import InstanceDaemon
 from liteyukibot.instance_daemon import InstanceDaemonService
 from liteyukibot.instances import InstancePaths
 from liteyukibot.managed_graph import ProcessSpec
+from liteyukibot.plugin_sources import PluginSourceStore
 from liteyukibot.plugin_store import (
     PLUGIN_GENERATION_ENV,
     PlatformTarget,
+    PluginIndex,
     RuntimeGeneration,
     RuntimeGenerationStore,
 )
@@ -415,6 +418,104 @@ async def test_daemon_webui_bridge_owns_tickets_and_operation_ledger(tmp_path: P
                 "detail": "ok",
             }
         ]
+    finally:
+        await daemon.operations.close()
+        await worker.stop()
+
+
+@pytest.mark.asyncio
+async def test_daemon_webui_plugin_reads_are_bounded_and_metadata_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    paths = InstancePaths.from_workspace(ConfigWorkspace(tmp_path), "plugin-ui")
+    worker_descriptor = tmp_path / "worker.json"
+    index = PluginIndex.parse(
+        {
+            "schema": 2,
+            "bundles": [
+                {
+                    "id": "example.echo",
+                    "version": "1.0.0",
+                    "display_name": "Example Echo",
+                    "summary": "A bounded fixture.",
+                    "publisher": {
+                        "id": "example",
+                        "name": "Example Publisher",
+                        "url": "https://example.invalid/publisher",
+                    },
+                    "license": {"expression": "MIT"},
+                    "repository": "https://example.invalid/repository",
+                    "homepage": "https://example.invalid/home",
+                    "status": "active",
+                    "dependencies": [],
+                    "facets": [
+                        {
+                            "runtime_kind": "v6",
+                            "artifacts": [
+                                {
+                                    "url": "https://example.invalid/echo.zip",
+                                    "sha256": "a" * 64,
+                                    "bytes": 12,
+                                }
+                            ],
+                            "wheels": [],
+                            "platform": {"systems": [], "machines": [], "pythons": []},
+                            "load": {"modules": ["example_echo"]},
+                            "capabilities": ["runtime.events.receive"],
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+    monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: index)
+
+    async def snapshot(_request: object) -> dict[str, object]:
+        return {
+            "topology": {
+                "runtimes": [
+                    {"id": "v6-primary", "kind": "v6", "health": {"state": "ready"}},
+                ]
+            }
+        }
+
+    worker = ControlServer(
+        worker_descriptor,
+        status_provider=lambda: {"state": "ready"},
+        handlers={"daemon.webui.snapshot": snapshot},
+    )
+    await worker.start()
+    daemon = InstanceDaemon(
+        paths,
+        DaemonSettings(),
+        (sys.executable, "-c", "pass"),
+        {},
+        worker_descriptor=worker_descriptor,
+        webui=WebUISettings(mode="on_demand"),
+    )
+    try:
+        principal = await daemon.redeem_ticket(await daemon.issue_ticket())
+        assert principal is not None
+        discovery = cast(
+            dict[str, Any],
+            await daemon.plugin_discovery(principal, "echo", None, "v6", "active", False, None, 20),
+        )
+        assert discovery["items"][0]["bundle_id"] == "example.echo"
+        assert discovery["items"][0]["download_bytes"] == 12
+        assert discovery["sources"][0]["official"] is True
+
+        targets = cast(dict[str, Any], await daemon.plugin_targets(principal))
+        assert targets["items"][0]["id"] == "v6-primary"
+        preview = cast(
+            dict[str, Any],
+            await daemon.plugin_preview(principal, "example.echo", "liteyukibot-v7-plugins", "v6-primary"),
+        )
+        assert preview["selected_target"]["kind"] == "v6"
+        assert preview["requested_capabilities"] == ["runtime.events.receive"]
+        assert preview["download_bytes"] == 12
+        assert "artifacts" not in preview["bundle"]
+        assert "load_plan" not in preview
+        assert "credentials_exposed" in preview["security"]
     finally:
         await daemon.operations.close()
         await worker.stop()
