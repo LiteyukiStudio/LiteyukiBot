@@ -9,7 +9,7 @@ WORKDIR /build
 
 RUN pip install --no-cache-dir uv==0.11.16
 
-COPY pyproject.toml uv.lock README.md LICENSE ./
+COPY pyproject.toml uv.lock README.md LICENSE LICENSE.en LICENSE.zh-CN ./
 COPY src ./src
 COPY packages ./packages
 COPY examples ./examples
