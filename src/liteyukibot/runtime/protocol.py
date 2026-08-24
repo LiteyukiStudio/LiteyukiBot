@@ -5,16 +5,16 @@ from __future__ import annotations
 import asyncio
 import json
 import struct
-from collections.abc import Mapping, Sequence
-from typing import Annotated, Any, Literal, cast
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from ..exceptions import RuntimeProtocolError
+from ..json_value import JsonValue as JsonValue
+from ..json_value import json_mapping as json_mapping
+from ..json_value import json_value as json_value
 
 type ProtocolVersion = Literal[1, 2, 3, 4, 5]
-type JsonScalar = str | int | float | bool | None
-type JsonValue = JsonScalar | list[JsonValue] | dict[str, JsonValue]
 
 PROTOCOL_VERSION: ProtocolVersion = 5
 SUPPORTED_PROTOCOL_VERSIONS: tuple[ProtocolVersion, ...] = (1, 2, 3, 4, 5)
@@ -207,59 +207,3 @@ async def write_message(writer: asyncio.StreamWriter, message: WireMessage) -> N
     writer.write(struct.pack(">I", len(payload)))
     writer.write(payload)
     await writer.drain()
-
-
-def json_mapping(value: Mapping[str, Any]) -> dict[str, JsonValue]:
-    """Validate an arbitrary mapping as JSON-safe data.
-
-    Args:
-        value: Value to validate, transform, or store.
-
-    Returns:
-        The `dict[str, JsonValue]` result produced by the operation.
-    """
-
-    decoded = json_value(value)
-    if not isinstance(decoded, dict):
-        raise TypeError("expected a JSON object")
-    return decoded
-
-
-def json_value(value: Any) -> JsonValue:
-    """Validate an arbitrary value as JSON-safe protocol data.
-
-    Args:
-        value: Value to validate, transform, or store.
-
-    Returns:
-        The `JsonValue` result produced by the operation.
-    """
-
-    encoded = json.dumps(
-        _mutable_json(value),
-        ensure_ascii=False,
-        separators=(",", ":"),
-        allow_nan=False,
-    )
-    decoded = json.loads(encoded)
-    return cast(JsonValue, decoded)
-
-
-def _mutable_json(value: Any) -> Any:
-    """Implement the mutable json operation for the component.
-
-    Args:
-        value: Value to validate, transform, or store.
-
-    Returns:
-        The `Any` result produced by the operation.
-
-    Notes:
-        Internal implementation detail for `_mutable_json`. It delegates to `_mutable_json`, `items`
-        while keeping intermediate state local to the owning operation.
-    """
-    if isinstance(value, Mapping):
-        return {str(key): _mutable_json(item) for key, item in value.items()}
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-        return [_mutable_json(item) for item in value]
-    return value

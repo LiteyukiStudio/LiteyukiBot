@@ -27,8 +27,8 @@ from liteyukibot.broker import (
 from liteyukibot.config import AppSettings
 from liteyukibot.events import EventEnvelope
 from liteyukibot.events import JsonValue as EventJsonValue
+from liteyukibot.json_value import json_value
 from liteyukibot.lyip import LyipLane
-from liteyukibot.runtime.protocol import json_value
 
 from .contracts import AdapterConnection, AdapterContext, AdapterPlugin
 

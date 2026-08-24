@@ -16,7 +16,7 @@ from websockets.asyncio.server import ServerConnection, serve
 
 from liteyukibot.broker import MessageSendPayload
 from liteyukibot.events import ConversationRef, EventEnvelope, Message, Segment
-from liteyukibot.runtime.protocol import JsonValue
+from liteyukibot.json_value import JsonValue
 
 
 @dataclass(frozen=True, slots=True)

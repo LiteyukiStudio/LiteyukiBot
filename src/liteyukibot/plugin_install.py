@@ -13,6 +13,7 @@ from typing import cast
 from urllib.parse import unquote, urlsplit
 
 from .broker.service import BridgeCatalog, BridgeSupportGrade
+from .managed_plugins import ManagedFacetInstaller
 from .plugin_sources import PluginSource, PluginSourceStore
 from .plugin_store import (
     ArtifactStore,
@@ -24,7 +25,6 @@ from .plugin_store import (
     RuntimeGeneration,
     RuntimeGenerationStore,
 )
-from .runtime.facets import RuntimeFacetInstaller
 
 CommandRunner = Callable[[list[str]], None]
 
@@ -35,7 +35,7 @@ class _ManagedPluginTarget:
 
     kind: str
     distribution: str
-    facet_installer: RuntimeFacetInstaller
+    facet_installer: ManagedFacetInstaller
     probe_module: str
 
 
