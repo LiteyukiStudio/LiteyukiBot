@@ -17,9 +17,5 @@ class ServiceError(LiteyukiError):
     """Raised when a service contract cannot be satisfied."""
 
 
-class RuntimeProtocolError(LiteyukiError):
-    """Raised when a runtime violates the local wire protocol."""
-
-
 class LegacyUnsupportedError(LiteyukiError):
     """Raised when a v6 plugin uses an API outside the compatibility contract."""

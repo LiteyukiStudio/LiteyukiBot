@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import importlib
-import os
 import sys
 from collections.abc import Mapping
 from pathlib import Path
@@ -30,12 +29,10 @@ from liteyukibot.events import (
     SendMessage,
 )
 from liteyukibot.exceptions import PluginError, ServiceError
-from liteyukibot.runtime import EventAccepted, RuntimeSpec, RuntimeState
-from liteyukibot.testing import PluginTestHarness, RuntimeTestHarness
+from liteyukibot.testing import PluginTestHarness
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_SOURCE = ROOT / "examples" / "native-plugin" / "src"
-RUNTIME_SOURCE = ROOT / "examples" / "custom-runtime" / "src"
 
 
 def _event(text: str = "hello") -> EventEnvelope:
@@ -247,90 +244,10 @@ async def test_plugin_harness_cleans_up_failed_start(tmp_path: Path) -> None:
     assert cancelled.is_set()
 
 
-@pytest.mark.asyncio
-async def test_custom_runtime_example_round_trips_events_and_actions() -> None:
-    python_path = str(RUNTIME_SOURCE)
-    existing = os.environ.get("PYTHONPATH")
-    if existing:
-        python_path += os.pathsep + existing
-    spec = RuntimeSpec(
-        id="example-runtime",
-        kind="custom",
-        command=(sys.executable, "-m", "liteyukibot_example_runtime"),
-        env={"PYTHONPATH": python_path},
-        ready_timeout=5,
-        heartbeat_interval=0.05,
-        stale_after=1,
-        shutdown_timeout=2,
-        restart_limit=1,
-    )
-    harness = RuntimeTestHarness(spec)
-
-    async with harness:
-        assert harness.state.value == RuntimeState.READY.value
-        assert harness.protocol_version == 5
-        assert harness.capabilities == frozenset(
-            {"runtime.events.receive", "runtime.events.complete", "runtime.actions.send"}
-        )
-
-        accepted = await harness.dispatch_event(
-            _event().model_dump(mode="json"),
-            correlation_id="event-delivery",
-            timeout_seconds=2,
-        )
-        assert accepted == EventAccepted(
-            correlation_id="event-delivery",
-            status="accepted",
-        )
-        completed = await harness.wait_for_delivery_completion("event-delivery", timeout_seconds=2)
-        assert completed.status == "completed"
-        assert len(harness.child_actions) == 1
-        runtime_id, payload = harness.child_actions[0]
-        assert runtime_id == "example-runtime"
-        child_action = ActionEnvelope.model_validate(payload)
-        assert cast(SendMessage, child_action.action).message.plain_text == "runtime: hello"
-
-        response = await harness.execute_action(
-            {"command": "ping"},
-            correlation_id="core-action",
-            timeout_seconds=2,
-        )
-        assert response.ok is True
-        assert response.data == {"echo": {"command": "ping"}}
-
-        invalid = await harness.dispatch_event(
-            {"not": "an event"},
-            correlation_id="invalid-event",
-            timeout_seconds=2,
-        )
-        assert invalid.status == "invalid"
-        assert invalid.detail is not None
-
-        with pytest.raises(TimeoutError, match="runtime health") as error:
-            await harness.wait_for_delivery_completion("missing-delivery", timeout_seconds=0.01)
-        assert "child output" in str(error.value)
-
-    assert harness.state.value == RuntimeState.STOPPED.value
-    await harness.stop()
-
-
-def test_runtime_harness_requires_explicit_command() -> None:
-    with pytest.raises(ValueError, match="explicit child command"):
-        RuntimeTestHarness(RuntimeSpec(id="custom", kind="custom"))
-
-
-def test_runtime_spec_rejects_empty_command_arguments() -> None:
-    with pytest.raises(ValueError, match="command arguments"):
-        RuntimeSpec(id="custom", kind="custom", command=())
-    with pytest.raises(ValueError, match="command arguments"):
-        RuntimeSpec(id="custom", kind="custom", command=(sys.executable, ""))
-
-
 def test_public_developer_types_are_importable() -> None:
     annotations: Mapping[str, object] = {
         "PluginPaths": PluginPaths,
         "PluginServices": PluginServices,
         "PluginTestHarness": PluginTestHarness,
-        "RuntimeTestHarness": RuntimeTestHarness,
     }
     assert all(value is not None for value in annotations.values())

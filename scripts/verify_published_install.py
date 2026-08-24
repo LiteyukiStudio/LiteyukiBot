@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import importlib.metadata
+import importlib.util
 import json
 from pathlib import Path
 
@@ -24,10 +25,32 @@ def _module_version(module_name: str) -> str:
     return version
 
 
+def _verify_removed_runtime_surface(distribution_name: str) -> None:
+    """Reject a root wheel that still ships the retired child Runtime package.
+
+    Args:
+        distribution_name: Installed root distribution name.
+
+    Returns:
+        None.
+
+    Notes:
+        Both metadata and import discovery are checked so packaging and import
+        regressions fail the isolated-install verifier.
+    """
+    distribution = importlib.metadata.distribution(distribution_name)
+    files = distribution.files or ()
+    if any(tuple(path.parts[:2]) == ("liteyukibot", "runtime") for path in files):
+        raise RuntimeError("installed root distribution still contains liteyukibot.runtime")
+    if importlib.util.find_spec("liteyukibot.runtime") is not None:
+        raise RuntimeError("retired liteyukibot.runtime package remains importable")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--distribution", default="liteyukibot-v7")
     parser.add_argument("--expected-version")
+    parser.add_argument("--expect-no-legacy-runtime", action="store_true")
     args = parser.parse_args()
 
     distribution_version = importlib.metadata.version(args.distribution)
@@ -36,6 +59,8 @@ def main() -> int:
         args.distribution: distribution_version,
         "liteyukibot": _module_version("liteyukibot"),
     }
+    if args.expect_no_legacy_runtime:
+        _verify_removed_runtime_surface(args.distribution)
     mismatches = {
         name: version for name, version in observed.items() if version != expected_version
     }

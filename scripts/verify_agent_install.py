@@ -15,7 +15,6 @@ from liteyukibot_agent_resolver import AgentToolDescriptor
 
 import liteyukibot
 from liteyukibot.broker import BridgeCatalog, BridgeSupportGrade
-from liteyukibot.runtime import RuntimeCatalog
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 
@@ -31,7 +30,10 @@ def _verify_bridge_contract() -> None:
         if definition.distribution != "liteyukibot-v7-agent":
             raise RuntimeError(f"bridge {kind!r} declared an unexpected distribution")
 
-    if "agent" in RuntimeCatalog().discover():
+    if any(
+        entry.name == "agent"
+        for entry in importlib.metadata.entry_points(group="liteyukibot.runtimes")
+    ):
         raise RuntimeError("legacy Agent runtime entry point is still installed")
     if any(
         entry.name == "liteyuki.agent" or entry.name == "liteyukibot.agent"

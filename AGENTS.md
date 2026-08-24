@@ -43,7 +43,8 @@ and name tests `test_<behavior>.py` and `test_<expected_contract>()`.
 
 Keep kernel APIs protocol-neutral and JSON-safe. The root kernel must not
 import first-party packages directly. Declare inter-package dependencies in
-metadata; child runtimes use shared `RuntimeClient` and declare capabilities.
+metadata; cross-process bridges use the shared Broker peer contract and
+declare capabilities.
 Update the relevant ADR, architecture guide, or package README when public
 events, actions, IPC, configuration, services, or plugin contracts change.
 

@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import StrEnum
-from types import MappingProxyType
 from typing import Any
 
 
@@ -71,27 +70,6 @@ class PluginInitSpec:
         _validate_fields(self.fields)
 
 
-@dataclass(frozen=True, slots=True)
-class RuntimeInitSpec:
-    """Represent the runtime init spec contract."""
-    default_id: str
-    description: str = ""
-    description_key: str | None = None
-    default_options: Mapping[str, Any] = field(default_factory=dict)
-    fields: tuple[InitFieldSpec, ...] = ()
-
-    def __post_init__(self) -> None:
-        """Validate and normalize the runtime init spec after initialization.
-
-        Returns:
-            None.
-        """
-        if not self.default_id or self.default_id != self.default_id.strip():
-            raise ValueError("runtime initialization default_id must be a non-empty trimmed string")
-        _validate_fields(self.fields)
-        object.__setattr__(self, "default_options", MappingProxyType(dict(self.default_options)))
-
-
 def _validate_fields(fields: tuple[InitFieldSpec, ...]) -> None:
     """Validate fields.
 
@@ -119,5 +97,4 @@ __all__ = [
     "InitValue",
     "InitValues",
     "PluginInitSpec",
-    "RuntimeInitSpec",
 ]

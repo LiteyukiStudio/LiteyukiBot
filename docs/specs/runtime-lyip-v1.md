@@ -4,7 +4,7 @@
 - Applies to: the former Beta3 supervised child-runtime lifecycle and its
   transport-neutral LYIP framing notes.
 - Compatibility: historical. New broker peers use
-  [Runtime LYIP v2](runtime-lyip-v2.md) and [Broker Peer IPC v6](runtime-ipc-v6.md).
+  [Runtime LYIP v2](runtime-lyip-v2.md) and [Broker Peer IPC v7](runtime-ipc-v7.md).
 
 ## Frame And Ordering
 

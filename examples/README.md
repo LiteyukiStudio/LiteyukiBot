@@ -9,9 +9,6 @@ They are not templates copied into production unchanged.
   the managed NoneBot generation E2E.
 - `broker-peer/` demonstrates a real B7 `BridgeClient` registration, event
   lease, experimental runtime API call, completion, and shutdown.
-- `custom-runtime/` preserves a protocol-v5 child-runtime example using the
-  shared `RuntimeClient` and supervisor-owned lifecycle. It is not a B5 broker
-  peer example and is retained as historical compatibility evidence.
 
 Keep examples minimal, dependency-bounded, and aligned with the public guides
 in `docs/development/`. Build them from the repository root:
@@ -20,7 +17,6 @@ in `docs/development/`. Build them from the repository root:
 uv build --project examples/native-plugin --out-dir dist/examples
 uv build --project examples/nonebot-plugin --out-dir dist/examples
 uv build --project examples/broker-peer --out-dir dist/examples
-uv build --project examples/custom-runtime --out-dir dist/examples
 ```
 
 When a public extension contract changes, update the relevant example and its

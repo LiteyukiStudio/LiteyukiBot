@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import glob
 import os
 import shutil
 import subprocess
@@ -21,6 +22,11 @@ _ISOLATION_VARIABLES = (
 def _requirement(value: str) -> str:
     if not value:
         raise ValueError("install requirement must not be empty")
+    if value.lower().endswith(".whl") and glob.has_magic(value):
+        matches = tuple(Path(match) for match in glob.glob(value))
+        if len(matches) != 1:
+            raise ValueError(f"install requirement pattern must match exactly one file: {value}")
+        value = str(matches[0])
     candidate = Path(value)
     if not candidate.exists():
         return value
