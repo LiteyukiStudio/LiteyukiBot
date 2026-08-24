@@ -33,7 +33,7 @@ VERIFICATIONS: tuple[InstallVerification, ...] = (
         "kernel",
         ("liteyukibot-v7",),
         "scripts/verify_published_install.py",
-        ("--expected-version", ALPHA_VERSION),
+        ("--expected-version", ALPHA_VERSION, "--expect-no-legacy-runtime"),
     ),
     InstallVerification(
         "permissions", ("liteyukibot-v7", "liteyukibot-v7-permissions"), "scripts/verify_permissions_install.py"
