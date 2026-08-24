@@ -126,6 +126,12 @@ def test_isolated_install_resolves_exactly_one_local_requirement_pattern(tmp_pat
         _requirement(str(tmp_path / "liteyukibot_v7-*.whl"))
 
 
+def test_isolated_install_preserves_package_extras_requirement() -> None:
+    requirement = "liteyukibot-v7[webui]>=7.0.0a13,<8"
+
+    assert _requirement(requirement) == requirement
+
+
 def test_developer_kit_install_uses_an_explicit_build_directory(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

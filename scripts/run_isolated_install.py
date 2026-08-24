@@ -22,7 +22,7 @@ _ISOLATION_VARIABLES = (
 def _requirement(value: str) -> str:
     if not value:
         raise ValueError("install requirement must not be empty")
-    if glob.has_magic(value):
+    if value.lower().endswith(".whl") and glob.has_magic(value):
         matches = tuple(Path(match) for match in glob.glob(value))
         if len(matches) != 1:
             raise ValueError(f"install requirement pattern must match exactly one file: {value}")
