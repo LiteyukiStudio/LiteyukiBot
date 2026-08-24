@@ -17,6 +17,7 @@ from uuid import uuid4
 from jsonschema import Draft202012Validator, ValidationError
 
 from ._version import __version__
+from .action_service import ActionService
 from .agents import AGENT_HISTORY_SERVICE
 from .authorization import AuthorizationContext
 from .broker import (
@@ -98,68 +99,6 @@ class AppState(StrEnum):
     STOPPING = "stopping"
     STOPPED = "stopped"
     FAILED = "failed"
-
-
-class ActionService:
-    """Route protocol-neutral actions to the runtime that owns the bot."""
-
-    def __init__(
-        self,
-        supervisor: RuntimeSupervisor,
-        action_guard: Callable[[EventEnvelope | None, ActionEnvelope], ActionResult | None],
-    ) -> None:
-        """Initialize the action service.
-
-        Args:
-            supervisor: The supervisor value used by the operation.
-            action_guard: Optional policy hook that can reject an action before execution.
-
-        Returns:
-            None.
-        """
-        self._supervisor = supervisor
-        self._action_guard = action_guard
-
-    async def execute(self, action: ActionEnvelope, *, event: EventEnvelope | None = None) -> ActionResult:
-        """Execute one request through the action service.
-
-        Args:
-            action: Action request being processed.
-            event: Event associated with the operation.
-
-        Returns:
-            The `ActionResult` result produced by the operation.
-        """
-        guarded = self._action_guard(event, action)
-        if guarded is not None:
-            return guarded
-        try:
-            response = await self._supervisor.execute_action(
-                action.runtime_id,
-                action.action_id,
-                action.model_dump(mode="json"),
-            )
-        except (KeyError, ConnectionError, RuntimeError, TimeoutError) as error:
-            return ActionResult(
-                action_id=action.action_id,
-                success=False,
-                error_code="RUNTIME_UNAVAILABLE",
-                error_message=str(error),
-            )
-        if response.ok:
-            return ActionResult.model_validate(
-                {
-                    "action_id": action.action_id,
-                    "success": True,
-                    "data": response.data,
-                }
-            )
-        return ActionResult(
-            action_id=action.action_id,
-            success=False,
-            error_code="RUNTIME_ACTION_FAILED",
-            error_message=response.error or "runtime rejected the action",
-        )
 
 
 _PERMISSION_SERVICE = ServiceKey(PERMISSION_SERVICE_NAME, PERMISSION_SERVICE_MAJOR)
@@ -384,7 +323,7 @@ class LiteyukiApp:
         )
         self.runtimes.set_logging_settings(settings.logging)
         self.runtimes.set_management_sink(self._execute_runtime_management)
-        self.actions = ActionService(self.runtimes, self._authorize_action)
+        self.actions = ActionService(self._execute_legacy_action, self._authorize_action)
         core = settings.core
         self.events = EventBus(
             queue_capacity=core.queue_capacity,
@@ -2121,6 +2060,51 @@ class LiteyukiApp:
             if result is not None:
                 return result
         return await self.actions.execute(action, event=event)
+
+    async def _execute_legacy_action(
+        self,
+        _event: EventEnvelope | None,
+        action: ActionEnvelope,
+    ) -> ActionResult:
+        """Dispatch an action through the legacy child-runtime supervisor.
+
+        Args:
+            _event: Optional source event retained by the protocol-neutral backend contract.
+            action: Action request being processed.
+
+        Returns:
+            The normalized action result returned by the legacy runtime.
+
+        Notes:
+            Temporary Alpha14 adapter. The next migration layer removes the child-runtime supervisor.
+        """
+        try:
+            response = await self.runtimes.execute_action(
+                action.runtime_id,
+                action.action_id,
+                action.model_dump(mode="json"),
+            )
+        except (KeyError, ConnectionError, RuntimeError, TimeoutError) as error:
+            return ActionResult(
+                action_id=action.action_id,
+                success=False,
+                error_code="RUNTIME_UNAVAILABLE",
+                error_message=str(error),
+            )
+        if response.ok:
+            return ActionResult.model_validate(
+                {
+                    "action_id": action.action_id,
+                    "success": True,
+                    "data": response.data,
+                }
+            )
+        return ActionResult(
+            action_id=action.action_id,
+            success=False,
+            error_code="RUNTIME_ACTION_FAILED",
+            error_message=response.error or "runtime rejected the action",
+        )
 
     async def _clear_agent_history(self, event: EventEnvelope) -> int:
         """Clear agent history.
