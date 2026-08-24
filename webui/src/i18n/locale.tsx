@@ -4,6 +4,11 @@ import type { WebUiPresentation } from "@/models/api";
 
 const storageKey = "liteyukibot.webui.locale";
 const supportedLocales = ["en-US", "zh-CN"] as const;
+const recoveryMessages: Record<string, string> = {
+  "webui.error.unavailable": "Local service unavailable",
+  "webui.error.unavailable_detail": "The WebUI could not read the running daemon.",
+  "webui.action.retry": "Retry",
+};
 
 export type Locale = (typeof supportedLocales)[number];
 
@@ -66,7 +71,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     setPresentation({ locale: resolvedLocale, locales, messages: value.messages, webuiVersion: value.webui_version });
   }, []);
   const t = useCallback((key: string, values: Record<string, string | number> = {}) => {
-    const template = presentation?.messages[key] ?? key;
+    const template = presentation?.messages[key] ?? recoveryMessages[key] ?? key;
     return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (placeholder, name: string) => String(values[name] ?? placeholder));
   }, [presentation]);
   const value = useMemo(

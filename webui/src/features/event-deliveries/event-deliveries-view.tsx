@@ -3,7 +3,7 @@ import { CircleAlert, Filter, LoaderCircle, RefreshCw, Route, Server, X } from "
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -89,7 +89,7 @@ export function EventDeliveriesView({ initial, api, reloadInitial }: EventDelive
     </section>
     <SurfaceCard>
       <CardHeader className="flex-row items-center justify-between gap-4 px-5 pt-5">
-        <div className="min-w-0"><CardTitle className="text-sm font-semibold">{t("webui.event_delivery.title")}</CardTitle><p className="mt-1 text-xs text-muted-foreground">{t("webui.event_delivery.retention")}</p></div>
+        <div className="min-w-0"><h2 className="text-sm font-semibold">{t("webui.event_delivery.title")}</h2><p className="mt-1 text-xs text-muted-foreground">{t("webui.event_delivery.retention")}</p></div>
         <Button variant="outline" className="ly-icon-button" size="icon" onClick={refresh} aria-label={t("webui.action.refresh")}><RefreshCw size={15} /></Button>
       </CardHeader>
       <CardContent className="space-y-4 px-5 pb-5">
