@@ -8,7 +8,6 @@ import os
 from collections.abc import Awaitable, Callable, Iterable, Mapping
 from dataclasses import replace
 from enum import StrEnum
-from pathlib import Path
 from time import monotonic
 from types import MappingProxyType
 from typing import Any, cast
@@ -31,7 +30,7 @@ from .broker import (
     configured_kernel_bridge,
 )
 from .capabilities import ADAPTER_CALL_API, AGENT_HISTORY_CLEAR, PERMISSION_SERVICE_MAJOR, PERMISSION_SERVICE_NAME
-from .config import AppSettings, RuntimeEventRoute
+from .config import AppSettings
 from .control import ControlServer
 from .cordis_host import CordisHost, discover_cordis_host, validate_extension_topology
 from .events import ActionEnvelope, ActionResult, CallApi, EventBus, EventEnvelope, HandlerResult, Subscription
@@ -54,28 +53,17 @@ from .functions import (
 from .http import HttpServer
 from .i18n import I18N_SERVICE, SUPPORTED_LOCALES, Translator, normalize_locale
 from .instance_daemon import INSTANCE_DAEMON_SERVICE, InstanceDaemonService
-from .logging import Logger, configure_logging, get_logger, log_payload, shutdown_logging
+from .logging import Logger, configure_logging, get_logger, shutdown_logging
 from .management import (
     MANAGEMENT_ADMIN,
     MANAGEMENT_SERVICE,
     KernelManagement,
     ManagementCaller,
     ManagementDanger,
-    ManagementError,
 )
 from .operations import ManagementPrincipal, OperationRequest, PrincipalKind
-from .plugin_store import RuntimeGenerationStore
 from .plugins import ExtensionManifest, PluginDefinition, PluginManager, ToolCallback, ToolDeclaration
 from .resource_packs import RESOURCE_CATALOG_SERVICE, ResourceCatalog, ResourcePackDeclaration
-from .runtime import (
-    ActionProvenance,
-    ActionSinkResult,
-    JsonValue,
-    RuntimeCatalog,
-    RuntimeSpec,
-    RuntimeSupervisor,
-    json_value,
-)
 from .runtime_api import (
     RuntimeApiError,
     RuntimeBinding,
@@ -314,16 +302,7 @@ class LiteyukiApp:
         self.logger = logger or get_logger(component="core")
         self.state = AppState.CREATED
         self.services = ServiceRegistry()
-        self.runtimes = RuntimeSupervisor(
-            logger=self.logger,
-            event_sink=self._ingest_runtime_event,
-            action_sink=self._execute_runtime_action,
-            secret_values=runtime_secrets,
-            lyip_settings=settings.lyip,
-        )
-        self.runtimes.set_logging_settings(settings.logging)
-        self.runtimes.set_management_sink(self._execute_runtime_management)
-        self.actions = ActionService(self._execute_legacy_action, self._authorize_action)
+        self.actions = ActionService(self._execute_action_backend, self._authorize_action)
         core = settings.core
         self.events = EventBus(
             queue_capacity=core.queue_capacity,
@@ -359,7 +338,6 @@ class LiteyukiApp:
         self.control = ControlServer(
             core.data_dir / "control.json",
             status_provider=self.status,
-            runtime_restarter=self.runtimes.restart,
             handlers={
                 "event.inject": self._inject_event,
                 "management.execute": self._execute_local_management,
@@ -388,14 +366,12 @@ class LiteyukiApp:
         self._logging_owned = logger is None
         self._logging_started = False
         self._plugins_setup = False
-        self._runtimes_started = False
         self._kernel_broker_started = False
         self._management_started = False
         self._control_started = False
         self._http_started = False
         self._started_at: float | None = None
         self._stopped_at: float | None = None
-        self._runtime_state_directories: dict[str, Any] = {}
         self.resources: ResourceCatalog | None = None
         self.translator: Translator | None = None
         self.functions: FunctionDispatcher | None = None
@@ -410,64 +386,6 @@ class LiteyukiApp:
         self._function_subscriptions: list[Subscription] = []
         self._function_prompts: dict[str, FunctionPromptPreset] = {}
         self._function_tasks = ManagedTasks("functions", on_failure=self._function_task_failed)
-        runtime_plugins = RuntimeCatalog().discover()
-        generation_store = RuntimeGenerationStore(self.resource_workspace)
-        deployment = generation_store.active()
-        for runtime_id, runtime in settings.runtimes.items():
-            if not runtime.enabled:
-                continue
-            state_directory = (core.data_dir / "runtimes" / runtime_id).resolve()
-            self._runtime_state_directories[runtime_id] = state_directory
-            generation_path: Path | None = None
-            command = runtime.command or None
-            generation_id = deployment.runtime_generations.get(runtime_id)
-            if generation_id is not None:
-                generation = generation_store.read(runtime_id, generation_id)
-                if generation.runtime_kind != runtime.kind:
-                    raise RuntimeError(
-                        f"runtime {runtime_id!r} generation kind {generation.runtime_kind!r} "
-                        f"does not match {runtime.kind!r}"
-                    )
-                runtime_plugin = runtime_plugins.get(runtime.kind)
-                if runtime_plugin is None:
-                    raise RuntimeError(f"runtime {runtime.kind!r} has a managed generation but is not installed")
-                if runtime.command:
-                    raise RuntimeError(
-                        f"runtime {runtime_id!r} cannot combine a managed generation with command override"
-                    )
-                generation_path = generation_store.path_for(runtime_id, generation_id)
-                python = generation_store.python_path(generation_path)
-                if not python.is_file():
-                    raise RuntimeError(f"runtime {runtime_id!r} generation has no Python executable")
-                command = (str(python), *runtime_plugin.command[1:])
-            self.runtimes.add(
-                RuntimeSpec(
-                    id=runtime_id,
-                    kind=runtime.kind,
-                    options=runtime.options,
-                    command=command,
-                    working_directory=runtime.working_directory,
-                    env={
-                        **runtime.env,
-                        "LITEYUKI_RUNTIME_STATE_DIR": str(state_directory),
-                        **({"LITEYUKI_RUNTIME_GENERATION_DIR": str(generation_path)} if generation_path else {}),
-                    },
-                    secret_env=runtime.secret_env,
-                    handshake_timeout=runtime.handshake_timeout_seconds,
-                    restart_limit=runtime.max_failures,
-                    restart_window=runtime.failure_window_seconds,
-                    ready_timeout=runtime.ready_timeout_seconds,
-                    heartbeat_interval=runtime.heartbeat_interval_seconds,
-                    stale_after=runtime.stale_after_seconds,
-                    max_inbound_events=runtime.max_inbound_events,
-                )
-            )
-        self._runtime_event_routes = self._event_routes(settings)
-        if self._runtime_event_routes:
-            self.events.subscribe(
-                self._forward_runtime_event,
-                name="runtime.routes",
-            )
         self.services.provide(
             KERNEL_STATUS_SERVICE,
             _AppStatusProvider(self),
@@ -1256,13 +1174,10 @@ class LiteyukiApp:
         try:
             if self._logging_owned:
                 self.logger = configure_logging(self.settings.logging)
-                self.runtimes.logger = self.logger
                 self.plugins.logger = self.logger
                 self._logging_started = True
             self.settings.core.data_dir.mkdir(parents=True, exist_ok=True)
             self.settings.core.cache_dir.mkdir(parents=True, exist_ok=True)
-            for state_directory in self._runtime_state_directories.values():
-                state_directory.mkdir(parents=True, exist_ok=True)
             await self.events.start()
 
             definitions = self.plugins.discover(
@@ -1325,8 +1240,6 @@ class LiteyukiApp:
             if os.environ.get("LITEYUKI_DAEMON_WORKER") != "1":
                 await self.management.start_operations(self.settings.core.data_dir)
                 self._management_started = True
-            await self.runtimes.start()
-            self._runtimes_started = True
             await self.plugins.start()
             if self._cordis_host is not None:
                 await self._cordis_host.start()
@@ -1459,11 +1372,7 @@ class LiteyukiApp:
 
             self._accepting_events = True
             self.state = AppState.READY
-            self.logger.info(
-                "LiteyukiBot is ready with {} plugin(s) and {} runtime(s)",
-                len(self.plugins.loaded),
-                len(self.runtimes.records),
-            )
+            self.logger.info("LiteyukiBot is ready with {} plugin(s)", len(self.plugins.loaded))
         except BaseException as start_error:
             self.state = AppState.FAILED
             try:
@@ -1565,8 +1474,8 @@ class LiteyukiApp:
             state=self.state.value,
             uptime_seconds=self._uptime_seconds(),
             plugins={plugin_id: plugin.state.value for plugin_id, plugin in self.plugins.loaded.items()},
-            runtimes={runtime_id: record.state.value for runtime_id, record in self.runtimes.records.items()},
-            runtime_health=self.runtimes.health(),
+            runtimes={},
+            runtime_health={},
             events_outstanding=self.events.outstanding,
         )
 
@@ -1647,10 +1556,13 @@ class LiteyukiApp:
             if discover_plugins
             else {plugin_id: loaded.definition for plugin_id, loaded in self.plugins.loaded.items()}
         )
-        runtime_health = self.runtimes.health()
         return {
             "schema_version": 1,
             "kernel": {"version": __version__, "state": self.state.value},
+            "bridges": [
+                {"id": bridge_id, "kind": kind, "state": "configured"}
+                for bridge_id, kind in sorted(self._runtime_targets.items())
+            ],
             "services": [{"key": str(item.key), "provider": item.provider} for item in self.services.snapshot()],
             "plugins": [
                 {
@@ -1673,23 +1585,9 @@ class LiteyukiApp:
                 }
                 for plugin_id, definition in sorted(definitions.items())
             ],
-            "runtimes": [
-                {
-                    "id": runtime_id,
-                    "kind": runtime.kind,
-                    "enabled": runtime.enabled,
-                    "health": runtime_health.get(runtime_id),
-                }
-                for runtime_id, runtime in sorted(self.settings.runtimes.items())
-            ],
-            "event_routes": [
-                {
-                    "sources": list(route.sources),
-                    "target": route.target,
-                    "messages_only": route.messages_only,
-                }
-                for route in self._runtime_event_routes
-            ],
+            # Retained until consumers have migrated to the bridge topology above.
+            "runtimes": [],
+            "event_routes": [],
         }
 
     def _uptime_seconds(self) -> float:
@@ -1781,12 +1679,6 @@ class LiteyukiApp:
                 await self.functions.aclose()
             except BaseException as error:
                 errors.append(error)
-        if self._runtimes_started or self.runtimes.records:
-            try:
-                await self.runtimes.stop()
-            except BaseException as error:
-                errors.append(error)
-            self._runtimes_started = False
         if self._logging_started:
             try:
                 shutdown_logging()
@@ -1845,145 +1737,6 @@ class LiteyukiApp:
             `bind` while keeping intermediate state local to the owning operation.
         """
         self.logger.bind(component="functions").error("function task {} failed: {}", name, error)
-
-    async def _ingest_runtime_event(self, runtime_id: str, payload: dict[str, Any]) -> str:
-        """Implement the ingest runtime event operation for the liteyuki app.
-
-        Args:
-            runtime_id: Stable runtime identifier.
-            payload: JSON-safe payload carried by the operation.
-
-        Returns:
-            The `str` result produced by the operation.
-
-        Notes:
-            Internal implementation detail for `LiteyukiApp._ingest_runtime_event`. It delegates to
-            `log_payload`, `model_validate`, `warning`, `bind` while keeping intermediate state local to the
-            owning operation.
-        """
-        log_payload(
-            self.logger,
-            self.settings.logging,
-            operation="runtime.event",
-            payload=payload,
-            runtime_id=runtime_id,
-        )
-        if not self._accepting_events or self._kernel_frozen:
-            return "invalid"
-        try:
-            event = EventEnvelope.model_validate(payload)
-        except ValueError as error:
-            self.logger.bind(runtime=runtime_id, component="runtime").warning(
-                "runtime event failed validation: {}", error
-            )
-            return "invalid"
-        if event.runtime_id != runtime_id:
-            self.logger.bind(runtime=runtime_id, component="runtime").warning(
-                "runtime event claimed a different runtime id"
-            )
-            return "invalid"
-        result = await self.events.publish(event)
-        return "accepted" if result.status == "processed" else result.status
-
-    async def _execute_runtime_action(
-        self,
-        source_runtime_id: str,
-        payload: dict[str, Any],
-        provenance: ActionProvenance | None,
-    ) -> ActionSinkResult:
-        """Execute runtime action.
-
-        Args:
-            source_runtime_id: Stable identifier for the source runtime.
-            payload: JSON-safe payload carried by the operation.
-            provenance: The provenance value used by the operation.
-
-        Returns:
-            The `ActionSinkResult` result produced by the operation.
-
-        Notes:
-            Internal implementation detail for `LiteyukiApp._execute_runtime_action`. It delegates to
-            `log_payload`, `model_validate`, `warning`, `bind` while keeping intermediate state local to the
-            owning operation.
-        """
-        log_payload(
-            self.logger,
-            self.settings.logging,
-            operation="runtime.action",
-            payload=payload,
-            runtime_id=source_runtime_id,
-        )
-        try:
-            action = ActionEnvelope.model_validate(payload)
-        except ValueError as error:
-            self.logger.bind(runtime=source_runtime_id, component="runtime").warning(
-                "runtime action failed validation: {}", error
-            )
-            return ActionSinkResult(ok=False, error="invalid ActionEnvelope")
-        if provenance is not None:
-            try:
-                source_event = EventEnvelope.model_validate(provenance.event_payload)
-            except ValueError:
-                return ActionSinkResult(ok=False, error="action provenance has an invalid EventEnvelope")
-            if (
-                action.event_id != source_event.id
-                or action.runtime_id != source_event.runtime_id
-                or action.bot_id != source_event.bot_id
-            ):
-                return ActionSinkResult(
-                    ok=False,
-                    error="child action does not match its source event provenance",
-                )
-        if action.runtime_id == source_runtime_id:
-            return ActionSinkResult(
-                ok=False,
-                error="child-originated action cannot target its source runtime",
-            )
-        result = await self.actions.execute(action, event=source_event if provenance is not None else None)
-        return ActionSinkResult(
-            ok=result.success,
-            data=result.model_dump(mode="json"),
-            error=result.error_message,
-        )
-
-    async def _execute_runtime_management(
-        self, runtime_id: str, command: str
-    ) -> tuple[bool, str, JsonValue, str | None]:
-        """Execute runtime management.
-
-        Args:
-            runtime_id: Stable runtime identifier.
-            command: Command or operation name to execute.
-
-        Returns:
-            The `tuple[bool, str, JsonValue, str | None]` result produced by the operation.
-
-        Notes:
-            Internal implementation detail for `LiteyukiApp._execute_runtime_management`. It delegates to
-            `frozenset`, `execute`, `log_payload`, `json_value` while keeping intermediate state local to
-            the owning operation.
-        """
-        caller = ManagementCaller(runtime_id, "runtime", frozenset())
-        try:
-            _definition, result = await self.management.registry.execute(caller, command)
-        except ManagementError as error:
-            log_payload(
-                self.logger,
-                self.settings.logging,
-                operation="runtime.management",
-                payload={"command": command, "error": str(error)},
-                runtime_id=runtime_id,
-            )
-            return False, "", None, str(error)
-        data = json_value(result.data) if result.data is not None else None
-        log_payload(
-            self.logger,
-            self.settings.logging,
-            operation="runtime.management",
-            payload={"command": command, "result": data if data is not None else result.text},
-            runtime_id=runtime_id,
-        )
-        return True, result.text, data, None
 
     def _authorize_action(self, event: EventEnvelope | None, action: ActionEnvelope) -> ActionResult | None:
         """Authorize action.
@@ -2055,55 +1808,54 @@ class LiteyukiApp:
             Internal implementation detail for `LiteyukiApp._execute_event_action`. It delegates to
             `execute_action`, `execute` while keeping intermediate state local to the owning operation.
         """
-        if self._kernel_broker_peer is not None:
+        return await self.actions.execute(action, event=event)
+
+    async def _execute_action_backend(
+        self,
+        event: EventEnvelope | None,
+        action: ActionEnvelope,
+    ) -> ActionResult:
+        """Dispatch an action through its active Broker delivery when available.
+
+        Args:
+            event: Optional source event used to locate an active delivery.
+            action: Action request being processed.
+
+        Returns:
+            The Broker result, or an unavailable result when no delivery matches.
+
+        Notes:
+            This is the only production action backend after removal of the legacy Runtime supervisor.
+        """
+        if event is not None and self._kernel_broker_peer is not None:
             result = await self._kernel_broker_peer.execute_action(event, action)
             if result is not None:
                 return result
-        return await self.actions.execute(action, event=event)
+        return await self._unavailable_action(event, action)
 
-    async def _execute_legacy_action(
+    async def _unavailable_action(
         self,
         _event: EventEnvelope | None,
         action: ActionEnvelope,
     ) -> ActionResult:
-        """Dispatch an action through the legacy child-runtime supervisor.
+        """Reject an action that has no active Broker delivery.
 
         Args:
-            _event: Optional source event retained by the protocol-neutral backend contract.
+            _event: Optional source event retained by the action backend contract.
             action: Action request being processed.
 
         Returns:
-            The normalized action result returned by the legacy runtime.
+            A normalized unavailable result.
 
         Notes:
-            Temporary Alpha14 adapter. The next migration layer removes the child-runtime supervisor.
+            Cross-process actions are lease-bound and must be routed by `KernelBrokerPeer` before this
+            fallback is reached.
         """
-        try:
-            response = await self.runtimes.execute_action(
-                action.runtime_id,
-                action.action_id,
-                action.model_dump(mode="json"),
-            )
-        except (KeyError, ConnectionError, RuntimeError, TimeoutError) as error:
-            return ActionResult(
-                action_id=action.action_id,
-                success=False,
-                error_code="RUNTIME_UNAVAILABLE",
-                error_message=str(error),
-            )
-        if response.ok:
-            return ActionResult.model_validate(
-                {
-                    "action_id": action.action_id,
-                    "success": True,
-                    "data": response.data,
-                }
-            )
         return ActionResult(
             action_id=action.action_id,
             success=False,
-            error_code="RUNTIME_ACTION_FAILED",
-            error_message=response.error or "runtime rejected the action",
+            error_code="RUNTIME_UNAVAILABLE",
+            error_message="no active Broker delivery can execute the action",
         )
 
     async def _clear_agent_history(self, event: EventEnvelope) -> int:
@@ -2169,107 +1921,6 @@ class LiteyukiApp:
         if not isinstance(cleared, int) or isinstance(cleared, bool) or cleared < 0:
             raise RuntimeError("Agent bridge returned an invalid history clear response")
         return cleared
-
-    def _event_routes(self, settings: AppSettings) -> tuple[RuntimeEventRoute, ...]:
-        """Implement the event routes operation for the liteyuki app.
-
-        Args:
-            settings: Validated application settings.
-
-        Returns:
-            The `tuple[RuntimeEventRoute, ...]` result produced by the operation.
-
-        Notes:
-            Internal implementation detail for `LiteyukiApp._event_routes`. It delegates to `discover`,
-            `items`, `get`, `append` while keeping intermediate state local to the owning operation.
-        """
-        routes = list(settings.runtime_event_routes)
-        configured_targets = {route.target for route in routes}
-        runtime_plugins = RuntimeCatalog().discover()
-        enabled_ids = tuple(runtime_id for runtime_id, runtime in settings.runtimes.items() if runtime.enabled)
-        for runtime_id, runtime in settings.runtimes.items():
-            plugin = runtime_plugins.get(runtime.kind)
-            if (
-                not runtime.enabled
-                or runtime_id in configured_targets
-                or plugin is None
-                or not plugin.default_event_route_messages_only
-            ):
-                continue
-            sources = tuple(source for source in enabled_ids if source != runtime_id)
-            if sources:
-                routes.append(
-                    RuntimeEventRoute(
-                        sources=sources,
-                        target=runtime_id,
-                        messages_only=True,
-                    )
-                )
-        return tuple(routes)
-
-    async def _forward_runtime_event(self, event: EventEnvelope) -> None:
-        """Implement the forward runtime event operation for the liteyuki app.
-
-        Args:
-            event: Event associated with the operation.
-
-        Returns:
-            None.
-
-        Notes:
-            Internal implementation detail for `LiteyukiApp._forward_runtime_event`. It delegates to
-            `gather`, `_deliver_runtime_event`, `next` while keeping intermediate state local to the owning
-            operation.
-        """
-        targets = tuple(
-            route.target
-            for route in self._runtime_event_routes
-            if event.runtime_id in route.sources and (not route.messages_only or event.message is not None)
-        )
-        if not targets:
-            return
-        outcomes = await asyncio.gather(
-            *(self._deliver_runtime_event(runtime_id, event) for runtime_id in targets),
-            return_exceptions=True,
-        )
-        fatal = next(
-            (
-                outcome
-                for outcome in outcomes
-                if isinstance(outcome, BaseException) and not isinstance(outcome, Exception)
-            ),
-            None,
-        )
-        if fatal is not None:
-            raise fatal
-        errors = [outcome for outcome in outcomes if isinstance(outcome, Exception)]
-        if len(errors) == 1:
-            raise errors[0]
-        if len(errors) > 1:
-            raise ExceptionGroup("runtime event delivery failed", errors)
-
-    async def _deliver_runtime_event(self, runtime_id: str, event: EventEnvelope) -> None:
-        """Implement the deliver runtime event operation for the liteyuki app.
-
-        Args:
-            runtime_id: Stable runtime identifier.
-            event: Event associated with the operation.
-
-        Returns:
-            None.
-
-        Notes:
-            Internal implementation detail for `LiteyukiApp._deliver_runtime_event`. It delegates to
-            `dispatch_event`, `model_dump` while keeping intermediate state local to the owning operation.
-        """
-        result = await self.runtimes.dispatch_event(
-            runtime_id,
-            event.id,
-            event.model_dump(mode="json"),
-        )
-        if result.status != "accepted":
-            detail = f": {result.detail}" if result.detail else ""
-            raise RuntimeError(f"runtime {runtime_id} rejected event {event.id} as {result.status}{detail}")
 
     @staticmethod
     def _plugin_configs(config: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:

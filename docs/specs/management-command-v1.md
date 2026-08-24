@@ -26,9 +26,10 @@ arguments, raw input JSON, session subjects, or command output. Audit keys are
 instance-local 32-byte files. Records retain for 30 days or 100,000 rows,
 whichever limit removes older records first.
 
-The local terminal is the current administrator caller. Runtime-originated
-management requests are allowed only through the v5 IPC capability gate and
-only for a registered command. Results are structured and redacted.
+The local terminal is the current administrator caller. The kernel no longer
+accepts management requests from the former child-runtime IPC path. Results
+from registered local, daemon, and WebUI operations are structured and
+redacted.
 
 ## Structured Commands
 
@@ -36,6 +37,11 @@ First-party command routing uses explicit schemas and hierarchical canonical
 paths. Usage and help rendering belong to the owning command surface. Handler
 annotations are not an implicit argument schema, and conversion failures expose
 stable user-facing diagnostics rather than internal tracebacks.
+
+Runtime lifecycle commands are not part of the current registry. Managed
+plugin commands target configured Broker bridges while retaining the Alpha13
+`runtime_id` storage field until the plugin-manager migration changes that
+on-disk contract.
 
 ## Evidence
 

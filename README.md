@@ -18,8 +18,9 @@ LiteyukiBot v7 is a CPython 3.14 chatbot kernel. It owns configuration,
 native-plugin lifecycle, routing, permissions, logging, and broker-peer IPC.
 Framework integrations run as separately installed B7 broker bridges and
 exchange frozen protocol-neutral models with the kernel rather than SDK
-objects. The supervised child-runtime path remains only as historical
-compatibility support.
+objects. The supervised child-runtime source remains temporarily as migration
+test material, but the App, CLI, initializer, daemon, and plugin installer no
+longer expose it as a production path.
 
 The default branch is the maintained LiteyukiBot v7 line. The prior v6 line is
 preserved on the `v6` branch. The current source pre-release is the `7.0.0a13`

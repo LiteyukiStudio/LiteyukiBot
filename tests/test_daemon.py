@@ -323,7 +323,7 @@ async def test_daemon_webui_bridge_owns_tickets_and_operation_ledger(tmp_path: P
         return {
             "operations": [
                 {
-                    "id": "management.runtime.restart",
+                    "id": "management.plugin.update",
                     "api": "liteyuki.management",
                     "version": 1,
                     "capability": "liteyukibot.management.admin",
@@ -380,7 +380,7 @@ async def test_daemon_webui_bridge_owns_tickets_and_operation_ledger(tmp_path: P
         catalog_entries = operation_catalog["operations"]
         assert isinstance(catalog_entries, list)
         assert isinstance(catalog_entries[0], dict)
-        assert catalog_entries[0]["id"] == "management.runtime.restart"
+        assert catalog_entries[0]["id"] == "management.plugin.update"
         assert await daemon.presentation(principal, "zh-CN") == {
             "locale": "zh-CN",
             "locales": ["en-US", "zh-CN"],
@@ -390,7 +390,7 @@ async def test_daemon_webui_bridge_owns_tickets_and_operation_ledger(tmp_path: P
         submitted = await daemon.submit_operation(
             principal,
             {
-                "operation_id": "management.runtime.restart",
+                "operation_id": "management.plugin.update",
                 "target": "runtime-id",
                 "input": {"runtime_id": "runtime-id"},
                 "idempotency_key": "operation-1",
@@ -403,7 +403,7 @@ async def test_daemon_webui_bridge_owns_tickets_and_operation_ledger(tmp_path: P
                 break
             await asyncio.sleep(0.01)
         assert current is not None and current["state"] == "succeeded"
-        assert executed[0]["operation_id"] == "management.runtime.restart"
+        assert executed[0]["operation_id"] == "management.plugin.update"
         assert paths.root.joinpath("operations.sqlite3").is_file()
         ledger = await daemon.ledger(principal, None, 20)
         assert ledger["items"] == [
@@ -411,7 +411,7 @@ async def test_daemon_webui_bridge_owns_tickets_and_operation_ledger(tmp_path: P
                 "id": submitted["id"],
                 "at": current["updated_at"],
                 "category": "operation",
-                "title": "management.runtime.restart",
+                "title": "management.plugin.update",
                 "source": current["target"],
                 "status": "healthy",
                 "trace": submitted["id"],
@@ -477,8 +477,8 @@ async def test_daemon_webui_plugin_reads_are_bounded_and_metadata_only(
     async def snapshot(_request: object) -> dict[str, object]:
         return {
             "topology": {
-                "runtimes": [
-                    {"id": "v6-primary", "kind": "v6", "health": {"state": "ready"}},
+                "bridges": [
+                    {"id": "v6-primary", "kind": "v6", "state": "configured"},
                 ]
             }
         }
@@ -497,9 +497,20 @@ async def test_daemon_webui_plugin_reads_are_bounded_and_metadata_only(
         worker_descriptor=worker_descriptor,
         webui=WebUISettings(mode="on_demand"),
     )
+    daemon._bridge_kinds = {"v6-primary": "v6"}
     try:
         principal = await daemon.redeem_ticket(await daemon.issue_ticket())
         assert principal is not None
+        bootstrap = cast(dict[str, Any], await daemon.bootstrap(principal))
+        assert bootstrap["first_run"] is False
+        graph = cast(dict[str, Any], await daemon.topology_graph(principal))
+        assert graph["nodes"][1] == {
+            "id": "bridge:v6-primary",
+            "kind": "bridge",
+            "label": "v6-primary",
+            "state": "configured",
+            "metadata": {"kind": "v6"},
+        }
         discovery = cast(
             dict[str, Any],
             await daemon.plugin_discovery(principal, "echo", None, "v6", "active", False, None, 20),
@@ -510,6 +521,7 @@ async def test_daemon_webui_plugin_reads_are_bounded_and_metadata_only(
 
         targets = cast(dict[str, Any], await daemon.plugin_targets(principal))
         assert targets["items"][0]["id"] == "v6-primary"
+        assert targets["items"][0]["state"] == "configured"
         preview = cast(
             dict[str, Any],
             await daemon.plugin_preview(principal, "example.echo", "liteyukibot-v7-plugins", "v6-primary"),

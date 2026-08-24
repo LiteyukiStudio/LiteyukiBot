@@ -17,11 +17,11 @@ from liteyukibot import __version__
 from liteyukibot.app import AppState, LiteyukiApp
 from liteyukibot.config import (
     AppSettings,
+    BrokerBridgeSettings,
+    BrokerSettings,
     CoreSettings,
     HttpSettings,
     PluginSettings,
-    RuntimeEventRoute,
-    RuntimeSettings,
 )
 from liteyukibot.control import ControlError, ControlServer, request_control
 from liteyukibot.events import (
@@ -39,8 +39,6 @@ from liteyukibot.exceptions import PluginError
 from liteyukibot.functions import FunctionCall
 from liteyukibot.plugins import PluginDefinition, PluginHandle, PluginManifest
 from liteyukibot.resource_packs import write_resource_manifest
-from liteyukibot.runtime.protocol import EventAccepted, EventTrace
-from liteyukibot.runtime.supervisor import ActionProvenance
 from liteyukibot.services import ServiceKey, ServiceRequirement
 from liteyukibot.status import KERNEL_STATUS_SERVICE
 
@@ -223,186 +221,28 @@ def test_plugin_topology_can_require_kernel_status(tmp_path: Path) -> None:
     assert app.plugins.resolve_order({"status-consumer": definition}) == ("status-consumer",)
 
 
-@pytest.mark.skip(reason="legacy runtime topology is not part of config v5")
-def test_topology_reports_redacted_runtime_edges_and_health(tmp_path: Path) -> None:
-    settings = AppSettings(  # type: ignore[call-arg]  # historical child-supervisor configuration
+def test_topology_projects_configured_broker_bridges(tmp_path: Path) -> None:
+    settings = AppSettings(
         core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"),
-        runtimes={
-            "source": RuntimeSettings(kind="noop"),
-            "target": RuntimeSettings(kind="noop"),
-        },
-        runtime_event_routes=(
-            RuntimeEventRoute(sources=("source",), target="target", messages_only=True),
+        broker=BrokerSettings(
+            bridges={
+                "kernel": BrokerBridgeSettings(
+                    kind="kernel", token_secret="kernel-token", access="full", subscriptions=("*",)
+                ),
+                "onebot-primary": BrokerBridgeSettings(kind="onebot", token_secret="onebot-token"),
+            }
         ),
     )
     app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
 
     topology = app.topology()
 
-    assert topology["schema_version"] == 1
-    assert topology["kernel"] == {"version": __version__, "state": "created"}
-    assert topology["plugins"] == []
-    assert topology["runtimes"] == [
-        {
-            "id": "source",
-            "kind": "noop",
-            "enabled": True,
-            "health": {
-                "kind": "noop",
-                "state": "stopped",
-                "connected": False,
-                "protocol": None,
-                "capabilities": (),
-                "launch_count": 0,
-                "heartbeat_age_seconds": None,
-                "failures_in_window": 0,
-                "pending_actions": 0,
-                "pending_events": 0,
-                "inbound_actions": 0,
-                "inbound_events": 0,
-                "inbound_management": 0,
-                "active_deliveries": 0,
-            },
-        },
-        {
-            "id": "target",
-            "kind": "noop",
-            "enabled": True,
-            "health": {
-                "kind": "noop",
-                "state": "stopped",
-                "connected": False,
-                "protocol": None,
-                "capabilities": (),
-                "launch_count": 0,
-                "heartbeat_age_seconds": None,
-                "failures_in_window": 0,
-                "pending_actions": 0,
-                "pending_events": 0,
-                "inbound_actions": 0,
-                "inbound_events": 0,
-                "inbound_management": 0,
-                "active_deliveries": 0,
-            },
-        },
-    ]
-    assert topology["event_routes"] == [
-        {"sources": ["source"], "target": "target", "messages_only": True}
-    ]
+    assert topology["bridges"] == [{"id": "onebot-primary", "kind": "onebot", "state": "configured"}]
+    assert topology["runtimes"] == []
 
 
 @pytest.mark.asyncio
-async def test_app_routes_child_action_to_distinct_adapter_runtime(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    settings = AppSettings(
-        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache")
-    )
-    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
-    action = ActionEnvelope(
-        action_id="reply-1",
-        event_id="event-1",
-        runtime_id="adapter",
-        bot_id="bot-1",
-        action=SendMessage(
-            message=Message(segments=(Segment(type="text", data={"text": "hello"}),)),
-            reply_token="reply-token",
-        ),
-    )
-    observed: list[ActionEnvelope] = []
-
-    async def execute(envelope: ActionEnvelope, *, event: EventEnvelope | None = None) -> ActionResult:
-        observed.append(envelope)
-        return ActionResult(
-            action_id=envelope.action_id,
-            success=True,
-            data={"message_id": "sent-1"},
-        )
-
-    monkeypatch.setattr(app.actions, "execute", execute)
-    result = await app._execute_runtime_action(
-        "compat", action.model_dump(mode="json"), None
-    )
-
-    assert result.ok is True
-    assert result.data == {
-        "schema_version": 1,
-        "action_id": "reply-1",
-        "success": True,
-        "data": {"message_id": "sent-1"},
-        "error_code": None,
-        "error_message": None,
-    }
-    assert observed == [action]
-
-
-@pytest.mark.asyncio
-async def test_app_rejects_invalid_and_self_targeted_child_actions(tmp_path: Path) -> None:
-    settings = AppSettings(
-        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache")
-    )
-    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
-
-    invalid = await app._execute_runtime_action("compat", {"invalid": True}, None)
-    self_target = await app._execute_runtime_action(
-        "compat",
-        ActionEnvelope(
-            action_id="reply-1",
-            runtime_id="compat",
-            bot_id="bot-1",
-            action=SendMessage(
-                message=Message(segments=(Segment(type="text", data={"text": "hello"}),)),
-                reply_token="reply-token",
-            ),
-        ).model_dump(mode="json"),
-        None,
-    )
-
-    assert invalid.ok is False
-    assert invalid.error == "invalid ActionEnvelope"
-    assert self_target.ok is False
-    assert self_target.error == "child-originated action cannot target its source runtime"
-
-
-@pytest.mark.asyncio
-async def test_app_rejects_child_action_that_does_not_match_v4_source_event(tmp_path: Path) -> None:
-    settings = AppSettings(core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"))
-    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
-    source = EventEnvelope(
-        id="event-1",
-        runtime_id="adapter",
-        adapter="onebot-v11",
-        bot_id="bot-1",
-        type="message.group.normal",
-        conversation=ConversationRef(id="group-1", type="group"),
-    )
-    action = ActionEnvelope(
-        event_id="event-1",
-        runtime_id="adapter",
-        bot_id="other-bot",
-        action=SendMessage(
-            message=Message(segments=(Segment(type="text", data={"text": "hello"}),)),
-            reply_token="reply-token",
-        ),
-    )
-    provenance = ActionProvenance(
-        delivery_correlation_id="delivery-1",
-        trace=EventTrace(
-            trace_id="event-1",
-            source_runtime_id="adapter",
-            source_event_id="event-1",
-        ),
-        event_payload=source.model_dump(mode="json"),
-    )
-
-    result = await app._execute_runtime_action("agent", action.model_dump(mode="json"), provenance)
-
-    assert result.ok is False
-    assert result.error == "child action does not match its source event provenance"
-
-
-@pytest.mark.asyncio
-async def test_app_call_api_requires_exact_event_capability_before_runtime_execution(
+async def test_app_call_api_requires_exact_event_capability_before_action_dispatch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     settings = AppSettings(core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"))
@@ -423,40 +263,24 @@ async def test_app_call_api_requires_exact_event_capability_before_runtime_execu
         bot_id=source.bot_id,
         action=CallApi(api="get_status"),
     )
-    provenance = ActionProvenance(
-        delivery_correlation_id="delivery-1",
-        trace=EventTrace(
-            trace_id=source.id,
-            source_runtime_id=source.runtime_id,
-            source_event_id=source.id,
-        ),
-        event_payload=source.model_dump(mode="json"),
-    )
     executed: list[ActionEnvelope] = []
 
-    async def execute_action(
-        _runtime_id: str,
-        _correlation_id: str,
-        payload: dict[str, Any],
-        timeout_seconds: float = 30.0,
-    ) -> object:
-        assert timeout_seconds == 30.0
-        envelope = ActionEnvelope.model_validate(payload)
+    async def execute_action(_event: EventEnvelope | None, envelope: ActionEnvelope) -> ActionResult:
         executed.append(envelope)
-        return type("Response", (), {"ok": True, "data": None, "error": None})()
+        return ActionResult(action_id=envelope.action_id, success=True)
 
-    monkeypatch.setattr(app.runtimes, "execute_action", execute_action)
-    denied = await app._execute_runtime_action("agent", action.model_dump(mode="json"), provenance)
+    monkeypatch.setattr(app.actions, "_backend", execute_action)
+    denied = await app.actions.execute(action, event=source)
 
-    assert denied.ok is False
-    assert denied.error == "adapter API action permission is denied"
+    assert denied.success is False
+    assert denied.error_message == "adapter API action permission is denied"
     assert executed == []
 
     permissions = PermissionFixture(allowed=True)
     app.services.provide(ServiceKey("liteyukibot.permissions", 1), permissions, provider="test")
-    allowed = await app._execute_runtime_action("agent", action.model_dump(mode="json"), provenance)
+    allowed = await app.actions.execute(action, event=source)
 
-    assert allowed.ok is True
+    assert allowed.success is True
     assert permissions.observed == [(source, "liteyukibot.adapter.call_api")]
     assert executed == [action]
 
@@ -487,9 +311,9 @@ async def test_app_call_api_uses_permission_audit_extension_when_available(
     app.services.provide(ServiceKey("liteyukibot.permissions", 1), permissions, provider="test")
 
     async def execute_unexpectedly(*_args: object, **_kwargs: object) -> object:
-        raise AssertionError("denied CallApi reached the runtime supervisor")
+        raise AssertionError("denied CallApi reached the action backend")
 
-    monkeypatch.setattr(app.runtimes, "execute_action", execute_unexpectedly)
+    monkeypatch.setattr(app.actions, "_backend", execute_unexpectedly)
     result = await app.actions.execute(action, event=source)
 
     assert result.success is False
@@ -512,15 +336,66 @@ async def test_app_action_service_refuses_call_api_without_a_source_event(
     )
 
     async def execute_unexpectedly(*_args: object, **_kwargs: object) -> object:
-        raise AssertionError("unauthorized CallApi reached the runtime supervisor")
+        raise AssertionError("unauthorized CallApi reached the action backend")
 
-    monkeypatch.setattr(app.runtimes, "execute_action", execute_unexpectedly)
+    monkeypatch.setattr(app.actions, "_backend", execute_unexpectedly)
 
     result = await app.actions.execute(action)
 
     assert result.success is False
     assert result.error_code == "ACTION_PERMISSION_DENIED"
     assert result.error_message == "adapter API action requires a source event"
+
+
+@pytest.mark.asyncio
+async def test_app_action_without_active_broker_delivery_is_unavailable(tmp_path: Path) -> None:
+    settings = AppSettings(core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"))
+    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
+    action = ActionEnvelope(
+        action_id="send-1",
+        runtime_id="adapter",
+        bot_id="bot-1",
+        action=SendMessage(
+            message=Message(segments=(Segment(type="text", data={"text": "hello"}),)),
+            reply_token="reply-token",
+        ),
+    )
+
+    result = await app.actions.execute(action)
+
+    assert result.success is False
+    assert result.error_code == "RUNTIME_UNAVAILABLE"
+    assert result.error_message == "no active Broker delivery can execute the action"
+
+
+@pytest.mark.asyncio
+async def test_app_action_uses_active_broker_delivery(tmp_path: Path) -> None:
+    settings = AppSettings(core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"))
+    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
+    event = _message_event()
+    action = ActionEnvelope(
+        action_id="send-1",
+        event_id=event.id,
+        runtime_id=event.runtime_id,
+        bot_id=event.bot_id,
+        action=SendMessage(
+            message=Message(segments=(Segment(type="text", data={"text": "hello"}),)),
+            reply_token="reply-token",
+        ),
+    )
+    observed: list[tuple[EventEnvelope, ActionEnvelope]] = []
+
+    class ActiveBrokerPeer:
+        async def execute_action(self, source: EventEnvelope, request: ActionEnvelope) -> ActionResult:
+            observed.append((source, request))
+            return ActionResult(action_id=request.action_id, success=True)
+
+    app._kernel_broker_peer = cast(Any, ActiveBrokerPeer())
+
+    result = await app.actions.execute(action, event=event)
+
+    assert result.success is True
+    assert observed == [(event, action)]
 
 
 def _message_event() -> EventEnvelope:
@@ -533,157 +408,6 @@ def _message_event() -> EventEnvelope:
         conversation=ConversationRef(id="group-1", type="group"),
         message=Message(segments=(Segment(type="text", data={"text": "hello"}),)),
     )
-
-
-@pytest.mark.asyncio
-@pytest.mark.skip(reason="legacy child-supervisor runtime routing is not part of config v5")
-async def test_app_event_bus_fans_out_messages_to_v6_runtimes(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    settings = AppSettings(  # type: ignore[call-arg]  # historical child-supervisor configuration
-        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"),
-        runtimes={
-            "legacy-a": RuntimeSettings(kind="v6"),
-            "legacy-b": RuntimeSettings(kind="v6"),
-            "nonebot": RuntimeSettings(kind="nonebot"),
-        },
-    )
-    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
-    started: set[str] = set()
-    both_started = asyncio.Event()
-
-    async def dispatch(
-        runtime_id: str,
-        correlation_id: str,
-        payload: dict[str, Any],
-        timeout_seconds: float = 30.0,
-    ) -> EventAccepted:
-        assert correlation_id == "event-1"
-        event = EventEnvelope.model_validate(payload)
-        assert event.id == "event-1"
-        assert event.message is not None and event.message.plain_text == "hello"
-        assert timeout_seconds == 30.0
-        started.add(runtime_id)
-        if len(started) == 2:
-            both_started.set()
-        await asyncio.wait_for(both_started.wait(), timeout=1)
-        return EventAccepted(correlation_id=correlation_id, status="accepted")
-
-    monkeypatch.setattr(app.runtimes, "dispatch_event", dispatch)
-    try:
-        result = await app.events.publish(_message_event().model_copy(update={"runtime_id": "nonebot"}))
-    finally:
-        await app.events.aclose()
-
-    assert started == {"legacy-a", "legacy-b"}
-    assert result.handlers_called == 1
-    assert result.failures == ()
-
-
-@pytest.mark.asyncio
-@pytest.mark.skip(reason="legacy child-supervisor runtime routing is not part of config v5")
-async def test_app_v6_bridge_filters_non_messages_and_isolates_rejection(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    settings = AppSettings(  # type: ignore[call-arg]  # historical child-supervisor configuration
-        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"),
-        runtimes={
-            "legacy-a": RuntimeSettings(kind="v6"),
-            "legacy-b": RuntimeSettings(kind="v6"),
-            "nonebot": RuntimeSettings(kind="nonebot"),
-        },
-    )
-    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
-    delivered: list[str] = []
-
-    async def dispatch(
-        runtime_id: str,
-        correlation_id: str,
-        _payload: dict[str, Any],
-        timeout_seconds: float = 30.0,
-    ) -> EventAccepted:
-        assert timeout_seconds == 30.0
-        delivered.append(runtime_id)
-        if runtime_id == "legacy-a":
-            return EventAccepted(
-                correlation_id=correlation_id,
-                status="invalid",
-                detail="fixture rejection",
-            )
-        return EventAccepted(correlation_id=correlation_id, status="accepted")
-
-    monkeypatch.setattr(app.runtimes, "dispatch_event", dispatch)
-    no_message_payload = _message_event().model_dump(mode="json")
-    no_message_payload["runtime_id"] = "nonebot"
-    no_message_payload["message"] = None
-    try:
-        ignored = await app.events.publish(EventEnvelope.model_validate(no_message_payload))
-        rejected = await app.events.publish(_message_event().model_copy(update={"runtime_id": "nonebot"}))
-    finally:
-        await app.events.aclose()
-
-    assert ignored.failures == ()
-    assert delivered == ["legacy-a", "legacy-b"]
-    assert len(rejected.failures) == 1
-    assert rejected.failures[0].handler == "runtime.routes"
-    assert "fixture rejection" in rejected.failures[0].message
-
-
-@pytest.mark.asyncio
-@pytest.mark.skip(reason="legacy child-supervisor runtime routing is not part of config v5")
-async def test_app_without_v6_runtime_does_not_register_bridge(tmp_path: Path) -> None:
-    settings = AppSettings(  # type: ignore[call-arg]  # historical child-supervisor configuration
-        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"),
-        runtimes={
-            "nonebot": RuntimeSettings(kind="nonebot"),
-            "disabled-legacy": RuntimeSettings(kind="v6", enabled=False),
-        },
-    )
-    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
-    try:
-        result = await app.events.publish(_message_event())
-    finally:
-        await app.events.aclose()
-
-    assert result.handlers_called == 0
-
-
-@pytest.mark.asyncio
-@pytest.mark.skip(reason="legacy child-supervisor runtime routing is not part of config v5")
-async def test_app_routes_events_to_configured_external_runtime(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    settings = AppSettings(  # type: ignore[call-arg]  # historical child-supervisor configuration
-        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"),
-        runtimes={
-            "nonebot": RuntimeSettings(kind="nonebot"),
-            "astrbot": RuntimeSettings(kind="custom", command=("astrbot-runtime",)),
-        },
-        runtime_event_routes=(
-            RuntimeEventRoute(sources=("nonebot",), target="astrbot", messages_only=True),
-        ),
-    )
-    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
-    delivered: list[tuple[str, str]] = []
-
-    async def dispatch(
-        runtime_id: str,
-        correlation_id: str,
-        payload: dict[str, Any],
-        timeout_seconds: float = 30.0,
-    ) -> EventAccepted:
-        assert timeout_seconds == 30.0
-        delivered.append((runtime_id, EventEnvelope.model_validate(payload).id))
-        return EventAccepted(correlation_id=correlation_id, status="accepted")
-
-    monkeypatch.setattr(app.runtimes, "dispatch_event", dispatch)
-    try:
-        result = await app.events.publish(_message_event().model_copy(update={"runtime_id": "nonebot"}))
-    finally:
-        await app.events.aclose()
-
-    assert delivered == [("astrbot", "event-1")]
-    assert result.failures == ()
 
 
 @pytest.mark.asyncio
@@ -708,25 +432,6 @@ async def test_app_lifecycle_and_local_control(tmp_path: Path) -> None:
     assert not descriptor.exists()
     with pytest.raises(ControlError, match="cannot read control descriptor"):
         await request_control(descriptor, "status")
-
-
-@pytest.mark.asyncio
-@pytest.mark.skip(reason="legacy child-supervisor runtime state is not part of config v5")
-async def test_app_creates_a_private_runtime_state_directory(tmp_path: Path) -> None:
-    settings = AppSettings(  # type: ignore[call-arg]  # historical child-supervisor configuration
-        core=CoreSettings(data_dir=tmp_path / "data", cache_dir=tmp_path / "cache"),
-        runtimes={"runtime": RuntimeSettings(kind="noop")},
-    )
-    app = LiteyukiApp(settings, logger=FakeLogger())  # type: ignore[arg-type]
-
-    await app.start()
-    try:
-        assert (tmp_path / "data" / "runtimes" / "runtime").is_dir()
-        assert app.runtimes.records["runtime"].spec.env["LITEYUKI_RUNTIME_STATE_DIR"] == str(
-            (tmp_path / "data" / "runtimes" / "runtime").resolve()
-        )
-    finally:
-        await app.stop()
 
 
 @pytest.mark.asyncio
@@ -783,18 +488,13 @@ async def test_startup_preserves_primary_error_when_cleanup_also_fails(
 async def test_control_descriptor_replacement_is_owner_safe(tmp_path: Path) -> None:
     descriptor = tmp_path / "data" / "control.json"
 
-    async def restart(_runtime_id: str) -> None:
-        return None
-
     first = ControlServer(
         descriptor,
         status_provider=lambda: {"instance": "first"},
-        runtime_restarter=restart,
     )
     second = ControlServer(
         descriptor,
         status_provider=lambda: {"instance": "second"},
-        runtime_restarter=restart,
     )
 
     await first.start()

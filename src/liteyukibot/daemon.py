@@ -51,7 +51,6 @@ from .plugin_store import (
     RuntimeGenerationStore,
 )
 from .profiles import ProfileError, ProfileStore
-from .runtime import RuntimeCatalog
 from .update import UpdateError, UpdateJournal, UpdatePhase
 
 _MAX_PLUGIN_QUERY_LENGTH = 128
@@ -820,11 +819,14 @@ class InstanceDaemon:
             The `dict[str, object]` result produced by the operation.
         """
         snapshot = await self._worker_webui_control("daemon.webui.snapshot")
-        status = snapshot.get("status", {}) if isinstance(snapshot, Mapping) else {}
-        runtime_health = status.get("runtime_health", {}) if isinstance(status, Mapping) else {}
+        topology = snapshot.get("topology", {}) if isinstance(snapshot, Mapping) else {}
+        bridges = topology.get("bridges", ()) if isinstance(topology, Mapping) else ()
+        has_configured_bridge = isinstance(bridges, list) and any(
+            isinstance(item, Mapping) and isinstance(item.get("id"), str) for item in bridges
+        )
         return {
             "instance": self.paths.name,
-            "first_run": not runtime_health,
+            "first_run": not has_configured_bridge,
             "snapshot": snapshot,
             "webui": self._webui_status(),
         }
@@ -927,20 +929,18 @@ class InstanceDaemon:
             "state": "ready", "metadata": {},
         }]
         edges: list[dict[str, object]] = []
-        runtimes = topology.get("runtimes", ()) if isinstance(topology, Mapping) else ()
-        for item in runtimes if isinstance(runtimes, list) else []:
+        bridges = topology.get("bridges", ()) if isinstance(topology, Mapping) else ()
+        for item in bridges if isinstance(bridges, list) else []:
             if not isinstance(item, Mapping) or not isinstance(item.get("id"), str):
                 continue
-            node_id = f"runtime:{item['id']}"
-            health = item.get("health", {})
-            state = health.get("state", "configured") if isinstance(health, Mapping) else "configured"
+            node_id = f"bridge:{item['id']}"
             nodes.append({
-                "id": node_id, "kind": "runtime", "label": str(item.get("id")),
-                "state": state, "metadata": {"kind": item.get("kind", "")},
+                "id": node_id, "kind": "bridge", "label": str(item.get("id")),
+                "state": str(item.get("state", "configured")), "metadata": {"kind": item.get("kind", "")},
             })
             edges.append({
-                "id": f"edge:kernel:{node_id}:controls", "source": "kernel", "target": node_id,
-                "kind": "controls", "state": "active", "metadata": {},
+                "id": f"edge:kernel:{node_id}:broker", "source": "kernel", "target": node_id,
+                "kind": "broker", "state": "configured", "metadata": {},
             })
         return {"generation": 1, "updated_at": None, "nodes": nodes, "edges": edges, "diagnostics": []}
 
@@ -1251,7 +1251,7 @@ class InstanceDaemon:
         }
 
     async def plugin_targets(self, _principal: Any) -> dict[str, object]:
-        """Project configured runtime and bridge targets with safe generation summaries.
+        """Project configured Broker bridge targets with safe generation summaries.
 
         Args:
             _principal: Input accepted by this callable.
@@ -1259,22 +1259,7 @@ class InstanceDaemon:
         Returns:
             Result produced by this callable.
         """
-        snapshot = await self._worker_webui_control("daemon.webui.snapshot")
-        topology = snapshot.get("topology", {}) if isinstance(snapshot, Mapping) else {}
-        runtime_items = topology.get("runtimes", ()) if isinstance(topology, Mapping) else ()
         targets: dict[str, dict[str, object]] = {}
-        for item in runtime_items if isinstance(runtime_items, list) else ():
-            if not isinstance(item, Mapping) or not isinstance(item.get("id"), str):
-                continue
-            runtime_id = cast(str, item["id"])
-            raw_health = item.get("health")
-            health = raw_health if isinstance(raw_health, Mapping) else {}
-            targets[runtime_id] = {
-                "id": runtime_id,
-                "kind": item.get("kind", ""),
-                "target_type": "runtime",
-                "state": health.get("state", "configured"),
-            }
         for bridge_id, kind in sorted(self._bridge_kinds.items()):
             targets.setdefault(
                 bridge_id,
@@ -1284,10 +1269,6 @@ class InstanceDaemon:
             bridge_definitions = BridgeCatalog().discover()
         except Exception:
             bridge_definitions = {}
-        try:
-            runtime_definitions, _runtime_diagnostics = RuntimeCatalog().discover_installed()
-        except Exception:
-            runtime_definitions = {}
         deployment = RuntimeGenerationStore(self.paths.workspace).active()
         result: list[dict[str, object]] = []
         for target_id, target in sorted(targets.items()):
@@ -1295,8 +1276,6 @@ class InstanceDaemon:
             bridge = bridge_definitions.get(kind)
             if bridge is not None:
                 support_grade = bridge.grade.value
-            elif kind in runtime_definitions:
-                support_grade = "available"
             else:
                 support_grade = "unavailable"
             active_id = deployment.runtime_generations.get(target_id)

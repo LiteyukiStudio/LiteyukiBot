@@ -414,7 +414,7 @@ class KernelManagement:
                 OperationDefinition(
                     operation_name,
                     command.capability,
-                    mutating=command.name not in {("help",), ("status",), ("runtime", "list"), ("plugin", "list")},
+                    mutating=command.name not in {("help",), ("status",), ("plugin", "list")},
                     cancellable=False,
                 ),
                 self._execute_operation,
@@ -650,24 +650,20 @@ class KernelManagement:
         registrations = (
             (("help",), "List available management commands", self._help, ManagementDanger.NONE),
             (("status",), "Show kernel status", self._status, ManagementDanger.NONE),
-            (("runtime", "list"), "List runtime health", self._runtime_list, ManagementDanger.NONE),
-            (("runtime", "start"), "Start a runtime", self._runtime_start, ManagementDanger.NONE),
-            (("runtime", "stop"), "Stop a runtime", self._runtime_stop, ManagementDanger.CONFIRM),
-            (("runtime", "restart"), "Restart a runtime", self._runtime_restart, ManagementDanger.NONE),
-            (("plugin", "list"), "List runtime plugin generations", self._plugin_list, ManagementDanger.NONE),
-            (("plugin", "install"), "Install a runtime plugin bundle", self._plugin_install, ManagementDanger.NONE),
-            (("plugin", "update"), "Update a runtime plugin generation", self._plugin_update, ManagementDanger.NONE),
-            (("plugin", "enable"), "Enable a runtime plugin bundle", self._plugin_enable, ManagementDanger.NONE),
-            (("plugin", "disable"), "Disable a runtime plugin bundle", self._plugin_disable, ManagementDanger.NONE),
+            (("plugin", "list"), "List managed plugin generations", self._plugin_list, ManagementDanger.NONE),
+            (("plugin", "install"), "Install a managed plugin bundle", self._plugin_install, ManagementDanger.NONE),
+            (("plugin", "update"), "Update a managed plugin generation", self._plugin_update, ManagementDanger.NONE),
+            (("plugin", "enable"), "Enable a managed plugin bundle", self._plugin_enable, ManagementDanger.NONE),
+            (("plugin", "disable"), "Disable a managed plugin bundle", self._plugin_disable, ManagementDanger.NONE),
             (
                 ("plugin", "uninstall"),
-                "Uninstall a runtime plugin bundle",
+                "Uninstall a managed plugin bundle",
                 self._plugin_uninstall,
                 ManagementDanger.CONFIRM,
             ),
             (
                 ("plugin", "rollback"),
-                "Restore the previous runtime plugin generation",
+                "Restore the previous managed plugin generation",
                 self._plugin_rollback,
                 ManagementDanger.NONE,
             ),
@@ -738,15 +734,6 @@ class KernelManagement:
         runtime_id = {"runtime_id": {"type": "string", "minLength": 1}}
         bundle_id = {"bundle_id": {"type": "string", "minLength": 1}}
         source_id = {"source_id": {"type": "string", "minLength": 1}}
-        register(("runtime", "start"), ("runtime_id",), {"properties": runtime_id, "required": ["runtime_id"]})
-        register(
-            ("runtime", "stop"),
-            ("runtime_id",),
-            {"properties": runtime_id, "required": ["runtime_id"]},
-            impact=OperationImpact.HIGH,
-            confirmation=OperationConfirmation.TARGET,
-        )
-        register(("runtime", "restart"), ("runtime_id",), {"properties": runtime_id, "required": ["runtime_id"]})
         register(
             ("plugin", "install"),
             ("runtime_id", "bundle_id", "source_id", "expected_index_digest"),
@@ -839,103 +826,23 @@ class KernelManagement:
             raise ManagementError("usage: status")
         return ManagementResult(str(self._app.status()), self._app.status())
 
-    async def _runtime_list(self, _caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
-        """Implement the runtime list operation for the kernel management.
+    def _target(self, target_id: str) -> Any:
+        """Resolve one configured managed-plugin target.
 
         Args:
-            _caller: The caller value used by the operation.
-            arguments: JSON-safe arguments supplied to the operation.
-
-        Returns:
-            The `ManagementResult` result produced by the operation.
-
-        Notes:
-            Internal implementation detail for `KernelManagement._runtime_list`. It delegates to `health`,
-            `join`, `items` while keeping intermediate state local to the owning operation.
-        """
-        if arguments:
-            raise ManagementError("usage: runtime list")
-        health = self._app.runtimes.health()
-        text = "\n".join(f"{key}\t{value['state']}\t{value['kind']}" for key, value in health.items())
-        return ManagementResult(text, health)
-
-    async def _runtime_restart(self, _caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
-        """Implement the runtime restart operation for the kernel management.
-
-        Args:
-            _caller: The caller value used by the operation.
-            arguments: JSON-safe arguments supplied to the operation.
-
-        Returns:
-            The `ManagementResult` result produced by the operation.
-
-        Notes:
-            Internal implementation detail for `KernelManagement._runtime_restart`. It delegates to
-            `restart` while keeping intermediate state local to the owning operation.
-        """
-        if len(arguments) != 1:
-            raise ManagementError("usage: runtime restart <runtime-id>")
-        await self._app.runtimes.restart(arguments[0])
-        return ManagementResult(f"restarted {arguments[0]}")
-
-    async def _runtime_start(self, _caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
-        """Implement the runtime start operation for the kernel management.
-
-        Args:
-            _caller: The caller value used by the operation.
-            arguments: JSON-safe arguments supplied to the operation.
-
-        Returns:
-            The `ManagementResult` result produced by the operation.
-
-        Notes:
-            Internal implementation detail for `KernelManagement._runtime_start`. It delegates to
-            `start_runtime` while keeping intermediate state local to the owning operation.
-        """
-        if len(arguments) != 1:
-            raise ManagementError("usage: runtime start <runtime-id>")
-        await self._app.runtimes.start_runtime(arguments[0])
-        return ManagementResult(f"started {arguments[0]}")
-
-    async def _runtime_stop(self, _caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
-        """Implement the runtime stop operation for the kernel management.
-
-        Args:
-            _caller: The caller value used by the operation.
-            arguments: JSON-safe arguments supplied to the operation.
-
-        Returns:
-            The `ManagementResult` result produced by the operation.
-
-        Notes:
-            Internal implementation detail for `KernelManagement._runtime_stop`. It delegates to
-            `stop_runtime` while keeping intermediate state local to the owning operation.
-        """
-        if len(arguments) != 1:
-            raise ManagementError("usage: runtime stop <runtime-id>")
-        await self._app.runtimes.stop_runtime(arguments[0])
-        return ManagementResult(f"stopped {arguments[0]}")
-
-    def _runtime(self, runtime_id: str) -> Any:
-        """Implement the runtime operation for the kernel management.
-
-        Args:
-            runtime_id: Stable runtime identifier.
+            target_id: Stable broker bridge identifier.
 
         Returns:
             The `Any` result produced by the operation.
 
         Notes:
-            Internal implementation detail for `KernelManagement._runtime`. It performs the local state
+            Internal implementation detail for `KernelManagement._target`. It performs the local state
             transition directly and is not a stable extension boundary.
         """
         try:
-            runtime = self._app.settings.runtimes[runtime_id]
+            return self._app.settings.broker.bridges[target_id]
         except KeyError as error:
-            raise ManagementError(f"runtime is not configured: {runtime_id}") from error
-        if not runtime.enabled:
-            raise ManagementError(f"runtime is disabled: {runtime_id}")
-        return runtime
+            raise ManagementError(f"managed plugin target is not configured: {target_id}") from error
 
     async def _plugin_list(self, _caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
         """Implement the plugin list operation for the kernel management.
@@ -970,11 +877,11 @@ class KernelManagement:
 
         Notes:
             Internal implementation detail for `KernelManagement._plugin_install`. It delegates to
-            `_runtime`, `install` while keeping intermediate state local to the owning operation.
+            `_target`, `install` while keeping intermediate state local to the owning operation.
         """
         if len(arguments) not in (2, 3, 4):
             raise ManagementError("usage: plugin install <runtime-id> <bundle-id> [source-id] [index-digest]")
-        runtime = self._runtime(arguments[0])
+        runtime = self._target(arguments[0])
         result = PluginInstallationService(self._workspace).install(
             arguments[1],
             runtime_id=arguments[0],
@@ -996,11 +903,11 @@ class KernelManagement:
 
         Notes:
             Internal implementation detail for `KernelManagement._plugin_update`. It delegates to
-            `_runtime`, `update` while keeping intermediate state local to the owning operation.
+            `_target`, `update` while keeping intermediate state local to the owning operation.
         """
         if len(arguments) not in (1, 2):
             raise ManagementError("usage: plugin update <runtime-id> [source-id]")
-        runtime = self._runtime(arguments[0])
+        runtime = self._target(arguments[0])
         result = PluginInstallationService(self._workspace).update(
             runtime_id=arguments[0],
             runtime_kind=runtime.kind,
@@ -1052,11 +959,11 @@ class KernelManagement:
 
         Notes:
             Internal implementation detail for `KernelManagement._change_plugin`. It delegates to
-            `_runtime`, `getattr` while keeping intermediate state local to the owning operation.
+            `_target`, `getattr` while keeping intermediate state local to the owning operation.
         """
         if len(arguments) != 2:
             raise ManagementError(f"usage: plugin {operation} <runtime-id> <bundle-id>")
-        runtime = self._runtime(arguments[0])
+        runtime = self._target(arguments[0])
         service = PluginInstallationService(self._workspace)
         result = getattr(service, operation)(arguments[1], runtime_id=arguments[0], runtime_kind=runtime.kind)
         return ManagementResult(f"{operation}d {arguments[1]} as {result.generation.id}")
@@ -1073,11 +980,11 @@ class KernelManagement:
 
         Notes:
             Internal implementation detail for `KernelManagement._plugin_uninstall`. It delegates to
-            `_runtime`, `uninstall` while keeping intermediate state local to the owning operation.
+            `_target`, `uninstall` while keeping intermediate state local to the owning operation.
         """
         if len(arguments) != 2:
             raise ManagementError("usage: plugin uninstall <runtime-id> <bundle-id>")
-        runtime = self._runtime(arguments[0])
+        runtime = self._target(arguments[0])
         result = PluginInstallationService(self._workspace).uninstall(
             arguments[1], runtime_id=arguments[0], runtime_kind=runtime.kind
         )

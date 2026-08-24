@@ -24,7 +24,6 @@ from .plugin_store import (
     RuntimeGeneration,
     RuntimeGenerationStore,
 )
-from .runtime import RuntimeCatalog, RuntimePlugin
 from .runtime.facets import RuntimeFacetInstaller
 
 CommandRunner = Callable[[list[str]], None]
@@ -32,7 +31,7 @@ CommandRunner = Callable[[list[str]], None]
 
 @dataclass(frozen=True, slots=True)
 class _ManagedPluginTarget:
-    """Normalized install boundary shared by legacy runtimes and stable bridges."""
+    """Normalized install boundary for stable Broker bridges."""
 
     kind: str
     distribution: str
@@ -338,7 +337,7 @@ class PluginInstallationService:
             bundle.id for bundle in _resolve_bundles(index, enabled_roots, allow_yanked=allow_yanked)
         }
         enabled_facets = {bundle_id: facet for bundle_id, facet in facets.items() if bundle_id in enabled_bundle_ids}
-        runtime = self._require_runtime(runtime_kind)
+        runtime = self._require_target(runtime_kind)
         generation_id = self.generations.new_generation_id()
         generation_path = self.generations.path_for(runtime_id, generation_id)
         try:
@@ -528,8 +527,8 @@ class PluginInstallationService:
             raise PluginStoreError("active runtime generation has no source provenance; reinstall its plugin roots")
 
     @staticmethod
-    def _require_runtime(runtime_kind: str) -> _ManagedPluginTarget:
-        """Return runtime, failing when it is unavailable.
+    def _require_target(runtime_kind: str) -> _ManagedPluginTarget:
+        """Return a stable Broker bridge target, failing when it is unavailable.
 
         Args:
             runtime_kind: The runtime kind value used by the operation.
@@ -538,19 +537,9 @@ class PluginInstallationService:
             Normalized managed target for environment creation and probing.
 
         Notes:
-            Internal implementation detail for `PluginInstallationService._require_runtime`. It delegates to
+            Internal implementation detail for `PluginInstallationService._require_target`. It delegates to
             `get`, `discover` while keeping intermediate state local to the owning operation.
         """
-        runtime = RuntimeCatalog().discover().get(runtime_kind)
-        if runtime is not None:
-            if runtime.facet_installer is None or runtime.distribution is None:
-                raise PluginStoreError(f"runtime kind {runtime_kind!r} does not support managed plugin installation")
-            return _ManagedPluginTarget(
-                runtime.kind,
-                runtime.distribution,
-                runtime.facet_installer,
-                _runtime_module(runtime),
-            )
         bridge = BridgeCatalog().discover().get(runtime_kind)
         if bridge is None:
             raise PluginStoreError(f"plugin target kind {runtime_kind!r} is not installed")
@@ -626,7 +615,7 @@ class PluginInstallationService:
 
         Notes:
             Internal implementation detail for `PluginInstallationService._probe_generation`. It delegates
-            to `_runtime_module`, `python_path`, `_run` while keeping intermediate state local to the owning
+            to `python_path`, `_run` while keeping intermediate state local to the owning
             operation.
         """
 
@@ -705,31 +694,6 @@ def _resolve_bundles(
     for root in roots:
         visit(root)
     return tuple(resolved)
-
-
-def _runtime_module(runtime: RuntimePlugin) -> str:
-    """Implement the runtime module operation for the component.
-
-    Args:
-        runtime: The runtime value used by the operation.
-
-    Returns:
-        The `str` result produced by the operation.
-
-    Notes:
-        Internal implementation detail for `_runtime_module`. It delegates to `index`, `startswith`
-        while keeping intermediate state local to the owning operation.
-    """
-    try:
-        marker = runtime.command.index("-m")
-        module = runtime.command[marker + 1]
-    except (ValueError, IndexError) as error:
-        raise PluginStoreError(
-            f"managed runtime kind {runtime.kind!r} command must contain a Python -m module"
-        ) from error
-    if not module or module.startswith("-"):
-        raise PluginStoreError(f"managed runtime kind {runtime.kind!r} command has an invalid Python module")
-    return module
 
 
 def _roots_requiring(
