@@ -70,6 +70,7 @@ build-backend = "uv_build"
 members = ["packages/*", "examples/nonebot-plugin"]
 
 [tool.uv.sources]
+liteyukibot-v7 = { workspace = true }
 liteyukibot-v7-webui = { workspace = true }
 liteyukibot-v7-runtime-astrbot-api = { workspace = true }
 liteyukibot-v7-runtime-nonebot-api = { workspace = true }

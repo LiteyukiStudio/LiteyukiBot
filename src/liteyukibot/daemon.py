@@ -6,6 +6,7 @@ import asyncio
 import os
 import secrets
 import signal
+import tomllib
 from collections import deque
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from pathlib import Path
@@ -17,6 +18,7 @@ import zmq.asyncio
 from .broker.lifecycle import BrokerLifecycleClient, BrokerLifecycleError
 from .broker.service import BridgeCatalog
 from .config import CONFIG_VERSION, DaemonSettings, DevelopmentSettings, WebUISettings
+from .config.documents import read_document, write_document
 from .control import ControlServer, request_control
 from .instances import InstancePaths
 from .managed_graph import (
@@ -91,6 +93,12 @@ def _plugin_bundle_document(bundle: PluginBundle) -> dict[str, object]:
         "dependencies": list(bundle.dependencies),
         "repository": bundle.repository,
         "homepage": bundle.homepage,
+        "project_id": bundle.project_id or bundle.id,
+        "description": bundle.description or bundle.summary or "",
+        "tags": list(bundle.tags),
+        "compatibility": list(bundle.compatibility),
+        "gallery": list(bundle.gallery),
+        "changelog": list(bundle.changelog),
         "download_bytes": sum(exact_bytes) if len(exact_bytes) == len(known_bytes) else None,
         "download_bytes_exact": all(value is not None for value in known_bytes),
     }
@@ -256,6 +264,7 @@ class InstanceDaemon:
                 "restart": self._request_restart,
                 "webui.open": self._request_webui_open,
                 "webui.status": self._request_webui_status,
+                "resources.reload": self._request_resources_reload,
                 "update": self._request_update,
                 "rollback": self._request_rollback,
             },
@@ -590,6 +599,11 @@ class InstanceDaemon:
         assert self._webui_server is not None
         return {"url": await self._webui_server.open()}
 
+    async def _request_resources_reload(self, _request: Mapping[str, Any]) -> dict[str, object]:
+        """Reload kernel resource packs without restarting the daemon."""
+        value = await self._worker_webui_control("daemon.resources.reload")
+        return value if isinstance(value, dict) else {"packs": []}
+
     async def _request_webui_status(self, _request: Mapping[str, Any]) -> dict[str, object]:
         """Request webui status.
 
@@ -616,8 +630,16 @@ class InstanceDaemon:
             while keeping intermediate state local to the owning operation.
         """
         if self._webui_server is None:
-            return {"state": "disabled" if self.webui.mode == "disabled" else "stopped", "mode": self.webui.mode}
+            return {
+                "state": "disabled" if self.webui.mode == "disabled" else "stopped",
+                "mode": self.webui.mode,
+                "auth_required": self._webui_auth_required(),
+            }
         return {**self._webui_server.status(), "mode": self.webui.mode}
+
+    def _webui_auth_required(self) -> bool:
+        """Require WebUI authentication outside an explicitly enabled development session."""
+        return not self.development.enabled or self.development.webui_require_auth
 
     async def _start_webui(self) -> None:
         """Start webui.
@@ -633,7 +655,7 @@ class InstanceDaemon:
         if self._webui_server is not None:
             return
         try:
-            from liteyukibot_webui import WebUiServer
+            from liteyukibot_webui import WebUiServer, WebUiUploadPolicy
         except ModuleNotFoundError as error:
             raise RuntimeError("WebUI support is not installed; install `liteyukibot-v7[webui]`") from error
         self._webui_server = WebUiServer(
@@ -642,6 +664,14 @@ class InstanceDaemon:
             port=self.webui.port,
             session_idle_seconds=self.webui.session_idle_seconds,
             session_max_seconds=self.webui.session_max_seconds,
+            require_auth=self._webui_auth_required(),
+            upload_staging_directory=self.paths.workspace / ".liteyuki" / "webui" / "staging",
+            upload_policy=WebUiUploadPolicy(
+                enabled=self.webui.uploads_enabled,
+                max_bytes=self.webui.uploads_max_bytes,
+                extensions=self.webui.uploads_extensions,
+                media_types=self.webui.uploads_media_types,
+            ),
         )
         await self._webui_server.start()
         if self._broker_diagnostics is not None and self._broker_watch_task is None:
@@ -757,6 +787,66 @@ class InstanceDaemon:
         """
         value = await self._worker_webui_control("daemon.webui.snapshot")
         return value if isinstance(value, dict) else {"state": "worker_unavailable"}
+
+    async def logs(
+        self, _principal: Any, cursor: str | None, limit: int, level: str | None,
+        component: str | None, query: str
+    ) -> dict[str, object]:
+        """Return the bounded in-process Yukilog projection."""
+        from .logging import get_webui_logs
+
+        return get_webui_logs(cursor=cursor, limit=limit, level=level, component=component, query=query)
+
+    async def event_summary(
+        self, principal: Any, start: str | None, end: str | None, group_by: str
+    ) -> dict[str, object]:
+        """Return chart-ready aggregates over the existing bounded delivery projection."""
+        page = await self.event_deliveries(principal, {}, None, 500)
+        raw_items = page.get("items", []) if isinstance(page, Mapping) else []
+        items = raw_items if isinstance(raw_items, list) else []
+        totals = {"received": len(items), "delivered": 0, "failed": 0, "pending": 0}
+        breakdown: dict[str, int] = {}
+        for item in items if isinstance(items, list) else []:
+            if not isinstance(item, Mapping):
+                continue
+            status = str(item.get("status", "unknown"))
+            breakdown[status] = breakdown.get(status, 0) + 1
+            if status == "delivered":
+                totals["delivered"] += 1
+            elif status in {"failed", "dead_letter"}:
+                totals["failed"] += 1
+            else:
+                totals["pending"] += 1
+        return {
+            "window": {"from": start, "to": end}, "totals": totals, "series": [],
+            "breakdown": [{"key": k, "value": v} for k, v in sorted(breakdown.items())],
+        }
+
+    async def topology_graph(self, _principal: Any) -> dict[str, object]:
+        """Return a deterministic read-only graph derived from the worker topology snapshot."""
+        snapshot = await self._worker_webui_control("daemon.webui.snapshot")
+        topology = snapshot.get("topology", {}) if isinstance(snapshot, Mapping) else {}
+        nodes: list[dict[str, object]] = [{
+            "id": "kernel", "kind": "kernel", "label": self.paths.name,
+            "state": "ready", "metadata": {},
+        }]
+        edges: list[dict[str, object]] = []
+        runtimes = topology.get("runtimes", ()) if isinstance(topology, Mapping) else ()
+        for item in runtimes if isinstance(runtimes, list) else []:
+            if not isinstance(item, Mapping) or not isinstance(item.get("id"), str):
+                continue
+            node_id = f"runtime:{item['id']}"
+            health = item.get("health", {})
+            state = health.get("state", "configured") if isinstance(health, Mapping) else "configured"
+            nodes.append({
+                "id": node_id, "kind": "runtime", "label": str(item.get("id")),
+                "state": state, "metadata": {"kind": item.get("kind", "")},
+            })
+            edges.append({
+                "id": f"edge:kernel:{node_id}:controls", "source": "kernel", "target": node_id,
+                "kind": "controls", "state": "active", "metadata": {},
+            })
+        return {"generation": 1, "updated_at": None, "nodes": nodes, "edges": edges, "diagnostics": []}
 
     async def operation_catalog(self, _principal: Any) -> dict[str, object]:
         """Implement the operation catalog operation for the instance daemon.
@@ -882,6 +972,57 @@ class InstanceDaemon:
         value = await self._worker_webui_control("daemon.webui.plugin_surfaces")
         return value if isinstance(value, dict) else {"generation": 0, "surfaces": [], "diagnostics": []}
 
+    def _webui_preferences_path(self) -> Path:
+        return self.paths.root / "configs" / "webui.json"
+
+    async def webui_preferences(self, _principal: Any) -> dict[str, object]:
+        value = await self._worker_webui_control("daemon.webui.preferences")
+        path = self._webui_preferences_path()
+        if path.is_file():
+            try:
+                document = read_document(path)
+                if isinstance(document.get("plugin_layout"), str):
+                    value = {"plugin_layout": document["plugin_layout"]}
+                if isinstance(document.get("followed"), list):
+                    value["followed"] = [item for item in document["followed"] if isinstance(item, str)]
+                if isinstance(document.get("toast_duration"), int) and document["toast_duration"] in {1500, 3000, 6000}:
+                    value["toast_duration"] = document["toast_duration"]
+                for key in ("plugin_sources", "disabled_plugin_sources"):
+                    if isinstance(document.get(key), list):
+                        value[key] = [item for item in document[key] if isinstance(item, str)]
+            except (OSError, ValueError, tomllib.TOMLDecodeError):
+                pass
+        return value if isinstance(value, dict) else {"plugin_layout": "inline"}
+
+    async def update_webui_preferences(self, _principal: Any, request: Mapping[str, object]) -> dict[str, object]:
+        layout = request.get("plugin_layout")
+        path = self._webui_preferences_path()
+        current = await self.webui_preferences(_principal)
+        if layout is not None:
+            if layout not in {"sidebar", "inline", "main-sidebar"}:
+                raise ValueError("invalid WebUI plugin layout")
+            current["plugin_layout"] = layout
+        followed = request.get("followed")
+        if followed is not None:
+            if not isinstance(followed, list) or any(not isinstance(item, str) for item in followed):
+                raise ValueError("invalid followed plugin list")
+            current["followed"] = followed
+        toast_duration = request.get("toast_duration")
+        if toast_duration is not None:
+            if toast_duration not in {1500, 3000, 6000}:
+                raise ValueError("invalid WebUI toast duration")
+            current["toast_duration"] = toast_duration
+        for key in ("plugin_sources", "disabled_plugin_sources"):
+            items = request.get(key)
+            if items is not None:
+                if not isinstance(items, list) or any(not isinstance(item, str) for item in items):
+                    raise ValueError(f"invalid {key}")
+                current[key] = items
+        write_document(path, current)
+        if layout is not None:
+            await self._worker_webui_control("daemon.webui.preferences.update", plugin_layout=layout)
+        return current
+
     async def plugin_discovery(
         self,
         _principal: Any,
@@ -920,15 +1061,16 @@ class InstanceDaemon:
                     continue
                 if runtime_kind is not None and runtime_kind not in {facet.runtime_kind for facet in bundle.facets}:
                     continue
-                matches.append(
-                    {
-                        **_plugin_bundle_document(bundle),
-                        "source": source.id,
-                        "source_priority": source.priority,
-                        "official": source.id == OFFICIAL_SOURCE_ID,
-                        "index_digest": index.digest,
-                    }
-                )
+                if len(matches) < _MAX_PLUGIN_RESULTS:
+                    matches.append(
+                        {
+                            **_plugin_bundle_document(bundle),
+                            "source": source.id,
+                            "source_priority": source.priority,
+                            "official": source.id == OFFICIAL_SOURCE_ID,
+                            "index_digest": index.digest,
+                        }
+                    )
         matches.sort(
             key=lambda item: (
                 str(item["bundle_id"]),
@@ -946,6 +1088,21 @@ class InstanceDaemon:
             "next_cursor": next_cursor,
             "total": min(len(matches), _MAX_PLUGIN_RESULTS),
             "diagnostics": diagnostics,
+        }
+
+    async def plugin_details(self, _principal: Any, bundle_id: str, source_id: str) -> dict[str, object]:
+        store = PluginSourceStore(self.paths.workspace)
+        index = store.fetch(source_id)
+        selected = index.require(bundle_id)
+        project_id = selected.project_id or selected.id
+        versions = [bundle for bundle in index.bundles() if (bundle.project_id or bundle.id) == project_id]
+        return {
+            "project_id": project_id,
+            "selected": _plugin_bundle_document(selected),
+            "versions": [
+                _plugin_bundle_document(bundle)
+                for bundle in sorted(versions, key=lambda item: item.version, reverse=True)
+            ],
         }
 
     async def plugin_targets(self, _principal: Any) -> dict[str, object]:
@@ -1034,6 +1191,8 @@ class InstanceDaemon:
         runtime_kind = target.get("kind")
         if not isinstance(runtime_kind, str):
             raise WebUiServiceError("webui.plugin_target_invalid", 409)
+        if target.get("support_grade") not in {"stable", "available"}:
+            raise WebUiServiceError("webui.plugin_target_incompatible", 409)
         service = PluginInstallationService(self.paths.workspace)
         try:
             preview = service.preview(bundle_id, source_id=source_id)

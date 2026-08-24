@@ -66,6 +66,7 @@ def build_parser() -> argparse.ArgumentParser:
     subcommands = parser.add_subparsers(dest="command", required=True)
     run = subcommands.add_parser("run", help="start the application through its local daemon")
     run.add_argument("--detach", action="store_true", help="start the daemon in the background")
+    run.add_argument("--vault", action="store_true", help="unlock the secret vault before starting")
     run.add_argument("--daemon-worker", action="store_true", help=argparse.SUPPRESS)
     broker = subcommands.add_parser("broker", help="run the standalone local broker")
     broker_commands = broker.add_subparsers(dest="broker_command", required=True)
@@ -1122,7 +1123,12 @@ def _vault_password(workspace: ConfigWorkspace, *, create: bool = False) -> str:
     return value
 
 
-def _runtime_secrets(settings: AppSettings, workspace: ConfigWorkspace) -> dict[str, str]:
+def _runtime_secrets(
+    settings: AppSettings,
+    workspace: ConfigWorkspace,
+    *,
+    use_vault: bool = True,
+) -> dict[str, str]:
     """Implement the runtime secrets operation for the component.
 
     Args:
@@ -1150,7 +1156,7 @@ def _runtime_secrets(settings: AppSettings, workspace: ConfigWorkspace) -> dict[
         names.add(settings.broker.diagnostics_token_secret)
     if settings.broker.management_token_secret is not None:
         names.add(settings.broker.management_token_secret)
-    if not names:
+    if not names or not use_vault:
         return {}
     values = SecretVault(workspace.management_directory).read(_vault_password(workspace))
     missing = sorted(names - values.keys())
@@ -1338,7 +1344,7 @@ def _run(settings: AppSettings, workspace: ConfigWorkspace, args: argparse.Names
     secrets = (
         _worker_runtime_secrets()
         if "LITEYUKI_RUNTIME_SECRETS" in os.environ
-        else _runtime_secrets(settings, workspace)
+        else _runtime_secrets(settings, workspace, use_vault=args.vault or not settings.development.enabled)
     )
     command = _daemon_worker_command(workspace, args)
     environment = {"LITEYUKI_RUNTIME_SECRETS": json.dumps(secrets)}
@@ -1586,7 +1592,12 @@ def _detach_daemon(
     with log_path.open("ab") as output:
         kwargs: dict[str, Any] = {
             "cwd": workspace.directory,
-            "env": {**os.environ, "LITEYUKI_RUNTIME_SECRETS": json.dumps(_runtime_secrets(settings, workspace))},
+            "env": {
+                **os.environ,
+                "LITEYUKI_RUNTIME_SECRETS": json.dumps(
+                    _runtime_secrets(settings, workspace, use_vault=args.vault or not settings.development.enabled)
+                ),
+            },
             "stdin": subprocess.DEVNULL,
             "stdout": output,
             "stderr": output,
@@ -1785,18 +1796,27 @@ async def _run_until_signal(
         operation.
     """
 
+    try:
+        from liteyukibot_webui import resource_pack_declarations
+    except ModuleNotFoundError:
+        webui_resource_packs = ()
+    else:
+        webui_resource_packs = resource_pack_declarations()
+
+    app_kwargs = {"resource_packs": webui_resource_packs}
     if resource_workspace == ".":
         if runtime_secrets is None:
-            app = LiteyukiApp(settings)
+            app = LiteyukiApp(settings, **app_kwargs)
         else:
-            app = LiteyukiApp(settings, runtime_secrets=runtime_secrets)
+            app = LiteyukiApp(settings, runtime_secrets=runtime_secrets, **app_kwargs)
     elif runtime_secrets is None:
-        app = LiteyukiApp(settings, resource_workspace=str(resource_workspace))
+        app = LiteyukiApp(settings, resource_workspace=str(resource_workspace), **app_kwargs)
     else:
         app = LiteyukiApp(
             settings,
             resource_workspace=str(resource_workspace),
             runtime_secrets=runtime_secrets,
+            **app_kwargs,
         )
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()

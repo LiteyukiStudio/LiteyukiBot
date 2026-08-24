@@ -25,7 +25,7 @@ class StubApp:
     calls: ClassVar[list[str]] = []
     logs: ClassVar[list[tuple[str, float]]] = []
 
-    def __init__(self, _settings: AppSettings) -> None:
+    def __init__(self, _settings: AppSettings, **_kwargs: object) -> None:
         self.logger = SimpleNamespace(info=lambda message, value: self.logs.append((message, value)))
 
     async def start(self) -> None:

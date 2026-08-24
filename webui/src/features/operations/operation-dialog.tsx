@@ -13,7 +13,9 @@ type OperationDialogProps = {
   close: () => void;
   api: WebUiApi;
   reload: () => Promise<void>;
+  initialValues?: Record<string, string>;
 };
+const EMPTY_INITIAL_VALUES: Record<string, string> = {};
 
 /**
  * Builds and submits a catalog-driven operation form.
@@ -22,21 +24,21 @@ type OperationDialogProps = {
  * @remarks High-impact operations require the target to be typed verbatim; server-side authorization and schema
  * validation remain mandatory because this client check is only an interaction safeguard.
  */
-export function OperationDialog({ operation, close, api, reload }: OperationDialogProps) {
+export function OperationDialog({ operation, close, api, reload, initialValues = EMPTY_INITIAL_VALUES }: OperationDialogProps) {
   const { t } = useLocale();
   const [values, setValues] = useState<Record<string, string>>({});
   const [confirmation, setConfirmation] = useState("");
   const [pending, setPending] = useState(false);
-  useEffect(() => { setValues({}); setConfirmation(""); }, [operation]);
+  useEffect(() => { setValues(initialValues); setConfirmation(""); }, [initialValues, operation]);
   if (!operation) return null;
 
   const schema = operation.input_schema;
   const properties = schema.properties && typeof schema.properties === "object" && !Array.isArray(schema.properties) ? schema.properties as JsonObject : {};
   const required = Array.isArray(schema.required) ? schema.required.filter((field): field is string => typeof field === "string") : [];
   const fields = Object.entries(properties).filter(([, definition]) => typeof definition === "object" && definition !== null && !Array.isArray(definition));
-  const targetField = operation.target_input_field ?? required[0] ?? "target";
-  const target = values[targetField] ?? "";
-  const canSubmit = target.trim().length > 0 && required.every((field) => values[field]?.trim()) && (operation.impact !== "high" || confirmation === target);
+  const targetField = operation.target_input_field;
+  const target = targetField ? values[targetField] ?? "" : operation.target;
+  const canSubmit = required.every((field) => values[field]?.trim()) && (!targetField || target.trim().length > 0) && (operation.impact !== "high" || confirmation === target);
   const submit = async () => {
     if (!canSubmit) return;
     setPending(true);

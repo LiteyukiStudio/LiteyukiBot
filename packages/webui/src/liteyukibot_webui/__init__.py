@@ -4,6 +4,8 @@ from importlib.metadata import PackageNotFoundError, version
 from importlib.resources import files
 from importlib.resources.abc import Traversable
 
+from liteyukibot.resource_packs import ResourcePackDeclaration
+
 from .service import (
     WebUiBridge,
     WebUiEvent,
@@ -12,6 +14,7 @@ from .service import (
     WebUiServer,
     WebUiServiceError,
     WebUiUnavailableError,
+    WebUiUploadPolicy,
     create_app,
 )
 
@@ -24,8 +27,10 @@ __all__ = [
     "WebUiServer",
     "WebUiServiceError",
     "WebUiUnavailableError",
+    "WebUiUploadPolicy",
     "create_app",
     "static_assets",
+    "resource_pack_declarations",
 ]
 
 try:
@@ -41,3 +46,8 @@ def static_assets() -> Traversable:
         The `Traversable` result produced by the operation.
     """
     return files("liteyukibot_webui").joinpath("static")
+
+
+def resource_pack_declarations() -> tuple[ResourcePackDeclaration, ...]:
+    """Return the package-owned resource packs enabled by the host."""
+    return (ResourcePackDeclaration("liteyukibot_webui", "resources"),)

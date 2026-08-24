@@ -1765,16 +1765,22 @@ requires-dist = [{ name = "liteyukibot-v7", editable = "." }]
 name = "liteyukibot-v7-webui"
 version = "7.0.0a13"
 source = { editable = "packages/webui" }
+dependencies = [
+    { name = "liteyukibot-v7" },
+]
 
 [package.optional-dependencies]
 server = [
     { name = "fastapi" },
+    { name = "python-multipart" },
     { name = "uvicorn" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "fastapi", marker = "extra == 'server'", specifier = ">=0.141,<1" },
+    { name = "liteyukibot-v7", editable = "." },
+    { name = "python-multipart", marker = "extra == 'server'", specifier = ">=0.0.20,<1" },
     { name = "uvicorn", marker = "extra == 'server'", specifier = ">=0.52,<1" },
 ]
 provides-extras = ["server"]

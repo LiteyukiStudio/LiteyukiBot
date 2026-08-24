@@ -469,6 +469,10 @@ async def test_daemon_webui_plugin_reads_are_bounded_and_metadata_only(
         }
     )
     monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: index)
+    monkeypatch.setattr(
+        "liteyukibot.daemon.BridgeCatalog.discover",
+        lambda _self: {"v6": SimpleNamespace(grade=SimpleNamespace(value="stable"))},
+    )
 
     async def snapshot(_request: object) -> dict[str, object]:
         return {

@@ -9,5 +9,5 @@ import { cn } from "@/lib/utils";
  * @returns A consistently styled card without introducing another nested container.
  */
 export function SurfaceCard({ className, ...props }: React.ComponentProps<typeof Card>) {
-  return <Card className={cn("webui-float-card py-0", className)} {...props} />;
+  return <Card className={cn("ly-card py-0", className)} {...props} />;
 }

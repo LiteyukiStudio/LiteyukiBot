@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
+import threading
+from collections import deque
 from collections.abc import Mapping
 from typing import Any
 
+from loguru import logger as _loguru_logger
 from yukilog import (
     ConsoleSink,
     FileSink,
@@ -21,6 +25,52 @@ from yukilog import (
 
 from .config import LoggingSettings
 from .config.redaction import redact_config
+
+_WEBUI_LOG_LIMIT = 1000
+_WEBUI_LOG_MESSAGE_LIMIT = 4096
+_webui_logs: deque[dict[str, object]] = deque(maxlen=_WEBUI_LOG_LIMIT)
+_webui_logs_lock = threading.RLock()
+_webui_log_sink_id: int | None = None
+
+
+def _capture_webui_log(message: Any) -> None:
+    record = message.record
+    extra = dict(record.get("extra", {}))
+    component = str(extra.pop("component", "core"))
+    context = redact_config({key: value for key, value in extra.items() if not key.startswith("_")})
+    timestamp = record["time"].astimezone().isoformat()
+    identity = hashlib.sha256(f"{timestamp}:{record['level'].name}:{record['message']}".encode()).hexdigest()[:24]
+    item = {
+        "id": identity,
+        "at": timestamp,
+        "level": str(record["level"].name).lower(),
+        "component": component if component in {"core", "daemon", "runtime", "plugin", "broker"} else "core",
+        "message": str(record["message"])[:_WEBUI_LOG_MESSAGE_LIMIT],
+        "context": context if isinstance(context, Mapping) else {},
+    }
+    with _webui_logs_lock:
+        _webui_logs.append(item)
+
+
+def get_webui_logs(
+    *, cursor: str | None, limit: int, level: str | None, component: str | None, query: str
+) -> dict[str, object]:
+    with _webui_logs_lock:
+        items = list(_webui_logs)
+    if level is not None:
+        items = [item for item in items if item["level"] == level]
+    if component is not None:
+        items = [item for item in items if item["component"] == component]
+    if query:
+        items = [item for item in items if query.casefold() in str(item["message"]).casefold()]
+    offset = int(cursor or "0")
+    page = items[offset : offset + limit]
+    return {
+        "items": page,
+        "next_cursor": str(offset + limit) if offset + limit < len(items) else None,
+        "total_retained": len(items),
+        "diagnostics": [],
+    }
 
 
 def configure_logging(settings: LoggingSettings) -> Logger:
@@ -46,6 +96,10 @@ def configure_logging(settings: LoggingSettings) -> Logger:
             ),
         )
     configure(LoggingConfig(console=console, json=json_sink, files=files))
+    global _webui_log_sink_id
+    if _webui_log_sink_id is not None:
+        _loguru_logger.remove(_webui_log_sink_id)
+    _webui_log_sink_id = _loguru_logger.add(_capture_webui_log, level="DEBUG")
     intercept_stdlib_logging()
     return get_logger(component="core")
 
@@ -56,6 +110,10 @@ def shutdown_logging() -> None:
     Returns:
         None.
     """
+    global _webui_log_sink_id
+    if _webui_log_sink_id is not None:
+        _loguru_logger.remove(_webui_log_sink_id)
+        _webui_log_sink_id = None
     shutdown()
 
 

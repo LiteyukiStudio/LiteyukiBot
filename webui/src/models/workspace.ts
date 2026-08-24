@@ -1,4 +1,4 @@
-export const workspaces = ["overview", "events", "topology", "runtimes", "plugins", "lyf", "configuration"] as const;
+export const workspaces = ["overview", "logs", "events", "topology", "runtimes", "plugins", "lyf", "configuration", "developer"] as const;
 export type Workspace = (typeof workspaces)[number];
 
 /**
