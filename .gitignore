@@ -28,7 +28,7 @@ configs/
 config.yaml
 config-dev.yaml
 config-prod.yaml
-tmp/
+/tmp/
 /dist/
 **/*.pyd
 /benchmark.json
