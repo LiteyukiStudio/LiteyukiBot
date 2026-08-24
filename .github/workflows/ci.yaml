@@ -66,7 +66,7 @@ jobs:
           pnpm --dir webui audit --prod
           uv build
           uv build --all-packages --out-dir dist/workspace --clear
-          uv run --no-project --python 3.14 python scripts/run_isolated_install.py --with dist/workspace/liteyukibot_v7-7.0.0a13-py3-none-any.whl --verifier scripts/verify_published_install.py -- --expected-version 7.0.0a13 --expect-no-legacy-runtime
+          uv run --no-project --python 3.14 python scripts/run_isolated_install.py --with "dist/workspace/liteyukibot_v7-*-py3-none-any.whl" --verifier scripts/verify_published_install.py -- --expect-no-legacy-runtime
           uv run python -m scripts.run_tool_install_smoke
           uv build --project examples/native-plugin --out-dir dist/examples
           uv run python -m scripts.run_developer_kit_install

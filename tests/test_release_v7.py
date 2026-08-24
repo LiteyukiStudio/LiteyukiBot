@@ -115,6 +115,17 @@ def test_isolated_install_rejects_empty_and_directory_requirements(tmp_path: Pat
         _requirement(str(tmp_path))
 
 
+def test_isolated_install_resolves_exactly_one_local_requirement_pattern(tmp_path: Path) -> None:
+    wheel = tmp_path / "liteyukibot_v7-7.0.0a13-py3-none-any.whl"
+    wheel.touch()
+
+    assert _requirement(str(tmp_path / "liteyukibot_v7-*.whl")) == str(wheel.resolve())
+
+    (tmp_path / "liteyukibot_v7-7.0.0a14-py3-none-any.whl").touch()
+    with pytest.raises(ValueError, match="exactly one file"):
+        _requirement(str(tmp_path / "liteyukibot_v7-*.whl"))
+
+
 def test_developer_kit_install_uses_an_explicit_build_directory(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
