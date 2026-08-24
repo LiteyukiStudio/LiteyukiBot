@@ -42,10 +42,24 @@ class ActionService:
         """
         guarded = self._policy(event, action)
         if guarded is not None:
+            if guarded.action_id != action.action_id:
+                return ActionResult(
+                    action_id=action.action_id,
+                    success=False,
+                    error_code="ACTION_RESULT_MISMATCH",
+                    error_message="action policy returned a result for another action",
+                )
             return guarded
         result = self._backend(event, action)
         if inspect.isawaitable(result):
-            return await result
+            result = await result
+        if result.action_id != action.action_id:
+            return ActionResult(
+                action_id=action.action_id,
+                success=False,
+                error_code="ACTION_RESULT_MISMATCH",
+                error_message="action backend returned a result for another action",
+            )
         return result
 
 

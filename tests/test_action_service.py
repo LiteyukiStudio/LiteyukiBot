@@ -83,3 +83,42 @@ async def test_action_service_policy_short_circuits_backend() -> None:
     result = await service.execute(action)
 
     assert result is denied
+
+
+@pytest.mark.asyncio
+async def test_action_service_rejects_mismatched_policy_result() -> None:
+    action = _action()
+
+    def backend(_event: EventEnvelope | None, _action: ActionEnvelope) -> NoReturn:
+        raise AssertionError("mismatched policy result reached backend")
+
+    service = ActionService(
+        backend,
+        lambda _event, _action: ActionResult(
+            action_id="other-action",
+            success=False,
+            error_code="ACTION_PERMISSION_DENIED",
+        ),
+    )
+
+    result = await service.execute(action)
+
+    assert result.action_id == action.action_id
+    assert result.success is False
+    assert result.error_code == "ACTION_RESULT_MISMATCH"
+
+
+@pytest.mark.asyncio
+async def test_action_service_rejects_mismatched_backend_result() -> None:
+    action = _action()
+
+    async def backend(_event: EventEnvelope | None, _action: ActionEnvelope) -> ActionResult:
+        return ActionResult(action_id="other-action", success=True)
+
+    service = ActionService(backend, lambda _event, _action: None)
+
+    result = await service.execute(action)
+
+    assert result.action_id == action.action_id
+    assert result.success is False
+    assert result.error_code == "ACTION_RESULT_MISMATCH"
