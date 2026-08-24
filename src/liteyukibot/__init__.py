@@ -1,5 +1,6 @@
 """LiteyukiBot v7 public API."""
 
+from . import runtime as _legacy_runtime
 from ._version import __version__
 from .app import LiteyukiApp
 from .authorization import AuthorizationContext
@@ -76,6 +77,8 @@ from .runtime_api import (
 )
 from .services import ServiceKey, ServiceRegistry, ServiceRequirement
 from .status import KERNEL_STATUS_SERVICE, KernelStatusProvider, KernelStatusSnapshot
+
+del _legacy_runtime
 
 __all__ = [
     "LiteyukiApp",

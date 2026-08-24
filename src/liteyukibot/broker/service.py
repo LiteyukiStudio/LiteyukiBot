@@ -16,7 +16,7 @@ import zmq.asyncio
 from ..config.models import AppSettings, BrokerBridgeSettings, JsonValue
 from ..config.vault import SecretVault
 from ..lyip import LyipFrame
-from ..runtime.facets import RuntimeFacetInstaller
+from ..managed_plugins import ManagedFacetInstaller
 from .peer import BridgeRegistrationError, BrokerPeerServer, BrokerPeerService
 from .protocol import (
     ActionResourceDeclaration,
@@ -61,7 +61,7 @@ class BridgeDefinition:
     grade: BridgeSupportGrade
     distribution: str
     launch: BridgeLauncher
-    facet_installer: RuntimeFacetInstaller | None = None
+    facet_installer: ManagedFacetInstaller | None = None
     probe_module: str | None = None
 
 

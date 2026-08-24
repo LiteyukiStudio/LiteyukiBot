@@ -25,7 +25,7 @@ from liteyukibot.events import (
     Message,
     Segment,
 )
-from liteyukibot.runtime.protocol import JsonValue, json_value
+from liteyukibot.json_value import JsonValue, json_value
 
 _EVENT = 0
 _PING = 1

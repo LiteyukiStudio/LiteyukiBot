@@ -8,7 +8,7 @@ from typing import Protocol
 
 from liteyukibot.broker import BridgeSupportGrade, MessageSendPayload
 from liteyukibot.events import EventEnvelope
-from liteyukibot.runtime.protocol import JsonValue
+from liteyukibot.json_value import JsonValue
 
 EventEmitter = Callable[[EventEnvelope], Awaitable[None]]
 
