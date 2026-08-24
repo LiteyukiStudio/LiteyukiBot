@@ -24,6 +24,8 @@ const topologyGraph = {
   diagnostics: [],
 };
 
+const preferences = { plugin_layout: "inline", toast_duration: 3000, followed: [] };
+
 const catalog = { operations: [
   { id: "management.runtime.stop", input_schema: { type: "object", properties: { runtime_id: { type: "string", description: "Runtime identifier" } }, required: ["runtime_id"] }, impact: "high", confirmation: "target", target: "runtime_id", target_input_field: "runtime_id" },
   { id: "management.runtime.restart", input_schema: { type: "object", properties: { runtime_id: { type: "string" } }, required: ["runtime_id"] }, impact: "standard", confirmation: "explicit", target: "runtime_id", target_input_field: "runtime_id" },
@@ -119,6 +121,7 @@ async function mockDaemon(page: Page, onSubmit?: (body: unknown) => void, ledger
     }
     if (path.endsWith("/bootstrap") || path.endsWith("/snapshot")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(bootstrap) });
     if (path.endsWith("/topology/graph")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(topologyGraph) });
+    if (path.endsWith("/preferences") || path.endsWith("/plugins/followed")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(preferences) });
     if (path.endsWith("/operations/catalog")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(catalog) });
     if (path.endsWith("/plugins/discovery")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(pluginDiscovery) });
     if (path.endsWith("/plugins/targets")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(pluginTargets) });
@@ -226,7 +229,7 @@ test("top bar persists the selected locale and applies the selected theme", asyn
   await page.keyboard.press("Escape");
   await expect(language).toHaveCSS("box-shadow", "none");
   await language.click();
-  await page.getByRole("menuitemradio", { name: "简体中文" }).click();
+  await page.getByRole("menuitemradio", { name: "Simplified Chinese" }).click();
   await expect(page.getByRole("heading", { name: "概览" })).toBeVisible();
   await page.getByRole("button", { name: "主题" }).click();
   await page.getByRole("menuitemradio", { name: "薰衣草" }).click();
