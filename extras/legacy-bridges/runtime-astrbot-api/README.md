@@ -1,5 +1,8 @@
 # LiteyukiBot AstrBot Runtime API
 
+> Retired source snapshot. This project is not part of the LiteyukiBot v7.0.0
+> workspace, release, CI, or support surface. See `../README.md`.
+
 This package contains the framework-neutral typed facade used by the Alpha10.1
 AstrBot runtime API v1.2. It deliberately does not depend on AstrBot itself.
 

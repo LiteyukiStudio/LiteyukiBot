@@ -1,5 +1,8 @@
 # LiteyukiBot AstrBot Gateway
 
+> Retired source snapshot. This project is not part of the LiteyukiBot v7.0.0
+> workspace, release, CI, or support surface. See `../README.md`.
+
 `liteyukibot-v7-runtime-astrbot` owns one native AstrBot installation as an
 `experimental` Liteyuki broker bridge. It is discovered through
 `liteyukibot.bridges` and launched with `liteyuki bridge run <bridge-id>`.

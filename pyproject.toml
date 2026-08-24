@@ -68,11 +68,11 @@ build-backend = "uv_build"
 
 [tool.uv.workspace]
 members = ["packages/*", "examples/nonebot-plugin"]
+exclude = ["extras/legacy-bridges/*"]
 
 [tool.uv.sources]
 liteyukibot-v7 = { workspace = true }
 liteyukibot-v7-webui = { workspace = true }
-liteyukibot-v7-runtime-astrbot-api = { workspace = true }
 liteyukibot-v7-runtime-nonebot-api = { workspace = true }
 
 [tool.uv.build-backend]

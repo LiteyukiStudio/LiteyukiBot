@@ -6,7 +6,6 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 LICENSE_FILES = ("LICENSE", "LICENSE.en", "LICENSE.zh-CN")
 LSO_COMMON = "LicenseRef-LSO-Common-1.4"
-AGPL_EXCEPTIONS = {"runtime-astrbot", "runtime-mofox"}
 
 
 def _project_table(project_file: Path) -> dict[str, object]:
@@ -32,10 +31,6 @@ def test_package_license_files_match_the_root_distribution() -> None:
 
     for package_dir in package_dirs:
         project = _project_table(package_dir / "pyproject.toml")
-        if package_dir.name in AGPL_EXCEPTIONS:
-            assert project["license"] == "AGPL-3.0-or-later"
-            continue
-
         assert project["license"] == LSO_COMMON, package_dir.name
         assert project["license-files"] == list(LICENSE_FILES), package_dir.name
         for name, expected in root_contents.items():

@@ -39,7 +39,7 @@ def _install_bridge(monkeypatch: pytest.MonkeyPatch, *, probe_module: str | None
     definition = BridgeDefinition(
         "v6",
         BridgeSupportGrade.STABLE,
-        "runtime-v6",
+        "example-bridge",
         cast(BridgeLauncher, _BridgeLauncher()),
         facet_installer=_Installer(),
         probe_module=probe_module,
@@ -143,9 +143,9 @@ def test_installer_resolves_dependencies_and_activates_only_after_materializatio
     assert result.generation.source_id == "liteyukibot-v7-plugins"
     assert result.generation.resolved_bundles[-1].id == "example.root"
     assert len(commands) == 3
-    assert commands[1][-1] == "runtime-v6==1.2.3"
+    assert commands[1][-1] == "example-bridge==1.2.3"
     assert commands[2][1] == "-c"
-    assert commands[2][-2:] == ["runtime-v6", "host"]
+    assert commands[2][-2:] == ["example-bridge", "host"]
 
 
 def test_installer_stages_hash_verified_wheels_without_index_resolution(

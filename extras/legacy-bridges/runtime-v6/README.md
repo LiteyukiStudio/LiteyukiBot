@@ -1,5 +1,8 @@
 # LiteyukiBot v7 v6 Runtime
 
+> Retired source snapshot. This project is not part of the LiteyukiBot v7.0.0
+> workspace, release, CI, or support surface. See `../README.md`.
+
 `liteyukibot-v7-runtime-v6` hosts bounded LiteyukiBot v6 plugin compatibility
 in an experimental limited LiteyukiBot v7 Broker bridge. It provides the
 `liteyuki` compatibility namespace only when this bridge package is installed.

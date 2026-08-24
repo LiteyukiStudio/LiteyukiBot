@@ -22,6 +22,12 @@ from scripts.alpha_release import (
 from scripts.run_alpha_bundle_installs import VERIFICATIONS, command_for, wheels_for
 
 ROOT = Path(__file__).resolve().parents[1]
+RETIRED_BRIDGE_DISTRIBUTIONS = {
+    "liteyukibot-v7-runtime-astrbot",
+    "liteyukibot-v7-runtime-astrbot-api",
+    "liteyukibot-v7-runtime-mofox",
+    "liteyukibot-v7-runtime-v6",
+}
 
 
 def _metadata(distribution: str, version: str) -> bytes:
@@ -60,6 +66,18 @@ def _bundle(tmp_path: Path) -> Path:
 
 def test_source_registry_matches_the_lockstep_alpha_one_metadata() -> None:
     validate_source_registry(ROOT)
+
+
+def test_legacy_bridge_snapshots_are_excluded_from_mainline_release() -> None:
+    active_distributions = {component.distribution for component in RELEASE_COMPONENTS}
+    lock = (ROOT / "uv.lock").read_text(encoding="utf-8")
+
+    assert RETIRED_BRIDGE_DISTRIBUTIONS.isdisjoint(active_distributions)
+    for distribution in RETIRED_BRIDGE_DISTRIBUTIONS:
+        assert f'name = "{distribution}"' not in lock
+    for project in ("runtime-astrbot", "runtime-astrbot-api", "runtime-mofox", "runtime-v6"):
+        assert not (ROOT / "packages" / project).exists()
+        assert (ROOT / "extras" / "legacy-bridges" / project / "pyproject.toml").is_file()
 
 
 def test_bundle_manifest_is_canonical_and_verifies_artifact_metadata(tmp_path: Path) -> None:
