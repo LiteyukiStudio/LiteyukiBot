@@ -13,6 +13,17 @@ const bootstrap = {
   },
 };
 
+const topologyGraph = {
+  generation: 7,
+  updated_at: "2026-08-15T03:00:00Z",
+  nodes: [
+    { id: "kernel", kind: "kernel", label: "Liteyuki kernel", state: "ready", metadata: {} },
+    { id: "onebot-primary", kind: "runtime", label: "onebot-primary", state: "ready", metadata: {} },
+  ],
+  edges: [{ id: "kernel-onebot", source: "kernel", target: "onebot-primary", kind: "runtime", state: "ready", metadata: {} }],
+  diagnostics: [],
+};
+
 const catalog = { operations: [
   { id: "management.runtime.stop", input_schema: { type: "object", properties: { runtime_id: { type: "string", description: "Runtime identifier" } }, required: ["runtime_id"] }, impact: "high", confirmation: "target", target: "runtime_id", target_input_field: "runtime_id" },
   { id: "management.runtime.restart", input_schema: { type: "object", properties: { runtime_id: { type: "string" } }, required: ["runtime_id"] }, impact: "standard", confirmation: "explicit", target: "runtime_id", target_input_field: "runtime_id" },
@@ -28,7 +39,7 @@ const catalog = { operations: [
 const messages = {
   "webui.app.name": "Liteyuki",
   "webui.nav.overview": "Overview", "webui.nav.events": "Event deliveries", "webui.nav.topology": "Topology", "webui.nav.runtimes": "Runtimes", "webui.nav.plugins": "Plugins", "webui.nav.configuration": "Configuration",
-  "webui.header.language": "Language", "webui.header.theme": "Theme", "webui.header.accent": "Accent color", "webui.header.open_navigation": "Open navigation",
+  "webui.header.language": "Language", "webui.header.theme": "Theme", "webui.header.accent": "Accent color", "webui.header.open_navigation": "Open navigation", "webui.locale.en-US": "English", "webui.locale.zh-CN": "Simplified Chinese",
   "webui.theme.system": "System", "webui.theme.light": "Light", "webui.theme.dark": "Dark", "webui.theme.blue": "Blue", "webui.theme.lavender": "Lavender", "webui.theme.cyan": "Cyan",
   "webui.status.ready": "Ready", "webui.status.runtimes": "{active} / {total} runtimes", "webui.action.refresh": "Refresh",
   "webui.overview.healthy": "Healthy", "webui.overview.kernel": "Kernel {state}", "webui.overview.active_runtimes": "Active runtimes: {active} / {total}", "webui.overview.new_operation": "New operation",
@@ -45,7 +56,7 @@ const messages = {
 const zhMessages = {
   ...messages,
   "webui.nav.overview": "概览", "webui.nav.events": "事件投递", "webui.nav.topology": "拓扑", "webui.nav.runtimes": "运行时", "webui.nav.plugins": "插件", "webui.nav.configuration": "配置",
-  "webui.header.language": "语言", "webui.header.theme": "主题", "webui.header.accent": "强调色", "webui.header.open_navigation": "打开导航",
+  "webui.header.language": "语言", "webui.header.theme": "主题", "webui.header.accent": "强调色", "webui.header.open_navigation": "打开导航", "webui.locale.en-US": "英语", "webui.locale.zh-CN": "简体中文",
   "webui.theme.system": "跟随系统", "webui.theme.light": "浅色", "webui.theme.dark": "深色", "webui.theme.blue": "蓝色", "webui.theme.lavender": "薰衣草", "webui.theme.cyan": "青色",
   "webui.status.ready": "就绪", "webui.status.runtimes": "{active} / {total} 个运行时", "webui.action.refresh": "刷新",
   "webui.overview.healthy": "健康", "webui.overview.kernel": "内核 {state}", "webui.overview.active_runtimes": "活跃运行时：{active} / {total}", "webui.overview.new_operation": "新建操作",
@@ -107,6 +118,7 @@ async function mockDaemon(page: Page, onSubmit?: (body: unknown) => void, ledger
       return route.fulfill({ contentType: "application/json", body: JSON.stringify({ locale, locales: ["en-US", "zh-CN"], messages: locale === "zh-CN" ? zhMessages : messages, webui_version: "1.0.0" }) });
     }
     if (path.endsWith("/bootstrap") || path.endsWith("/snapshot")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(bootstrap) });
+    if (path.endsWith("/topology/graph")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(topologyGraph) });
     if (path.endsWith("/operations/catalog")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(catalog) });
     if (path.endsWith("/plugins/discovery")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(pluginDiscovery) });
     if (path.endsWith("/plugins/targets")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(pluginTargets) });
