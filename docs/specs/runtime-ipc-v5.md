@@ -4,7 +4,7 @@
 - Applies to: superseded child-supervisor typed wire models and compatibility
   semantics.
 - Compatibility: historical. It is not interoperable with the standalone
-  broker peer protocol specified by [Broker Peer IPC v6](runtime-ipc-v6.md).
+  Broker peer protocol specified by [Broker Peer IPC v7](runtime-ipc-v7.md).
 
 ## Transport And Handshake
 
@@ -24,7 +24,7 @@ Core-to-child Events receive an accepted/overloaded/invalid response and have
 bounded completion. v4+ deliveries carry immutable trace provenance. Alpha6
 removes the former Agent Tool request/response and Agent history control models
 from the executable v5 catalog. Agent functionality now uses the Broker Peer
-IPC v6 bridge Tool and control messages.
+IPC v7 bridge Tool and control messages.
 
 Actions remain kernel-to-child and are correlated with their original Event
 delivery. Management results are structured and redacted. This document
@@ -33,5 +33,5 @@ used to implement a new Agent integration.
 
 ## Evidence
 
-Run `uv run pytest tests/test_runtime_v7.py tests/test_runtime_client_v7.py`.
-The implemented broker transport is specified by `runtime-lyip-v2.md`.
+The executable implementation and its conformance tests have been removed.
+The current Broker transport is specified by `runtime-lyip-v2.md`.

@@ -10,16 +10,13 @@ before relying on it.
   `liteyukibot-v7`; independently buildable packages live under `packages/`.
 - The root `src/liteyukibot/` still owns both broad application/business
   orchestration and protocol-neutral contracts. `app.py`, `cli.py`, daemon,
-  plugin management, update, configuration, Broker, and the legacy Runtime
-  implementation have not yet been split into the planned packages.
-- Broker is implemented under `src/liteyukibot/broker/`, while the old Runtime
-  source remains under `src/liteyukibot/runtime/`. The App, Control, Management,
-  CLI, initializer, daemon, and plugin installer no longer discover, launch, or
-  manage that child-supervisor path. `RuntimeSupervisor`, `RuntimeClient`, the
-  testing harness, compatibility configuration models, historical examples and
-  tests, DTO names, generation storage fields, and runtime-named bridge packages
-  still exist pending the physical-cleanup migration. Do not claim the Runtime
-  source or all Runtime terminology has been removed.
+  plugin management, update, configuration, and Broker have not yet been split
+  into the planned packages.
+- The former supervised child `liteyukibot.runtime` package, client, supervisor,
+  catalog, test harness, and custom-runtime example have been removed. Current
+  Runtime API DTO/facade names, managed generation storage fields, and
+  runtime-named Bridge distribution identities remain live contracts; do not
+  classify them as the deleted child Runtime implementation.
 - `packages/cordis` is an independent Python Cordis host. Current Alpha13
   documentation and code allow Native and Cordis to coexist; first-party
   packages such as permissions and essentials currently expose both Native and

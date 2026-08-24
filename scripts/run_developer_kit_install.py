@@ -33,7 +33,6 @@ def main() -> int:
     wheels = (
         _one_wheel(build_dir, "liteyukibot_v7"),
         _one_wheel(build_dir / "examples", "liteyukibot_example_plugin"),
-        _one_wheel(build_dir / "examples", "liteyukibot_example_runtime"),
     )
     command = [uv, "run", "--no-project", "--python", "3.14"]
     for wheel in wheels:

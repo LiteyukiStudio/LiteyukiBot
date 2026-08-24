@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import importlib.metadata
 import json
-import shutil
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -19,8 +18,7 @@ from liteyukibot.events import (
     Message,
     Segment,
 )
-from liteyukibot.runtime import RuntimeSpec
-from liteyukibot.testing import PluginTestHarness, RuntimeTestHarness
+from liteyukibot.testing import PluginTestHarness
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1] / "src"
 IMPORTED_LITEYUKIBOT = Path(liteyukibot.__file__).resolve()
@@ -75,32 +73,10 @@ async def verify() -> dict[str, Any]:
             if dispatch.status != "processed" or len(plugin_harness.recorded_actions) != 1:
                 raise RuntimeError("installed plugin did not process the test Event")
 
-        command = shutil.which("liteyuki-example-runtime")
-        if command is None:
-            raise RuntimeError("installed custom runtime console script was not found")
-        spec = RuntimeSpec(
-            id="installed-runtime",
-            kind="custom",
-            command=(command,),
-            ready_timeout=5,
-            heartbeat_interval=0.05,
-            stale_after=1,
-            shutdown_timeout=2,
-            restart_limit=1,
-        )
-        async with RuntimeTestHarness(spec) as runtime_harness:
-            accepted = await runtime_harness.dispatch_event(
-                _event().model_dump(mode="json"),
-                timeout_seconds=2,
-            )
-            if accepted.status != "accepted" or len(runtime_harness.child_actions) != 1:
-                raise RuntimeError("installed runtime did not complete the Event/Action round trip")
-
     return {
         "liteyukibot": str(IMPORTED_LITEYUKIBOT),
         "plugin": "example.echo",
         "py_typed": str(PY_TYPED_MARKER),
-        "runtime": "installed-runtime",
     }
 
 

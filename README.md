@@ -134,7 +134,7 @@ tokens, or message payloads in public reports.
 - [Beta1 contract and support boundary](docs/beta1.md)
 - [v6 compatibility](docs/migration-v6.md)
 - [Native plugin development](docs/development/native-plugins.md)
-- [Custom runtime development](docs/development/custom-runtimes.md)
+- [Broker peer development](docs/development/broker-peers.md)
 - [Runtime API and provider conformance](docs/development/runtime-api-conformance.md)
 - [Contributor guide](CONTRIBUTING.md)
 - [Release procedure](docs/development/releasing.md)

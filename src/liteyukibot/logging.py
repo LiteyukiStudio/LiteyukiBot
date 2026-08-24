@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import os
 import threading
 from collections import deque
 from collections.abc import Mapping
@@ -17,7 +16,6 @@ from yukilog import (
     Logger,
     LoggingConfig,
     configure,
-    configure_child_runtime,
     get_logger,
     intercept_stdlib_logging,
     shutdown,
@@ -171,25 +169,9 @@ def log_payload(
     ).debug("payload recorded")
 
 
-def configure_runtime_child_logging() -> Logger:
-    """Configure a child host from supervisor-provided logging environment.
-
-    Returns:
-        The `Logger` result produced by the operation.
-    """
-
-    configure_child_runtime(level=os.environ.get("LITEYUKI_RUNTIME_LOG_LEVEL", "INFO"))
-    intercept_stdlib_logging()
-    return get_logger(
-        component=os.environ.get("LITEYUKI_RUNTIME_KIND", "runtime"),
-        runtime=os.environ.get("LITEYUKI_RUNTIME_ID"),
-    )
-
-
 __all__ = [
     "Logger",
     "configure_logging",
-    "configure_runtime_child_logging",
     "get_logger",
     "log_payload",
     "shutdown_logging",

@@ -44,13 +44,13 @@ or temporary research artifacts.
 ## Contracts And Tests
 
 Update the relevant specification, architecture guide, or package README when a
-public Event, Action, runtime IPC, configuration, service, or plugin contract
-changes. Keep protocol models JSON-safe and versioned. A child runtime must use
-the shared `RuntimeClient`, declare capabilities explicitly, and never create a
-runtime-to-runtime transport.
+public Event, Action, Broker IPC, configuration, service, or plugin contract
+changes. Keep protocol models JSON-safe and versioned. A bridge must use the
+shared Broker peer contract, declare capabilities explicitly, and never create
+a bridge-to-bridge transport.
 
 Add or update focused tests under `tests/` or the owning `packages/*/tests/`
-directory. Test real package entry points and child-runtime behavior where a
+directory. Test real package entry points and Broker peer behavior where a
 change crosses a process or installation boundary.
 
 ## Pull Requests And Releases

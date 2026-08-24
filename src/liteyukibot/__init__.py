@@ -1,6 +1,5 @@
 """LiteyukiBot v7 public API."""
 
-from . import runtime as _legacy_runtime
 from ._version import __version__
 from .app import LiteyukiApp
 from .authorization import AuthorizationContext
@@ -23,7 +22,7 @@ from .functions import (
     discover_function_host_provider,
 )
 from .i18n import I18N_SERVICE, Translator
-from .init_specs import InitFieldKind, InitFieldSpec, PluginInitSpec, RuntimeInitSpec
+from .init_specs import InitFieldKind, InitFieldSpec, PluginInitSpec
 from .management import MANAGEMENT_SERVICE, ManagementCommand, ManagementRegistry
 from .operations import (
     ManagementPrincipal,
@@ -78,8 +77,6 @@ from .runtime_api import (
 from .services import ServiceKey, ServiceRegistry, ServiceRequirement
 from .status import KERNEL_STATUS_SERVICE, KernelStatusProvider, KernelStatusSnapshot
 
-del _legacy_runtime
-
 __all__ = [
     "LiteyukiApp",
     "AuthorizationContext",
@@ -110,7 +107,6 @@ __all__ = [
     "ServiceKey",
     "ServiceRegistry",
     "ServiceRequirement",
-    "RuntimeInitSpec",
     "AGENT_FUNCTION_CATALOG",
     "AGENT_PROMPT_CATALOG",
     "AGENT_PROMPT_SELECT",
