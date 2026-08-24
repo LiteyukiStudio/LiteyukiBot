@@ -22,7 +22,7 @@ Thumbs.db
 # development
 .env
 .env.*
-plugins/
+/plugins/
 data/
 configs/
 config.yaml
