@@ -1,2 +1,3 @@
 allowBuilds:
   esbuild: true
+  '@liteyuki/lyf-textmate@git+https://github.com/LiteyukiStudio/lyf-textmate.git#1e04d78c33f23bd4401787086e41c4bcfce45c2e': true

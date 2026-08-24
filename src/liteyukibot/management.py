@@ -749,8 +749,22 @@ class KernelManagement:
         register(("runtime", "restart"), ("runtime_id",), {"properties": runtime_id, "required": ["runtime_id"]})
         register(
             ("plugin", "install"),
-            ("runtime_id", "bundle_id", "source_id"),
-            {"properties": {**runtime_id, **bundle_id, **source_id}, "required": ["runtime_id", "bundle_id"]},
+            ("runtime_id", "bundle_id", "source_id", "expected_index_digest"),
+            {
+                "properties": {
+                    **runtime_id,
+                    **bundle_id,
+                    **source_id,
+                    "expected_index_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                },
+                "required": ["runtime_id", "bundle_id"],
+                "allOf": [
+                    {
+                        "if": {"required": ["expected_index_digest"]},
+                        "then": {"required": ["source_id"]},
+                    }
+                ],
+            },
         )
         register(
             ("plugin", "update"),
@@ -769,6 +783,21 @@ class KernelManagement:
             {"properties": runtime_id, "required": ["runtime_id"]},
             impact=OperationImpact.HIGH,
             confirmation=OperationConfirmation.TARGET,
+        )
+        register(
+            ("plugin", "uninstall"),
+            ("runtime_id", "bundle_id"),
+            {"properties": {**runtime_id, **bundle_id}, "required": ["runtime_id", "bundle_id"]},
+            impact=OperationImpact.HIGH,
+            confirmation=OperationConfirmation.TARGET,
+        )
+        register(
+            ("plugin", "gc"),
+            ("runtime_id",),
+            {"properties": runtime_id, "required": []},
+            impact=OperationImpact.HIGH,
+            confirmation=OperationConfirmation.EXPLICIT,
+            target_field=None,
         )
 
     async def _help(self, caller: ManagementCaller, arguments: tuple[str, ...]) -> ManagementResult:
@@ -943,14 +972,15 @@ class KernelManagement:
             Internal implementation detail for `KernelManagement._plugin_install`. It delegates to
             `_runtime`, `install` while keeping intermediate state local to the owning operation.
         """
-        if len(arguments) not in (2, 3):
-            raise ManagementError("usage: plugin install <runtime-id> <bundle-id> [source-id]")
+        if len(arguments) not in (2, 3, 4):
+            raise ManagementError("usage: plugin install <runtime-id> <bundle-id> [source-id] [index-digest]")
         runtime = self._runtime(arguments[0])
         result = PluginInstallationService(self._workspace).install(
             arguments[1],
             runtime_id=arguments[0],
             runtime_kind=runtime.kind,
             source_id=arguments[2] if len(arguments) == 3 else None,
+            expected_index_digest=arguments[3] if len(arguments) == 4 else None,
         )
         return ManagementResult(f"installed {arguments[1]} as {result.generation.id}")
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import math
 import os
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Iterable, Mapping
 from dataclasses import replace
 from enum import StrEnum
 from pathlib import Path
@@ -355,6 +355,7 @@ class LiteyukiApp:
         logger: Logger | None = None,
         runtime_secrets: Mapping[str, str] | None = None,
         resource_workspace: str | None = None,
+        resource_packs: Iterable[ResourcePackDeclaration] = (),
     ) -> None:
         """Initialize the liteyuki app.
 
@@ -363,12 +364,14 @@ class LiteyukiApp:
             logger: Structured logger used for diagnostics.
             runtime_secrets: The runtime secrets value used by the operation.
             resource_workspace: The resource workspace value used by the operation.
+            resource_packs: Host-enabled package resource packs.
 
         Returns:
             None.
         """
         self.settings = settings
         self.resource_workspace = resource_workspace or "."
+        self.resource_packs = tuple(resource_packs)
         self.logger = logger or get_logger(component="core")
         self.state = AppState.CREATED
         self.services = ServiceRegistry()
@@ -427,6 +430,9 @@ class LiteyukiApp:
                 "daemon.webui.operation_catalog": self._daemon_webui_operation_catalog,
                 "daemon.webui.operation.execute": self._daemon_webui_execute_operation,
                 "daemon.webui.plugin_surfaces": self._daemon_webui_plugin_surfaces,
+                "daemon.webui.preferences": self._daemon_webui_preferences,
+                "daemon.webui.preferences.update": self._daemon_webui_preferences_update,
+                "daemon.resources.reload": self._daemon_resources_reload,
                 "daemon.lifecycle.freeze": self._daemon_lifecycle_freeze,
                 "daemon.lifecycle.status": self._daemon_lifecycle_status,
                 "daemon.lifecycle.unfreeze": self._daemon_lifecycle_unfreeze,
@@ -914,6 +920,51 @@ class LiteyukiApp:
         diagnostics = [{"plugin_id": item.plugin_id, "code": item.code} for item in self.plugins.webui_diagnostics]
         return {"generation": self.plugins.webui_generation, "surfaces": surfaces, "diagnostics": diagnostics}
 
+    async def _daemon_resources_reload(self, _request: Mapping[str, Any]) -> dict[str, Any]:
+        """Reload workspace and enabled-plugin resource packs in place.
+
+        Args:
+            _request: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+
+        Notes:
+            This helper remains internal to its owning implementation.
+        """
+        return {"packs": list(self.reload_resources())}
+
+    async def _daemon_webui_preferences(self, _request: Mapping[str, Any]) -> dict[str, Any]:
+        """Handle `LiteyukiApp._daemon_webui_preferences`.
+
+        Args:
+            _request: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+
+        Notes:
+            This helper remains internal to its owning implementation.
+        """
+        return {"plugin_layout": "inline"}
+
+    async def _daemon_webui_preferences_update(self, request: Mapping[str, Any]) -> dict[str, Any]:
+        """Handle `LiteyukiApp._daemon_webui_preferences_update`.
+
+        Args:
+            request: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+
+        Notes:
+            This helper remains internal to its owning implementation.
+        """
+        layout = request.get("plugin_layout")
+        if layout not in {"sidebar", "inline", "main-sidebar"}:
+            raise ValueError("invalid WebUI plugin layout")
+        return {"plugin_layout": layout}
+
     def _function_sources(
         self,
         extension_id: str,
@@ -1309,7 +1360,10 @@ class LiteyukiApp:
                     *declarations,
                     *(declaration for pack_list in function_resource_packs.values() for declaration in pack_list),
                 )
-            self.resources = ResourceCatalog.load(self.resource_workspace, plugin_packs=declarations)
+            self.resources = ResourceCatalog.load(
+                self.resource_workspace,
+                plugin_packs=(*self.resource_packs, *declarations),
+            )
             self.translator, _warning = Translator.from_resources(self.resources, self.settings.i18n.locale)
             self.functions = FunctionDispatcher(self.resources, task_owner=self._function_tasks)
             self.services.provide(RESOURCE_CATALOG_SERVICE, self.resources, provider="liteyukibot.kernel")
@@ -1479,6 +1533,32 @@ class LiteyukiApp:
                 start_error.add_note(f"startup cleanup also failed: {cleanup_error}")
             self._freeze_uptime()
             raise
+
+    def reload_resources(self) -> tuple[str, ...]:
+        """Reload validated resource packs and refresh the translator.
+
+        Returns:
+            Result produced by this callable.
+        """
+        if self.resources is None:
+            raise RuntimeError("resources are not initialized")
+        declarations = tuple(
+            declaration
+            for manifest in self._runtime_manifests.values()
+            for declaration in manifest.resource_packs
+        )
+        if self._cordis_host is not None:
+            function_packs = getattr(self._cordis_host, "function_resource_packs", {})
+            declarations = (
+                *declarations,
+                *(declaration for packs in function_packs.values() for declaration in packs),
+            )
+        self.resources.reload(self.resource_workspace, plugin_packs=(*self.resource_packs, *declarations))
+        self.translator, warning = Translator.from_resources(self.resources, self.settings.i18n.locale)
+        self.services.provide(I18N_SERVICE, self.translator, provider="liteyukibot.kernel")
+        if warning:
+            self.logger.warning("resource reload locale fallback", warning=warning)
+        return tuple(pack.id for pack in self.resources.packs)
 
     async def stop(self) -> None:
         """Stop the liteyuki app and release its owned resources.

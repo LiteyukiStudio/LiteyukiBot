@@ -801,6 +801,10 @@ class WebUISettings(FrozenSettingsModel):
     ticket_ttl_seconds: int = Field(default=60, ge=15, le=300)
     session_idle_seconds: int = Field(default=1_800, ge=60, le=14_400)
     session_max_seconds: int = Field(default=28_800, ge=300, le=86_400)
+    uploads_enabled: bool = False
+    uploads_max_bytes: int = Field(default=67_108_864, ge=1, le=1_073_741_824)
+    uploads_extensions: tuple[str, ...] = ()
+    uploads_media_types: tuple[str, ...] = ()
 
     @model_validator(mode="after")
     def validate_session_windows(self) -> WebUISettings:
@@ -821,6 +825,7 @@ class DevelopmentSettings(FrozenSettingsModel):
     allow_drills: bool = False
     watch_auto_restart: bool = False
     watch_debounce_seconds: float = Field(default=0.75, gt=0)
+    webui_require_auth: bool = False
 
 
 class BrokerActionResourceSettings(FrozenSettingsModel):

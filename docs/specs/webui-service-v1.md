@@ -16,9 +16,24 @@ The URL contains a short-lived ticket in its fragment, so it is not sent in an
 HTTP request.  The SPA redeems it once, receives an HttpOnly, `SameSite=Strict`
 session cookie and uses a session-bound CSRF token for later mutations.
 
+The WebUI development launcher is unauthenticated by default.  In that mode it
+uses a daemon-local development principal, does not issue or redeem a ticket,
+and does not create a session cookie; loopback, Origin, and CSRF checks still
+apply.  Pass `--auth` to `pnpm --dir webui web -- --auth` to enable the normal
+ticket and cookie flow.  Production daemons require authentication by default.
+
 The service rejects non-loopback Host headers and cross-origin unsafe requests.
 It is not a LAN listener, reverse-proxy endpoint, remote control plane, or
 plugin-hosted HTTP extension point.
+
+Read-only observability projections are exposed under `/api/v1/logs`,
+`/api/v1/events/summary`, and `/api/v1/topology/graph`.  Logs are bounded,
+redacted, and memory-only; an unavailable log source returns an empty page with
+diagnostics rather than exposing daemon files.  Event summaries aggregate the
+existing bounded delivery projection.  Topology is a generation-tagged graph
+projection with deterministic node and edge identifiers.  These endpoints do
+not accept graph mutations or raw commands; future mutations must be added as
+typed catalogued operations.
 
 ## API And Streaming
 

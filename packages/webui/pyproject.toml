@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7-webui"
-version = "7.0.0a12"
+version = "7.0.0a13"
 description = "Local WebUI distribution wrapper for LiteyukiBot v7."
 requires-python = ">=3.14"
 license = "LicenseRef-LSO-Common-1.4"
@@ -8,11 +8,15 @@ license-files = ["LICENSE", "LICENSE.en", "LICENSE.zh-CN"]
 authors = [
     { name = "LiteyukiStudio" },
 ]
+dependencies = [
+    "liteyukibot-v7==7.0.0a13",
+]
 
 [project.optional-dependencies]
 server = [
     "fastapi>=0.141,<1",
     "uvicorn>=0.52,<1",
+    "python-multipart>=0.0.20,<1",
 ]
 
 [build-system]

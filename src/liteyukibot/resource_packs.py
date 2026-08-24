@@ -10,7 +10,7 @@ from functools import partial
 from hashlib import sha256
 from importlib import resources
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 
@@ -177,6 +177,7 @@ class ResourcePackMetadata:
     version: str
     description: str
     origin: str
+    kind: Literal["language", "function", "mixed"] = "mixed"
     name_key: str | None = None
     description_key: str | None = None
     icon: str | None = None
@@ -393,6 +394,26 @@ class ResourceCatalog:
         packs.extend(_load_workspace_packs(Path(workspace)))
         return cls(packs)
 
+    def reload(
+        self,
+        workspace: str | Path,
+        *,
+        plugin_packs: Iterable[ResourcePackDeclaration] = (),
+    ) -> tuple[ResourcePackMetadata, ...]:
+        """Atomically replace this catalog from the current resource roots.
+
+        Args:
+            workspace: Input accepted by this callable.
+            plugin_packs: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
+        replacement = type(self).load(workspace, plugin_packs=plugin_packs)
+        self._packs = replacement._packs
+        self._files = replacement._files
+        return self.packs
+
 
 def _metadata(value: object, origin: str, fallback_id: str) -> ResourcePackMetadata:
     """Implement the metadata operation for the component.
@@ -413,6 +434,9 @@ def _metadata(value: object, origin: str, fallback_id: str) -> ResourcePackMetad
     if not isinstance(value, dict):
         raise ResourcePackError(f"resource pack metadata must be an object: {origin}")
     pack_id = _token(value.get("id", fallback_id), "id")
+    kind = value.get("kind", "mixed")
+    if kind not in {"language", "function", "mixed"}:
+        raise ResourcePackError(f"resource pack kind is unsupported: {origin}")
     name_key = _optional_token(value.get("name_key"), "name_key")
     description_key = _optional_token(value.get("description_key"), "description_key")
     icon = _optional_token(value.get("icon"), "icon")
@@ -426,6 +450,7 @@ def _metadata(value: object, origin: str, fallback_id: str) -> ResourcePackMetad
         version=_token(value.get("version", "0.0.0"), "version"),
         description=str(value.get("description", "")),
         origin=origin,
+        kind=kind,
         name_key=name_key,
         description_key=description_key,
         icon=icon,

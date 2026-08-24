@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { watch } from "node:fs";
 import { readFile } from "node:fs/promises";
 import net from "node:net";
 import { dirname, join, resolve } from "node:path";
@@ -26,12 +27,14 @@ if (daemonUrl.protocol !== "http:" || daemonUrl.hostname !== webUiStatus.host ||
 }
 daemonUrl.port = String(webUiStatus.port);
 const ticket = daemonUrl.hash;
-if (!/^#ticket=[^&]+$/.test(ticket)) throw new Error("daemon returned an invalid WebUI ticket");
+if (options.auth && !/^#ticket=[^&]+$/.test(ticket)) throw new Error("daemon returned an invalid WebUI ticket");
+
+const resourceWatcher = options.watchResources ? startResourceWatcher() : null;
 
 const viteArguments = [
   join(webuiRoot, "node_modules", "vite", "bin", "vite.js"), "--host", "127.0.0.1", "--port", String(options.port), "--strictPort",
 ];
-if (!options.noOpen) viteArguments.push("--open", `/${ticket}`);
+if (!options.noOpen) viteArguments.push("--open", ticket ? `/${ticket}` : "/");
 if (!existsSync(viteArguments[0])) throw new Error("Vite is not installed; run `pnpm --dir webui install --frozen-lockfile`");
 
 console.log(`Proxying /api to ${daemonUrl.origin}; daemon workspace: ${workspace}`);
@@ -45,6 +48,7 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, () => vite.kill(signal));
 }
 vite.once("exit", (code, signal) => process.exitCode = code ?? (signal ? 1 : 0));
+process.once("exit", () => resourceWatcher?.close());
 
 async function ensureDaemon() {
   let responding = false;
@@ -62,7 +66,8 @@ async function ensureDaemon() {
   }
   await run("uv", [
     "run", "--extra", "webui", "liteyuki", "--workspace", workspace, "--instance", options.instance,
-    "--set", "webui.mode=always", "--set", "webui.port=0", "run", "--detach",
+    "--set", "webui.mode=always", "--set", "webui.port=0", "--set", "development.enabled=true",
+    "--set", `development.webui_require_auth=${options.auth}`, "run", "--detach",
   ]);
   if (await waitForDaemonRunning()) return;
   throw new Error(`daemon did not become ready; inspect ${join(workspace, ".liteyuki", "instances", options.instance, "logs", "daemon.log")}`);
@@ -146,7 +151,7 @@ function run(command, arguments_) {
 }
 
 function parseOptions(arguments_) {
-  const options_ = { instance: "default", port: 5173, workspace: undefined, noOpen: false };
+  const options_ = { instance: "default", port: 5173, workspace: undefined, noOpen: false, auth: false, watchResources: true };
   for (let index = 0; index < arguments_.length; index += 1) {
     const value = arguments_[index];
     if (value === "--") continue;
@@ -154,14 +159,38 @@ function parseOptions(arguments_) {
     else if (value === "--instance") options_.instance = requiredValue(arguments_, ++index, value);
     else if (value === "--port") options_.port = Number(requiredValue(arguments_, ++index, value));
     else if (value === "--no-open") options_.noOpen = true;
+    else if (value === "--auth") options_.auth = true;
+    else if (value === "--no-watch-resources") options_.watchResources = false;
     else if (value === "--help") {
-      console.log("Usage: pnpm run web -- [--workspace PATH] [--instance NAME] [--port PORT] [--no-open]");
+      console.log("Usage: pnpm run web -- [--workspace PATH] [--instance NAME] [--port PORT] [--no-open] [--auth] [--no-watch-resources]");
       process.exit(0);
     } else throw new Error(`unknown option: ${value}`);
   }
   if (!Number.isInteger(options_.port) || options_.port < 1 || options_.port > 65535) throw new Error("--port must be 1..65535");
   if (!/^[a-z0-9](?:[a-z0-9-]{0,62})$/.test(options_.instance)) throw new Error("--instance must use lower-case ASCII letters, digits, or hyphens");
   return options_;
+}
+
+function startResourceWatcher() {
+  const roots = [
+    join(repositoryRoot, "src", "liteyukibot", "builtin_resources"),
+    join(repositoryRoot, "packages"),
+    join(workspace, "resources"),
+  ].filter(existsSync);
+  let timer = null;
+  const watchers = roots.map((root) => watch(root, { recursive: true }, () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(async () => {
+      try {
+        const result = await requestControl("resources.reload");
+        console.log(`Reloaded resource packs: ${result?.packs?.join(", ") ?? "none"}`);
+      } catch (error) {
+        console.error(`Resource reload failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }, 250);
+  }));
+  console.log(`Watching resource roots: ${roots.join(", ")}`);
+  return { close: () => watchers.forEach((item) => item.close()) };
 }
 
 function requiredValue(arguments_, index, option) {

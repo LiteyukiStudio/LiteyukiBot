@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7"
-version = "7.0.0a12"
+version = "7.0.0a13"
 description = "A protocol-neutral, multi-runtime chatbot kernel."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -34,7 +34,7 @@ http = [
 webui = [
     "fastapi>=0.141,<1",
     "uvicorn>=0.52,<1",
-    "liteyukibot-v7-webui[server]==7.0.0a12",
+    "liteyukibot-v7-webui[server]==7.0.0a13",
 ]
 
 [project.scripts]
@@ -70,6 +70,7 @@ build-backend = "uv_build"
 members = ["packages/*", "examples/nonebot-plugin"]
 
 [tool.uv.sources]
+liteyukibot-v7 = { workspace = true }
 liteyukibot-v7-webui = { workspace = true }
 liteyukibot-v7-runtime-astrbot-api = { workspace = true }
 liteyukibot-v7-runtime-nonebot-api = { workspace = true }

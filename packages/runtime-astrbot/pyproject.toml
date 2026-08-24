@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7-runtime-astrbot"
-version = "7.0.0a12"
+version = "7.0.0a13"
 description = "AstrBot platform gateway for the LiteyukiBot v7 broker."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -10,8 +10,8 @@ authors = [
 ]
 dependencies = [
     "h2>=4.4.1,<5",
-    "liteyukibot-v7==7.0.0a12",
-    "liteyukibot-v7-runtime-astrbot-api==7.0.0a12",
+    "liteyukibot-v7==7.0.0a13",
+    "liteyukibot-v7-runtime-astrbot-api==7.0.0a13",
     "AstrBot==4.27.2",
 ]
 

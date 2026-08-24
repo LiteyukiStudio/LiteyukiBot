@@ -4,8 +4,6 @@ import type { WebUiPresentation } from "@/models/api";
 
 const storageKey = "liteyukibot.webui.locale";
 const supportedLocales = ["en-US", "zh-CN"] as const;
-// The presentation endpoint is unavailable on this recovery path, so the
-// browser needs a tiny English fallback rather than showing machine keys.
 const recoveryMessages: Record<string, string> = {
   "webui.error.unavailable": "Local service unavailable",
   "webui.error.unavailable_detail": "The WebUI could not read the running daemon.",

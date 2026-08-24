@@ -1,5 +1,13 @@
 # Changelog
 
+## 7.0.0a13 - Unreleased
+
+- opened the WebUI and LYF TextMate extraction stage;
+- upgraded the WebUI toolchain to the current React, Vite, TypeScript,
+  Tailwind, Lucide, and virtualization dependencies;
+- added the independently governed `@liteyuki/lyf-textmate` package baseline,
+  currently consumed from a fixed Git commit until npm scope access is granted.
+
 ## 7.0.0a12 - 2026-08-22
 
 - migrated LSO-licensed distributions to LSO Common 1.4 while preserving the
@@ -10,7 +18,7 @@
   active/previous retention, artifact collection, daemon restart, and startup
   rollback;
 - added the independently versioned reference NoneBot plugin and external-host
-  E2E verifier. Alpha13 WebUI and TextMate package work remains deferred.
+  E2E verifier; Alpha13 continues the WebUI and TextMate work.
 
 ## 7.0.0b2 - 2026-08-13
 

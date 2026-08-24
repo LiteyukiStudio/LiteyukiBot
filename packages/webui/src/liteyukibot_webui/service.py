@@ -3,24 +3,26 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import hmac
 import importlib
 import inspect
 import json
 import secrets
 import time
+import uuid
 from collections.abc import AsyncIterable, Awaitable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Annotated, Any, Protocol, cast
 from urllib.parse import quote, urlsplit
 
 try:
-    from fastapi import FastAPI, Request
+    from fastapi import FastAPI, File, Query, Request, UploadFile
     from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 except ModuleNotFoundError:
     FastAPI = None  # type: ignore[misc,assignment]
-    Request = Any  # type: ignore[misc,assignment]
+    File = Query = Request = UploadFile = Any  # type: ignore[misc,assignment]
     FileResponse = JSONResponse = Response = StreamingResponse = Any  # type: ignore[misc,assignment]
 
 
@@ -36,6 +38,13 @@ _MAX_EVENT_REPLAY = 4096
 _SSE_REAUTHORIZATION_SECONDS = 15.0
 _MAX_EVENT_DELIVERY_FILTER_LENGTH = 256
 _MAX_EVENT_DELIVERY_ID_LENGTH = 256
+_MAX_LOG_QUERY_LENGTH = 128
+_MAX_LOG_LIMIT = 500
+_MAX_SUMMARY_SERIES = 32
+_MAX_PLUGIN_FILTER_LENGTH = 128
+_MAX_PLUGIN_ID_LENGTH = 256
+_MAX_PLUGIN_PAGE_SIZE = 100
+_DEFAULT_UPLOAD_MAX_BYTES = 64 * 1024 * 1024
 
 
 class WebUiUnavailableError(RuntimeError):
@@ -58,6 +67,27 @@ class WebUiServiceError(RuntimeError):
         super().__init__(code)
         self.code = code
         self.status_code = status_code
+
+
+@dataclass(frozen=True, slots=True)
+class WebUiUploadPolicy:
+    """Policy for the generic staging upload endpoint."""
+
+    enabled: bool = False
+    max_bytes: int = _DEFAULT_UPLOAD_MAX_BYTES
+    extensions: tuple[str, ...] = ()
+    media_types: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        """Handle `WebUiUploadPolicy.__post_init__`.
+
+        Returns:
+            Result produced by this callable.
+        """
+        if self.max_bytes <= 0:
+            raise ValueError("upload max_bytes must be positive")
+        if any(not value.startswith(".") or value != value.lower() for value in self.extensions):
+            raise ValueError("upload extensions must be lowercase suffixes")
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,6 +211,77 @@ class WebUiBridge(Protocol):
         """
         ...
 
+    def logs(
+        self, principal: WebUiPrincipal, cursor: str | None, limit: int, level: str | None,
+        component: str | None, query: str,
+    ) -> MaybeAwaitable[JsonObject]:
+        """Handle `WebUiBridge.logs`.
+
+        Args:
+            principal: Input accepted by this callable.
+            cursor: Input accepted by this callable.
+            limit: Input accepted by this callable.
+            level: Input accepted by this callable.
+            component: Input accepted by this callable.
+            query: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
+        ...
+
+    def event_summary(
+        self, principal: WebUiPrincipal, start: str | None, end: str | None, group_by: str,
+    ) -> MaybeAwaitable[JsonObject]:
+        """Handle `WebUiBridge.event_summary`.
+
+        Args:
+            principal: Input accepted by this callable.
+            start: Input accepted by this callable.
+            end: Input accepted by this callable.
+            group_by: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
+        ...
+
+    def topology_graph(self, principal: WebUiPrincipal) -> MaybeAwaitable[JsonObject]:
+        """Handle `WebUiBridge.topology_graph`.
+
+        Args:
+            principal: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
+        ...
+
+    def webui_preferences(self, principal: WebUiPrincipal) -> MaybeAwaitable[JsonObject]:
+        """Handle `WebUiBridge.webui_preferences`.
+
+        Args:
+            principal: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
+        ...
+
+    def update_webui_preferences(
+        self, principal: WebUiPrincipal, request: JsonObject,
+    ) -> MaybeAwaitable[JsonObject]:
+        """Handle `WebUiBridge.update_webui_preferences`.
+
+        Args:
+            principal: Input accepted by this callable.
+            request: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
+        ...
+
     def operation_catalog(self, principal: WebUiPrincipal) -> MaybeAwaitable[JsonObject]:
         """Implement the operation catalog operation for the web ui bridge.
 
@@ -252,6 +353,80 @@ class WebUiBridge(Protocol):
 
         Returns:
             The `MaybeAwaitable[JsonObject]` result produced by the operation.
+        """
+        ...
+
+    def plugin_discovery(
+        self,
+        principal: WebUiPrincipal,
+        query: str,
+        source_id: str | None,
+        runtime_kind: str | None,
+        status: str | None,
+        refresh: bool,
+        cursor: str | None,
+        limit: int,
+    ) -> MaybeAwaitable[JsonObject]:
+        """Return bounded, server-side plugin discovery results.
+
+        Args:
+            principal: Input accepted by this callable.
+            query: Input accepted by this callable.
+            source_id: Input accepted by this callable.
+            runtime_kind: Input accepted by this callable.
+            status: Input accepted by this callable.
+            refresh: Input accepted by this callable.
+            cursor: Input accepted by this callable.
+            limit: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
+        ...
+
+    def plugin_targets(self, principal: WebUiPrincipal) -> MaybeAwaitable[JsonObject]:
+        """Return configured managed plugin targets and generation summaries.
+
+        Args:
+            principal: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
+        ...
+
+    def plugin_preview(
+        self,
+        principal: WebUiPrincipal,
+        bundle_id: str,
+        source_id: str,
+        target_id: str,
+    ) -> MaybeAwaitable[JsonObject]:
+        """Return digest-bound metadata for one target-specific install preview.
+
+        Args:
+            principal: Input accepted by this callable.
+            bundle_id: Input accepted by this callable.
+            source_id: Input accepted by this callable.
+            target_id: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
+        ...
+
+    def plugin_details(
+        self, principal: WebUiPrincipal, bundle_id: str, source_id: str
+    ) -> MaybeAwaitable[JsonObject]:
+        """Handle `WebUiBridge.plugin_details`.
+
+        Args:
+            principal: Input accepted by this callable.
+            bundle_id: Input accepted by this callable.
+            source_id: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
         """
         ...
 
@@ -563,22 +738,38 @@ def create_app(
     asset_directory: Path | None = None,
     session_idle_seconds: int = 1800,
     session_max_seconds: int = 28800,
+    require_auth: bool = True,
+    upload_staging_directory: Path | None = None,
+    upload_policy: WebUiUploadPolicy | None = None,
 ) -> Any:
     """Create an authenticated, loopback-only ASGI application around a daemon bridge.
 
     Args:
-        bridge: The bridge value used by the operation.
-        asset_directory: The asset directory value used by the operation.
-        session_idle_seconds: Configured session idle duration, in seconds.
-        session_max_seconds: Configured session max duration, in seconds.
+        bridge: Input accepted by this callable.
+        asset_directory: Input accepted by this callable.
+        session_idle_seconds: Input accepted by this callable.
+        session_max_seconds: Input accepted by this callable.
+        require_auth: Input accepted by this callable.
+        upload_staging_directory: Input accepted by this callable.
+        upload_policy: Input accepted by this callable.
 
     Returns:
-        Values yielded by the operation.
+        Result produced by this callable.
     """
     _load_web_dependencies()
     assets = _asset_directory(asset_directory)
     sessions = _SessionStore(idle_seconds=session_idle_seconds, maximum_seconds=session_max_seconds)
+    upload_root = upload_staging_directory.resolve() if upload_staging_directory is not None else None
+    policy = upload_policy or WebUiUploadPolicy()
+    if upload_root is not None:
+        upload_root.mkdir(parents=True, exist_ok=True)
     app = FastAPI(title="LiteyukiBot WebUI", docs_url=None, redoc_url=None, openapi_url=None)
+    development_session = _Session(
+        WebUiPrincipal("webui-development", frozenset({"liteyukibot.management.admin"})),
+        secrets.token_urlsafe(32),
+        time.monotonic(),
+        time.monotonic(),
+    )
 
     @app.middleware("http")
     async def loopback_policy(request: Request, call_next: Any) -> Any:
@@ -622,6 +813,12 @@ def create_app(
             `compare_digest`, `_await`, `authorize_session` while keeping intermediate state local to the
             owning operation.
         """
+        if not require_auth:
+            if csrf and not hmac.compare_digest(
+                request.headers.get("x-csrf-token", ""), development_session.csrf_token
+            ):
+                raise WebUiServiceError("webui.csrf_required", 403)
+            return development_session
         identifier = request.cookies.get(_COOKIE_NAME)
         session = sessions.get(identifier, touch=touch)
         if session is None:
@@ -690,6 +887,8 @@ def create_app(
             Internal implementation detail for `create_app.redeem_ticket`. It delegates to `json`, `invoke`,
             `redeem_ticket`, `create` while keeping intermediate state local to the owning operation.
         """
+        if not require_auth:
+            return JSONResponse({"csrf_token": development_session.csrf_token})
         try:
             payload = await request.json()
         except json.JSONDecodeError as error:
@@ -758,6 +957,58 @@ def create_app(
         session = await authenticated(request)
         return await invoke(bridge.bootstrap(session.principal))
 
+    @app.post("/api/v1/files", status_code=201)
+    async def upload_file(request: Request, file: Annotated[UploadFile, File(...)]) -> JsonObject:
+        """Handle `create_app.upload_file`.
+
+        Args:
+            request: Input accepted by this callable.
+            file: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
+        session = await authenticated(request, csrf=True)
+        del session
+        if not policy.enabled or upload_root is None:
+            raise WebUiServiceError("webui.uploads_disabled", 404)
+        filename = Path(file.filename or "upload.bin").name
+        suffix = Path(filename).suffix.lower()
+        if policy.extensions and suffix not in policy.extensions:
+            raise WebUiServiceError("webui.upload_type_not_allowed", 415)
+        if policy.media_types and file.content_type not in policy.media_types:
+            raise WebUiServiceError("webui.upload_media_type_not_allowed", 415)
+        file_id = f"file_{uuid.uuid4().hex}"
+        destination = upload_root / file_id
+        temporary = upload_root / f".{file_id}.tmp"
+        digest = hashlib.sha256()
+        size = 0
+        try:
+            with temporary.open("xb") as output:
+                while chunk := await file.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > policy.max_bytes:
+                        raise WebUiServiceError("webui.upload_too_large", 413)
+                    digest.update(chunk)
+                    output.write(chunk)
+            temporary.replace(destination)
+        except WebUiServiceError:
+            temporary.unlink(missing_ok=True)
+            raise
+        except OSError as error:
+            temporary.unlink(missing_ok=True)
+            raise WebUiServiceError("webui.upload_failed", 500) from error
+        finally:
+            await file.close()
+        return {
+            "id": file_id,
+            "name": filename,
+            "size": size,
+            "media_type": file.content_type or "",
+            "sha256": digest.hexdigest(),
+            "state": "staged",
+        }
+
     @app.get("/api/v1/presentation")
     async def presentation(request: Request, locale: str | None = None) -> JsonObject:
         """Implement the presentation operation for the create app.
@@ -796,6 +1047,142 @@ def create_app(
         """
         session = await authenticated(request)
         return await invoke(bridge.snapshot(session.principal))
+
+    @app.get("/api/v1/logs")
+    async def logs(
+        request: Request, cursor: str | None = None, limit: int = 100, level: str | None = None,
+        component: str | None = None, query: str = ""
+    ) -> JsonObject:
+        """Handle `create_app.logs`.
+
+        Args:
+            request: Input accepted by this callable.
+            cursor: Input accepted by this callable.
+            limit: Input accepted by this callable.
+            level: Input accepted by this callable.
+            component: Input accepted by this callable.
+            query: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
+        session = await authenticated(request)
+        if not 1 <= limit <= _MAX_LOG_LIMIT:
+            raise WebUiServiceError("webui.invalid_page_size", 400)
+        if cursor is not None and (not cursor.isdigit() or len(cursor) > 12):
+            raise WebUiServiceError("webui.invalid_log_cursor", 400)
+        if len(query) > _MAX_LOG_QUERY_LENGTH or (component is not None and len(component) > _MAX_LOG_QUERY_LENGTH):
+            raise WebUiServiceError("webui.invalid_log_filter", 400)
+        if level is not None and level not in {"debug", "info", "warning", "error", "critical"}:
+            raise WebUiServiceError("webui.invalid_log_level", 400)
+        return await invoke(bridge.logs(session.principal, cursor, limit, level, component, query))
+
+    @app.get("/api/v1/events/summary")
+    async def event_summary(
+        request: Request, from_: str | None = Query(default=None, alias="from"),
+        to: str | None = None, group_by: str = "status"
+    ) -> JsonObject:
+        """Handle `create_app.event_summary`.
+
+        Args:
+            request: Input accepted by this callable.
+            from_: Input accepted by this callable.
+            to: Input accepted by this callable.
+            group_by: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
+        session = await authenticated(request)
+        if from_ is not None and len(from_) > 64 or to is not None and len(to) > 64:
+            raise WebUiServiceError("webui.invalid_event_window", 400)
+        if group_by not in {"status", "topic"}:
+            raise WebUiServiceError("webui.invalid_event_group", 400)
+        return await invoke(bridge.event_summary(session.principal, from_, to, group_by))
+
+    @app.get("/api/v1/topology/graph")
+    async def topology_graph(request: Request) -> JsonObject:
+        """Handle `create_app.topology_graph`.
+
+        Args:
+            request: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
+        session = await authenticated(request)
+        return await invoke(bridge.topology_graph(session.principal))
+
+    @app.get("/api/v1/preferences")
+    async def webui_preferences(request: Request) -> JsonObject:
+        """Handle `create_app.webui_preferences`.
+
+        Args:
+            request: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
+        session = await authenticated(request)
+        return await invoke(bridge.webui_preferences(session.principal))
+
+    @app.put("/api/v1/preferences")
+    async def update_webui_preferences(request: Request) -> JsonObject:
+        """Handle `create_app.update_webui_preferences`.
+
+        Args:
+            request: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
+        session = await authenticated(request, csrf=True)
+        try:
+            payload = await request.json()
+        except json.JSONDecodeError as error:
+            raise WebUiServiceError("webui.invalid_request", 400) from error
+        if not isinstance(payload, dict):
+            raise WebUiServiceError("webui.invalid_request", 400)
+        return await invoke(bridge.update_webui_preferences(session.principal, cast(JsonObject, payload)))
+
+    @app.get("/api/v1/plugins/followed")
+    async def followed_plugins(request: Request) -> JsonObject:
+        """Handle `create_app.followed_plugins`.
+
+        Args:
+            request: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
+        session = await authenticated(request)
+        return await invoke(bridge.webui_preferences(session.principal))
+
+    @app.put("/api/v1/plugins/followed")
+    async def update_followed_plugins(request: Request) -> JsonObject:
+        """Handle `create_app.update_followed_plugins`.
+
+        Args:
+            request: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
+        session = await authenticated(request, csrf=True)
+        try:
+            payload = await request.json()
+        except json.JSONDecodeError as error:
+            raise WebUiServiceError("webui.invalid_request", 400) from error
+        if not isinstance(payload, dict) or not isinstance(payload.get("followed"), list):
+            raise WebUiServiceError("webui.invalid_request", 400)
+        followed = payload["followed"]
+        if len(followed) > 1000 or any(
+            not isinstance(item, str) or not item or len(item) > _MAX_PLUGIN_ID_LENGTH for item in followed
+        ):
+            raise WebUiServiceError("webui.invalid_plugin_followed", 400)
+        return await invoke(
+            bridge.update_webui_preferences(session.principal, cast(JsonObject, {"followed": followed}))
+        )
 
     @app.get("/api/v1/operations/catalog")
     async def operation_catalog(request: Request) -> JsonObject:
@@ -919,6 +1306,119 @@ def create_app(
         """
         session = await authenticated(request)
         return await invoke(bridge.plugin_surfaces(session.principal))
+
+    @app.get("/api/v1/plugins/discovery")
+    async def plugin_discovery(
+        request: Request,
+        query: str = "",
+        source_id: str | None = None,
+        runtime_kind: str | None = None,
+        status: str | None = None,
+        refresh: bool = False,
+        cursor: str | None = None,
+        limit: int = 50,
+    ) -> JsonObject:
+        """Return bounded server-side plugin discovery results.
+
+        Args:
+            request: Input accepted by this callable.
+            query: Input accepted by this callable.
+            source_id: Input accepted by this callable.
+            runtime_kind: Input accepted by this callable.
+            status: Input accepted by this callable.
+            refresh: Input accepted by this callable.
+            cursor: Input accepted by this callable.
+            limit: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
+        session = await authenticated(request)
+        if len(query) > _MAX_PLUGIN_FILTER_LENGTH:
+            raise WebUiServiceError("webui.invalid_plugin_filter", 400)
+        for value in (source_id, runtime_kind, status):
+            if value is not None and (not value or len(value) > _MAX_PLUGIN_FILTER_LENGTH):
+                raise WebUiServiceError("webui.invalid_plugin_filter", 400)
+        if status is not None and status not in {"active", "yanked", "all"}:
+            raise WebUiServiceError("webui.invalid_plugin_status", 400)
+        if cursor is not None and (not cursor.isdigit() or len(cursor) > 12):
+            raise WebUiServiceError("webui.invalid_plugin_cursor", 400)
+        if not 1 <= limit <= _MAX_PLUGIN_PAGE_SIZE:
+            raise WebUiServiceError("webui.invalid_page_size", 400)
+        return await invoke(
+            bridge.plugin_discovery(
+                session.principal,
+                query,
+                source_id,
+                runtime_kind,
+                status,
+                refresh,
+                cursor,
+                limit,
+            )
+        )
+
+    @app.get("/api/v1/plugins/targets")
+    async def plugin_targets(request: Request) -> JsonObject:
+        """Return configured managed plugin targets.
+
+        Args:
+            request: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
+        session = await authenticated(request)
+        return await invoke(bridge.plugin_targets(session.principal))
+
+    @app.get("/api/v1/plugins/preview/{bundle_id}")
+    async def plugin_preview(
+        request: Request,
+        bundle_id: str,
+        source_id: str | None = None,
+        target_id: str | None = None,
+    ) -> JsonObject:
+        """Return a target-specific, digest-bound plugin install preview.
+
+        Args:
+            request: Input accepted by this callable.
+            bundle_id: Input accepted by this callable.
+            source_id: Input accepted by this callable.
+            target_id: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
+        session = await authenticated(request)
+        if not bundle_id or len(bundle_id) > _MAX_PLUGIN_ID_LENGTH:
+            raise WebUiServiceError("webui.invalid_plugin_id", 400)
+        if source_id is None or not source_id or len(source_id) > _MAX_PLUGIN_FILTER_LENGTH:
+            raise WebUiServiceError("webui.invalid_plugin_source", 400)
+        if target_id is None or not target_id or len(target_id) > _MAX_PLUGIN_FILTER_LENGTH:
+            raise WebUiServiceError("webui.plugin_target_required", 400)
+        return await invoke(bridge.plugin_preview(session.principal, bundle_id, source_id, target_id))
+
+    @app.get("/api/v1/plugins/details/{bundle_id}")
+    async def plugin_details(request: Request, bundle_id: str, source_id: str | None = None) -> JsonObject:
+        """Handle `create_app.plugin_details`.
+
+        Args:
+            request: Input accepted by this callable.
+            bundle_id: Input accepted by this callable.
+            source_id: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
+        session = await authenticated(request)
+        if (
+            not bundle_id
+            or len(bundle_id) > _MAX_PLUGIN_ID_LENGTH
+            or not source_id
+            or len(source_id) > _MAX_PLUGIN_FILTER_LENGTH
+        ):
+            raise WebUiServiceError("webui.invalid_plugin_id", 400)
+        return await invoke(bridge.plugin_details(session.principal, bundle_id, source_id))
 
     @app.get("/api/v1/lyf/resources")
     async def lyf_resources(request: Request) -> JsonObject:
@@ -1108,19 +1608,25 @@ class WebUiServer:
         asset_directory: Path | None = None,
         session_idle_seconds: int = 1800,
         session_max_seconds: int = 28800,
+        require_auth: bool = True,
+        upload_staging_directory: Path | None = None,
+        upload_policy: WebUiUploadPolicy | None = None,
     ) -> None:
         """Initialize the web ui server.
 
         Args:
-            bridge: The bridge value used by the operation.
-            host: The host value used by the operation.
-            port: The port value used by the operation.
-            asset_directory: The asset directory value used by the operation.
-            session_idle_seconds: Configured session idle duration, in seconds.
-            session_max_seconds: Configured session max duration, in seconds.
+            bridge: Input accepted by this callable.
+            host: Input accepted by this callable.
+            port: Input accepted by this callable.
+            asset_directory: Input accepted by this callable.
+            session_idle_seconds: Input accepted by this callable.
+            session_max_seconds: Input accepted by this callable.
+            require_auth: Input accepted by this callable.
+            upload_staging_directory: Input accepted by this callable.
+            upload_policy: Input accepted by this callable.
 
         Returns:
-            None.
+            Result produced by this callable.
         """
         if host not in {"127.0.0.1", "::1"}:
             raise ValueError("WebUI server must bind a loopback address")
@@ -1129,11 +1635,15 @@ class WebUiServer:
         self.host = host
         self.port = port
         self._bridge = bridge
+        self.require_auth = require_auth
         self.app = create_app(
             bridge,
             asset_directory=asset_directory,
             session_idle_seconds=session_idle_seconds,
             session_max_seconds=session_max_seconds,
+            require_auth=require_auth,
+            upload_staging_directory=upload_staging_directory,
+            upload_policy=upload_policy,
         )
         self._server: Any = None
         self._task: asyncio.Task[None] | None = None
@@ -1172,12 +1682,14 @@ class WebUiServer:
         """
         if self._server is None:
             await self.start()
+        if not self.require_auth:
+            return self.handoff_url()
         ticket = await _await(self._bridge.issue_ticket())
         if not ticket:
             raise WebUiServiceError("webui.ticket_unavailable", 503)
         return self.handoff_url(ticket)
 
-    def handoff_url(self, ticket: str) -> str:
+    def handoff_url(self, ticket: str | None = None) -> str:
         """Build a browser-only ticket handoff URL without placing it in an HTTP request.
 
         Args:
@@ -1186,9 +1698,10 @@ class WebUiServer:
         Returns:
             The `str` result produced by the operation.
         """
-        if not ticket:
+        if self.require_auth and not ticket:
             raise ValueError("WebUI ticket must not be empty")
-        return f"http://{self._url_host()}:{self.port}/#ticket={quote(ticket, safe='')}"
+        fragment = f"#ticket={quote(ticket, safe='')}" if ticket else ""
+        return f"http://{self._url_host()}:{self.port}/{fragment}"
 
     def status(self) -> JsonObject:
         """Return a redacted, JSON-safe server lifecycle snapshot for daemon control.
@@ -1197,7 +1710,7 @@ class WebUiServer:
             The requested `JsonObject` value.
         """
         state = "running" if self._server is not None and self._server.started else "stopped"
-        return {"state": state, "host": self.host, "port": self.port}
+        return {"state": state, "host": self.host, "port": self.port, "auth_required": self.require_auth}
 
     async def stop(self) -> None:
         """Stop the web ui server and release its owned resources.
@@ -1233,6 +1746,7 @@ __all__ = [
     "WebUiEventReplay",
     "WebUiPrincipal",
     "WebUiServer",
+    "WebUiUploadPolicy",
     "WebUiServiceError",
     "WebUiUnavailableError",
     "create_app",

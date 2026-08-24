@@ -6,11 +6,11 @@ on:
       release_tag:
         description: Immutable Alpha GitHub Release tag
         required: true
-        default: v7.0.0a12
+        default: v7.0.0a13
       release_version:
         description: Python version encoded in the release wheel filenames
         required: true
-        default: 7.0.0a12
+        default: 7.0.0a13
       index_url:
         description: Public schema-2 plugin index URL
         required: true

@@ -3,7 +3,7 @@ import { CircleAlert, Filter, LoaderCircle, RefreshCw, Route, Server, X } from "
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -89,17 +89,17 @@ export function EventDeliveriesView({ initial, api, reloadInitial }: EventDelive
     </section>
     <SurfaceCard>
       <CardHeader className="flex-row items-center justify-between gap-4 px-5 pt-5">
-        <div className="min-w-0"><CardTitle className="text-sm font-semibold">{t("webui.event_delivery.title")}</CardTitle><p className="mt-1 text-xs text-muted-foreground">{t("webui.event_delivery.retention")}</p></div>
-        <Button variant="outline" size="icon" onClick={refresh} aria-label={t("webui.action.refresh")}><RefreshCw size={15} /></Button>
+        <div className="min-w-0"><h2 className="text-sm font-semibold">{t("webui.event_delivery.title")}</h2><p className="mt-1 text-xs text-muted-foreground">{t("webui.event_delivery.retention")}</p></div>
+        <Button variant="outline" className="ly-icon-button" size="icon" onClick={refresh} aria-label={t("webui.action.refresh")}><RefreshCw size={15} /></Button>
       </CardHeader>
       <CardContent className="space-y-4 px-5 pb-5">
         <form className="grid gap-2 md:grid-cols-6" onSubmit={applyFilters}>
-          <label className="grid gap-1 text-xs text-muted-foreground"><span>{t("webui.event_delivery.filter.state")}</span><select value={filters.state ?? ""} onChange={(event) => setFilters((current) => ({ ...current, state: event.target.value || undefined }))} className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm text-foreground"><option value="">{t("webui.event_delivery.filter.any")}</option>{stateOptions.slice(1).map((state) => <option key={state} value={state}>{state}</option>)}</select></label>
+          <label className="grid gap-1 text-xs text-muted-foreground"><span>{t("webui.event_delivery.filter.state")}</span><select value={filters.state ?? ""} onChange={(event) => setFilters((current) => ({ ...current, state: event.target.value || undefined }))} className="ly-select"><option value="">{t("webui.event_delivery.filter.any")}</option>{stateOptions.slice(1).map((state) => <option key={state} value={state}>{state}</option>)}</select></label>
           <FilterInput label={t("webui.event_delivery.filter.topic")} value={filters.topic ?? ""} onChange={(value) => setFilters((current) => ({ ...current, topic: value || undefined }))} />
           <FilterInput label={t("webui.event_delivery.filter.source")} value={filters.source ?? ""} onChange={(value) => setFilters((current) => ({ ...current, source: value || undefined }))} />
           <FilterInput label={t("webui.event_delivery.filter.target")} value={filters.target ?? ""} onChange={(value) => setFilters((current) => ({ ...current, target: value || undefined }))} />
           <FilterInput label={t("webui.event_delivery.filter.failure")} value={filters.failure ?? ""} onChange={(value) => setFilters((current) => ({ ...current, failure: value || undefined }))} />
-          <div className="flex items-end gap-2"><Button type="submit" className="flex-1" size="sm" disabled={loading}><Filter size={14} />{t("webui.event_delivery.filter.apply")}</Button><Button type="button" variant="outline" size="icon" onClick={clearFilters} aria-label={t("webui.event_delivery.filter.clear")}><X size={15} /></Button></div>
+          <div className="flex items-end gap-2"><Button type="submit" className="flex-1 h-[34px]" size="sm" disabled={loading}><Filter size={14} />{t("webui.event_delivery.filter.apply")}</Button><Button type="button" variant="outline" className="ly-icon-button" size="icon" onClick={clearFilters} aria-label={t("webui.event_delivery.filter.clear")}><X size={15} /></Button></div>
         </form>
         {error ? <div className="webui-event-delivery-error"><CircleAlert size={16} /><span>{t("webui.event_delivery.error")}</span><code>{error}</code><Button size="sm" variant="outline" onClick={() => void load(filters)}>{t("webui.action.retry")}</Button></div> : null}
         <div className="flex flex-wrap gap-2 border-y py-3 text-xs text-muted-foreground">{page.broker.bridges.length === 0 ? <span>{t("webui.event_delivery.bridges_empty")}</span> : page.broker.bridges.map((bridge) => <span className="webui-event-delivery-bridge" key={bridge.id}><Server size={13} /><span className="font-mono">{bridge.id}</span><Status value={bridge.session_state ?? bridge.state} /></span>)}</div>
@@ -116,7 +116,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 }
 
 function FilterInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return <label className="grid gap-1 text-xs text-muted-foreground"><span>{label}</span><Input value={value} onChange={(event) => onChange(event.target.value)} /></label>;
+  return <label className="grid gap-1 text-xs text-muted-foreground"><span>{label}</span><Input className="ly-input" value={value} onChange={(event) => onChange(event.target.value)} /></label>;
 }
 
 function Status({ value, code }: { value: string; code?: string }) {

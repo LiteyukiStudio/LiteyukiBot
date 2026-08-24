@@ -45,6 +45,21 @@ def test_workspace_pack_overlays_builtin_language(tmp_path: Path) -> None:
     assert translator.text("wizard.title") == "Custom setup"
 
 
+def test_resource_catalog_reload_replaces_workspace_snapshot(tmp_path: Path) -> None:
+    resources = tmp_path / "resources"
+    pack = _pack(resources, "custom", language="webui.reload=before\n")
+    (resources / "index.json").write_text(json.dumps(["custom"]), encoding="utf-8")
+    catalog = ResourceCatalog.load(tmp_path)
+
+    language = pack / "lang" / "en-US.lang"
+    language.write_text("webui.reload=after\n", encoding="utf-8")
+    write_resource_manifest(pack)
+    catalog.reload(tmp_path)
+
+    translator, _ = Translator.from_resources(catalog, "en-US")
+    assert translator.text("webui.reload") == "after"
+
+
 def test_enabled_package_catalogs_are_readable_and_workspace_remains_last(tmp_path: Path) -> None:
     from liteyukibot_essentials import plugin
 
@@ -143,6 +158,35 @@ def test_resource_pack_exposes_validated_presentation_metadata(tmp_path: Path) -
     assert catalog.pack("presentation").name_key == "presentation.name"
     assert catalog.pack("presentation").description_key == "presentation.description"
     assert catalog.icon("presentation") is not None
+
+
+def test_resource_pack_exposes_declared_kind(tmp_path: Path) -> None:
+    resources = tmp_path / "resources"
+    pack = _pack(resources, "language", language="language.title=Language\n")
+    (pack / "metadata.yml").write_text(
+        "id: language\nname: Language\nversion: 1.0.0\nkind: language\n",
+        encoding="utf-8",
+    )
+    write_resource_manifest(pack)
+    (resources / "index.json").write_text('["language"]', encoding="utf-8")
+
+    catalog = ResourceCatalog.load(tmp_path)
+
+    assert catalog.pack("language").kind == "language"
+
+
+def test_resource_pack_rejects_unknown_kind(tmp_path: Path) -> None:
+    resources = tmp_path / "resources"
+    pack = _pack(resources, "invalid")
+    (pack / "metadata.yml").write_text(
+        "id: invalid\nname: Invalid\nversion: 1.0.0\nkind: other\n",
+        encoding="utf-8",
+    )
+    write_resource_manifest(pack)
+    (resources / "index.json").write_text('["invalid"]', encoding="utf-8")
+
+    with pytest.raises(ResourcePackError, match="kind is unsupported"):
+        ResourceCatalog.load(tmp_path)
 
 
 def test_resource_pack_rejects_non_alpha_icon(tmp_path: Path) -> None:

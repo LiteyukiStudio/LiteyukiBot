@@ -22,10 +22,10 @@ objects. The supervised child-runtime path remains only as historical
 compatibility support.
 
 The default branch is the maintained LiteyukiBot v7 line. The prior v6 line is
-preserved on the `v6` branch. The current source pre-release is the `7.0.0a12`
-Alpha lockstep baseline; it is not yet a PyPI release. Alpha12 activates the
-governed plugin index and bounded managed NoneBot generations. The 72-hour soak
-remains a stable-release gate.
+preserved on the `v6` branch. The current source pre-release is the `7.0.0a13`
+Alpha lockstep baseline; it is not yet a PyPI release. Alpha13 adds the typed
+plugin discovery and managed-generation WebUI plus the LYF TextMate consumer.
+The 72-hour soak remains a stable-release gate.
 
 ## Features
 

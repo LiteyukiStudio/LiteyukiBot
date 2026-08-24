@@ -3,21 +3,35 @@ import type {
   EventDeliveryFilters,
   EventDeliveryPage,
   LyfResourcePage,
+  PluginDiscoveryPage,
+  PluginPreview,
+  PluginDetails,
+  PluginTargetPage,
   JsonObject,
   WebUiOperation,
   WebUiOperationRecord,
   WebUiPresentation,
+  EventSummary,
+  TopologyGraph,
+  WebUiLogsPage,
+  WebUiPreferences,
 } from "@/models/api";
 
 /**
  * Owns the browser session and typed calls to the daemon's same-origin WebUI API.
  *
  * @remarks Mutating requests use the CSRF token issued during initialization. The class intentionally does not
- * persist that token outside memory; authentication remains the daemon's HttpOnly session cookie.
+ * persist that token outside memory; authenticated mode uses the daemon's HttpOnly session cookie,
+ * while the development launcher may use its local development principal.
  */
 export class WebUiApi {
   private csrfToken: string | null = null;
   private initialization: Promise<void> | null = null;
+
+  /** Stable transport error that desktop hosts can map without parsing text. */
+  static isObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
 
   /**
    * Establishes or reuses the browser session.
@@ -79,9 +93,53 @@ export class WebUiApi {
    * @returns Redacted delivery and transition details for the retained event.
    */
   eventDelivery(eventId: string) { return this.request<EventDeliveryDetail>(`/event-deliveries/${encodeURIComponent(eventId)}`); }
+  logs(filters: { cursor?: string; limit?: number; level?: string; component?: string; query?: string } = {}) {
+    const query = new URLSearchParams({ limit: String(filters.limit ?? 100) });
+    for (const [key, value] of Object.entries(filters)) if (value) query.set(key, String(value));
+    return this.request<WebUiLogsPage>(`/logs?${query}`);
+  }
+  eventSummary(groupBy: "status" | "topic" = "status") { return this.request<EventSummary>(`/events/summary?group_by=${groupBy}`); }
+  topologyGraph() { return this.request<TopologyGraph>("/topology/graph"); }
+  preferences() { return this.request<WebUiPreferences>("/preferences"); }
+  updatePreferences(value: WebUiPreferences) { return this.request<WebUiPreferences>("/preferences", { method: "PUT", headers: this.csrfToken ? { "x-csrf-token": this.csrfToken } : {}, body: JSON.stringify(value) }); }
+  followedPlugins() { return this.request<WebUiPreferences>("/plugins/followed"); }
+  updateFollowedPlugins(followed: string[]) { return this.request<WebUiPreferences>("/plugins/followed", { method: "PUT", headers: this.csrfToken ? { "x-csrf-token": this.csrfToken } : {}, body: JSON.stringify({ followed }) }); }
 
   /** @returns Read-only LYF resources and their parser diagnostics. */
   lyfResources() { return this.request<LyfResourcePage>("/lyf/resources"); }
+
+  /**
+   * @param filters - Server-side discovery filters and pagination state.
+   * @returns Bounded plugin metadata; executable artifact bytes never cross this boundary.
+   */
+  pluginDiscovery(filters: {
+    query?: string;
+    sourceId?: string;
+    runtimeKind?: string;
+    status?: "active" | "yanked" | "all";
+    refresh?: boolean;
+    cursor?: string | null;
+    limit?: number;
+  } = {}) {
+    const query = new URLSearchParams({ limit: String(filters.limit ?? 50) });
+    if (filters.query) query.set("query", filters.query);
+    if (filters.sourceId) query.set("source_id", filters.sourceId);
+    if (filters.runtimeKind) query.set("runtime_kind", filters.runtimeKind);
+    if (filters.status) query.set("status", filters.status);
+    if (filters.refresh) query.set("refresh", "true");
+    if (filters.cursor) query.set("cursor", filters.cursor);
+    return this.request<PluginDiscoveryPage>(`/plugins/discovery?${query}`);
+  }
+
+  /** @returns Configured managed plugin targets and safe active/previous generation summaries. */
+  pluginTargets() { return this.request<PluginTargetPage>("/plugins/targets"); }
+
+  /** @returns One digest-bound, target-specific installation preview. */
+  pluginPreview(bundleId: string, sourceId: string, targetId: string) {
+    const query = new URLSearchParams({ source_id: sourceId, target_id: targetId });
+    return this.request<PluginPreview>(`/plugins/preview/${encodeURIComponent(bundleId)}?${query}`);
+  }
+  pluginDetails(bundleId: string, sourceId: string) { return this.request<PluginDetails>(`/plugins/details/${encodeURIComponent(bundleId)}?source_id=${encodeURIComponent(sourceId)}`); }
 
   /**
    * Queues one catalog operation through the daemon's CSRF-protected control plane.
@@ -111,7 +169,11 @@ export class WebUiApi {
     const source = new EventSource("/api/v1/events", { withCredentials: true });
     for (const type of ["snapshot", "ledger_append", "operation", "event_delivery", "heartbeat", "reset"]) {
       source.addEventListener(type, (event) => {
-        try { onEvent(type, JSON.parse((event as MessageEvent<string>).data) as JsonObject); } catch { onError(); }
+        try {
+          const value: unknown = JSON.parse((event as MessageEvent<string>).data);
+          if (!WebUiApi.isObject(value)) throw new Error("webui.invalid_event_payload");
+          onEvent(type, value as JsonObject);
+        } catch { onError(); }
       });
     }
     source.onerror = onError;
@@ -121,9 +183,20 @@ export class WebUiApi {
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const response = await fetch(`/api/v1${path}`, { ...init, credentials: "same-origin", headers: { "content-type": "application/json", ...init.headers } });
     if (!response.ok) {
-      const body = await response.json().catch(() => null) as { error?: { code?: string } } | null;
-      throw new Error(body?.error?.code ?? `webui.request_failed.${response.status}`);
+      const body: unknown = await response.json().catch(() => null);
+      const error = WebUiApi.isObject(body) && WebUiApi.isObject(body.error) ? body.error : null;
+      const code = error && typeof error.code === "string" ? error.code : `webui.request_failed.${response.status}`;
+      throw new WebUiApiError(code, response.status, error && typeof error.message_key === "string" ? error.message_key : code);
     }
-    return response.json() as Promise<T>;
+    const value: unknown = await response.json();
+    if (!WebUiApi.isObject(value)) throw new WebUiApiError("webui.invalid_response", response.status, "webui.error.invalid_response");
+    return value as T;
+  }
+}
+
+export class WebUiApiError extends Error {
+  constructor(public readonly code: string, public readonly status: number, public readonly messageKey = code) {
+    super(code);
+    this.name = "WebUiApiError";
   }
 }

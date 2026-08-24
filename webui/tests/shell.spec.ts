@@ -13,21 +13,43 @@ const bootstrap = {
   },
 };
 
+const topologyGraph = {
+  generation: 7,
+  updated_at: "2026-08-15T03:00:00Z",
+  nodes: [
+    { id: "kernel", kind: "kernel", label: "Liteyuki kernel", state: "ready", metadata: {} },
+    { id: "onebot-primary", kind: "runtime", label: "onebot-primary", state: "ready", metadata: {} },
+  ],
+  edges: [{ id: "kernel-onebot", source: "kernel", target: "onebot-primary", kind: "runtime", state: "ready", metadata: {} }],
+  diagnostics: [],
+};
+
+const preferences = { plugin_layout: "inline", toast_duration: 3000, followed: [] };
+const eventSummary = { window: { from: null, to: null }, totals: {}, series: [], breakdown: [] };
+
 const catalog = { operations: [
   { id: "management.runtime.stop", input_schema: { type: "object", properties: { runtime_id: { type: "string", description: "Runtime identifier" } }, required: ["runtime_id"] }, impact: "high", confirmation: "target", target: "runtime_id", target_input_field: "runtime_id" },
   { id: "management.runtime.restart", input_schema: { type: "object", properties: { runtime_id: { type: "string" } }, required: ["runtime_id"] }, impact: "standard", confirmation: "explicit", target: "runtime_id", target_input_field: "runtime_id" },
+  { id: "management.plugin.install", input_schema: { type: "object", properties: { runtime_id: { type: "string" }, bundle_id: { type: "string" }, source_id: { type: "string" }, expected_index_digest: { type: "string" } }, required: ["runtime_id", "bundle_id"] }, impact: "standard", confirmation: "explicit", target: "runtime_id", target_input_field: "runtime_id" },
+  { id: "management.plugin.update", input_schema: { type: "object", properties: { runtime_id: { type: "string" } }, required: ["runtime_id"] }, impact: "standard", confirmation: "explicit", target: "runtime_id", target_input_field: "runtime_id" },
+  { id: "management.plugin.rollback", input_schema: { type: "object", properties: { runtime_id: { type: "string" } }, required: ["runtime_id"] }, impact: "high", confirmation: "target", target: "runtime_id", target_input_field: "runtime_id" },
+  { id: "management.plugin.enable", input_schema: { type: "object", properties: { runtime_id: { type: "string" }, bundle_id: { type: "string" } }, required: ["runtime_id", "bundle_id"] }, impact: "standard", confirmation: "explicit", target: "runtime_id", target_input_field: "runtime_id" },
+  { id: "management.plugin.disable", input_schema: { type: "object", properties: { runtime_id: { type: "string" }, bundle_id: { type: "string" } }, required: ["runtime_id", "bundle_id"] }, impact: "standard", confirmation: "explicit", target: "runtime_id", target_input_field: "runtime_id" },
+  { id: "management.plugin.uninstall", input_schema: { type: "object", properties: { runtime_id: { type: "string" }, bundle_id: { type: "string" } }, required: ["runtime_id", "bundle_id"] }, impact: "high", confirmation: "target", target: "runtime_id", target_input_field: "runtime_id" },
+  { id: "management.plugin.gc", input_schema: { type: "object", properties: { runtime_id: { type: "string" } }, required: [] }, impact: "high", confirmation: "explicit", target: "kernel", target_input_field: null },
 ] };
 
 const messages = {
   "webui.app.name": "Liteyuki",
   "webui.nav.overview": "Overview", "webui.nav.events": "Event deliveries", "webui.nav.topology": "Topology", "webui.nav.runtimes": "Runtimes", "webui.nav.plugins": "Plugins", "webui.nav.configuration": "Configuration",
-  "webui.header.language": "Language", "webui.header.theme": "Theme", "webui.header.accent": "Accent color", "webui.header.open_navigation": "Open navigation",
+  "webui.header.language": "Language", "webui.header.theme": "Theme", "webui.header.accent": "Accent color", "webui.header.open_navigation": "Open navigation", "webui.locale.en-US": "English", "webui.locale.zh-CN": "Simplified Chinese",
   "webui.theme.system": "System", "webui.theme.light": "Light", "webui.theme.dark": "Dark", "webui.theme.blue": "Blue", "webui.theme.lavender": "Lavender", "webui.theme.cyan": "Cyan",
   "webui.status.ready": "Ready", "webui.status.runtimes": "{active} / {total} runtimes", "webui.action.refresh": "Refresh",
   "webui.overview.healthy": "Healthy", "webui.overview.kernel": "Kernel {state}", "webui.overview.active_runtimes": "Active runtimes: {active} / {total}", "webui.overview.new_operation": "New operation",
   "webui.metric.active_runtimes": "Active runtimes", "webui.metric.configured": "{count} configured", "webui.metric.enabled_plugins": "Enabled plugins", "webui.metric.loaded_generations": "loaded generations", "webui.metric.operation_records": "Operation records", "webui.metric.retained_evidence": "retained evidence", "webui.metric.unresolved_faults": "Unresolved faults", "webui.metric.none_recorded": "none recorded", "webui.metric.requires_review": "requires review",
   "webui.ledger.title": "Operation ledger", "webui.ledger.operation": "Operation", "webui.ledger.state": "State", "webui.ledger.updated": "Updated", "webui.ledger.empty": "No retained operation records.", "webui.runtime.health": "Runtime health", "webui.runtime.empty": "No supervised runtimes.", "webui.audit.recent": "Recent evidence", "webui.audit.empty": "No retained audit records.",
   "webui.runtimes.title": "Supervised runtimes", "webui.runtimes.queue_action": "Queue action", "webui.runtimes.runtime": "Runtime", "webui.runtimes.protocol": "Protocol", "webui.runtimes.activity": "Activity", "webui.plugins.title": "Plugin generations", "webui.plugins.empty": "No plugins are active in this instance.",
+  "webui.plugins.subtitle": "Review metadata and manage isolated runtime generations.", "webui.plugins.refresh": "Refresh indexes", "webui.plugins.views": "Plugin views", "webui.plugins.discover": "Discover", "webui.plugins.managed": "Managed", "webui.plugins.discover_description": "Search bounded sources, inspect trust metadata, and review an exact target before installation.", "webui.plugins.search": "Search", "webui.plugins.search_placeholder": "Search bundle, publisher, or summary", "webui.plugins.source": "Source", "webui.plugins.all_sources": "All sources", "webui.plugins.runtime": "Runtime kind", "webui.plugins.all_runtimes": "All runtimes", "webui.plugins.status": "Release status", "webui.plugins.active": "Active", "webui.plugins.all_statuses": "All statuses", "webui.plugins.yanked": "Yanked", "webui.plugins.target": "Target", "webui.plugins.select_target": "Select a target", "webui.plugins.sources": "Indexes", "webui.plugins.source_unavailable": "Source {source} could not be refreshed.", "webui.plugins.no_results": "No plugin releases match the selected filters.", "webui.plugins.more_results": "More results are available on the server.", "webui.plugins.no_summary": "No publisher summary.", "webui.plugins.unknown_publisher": "Publisher unavailable", "webui.plugins.unknown_license": "License unavailable", "webui.plugins.review_install": "Review install", "webui.plugins.preview_title": "Installation preview", "webui.plugins.preview_description": "Verify the target, source digest, closure, and security boundary before queueing installation.", "webui.plugins.preview_failed": "The installation preview could not be loaded.", "webui.plugins.install": "Queue installation", "webui.plugins.install_queued": "Installation queued", "webui.plugins.install_failed": "Installation could not be queued.", "webui.plugins.operation_missing": "This lifecycle operation is not available to the current session.", "webui.plugins.managed_description": "Inspect active and rollback generations, then queue lifecycle changes through the audit ledger.", "webui.plugins.grade.stable": "Stable", "webui.plugins.grade.experimental": "Experimental", "webui.plugins.grade.mixed": "Mixed", "webui.plugins.grade.available": "Available", "webui.plugins.grade.unavailable": "Unavailable", "webui.plugins.restart_required": "Restart required", "webui.plugins.active_generation": "Active generation", "webui.plugins.previous_generation": "Previous generation", "webui.plugins.lifecycle": "Lifecycle actions", "webui.plugins.lifecycle_description": "Actions remain target-bound and are revalidated by the daemon.", "webui.plugins.bundle": "Bundle", "webui.plugins.no_bundle": "No bundle selected", "webui.plugins.update": "Update", "webui.plugins.enable": "Enable", "webui.plugins.disable": "Disable", "webui.plugins.rollback": "Rollback", "webui.plugins.uninstall": "Uninstall", "webui.plugins.gc": "Collect", "webui.plugins.disabled": "disabled", "webui.plugins.legacy_generation": "Legacy generation without source digest", "webui.plugins.none": "None retained", "webui.plugins.no_targets": "No managed plugin targets are configured.", "webui.plugins.publisher": "Publisher", "webui.plugins.license": "License", "webui.plugins.download": "Download size", "webui.plugins.closure": "Resolved closure", "webui.plugins.capabilities": "Requested capabilities", "webui.plugins.preview_metadata_only": "Only metadata and the exact index digest are shown; artifact bytes stay on the daemon.", "webui.plugins.preview_execution": "Code will execute only inside target {target} after the daemon accepts the operation.", "webui.plugins.state.active": "Active", "webui.plugins.state.yanked": "Yanked", "webui.plugins.state.ready": "Ready", "webui.plugins.state.running": "Running", "webui.plugins.state.starting": "Starting", "webui.plugins.state.enabled": "Enabled", "webui.plugins.state.disabled": "Disabled", "webui.plugins.state.healthy": "Healthy", "webui.plugins.state.experimental": "Experimental", "webui.plugins.state.available": "Available", "webui.plugins.state.configured": "Configured", "webui.plugins.state.unavailable": "Unavailable", "webui.lyf.tokenizing": "Tokenizing selected resource", "webui.lyf.tokenized": "TextMate scopes ready", "webui.lyf.plain_fallback": "Plain-text fallback", "webui.lyf.tokenize_error": "TextMate tokenization failed",
   "webui.topology.kernel": "Kernel", "webui.topology.runtimes": "Runtimes", "webui.topology.plugins": "Plugins", "webui.topology.audit": "Audit", "webui.topology.records": "{count} records", "webui.state.retained": "retained", "webui.state.ready": "Ready", "webui.state.healthy": "Healthy", "webui.state.started": "Started",
   "webui.configuration.title": "Instance configuration", "webui.configuration.instance": "Instance", "webui.configuration.kernel": "Kernel", "webui.configuration.transport": "WebUI transport", "webui.configuration.loopback": "loopback only", "webui.configuration.owner": "Operation owner", "webui.configuration.daemon": "instance daemon",
   "webui.error.unavailable": "Local service unavailable", "webui.error.unavailable_detail": "The WebUI could not read the running daemon.", "webui.action.retry": "Retry", "webui.operation.queued": "Operation queued", "webui.operation.queued_failed": "Operation could not be queued", "webui.operation.description": "Operation input is schema-validated and recorded by the daemon before the worker can execute it.", "webui.operation.confirm_hint": "High-impact operations require the exact target confirmation.", "webui.operation.confirm_target": "Confirm target", "webui.operation.confirm_placeholder": "Type the exact target identifier", "webui.action.cancel": "Cancel", "webui.operation.queue": "Queue operation", "webui.operation.queueing": "Queueing", "webui.operation.enter": "Enter {field}",
@@ -37,7 +59,7 @@ const messages = {
 const zhMessages = {
   ...messages,
   "webui.nav.overview": "概览", "webui.nav.events": "事件投递", "webui.nav.topology": "拓扑", "webui.nav.runtimes": "运行时", "webui.nav.plugins": "插件", "webui.nav.configuration": "配置",
-  "webui.header.language": "语言", "webui.header.theme": "主题", "webui.header.accent": "强调色", "webui.header.open_navigation": "打开导航",
+  "webui.header.language": "语言", "webui.header.theme": "主题", "webui.header.accent": "强调色", "webui.header.open_navigation": "打开导航", "webui.locale.en-US": "英语", "webui.locale.zh-CN": "简体中文",
   "webui.theme.system": "跟随系统", "webui.theme.light": "浅色", "webui.theme.dark": "深色", "webui.theme.blue": "蓝色", "webui.theme.lavender": "薰衣草", "webui.theme.cyan": "青色",
   "webui.status.ready": "就绪", "webui.status.runtimes": "{active} / {total} 个运行时", "webui.action.refresh": "刷新",
   "webui.overview.healthy": "健康", "webui.overview.kernel": "内核 {state}", "webui.overview.active_runtimes": "活跃运行时：{active} / {total}", "webui.overview.new_operation": "新建操作",
@@ -62,6 +84,33 @@ const eventDeliveryDetail = {
   timeline: [{ at: "2026-08-15T03:00:00Z", phase: "admission", state: "admitted" }, { at: "2026-08-15T03:00:01Z", phase: "delivery", state: "delivered", target: "nonebot" }],
 };
 
+const pluginDiscovery = {
+  query: "",
+  filters: { source_id: null, runtime_kind: null, status: "active" },
+  sources: [{ id: "official", priority: 0, official: true, url: "https://example.invalid/index.json", cache_state: "cached", digest: "a".repeat(64) }],
+  items: [{ bundle_id: "example.echo", version: "1.2.0", display_name: "Example Echo", summary: "A test plugin", publisher: { id: "example", name: "Example Publisher", url: "https://example.invalid/publisher" }, license: { expression: "MIT" }, status: "active", yanked_reason: null, runtime_kinds: ["onebot"], requested_capabilities: ["runtime.events.receive"], dependencies: [], repository: "https://example.invalid/repository", homepage: null, download_bytes: 128, download_bytes_exact: true, source: "official", source_priority: 0, official: true, index_digest: "a".repeat(64) }],
+  next_cursor: null,
+  total: 1,
+  diagnostics: [],
+};
+
+const pluginTargets = {
+  items: [{ id: "onebot-primary", kind: "onebot", target_type: "bridge", state: "ready", support_grade: "stable", active_generation: null, previous_generation: null, enabled_bundle_set: [], restart_required: false }],
+  limit: 1,
+};
+
+const pluginPreview = {
+  source: pluginDiscovery.sources[0],
+  index_digest: "a".repeat(64),
+  selected_target: { id: "onebot-primary", kind: "onebot", support_grade: "stable" },
+  bundle: pluginDiscovery.items[0],
+  resolved_closure: [pluginDiscovery.items[0]],
+  requested_capabilities: ["runtime.events.receive"],
+  download_bytes: 128,
+  download_bytes_exact: true,
+  security: { execution_boundary: "selected_runtime", artifact_bytes_exposed: false, load_plan_exposed: false, credentials_exposed: false },
+};
+
 async function mockDaemon(page: Page, onSubmit?: (body: unknown) => void, ledgerItems?: unknown[]) {
   await page.route("**/api/v1/**", async (route) => {
     const url = new URL(route.request().url());
@@ -72,9 +121,15 @@ async function mockDaemon(page: Page, onSubmit?: (body: unknown) => void, ledger
       return route.fulfill({ contentType: "application/json", body: JSON.stringify({ locale, locales: ["en-US", "zh-CN"], messages: locale === "zh-CN" ? zhMessages : messages, webui_version: "1.0.0" }) });
     }
     if (path.endsWith("/bootstrap") || path.endsWith("/snapshot")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(bootstrap) });
+    if (path.endsWith("/topology/graph")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(topologyGraph) });
+    if (path.endsWith("/preferences") || path.endsWith("/plugins/followed")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(preferences) });
     if (path.endsWith("/operations/catalog")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(catalog) });
+    if (path.endsWith("/plugins/discovery")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(pluginDiscovery) });
+    if (path.endsWith("/plugins/targets")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(pluginTargets) });
+    if (path.endsWith("/plugins/preview/example.echo")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(pluginPreview) });
     if (path.endsWith("/ledger")) return route.fulfill({ contentType: "application/json", body: JSON.stringify({ items: ledgerItems ?? [{ id: "op-1", at: "2026-08-15T03:00:00Z", title: "management.runtime.restart", source: "redacted", status: "healthy", detail: "ok" }] }) });
     if (path.endsWith("/audit")) return route.fulfill({ contentType: "application/json", body: JSON.stringify({ items: [] }) });
+    if (path.endsWith("/events/summary")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(eventSummary) });
     if (path.endsWith("/event-deliveries/delivery-1")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(eventDeliveryDetail) });
     if (path.endsWith("/event-deliveries")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(eventDeliveries) });
     if (path.endsWith("/events")) return route.fulfill({ contentType: "text/event-stream", body: "event: heartbeat\ndata: {}\n\n" });
@@ -118,7 +173,10 @@ test("workspaces project live ledger, topology, runtimes, and plugins", async ({
   await page.goto("/#/topology");
   await expect(page.getByText("onebot-primary")).toBeVisible();
   await page.goto("/#/plugins");
-  await expect(page.getByText("Profile", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Discover" })).toBeVisible();
+  await expect(page.getByText("Example Echo", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Managed" }).click();
+  await expect(page.getByLabel("Target")).toHaveValue("onebot-primary");
 });
 
 test("ledger virtualizes large retained record lists", async ({ page }) => {
@@ -173,7 +231,7 @@ test("top bar persists the selected locale and applies the selected theme", asyn
   await page.keyboard.press("Escape");
   await expect(language).toHaveCSS("box-shadow", "none");
   await language.click();
-  await page.getByRole("menuitemradio", { name: "简体中文" }).click();
+  await page.getByRole("menuitemradio", { name: "Simplified Chinese" }).click();
   await expect(page.getByRole("heading", { name: "概览" })).toBeVisible();
   await page.getByRole("button", { name: "主题" }).click();
   await page.getByRole("menuitemradio", { name: "薰衣草" }).click();

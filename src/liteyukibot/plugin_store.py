@@ -655,6 +655,12 @@ class PluginBundle:
     homepage: str | None = None
     status: str = "active"
     yanked_reason: str | None = None
+    project_id: str | None = None
+    description: str | None = None
+    tags: tuple[str, ...] = ()
+    compatibility: tuple[str, ...] = ()
+    gallery: tuple[str, ...] = ()
+    changelog: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         """Validate and normalize the plugin bundle after initialization.
@@ -688,6 +694,19 @@ class PluginBundle:
                 _bounded_string(self.yanked_reason, "plugin yanked reason", 240)
             elif self.yanked_reason is not None:
                 raise PluginStoreError("active plugin release cannot have a yanked reason")
+            if self.project_id is not None:
+                _identifier(self.project_id, "plugin project id", bundle=True)
+            metadata_values = (
+                ("plugin tags", self.tags),
+                ("plugin compatibility", self.compatibility),
+                ("plugin gallery", self.gallery),
+                ("plugin changelog", self.changelog),
+            )
+            for name, values in metadata_values:
+                if len(values) > 64 or any(
+                    not isinstance(item, str) or not item.strip() or len(item) > 2048 for item in values
+                ):
+                    raise PluginStoreError(f"{name} metadata exceeds its bounds")
         elif self.homepage is not None or self.status != "active" or self.yanked_reason is not None:
             raise PluginStoreError("schema-1 plugin bundle cannot contain schema-2 metadata")
 
@@ -740,6 +759,17 @@ class PluginBundle:
                 document["homepage"] = self.homepage
             if self.yanked_reason is not None:
                 document["yanked_reason"] = self.yanked_reason
+            metadata = (
+                ("project_id", self.project_id),
+                ("description", self.description),
+                ("tags", self.tags),
+                ("compatibility", self.compatibility),
+                ("gallery", self.gallery),
+                ("changelog", self.changelog),
+            )
+            for key, value in metadata:
+                if value:
+                    document[key] = list(value) if isinstance(value, tuple) else value
         return document
 
 
@@ -893,6 +923,12 @@ def _schema_two_bundle(
         homepage=bundle["homepage"] if "homepage" in bundle else None,
         status=bundle["status"],
         yanked_reason=bundle["yanked_reason"] if "yanked_reason" in bundle else None,
+        project_id=bundle.get("project_id"),
+        description=bundle.get("description"),
+        tags=tuple(bundle.get("tags", [])),
+        compatibility=tuple(bundle.get("compatibility", [])),
+        gallery=tuple(bundle.get("gallery", [])),
+        changelog=tuple(bundle.get("changelog", [])),
     )
 
 
@@ -926,7 +962,12 @@ def _parse_bundle(raw_bundle: object, position: int, schema: int) -> PluginBundl
         "facets",
     }
     bundle = (
-        _exact_object(raw_bundle, subject, required, {"homepage", "yanked_reason"})
+        _exact_object(
+            raw_bundle,
+            subject,
+            required,
+            {"homepage", "yanked_reason", "project_id", "description", "tags", "compatibility", "gallery", "changelog"},
+        )
         if schema == 2
         else _json_object(raw_bundle, subject)
     )

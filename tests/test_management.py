@@ -133,6 +133,12 @@ async def test_kernel_management_catalog_submits_structured_operation_without_co
         assert restart["input_schema"]["required"] == ["runtime_id"]
         assert restart["target"] == "runtime_id"
         assert restart["confirmation"] == "explicit"
+        install = next(item for item in catalog if item["id"] == "management.plugin.install")
+        assert "expected_index_digest" in install["input_schema"]["properties"]
+        assert {item["id"] for item in catalog} >= {
+            "management.plugin.uninstall",
+            "management.plugin.gc",
+        }
         management.bind_operations(ledger)
         await ledger.start()
         record = await management.submit_structured_operation(

@@ -18,7 +18,7 @@ description: Build, review, or test LiteyukiBot v7's React/Vite WebUI under webu
 
 ## Before Editing
 
-1. Read the changed view, its API model in `webui/src/lib/`, the matching
+1. Read the changed view, its API model in `webui/src/models/`, the matching
    Playwright coverage, and the service contract if the request affects data or
    authorization.
 2. Check `git status -sb`. Create a focused branch for a functional or visual
@@ -35,8 +35,10 @@ description: Build, review, or test LiteyukiBot v7's React/Vite WebUI under webu
   data merely to fill an empty state.
 - Keep text purposeful. A title names a view, a status names current state, and
   a description explains a decision, recovery action, high-impact consequence,
-  or unfamiliar empty state. Remove labels that merely repeat the title or the
-  value beside them.
+  or unfamiliar empty state. Do not add a subtitle merely to restate a title;
+  compact operational and developer test views should omit it when the title
+  already establishes the context. Remove labels that merely repeat the title
+  or the value beside them.
 - Do not put agent prompts, implementation narration, keyboard-shortcut help,
   or other non-user-facing copy in frontend source or i18n catalogs.
 - Empty states and errors must state the actual condition and the available
@@ -81,6 +83,11 @@ description: Build, review, or test LiteyukiBot v7's React/Vite WebUI under webu
 - Use Lucide icons from the installed set. Icon-only controls need an accessible
   name and tooltip. Keep cards at modest radii, preserve desktop/mobile text
   fit, and inspect both layouts for overflow or overlap.
+- The developer test view is a compact control surface: its title is the sole
+  page-level context, and its Sidebar, Inline, and Main-Sidebar layout previews
+  should remain visually consistent with the shell navigation. Selected
+  sub-navigation uses a theme-colored left marker with square left corners and
+  rounded right corners.
 - SeaLantern is a visual reference for restrained elevation and grouping, not a
   dependency or a source of Vue components.
 

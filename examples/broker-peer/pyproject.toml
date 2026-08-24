@@ -5,7 +5,7 @@ description = "Minimal installable LiteyukiBot v7 B7 broker-peer example."
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "liteyukibot-v7>=7.0.0a12,<8",
+    "liteyukibot-v7>=7.0.0a13,<8",
 ]
 
 [project.scripts]
