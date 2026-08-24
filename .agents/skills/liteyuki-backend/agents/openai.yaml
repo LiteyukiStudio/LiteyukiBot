@@ -1,0 +1,4 @@
+interface:
+  display_name: "Liteyuki Backend"
+  short_description: "Build and verify LiteyukiBot v7 backend boundaries."
+  default_prompt: "Use $liteyuki-backend to implement this LiteyukiBot v7 backend change."
