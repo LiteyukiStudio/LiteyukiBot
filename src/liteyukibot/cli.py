@@ -47,7 +47,7 @@ from .plugin_install import PluginInstallationService, PluginInstallPreview
 from .plugin_sources import OFFICIAL_SOURCE_ID, PluginSource, PluginSourceStore
 from .plugin_store import ArtifactStore, RuntimeGenerationStore
 from .profiles import ProfileManifest, ProfileStore
-from .resource_packs import verify_resource_manifest, write_resource_manifest
+from .resource_packs import ResourcePackDeclaration, verify_resource_manifest, write_resource_manifest
 from .terminal import run_local_console, supports_local_console
 
 
@@ -1798,24 +1798,23 @@ async def _run_until_signal(
     try:
         from liteyukibot_webui import resource_pack_declarations
     except ModuleNotFoundError:
-        webui_resource_packs = ()
+        webui_resource_packs: tuple[ResourcePackDeclaration, ...] = ()
     else:
         webui_resource_packs = resource_pack_declarations()
 
-    app_kwargs = {"resource_packs": webui_resource_packs}
     if resource_workspace == ".":
         if runtime_secrets is None:
-            app = LiteyukiApp(settings, **app_kwargs)
+            app = LiteyukiApp(settings, resource_packs=webui_resource_packs)
         else:
-            app = LiteyukiApp(settings, runtime_secrets=runtime_secrets, **app_kwargs)
+            app = LiteyukiApp(settings, runtime_secrets=runtime_secrets, resource_packs=webui_resource_packs)
     elif runtime_secrets is None:
-        app = LiteyukiApp(settings, resource_workspace=str(resource_workspace), **app_kwargs)
+        app = LiteyukiApp(settings, resource_workspace=str(resource_workspace), resource_packs=webui_resource_packs)
     else:
         app = LiteyukiApp(
             settings,
             resource_workspace=str(resource_workspace),
             runtime_secrets=runtime_secrets,
-            **app_kwargs,
+            resource_packs=webui_resource_packs,
         )
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()

@@ -48,6 +48,12 @@ class Bridge:
     async def topology_graph(self, _principal: WebUiPrincipal) -> JsonObject:
         return {"generation": 1, "updated_at": None, "nodes": [], "edges": [], "diagnostics": []}
 
+    async def webui_preferences(self, _principal: WebUiPrincipal) -> JsonObject:
+        return {"plugin_layout": "inline", "toast_duration": 3000}
+
+    async def update_webui_preferences(self, _principal: WebUiPrincipal, request: JsonObject) -> JsonObject:
+        return request
+
     async def operation_catalog(self, _principal: WebUiPrincipal) -> JsonObject:
         return {"operations": ["runtime.restart"]}
 
