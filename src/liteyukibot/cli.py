@@ -163,11 +163,6 @@ def build_parser() -> argparse.ArgumentParser:
     inspect = subcommands.add_parser("inspect", help="read-only resolved module information")
     inspect.add_subparsers(dest="inspect_command", required=True).add_parser("topology")
 
-    runtime = subcommands.add_parser("runtime", help="runtime operations")
-    runtime_commands = runtime.add_subparsers(dest="runtime_command", required=True)
-    runtime_commands.add_parser("list")
-    restart = runtime_commands.add_parser("restart")
-    restart.add_argument("runtime_id")
     web = subcommands.add_parser("web", help="local WebUI operations")
     web_commands = web.add_subparsers(dest="web_command", required=True)
     web_commands.add_parser("open", help="open the local WebUI in the default browser")
@@ -281,8 +276,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "inspect":
             print(json.dumps(LiteyukiApp(settings).topology(discover_plugins=True), ensure_ascii=False, default=str))
             return 0
-        if args.command == "runtime":
-            return asyncio.run(_runtime_command(settings, args.runtime_command, args))
         if args.command == "web":
             return asyncio.run(_web_command(workspace, args))
     except (ConfigurationError, ControlError, LiteyukiError, RuntimeError, ValueError) as error:
@@ -613,11 +606,11 @@ def _plugin_install(args: argparse.Namespace, settings: AppSettings, workspace: 
         The `int` result produced by the operation.
 
     Notes:
-        Internal implementation detail for `_plugin_install`. It delegates to `_configured_runtime`,
+        Internal implementation detail for `_plugin_install`. It delegates to `_configured_target`,
         `_exclusive_workspace`, `install`, `print` while keeping intermediate state local to the owning
         operation.
     """
-    runtime = _configured_runtime(args.runtime_id, settings)
+    runtime = _configured_target(args.runtime_id, settings)
     service = PluginInstallationService(workspace.directory)
     preview = service.preview(args.bundle_id, source_id=args.source_id)
     if not _confirm_plugin_install(preview, confirmed=args.yes):
@@ -651,7 +644,7 @@ def _plugin_rollback(args: argparse.Namespace, settings: AppSettings, workspace:
         Internal implementation detail for `_plugin_rollback`. It delegates to `_exclusive_workspace`,
         `rollback`, `print` while keeping intermediate state local to the owning operation.
     """
-    _configured_runtime(args.runtime_id, settings)
+    _configured_target(args.runtime_id, settings)
     with _exclusive_workspace(workspace):
         deployment = RuntimeGenerationStore(workspace.directory).rollback(args.runtime_id)
     _request_plugin_restart(args, workspace, args.runtime_id, "plugin rollback")
@@ -671,11 +664,11 @@ def _plugin_update(args: argparse.Namespace, settings: AppSettings, workspace: C
         The `int` result produced by the operation.
 
     Notes:
-        Internal implementation detail for `_plugin_update`. It delegates to `_configured_runtime`,
+        Internal implementation detail for `_plugin_update`. It delegates to `_configured_target`,
         `_exclusive_workspace`, `update`, `print` while keeping intermediate state local to the owning
         operation.
     """
-    runtime = _configured_runtime(args.runtime_id, settings)
+    runtime = _configured_target(args.runtime_id, settings)
     with _exclusive_workspace(workspace):
         result = PluginInstallationService(workspace.directory).update(
             runtime_id=args.runtime_id,
@@ -699,11 +692,11 @@ def _plugin_uninstall(args: argparse.Namespace, settings: AppSettings, workspace
         The `int` result produced by the operation.
 
     Notes:
-        Internal implementation detail for `_plugin_uninstall`. It delegates to `_configured_runtime`,
+        Internal implementation detail for `_plugin_uninstall`. It delegates to `_configured_target`,
         `_exclusive_workspace`, `uninstall`, `print` while keeping intermediate state local to the
         owning operation.
     """
-    runtime = _configured_runtime(args.runtime_id, settings)
+    runtime = _configured_target(args.runtime_id, settings)
     with _exclusive_workspace(workspace):
         result = PluginInstallationService(workspace.directory).uninstall(
             args.bundle_id,
@@ -730,11 +723,11 @@ def _plugin_disable(args: argparse.Namespace, settings: AppSettings, workspace: 
         The `int` result produced by the operation.
 
     Notes:
-        Internal implementation detail for `_plugin_disable`. It delegates to `_configured_runtime`,
+        Internal implementation detail for `_plugin_disable`. It delegates to `_configured_target`,
         `_exclusive_workspace`, `disable`, `print` while keeping intermediate state local to the owning
         operation.
     """
-    runtime = _configured_runtime(args.runtime_id, settings)
+    runtime = _configured_target(args.runtime_id, settings)
     with _exclusive_workspace(workspace):
         result = PluginInstallationService(workspace.directory).disable(
             args.bundle_id,
@@ -758,11 +751,11 @@ def _plugin_enable(args: argparse.Namespace, settings: AppSettings, workspace: C
         The `int` result produced by the operation.
 
     Notes:
-        Internal implementation detail for `_plugin_enable`. It delegates to `_configured_runtime`,
+        Internal implementation detail for `_plugin_enable`. It delegates to `_configured_target`,
         `_exclusive_workspace`, `enable`, `print` while keeping intermediate state local to the owning
         operation.
     """
-    runtime = _configured_runtime(args.runtime_id, settings)
+    runtime = _configured_target(args.runtime_id, settings)
     with _exclusive_workspace(workspace):
         result = PluginInstallationService(workspace.directory).enable(
             args.bundle_id,
@@ -802,29 +795,23 @@ def _plugin_gc(args: argparse.Namespace, workspace: ConfigWorkspace) -> int:
     return 0
 
 
-def _configured_runtime(runtime_id: str, settings: AppSettings) -> Any:
-    """Resolve one enabled managed-plugin target across runtime generations and bridges.
+def _configured_target(target_id: str, settings: AppSettings) -> Any:
+    """Resolve one configured Broker bridge managed-plugin target.
 
     Args:
-        runtime_id: Stable target identifier.
+        target_id: Stable target identifier.
         settings: Validated application settings.
 
     Returns:
-        The configured target exposing its runtime `kind`.
+        The configured target exposing its bridge `kind`.
 
     Notes:
-        Runtime and broker-bridge namespaces are checked together because both
-        may own managed generations, but one target ID cannot resolve to both.
+        Generation storage retains its Alpha13 field names until the plugin-manager extraction.
     """
-    runtime = settings.runtimes.get(runtime_id)
-    bridge = settings.broker.bridges.get(runtime_id)
-    if runtime is not None and bridge is not None:
-        raise ValueError(f"plugin target {runtime_id!r} is ambiguous between runtimes and broker bridges")
-    if runtime is None and bridge is None:
-        raise ValueError(f"plugin target {runtime_id!r} is not configured")
-    if runtime is not None and not runtime.enabled:
-        raise ValueError(f"runtime {runtime_id!r} is disabled")
-    return runtime if runtime is not None else bridge
+    bridge = settings.broker.bridges.get(target_id)
+    if bridge is None:
+        raise ValueError(f"plugin target {target_id!r} is not configured")
+    return bridge
 
 
 def _request_plugin_restart(
@@ -1142,12 +1129,7 @@ def _runtime_secrets(
     Notes:
         This helper remains internal to its owning implementation.
     """
-    names = {
-        secret_name
-        for runtime in settings.runtimes.values()
-        if runtime.enabled
-        for secret_name in runtime.secret_env.values()
-    }
+    names: set[str] = set()
     configured_kernel = configured_kernel_bridge(settings)
     if configured_kernel is not None:
         names.add(configured_kernel[1].token_secret)
@@ -1878,51 +1860,6 @@ async def _run_until_signal(
                 loop.remove_signal_handler(signum)
             for signum, previous in fallback_handlers.items():
                 signal.signal(signum, previous)
-
-
-async def _runtime_command(settings: AppSettings, command: str, args: argparse.Namespace) -> int:
-    """Implement the runtime command operation for the component.
-
-    Args:
-        settings: Validated application settings.
-        command: Command or operation name to execute.
-        args: The args value used by the operation.
-
-    Returns:
-        The `int` result produced by the operation.
-
-    Notes:
-        Internal implementation detail for `_runtime_command`. It delegates to `is_file`,
-        `request_control`, `get`, `items` while keeping intermediate state local to the owning
-        operation.
-    """
-    descriptor = settings.core.data_dir / "control.json"
-    if command == "list":
-        if descriptor.is_file():
-            status = await request_control(descriptor, "status")
-            health = status.get("runtime_health", {}) if isinstance(status, dict) else {}
-            if isinstance(health, dict):
-                for runtime_id, snapshot in health.items():
-                    if isinstance(snapshot, dict):
-                        protocol = snapshot.get("protocol")
-                        fields = [str(runtime_id), str(snapshot.get("state")), str(snapshot.get("kind"))]
-                        if protocol is not None:
-                            fields.append(f"v{protocol}")
-                        print("\t".join(fields))
-        else:
-            for runtime_id, runtime in settings.runtimes.items():
-                state = "disabled" if not runtime.enabled else "configured"
-                print(f"{runtime_id}\t{state}")
-        return 0
-    if command == "restart":
-        result: Any = await request_control(
-            descriptor,
-            "runtime.restart",
-            runtime_id=args.runtime_id,
-        )
-        print(json.dumps(result, ensure_ascii=False, default=str))
-        return 0
-    raise RuntimeError(f"unknown runtime command: {command}")
 
 
 async def _web_command(workspace: ConfigWorkspace, args: argparse.Namespace) -> int:

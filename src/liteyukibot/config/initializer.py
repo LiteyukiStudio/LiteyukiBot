@@ -10,7 +10,6 @@ from ..i18n import I18N_SERVICE, Translator
 from ..init_specs import InitFieldKind, InitFieldSpec
 from ..plugins import PluginDefinition, PluginManager
 from ..resource_packs import ResourceCatalog
-from ..runtime import RuntimeCatalog, RuntimePlugin
 from ..services import ServiceKey
 from ..status import KERNEL_STATUS_SERVICE
 
@@ -60,19 +59,11 @@ def build_initialization_plan(
     """
 
     plugin_definitions, plugin_diagnostics = PluginManager.discover_installed()
-    runtime_plugins, runtime_diagnostics = RuntimeCatalog().discover_installed()
-    declarations = tuple((
-        {
-            (declaration.package, declaration.root): declaration
-            for definition in plugin_definitions.values()
-            for declaration in definition.manifest.resource_packs
-        }
-        | {
-            (declaration.package, declaration.root): declaration
-        for plugin in runtime_plugins.values()
-        for declaration in plugin.resource_packs
-        }
-    ).values())
+    declarations = tuple({
+        (declaration.package, declaration.root): declaration
+        for definition in plugin_definitions.values()
+        for declaration in definition.manifest.resource_packs
+    }.values())
     translator, warning = Translator.from_resources(ResourceCatalog.load(".", plugin_packs=declarations), locale)
     data_dir = prompt(translator.text("init.data_dir", "Data directory"), "data")
     cache_dir = prompt(translator.text("init.cache_dir", "Cache directory"), "cache")
@@ -96,7 +87,7 @@ def build_initialization_plan(
         )
     else:
         logging_level, logging_console, logging_json_lines, payload_mode, payload_exclude_runtimes = logging_settings
-    diagnostics = plugin_diagnostics + runtime_diagnostics
+    diagnostics = plugin_diagnostics
     if warning is not None:
         output(f"warning: {warning}")
     for diagnostic in diagnostics:
@@ -104,13 +95,6 @@ def build_initialization_plan(
 
     selected_plugins = _select_plugins(plugin_definitions, prompt=prompt, output=output, translator=translator)
     plugin_config = _collect_plugin_config(selected_plugins, plugin_definitions, prompt=prompt, translator=translator)
-    runtimes, secrets = _select_runtimes(
-        runtime_plugins,
-        prompt=prompt,
-        output=output,
-        secret_prompt=secret_prompt,
-        translator=translator,
-    )
     return InitializationPlan(
         data_dir=data_dir,
         cache_dir=cache_dir,
@@ -121,9 +105,9 @@ def build_initialization_plan(
         payload_exclude_runtimes=payload_exclude_runtimes,
         plugins=selected_plugins,
         plugin_config=plugin_config,
-        runtimes=runtimes,
+        runtimes={},
         runtime_event_routes=(),
-        secrets=secrets,
+        secrets={},
         diagnostics=diagnostics,
     )
 
@@ -305,90 +289,6 @@ def _collect_plugin_config(
         if values:
             config[plugin_id] = values
     return config
-
-
-def _select_runtimes(
-    plugins: Mapping[str, RuntimePlugin],
-    *,
-    prompt: Prompt,
-    output: Output,
-    secret_prompt: SecretPrompt | None,
-    translator: Translator,
-) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
-    """Select runtimes.
-
-    Args:
-        plugins: The plugins value used by the operation.
-        prompt: The prompt value used by the operation.
-        output: The output value used by the operation.
-        secret_prompt: The secret prompt value used by the operation.
-        translator: The translator value used by the operation.
-
-    Returns:
-        The `tuple[dict[str, dict[str, Any]], dict[str, str]]` result produced by the operation.
-
-    Notes:
-        Internal implementation detail for `_select_runtimes`. It delegates to `sorted`, `items`,
-        `output`, `text` while keeping intermediate state local to the owning operation.
-    """
-    runtimes: dict[str, dict[str, Any]] = {}
-    secrets: dict[str, str] = {}
-    for kind, plugin in sorted(plugins.items()):
-        spec = plugin.init_spec
-        if spec is None:
-            output(
-                translator.text(
-                    "init.runtime_missing_spec",
-                    "warning: runtime {kind} has no initialization metadata and was skipped",
-                    kind=kind,
-                )
-            )
-            continue
-        secret_fields = tuple(field for field in spec.fields if field.kind is InitFieldKind.SECRET)
-        if secret_fields and secret_prompt is None:
-            output(
-                translator.text(
-                    "init.runtime_missing_vault",
-                    "runtime {kind} requires the secure vault and was skipped during this initialization",
-                    kind=kind,
-                )
-            )
-            continue
-        if not _confirm(
-            prompt,
-            translator.text("init.enable_runtime", "Enable runtime {kind}", kind=kind),
-            default=False,
-        ):
-            continue
-        runtime_id = spec.default_id
-        if runtime_id in runtimes:
-            raise ValueError(f"runtime initialization id collision: {runtime_id}")
-        options = dict(spec.default_options)
-        options.update(_collect_fields(spec.fields, prompt=prompt, subject=f"Runtime {kind}", translator=translator))
-        secret_env: dict[str, str] = {}
-        if secret_fields:
-            assert secret_prompt is not None
-            for field in secret_fields:
-                secret_name = f"runtime.{runtime_id}.{field.key}"
-                label = _field_label(field, translator)
-                secret_value = secret_prompt(f"Runtime {kind}: {label}")
-                if not secret_value and field.required:
-                    raise ValueError(f"Runtime {kind}: {label} is required")
-                if secret_value:
-                    secrets[secret_name] = secret_value
-                    options[field.key] = secret_name
-                    assert field.secret_environment is not None
-                    secret_env[field.secret_environment] = secret_name
-        runtimes[runtime_id] = {
-            "kind": kind,
-            "enabled": True,
-            "heartbeat_interval_seconds": 10.0,
-            "stale_after_seconds": 30.0,
-            "max_inbound_events": 100,
-            "options": options,
-            "secret_env": secret_env,
-        }
-    return runtimes, secrets
 
 
 def _collect_fields(

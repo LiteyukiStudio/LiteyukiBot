@@ -7,10 +7,9 @@ import pytest
 
 from liteyukibot.config import ConfigWorkspace, load_settings
 from liteyukibot.config.initializer import build_initialization_plan
-from liteyukibot.init_specs import InitFieldKind, InitFieldSpec, PluginInitSpec, RuntimeInitSpec
+from liteyukibot.init_specs import InitFieldKind, InitFieldSpec, PluginInitSpec
 from liteyukibot.plugins import PluginContext, PluginDefinition, PluginManager, PluginManifest
 from liteyukibot.resource_packs import ResourcePackDeclaration
-from liteyukibot.runtime import RuntimeCatalog, RuntimePlugin
 from liteyukibot.services import ServiceKey, ServiceRequirement
 
 _SERVICE = ServiceKey("test.service", 1)
@@ -42,8 +41,9 @@ def _plugin(
     )
 
 
-@pytest.mark.skip(reason="initializer runtime selection is historical; config v5 uses broker bridges")
-def test_initializer_selects_dependencies_and_runtime_routes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_initializer_selects_plugin_dependencies_without_legacy_runtimes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     definitions = {
         "provider": _plugin("provider", provides=(_SERVICE,)),
         "consumer": _plugin(
@@ -59,54 +59,14 @@ def test_initializer_selects_dependencies_and_runtime_routes(tmp_path: Path, mon
             ),
         ),
     }
-    runtimes = {
-        "source": RuntimePlugin(
-            kind="source",
-            command=("source",),
-            init_spec=RuntimeInitSpec(default_id="source"),
-        ),
-        "agent": RuntimePlugin(
-            kind="agent",
-            command=("agent",),
-            init_spec=RuntimeInitSpec(default_id="agent"),
-        ),
-        "secure": RuntimePlugin(
-            kind="secure",
-            command=("secure",),
-            init_spec=RuntimeInitSpec(
-                default_id="secure",
-                fields=(
-                    InitFieldSpec(
-                        key="token",
-                        label="Token",
-                        kind=InitFieldKind.SECRET,
-                        secret_environment="TEST_TOKEN",
-                    ),
-                ),
-            ),
-        ),
-    }
     monkeypatch.setattr(
         PluginManager,
         "discover_installed",
         classmethod(lambda _cls: (definitions, ("plugin 'broken' is unavailable",))),
     )
-    monkeypatch.setattr(
-        RuntimeCatalog,
-        "discover_installed",
-        lambda _self: (runtimes, ("runtime 'broken' is unavailable",)),
-    )
 
     def prompt(label: str, default: str) -> str:
-        if label.startswith("Enable plugin consumer"):
-            return "y"
-        if label.startswith("Enable runtime source"):
-            return "y"
-        if label.startswith("Enable runtime agent"):
-            return "y"
-        if label.startswith("Route messages from source"):
-            return "y"
-        return default
+        return "y" if label.startswith("Enable plugin consumer") else default
 
     output: list[str] = []
     plan = build_initialization_plan(prompt=prompt, output=output.append)
@@ -125,17 +85,16 @@ def test_initializer_selects_dependencies_and_runtime_routes(tmp_path: Path, mon
     settings = load_settings(path, environ={})
     assert plan.plugins == ("provider", "consumer")
     assert settings.plugins.config["consumer"]["language"] == "en"
-    assert set(settings.runtimes) == {"source", "agent"}
-    assert settings.runtime_event_routes[0].target == "agent"
-    assert any("secure vault" in item for item in output)
-
+    assert plan.runtimes == {}
+    assert plan.runtime_event_routes == ()
+    assert plan.secrets == {}
+    assert output == ["warning: plugin 'broken' is unavailable"]
 
 def test_initializer_rejects_unavailable_required_provider(monkeypatch: pytest.MonkeyPatch) -> None:
     definitions = {
         "consumer": _plugin("consumer", requires=(ServiceRequirement(_SERVICE),)),
     }
     monkeypatch.setattr(PluginManager, "discover_installed", classmethod(lambda _cls: (definitions, ())))
-    monkeypatch.setattr(RuntimeCatalog, "discover_installed", lambda _self: ({}, ()))
 
     def prompt(label: str, default: str) -> str:
         return "y" if label.startswith("Enable plugin") else default
@@ -165,7 +124,6 @@ def test_initializer_uses_locale_for_kernel_and_package_metadata(monkeypatch: py
         ),
     }
     monkeypatch.setattr(PluginManager, "discover_installed", classmethod(lambda _cls: (definitions, ())))
-    monkeypatch.setattr(RuntimeCatalog, "discover_installed", lambda _self: ({}, ()))
     prompts: list[str] = []
 
     def prompt(label: str, default: str) -> str:
@@ -184,38 +142,3 @@ def test_initializer_uses_locale_for_kernel_and_package_metadata(monkeypatch: py
         "启用 JSON Lines 日志 [y/N]",
     ]
     assert "Plugin consumer: 默认语言" in prompts
-
-
-def test_initializer_collects_runtime_secrets_without_storing_plaintext(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    runtime = RuntimePlugin(
-        kind="custom",
-        command=("custom",),
-        init_spec=RuntimeInitSpec(
-            default_id="custom",
-            fields=(
-                InitFieldSpec(
-                    key="api_key_secret",
-                    label="API key",
-                    kind=InitFieldKind.SECRET,
-                    required=True,
-                    secret_environment="LITEYUKI_CUSTOM_API_KEY",
-                ),
-            ),
-        ),
-    )
-    monkeypatch.setattr(PluginManager, "discover_installed", classmethod(lambda _cls: ({}, ())))
-    monkeypatch.setattr(RuntimeCatalog, "discover_installed", lambda _self: ({"custom": runtime}, ()))
-
-    plan = build_initialization_plan(
-        prompt=lambda label, default: "y" if label.startswith("Enable runtime") else default,
-        output=lambda _message: None,
-        secret_prompt=lambda _label: "api-value",
-    )
-
-    assert plan.secrets == {"runtime.custom.api_key_secret": "api-value"}
-    assert plan.runtimes["custom"]["options"]["api_key_secret"] == "runtime.custom.api_key_secret"
-    assert plan.runtimes["custom"]["secret_env"] == {
-        "LITEYUKI_CUSTOM_API_KEY": "runtime.custom.api_key_secret"
-    }

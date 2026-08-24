@@ -4,11 +4,13 @@ import hashlib
 import zipfile
 from collections.abc import Mapping
 from pathlib import Path
+from typing import cast
 
 import pytest
 
+from liteyukibot.broker.service import BridgeCatalog, BridgeDefinition, BridgeLauncher, BridgeSupportGrade
 from liteyukibot.cli import main
-from liteyukibot.config import ConfigWorkspace
+from liteyukibot.config import AppSettings, ConfigWorkspace
 from liteyukibot.plugin_install import PluginInstallationService
 from liteyukibot.plugin_sources import PluginSourceStore
 from liteyukibot.plugin_store import (
@@ -18,7 +20,6 @@ from liteyukibot.plugin_store import (
     RuntimeGeneration,
     RuntimeGenerationStore,
 )
-from liteyukibot.runtime import RuntimeCatalog, RuntimePlugin
 
 
 class _Installer:
@@ -27,6 +28,23 @@ class _Installer:
     ) -> dict[str, object]:
         (generation / "payload").mkdir(exist_ok=True)
         return {"modules": sorted(facets), "directories": []}
+
+
+class _BridgeLauncher:
+    def __call__(self, _settings: AppSettings, _bridge_id: str, _token: str) -> None:
+        return None
+
+
+def _install_bridge(monkeypatch: pytest.MonkeyPatch, *, probe_module: str | None = "host") -> None:
+    definition = BridgeDefinition(
+        "v6",
+        BridgeSupportGrade.STABLE,
+        "runtime-v6",
+        cast(BridgeLauncher, _BridgeLauncher()),
+        facet_installer=_Installer(),
+        probe_module=probe_module,
+    )
+    monkeypatch.setattr(BridgeCatalog, "discover", lambda _self: {"v6": definition})
 
 
 def _index(digest: str, *, wheel_digest: str | None = None, dependency_cycle: bool = False) -> PluginIndex:
@@ -102,15 +120,7 @@ def test_installer_resolves_dependencies_and_activates_only_after_materializatio
     archive, digest = _archive(tmp_path)
     index = _index(digest)
     monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: index)
-    monkeypatch.setattr(
-        RuntimeCatalog,
-        "discover",
-        lambda _self: {
-            "v6": RuntimePlugin(
-                "v6", ("python", "-m", "host"), facet_installer=_Installer(), distribution="runtime-v6"
-            )
-        },
-    )
+    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
 
     commands: list[list[str]] = []
@@ -145,15 +155,7 @@ def test_installer_stages_hash_verified_wheels_without_index_resolution(
     wheel, wheel_digest = _wheel(tmp_path)
     index = _index(digest, wheel_digest=wheel_digest)
     monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: index)
-    monkeypatch.setattr(
-        RuntimeCatalog,
-        "discover",
-        lambda _self: {
-            "v6": RuntimePlugin(
-                "v6", ("python", "-m", "host"), facet_installer=_Installer(), distribution="runtime-v6"
-            )
-        },
-    )
+    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
     commands: list[list[str]] = []
 
@@ -225,15 +227,7 @@ def test_failed_environment_creation_does_not_activate_or_retain_generation(
 ) -> None:
     archive, digest = _archive(tmp_path)
     monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: _index(digest))
-    monkeypatch.setattr(
-        RuntimeCatalog,
-        "discover",
-        lambda _self: {
-            "v6": RuntimePlugin(
-                "v6", ("python", "-m", "host"), facet_installer=_Installer(), distribution="runtime-v6"
-            )
-        },
-    )
+    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
 
     def fail(_command: list[str]) -> None:
@@ -256,15 +250,7 @@ def test_failed_generation_probe_keeps_the_previous_runtime_generation(
     archive, digest = _archive(tmp_path)
     index = _index(digest)
     monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: index)
-    monkeypatch.setattr(
-        RuntimeCatalog,
-        "discover",
-        lambda _self: {
-            "v6": RuntimePlugin(
-                "v6", ("python", "-m", "host"), facet_installer=_Installer(), distribution="runtime-v6"
-            )
-        },
-    )
+    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
 
     def run(command: list[str]) -> None:
@@ -277,7 +263,7 @@ def test_failed_generation_probe_keeps_the_previous_runtime_generation(
     monkeypatch.setattr(service.artifacts, "fetch", lambda _artifact: service.artifacts.import_file(archive, digest))
     first = service.install("example.root", runtime_id="legacy", runtime_kind="v6")
 
-    def fail_probe(_path: Path, _runtime: RuntimePlugin) -> None:
+    def fail_probe(_path: Path, _runtime: object) -> None:
         raise PluginStoreError("runtime generation health probe failed")
 
     monkeypatch.setattr(service, "_probe_generation", fail_probe)
@@ -290,18 +276,12 @@ def test_failed_generation_probe_keeps_the_previous_runtime_generation(
     assert [generation.id for generation in store.list_generations("legacy")] == [first.generation.id]
 
 
-def test_installer_rejects_managed_runtime_without_a_python_module_command(
+def test_installer_rejects_bridge_without_a_probe_module(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     archive, digest = _archive(tmp_path)
     monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: _index(digest))
-    monkeypatch.setattr(
-        RuntimeCatalog,
-        "discover",
-        lambda _self: {
-            "v6": RuntimePlugin("v6", ("runtime-host",), facet_installer=_Installer(), distribution="runtime-v6")
-        },
-    )
+    _install_bridge(monkeypatch, probe_module=None)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
 
     def run(command: list[str]) -> None:
@@ -313,7 +293,7 @@ def test_installer_rejects_managed_runtime_without_a_python_module_command(
     service = PluginInstallationService(tmp_path, run=run)
     monkeypatch.setattr(service.artifacts, "fetch", lambda _artifact: service.artifacts.import_file(archive, digest))
 
-    with pytest.raises(PluginStoreError, match="must contain a Python -m module"):
+    with pytest.raises(PluginStoreError, match="does not support managed plugin installation"):
         service.install("example.root", runtime_id="legacy", runtime_kind="v6")
 
     assert RuntimeGenerationStore(tmp_path).active().runtime_generations == {}
@@ -325,15 +305,7 @@ def test_installer_adds_a_root_without_dropping_the_active_generation_set(
     archive, digest = _archive(tmp_path)
     index = _index(digest)
     monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: index)
-    monkeypatch.setattr(
-        RuntimeCatalog,
-        "discover",
-        lambda _self: {
-            "v6": RuntimePlugin(
-                "v6", ("python", "-m", "host"), facet_installer=_Installer(), distribution="runtime-v6"
-            )
-        },
-    )
+    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
     commands: list[list[str]] = []
 
@@ -361,15 +333,7 @@ def test_uninstall_rebuilds_remaining_roots_from_the_generation_snapshot(
     archive, digest = _archive(tmp_path)
     index = _index(digest)
     monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: index)
-    monkeypatch.setattr(
-        RuntimeCatalog,
-        "discover",
-        lambda _self: {
-            "v6": RuntimePlugin(
-                "v6", ("python", "-m", "host"), facet_installer=_Installer(), distribution="runtime-v6"
-            )
-        },
-    )
+    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
 
     def run(command: list[str]) -> None:
@@ -408,15 +372,7 @@ def test_update_rebuilds_the_recorded_root_set_from_its_source(
         return index
 
     monkeypatch.setattr(PluginSourceStore, "fetch", fetch)
-    monkeypatch.setattr(
-        RuntimeCatalog,
-        "discover",
-        lambda _self: {
-            "v6": RuntimePlugin(
-                "v6", ("python", "-m", "host"), facet_installer=_Installer(), distribution="runtime-v6"
-            )
-        },
-    )
+    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
 
     def run(command: list[str]) -> None:
@@ -441,15 +397,7 @@ def test_disable_and_enable_rebuild_the_load_plan_without_fetching_sources(
     archive, digest = _archive(tmp_path)
     index = _index(digest)
     monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: index)
-    monkeypatch.setattr(
-        RuntimeCatalog,
-        "discover",
-        lambda _self: {
-            "v6": RuntimePlugin(
-                "v6", ("python", "-m", "host"), facet_installer=_Installer(), distribution="runtime-v6"
-            )
-        },
-    )
+    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
     commands: list[list[str]] = []
 
@@ -490,15 +438,7 @@ def test_disable_and_uninstall_reject_a_root_required_by_another_root(
     archive, digest = _archive(tmp_path)
     index = _index(digest)
     monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: index)
-    monkeypatch.setattr(
-        RuntimeCatalog,
-        "discover",
-        lambda _self: {
-            "v6": RuntimePlugin(
-                "v6", ("python", "-m", "host"), facet_installer=_Installer(), distribution="runtime-v6"
-            )
-        },
-    )
+    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
 
     def run(command: list[str]) -> None:
@@ -531,15 +471,7 @@ def test_update_preserves_disabled_roots_while_refreshing_the_full_root_set(
         return index
 
     monkeypatch.setattr(PluginSourceStore, "fetch", fetch)
-    monkeypatch.setattr(
-        RuntimeCatalog,
-        "discover",
-        lambda _self: {
-            "v6": RuntimePlugin(
-                "v6", ("python", "-m", "host"), facet_installer=_Installer(), distribution="runtime-v6"
-            )
-        },
-    )
+    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
 
     def run(command: list[str]) -> None:
@@ -568,15 +500,7 @@ def test_uninstalling_the_final_root_deactivates_but_keeps_rollback(
     archive, digest = _archive(tmp_path)
     index = _index(digest)
     monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: index)
-    monkeypatch.setattr(
-        RuntimeCatalog,
-        "discover",
-        lambda _self: {
-            "v6": RuntimePlugin(
-                "v6", ("python", "-m", "host"), facet_installer=_Installer(), distribution="runtime-v6"
-            )
-        },
-    )
+    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
 
     def run(command: list[str]) -> None:

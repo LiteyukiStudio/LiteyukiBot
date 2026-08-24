@@ -7,8 +7,8 @@ legacy supervised-child protocol below. Run the broker with `liteyuki broker
 run`; run a configured bridge with `liteyuki bridge run <bridge-id>`. Bridge
 launchers are discovered from `liteyukibot.bridges`. A bridge process receives
 its configured bridge ID and vault-resolved token from its launcher, constructs
-`BridgeClient`, and registers a `BridgeManifest` using the protocol-6 control
-and business catalogs described by [Broker Peer IPC v6](../specs/runtime-ipc-v6.md).
+`BridgeClient`, and registers a `BridgeManifest` using the protocol-7 control
+and business catalogs described by [Broker Peer IPC v7](../specs/runtime-ipc-v7.md).
 
 Registration declares `full` or `limited` access, literal or single-segment
 dot-separated topic subscriptions, and action `(kind, resource)` or
@@ -94,11 +94,13 @@ platform action, or uses managed plugin projection.
 ## Legacy supervised child runtimes (historical)
 
 The remaining guidance records the former v5 child-supervisor implementation.
-It is retained for existing `RuntimeClient` hosts and the matching example; it
-does not define a B7 broker peer and must not be used for new broker work.
+Its source, test harness, and matching example remain temporarily as migration
+material, but current App, CLI, initializer, daemon, and plugin installation
+paths do not discover or launch it. It does not define a Broker peer and must
+not be used for new work.
 
-Legacy custom runtimes are supervised local subprocesses. Configure an explicit
-command; the supervisor injects authenticated loopback connection values through
+Legacy custom runtimes were supervised local subprocesses. The former
+supervisor injected authenticated loopback connection values through
 `LITEYUKI_RUNTIME_HOST`, `LITEYUKI_RUNTIME_PORT`, `LITEYUKI_RUNTIME_TOKEN`,
 `LITEYUKI_RUNTIME_ID`, `LITEYUKI_RUNTIME_KIND`, and
 `LITEYUKI_RUNTIME_RESTART_COUNT`.
@@ -126,8 +128,8 @@ runtime named by its `runtime_id`.
 
 This historical route model is not a recommendation for AstrBot. The B7
 AstrBot integration is a broker gateway and must not use `kind = "custom"` or
-`runtime_event_routes`. Other legacy compatibility hosts remain subject to the
-old child-runtime contract until they receive a dedicated broker bridge design.
+`runtime_event_routes`. Compatibility hosts must now provide a dedicated Broker
+bridge design.
 
 Configure core-to-child event delivery explicitly:
 
@@ -179,10 +181,11 @@ second response to `dispatch_event()`. Capability names and protocol versions
 are negotiated exactly rather than inferred.
 
 The historical v5 protocol once permitted one explicitly defined kernel
-control request to a child declaring `runtime.controls.execute`. Alpha6 removes
-the Agent-specific Runtime IPC Tool and control models; new Agent controls use
-the Broker Peer IPC v6 `bridge.control.invoke` contract instead. The child
-protocol remains historical and must not be used for a new Agent integration.
+control request to a child declaring `runtime.controls.execute`. Alpha6 removed
+the Agent-specific Runtime IPC Tool and moved Agent controls to the then-current
+Broker Peer IPC v6 `bridge.control.invoke` contract. Current peers use the v7
+contract documented above. The child protocol remains historical and must not
+be used for a new Agent integration.
 Pin the LiteyukiBot version used to build and test any remaining legacy
 runtime.
 

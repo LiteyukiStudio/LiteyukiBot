@@ -421,12 +421,12 @@ def test_inspect_topology_emits_the_resolved_graph(
     assert capsys.readouterr().out.strip() == '{"schema_version": 1, "runtimes": []}'
 
 
-def test_plugin_list_runtime_shows_managed_generation_state(
+def test_plugin_list_target_shows_managed_generation_state(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     from liteyukibot.config import ConfigWorkspace
 
-    ConfigWorkspace(tmp_path).initialize(runtimes={"legacy": {"kind": "v6"}})
+    ConfigWorkspace(tmp_path).initialize()
     generation = RuntimeGeneration(
         "generation-one",
         "legacy",

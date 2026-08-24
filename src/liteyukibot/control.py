@@ -14,7 +14,6 @@ from typing import Any
 MAX_CONTROL_MESSAGE = 64 * 1024
 
 type StatusProvider = Callable[[], Mapping[str, Any]]
-type RuntimeRestarter = Callable[[str], Awaitable[None]]
 type ControlHandler = Callable[[Mapping[str, Any]], Awaitable[Any]]
 
 
@@ -30,7 +29,6 @@ class ControlServer:
         descriptor_path: Path,
         *,
         status_provider: StatusProvider,
-        runtime_restarter: RuntimeRestarter | None = None,
         handlers: Mapping[str, ControlHandler] | None = None,
     ) -> None:
         """Initialize the control server.
@@ -38,7 +36,6 @@ class ControlServer:
         Args:
             descriptor_path: Filesystem path for the descriptor.
             status_provider: The status provider value used by the operation.
-            runtime_restarter: The runtime restarter value used by the operation.
             handlers: The handlers value used by the operation.
 
         Returns:
@@ -46,7 +43,6 @@ class ControlServer:
         """
         self.descriptor_path = descriptor_path
         self.status_provider = status_provider
-        self.runtime_restarter = runtime_restarter
         self.handlers = dict(handlers or {})
         self.token = secrets.token_urlsafe(32)
         self.server: asyncio.Server | None = None
@@ -170,18 +166,11 @@ class ControlServer:
 
         Notes:
             Internal implementation detail for `ControlServer._dispatch`. It delegates to `get`,
-            `status_provider`, `runtime_restarter`, `handler` while keeping intermediate state local to the
-            owning operation.
+            `status_provider`, `handler` while keeping intermediate state local to the owning operation.
         """
         command = request.get("command")
         if command == "status":
             return self.status_provider()
-        if command == "runtime.restart" and self.runtime_restarter is not None:
-            runtime_id = request.get("runtime_id")
-            if not isinstance(runtime_id, str) or not runtime_id:
-                raise ControlError("runtime.restart requires runtime_id")
-            await self.runtime_restarter(runtime_id)
-            return {"runtime_id": runtime_id}
         if isinstance(command, str) and (handler := self.handlers.get(command)) is not None:
             return await handler(request)
         raise ControlError(f"unknown control command: {command}")

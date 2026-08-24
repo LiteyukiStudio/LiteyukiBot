@@ -1,8 +1,8 @@
-# Checked Alpha13 State
+# Checked Alpha13 Baseline And Alpha14 Transition
 
 This is a navigation aid, not a timeless contract. It was checked on
-2026-08-24 at `main` commit `f0d83c65` with source version `7.0.0a13`. Recheck
-the live tree before relying on it.
+2026-08-24 with source version `7.0.0a13`. Recheck the live tree and commit
+before relying on it.
 
 ## Implementation Facts
 
@@ -13,10 +13,13 @@ the live tree before relying on it.
   plugin management, update, configuration, Broker, and the legacy Runtime
   implementation have not yet been split into the planned packages.
 - Broker is implemented under `src/liteyukibot/broker/`, while the old Runtime
-  remains under `src/liteyukibot/runtime/`. `RuntimeSupervisor`,
-  `RuntimeClient`, runtime configuration, CLI paths, DTO names, tests, examples,
-  and runtime-named packages still exist. Do not claim Runtime has been
-  removed or fully replaced by Broker.
+  source remains under `src/liteyukibot/runtime/`. The App, Control, Management,
+  CLI, initializer, daemon, and plugin installer no longer discover, launch, or
+  manage that child-supervisor path. `RuntimeSupervisor`, `RuntimeClient`, the
+  testing harness, compatibility configuration models, historical examples and
+  tests, DTO names, generation storage fields, and runtime-named bridge packages
+  still exist pending the physical-cleanup migration. Do not claim the Runtime
+  source or all Runtime terminology has been removed.
 - `packages/cordis` is an independent Python Cordis host. Current Alpha13
   documentation and code allow Native and Cordis to coexist; first-party
   packages such as permissions and essentials currently expose both Native and

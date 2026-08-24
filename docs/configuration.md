@@ -80,7 +80,7 @@ use `--non-interactive`.
 
 Outside Docker, `ly run` runs a local daemon and opens a local administrator console in its worker when stdin and
 stdout are TTYs. It coexists with normal logs and supports `help`, `status`,
-`runtime list`, `runtime restart <id>`, and runtime-plugin lifecycle commands.
+and managed-plugin lifecycle commands for configured Broker bridge targets.
 `plugin uninstall`, `plugin gc`, and `stop` require a `y/N` confirmation.
 Docker and non-interactive hosts retain signal-only service mode. Successful
 startup logs elapsed `run`-to-READY time in milliseconds with two decimals.
@@ -105,7 +105,7 @@ the healthy worker running.
 liteyuki --instance dev dev status
 liteyuki --instance dev dev topology
 liteyuki --instance dev dev inject --file event.json
-liteyuki --instance dev dev command "runtime restart example"
+liteyuki --instance dev instance restart
 liteyuki --instance dev dev command --yes "stop"
 ~~~
 
@@ -289,17 +289,17 @@ accepted by Alpha6.
 ## Upgrade Material
 
 `config_version = 6` is the current v7 pre-release schema. This is a hard cut:
-the root configuration must declare version 5, and the former `runtimes` and
+the root configuration must declare version 6, and the former `runtimes` and
 `runtime_event_routes` sections are not accepted as broker configuration. A
 legacy `[agent]` section, `runtimes.* kind = "agent"`, and the
 `liteyukibot.agent` native plugin are also rejected with `migration_required`;
 configure an Alpha6 Agent bridge under `broker.bridges.<id>` instead. The
 former Runtime IPC Agent Tool and control messages are removed.
-root configuration with a missing version or a version below 5 is preserved
+root configuration with a missing version or a version below 6 is preserved
 and blocks startup after generating:
 
 - a timestamped, read-only backup under `.liteyuki/config-backups/`;
-- a fresh v5 template under `.liteyuki/config-upgrades/`;
+- a fresh v6 template under `.liteyuki/config-upgrades/`;
 - recovery instructions in that upgrade directory.
 
 The root file is never changed. Generation is idempotent; use `--refresh` only
@@ -312,8 +312,8 @@ uv run liteyuki config upgrade --refresh
 Configurations from a newer schema are rejected without creating backups.
 The saved configuration is usable only with the matching older alpha binary;
 there is no in-place rollback command because the old root was not mutated.
-Broker defaults and bridge manifest fields are defined by the v5 settings model
-and the [Broker Peer IPC v6 specification](specs/runtime-ipc-v6.md).
+Broker defaults and bridge manifest fields are defined by the v6 settings model
+and the [Broker Peer IPC v7 specification](specs/runtime-ipc-v7.md).
 
 ### Broker bridge registry
 

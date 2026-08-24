@@ -60,10 +60,10 @@ second ledger for a daemon-managed instance.
 WebUI mutation requests contain an operation ID, validated JSON input, target,
 idempotency key, and confirmation evidence.  Raw management-command strings
 are not a browser API.  Every catalogued mutation requires an explicit
-confirmation; runtime stop and plugin rollback additionally require the typed
-target to match.  The current WebUI catalog contains runtime start, stop, and
-restart plus plugin install, update, enable, disable, and rollback.  Plugin
-uninstall and garbage collection remain terminal-only in this version.
+confirmation; plugin rollback additionally requires the typed target to match.
+The current WebUI catalog contains plugin install, update, enable, disable, and
+rollback for configured Broker bridge targets. Plugin uninstall and garbage
+collection remain terminal-only in this version.
 
 ## Evidence
 
