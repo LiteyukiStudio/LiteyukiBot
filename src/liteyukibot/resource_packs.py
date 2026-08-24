@@ -400,7 +400,15 @@ class ResourceCatalog:
         *,
         plugin_packs: Iterable[ResourcePackDeclaration] = (),
     ) -> tuple[ResourcePackMetadata, ...]:
-        """Atomically replace this catalog from the current resource roots."""
+        """Atomically replace this catalog from the current resource roots.
+
+        Args:
+            workspace: Input accepted by this callable.
+            plugin_packs: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
         replacement = type(self).load(workspace, plugin_packs=plugin_packs)
         self._packs = replacement._packs
         self._files = replacement._files

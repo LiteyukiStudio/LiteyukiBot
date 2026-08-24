@@ -61,7 +61,18 @@ _MAX_PLUGIN_CLOSURE = 128
 
 
 def _plugin_source_document(source: Any, digest: str | None) -> dict[str, object]:
-    """Project source identity without exposing workspace cache paths."""
+    """Project source identity without exposing workspace cache paths.
+
+    Args:
+        source: Input accepted by this callable.
+        digest: Input accepted by this callable.
+
+    Returns:
+        Result produced by this callable.
+
+    Notes:
+        This helper remains internal to its owning implementation.
+    """
     return {
         "id": source.id,
         "priority": source.priority,
@@ -73,7 +84,17 @@ def _plugin_source_document(source: Any, digest: str | None) -> dict[str, object
 
 
 def _plugin_bundle_document(bundle: PluginBundle) -> dict[str, object]:
-    """Project publisher-controlled bundle metadata as JSON-safe text and counts."""
+    """Project publisher-controlled bundle metadata as JSON-safe text and counts.
+
+    Args:
+        bundle: Input accepted by this callable.
+
+    Returns:
+        Result produced by this callable.
+
+    Notes:
+        This helper remains internal to its owning implementation.
+    """
     inputs = tuple(artifact for facet in bundle.facets for artifact in (*facet.artifacts, *facet.wheels))
     known_bytes = tuple(artifact.bytes for artifact in inputs)
     exact_bytes = tuple(value for value in known_bytes if value is not None)
@@ -105,12 +126,31 @@ def _plugin_bundle_document(bundle: PluginBundle) -> dict[str, object]:
 
 
 def _resolve_plugin_closure(index: PluginIndex, root: str) -> tuple[PluginBundle, ...]:
-    """Resolve one bounded dependency closure in installation order."""
+    """Resolve one bounded dependency closure in installation order.
+
+    Args:
+        index: Input accepted by this callable.
+        root: Input accepted by this callable.
+
+    Returns:
+        Result produced by this callable.
+
+    Notes:
+        This helper remains internal to its owning implementation.
+    """
     visiting: set[str] = set()
     visited: set[str] = set()
     resolved: list[PluginBundle] = []
 
     def visit(bundle_id: str) -> None:
+        """Handle `_resolve_plugin_closure.visit`.
+
+        Args:
+            bundle_id: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
         if bundle_id in visited:
             return
         if bundle_id in visiting:
@@ -130,7 +170,17 @@ def _resolve_plugin_closure(index: PluginIndex, root: str) -> tuple[PluginBundle
 
 
 def _plugin_generation_document(generation: RuntimeGeneration | None) -> dict[str, object] | None:
-    """Project generation identity while excluding load plans and artifact paths."""
+    """Project generation identity while excluding load plans and artifact paths.
+
+    Args:
+        generation: Input accepted by this callable.
+
+    Returns:
+        Result produced by this callable.
+
+    Notes:
+        This helper remains internal to its owning implementation.
+    """
     if generation is None:
         return None
     enabled = tuple(root for root in generation.roots if root not in generation.disabled_roots)
@@ -600,7 +650,17 @@ class InstanceDaemon:
         return {"url": await self._webui_server.open()}
 
     async def _request_resources_reload(self, _request: Mapping[str, Any]) -> dict[str, object]:
-        """Reload kernel resource packs without restarting the daemon."""
+        """Reload kernel resource packs without restarting the daemon.
+
+        Args:
+            _request: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+
+        Notes:
+            This helper remains internal to its owning implementation.
+        """
         value = await self._worker_webui_control("daemon.resources.reload")
         return value if isinstance(value, dict) else {"packs": []}
 
@@ -638,7 +698,14 @@ class InstanceDaemon:
         return {**self._webui_server.status(), "mode": self.webui.mode}
 
     def _webui_auth_required(self) -> bool:
-        """Require WebUI authentication outside an explicitly enabled development session."""
+        """Require WebUI authentication outside an explicitly enabled development session.
+
+        Returns:
+            Result produced by this callable.
+
+        Notes:
+            This helper remains internal to its owning implementation.
+        """
         return not self.development.enabled or self.development.webui_require_auth
 
     async def _start_webui(self) -> None:
@@ -792,7 +859,19 @@ class InstanceDaemon:
         self, _principal: Any, cursor: str | None, limit: int, level: str | None,
         component: str | None, query: str
     ) -> dict[str, object]:
-        """Return the bounded in-process Yukilog projection."""
+        """Return the bounded in-process Yukilog projection.
+
+        Args:
+            _principal: Input accepted by this callable.
+            cursor: Input accepted by this callable.
+            limit: Input accepted by this callable.
+            level: Input accepted by this callable.
+            component: Input accepted by this callable.
+            query: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
         from .logging import get_webui_logs
 
         return get_webui_logs(cursor=cursor, limit=limit, level=level, component=component, query=query)
@@ -800,7 +879,17 @@ class InstanceDaemon:
     async def event_summary(
         self, principal: Any, start: str | None, end: str | None, group_by: str
     ) -> dict[str, object]:
-        """Return chart-ready aggregates over the existing bounded delivery projection."""
+        """Return chart-ready aggregates over the existing bounded delivery projection.
+
+        Args:
+            principal: Input accepted by this callable.
+            start: Input accepted by this callable.
+            end: Input accepted by this callable.
+            group_by: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
         page = await self.event_deliveries(principal, {}, None, 500)
         raw_items = page.get("items", []) if isinstance(page, Mapping) else []
         items = raw_items if isinstance(raw_items, list) else []
@@ -823,7 +912,14 @@ class InstanceDaemon:
         }
 
     async def topology_graph(self, _principal: Any) -> dict[str, object]:
-        """Return a deterministic read-only graph derived from the worker topology snapshot."""
+        """Return a deterministic read-only graph derived from the worker topology snapshot.
+
+        Args:
+            _principal: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
         snapshot = await self._worker_webui_control("daemon.webui.snapshot")
         topology = snapshot.get("topology", {}) if isinstance(snapshot, Mapping) else {}
         nodes: list[dict[str, object]] = [{
@@ -973,9 +1069,25 @@ class InstanceDaemon:
         return value if isinstance(value, dict) else {"generation": 0, "surfaces": [], "diagnostics": []}
 
     def _webui_preferences_path(self) -> Path:
+        """Handle `InstanceDaemon._webui_preferences_path`.
+
+        Returns:
+            Result produced by this callable.
+
+        Notes:
+            This helper remains internal to its owning implementation.
+        """
         return self.paths.root / "configs" / "webui.json"
 
     async def webui_preferences(self, _principal: Any) -> dict[str, object]:
+        """Handle `InstanceDaemon.webui_preferences`.
+
+        Args:
+            _principal: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
         value = await self._worker_webui_control("daemon.webui.preferences")
         path = self._webui_preferences_path()
         if path.is_file():
@@ -995,6 +1107,15 @@ class InstanceDaemon:
         return value if isinstance(value, dict) else {"plugin_layout": "inline"}
 
     async def update_webui_preferences(self, _principal: Any, request: Mapping[str, object]) -> dict[str, object]:
+        """Handle `InstanceDaemon.update_webui_preferences`.
+
+        Args:
+            _principal: Input accepted by this callable.
+            request: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
         layout = request.get("plugin_layout")
         path = self._webui_preferences_path()
         current = await self.webui_preferences(_principal)
@@ -1034,7 +1155,21 @@ class InstanceDaemon:
         cursor: str | None,
         limit: int,
     ) -> dict[str, object]:
-        """Search bounded plugin indexes and return metadata-only discovery records."""
+        """Search bounded plugin indexes and return metadata-only discovery records.
+
+        Args:
+            _principal: Input accepted by this callable.
+            query: Input accepted by this callable.
+            source_id: Input accepted by this callable.
+            runtime_kind: Input accepted by this callable.
+            status: Input accepted by this callable.
+            refresh: Input accepted by this callable.
+            cursor: Input accepted by this callable.
+            limit: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
         if len(query) > _MAX_PLUGIN_QUERY_LENGTH or not 1 <= limit <= _MAX_PLUGIN_PAGE_SIZE:
             raise ValueError("invalid plugin discovery bounds")
         offset = int(cursor or "0")
@@ -1091,6 +1226,16 @@ class InstanceDaemon:
         }
 
     async def plugin_details(self, _principal: Any, bundle_id: str, source_id: str) -> dict[str, object]:
+        """Handle `InstanceDaemon.plugin_details`.
+
+        Args:
+            _principal: Input accepted by this callable.
+            bundle_id: Input accepted by this callable.
+            source_id: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
         store = PluginSourceStore(self.paths.workspace)
         index = store.fetch(source_id)
         selected = index.require(bundle_id)
@@ -1106,7 +1251,14 @@ class InstanceDaemon:
         }
 
     async def plugin_targets(self, _principal: Any) -> dict[str, object]:
-        """Project configured runtime and bridge targets with safe generation summaries."""
+        """Project configured runtime and bridge targets with safe generation summaries.
+
+        Args:
+            _principal: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
         snapshot = await self._worker_webui_control("daemon.webui.snapshot")
         topology = snapshot.get("topology", {}) if isinstance(snapshot, Mapping) else {}
         runtime_items = topology.get("runtimes", ()) if isinstance(topology, Mapping) else ()
@@ -1177,7 +1329,17 @@ class InstanceDaemon:
         source_id: str,
         target_id: str,
     ) -> dict[str, object]:
-        """Resolve a target-specific install preview without returning executable inputs."""
+        """Resolve a target-specific install preview without returning executable inputs.
+
+        Args:
+            _principal: Input accepted by this callable.
+            bundle_id: Input accepted by this callable.
+            source_id: Input accepted by this callable.
+            target_id: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+        """
         from liteyukibot_webui import WebUiServiceError
 
         targets = await self.plugin_targets(_principal)

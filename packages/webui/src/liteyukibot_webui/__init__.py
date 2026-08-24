@@ -49,5 +49,9 @@ def static_assets() -> Traversable:
 
 
 def resource_pack_declarations() -> tuple[ResourcePackDeclaration, ...]:
-    """Return the package-owned resource packs enabled by the host."""
+    """Return the package-owned resource packs enabled by the host.
+
+    Returns:
+        Result produced by this callable.
+    """
     return (ResourcePackDeclaration("liteyukibot_webui", "resources"),)

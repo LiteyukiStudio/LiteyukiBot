@@ -1132,16 +1132,15 @@ def _runtime_secrets(
     """Implement the runtime secrets operation for the component.
 
     Args:
-        settings: Validated application settings.
-        workspace: The workspace value used by the operation.
+        settings: Input accepted by this callable.
+        workspace: Input accepted by this callable.
+        use_vault: Input accepted by this callable.
 
     Returns:
-        The `dict[str, str]` result produced by the operation.
+        Result produced by this callable.
 
     Notes:
-        Internal implementation detail for `_runtime_secrets`. It delegates to `values`,
-        `configured_kernel_bridge`, `add`, `read` while keeping intermediate state local to the owning
-        operation.
+        This helper remains internal to its owning implementation.
     """
     names = {
         secret_name

@@ -921,13 +921,45 @@ class LiteyukiApp:
         return {"generation": self.plugins.webui_generation, "surfaces": surfaces, "diagnostics": diagnostics}
 
     async def _daemon_resources_reload(self, _request: Mapping[str, Any]) -> dict[str, Any]:
-        """Reload workspace and enabled-plugin resource packs in place."""
+        """Reload workspace and enabled-plugin resource packs in place.
+
+        Args:
+            _request: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+
+        Notes:
+            This helper remains internal to its owning implementation.
+        """
         return {"packs": list(self.reload_resources())}
 
     async def _daemon_webui_preferences(self, _request: Mapping[str, Any]) -> dict[str, Any]:
+        """Handle `LiteyukiApp._daemon_webui_preferences`.
+
+        Args:
+            _request: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+
+        Notes:
+            This helper remains internal to its owning implementation.
+        """
         return {"plugin_layout": "inline"}
 
     async def _daemon_webui_preferences_update(self, request: Mapping[str, Any]) -> dict[str, Any]:
+        """Handle `LiteyukiApp._daemon_webui_preferences_update`.
+
+        Args:
+            request: Input accepted by this callable.
+
+        Returns:
+            Result produced by this callable.
+
+        Notes:
+            This helper remains internal to its owning implementation.
+        """
         layout = request.get("plugin_layout")
         if layout not in {"sidebar", "inline", "main-sidebar"}:
             raise ValueError("invalid WebUI plugin layout")
@@ -1503,7 +1535,11 @@ class LiteyukiApp:
             raise
 
     def reload_resources(self) -> tuple[str, ...]:
-        """Reload validated resource packs and refresh the translator."""
+        """Reload validated resource packs and refresh the translator.
+
+        Returns:
+            Result produced by this callable.
+        """
         if self.resources is None:
             raise RuntimeError("resources are not initialized")
         declarations = tuple(

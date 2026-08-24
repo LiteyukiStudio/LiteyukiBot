@@ -34,6 +34,17 @@ _webui_log_sink_id: int | None = None
 
 
 def _capture_webui_log(message: Any) -> None:
+    """Handle `_capture_webui_log`.
+
+    Args:
+        message: Input accepted by this callable.
+
+    Returns:
+        Result produced by this callable.
+
+    Notes:
+        This helper remains internal to its owning implementation.
+    """
     record = message.record
     extra = dict(record.get("extra", {}))
     component = str(extra.pop("component", "core"))
@@ -55,6 +66,18 @@ def _capture_webui_log(message: Any) -> None:
 def get_webui_logs(
     *, cursor: str | None, limit: int, level: str | None, component: str | None, query: str
 ) -> dict[str, object]:
+    """Handle `get_webui_logs`.
+
+    Args:
+        cursor: Input accepted by this callable.
+        limit: Input accepted by this callable.
+        level: Input accepted by this callable.
+        component: Input accepted by this callable.
+        query: Input accepted by this callable.
+
+    Returns:
+        Result produced by this callable.
+    """
     with _webui_logs_lock:
         items = list(_webui_logs)
     if level is not None:
