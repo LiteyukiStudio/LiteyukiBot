@@ -39,6 +39,18 @@ The owner-provided PyPI screenshot on 2026-08-24 shows these owned projects:
 The screenshot also shows `yukilog`, which is outside this repository change.
 This list is evidence of the screenshot state only; recheck PyPI before acting.
 
+## Owner-Confirmed Archive Update
+
+On 2026-08-24, the owner confirmed that these projects were archived in PyPI:
+
+- `liteyukibot-v7-runtime-astrbot`
+- `liteyukibot-v7-runtime-mofox`
+- `liteyukibot-v7-runtime-v6`
+
+This records external project state only. Alpha13 source, release registries,
+and workflows still contain these package identities until the approved
+Alpha14 removal work lands.
+
 ## Pending Trusted Publishers Shown
 
 ### liteyukibot-v7-ipc-native
@@ -59,7 +71,24 @@ Workflow name: `publish-plugins.yaml`
 Env name: `pypi-webui`
 State: `pending publisher shown in owner screenshot`
 
-Both mappings also match the current `.github/workflows/publish-plugins.yaml`.
+### liteyukibot-v7-kernel
+
+PyPI Project Name: `liteyukibot-v7-kernel`
+Owner: `LiteyukiStudio`
+Repo name: `LiteyukiBot`
+Workflow name: `publish-plugins.yaml`
+Env name: `pypi-kernel`
+State: `pending publisher shown in owner screenshot`
+
+All three publisher identities match the owner-provided screenshot. The
+existing workflow already contains the `ipc-native` and `webui` paths, but it
+does not yet contain a publishable `kernel` package choice or release path.
+The kernel publisher is configured externally but is not publish-ready.
+
+The owner reports that PyPI currently permits at most three pending publishers,
+so all pending slots are occupied. A slot becomes available after a pending
+publisher successfully creates its project through a real release. Do not
+publish placeholders or remove a pending publisher merely to rotate slots.
 
 ## Existing Source Projects Not Shown
 
@@ -82,7 +111,6 @@ confirmed immediately before the PyPI mutation.
 
 | Project Name | Owner | Repo name | Workflow name | Env name | Source |
 | --- | --- | --- | --- | --- | --- |
-| `liteyukibot-v7-kernel` | `LiteyukiStudio` | `LiteyukiBot` | `publish-plugins.yaml` (proposed) | `pypi-kernel` (proposed) | new package |
 | `liteyukibot-v7-broker` | `LiteyukiStudio` | `LiteyukiBot` | `publish-plugins.yaml` (proposed) | `pypi-broker` (proposed) | new package |
 | `liteyukibot-v7-daemon` | `LiteyukiStudio` | `LiteyukiBot` | `publish-plugins.yaml` (proposed) | `pypi-daemon` (proposed) | new package |
 | `liteyukibot-v7-plugin-manager` | `LiteyukiStudio` | `LiteyukiBot` | `publish-plugins.yaml` (proposed) | `pypi-plugin-manager` (proposed) | new package |
