@@ -25,6 +25,7 @@ const topologyGraph = {
 };
 
 const preferences = { plugin_layout: "inline", toast_duration: 3000, followed: [] };
+const eventSummary = { window: { from: null, to: null }, totals: {}, series: [], breakdown: [] };
 
 const catalog = { operations: [
   { id: "management.runtime.stop", input_schema: { type: "object", properties: { runtime_id: { type: "string", description: "Runtime identifier" } }, required: ["runtime_id"] }, impact: "high", confirmation: "target", target: "runtime_id", target_input_field: "runtime_id" },
@@ -128,6 +129,7 @@ async function mockDaemon(page: Page, onSubmit?: (body: unknown) => void, ledger
     if (path.endsWith("/plugins/preview/example.echo")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(pluginPreview) });
     if (path.endsWith("/ledger")) return route.fulfill({ contentType: "application/json", body: JSON.stringify({ items: ledgerItems ?? [{ id: "op-1", at: "2026-08-15T03:00:00Z", title: "management.runtime.restart", source: "redacted", status: "healthy", detail: "ok" }] }) });
     if (path.endsWith("/audit")) return route.fulfill({ contentType: "application/json", body: JSON.stringify({ items: [] }) });
+    if (path.endsWith("/events/summary")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(eventSummary) });
     if (path.endsWith("/event-deliveries/delivery-1")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(eventDeliveryDetail) });
     if (path.endsWith("/event-deliveries")) return route.fulfill({ contentType: "application/json", body: JSON.stringify(eventDeliveries) });
     if (path.endsWith("/events")) return route.fulfill({ contentType: "text/event-stream", body: "event: heartbeat\ndata: {}\n\n" });
@@ -171,10 +173,10 @@ test("workspaces project live ledger, topology, runtimes, and plugins", async ({
   await page.goto("/#/topology");
   await expect(page.getByText("onebot-primary")).toBeVisible();
   await page.goto("/#/plugins");
-  await expect(page.getByRole("tab", { name: "Discover" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Discover" })).toBeVisible();
   await expect(page.getByText("Example Echo", { exact: true })).toBeVisible();
-  await page.getByRole("tab", { name: "Managed" }).click();
-  await expect(page.getByText("onebot-primary", { exact: true }).last()).toBeVisible();
+  await page.getByRole("button", { name: "Managed" }).click();
+  await expect(page.getByLabel("Target")).toHaveValue("onebot-primary");
 });
 
 test("ledger virtualizes large retained record lists", async ({ page }) => {
