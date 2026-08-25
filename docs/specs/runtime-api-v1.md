@@ -35,18 +35,6 @@ validates JSON safety, provenance, permissions, and the active delivery lease.
 Provider exceptions never cross the wire; results use stable error codes and
 bounded JSON error details.
 
-## Alpha8a AstrBot proof
-
-The framework-neutral AstrBot SDK owns typed DTOs and proxy classes without
-depending on AstrBot. The bridge host owns AstrBot imports and maps the proof
-facade to the real `AstrMessageEvent`.
-
-The Alpha8 proof catalog contains `event.snapshot` for safe event metadata and
-message component projection, plus `event.send` for native-chain sending.
-The existing protocol-neutral `message.send` Action remains available as a
-fallback. Streaming, LLM calls, group objects, native object returns, and the
-remaining public methods are outside the Alpha8 proof.
-
 ## Alpha9 v1.1 portable facade
 
 The v1.1 catalog is a minor extension of the v1 contract. A caller using
@@ -64,8 +52,9 @@ The first supported portable operation set is:
 
 `bot.send` must use the bot identity authenticated by the active event
 authorization. Providers reject cross-bot requests even when another bot is
-present in the same process. NoneBot and AstrBot publish these operations from
-their separate bridge packages; the kernel imports neither framework SDK.
+present in the same process. The current NoneBot reference bridge publishes
+these operations from its separate package; the kernel does not import its
+framework SDK.
 
 The shared catalog helper supplies the Draft 2020-12 schemas for portable
 `Message` and `ConversationRef` values. Provider-specific DTOs remain typed
@@ -81,8 +70,8 @@ unavailable bots return `RUNTIME_EVENT_UNAVAILABLE` or
 
 ## Alpha10.1 canonical facade
 
-The v1.2 portable result contract is kernel-owned and shared by the NoneBot and
-AstrBot API packages:
+The v1.2 portable result contract is kernel-owned and used by the NoneBot API
+package and any conforming third-party provider:
 
 | DTO | Portable fields and defaults |
 | --- | --- |
@@ -91,15 +80,13 @@ AstrBot API packages:
 | `SendResult` | `sent` is required; `result` defaults to `null`; `extensions` defaults to `{}` |
 
 Every DTO also has JSON-safe `extensions`. Provider-specific fields must be
-under a provider namespace such as `extensions.astrbot`; portable consumers
+under a provider namespace such as `extensions.provider`; portable consumers
 must not depend on them. `EventSnapshot.message` is always the portable
-`Message` DTO. AstrBot consumers migrating from the Alpha9 text field should
-use `message_text` or `message.plain_text`.
+`Message` DTO.
 
-Both providers register the same v1.2 input/output schemas for the four
-portable operations. The provider API packages retain their old class names as
-aliases or compatibility subclasses, but the kernel DTOs define the wire
-contract.
+Conforming providers register the same v1.2 input/output schemas for the four
+portable operations. Provider API packages may expose typed aliases or
+subclasses, but the kernel DTOs define the wire contract.
 
 ## Compatibility and security
 

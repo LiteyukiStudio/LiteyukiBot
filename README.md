@@ -18,9 +18,9 @@ LiteyukiBot v7 is a CPython 3.14 chatbot kernel. It owns configuration,
 native-plugin lifecycle, routing, permissions, logging, and broker-peer IPC.
 Framework integrations run as separately installed B7 broker bridges and
 exchange frozen protocol-neutral models with the kernel rather than SDK
-objects. The supervised child-runtime source remains temporarily as migration
-test material, but the App, CLI, initializer, daemon, and plugin installer no
-longer expose it as a production path.
+objects. Retired AstrBot, Neo-MoFox, and v6 compatibility experiments are kept
+only as source snapshots under `extras/legacy-bridges`; they are not workspace,
+release, CI, or support targets.
 
 The default branch is the maintained LiteyukiBot v7 line. The prior v6 line is
 preserved on the `v6` branch. The current source pre-release is the `7.0.0a13`
@@ -42,8 +42,8 @@ The 72-hour soak remains a stable-release gate.
   rollback, disable/enable, and garbage collection commands;
 - first-party command, permission, resource, profile, essential-command, and
   agent packages;
-- bounded LiteyukiBot v6 compatibility and separate NoneBot2, native OneBot
-  v11, AstrBot, and Neo-MoFox bridge packages.
+- separately packaged NoneBot2 and protocol-adapter bridges, including native
+  OneBot v11 support.
 
 ## Install And Run
 
@@ -95,12 +95,8 @@ enabled in `liteyuki.toml`.
 | `liteyukibot-v7-runtime-nonebot-api` | NoneBot-independent typed Runtime API v1.2 facade. |
 | `liteyukibot-v7-runtime-adapter` | Python platform-adapter broker bridge. |
 | `liteyukibot-v7-adapter-onebot` | Native OneBot v11 HTTP Post and HTTP API adapter. |
-| `liteyukibot-v7-runtime-v6` | Bounded LiteyukiBot v6 compatibility runtime. |
 | `liteyukibot-v7-agent-resolver` | Declarative agent module and tool resolver. |
 | `liteyukibot-v7-agent` | OpenAI-compatible native agent runtime. |
-| `liteyukibot-v7-runtime-astrbot` | AstrBot B7 platform gateway. |
-| `liteyukibot-v7-runtime-astrbot-api` | AstrBot-independent typed Runtime API v1.2 facade. |
-| `liteyukibot-v7-runtime-mofox` | Headless Neo-MoFox agent bridge. |
 
 Read the package README in [`packages/`](packages/README.md) before enabling a
 package. The kernel does not install framework integrations implicitly.
@@ -131,8 +127,7 @@ tokens, or message payloads in public reports.
 
 - [Configuration operations](docs/configuration.md)
 - [v7 architecture](docs/architecture/v7.md)
-- [Beta1 contract and support boundary](docs/beta1.md)
-- [v6 compatibility](docs/migration-v6.md)
+- [Historical Beta1 contract](docs/archive/2026-08-17/beta1-contract.md)
 - [Native plugin development](docs/development/native-plugins.md)
 - [Broker peer development](docs/development/broker-peers.md)
 - [Runtime API and provider conformance](docs/development/runtime-api-conformance.md)
@@ -143,9 +138,6 @@ tokens, or message payloads in public reports.
 
 - [NoneBot](https://nonebot.dev/) informs the separately packaged NoneBot
   runtime boundary.
-- [AstrBot](https://github.com/AstrBotDevs/AstrBot) and
-  [Neo-MoFox](https://github.com/MoFox-Studio/Neo-MoFox) inform their respective
-  headless agent-runtime integrations.
 
 ## Other
 

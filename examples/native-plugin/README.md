@@ -7,23 +7,23 @@ separate optional plugin so the basic echo example keeps no-provider startup
 semantics.
 
 It also demonstrates the shared Native/Cordis runtime facade contract. The
-`RuntimeRequirement` and `@runtime` declaration request the optional AstrBot
+`RuntimeRequirement` and `@runtime` declaration request the optional NoneBot
 `event.snapshot` API v1.2. The handler checks `available` and tolerates an
-uninstalled or disconnected provider; it never imports AstrBot.
+uninstalled or disconnected provider; it never imports NoneBot.
 
 ```python
-@runtime("astrbot", api="event", version="^1.2", optional=True, as_="astrbot")
-async def observe(event: EventEnvelope, *, astrbot: AstrBotEventProxy) -> HandlerResult | None:
-    if not astrbot.available:
+@runtime("nonebot", api="event", version="^1.2", optional=True, as_="nonebot")
+async def observe(event: EventEnvelope, *, nonebot: Any) -> HandlerResult | None:
+    if not nonebot.available:
         return None
-    await astrbot.snapshot()
+    await nonebot.snapshot()
     return None
 ```
 
-Install `liteyukibot-v7-runtime-astrbot-api` separately when the typed
-`AstrBotEventProxy` facade is desired. The plugin remains framework-neutral.
+Install `liteyukibot-v7-runtime-nonebot-api` separately when the typed facade
+is desired. The plugin remains framework-neutral.
 Runtime requirements are activation capabilities, so the host permission
-ceiling must allow `runtime.astrbot.event.snapshot` even when the provider is
+ceiling must allow `runtime.nonebot.event.snapshot` even when the provider is
 optional.
 
 ```bash

@@ -27,9 +27,9 @@ model; the host records only lifecycle outcomes it can reliably observe.
 
 Liteyuki does not promise Koishi plugin compatibility, JavaScript Session/Bot
 objects, or a shared framework-object graph. Framework-native behavior belongs
-to the runtime that owns its SDK. An AstrBot, NoneBot, or future Koishi bridge
-is installed through that framework's native plugin API and converts at the
-Liteyuki bridge boundary.
+to the bridge that owns its SDK. A NoneBot or separately maintained optional
+bridge is installed through that framework's native plugin API and converts at
+the Liteyuki bridge boundary.
 
 The standalone broker owns cross-process registration, event IDs, directed
 subscriptions, ledger state, and portable action return. Runtime hosts own

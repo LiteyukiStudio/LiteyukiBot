@@ -56,11 +56,11 @@ from typing import Any
 from liteyukibot import runtime
 
 
-@runtime("astrbot", api="event", version="^1.2", optional=True, as_="astrbot")
-async def handler(event: object, *, astrbot: Any) -> None:
-    if not astrbot.available:
+@runtime("provider", api="event", version="^1.2", optional=True, as_="provider")
+async def handler(event: object, *, provider: Any) -> None:
+    if not provider.available:
         return
-    snapshot = getattr(astrbot, "snapshot", None)
+    snapshot = getattr(provider, "snapshot", None)
     if callable(snapshot):
         await snapshot()
 ```
@@ -71,6 +71,6 @@ targeting one configured bridge. See
 [`runtime-api-conformance.md`](runtime-api-conformance.md) for the operation
 catalog, fingerprint rule, provider checklist, and failure behavior.
 
-The v6 and MoFox compatibility packages are limited Broker bridges. They are
-not `liteyukibot.runtime` entry points and do not use the retired supervised
-child lifecycle.
+AstrBot, Neo-MoFox, and v6 compatibility are not v7.0.0 mainline bridge
+packages. Their source snapshots are retained under `extras/legacy-bridges`
+without workspace, CI, release, or support status.

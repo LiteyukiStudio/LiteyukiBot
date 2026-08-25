@@ -133,4 +133,4 @@ A Beta1 tag is created only after the release commit is merged, the full
 three-platform CI and Docker checks pass, all required trusted publishers are
 configured, each package wheel is installed in isolation, and the public
 released-wheel smoke passes. Package tags are immutable and published in
-dependency order; see [the release procedure](development/releasing.md).
+dependency order; see [the release procedure](../../development/releasing.md).

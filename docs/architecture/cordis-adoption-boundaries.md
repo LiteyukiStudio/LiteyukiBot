@@ -62,10 +62,12 @@ but do not create a Liteyuki compatibility commitment.
 
 ## Delivery Sequence
 
-Beta5 establishes broker/bridge Runtime IPC v6 and ledger ownership. Beta6
-implements Cordis Plugin v1 alongside Native Plugin v1. Beta7 delivers the
-bridge SDK and stable AstrBot/NoneBot2 paths. The prior Rust catcher work is a
-design spike and may supply reusable transport or diagnostic evidence only.
+Beta5 established broker/bridge Runtime IPC v6 and ledger ownership. Beta6
+implemented Cordis Plugin v1 alongside Native Plugin v1. The later bridge proof
+validated NoneBot and AstrBot integrations; v7.0.0 retains NoneBot in mainline
+and retires the AstrBot source to `extras/legacy-bridges`. The prior Rust
+catcher work is a design spike and may supply reusable transport or diagnostic
+evidence only.
 
 ## Beta6 Package Boundary
 

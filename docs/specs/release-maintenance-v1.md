@@ -39,11 +39,11 @@ configured PyPI Trusted Publisher environment. SBOMs, checksum manifests, and
 other release evidence are retained as workflow artifacts rather than uploaded
 as distributions.
 
-## Alpha 12 Bundle
+## Historical Alpha 12 Bundle
 
-The source Alpha12 contract uses the exact `7.0.0a12` version for the kernel,
-Native IPC, Cordis, NoneBot bridge and API facade, AstrBot bridge and API
-facade, generic adapter bridge, WebUI, and DevCLI. DevCLI is a real reserved
+The historical source Alpha12 contract used the exact `7.0.0a12` version for
+the kernel, Native IPC, Cordis, NoneBot bridge and API facade, AstrBot bridge
+and API facade, generic adapter bridge, WebUI, and DevCLI. DevCLI was a reserved
 bundle component and is not a PyPI publication target. Independent business
 packages do not join this lockstep set. Every first-party artifact declares
 the exact Alpha12 kernel dependency it consumes. The independently versioned

@@ -28,10 +28,13 @@ before relying on it.
   bounded ledger state, and diagnostics. A bridge host owns its framework
   lifecycle.
 - Package versions may be independent. Most Alpha13 packages declare an exact
-  `liteyukibot-v7==7.0.0a13` dependency, but `adapter-satori`, `agent`,
-  `runtime-mofox`, and `runtime-v6` currently use `>=7.0.0a1,<8`. Treat exact
+  `liteyukibot-v7==7.0.0a13` dependency, but `adapter-satori` and `agent`
+  currently use `>=7.0.0a1,<8`. Treat exact
   kernel pins for every participating Alpha package as approved direction, not
   as completed Alpha13 state.
+- AstrBot, Neo-MoFox, and v6 compatibility bridge source snapshots are retained
+  under `extras/legacy-bridges`. They are excluded from the workspace, lock,
+  CI, release inventory, publication, and v7.0.0 support surface.
 - The WebUI consists of React/Vite source in `webui/` and the Python bridge and
   wheel wrapper in `packages/webui/`. Its generated static assets are staged by
   `scripts/stage_webui_assets.py`.

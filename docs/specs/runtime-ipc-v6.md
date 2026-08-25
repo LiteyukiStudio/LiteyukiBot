@@ -1,8 +1,12 @@
 # Broker Peer IPC v6
 
+> Historical pre-release baseline. Current bridges implement Broker Peer IPC
+> v7. References to AstrBot describe the retired Alpha proof and do not define
+> a v7.0.0 mainline package or support commitment.
+
 - Specification version: `6`
-- Applies to: the B7 standalone broker peer contract, its stable NoneBot
-  bridge, experimental AstrBot gateway, and in-process kernel peer.
+- Applies to: the historical B7 standalone broker peer contract and its
+  pre-release reference bridges.
 - Compatibility: pre-stable hard cut. This contract is not interoperable with
   the former child-supervisor Runtime IPC v1 through v5 catalog.
 

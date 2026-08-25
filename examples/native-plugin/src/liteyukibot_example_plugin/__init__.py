@@ -15,11 +15,11 @@ from liteyukibot.events import (
 )
 
 
-@runtime("astrbot", api="event", version="^1.2", optional=True, as_="astrbot")
-async def observe_provider_event(event: EventEnvelope, *, astrbot: Any) -> HandlerResult | None:
-    if not getattr(astrbot, "available", False):
+@runtime("nonebot", api="event", version="^1.2", optional=True, as_="nonebot")
+async def observe_provider_event(event: EventEnvelope, *, nonebot: Any) -> HandlerResult | None:
+    if not getattr(nonebot, "available", False):
         return None
-    snapshot = getattr(astrbot, "snapshot", None)
+    snapshot = getattr(nonebot, "snapshot", None)
     if not callable(snapshot):
         return None
     try:
@@ -77,7 +77,7 @@ runtime_facade_plugin = PluginDefinition(
         version="0.1.0",
         runtime_requirements=(
             RuntimeRequirement(
-                runtime="astrbot",
+                runtime="nonebot",
                 api="event",
                 version="^1.2",
                 operations=("snapshot",),

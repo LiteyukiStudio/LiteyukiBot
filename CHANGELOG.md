@@ -2,6 +2,10 @@
 
 ## 7.0.0a13 - Unreleased
 
+- retired the AstrBot, Neo-MoFox, and v6 compatibility packages from the
+  v7.0.0 workspace, lock, CI, release inventory, publication workflow, and
+  supported documentation while retaining source snapshots under
+  `extras/legacy-bridges`;
 - opened the WebUI and LYF TextMate extraction stage;
 - upgraded the WebUI toolchain to the current React, Vite, TypeScript,
   Tailwind, Lucide, and virtualization dependencies;

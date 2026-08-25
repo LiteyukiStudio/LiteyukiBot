@@ -344,16 +344,6 @@ adapters = ["nonebot.adapters.onebot.v11:Adapter"]
 plugins = ["plugins"]
 plugin_dirs = []
 
-[broker.bridges.astrbot]
-kind = "astrbot"
-token_secret = "broker.astrbot.token"
-access = "limited"
-subscriptions = ["message.created"]
-action_resources = [{ kind = "message.send", resource_prefix = "bot:astrbot:" }]
-
-[broker.bridges.astrbot.options]
-workspace = "./astrbot"
-
 [broker.bridges.agent]
 kind = "agent"
 token_secret = "broker.agent.token"
@@ -395,8 +385,10 @@ table. `full` bridges receive every topic; `limited` bridges receive topics
 matching their configured dot-segment patterns. A `*` matches exactly one
 complete segment, with no regex, partial wildcard, or recursive wildcard
 semantics. Installed bridge definitions declare an owning distribution,
-launcher, and support grade: NoneBot is `stable`; AstrBot, v6, and MoFox are
-`experimental`.
+launcher, and support grade. The v7.0.0 mainline ships NoneBot as the stable
+framework bridge and the shared adapter host for separately packaged protocol
+adapters. AstrBot, Neo-MoFox, and v6 compatibility are retired source snapshots,
+not configured bridge kinds.
 
 The Alpha6 Agent package publishes the experimental `agent` and
 `agent-sandbox` kinds. The Agent bridge owns no platform action resource; it
@@ -414,36 +406,6 @@ indexes UTF-8 files in SQLite and uses the same provider credentials by
 default; `rag_embedding_api_key`, `rag_embedding_base_url`, and the chunk,
 top-k, context, timeout, and citation options can override those defaults.
 Citation output is disabled unless `rag_citations = true`.
-
-The compatibility bridges are configured as limited subscribers and do not
-own platform action resources. They request `message.send` back to the source
-bridge through the active delivery lease:
-
-```toml
-[broker.bridges.v6]
-kind = "v6"
-token_secret = "broker.v6.token"
-access = "limited"
-subscriptions = ["onebot.*.message.*", "satori.message.*"]
-
-[broker.bridges.v6.options]
-v6_plugins = ["my-v6-plugin"]
-max_concurrent_events = 32
-
-[broker.bridges.mofox]
-kind = "mofox"
-token_secret = "broker.mofox.token"
-access = "limited"
-subscriptions = ["onebot.*.message.*"]
-
-[broker.bridges.mofox.options]
-workspace = "./data/bridges/mofox/workspace"
-```
-
-The v6 package imports only selected `liteyukibot.v6_plugins` entry points;
-module paths, plugin directories, and managed generations are migration
-errors. MoFox loads only its isolated workspace and its fixed upstream
-prerequisite; Liteyuki plugin projection, copying, and symlinking are removed.
 
 ### Broker delivery diagnostics
 

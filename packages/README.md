@@ -10,11 +10,12 @@ packages directly.
 - `permissions`, `commands`, `resources`, `profile`, and `essentials` are
   native plugin/service packages.
 - `functions` is the separate executor for documented v6 resource functions.
-- Most `runtime-*` packages are independently hosted integrations. `runtime-nonebot`
-  is a stable broker bridge, `runtime-astrbot` is an experimental AstrBot
-  platform gateway, and `runtime-v6`/`runtime-mofox` are experimental limited
-  compatibility bridges; each owns its framework SDK and lifecycle and is
+- Current `runtime-*` packages are independently hosted integrations.
+  `runtime-nonebot` is the stable framework bridge and `runtime-adapter` is the
+  shared protocol-adapter host; each owns its SDK and lifecycle and is
   discovered through `liteyukibot.bridges`.
+  Retired bridge experiments live outside the workspace under
+  `extras/legacy-bridges` and are not supported packages.
   The former `runtime-cordis` Rust/PyO3 package was rejected and has been
   removed.
 - `cordis` is the independent Python in-process composition package introduced

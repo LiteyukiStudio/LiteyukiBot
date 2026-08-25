@@ -57,6 +57,11 @@ confirmed. The temporary fixed Git dependency is not a stable publication
 identity and must be replaced by an exact npm version before the Alpha13 npm
 consumer release is declared complete.
 
+The Alpha14 transition removes AstrBot, Neo-MoFox, and v6 compatibility from
+the workspace, dependency lock, CI, signed bundle, and publish workflow. Their
+source snapshots remain under `extras/legacy-bridges`; they are not eligible
+release projects or v7.0.0 support targets.
+
 Kernel, IPC, WebUI, DevCLI, Cordis, and broker-bridge components use the
 lockstep Alpha version. Business plugins and independently distributed PyPI
 packages retain their own versions and must declare the compatible kernel
@@ -77,8 +82,9 @@ and package install verifiers, the schema-2 `bare` and
 `installed-first-party` benchmark artifacts with their resolved manifests, and
 the separately planned long-running soak. Do not claim that the 72-hour soak or
 full-workspace theoretical benchmark has completed until their retained
-artifacts are reviewed. Bridge support grades are package metadata: NoneBot is
-`stable`; AstrBot remains `experimental` until a later release decision.
+artifacts are reviewed. At that historical B7 point, bridge support grades were
+package metadata: NoneBot was `stable` and AstrBot was `experimental`. This
+does not restore the retired AstrBot project to the current release graph.
 
 `liteyukibot-v7-runtime-cordis` was a rejected Rust/PyO3 design spike and has
 no publisher, identity, tag, or release-order entry. Beta6 introduces the

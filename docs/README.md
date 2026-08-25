@@ -27,8 +27,10 @@ extends the runtime proof with a bounded portable facade and an additional
 provider facet. The [Alpha 12 ecosystem activation plan]
 (roadmap/v7-alpha-12-ecosystem-activation.md) covers the governed plugin index
 and managed NoneBot generations. The [Alpha 13 WebUI and TextMate plan]
-(roadmap/v7-alpha-13-webui-textmate.md) is the active implementation stage;
-npm publication remains separately gated by scope membership.
+(roadmap/v7-alpha-13-webui-textmate.md) records the current source-version
+baseline. Alpha14 is an architecture-subtraction transition: retired bridge
+experiments are excluded from the workspace and release graph, while their
+source snapshots remain under `extras/legacy-bridges`.
 
 - `specs/` contains the versioned, normative public contracts.
 - `architecture/` describes the current system boundary and lifecycle.

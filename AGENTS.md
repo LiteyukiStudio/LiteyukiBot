@@ -4,18 +4,20 @@
 
 LiteyukiBot v7 is a Python 3.14 `uv` workspace. The protocol-neutral kernel
 lives in `src/liteyukibot/`; keep framework-specific behavior in its owning
-child runtime. Independently buildable first-party packages live under
-`packages/<name>/`, each with its own `pyproject.toml`, `src/`, `tests/`,
+bridge or adapter package. Independently buildable first-party packages live
+under `packages/<name>/`, each with its own `pyproject.toml`, `src/`, `tests/`,
 resources, and README. Root kernel and cross-package tests are in `tests/`.
 Use `examples/` for installable reference integrations, `scripts/` for release
 and install verifiers, and `docs/` for maintained architecture and operations.
+Retired source snapshots under `extras/legacy-bridges/` are not workspace
+packages, supported integrations, release inputs, or valid dependency targets.
 
 ## Build, Test, and Development Commands
 
 Use CPython 3.14 and uv. Install the locked workspace with:
 
 ```bash
-uv sync --locked --all-packages --extra onebot --extra satori
+uv sync --locked --all-packages --extra onebot --extra satori --extra webui
 uv run liteyuki check
 uv run ruff check src tests scripts examples packages
 uv run mypy
