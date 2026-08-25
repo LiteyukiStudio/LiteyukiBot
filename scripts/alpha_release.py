@@ -63,9 +63,13 @@ WORKFLOW_PATH = ".github/workflows/alpha-release.yaml"
 BASELINE: Mapping[str, int] = BUNDLE_BASELINE
 AlphaComponent = WorkspaceComponent
 _REGISTRY = resolve_workspace_registry(Path(__file__).resolve().parents[1])
-LOCKSTEP_COMPONENTS: tuple[AlphaComponent, ...] = _REGISTRY.lockstep_components
-INDEPENDENT_COMPONENTS: tuple[AlphaComponent, ...] = _REGISTRY.independent_components
-RELEASE_COMPONENTS: tuple[AlphaComponent, ...] = _REGISTRY.components
+RELEASE_COMPONENTS: tuple[AlphaComponent, ...] = _REGISTRY.alpha_bundle_components
+LOCKSTEP_COMPONENTS: tuple[AlphaComponent, ...] = tuple(
+    component for component in RELEASE_COMPONENTS if not component.independent
+)
+INDEPENDENT_COMPONENTS: tuple[AlphaComponent, ...] = tuple(
+    component for component in RELEASE_COMPONENTS if component.independent
+)
 
 SignatureVerifier = Callable[[Path, Path, str], None]
 
@@ -125,11 +129,8 @@ def validate_source_registry(root: Path) -> None:
             raise AlphaReleaseError(f"{context} must use Alpha version {component.release_version}")
 
     optional = root_project.get("optional-dependencies")
-    webui_extra = optional.get("webui") if isinstance(optional, dict) else None
-    webui = registry.by_component_id["webui"]
-    expected_webui = f"{webui.distribution}[server]=={webui.release_version}"
-    if not isinstance(webui_extra, list) or expected_webui not in webui_extra:
-        raise AlphaReleaseError("root webui extra must pin the Alpha WebUI wheel exactly")
+    if isinstance(optional, dict) and "webui" in optional:
+        raise AlphaReleaseError("root project must not expose a WebUI installation extra")
 
 
 def _distribution_metadata(path: Path) -> tuple[str, str]:
@@ -222,7 +223,7 @@ def create_manifest(root: Path, dist: Path) -> Path:
 
     validate_source_registry(root)
     registry = resolve_workspace_registry(root)
-    components_for_release = registry.components
+    components_for_release = registry.alpha_bundle_components
     records = _artifact_records(dist)
     _validate_artifact_set(records, components_for_release)
     components: list[dict[str, object]] = []

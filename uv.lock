@@ -781,11 +781,6 @@ http = [
     { name = "fastapi" },
     { name = "uvicorn" },
 ]
-webui = [
-    { name = "fastapi" },
-    { name = "liteyukibot-v7-webui", extra = ["server"] },
-    { name = "uvicorn" },
-]
 yaml = [
     { name = "pyyaml" },
 ]
@@ -814,12 +809,10 @@ release = [
 requires-dist = [
     { name = "cryptography", specifier = ">=46,<51" },
     { name = "fastapi", marker = "extra == 'http'", specifier = ">=0.141,<1" },
-    { name = "fastapi", marker = "extra == 'webui'", specifier = ">=0.141,<1" },
     { name = "filelock", specifier = ">=3.19,<4" },
     { name = "jsonschema", specifier = ">=4.26,<5" },
     { name = "license-expression", specifier = ">=30.4.4" },
     { name = "liteyukibot-v7-kernel", editable = "packages/kernel" },
-    { name = "liteyukibot-v7-webui", extras = ["server"], marker = "extra == 'webui'", editable = "packages/webui" },
     { name = "prompt-toolkit", specifier = ">=3.0,<4" },
     { name = "pydantic", specifier = ">=2.13,<3" },
     { name = "pyyaml", specifier = ">=6,<7" },
@@ -828,10 +821,9 @@ requires-dist = [
     { name = "tomli-w", specifier = ">=1.2,<2" },
     { name = "tornado", specifier = ">=6.1,<7" },
     { name = "uvicorn", marker = "extra == 'http'", specifier = ">=0.52,<1" },
-    { name = "uvicorn", marker = "extra == 'webui'", specifier = ">=0.52,<1" },
     { name = "yukilog", specifier = ">=1,<2" },
 ]
-provides-extras = ["yaml", "http", "webui"]
+provides-extras = ["yaml", "http"]
 
 [package.metadata.requires-dev]
 dev = [

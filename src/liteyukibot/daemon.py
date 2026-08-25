@@ -724,7 +724,7 @@ class InstanceDaemon:
         try:
             from liteyukibot_webui import WebUiServer, WebUiUploadPolicy
         except ModuleNotFoundError as error:
-            raise RuntimeError("WebUI support is not installed; install `liteyukibot-v7[webui]`") from error
+            raise RuntimeError("WebUI support is not installed; install `liteyukibot-v7-webui[server]`") from error
         self._webui_server = WebUiServer(
             cast(Any, self),
             host="127.0.0.1",

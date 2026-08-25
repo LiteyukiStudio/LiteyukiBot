@@ -27,10 +27,11 @@ framework compatibility or the WebUI product surface.
   `extras/legacy-bridges/` are historical material, not supported mainline
   features.
 - The Alpha14 release registry covers all 20 workspace distributions. Every
-  first-party dependency is exact-pinned, 19 distributions have isolated
-  install verifiers, and the reference NoneBot plugin has its external-host
-  lifecycle E2E. Four bundle-only components remain outside the PyPI project
-  projection.
+  first-party dependency is exact-pinned and 19 distributions have isolated
+  install verifiers. The CLI-first signed bundle contains 19 distributions;
+  WebUI remains a separately verified and published optional component. The
+  reference NoneBot plugin has its external-host lifecycle E2E, and four
+  bundle-only components remain outside the PyPI project projection.
 
 This baseline does not create a tag, GitHub Release, PyPI upload, or npm
 upload. Artifact publication requires a separate release decision after the
@@ -100,6 +101,12 @@ contract no longer eagerly loads application composition. Kernel releases use
 the `kernel-v*` tag and `pypi-kernel` trusted-publisher environment and must be
 available before the corresponding root wheel is published.
 
+The first formal v7 release is CLI-first. `liteyukibot-v7` has no WebUI extra,
+and the signed main bundle does not contain the WebUI wheel. The frozen
+`packages/webui` source, its dedicated path-scoped CI, install verifier, and
+independent `webui-v*` publisher remain available without becoming a root
+installation or qualification dependency.
+
 ## Diagnostic traceability
 
 The diagnostic goal is to reconstruct the causal path of a failure from logs,
@@ -123,7 +130,8 @@ Alpha14 is complete only when:
   target contracts, and retired compatibility remains outside mainline;
 - first-party Cordis business plugins do not delegate their implementation to
   Native plugin wrappers;
-- the 20-distribution registry, signed manifest/SBOM, exact pins, all install
+- the 20-distribution registry, 19-distribution CLI bundle, signed
+  manifest/SBOM, exact pins, all applicable install
   verifiers, reference E2E, full tests, Ruff, Mypy, and workspace build pass
   from built artifacts; and
 - maintained architecture, operations, configuration, package, and release

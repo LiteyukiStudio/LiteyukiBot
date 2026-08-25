@@ -91,3 +91,9 @@ def test_runtime_api_json_fields_are_deeply_frozen() -> None:
         frozen_extensions["nested"]["changed"] = True
     assert bot.model_dump(mode="json")["extensions"] == {"nested": {"items": [{"ok": True}]}}
     assert sent.model_dump(mode="json")["result"] == {"messages": [{"id": "one"}]}
+
+
+def test_root_facade_does_not_advertise_webui_contracts() -> None:
+    import liteyukibot
+
+    assert not any(name.startswith("WebUi") or name.startswith("WEBUI_") for name in liteyukibot.__all__)

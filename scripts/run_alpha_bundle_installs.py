@@ -60,7 +60,7 @@ def _verification_for(component: WorkspaceComponent) -> InstallVerification:
 
 
 VERIFICATIONS: tuple[InstallVerification, ...] = tuple(
-    _verification_for(component) for component in _REGISTRY.verification_components
+    _verification_for(component) for component in _REGISTRY.alpha_bundle_verification_components
 )
 
 

@@ -21,13 +21,6 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           path: LiteyukiBot
-      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
-        with:
-          version: 11.5.3
-          run_install: false
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
-        with:
-          node-version-file: LiteyukiBot/.node-version
       - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.11.16"
@@ -36,7 +29,7 @@ jobs:
         working-directory: LiteyukiBot
         run: |
           uv python install 3.14
-          uv sync --locked --all-packages --extra onebot --extra satori --extra webui
+          uv sync --locked --all-packages --extra onebot --extra satori
       - name: Resolve current release identity
         id: release
         working-directory: LiteyukiBot
@@ -45,10 +38,8 @@ jobs:
       - name: Quality checks
         working-directory: LiteyukiBot
         run: |
-          pnpm --dir webui install --frozen-lockfile
-          pnpm --dir webui build
-          uv run python scripts/stage_webui_assets.py
           uv run python scripts/check_release.py
+          uv run python scripts/check_release.py --package kernel
           uv run python scripts/check_release.py --package permissions
           uv run python scripts/check_release.py --package commands
           uv run python scripts/check_release.py --package functions
@@ -58,16 +49,15 @@ jobs:
           uv run python scripts/check_release.py --package adapter-onebot
           uv run python scripts/check_release.py --package adapter-satori
           uv run python scripts/check_release.py --package agent
-          uv run python scripts/check_release.py --package webui
           uv run python scripts/check_release.py --package ipc-native
           uv run python scripts/check_api_docs.py
           uv run ruff check src tests scripts examples packages
           uv run mypy
-          uv run pytest
+          uv run pytest --ignore=packages/webui/tests
           uv run pip-audit --local --progress-spinner off --vulnerability-service osv
-          pnpm --dir webui audit --prod
           uv build
           uv build --all-packages --out-dir dist/workspace --clear
+          uv run python -m scripts.run_kernel_install
           uv run --no-project --python 3.14 python scripts/run_isolated_install.py --with "dist/workspace/liteyukibot_v7_kernel-*-py3-none-any.whl" --with "dist/workspace/liteyukibot_v7-*-py3-none-any.whl" --verifier scripts/verify_published_install.py -- --expect-kernel --expect-no-legacy-runtime
           uv run python -m scripts.run_tool_install_smoke
           uv build --project examples/native-plugin --out-dir dist/examples
@@ -82,18 +72,11 @@ jobs:
           uv run python -m scripts.run_onebot_adapter_install
           uv run python -m scripts.run_satori_adapter_install
           uv run python -m scripts.run_agent_install
-          uv run python -m scripts.run_webui_install
           uv run --no-project --python 3.14 --find-links dist/workspace --with dist/workspace/liteyukibot_v7_kernel-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/workspace/liteyukibot_v7-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/workspace/liteyukibot_v7_runtime_nonebot-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/workspace/liteyukibot_v7_example_nonebot_plugin-0.1.0-py3-none-any.whl python scripts/run_nonebot_plugin_e2e.py --wheel-dir dist/workspace --workspace tmp/alpha14-nonebot-e2e
           uv run python scripts/run_isolated_install.py --with dist/workspace/liteyukibot_v7_kernel-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/workspace/liteyukibot_v7-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/workspace/liteyukibot_v7_runtime_nonebot_api-${{ steps.release.outputs.version }}-py3-none-any.whl --verifier scripts/verify_nonebot_api_install.py -- --expected-version ${{ steps.release.outputs.version }}
           uv build --project examples/broker-peer --out-dir dist/examples
           uv run python scripts/run_isolated_install.py --with dist/workspace/liteyukibot_v7_kernel-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/workspace/liteyukibot_v7-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/examples/liteyukibot_example_broker_peer-0.1.0-py3-none-any.whl --verifier scripts/verify_broker_peer_example.py
           uv run python scripts/run_isolated_install.py --with dist/workspace/liteyukibot_v7_kernel-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/workspace/liteyukibot_v7-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/examples/liteyukibot_example_plugin-0.1.0-py3-none-any.whl --verifier scripts/verify_native_plugin_example.py
-      - name: Run WebUI browser checks
-        if: matrix.os == 'ubuntu-latest'
-        working-directory: LiteyukiBot
-        run: |
-          pnpm --dir webui exec playwright install --with-deps chromium
-          pnpm --dir webui test:e2e
       - name: Capture qualification baselines
         working-directory: LiteyukiBot
         run: |

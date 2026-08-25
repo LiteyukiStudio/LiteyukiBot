@@ -1,7 +1,7 @@
 # Local WebUI Service v1
 
 - Specification version: `1`
-- Applies to: `liteyukibot-v7[webui]` and `liteyukibot-v7-webui[server]`
+- Applies to: the optional `liteyukibot-v7-webui[server]` distribution
 - Compatibility: Beta4, pre-stable
 
 ## Boundary
@@ -68,7 +68,7 @@ collection remain terminal-only in this version.
 ## Evidence
 
 ```bash
-uv run --extra webui pytest packages/webui/tests tests/test_daemon.py tests/test_management.py tests/test_operations.py
+uv run --package liteyukibot-v7-webui --extra server pytest packages/webui/tests tests/test_daemon.py tests/test_management.py tests/test_operations.py
 pnpm --dir webui typecheck
 pnpm --dir webui build
 pnpm --dir webui test:e2e
