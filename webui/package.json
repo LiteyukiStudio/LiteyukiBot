@@ -17,7 +17,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@liteyuki/lyf-textmate": "git+https://github.com/LiteyukiStudio/lyf-textmate.git#1e04d78c33f23bd4401787086e41c4bcfce45c2e",
+    "@liteyuki/lyf-textmate": "0.1.0-alpha.13",
     "@tanstack/react-virtual": "3.14.10",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

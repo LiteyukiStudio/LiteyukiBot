@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@liteyuki/lyf-textmate':
-        specifier: git+https://github.com/LiteyukiStudio/lyf-textmate.git#1e04d78c33f23bd4401787086e41c4bcfce45c2e
-        version: git+https://github.com/LiteyukiStudio/lyf-textmate.git#1e04d78c33f23bd4401787086e41c4bcfce45c2e
+        specifier: 0.1.0-alpha.13
+        version: 0.1.0-alpha.13
       '@tanstack/react-virtual':
         specifier: 3.14.10
         version: 3.14.10(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -259,9 +259,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@liteyuki/lyf-textmate@git+https://github.com/LiteyukiStudio/lyf-textmate.git#1e04d78c33f23bd4401787086e41c4bcfce45c2e':
-    resolution: {commit: 1e04d78c33f23bd4401787086e41c4bcfce45c2e, repo: https://github.com/LiteyukiStudio/lyf-textmate.git, type: git}
-    version: 0.1.0-alpha.13
+  '@liteyuki/lyf-textmate@0.1.0-alpha.13':
+    resolution: {integrity: sha512-8vfqxmjMvJvO3KLctd1Yg4Pjl0lO9hEL4p9C7YxMFD8VEx0YchMk3TM8bRwQ1qyr8gjsb4H0kc0eNxCoEFod7A==}
     engines: {node: '>=22.13'}
 
   '@oxc-project/types@0.146.0':
@@ -1843,7 +1842,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@liteyuki/lyf-textmate@git+https://github.com/LiteyukiStudio/lyf-textmate.git#1e04d78c33f23bd4401787086e41c4bcfce45c2e':
+  '@liteyuki/lyf-textmate@0.1.0-alpha.13':
     dependencies:
       vscode-oniguruma: 2.0.1
       vscode-textmate: 9.3.2
