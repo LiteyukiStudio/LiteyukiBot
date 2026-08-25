@@ -8,9 +8,11 @@ from typing import cast
 
 import pytest
 
+from liteyukibot.bridge_contracts import ManagedArtifactStore, ManagedFacet
 from liteyukibot.broker.service import BridgeCatalog, BridgeDefinition, BridgeLauncher, BridgeSupportGrade
 from liteyukibot.cli import main
 from liteyukibot.config import AppSettings, ConfigWorkspace
+from liteyukibot.json_value import JsonValue
 from liteyukibot.plugin_install import PluginInstallationService
 from liteyukibot.plugin_sources import PluginSourceStore
 from liteyukibot.plugin_store import (
@@ -24,10 +26,13 @@ from liteyukibot.plugin_store import (
 
 class _Installer:
     def materialize(
-        self, _artifacts: object, generation: Path, facets: Mapping[str, object]
-    ) -> dict[str, object]:
+        self,
+        _artifacts: ManagedArtifactStore,
+        generation: Path,
+        facets: Mapping[str, ManagedFacet],
+    ) -> dict[str, JsonValue]:
         (generation / "payload").mkdir(exist_ok=True)
-        return {"modules": sorted(facets), "directories": []}
+        return cast(dict[str, JsonValue], {"modules": sorted(facets), "directories": []})
 
 
 class _BridgeLauncher:

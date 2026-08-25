@@ -6,7 +6,9 @@ from collections.abc import Awaitable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
+
+from .json_value import JsonValue
 
 if TYPE_CHECKING:
     from .config.models import AppSettings
@@ -88,7 +90,7 @@ class ManagedFacet(Protocol):
         ...
 
     @property
-    def load(self) -> Mapping[str, object]:
+    def load(self) -> Mapping[str, JsonValue]:
         """Return the validated package-owned load plan.
 
         Returns:
@@ -105,7 +107,7 @@ class ManagedFacetInstaller(Protocol):
         artifacts: ManagedArtifactStore,
         generation: Path,
         facets: Mapping[str, ManagedFacet],
-    ) -> dict[str, Any]:
+    ) -> dict[str, JsonValue]:
         """Create package-owned payload files and return a JSON-safe load plan.
 
         Args:

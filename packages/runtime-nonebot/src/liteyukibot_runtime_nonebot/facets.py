@@ -5,9 +5,10 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import cast
 
 from liteyukibot.bridge_contracts import ManagedArtifactStore, ManagedFacet
+from liteyukibot.json_value import JsonValue
 from liteyukibot.plugin_store import PluginStoreError
 
 _MODULE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*")
@@ -21,7 +22,7 @@ class NoneBotFacetInstaller:
         artifacts: ManagedArtifactStore,
         generation: Path,
         facets: Mapping[str, ManagedFacet],
-    ) -> dict[str, Any]:
+    ) -> dict[str, JsonValue]:
         """Materialize the none bot facet installer operation.
 
         Args:
@@ -57,7 +58,7 @@ class NoneBotFacetInstaller:
             plugins.extend(facet_plugins)
         if len(set(plugins)) != len(plugins) or len(set(directories)) != len(directories):
             raise PluginStoreError("NoneBot load plan cannot repeat plugins or directories")
-        return {"plugins": plugins, "directories": directories}
+        return cast(dict[str, JsonValue], {"plugins": plugins, "directories": directories})
 
     def probe_command(self, python: Path, generation: Path) -> tuple[str, ...]:
         """Return the isolated NoneBot startup probe for one generation.

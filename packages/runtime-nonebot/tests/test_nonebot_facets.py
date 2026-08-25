@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from liteyukibot_runtime_nonebot.facets import NoneBotFacetInstaller
 
+from liteyukibot.json_value import JsonValue
 from liteyukibot.plugin_store import ArtifactSpec, ArtifactStore, PluginFacet, PluginStoreError
 
 
@@ -30,7 +31,11 @@ def test_nonebot_facet_materializes_payload_relative_load_plan(tmp_path: Path) -
 
     plan = NoneBotFacetInstaller().materialize(store, tmp_path / "generation", {"example.echo": facet})
 
-    assert plan == {"plugins": ["example.plugin"], "directories": [f"{digest}/plugins"]}
+    expected: dict[str, JsonValue] = {
+        "plugins": ["example.plugin"],
+        "directories": [f"{digest}/plugins"],
+    }
+    assert plan == expected
     assert (tmp_path / "generation" / "payload" / digest / "plugins" / "example.py").is_file()
 
 
