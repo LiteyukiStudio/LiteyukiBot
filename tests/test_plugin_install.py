@@ -8,12 +8,16 @@ from typing import cast
 
 import pytest
 
-from liteyukibot.bridge_contracts import ManagedArtifactStore, ManagedFacet
-from liteyukibot.broker.service import BridgeCatalog, BridgeDefinition, BridgeLauncher, BridgeSupportGrade
+from liteyukibot.bridge_contracts import (
+    ManagedArtifactStore,
+    ManagedFacet,
+    ManagedPluginTarget,
+    ManagedPluginTargetResolver,
+)
 from liteyukibot.cli import main
-from liteyukibot.config import AppSettings, ConfigWorkspace
+from liteyukibot.config import ConfigWorkspace
 from liteyukibot.json_value import JsonValue
-from liteyukibot.plugin_install import PluginInstallationService
+from liteyukibot.plugin_install import CommandRunner, PluginInstallationService
 from liteyukibot.plugin_sources import PluginSourceStore
 from liteyukibot.plugin_store import (
     PlatformTarget,
@@ -35,21 +39,48 @@ class _Installer:
         return cast(dict[str, JsonValue], {"modules": sorted(facets), "directories": []})
 
 
-class _BridgeLauncher:
-    def __call__(self, _settings: AppSettings, _bridge_id: str, _token: str) -> None:
-        return None
-
-
-def _install_bridge(monkeypatch: pytest.MonkeyPatch, *, probe_module: str | None = "host") -> None:
-    definition = BridgeDefinition(
-        "v6",
-        BridgeSupportGrade.STABLE,
-        "example-bridge",
-        cast(BridgeLauncher, _BridgeLauncher()),
+def _target_resolver(*, probe_module: str | None = "host", eligible: bool = True) -> ManagedPluginTargetResolver:
+    target = ManagedPluginTarget(
+        kind="v6",
+        distribution="example-bridge",
+        eligible=eligible,
         facet_installer=_Installer(),
         probe_module=probe_module,
     )
-    monkeypatch.setattr(BridgeCatalog, "discover", lambda _self: {"v6": definition})
+    return lambda kind: target if kind == "v6" else None
+
+
+def _service(
+    workspace: Path,
+    *,
+    run: CommandRunner | None = None,
+    probe_module: str | None = "host",
+    eligible: bool = True,
+) -> PluginInstallationService:
+    return PluginInstallationService(
+        workspace,
+        run=run,
+        target_resolver=_target_resolver(probe_module=probe_module, eligible=eligible),
+    )
+
+
+def test_managed_target_resolution_is_explicit_and_preserves_error_classes(tmp_path: Path) -> None:
+    requested: list[str] = []
+
+    def missing(kind: str) -> ManagedPluginTarget | None:
+        requested.append(kind)
+        return None
+
+    service = PluginInstallationService(tmp_path, target_resolver=missing)
+    with pytest.raises(PluginStoreError, match="plugin target kind 'missing' is not installed"):
+        service._require_target("missing")
+    assert requested == ["missing"]
+
+    with pytest.raises(PluginStoreError, match="plugin target kind 'v6' is not installed"):
+        PluginInstallationService(tmp_path)._require_target("v6")
+
+    with pytest.raises(PluginStoreError, match="does not support managed plugin installation"):
+        _service(tmp_path, eligible=False)._require_target("v6")
 
 
 def _index(digest: str, *, wheel_digest: str | None = None, dependency_cycle: bool = False) -> PluginIndex:
@@ -125,7 +156,6 @@ def test_installer_resolves_dependencies_and_activates_only_after_materializatio
     archive, digest = _archive(tmp_path)
     index = _index(digest)
     monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: index)
-    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
 
     commands: list[list[str]] = []
@@ -137,7 +167,7 @@ def test_installer_resolves_dependencies_and_activates_only_after_materializatio
             python.parent.mkdir(parents=True)
             python.write_text("", encoding="utf-8")
 
-    service = PluginInstallationService(tmp_path, run=run)
+    service = _service(tmp_path, run=run)
     monkeypatch.setattr(service.artifacts, "fetch", lambda _artifact: service.artifacts.import_file(archive, digest))
     result = service.install("example.root", runtime_id="legacy", runtime_kind="v6")
 
@@ -160,7 +190,6 @@ def test_installer_stages_hash_verified_wheels_without_index_resolution(
     wheel, wheel_digest = _wheel(tmp_path)
     index = _index(digest, wheel_digest=wheel_digest)
     monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: index)
-    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
     commands: list[list[str]] = []
 
@@ -171,7 +200,7 @@ def test_installer_stages_hash_verified_wheels_without_index_resolution(
             python.parent.mkdir(parents=True)
             python.write_text("", encoding="utf-8")
 
-    service = PluginInstallationService(tmp_path, run=run)
+    service = _service(tmp_path, run=run)
     sources = {digest: archive, wheel_digest: wheel}
     monkeypatch.setattr(
         service.artifacts,
@@ -232,13 +261,12 @@ def test_failed_environment_creation_does_not_activate_or_retain_generation(
 ) -> None:
     archive, digest = _archive(tmp_path)
     monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: _index(digest))
-    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
 
     def fail(_command: list[str]) -> None:
         raise PluginStoreError("command failed")
 
-    service = PluginInstallationService(tmp_path, run=fail)
+    service = _service(tmp_path, run=fail)
     monkeypatch.setattr(service.artifacts, "fetch", lambda _artifact: service.artifacts.import_file(archive, digest))
     with pytest.raises(PluginStoreError, match="command failed"):
         service.install("example.root", runtime_id="legacy", runtime_kind="v6")
@@ -255,7 +283,6 @@ def test_failed_generation_probe_keeps_the_previous_runtime_generation(
     archive, digest = _archive(tmp_path)
     index = _index(digest)
     monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: index)
-    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
 
     def run(command: list[str]) -> None:
@@ -264,7 +291,7 @@ def test_failed_generation_probe_keeps_the_previous_runtime_generation(
             python.parent.mkdir(parents=True)
             python.write_text("", encoding="utf-8")
 
-    service = PluginInstallationService(tmp_path, run=run)
+    service = _service(tmp_path, run=run)
     monkeypatch.setattr(service.artifacts, "fetch", lambda _artifact: service.artifacts.import_file(archive, digest))
     first = service.install("example.root", runtime_id="legacy", runtime_kind="v6")
 
@@ -286,7 +313,6 @@ def test_installer_rejects_bridge_without_a_probe_module(
 ) -> None:
     archive, digest = _archive(tmp_path)
     monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: _index(digest))
-    _install_bridge(monkeypatch, probe_module=None)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
 
     def run(command: list[str]) -> None:
@@ -295,7 +321,7 @@ def test_installer_rejects_bridge_without_a_probe_module(
             python.parent.mkdir(parents=True)
             python.write_text("", encoding="utf-8")
 
-    service = PluginInstallationService(tmp_path, run=run)
+    service = _service(tmp_path, run=run, probe_module=None)
     monkeypatch.setattr(service.artifacts, "fetch", lambda _artifact: service.artifacts.import_file(archive, digest))
 
     with pytest.raises(PluginStoreError, match="does not support managed plugin installation"):
@@ -310,7 +336,6 @@ def test_installer_adds_a_root_without_dropping_the_active_generation_set(
     archive, digest = _archive(tmp_path)
     index = _index(digest)
     monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: index)
-    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
     commands: list[list[str]] = []
 
@@ -321,7 +346,7 @@ def test_installer_adds_a_root_without_dropping_the_active_generation_set(
             python.parent.mkdir(parents=True)
             python.write_text("", encoding="utf-8")
 
-    service = PluginInstallationService(tmp_path, run=run)
+    service = _service(tmp_path, run=run)
     monkeypatch.setattr(service.artifacts, "fetch", lambda _artifact: service.artifacts.import_file(archive, digest))
     service.install("example.root", runtime_id="legacy", runtime_kind="v6")
     result = service.install("example.second", runtime_id="legacy", runtime_kind="v6")
@@ -338,7 +363,6 @@ def test_uninstall_rebuilds_remaining_roots_from_the_generation_snapshot(
     archive, digest = _archive(tmp_path)
     index = _index(digest)
     monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: index)
-    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
 
     def run(command: list[str]) -> None:
@@ -347,7 +371,7 @@ def test_uninstall_rebuilds_remaining_roots_from_the_generation_snapshot(
             python.parent.mkdir(parents=True)
             python.write_text("", encoding="utf-8")
 
-    service = PluginInstallationService(tmp_path, run=run)
+    service = _service(tmp_path, run=run)
     monkeypatch.setattr(service.artifacts, "fetch", lambda _artifact: service.artifacts.import_file(archive, digest))
     service.install("example.root", runtime_id="legacy", runtime_kind="v6")
     service.install("example.second", runtime_id="legacy", runtime_kind="v6")
@@ -377,7 +401,6 @@ def test_update_rebuilds_the_recorded_root_set_from_its_source(
         return index
 
     monkeypatch.setattr(PluginSourceStore, "fetch", fetch)
-    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
 
     def run(command: list[str]) -> None:
@@ -386,7 +409,7 @@ def test_update_rebuilds_the_recorded_root_set_from_its_source(
             python.parent.mkdir(parents=True)
             python.write_text("", encoding="utf-8")
 
-    service = PluginInstallationService(tmp_path, run=run)
+    service = _service(tmp_path, run=run)
     monkeypatch.setattr(service.artifacts, "fetch", lambda _artifact: service.artifacts.import_file(archive, digest))
     installed = service.install("example.root", runtime_id="legacy", runtime_kind="v6")
     updated = service.update(runtime_id="legacy", runtime_kind="v6")
@@ -402,7 +425,6 @@ def test_disable_and_enable_rebuild_the_load_plan_without_fetching_sources(
     archive, digest = _archive(tmp_path)
     index = _index(digest)
     monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: index)
-    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
     commands: list[list[str]] = []
 
@@ -413,7 +435,7 @@ def test_disable_and_enable_rebuild_the_load_plan_without_fetching_sources(
             python.parent.mkdir(parents=True)
             python.write_text("", encoding="utf-8")
 
-    service = PluginInstallationService(tmp_path, run=run)
+    service = _service(tmp_path, run=run)
     monkeypatch.setattr(service.artifacts, "fetch", lambda _artifact: service.artifacts.import_file(archive, digest))
     service.install("example.root", runtime_id="legacy", runtime_kind="v6")
     service.install("example.second", runtime_id="legacy", runtime_kind="v6")
@@ -443,7 +465,6 @@ def test_disable_and_uninstall_reject_a_root_required_by_another_root(
     archive, digest = _archive(tmp_path)
     index = _index(digest)
     monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: index)
-    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
 
     def run(command: list[str]) -> None:
@@ -452,7 +473,7 @@ def test_disable_and_uninstall_reject_a_root_required_by_another_root(
             python.parent.mkdir(parents=True)
             python.write_text("", encoding="utf-8")
 
-    service = PluginInstallationService(tmp_path, run=run)
+    service = _service(tmp_path, run=run)
     monkeypatch.setattr(service.artifacts, "fetch", lambda _artifact: service.artifacts.import_file(archive, digest))
     service.install("example.dependency", runtime_id="legacy", runtime_kind="v6")
     service.install("example.root", runtime_id="legacy", runtime_kind="v6")
@@ -476,7 +497,6 @@ def test_update_preserves_disabled_roots_while_refreshing_the_full_root_set(
         return index
 
     monkeypatch.setattr(PluginSourceStore, "fetch", fetch)
-    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
 
     def run(command: list[str]) -> None:
@@ -485,7 +505,7 @@ def test_update_preserves_disabled_roots_while_refreshing_the_full_root_set(
             python.parent.mkdir(parents=True)
             python.write_text("", encoding="utf-8")
 
-    service = PluginInstallationService(tmp_path, run=run)
+    service = _service(tmp_path, run=run)
     monkeypatch.setattr(service.artifacts, "fetch", lambda _artifact: service.artifacts.import_file(archive, digest))
     service.install("example.root", runtime_id="legacy", runtime_kind="v6")
     service.install("example.second", runtime_id="legacy", runtime_kind="v6")
@@ -505,7 +525,6 @@ def test_uninstalling_the_final_root_deactivates_but_keeps_rollback(
     archive, digest = _archive(tmp_path)
     index = _index(digest)
     monkeypatch.setattr(PluginSourceStore, "fetch", lambda _self, _source, refresh: index)
-    _install_bridge(monkeypatch)
     monkeypatch.setattr("liteyukibot.plugin_install.metadata.version", lambda _distribution: "1.2.3")
 
     def run(command: list[str]) -> None:
@@ -514,7 +533,7 @@ def test_uninstalling_the_final_root_deactivates_but_keeps_rollback(
             python.parent.mkdir(parents=True)
             python.write_text("", encoding="utf-8")
 
-    service = PluginInstallationService(tmp_path, run=run)
+    service = _service(tmp_path, run=run)
     monkeypatch.setattr(service.artifacts, "fetch", lambda _artifact: service.artifacts.import_file(archive, digest))
     installed = service.install("example.root", runtime_id="legacy", runtime_kind="v6")
 

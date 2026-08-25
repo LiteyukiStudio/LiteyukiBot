@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
+from liteyukibot.managed_target_resolver import resolve_managed_plugin_target
 from liteyukibot.plugin_install import PluginInstallationService
 from liteyukibot.plugin_sources import OFFICIAL_SOURCE_ID, PluginSource, PluginSourceStore
 from liteyukibot.plugin_store import ArtifactStore, PluginIndex, RuntimeGenerationStore
@@ -92,7 +93,7 @@ def run(wheel_directory: Path, workspace: Path, *, public_index_url: str | None 
         raise RuntimeError(f"E2E workspace must be empty: {workspace}")
     workspace.mkdir(parents=True, exist_ok=True)
     wheel = _single_wheel(wheel_directory, "liteyukibot_v7_example_nonebot_plugin-0.1.0")
-    service = PluginInstallationService(workspace)
+    service = PluginInstallationService(workspace, target_resolver=resolve_managed_plugin_target)
     previous_find_links = os.environ.get("UV_FIND_LINKS")
     os.environ["UV_FIND_LINKS"] = str(wheel_directory)
     try:

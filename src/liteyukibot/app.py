@@ -54,6 +54,7 @@ from .http import HttpServer
 from .i18n import I18N_SERVICE, SUPPORTED_LOCALES, Translator, normalize_locale
 from .instance_daemon import INSTANCE_DAEMON_SERVICE, InstanceDaemonService
 from .logging import Logger, configure_logging, get_logger, shutdown_logging
+from .managed_target_resolver import resolve_managed_plugin_target
 from .management import (
     MANAGEMENT_ADMIN,
     MANAGEMENT_SERVICE,
@@ -334,7 +335,12 @@ class LiteyukiApp:
             runtime_resolver=self._resolve_runtime_proxy,
             runtime_targets=self._runtime_targets,
         )
-        self.management = KernelManagement(self, self.resource_workspace, self._request_stop)
+        self.management = KernelManagement(
+            self,
+            self.resource_workspace,
+            self._request_stop,
+            target_resolver=resolve_managed_plugin_target,
+        )
         self.control = ControlServer(
             core.data_dir / "control.json",
             status_provider=self.status,

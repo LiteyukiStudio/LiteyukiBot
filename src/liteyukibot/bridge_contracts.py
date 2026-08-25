@@ -139,6 +139,33 @@ class ManagedFacetProbe(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
+class ManagedPluginTarget:
+    """Composition-resolved target presented to plugin installation."""
+
+    kind: str
+    distribution: str
+    eligible: bool
+    facet_installer: ManagedFacetInstaller | None = None
+    probe_module: str | None = None
+    facet_probe: ManagedFacetProbe | None = None
+
+
+class ManagedPluginTargetResolver(Protocol):
+    """Resolve one runtime kind without exposing discovery implementation."""
+
+    def __call__(self, kind: str) -> ManagedPluginTarget | None:
+        """Resolve one installed managed-plugin target candidate.
+
+        Args:
+            kind: Stable runtime kind requested by plugin installation.
+
+        Returns:
+            Resolved target candidate, or `None` when it is not installed.
+        """
+        ...
+
+
+@dataclass(frozen=True, slots=True)
 class BridgeDefinition:
     """Package-owned metadata and launcher for one bridge kind."""
 
@@ -159,4 +186,6 @@ __all__ = [
     "ManagedFacet",
     "ManagedFacetInstaller",
     "ManagedFacetProbe",
+    "ManagedPluginTarget",
+    "ManagedPluginTargetResolver",
 ]

@@ -45,10 +45,12 @@ def test_bridge_contract_exports_share_one_canonical_identity() -> None:
 def test_broker_contract_boundary_does_not_import_plugin_manager_implementation() -> None:
     service_imports = _relative_imports(_ROOT / "src" / "liteyukibot" / "broker" / "service.py")
     compatibility_imports = _relative_imports(_ROOT / "src" / "liteyukibot" / "managed_plugins.py")
+    installer_imports = _relative_imports(_ROOT / "src" / "liteyukibot" / "plugin_install.py")
 
     assert (2, "managed_plugins") not in service_imports
     assert (2, "plugin_store") not in service_imports
     assert (1, "plugin_store") not in compatibility_imports
+    assert not any(module == "broker" or module.startswith("broker.") for _level, module in installer_imports if module)
 
 
 def _relative_imports(path: Path) -> set[tuple[int, str | None]]:
