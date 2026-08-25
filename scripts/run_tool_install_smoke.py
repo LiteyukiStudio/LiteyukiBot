@@ -18,6 +18,13 @@ def _root_wheel() -> Path:
     return wheels[0].resolve()
 
 
+def _kernel_wheel() -> Path:
+    wheels = tuple((ROOT / "dist" / "workspace").glob("liteyukibot_v7_kernel-*-py3-none-any.whl"))
+    if len(wheels) != 1:
+        raise RuntimeError(f"expected one kernel wheel in dist/workspace, found {len(wheels)}")
+    return wheels[0].resolve()
+
+
 def _run(command: list[str], *, cwd: Path, environment: dict[str, str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(command, cwd=cwd, env=environment, text=True, capture_output=True, check=True)
 
@@ -36,7 +43,17 @@ def main() -> int:
         environment["PATH"] = os.pathsep.join((str(bin_directory), environment.get("PATH", "")))
 
         _run(
-            [uv, "tool", "install", "--python", "3.14", "--force", str(_root_wheel())],
+            [
+                uv,
+                "tool",
+                "install",
+                "--python",
+                "3.14",
+                "--force",
+                "--with",
+                str(_kernel_wheel()),
+                str(_root_wheel()),
+            ],
             cwd=root,
             environment=environment,
         )

@@ -26,6 +26,7 @@ def main() -> int:
     if uv is None:
         raise RuntimeError("uv executable was not found")
     wheels = (
+        _one_wheel("liteyukibot_v7_kernel"),
         _one_wheel("liteyukibot_v7"),
         _one_wheel("liteyukibot_v7_permissions"),
     )

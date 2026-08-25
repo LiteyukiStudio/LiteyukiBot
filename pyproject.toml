@@ -10,6 +10,7 @@ authors = [
     { name = "LiteyukiStudio" },
 ]
 dependencies = [
+    "liteyukibot-v7-kernel==7.0.0a14",
     "cryptography>=46,<51",
     "filelock>=3.19,<4",
     "pydantic>=2.13,<3",
@@ -72,6 +73,7 @@ exclude = ["extras/legacy-bridges/*"]
 
 [tool.uv.sources]
 liteyukibot-v7 = { workspace = true }
+liteyukibot-v7-kernel = { workspace = true }
 liteyukibot-v7-webui = { workspace = true }
 liteyukibot-v7-runtime-nonebot-api = { workspace = true }
 

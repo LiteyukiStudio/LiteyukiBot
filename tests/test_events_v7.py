@@ -233,3 +233,28 @@ def test_overload_is_an_explicit_result() -> None:
         assert (await bus.publish(event("after-close"))).status == "closed"
 
     asyncio.run(scenario())
+
+
+def test_key_worker_cancellation_settles_the_publisher_and_propagates() -> None:
+    async def scenario() -> None:
+        entered = asyncio.Event()
+
+        async def blocking(_event: EventEnvelope) -> None:
+            entered.set()
+            await asyncio.Event().wait()
+
+        bus = EventBus()
+        bus.subscribe(blocking)
+        publisher = asyncio.create_task(bus.publish(event("cancelled")))
+        await entered.wait()
+        worker = next(iter(bus._key_workers.values()))
+        worker.cancel()
+
+        with pytest.raises(asyncio.CancelledError):
+            await worker
+        with pytest.raises(asyncio.CancelledError):
+            await publisher
+        assert bus.outstanding == 0
+        await bus.aclose()
+
+    asyncio.run(scenario())

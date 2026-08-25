@@ -110,7 +110,7 @@ def validate_source_registry(root: Path) -> None:
     except ReleaseRegistryError as error:
         raise AlphaReleaseError(str(error)) from error
 
-    root_component = next(component for component in registry.components if component.component_id == "kernel")
+    root_component = registry.by_component_id["root"]
     root_project = _project(root, root_component)
     root_version = _string_field(root_project, "version", context="pyproject.toml")
     if root_version != ALPHA_VERSION:

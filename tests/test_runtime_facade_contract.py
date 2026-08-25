@@ -42,7 +42,7 @@ def test_runtime_facade_models_are_json_safe_and_round_trip() -> None:
 
 
 def test_runtime_facade_rejects_non_json_send_results() -> None:
-    with pytest.raises(ValidationError, match="Input should be a valid"):
+    with pytest.raises(ValidationError, match="contains non-JSON value"):
         SendResult(sent=True, result=cast(Any, {"bad": object()}))
 
 

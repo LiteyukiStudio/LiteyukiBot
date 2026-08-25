@@ -50,6 +50,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--distribution", default="liteyukibot-v7")
     parser.add_argument("--expected-version")
+    parser.add_argument("--expect-kernel", action="store_true")
     parser.add_argument("--expect-no-legacy-runtime", action="store_true")
     args = parser.parse_args()
 
@@ -59,6 +60,9 @@ def main() -> int:
         args.distribution: distribution_version,
         "liteyukibot": _module_version("liteyukibot"),
     }
+    if args.expect_kernel:
+        observed["liteyukibot-v7-kernel"] = importlib.metadata.version("liteyukibot-v7-kernel")
+        observed["liteyukibot_kernel"] = _module_version("liteyukibot_kernel")
     if args.expect_no_legacy_runtime:
         _verify_removed_runtime_surface(args.distribution)
     mismatches = {

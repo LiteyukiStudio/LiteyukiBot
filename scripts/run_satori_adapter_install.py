@@ -26,6 +26,7 @@ def main() -> int:
         raise RuntimeError("uv executable was not found")
     command = [uv, "run", "--no-project", "--python", "3.14"]
     for distribution in (
+        "liteyukibot_v7_kernel",
         "liteyukibot_v7",
         "liteyukibot_v7_runtime_adapter",
         "liteyukibot_v7_adapter_satori",

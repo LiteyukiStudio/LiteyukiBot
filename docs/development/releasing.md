@@ -58,12 +58,12 @@ created; Alpha14 supersedes that source identity.
 
 The authoritative [Alpha14 route](../roadmap/v7-alpha-14-baseline.md) opens
 `v7.0.0a14`, removes AstrBot, Neo-MoFox, and v6 compatibility from active
-mainline, and requires a workspace-derived 19-distribution signed graph. Their
+mainline, and requires a workspace-derived 20-distribution signed graph. Their
 source snapshots remain under `extras/legacy-bridges`; they are not eligible
 release projects or v7.0.0 support targets. The route also defines the kernel,
 Broker, plugin-manager, daemon, and root-composition ownership work.
 
-Kernel, IPC, WebUI, DevCLI, Cordis, and broker-bridge components use the
+Kernel contracts, root composition, IPC, WebUI, DevCLI, Cordis, and broker-bridge components use the
 lockstep Alpha version. Business plugins and independently distributed PyPI
 packages retain their own versions and must declare the compatible kernel
 Alpha. No Alpha stage is a release commitment: it becomes eligible only after
@@ -108,6 +108,7 @@ Before the first plugin upload, create these Pending Publishers:
 
 | Project | GitHub environment |
 | --- | --- |
+| `liteyukibot-v7-kernel` | `pypi-kernel` |
 | `liteyukibot-v7-permissions` | `pypi-permissions` |
 | `liteyukibot-v7-commands` | `pypi-commands` |
 | `liteyukibot-v7-resources` | `pypi-resources` |

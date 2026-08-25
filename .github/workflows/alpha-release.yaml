@@ -88,6 +88,7 @@ jobs:
           pnpm --dir webui install --frozen-lockfile
           pnpm --dir webui build
           uv run python scripts/stage_webui_assets.py
+          uv build --project packages/kernel --out-dir dist/alpha
           uv build --out-dir dist/alpha
           uv build --project examples/nonebot-plugin --out-dir dist/alpha
           uv build --project packages/permissions --out-dir dist/alpha
