@@ -1,21 +1,27 @@
-from .bus import ActionExecutor, ActionGuard, EventBus, EventHandler, Subscription
-from .identity import canonical_source_event_id
-from .models import (
+"""Compatibility exports for kernel event contracts."""
+
+from liteyukibot_kernel.events import (
     Action,
     ActionEnvelope,
+    ActionExecutor,
+    ActionGuard,
     ActionResult,
     ActorRef,
     CallApi,
     ConversationRef,
     DispatchResult,
     EditMessage,
+    EventBus,
     EventEnvelope,
+    EventHandler,
     HandlerFailure,
     HandlerResult,
     JsonValue,
     Message,
     Segment,
     SendMessage,
+    Subscription,
+    canonical_source_event_id,
 )
 
 __all__ = [
@@ -26,7 +32,6 @@ __all__ = [
     "ActionResult",
     "ActorRef",
     "CallApi",
-    "canonical_source_event_id",
     "ConversationRef",
     "DispatchResult",
     "EditMessage",
@@ -40,4 +45,5 @@ __all__ = [
     "Segment",
     "SendMessage",
     "Subscription",
+    "canonical_source_event_id",
 ]

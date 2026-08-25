@@ -2,11 +2,15 @@
 
 Each immediate child directory is an independently buildable uv workspace
 package. Package code owns its framework integration or business capability;
-the root `src/liteyukibot/` package remains the kernel and must not import these
-packages directly.
+`packages/kernel` owns the protocol-neutral kernel contract, while the root
+`src/liteyukibot/` package owns CLI and application composition. Kernel code
+must not import the root package or another first-party package.
 
 ## Package Classes
 
+- `kernel` publishes `liteyukibot-v7-kernel` from the independent
+  `liteyukibot_kernel` namespace. The branded root package re-exports its
+  contracts through deliberate compatibility modules.
 - `permissions`, `commands`, `resources`, `profile`, and `essentials` are
   native plugin/service packages.
 - `functions` is the separate executor for documented v6 resource functions.
@@ -19,7 +23,7 @@ packages directly.
   The former `runtime-cordis` Rust/PyO3 package was rejected and has been
   removed.
 - `cordis` is the independent Python in-process composition package introduced
-  by Beta6; the root kernel discovers it through host entry points.
+  by Beta6; root composition discovers it through host entry points.
 - `adapter-onebot` is a platform driver loaded by the shared `runtime-adapter`
   Broker bridge.
 - `agent` publishes the experimental `agent` and `agent-sandbox` Broker bridges

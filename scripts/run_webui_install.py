@@ -11,10 +11,12 @@ ROOT = Path(__file__).resolve().parents[1]
 def main() -> int:
     workspace = ROOT / "dist" / "workspace"
     wheels = tuple(workspace.glob("liteyukibot_v7_webui-*.whl"))
-    kernel_wheels = tuple(workspace.glob("liteyukibot_v7-*-py3-none-any.whl"))
-    if len(wheels) != 1 or len(kernel_wheels) != 1:
+    root_wheels = tuple(workspace.glob("liteyukibot_v7-*-py3-none-any.whl"))
+    kernel_wheels = tuple(workspace.glob("liteyukibot_v7_kernel-*-py3-none-any.whl"))
+    if len(wheels) != 1 or len(root_wheels) != 1 or len(kernel_wheels) != 1:
         raise RuntimeError(
-            f"expected one WebUI wheel and one kernel wheel, found {len(wheels)} and {len(kernel_wheels)}"
+            "expected one WebUI, root, and kernel wheel, found "
+            f"{len(wheels)}, {len(root_wheels)}, and {len(kernel_wheels)}"
         )
     subprocess.run(
         [
@@ -29,6 +31,8 @@ def main() -> int:
             str(wheels[0]),
             "--with",
             str(kernel_wheels[0]),
+            "--with",
+            str(root_wheels[0]),
             "--verifier",
             "scripts/verify_webui_install.py",
         ],

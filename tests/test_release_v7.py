@@ -13,7 +13,7 @@ from scripts.check_release import (
     read_release_identity,
     validate_release,
 )
-from scripts.run_developer_kit_install import _build_dir
+from scripts.run_developer_kit_install import _build_dir, _example_build_dir
 from scripts.run_isolated_install import _clean_environment, _requirement
 
 import liteyukibot
@@ -148,3 +148,12 @@ def test_developer_kit_install_uses_an_explicit_build_directory(
     monkeypatch.setenv("LITEYUKI_BUILD_DIR", str(tmp_path))
 
     assert _build_dir() == tmp_path.resolve()
+    assert _example_build_dir() == (tmp_path / "examples").resolve()
+
+
+def test_developer_kit_install_uses_ci_build_directories(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("LITEYUKI_BUILD_DIR", raising=False)
+    root = Path(__file__).parents[1]
+
+    assert _build_dir() == (root / "dist" / "workspace").resolve()
+    assert _example_build_dir() == (root / "dist" / "examples").resolve()

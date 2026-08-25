@@ -24,6 +24,7 @@ members = [
     "liteyukibot-v7-example-nonebot-plugin",
     "liteyukibot-v7-functions",
     "liteyukibot-v7-ipc-native",
+    "liteyukibot-v7-kernel",
     "liteyukibot-v7-permissions",
     "liteyukibot-v7-profile",
     "liteyukibot-v7-resources",
@@ -765,6 +766,7 @@ dependencies = [
     { name = "filelock" },
     { name = "jsonschema" },
     { name = "license-expression" },
+    { name = "liteyukibot-v7-kernel" },
     { name = "prompt-toolkit" },
     { name = "pydantic" },
     { name = "pyyaml" },
@@ -816,6 +818,7 @@ requires-dist = [
     { name = "filelock", specifier = ">=3.19,<4" },
     { name = "jsonschema", specifier = ">=4.26,<5" },
     { name = "license-expression", specifier = ">=30.4.4" },
+    { name = "liteyukibot-v7-kernel", editable = "packages/kernel" },
     { name = "liteyukibot-v7-webui", extras = ["server"], marker = "extra == 'webui'", editable = "packages/webui" },
     { name = "prompt-toolkit", specifier = ">=3.0,<4" },
     { name = "pydantic", specifier = ">=2.13,<3" },
@@ -1000,6 +1003,21 @@ requires-dist = [
 name = "liteyukibot-v7-ipc-native"
 version = "7.0.0a14"
 source = { editable = "packages/ipc-native" }
+
+[[package]]
+name = "liteyukibot-v7-kernel"
+version = "7.0.0a14"
+source = { editable = "packages/kernel" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "yukilog" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2.13,<3" },
+    { name = "yukilog", specifier = ">=1,<2" },
+]
 
 [[package]]
 name = "liteyukibot-v7-permissions"

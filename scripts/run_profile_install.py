@@ -28,6 +28,7 @@ def main() -> int:
     wheels = tuple(
         _one_wheel(name)
         for name in (
+            "liteyukibot_v7_kernel",
             "liteyukibot_v7",
             "liteyukibot_v7_permissions",
             "liteyukibot_v7_commands",

@@ -1,0 +1,21 @@
+[project]
+name = "liteyukibot-v7-kernel"
+version = "7.0.0a14"
+description = "Protocol-neutral contracts and event kernel for LiteyukiBot v7."
+readme = "README.md"
+requires-python = ">=3.14"
+license = "LicenseRef-LSO-Common-1.4"
+license-files = ["LICENSE", "LICENSE.en", "LICENSE.zh-CN"]
+authors = [{ name = "LiteyukiStudio" }]
+dependencies = [
+    "pydantic>=2.13,<3",
+    "yukilog>=1,<2",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.32,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = "src"
+module-name = "liteyukibot_kernel"

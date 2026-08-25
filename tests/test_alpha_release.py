@@ -74,9 +74,10 @@ def test_release_registry_covers_exactly_the_workspace_bundle() -> None:
     registry = resolve_workspace_registry(ROOT)
     distributions = {component.distribution for component in registry.components}
 
-    assert len(registry.components) == 19
+    assert len(registry.components) == 20
     assert {
         "liteyukibot-v7",
+        "liteyukibot-v7-kernel",
         "liteyukibot-v7-ipc-native",
         "liteyukibot-v7-cordis",
         "liteyukibot-v7-runtime-nonebot",
@@ -107,11 +108,17 @@ def test_release_registry_covers_exactly_the_workspace_bundle() -> None:
     }
     reference = registry.reference_e2e_component
     assert reference.component_id == "example-nonebot-plugin"
-    assert reference.policy.reference_e2e_components == ("kernel", "nonebot-bridge", "example-nonebot-plugin")
+    assert reference.policy.reference_e2e_components == (
+        "kernel",
+        "root",
+        "nonebot-bridge",
+        "example-nonebot-plugin",
+    )
 
 
 def test_publishable_projection_preserves_release_cli_names() -> None:
     assert set(RELEASE_PROJECTS) == {
+        "kernel",
         "root",
         "ipc-native",
         "runtime-nonebot",
@@ -299,7 +306,7 @@ def test_bundle_install_commands_use_only_staged_wheels(tmp_path: Path) -> None:
 
 def test_bundle_verifier_projection_covers_every_non_reference_component() -> None:
     names = {verification.name for verification in VERIFICATIONS}
-    assert len(VERIFICATIONS) == 18
+    assert len(VERIFICATIONS) == 19
     assert "example-nonebot-plugin" not in names
     assert names == {
         component.component_id for component in RELEASE_COMPONENTS if component.component_id != "example-nonebot-plugin"
@@ -307,6 +314,7 @@ def test_bundle_verifier_projection_covers_every_non_reference_component() -> No
 
     onebot = next(item for item in VERIFICATIONS if item.name == "adapter-onebot")
     assert onebot.distributions == (
+        "liteyukibot-v7-kernel",
         "liteyukibot-v7",
         "liteyukibot-v7-runtime-adapter",
         "liteyukibot-v7-adapter-onebot",
@@ -315,6 +323,7 @@ def test_bundle_verifier_projection_covers_every_non_reference_component() -> No
 
     satori = next(item for item in VERIFICATIONS if item.name == "adapter-satori")
     assert satori.distributions == (
+        "liteyukibot-v7-kernel",
         "liteyukibot-v7",
         "liteyukibot-v7-runtime-adapter",
         "liteyukibot-v7-adapter-satori",
@@ -323,6 +332,7 @@ def test_bundle_verifier_projection_covers_every_non_reference_component() -> No
 
     agent = next(item for item in VERIFICATIONS if item.name == "agent")
     assert agent.distributions == (
+        "liteyukibot-v7-kernel",
         "liteyukibot-v7",
         "liteyukibot-v7-permissions",
         "liteyukibot-v7-commands",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from importlib import metadata
 
 import pytest
 
@@ -11,6 +12,7 @@ from liteyukibot import (
     RuntimeNamespaceProxy,
     RuntimeRequirement,
     RuntimeUnavailable,
+    create_runtime_proxy,
     runtime,
     runtime_bindings,
     runtime_handler,
@@ -110,3 +112,22 @@ def test_runtime_requirements_are_explicit_manifest_capabilities() -> None:
             version="1.0.0",
             runtime_requirements=(requirement, requirement),
         )
+
+
+def test_duplicate_runtime_proxy_providers_report_their_entry_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Entry:
+        def __init__(self, value: str) -> None:
+            self.name = "astrbot.event"
+            self.value = value
+
+    monkeypatch.setattr(
+        metadata,
+        "entry_points",
+        lambda *, group: (Entry("provider_one:factory"), Entry("provider_two:factory")),
+    )
+
+    binding = RuntimeBinding("astrbot", "event", "^1.0", True, "astrbot")
+    with pytest.raises(RuntimeError, match="provider_one:factory, provider_two:factory"):
+        create_runtime_proxy(binding, None, None)

@@ -1,8 +1,10 @@
-# Kernel Source
+# Root Composition Source
 
-`src/liteyukibot/` is the v7 kernel distribution. It owns portable models,
-configuration, logging integration, native-plugin lifecycle, event/action
-routing, Broker integration, and the command-line interface.
+`src/liteyukibot/` is the branded `liteyukibot-v7` CLI and composition
+distribution. It owns application configuration, native-plugin lifecycle,
+Broker and daemon integration, and the command-line interface. The independent
+contract nucleus lives in `packages/kernel` and is published as
+`liteyukibot-v7-kernel` from the `liteyukibot_kernel` namespace.
 
 Keep framework SDK imports and adapter objects out of this tree. Add a bridge
 or platform integration under `packages/` and exchange only public contracts
@@ -10,8 +12,10 @@ across the Broker boundary.
 
 ## Layout
 
-- `app.py`, `events/`, `plugins.py`, `services.py`, and `tasks.py` implement
-  kernel lifecycle and plugin/event contracts.
+- `app.py` and `plugins.py` currently implement root composition and native
+  plugin lifecycle.
+- `events/`, `services.py`, `tasks.py`, and the other contract modules are
+  compatibility re-exports of `liteyukibot_kernel`.
 - `config/` owns settings, workspace initialization, inspection, and the secret
   vault.
 - `broker/` owns the authenticated cross-process peer contract.

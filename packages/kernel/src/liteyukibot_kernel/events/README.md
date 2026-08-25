@@ -6,8 +6,9 @@ objects as public values.
 
 Changes to envelope fields, validation, ordering, or action routing require the
 matching specification and focused tests. See
-[`docs/specs/core-event-action-v1.md`](../../../docs/specs/core-event-action-v1.md).
+[`docs/specs/core-event-action-v1.md`](../../../../../docs/specs/core-event-action-v1.md).
 
 ```bash
+# Run from the repository root.
 uv run pytest tests/test_events_v7.py tests/test_app_v7.py
 ```
