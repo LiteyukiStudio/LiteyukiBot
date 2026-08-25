@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from liteyukibot.bundles import BUNDLE_TAG, BUNDLE_VERSION
 from liteyukibot.events import canonical_source_event_id
 
 
@@ -34,3 +35,10 @@ def test_canonical_source_event_id_rejects_blank_parts(parts: tuple[str, str, st
 def test_canonical_source_event_id_rejects_untrimmed_parts() -> None:
     with pytest.raises(ValueError, match="non-empty trimmed"):
         canonical_source_event_id("bridge ", "adapter", "event")
+
+
+def test_bundle_identity_uses_installed_kernel_distribution_metadata() -> None:
+    import importlib.metadata
+
+    assert BUNDLE_VERSION == importlib.metadata.version("liteyukibot-v7")
+    assert BUNDLE_TAG == f"v{BUNDLE_VERSION}"

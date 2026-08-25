@@ -8,8 +8,8 @@ license = "LicenseRef-LSO-Common-1.4"
 license-files = ["LICENSE", "LICENSE.en", "LICENSE.zh-CN"]
 authors = [{ name = "LiteyukiStudio" }]
 dependencies = [
-    "liteyukibot-v7>=7.0.0a1,<8",
-    "liteyukibot-v7-runtime-adapter>=7.0.0a1,<8",
+    "liteyukibot-v7==7.0.0a14",
+    "liteyukibot-v7-runtime-adapter==7.0.0a14",
     "websockets>=15,<16",
 ]
 

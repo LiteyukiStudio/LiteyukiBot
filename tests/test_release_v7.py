@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.metadata
+import re
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -15,6 +17,7 @@ from scripts.run_developer_kit_install import _build_dir
 from scripts.run_isolated_install import _clean_environment, _requirement
 
 import liteyukibot
+from liteyukibot.bundles import BUNDLE_TAG, BUNDLE_VERSION
 
 
 def test_kernel_import_namespace_uses_distribution_version() -> None:
@@ -23,33 +26,42 @@ def test_kernel_import_namespace_uses_distribution_version() -> None:
     assert liteyukibot.__version__ == expected
 
 
-@pytest.mark.parametrize(
-    ("name", "tag"),
-    [
-        ("root", "v7.0.0a13"),
-        ("permissions", "permissions-v0.3.0a2"),
-        ("commands", "commands-v0.3.0a1"),
-        ("resources", "resources-v0.2.0a1"),
-        ("functions", "functions-v0.1.0a3"),
-        ("profile", "profile-v0.2.0a1"),
-        ("essentials", "essentials-v0.3.0a1"),
-        ("runtime-nonebot", "runtime-nonebot-v7.0.0a13"),
-        ("runtime-adapter", "runtime-adapter-v7.0.0a13"),
-        ("adapter-onebot", "adapter-onebot-v0.1.0a1"),
-        ("adapter-satori", "adapter-satori-v0.1.0a2"),
-        ("agent-resolver", "agent-resolver-v0.2.0a1"),
-        ("agent", "agent-v0.1.0a9"),
-        ("webui", "webui-v7.0.0a13"),
-        ("ipc-native", "ipc-native-v7.0.0a13"),
-    ],
-)
-def test_current_release_identities_accept_exact_tags(name: str, tag: str) -> None:
+@pytest.mark.parametrize("name", tuple(RELEASE_PROJECTS))
+def test_current_release_identities_accept_exact_tags(name: str) -> None:
     project = RELEASE_PROJECTS[name]
     identity = read_release_identity(project.project_file)
+    tag = BUNDLE_TAG if name == "root" else f"{project.tag_prefix}{identity.version}"
 
     validate_release(identity, project=project, tag=tag)
     assert identity.distribution == project.distribution
     assert project_for_tag(tag) == project
+
+
+def test_workspace_first_party_dependencies_are_exactly_pinned() -> None:
+    root = Path(__file__).parents[1]
+    project_files = [
+        root / "pyproject.toml",
+        *sorted((root / "packages").glob("*/pyproject.toml")),
+        root / "examples" / "nonebot-plugin" / "pyproject.toml",
+    ]
+    projects = [tomllib.loads(project_file.read_text(encoding="utf-8"))["project"] for project_file in project_files]
+    expected_versions = {
+        re.sub(r"[-_.]+", "-", project["name"]).lower(): project["version"] for project in projects
+    }
+    specs: list[str] = []
+    for project in projects:
+        specs.extend(spec for spec in project.get("dependencies", []) if spec.startswith("liteyukibot-v7"))
+        optional = project.get("optional-dependencies", {})
+        for group in optional.values():
+            specs.extend(spec for spec in group if spec.startswith("liteyukibot-v7"))
+
+    assert specs
+    for specification in specs:
+        match = re.fullmatch(r"([A-Za-z0-9._-]+)(?:\[[^]]+\])?==([^,;\s]+)", specification)
+        assert match is not None, f"first-party dependency is not an exact pin: {specification}"
+        normalized_name = re.sub(r"[-_.]+", "-", match.group(1)).lower()
+        assert match.group(2) == expected_versions[normalized_name]
+    assert f"liteyukibot-v7=={BUNDLE_VERSION}" in specs
 
 
 @pytest.mark.parametrize(
@@ -113,12 +125,12 @@ def test_isolated_install_rejects_empty_and_directory_requirements(tmp_path: Pat
 
 
 def test_isolated_install_resolves_exactly_one_local_requirement_pattern(tmp_path: Path) -> None:
-    wheel = tmp_path / "liteyukibot_v7-7.0.0a13-py3-none-any.whl"
+    wheel = tmp_path / f"liteyukibot_v7-{BUNDLE_VERSION}-py3-none-any.whl"
     wheel.touch()
 
     assert _requirement(str(tmp_path / "liteyukibot_v7-*.whl")) == str(wheel.resolve())
 
-    (tmp_path / "liteyukibot_v7-7.0.0a14-py3-none-any.whl").touch()
+    (tmp_path / f"liteyukibot_v7-{BUNDLE_VERSION}.post1-py3-none-any.whl").touch()
     with pytest.raises(ValueError, match="exactly one file"):
         _requirement(str(tmp_path / "liteyukibot_v7-*.whl"))
 
