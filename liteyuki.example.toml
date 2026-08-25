@@ -1,5 +1,5 @@
 # LiteyukiBot configuration schema. Do not edit config_version manually.
-config_version = 2
+config_version = 6
 
 [core]
 data_dir = "data"
@@ -58,31 +58,3 @@ language = "zh-CN"
 enabled = false
 host = "127.0.0.1"
 port = 20216
-
-[runtimes.nonebot]
-# Install with: uv add "liteyukibot-v7-runtime-nonebot[onebot]"
-kind = "nonebot"
-enabled = false
-heartbeat_interval_seconds = 10.0
-stale_after_seconds = 30.0
-max_inbound_events = 100
-
-[runtimes.nonebot.options]
-plugins = []
-plugin_dirs = []
-adapters = ["nonebot.adapters.onebot.v11:Adapter"]
-
-[runtimes.nonebot.options.config]
-driver = "~fastapi"
-
-[runtimes.legacy]
-# Install with: uv add "liteyukibot-v7-runtime-v6"
-kind = "v6"
-enabled = false
-
-[runtimes.legacy.options]
-plugins = []
-plugin_dirs = ["plugins"]
-
-[runtimes.legacy.options.config]
-nickname = ["Liteyuki"]

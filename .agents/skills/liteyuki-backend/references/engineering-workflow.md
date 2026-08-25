@@ -34,7 +34,7 @@ Before declaring a repository-wide backend change complete, use the applicable
 authoritative sequence:
 
 ```powershell
-uv sync --locked --all-packages --extra onebot --extra satori
+uv sync --locked --all-packages --extra onebot --extra satori --extra webui
 uv run liteyuki check
 uv run ruff check src tests scripts examples packages
 uv run mypy

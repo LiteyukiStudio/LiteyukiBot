@@ -70,7 +70,7 @@ as a substitute for a registered preset.
 
 ```lyf
 @events(
-    "astrbot.message.created",
+    "message.created",
     where={"conversation.type": "private"}
 )
 async fn on_message(event) {

@@ -30,7 +30,6 @@ and tests in the same pull request.
 - [Configuration v6](configuration-v6.md)
 - [Configuration v5 (historical)](configuration-v5.md)
 - [Resources v1](resources-v1.md)
-- [v6 Compatibility](v6-compatibility.md)
 
 The old ADR tree has been removed. Use Git history for decision archaeology;
 it is not a source of current contract requirements.

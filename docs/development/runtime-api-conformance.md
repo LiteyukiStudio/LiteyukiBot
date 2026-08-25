@@ -21,7 +21,7 @@ SHA-256 `runtime_api_fingerprint`; a supplied fingerprint must match the
 declarations exactly.
 
 Provider-specific values belong under a namespace such as
-`extensions["astrbot"]`. Stable portable consumers must not depend on those
+`extensions["provider"]`. Stable portable consumers must not depend on those
 values. New provider-only operations use an `experimental` namespace until a
 future contract explicitly promotes them.
 
@@ -37,28 +37,28 @@ from liteyukibot import RuntimeRequirement, runtime
 
 requirements = (
     RuntimeRequirement(
-        runtime="astrbot",
+        runtime="provider",
         api="event",
         version="^1.2",
         operations=("snapshot",),
         optional=True,
-        bridge_id="astrbot-prod",
+        bridge_id="provider-prod",
     ),
 )
 
 
 @runtime(
-    "astrbot",
+    "provider",
     api="event",
     version="^1.2",
     optional=True,
-    as_="astrbot",
-    bridge_id="astrbot-prod",
+    as_="provider",
+    bridge_id="provider-prod",
 )
-async def handler(event: object, *, astrbot: Any) -> None:
-    if not astrbot.available:
+async def handler(event: object, *, provider: Any) -> None:
+    if not provider.available:
         return
-    snapshot = getattr(astrbot, "snapshot", None)
+    snapshot = getattr(provider, "snapshot", None)
     if callable(snapshot):
         await snapshot()
 ```
@@ -103,9 +103,9 @@ uv run python scripts/run_isolated_install.py \
   --verifier scripts/verify_broker_peer_example.py
 ```
 
-The AstrBot API verifier uses the analogous AstrBot wheel. A verifier must
-not succeed because `src/` is on `PYTHONPATH`; `run_isolated_install.py`
-removes project environment variables before starting it.
+A verifier must not succeed because `src/` is on `PYTHONPATH`;
+`run_isolated_install.py` removes project environment variables before
+starting it.
 
 ## Troubleshooting
 

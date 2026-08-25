@@ -1,5 +1,10 @@
 # LiteyukiBot v6 Plugin Compatibility
 
+> Historical Alpha source snapshot. The v6 compatibility bridge is retired
+> from the v7.0.0 workspace, release, CI, and support surface. Its code is kept
+> under `extras/legacy-bridges/runtime-v6` for possible future extraction as an
+> independently owned add-on.
+
 `liteyukibot-v7-runtime-v6` is an experimental, limited Broker bridge. It is
 not a child runtime and is never configured under `[runtimes.*]`. The bridge
 owns the `liteyuki` compatibility namespace inside its own process and sees
@@ -7,7 +12,7 @@ only broker-delivered, JSON-safe event envelopes.
 
 ## Configure the bridge
 
-Install the bridge package and register a vault token for one bridge entry:
+The retired bridge was installed and configured as follows:
 
 ```toml
 [broker.bridges.v6]

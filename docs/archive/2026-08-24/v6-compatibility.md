@@ -1,5 +1,8 @@
 # v6 Compatibility
 
+> Historical pre-release specification. This contract is not part of the
+> LiteyukiBot v7.0.0 mainline support surface.
+
 - Specification version: `1`
 - Applies to: the experimental limited v6 Broker bridge shipped during v7 pre-release
 - Compatibility: a migration aid, not a promise that all v6 extension behavior
@@ -16,11 +19,11 @@ points. Legacy module paths, plugin directories, managed generations, and
 historical runtime configuration are migration errors. Topic subscriptions
 use dot-separated patterns where `*` matches exactly one complete segment.
 
-NoneBot adapters normalize platform data before it crosses the boundary. The
-custom runtime guide and `docs/migration-v6.md` describe supported migration
-workflows and known limits.
+NoneBot adapters normalized platform data before it crossed the boundary. The
+adjacent `v6-plugin-migration.md` file records the retired migration workflow
+and known limits.
 
 ## Evidence
 
-Run the focused v6/runtime compatibility tests and the relevant separately
-published runtime package installation verifier.
+The former focused tests and installation verifier are retained with the source
+snapshot under `extras/legacy-bridges`.

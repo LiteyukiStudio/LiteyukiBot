@@ -788,19 +788,11 @@ def _reject_legacy_runtime_config(merged: Mapping[str, Any], issues: list[Config
                     ("runtimes", str(runtime_id), "kind"),
                 )
             )
-        elif kind == "v6":
+        elif kind in {"v6", "mofox", "astrbot"}:
             issues.append(
                 ConfigIssue(
                     "merged configuration",
-                    "migration_required: v6 compatibility must be configured under broker.bridges",
-                    ("runtimes", str(runtime_id), "kind"),
-                )
-            )
-        elif kind == "mofox":
-            issues.append(
-                ConfigIssue(
-                    "merged configuration",
-                    "migration_required: MoFox compatibility must be configured under broker.bridges",
+                    f"unsupported: {kind} was retired from the LiteyukiBot v7.0.0 mainline",
                     ("runtimes", str(runtime_id), "kind"),
                 )
             )

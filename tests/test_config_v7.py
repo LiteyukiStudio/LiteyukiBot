@@ -405,11 +405,12 @@ def test_loader_rejects_legacy_agent_configuration_with_migration_diagnostic(tmp
 @pytest.mark.parametrize(
     ("kind", "message"),
     [
-        ("v6", "v6 compatibility must be configured under broker.bridges"),
-        ("mofox", "MoFox compatibility must be configured under broker.bridges"),
+        ("v6", "v6 was retired"),
+        ("mofox", "mofox was retired"),
+        ("astrbot", "astrbot was retired"),
     ],
 )
-def test_loader_rejects_legacy_compatibility_runtimes_with_migration_diagnostic(
+def test_loader_rejects_retired_runtimes_with_unsupported_diagnostic(
     tmp_path: Path,
     kind: str,
     message: str,
