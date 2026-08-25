@@ -48,25 +48,29 @@ GitHub Release artifact and is not a PyPI publication.
 [Alpha 12](../roadmap/v7-alpha-12-ecosystem-activation.md) advances the current
 source identity to `v7.0.0a12`, adds the independently versioned reference
 NoneBot plugin to the signed bundle, and requires the managed-generation
-external-host E2E before release. The 72-hour soak remains deferred to stable.
+external-host E2E before release.
 
-[Alpha 13](../roadmap/v7-alpha-13-webui-textmate.md) advances the current
-source identity to `v7.0.0a13`, adds the typed plugin WebUI and LYF TextMate
-consumer, and keeps npm publication blocked until `@liteyuki` scope access is
-confirmed. The temporary fixed Git dependency is not a stable publication
-identity and must be replaced by an exact npm version before the Alpha13 npm
-consumer release is declared complete.
+[Alpha 13](../roadmap/v7-alpha-13-webui-textmate.md) completed the typed plugin
+WebUI and LYF TextMate consumer source milestone. The published
+`@liteyuki/lyf-textmate@0.1.0-alpha.13` has npm SLSA provenance, and the WebUI
+pins that exact version and integrity. No `v7.0.0a13` GitHub Release was
+created; Alpha14 supersedes that source identity.
 
-The Alpha14 transition removes AstrBot, Neo-MoFox, and v6 compatibility from
-the workspace, dependency lock, CI, signed bundle, and publish workflow. Their
+The authoritative [Alpha14 route](../roadmap/v7-alpha-14-baseline.md) opens
+`v7.0.0a14`, removes AstrBot, Neo-MoFox, and v6 compatibility from active
+mainline, and requires a workspace-derived 19-distribution signed graph. Their
 source snapshots remain under `extras/legacy-bridges`; they are not eligible
-release projects or v7.0.0 support targets.
+release projects or v7.0.0 support targets. The route also defines the kernel,
+Broker, plugin-manager, daemon, and root-composition ownership work.
 
 Kernel, IPC, WebUI, DevCLI, Cordis, and broker-bridge components use the
 lockstep Alpha version. Business plugins and independently distributed PyPI
 packages retain their own versions and must declare the compatible kernel
 Alpha. No Alpha stage is a release commitment: it becomes eligible only after
 its roadmap exit criteria and the complete repository validation gate pass.
+Beta additionally requires both an explicitly recorded 14-day period without
+a new public contract and a reviewed 72-hour reference deployment soak. Both
+owners must approve the retained evidence.
 
 ## Historical B7 procedure
 

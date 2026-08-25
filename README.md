@@ -23,10 +23,12 @@ only as source snapshots under `extras/legacy-bridges`; they are not workspace,
 release, CI, or support targets.
 
 The default branch is the maintained LiteyukiBot v7 line. The prior v6 line is
-preserved on the `v6` branch. The current source pre-release is the `7.0.0a13`
-Alpha lockstep baseline; it is not yet a PyPI release. Alpha13 adds the typed
-plugin discovery and managed-generation WebUI plus the LYF TextMate consumer.
-The 72-hour soak remains a stable-release gate.
+preserved on the `v6` branch. The current source pre-release is the `7.0.0a14`
+Alpha lockstep baseline; it is not yet a PyPI release. Alpha14 is the ownership,
+release-graph, and architecture-subtraction stage defined by the
+[authoritative Alpha14 route](docs/roadmap/v7-alpha-14-baseline.md). Beta
+requires both a 14-day public-contract freeze and a reviewed 72-hour reference
+deployment soak.
 
 ## Features
 
@@ -127,6 +129,7 @@ tokens, or message payloads in public reports.
 
 - [Configuration operations](docs/configuration.md)
 - [v7 architecture](docs/architecture/v7.md)
+- [Alpha14 route](docs/roadmap/v7-alpha-14-baseline.md)
 - [Historical Beta1 contract](docs/archive/2026-08-17/beta1-contract.md)
 - [Native plugin development](docs/development/native-plugins.md)
 - [Broker peer development](docs/development/broker-peers.md)
@@ -145,7 +148,7 @@ This repository is a uv workspace containing the kernel, first-party packages,
 examples, tests, developer tools, documentation, and release workflows.
 Directory-level development guidance is provided by each directory's README.
 
-[Liteyuki7]: https://img.shields.io/badge/LiteyukiBot-7.0.0a2-blue?style=for-the-badge
+[Liteyuki7]: https://img.shields.io/badge/LiteyukiBot-7.0.0a14-blue?style=for-the-badge
 [Python3.14]: https://img.shields.io/badge/Python-3.14+-blue?style=for-the-badge
 [Usage]: https://img.shields.io/badge/Usage-CLI-blue?style=for-the-badge
 [Repo]: https://img.shields.io/badge/Distribution-PyPI-blue?style=for-the-badge
