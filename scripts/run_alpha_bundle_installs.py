@@ -15,6 +15,15 @@ from pathlib import Path
 from typing import cast
 
 from scripts.alpha_release import ALPHA_VERSION, MANIFEST_NAME, AlphaReleaseError
+
+try:
+    from scripts.release_registry import ReleaseRegistryError, WorkspaceComponent, resolve_workspace_registry
+except ModuleNotFoundError:  # pragma: no cover - exercised by direct script execution
+    from release_registry import (  # type: ignore[import-not-found, no-redef]
+        ReleaseRegistryError,
+        WorkspaceComponent,
+        resolve_workspace_registry,
+    )
 from scripts.run_isolated_install import _clean_environment
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,76 +37,30 @@ class InstallVerification:
     arguments: tuple[str, ...] = ()
 
 
-VERIFICATIONS: tuple[InstallVerification, ...] = (
-    InstallVerification(
-        "kernel",
-        ("liteyukibot-v7",),
-        "scripts/verify_published_install.py",
-        ("--expected-version", ALPHA_VERSION, "--expect-no-legacy-runtime"),
-    ),
-    InstallVerification(
-        "permissions", ("liteyukibot-v7", "liteyukibot-v7-permissions"), "scripts/verify_permissions_install.py"
-    ),
-    InstallVerification(
-        "commands", ("liteyukibot-v7", "liteyukibot-v7-permissions", "liteyukibot-v7-commands"),
-        "scripts/verify_commands_install.py",
-    ),
-    InstallVerification(
-        "resources",
-        ("liteyukibot-v7", "liteyukibot-v7-permissions", "liteyukibot-v7-commands", "liteyukibot-v7-resources"),
-        "scripts/verify_resources_install.py",
-    ),
-    InstallVerification(
-        "profile",
-        (
-            "liteyukibot-v7",
-            "liteyukibot-v7-permissions",
-            "liteyukibot-v7-commands",
-            "liteyukibot-v7-resources",
-            "liteyukibot-v7-profile",
-        ),
-        "scripts/verify_profile_install.py",
-    ),
-    InstallVerification(
-        "essentials",
-        ("liteyukibot-v7", "liteyukibot-v7-permissions", "liteyukibot-v7-commands", "liteyukibot-v7-essentials"),
-        "scripts/verify_essentials_install.py",
-    ),
-    InstallVerification(
-        "agent-resolver",
-        ("liteyukibot-v7", "liteyukibot-v7-agent-resolver"),
-        "scripts/verify_agent_resolver_install.py",
-    ),
-    InstallVerification(
-        "functions", ("liteyukibot-v7", "liteyukibot-v7-functions"), "scripts/verify_functions_install.py"
-    ),
-    InstallVerification("cordis", ("liteyukibot-v7", "liteyukibot-v7-cordis"), "scripts/verify_cordis_install.py"),
-    InstallVerification(
-        "nonebot-bridge",
-        ("liteyukibot-v7", "liteyukibot-v7-runtime-nonebot"),
-        "scripts/verify_nonebot_runtime_install.py",
-        ("--expected-version", ALPHA_VERSION),
-    ),
-    InstallVerification(
-        "nonebot-api",
-        ("liteyukibot-v7", "liteyukibot-v7-runtime-nonebot-api"),
-        "scripts/verify_nonebot_api_install.py",
-        ("--expected-version", ALPHA_VERSION),
-    ),
-    InstallVerification(
-        "adapter-bridge",
-        ("liteyukibot-v7", "liteyukibot-v7-runtime-adapter"),
-        "scripts/verify_adapter_runtime_install.py",
-        ("--expected-version", ALPHA_VERSION),
-    ),
-    InstallVerification("webui", ("liteyukibot-v7-webui",), "scripts/verify_webui_install.py"),
-    InstallVerification("ipc-native", ("liteyukibot-v7-ipc-native",), "scripts/verify_ipc_native_install.py"),
-    InstallVerification(
-        "devcli",
-        ("liteyukibot-v7", "liteyukibot-v7-functions", "liteyukibot-v7-devcli"),
-        "scripts/verify_devcli_install.py",
-        ("--expected-version", ALPHA_VERSION),
-    ),
+try:
+    _REGISTRY = resolve_workspace_registry(ROOT)
+except ReleaseRegistryError as error:
+    raise RuntimeError(str(error)) from error
+
+
+def _verification_for(component: WorkspaceComponent) -> InstallVerification:
+    policy = component.policy
+    if policy.verifier is None:
+        raise RuntimeError(f"component {component.component_id} has no isolated verifier")
+    by_id = _REGISTRY.by_component_id
+    try:
+        distributions = tuple(by_id[component_id].distribution for component_id in policy.verifier_components)
+    except KeyError as error:
+        raise RuntimeError(f"component {component.component_id} references an unknown verifier component") from error
+    arguments = list(policy.verifier_arguments)
+    if policy.expected_version != "none":
+        expected_version = ALPHA_VERSION if policy.expected_version == "lockstep" else component.release_version
+        arguments[0:0] = ["--expected-version", expected_version]
+    return InstallVerification(component.component_id, distributions, policy.verifier, tuple(arguments))
+
+
+VERIFICATIONS: tuple[InstallVerification, ...] = tuple(
+    _verification_for(component) for component in _REGISTRY.verification_components
 )
 
 
@@ -176,7 +139,11 @@ def run(bundle: Path) -> None:
     with tempfile.TemporaryDirectory(prefix="liteyuki-alpha-bundle-") as directory:
         for verification in VERIFICATIONS:
             subprocess.run(command_for(bundle, verification, uv), cwd=directory, env=environment, check=True)
-        reference_wheel = wheels_for(bundle, "liteyukibot-v7-example-nonebot-plugin")[0]
+        reference = _REGISTRY.reference_e2e_component
+        reference_distributions = tuple(
+            _REGISTRY.by_component_id[component_id].distribution
+            for component_id in reference.policy.reference_e2e_components
+        )
         e2e_command = [
             uv,
             "run",
@@ -186,19 +153,19 @@ def run(bundle: Path) -> None:
             "--no-index",
             "--find-links",
             str(bundle.resolve()),
-            "--with",
-            str(wheels_for(bundle, "liteyukibot-v7")[0].resolve()),
-            "--with",
-            str(wheels_for(bundle, "liteyukibot-v7-runtime-nonebot")[0].resolve()),
-            "--with",
-            str(reference_wheel.resolve()),
+        ]
+        for distribution in reference_distributions:
+            e2e_command.extend(("--with", str(wheels_for(bundle, distribution)[0].resolve())))
+        e2e_command.extend(
+            [
             "python",
             str((ROOT / "scripts" / "run_nonebot_plugin_e2e.py").resolve()),
             "--wheel-dir",
             str(bundle.resolve()),
             "--workspace",
             str((Path(directory) / "nonebot-e2e").resolve()),
-        ]
+            ]
+        )
         subprocess.run(e2e_command, cwd=directory, env=environment, check=True)
 
 

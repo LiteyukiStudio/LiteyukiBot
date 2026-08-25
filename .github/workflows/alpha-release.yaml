@@ -101,6 +101,9 @@ jobs:
           uv build --project packages/runtime-nonebot --out-dir dist/alpha
           uv build --project packages/runtime-nonebot-api --out-dir dist/alpha
           uv build --project packages/runtime-adapter --out-dir dist/alpha
+          uv build --project packages/adapter-onebot --out-dir dist/alpha
+          uv build --project packages/adapter-satori --out-dir dist/alpha
+          uv build --project packages/agent --out-dir dist/alpha
           uv build --project packages/webui --out-dir dist/alpha
           uv build --project packages/devcli --out-dir dist/alpha
       - name: Build Native IPC source distribution
