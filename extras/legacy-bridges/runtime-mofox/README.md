@@ -1,5 +1,8 @@
 # LiteyukiBot Neo-MoFox Runtime
 
+> Retired source snapshot. This project is not part of the LiteyukiBot v7.0.0
+> workspace, release, CI, or support surface. See `../README.md`.
+
 This AGPL-3.0-or-later package runs Neo-MoFox as an experimental limited
 headless Broker bridge. It owns one explicitly configured isolated Neo-MoFox
 workspace and does not load a Liteyuki platform adapter.

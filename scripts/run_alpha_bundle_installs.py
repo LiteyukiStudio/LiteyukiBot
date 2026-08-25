@@ -85,12 +85,6 @@ VERIFICATIONS: tuple[InstallVerification, ...] = (
         ("--expected-version", ALPHA_VERSION),
     ),
     InstallVerification(
-        "astrbot-bridge",
-        ("liteyukibot-v7", "liteyukibot-v7-runtime-astrbot"),
-        "scripts/verify_astrbot_runtime_install.py",
-        ("--expected-version", ALPHA_VERSION),
-    ),
-    InstallVerification(
         "adapter-bridge",
         ("liteyukibot-v7", "liteyukibot-v7-runtime-adapter"),
         "scripts/verify_adapter_runtime_install.py",
@@ -98,12 +92,6 @@ VERIFICATIONS: tuple[InstallVerification, ...] = (
     ),
     InstallVerification("webui", ("liteyukibot-v7-webui",), "scripts/verify_webui_install.py"),
     InstallVerification("ipc-native", ("liteyukibot-v7-ipc-native",), "scripts/verify_ipc_native_install.py"),
-    InstallVerification(
-        "astrbot-api",
-        ("liteyukibot-v7", "liteyukibot-v7-runtime-astrbot-api"),
-        "scripts/verify_astrbot_api_install.py",
-        ("--expected-version", ALPHA_VERSION),
-    ),
     InstallVerification(
         "devcli",
         ("liteyukibot-v7", "liteyukibot-v7-functions", "liteyukibot-v7-devcli"),

@@ -10,7 +10,6 @@ on:
       - liteyuki.example.toml
       - pyproject.toml
       - packages/runtime-nonebot/**
-      - packages/runtime-v6/**
       - src/**
       - uv.lock
   workflow_dispatch:

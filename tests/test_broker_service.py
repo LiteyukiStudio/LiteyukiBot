@@ -456,7 +456,7 @@ def test_catalog_rejects_definition_claiming_another_distribution(monkeypatch: p
             return lambda: BridgeDefinition(
                 kind="nonebot",
                 grade=BridgeSupportGrade.STABLE,
-                distribution="liteyukibot-v7-runtime-astrbot",
+                distribution="example-bridge",
                 launch=cast(BridgeLauncher, lambda _settings, _bridge_id, _token: None),
             )
 

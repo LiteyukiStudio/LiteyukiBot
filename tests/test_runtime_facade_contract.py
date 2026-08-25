@@ -3,8 +3,6 @@ from __future__ import annotations
 from typing import Any, cast
 
 import pytest
-from liteyukibot_runtime_astrbot.host import _runtime_api_declarations as astrbot_declarations
-from liteyukibot_runtime_astrbot_api import AstrBotBotSnapshot, AstrBotEventSnapshot
 from liteyukibot_runtime_nonebot.host import _runtime_api_declarations as nonebot_declarations
 from liteyukibot_runtime_nonebot_api import NoneBotBotSnapshot, NoneBotEventSnapshot
 from pydantic import ValidationError
@@ -48,51 +46,17 @@ def test_runtime_facade_rejects_non_json_send_results() -> None:
         SendResult(sent=True, result=cast(Any, {"bad": object()}))
 
 
-def test_provider_catalogs_share_the_canonical_portable_contract() -> None:
+def test_nonebot_provider_catalog_uses_the_canonical_portable_contract() -> None:
     nonebot = {item.api_id: item for item in nonebot_declarations()}
-    astrbot = {item.api_id: item for item in astrbot_declarations()}
 
     assert set(nonebot) == {"event.snapshot", "event.send", "bot.snapshot", "bot.send"}
-    assert set(astrbot) == set(nonebot)
     assert tuple(nonebot.values()) == portable_runtime_api_catalog("nonebot")
-    assert tuple(astrbot.values()) == portable_runtime_api_catalog("astrbot")
     nonebot_fingerprint = runtime_api_catalog_fingerprint(tuple(nonebot.values()))
-    astrbot_fingerprint = runtime_api_catalog_fingerprint(tuple(astrbot.values()))
     assert nonebot_fingerprint == runtime_api_catalog_fingerprint(tuple(reversed(tuple(nonebot.values()))))
-    assert astrbot_fingerprint == runtime_api_catalog_fingerprint(tuple(reversed(tuple(astrbot.values()))))
     for api_id in nonebot:
         assert nonebot[api_id].version == PORTABLE_RUNTIME_API_VERSION
-        assert astrbot[api_id].version == PORTABLE_RUNTIME_API_VERSION
-        assert astrbot[api_id].input_schema == nonebot[api_id].input_schema
-        assert astrbot[api_id].output_schema == nonebot[api_id].output_schema
 
 
-def test_provider_snapshot_names_are_compatibility_views_of_kernel_models() -> None:
-    event = _event_snapshot().model_dump(mode="json")
-    event["extensions"] = {
-        "astrbot": {
-            "platform_id": "qq",
-            "platform_name": "aiocqhttp",
-            "session_id": "session-1",
-            "message_type": "group",
-        }
-    }
-    astrbot_event = AstrBotEventSnapshot.model_validate(event)
-    astrbot_bot = AstrBotBotSnapshot.model_validate(
-        {
-            "bot_id": "bot",
-            "adapter": "aiocqhttp",
-            "extensions": {"astrbot": {"platform_id": "qq", "platform_name": "aiocqhttp"}},
-        }
-    )
-
-    assert isinstance(astrbot_event, EventSnapshot)
-    assert astrbot_event.message is not None
-    assert astrbot_event.message_text == "hello"
-    assert astrbot_event.platform_id == "qq"
-    assert astrbot_event.session_id == "session-1"
-    assert astrbot_event.message_segments[0].type == "text"
-    assert astrbot_bot.platform_id == "qq"
-    assert astrbot_bot.platform_name == "aiocqhttp"
+def test_nonebot_snapshot_names_are_aliases_of_kernel_models() -> None:
     assert NoneBotEventSnapshot is EventSnapshot
     assert NoneBotBotSnapshot is BotSnapshot

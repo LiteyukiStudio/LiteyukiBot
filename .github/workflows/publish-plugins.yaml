@@ -13,9 +13,6 @@ on:
       - "runtime-adapter-v*"
       - "adapter-onebot-v*"
       - "adapter-satori-v*"
-      - "runtime-v6-v*"
-      - "runtime-astrbot-v*"
-      - "runtime-mofox-v*"
       - "agent-resolver-v*"
       - "agent-v*"
       - "webui-v*"
@@ -37,9 +34,6 @@ on:
           - runtime-adapter
           - adapter-onebot
           - adapter-satori
-          - runtime-v6
-          - runtime-astrbot
-          - runtime-mofox
           - agent-resolver
           - agent
           - webui
@@ -62,7 +56,7 @@ jobs:
     env:
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('{0}-v{1}', inputs.package, inputs.version) || github.ref_name }}
     environment:
-      name: ${{ github.event_name == 'workflow_dispatch' && inputs.package == 'ipc-native' && 'pypi-ipc-native' || github.event_name == 'workflow_dispatch' && inputs.package == 'webui' && 'pypi-webui' || github.event_name == 'workflow_dispatch' && inputs.package == 'functions' && 'pypi-lyfunctions' || github.event_name == 'workflow_dispatch' && inputs.package == 'runtime-v6' && 'pypi-v6-compat' || github.event_name == 'workflow_dispatch' && inputs.package == 'runtime-adapter' && 'pypi-runtime-adapter' || github.event_name == 'workflow_dispatch' && inputs.package == 'runtime-astrbot' && 'pypi-astrbot-runtime' || github.event_name == 'workflow_dispatch' && inputs.package == 'runtime-mofox' && 'pypi-mofox-runtime' || github.event_name == 'workflow_dispatch' && inputs.package == 'agent-resolver' && 'pypi-agent-resolver' || github.event_name == 'workflow_dispatch' && format('pypi-{0}', inputs.package) || startsWith(github.ref_name, 'ipc-native-v') && 'pypi-ipc-native' || startsWith(github.ref_name, 'webui-v') && 'pypi-webui' || startsWith(github.ref_name, 'permissions-v') && 'pypi-permissions' || startsWith(github.ref_name, 'commands-v') && 'pypi-commands' || startsWith(github.ref_name, 'resources-v') && 'pypi-resources' || startsWith(github.ref_name, 'functions-v') && 'pypi-lyfunctions' || startsWith(github.ref_name, 'profile-v') && 'pypi-profile' || startsWith(github.ref_name, 'runtime-nonebot-v') && 'pypi-runtime-nonebot' || startsWith(github.ref_name, 'runtime-adapter-v') && 'pypi-runtime-adapter' || startsWith(github.ref_name, 'adapter-onebot-v') && 'pypi-adapter-onebot' || startsWith(github.ref_name, 'adapter-satori-v') && 'pypi-adapter-satori' || startsWith(github.ref_name, 'runtime-v6-v') && 'pypi-v6-compat' || startsWith(github.ref_name, 'runtime-astrbot-v') && 'pypi-astrbot-runtime' || startsWith(github.ref_name, 'runtime-mofox-v') && 'pypi-mofox-runtime' || startsWith(github.ref_name, 'agent-resolver-v') && 'pypi-agent-resolver' || startsWith(github.ref_name, 'agent-v') && 'pypi-agent' || 'pypi-essentials' }}
+      name: ${{ github.event_name == 'workflow_dispatch' && inputs.package == 'ipc-native' && 'pypi-ipc-native' || github.event_name == 'workflow_dispatch' && inputs.package == 'webui' && 'pypi-webui' || github.event_name == 'workflow_dispatch' && inputs.package == 'functions' && 'pypi-lyfunctions' || github.event_name == 'workflow_dispatch' && inputs.package == 'runtime-adapter' && 'pypi-runtime-adapter' || github.event_name == 'workflow_dispatch' && inputs.package == 'agent-resolver' && 'pypi-agent-resolver' || github.event_name == 'workflow_dispatch' && format('pypi-{0}', inputs.package) || startsWith(github.ref_name, 'ipc-native-v') && 'pypi-ipc-native' || startsWith(github.ref_name, 'webui-v') && 'pypi-webui' || startsWith(github.ref_name, 'permissions-v') && 'pypi-permissions' || startsWith(github.ref_name, 'commands-v') && 'pypi-commands' || startsWith(github.ref_name, 'resources-v') && 'pypi-resources' || startsWith(github.ref_name, 'functions-v') && 'pypi-lyfunctions' || startsWith(github.ref_name, 'profile-v') && 'pypi-profile' || startsWith(github.ref_name, 'runtime-nonebot-v') && 'pypi-runtime-nonebot' || startsWith(github.ref_name, 'runtime-adapter-v') && 'pypi-runtime-adapter' || startsWith(github.ref_name, 'adapter-onebot-v') && 'pypi-adapter-onebot' || startsWith(github.ref_name, 'adapter-satori-v') && 'pypi-adapter-satori' || startsWith(github.ref_name, 'agent-resolver-v') && 'pypi-agent-resolver' || startsWith(github.ref_name, 'agent-v') && 'pypi-agent' || 'pypi-essentials' }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
@@ -105,9 +99,6 @@ jobs:
         run: |
           wheel="$(find dist/release -maxdepth 1 -name '*.whl' -print -quit)"
           requirements=(--with "$wheel")
-          if [[ "${{ steps.release.outputs.package }}" == "runtime-mofox" ]]; then
-            requirements+=(--with "neo-mofox @ git+https://github.com/MoFox-Studio/Neo-MoFox.git@e2ee2ff73b494428bbdfd983c7569c6f074a9c76")
-          fi
           uv run --no-project --python 3.14 python scripts/run_isolated_install.py \
             "${requirements[@]}" --verifier "${{ steps.release.outputs.verifier }}" -- \
             --expected-version "${{ steps.release.outputs.version }}"

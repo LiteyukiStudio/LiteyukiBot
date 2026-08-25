@@ -123,14 +123,6 @@ RELEASE_PROJECTS: dict[str, ReleaseProject] = {
         tag_selector="adapter-satori-v",
         verifier="scripts/verify_satori_adapter_install.py",
     ),
-    "runtime-v6": ReleaseProject(
-        name="runtime-v6",
-        project_dir="packages/runtime-v6",
-        distribution="liteyukibot-v7-runtime-v6",
-        tag_prefix="runtime-v6-v",
-        tag_selector="runtime-v6-v",
-        verifier="scripts/verify_v6_runtime_install.py",
-    ),
     "agent-resolver": ReleaseProject(
         name="agent-resolver",
         project_dir="packages/agent-resolver",
@@ -146,22 +138,6 @@ RELEASE_PROJECTS: dict[str, ReleaseProject] = {
         tag_prefix="agent-v",
         tag_selector="agent-v",
         verifier="scripts/verify_agent_install.py",
-    ),
-    "runtime-astrbot": ReleaseProject(
-        name="runtime-astrbot",
-        project_dir="packages/runtime-astrbot",
-        distribution="liteyukibot-v7-runtime-astrbot",
-        tag_prefix="runtime-astrbot-v",
-        tag_selector="runtime-astrbot-v",
-        verifier="scripts/verify_astrbot_runtime_install.py",
-    ),
-    "runtime-mofox": ReleaseProject(
-        name="runtime-mofox",
-        project_dir="packages/runtime-mofox",
-        distribution="liteyukibot-v7-runtime-mofox",
-        tag_prefix="runtime-mofox-v",
-        tag_selector="runtime-mofox-v",
-        verifier="scripts/verify_mofox_runtime_install.py",
     ),
     "webui": ReleaseProject(
         name="webui",
