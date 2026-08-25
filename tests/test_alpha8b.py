@@ -23,6 +23,7 @@ from liteyukibot.broker.protocol import (
     encode_broker_message,
 )
 from liteyukibot.broker.routing import BrokerAdmissionError
+from liteyukibot.bundles import BUNDLE_TAG, BUNDLE_VERSION
 from liteyukibot.config import ConfigWorkspace, DaemonSettings
 from liteyukibot.daemon import InstanceDaemon
 from liteyukibot.instances import InstancePaths
@@ -173,13 +174,13 @@ def _write_profile(store: ProfileStore, profile_id: str) -> None:
         ProfileManifest(
             id=profile_id,
             created_at="2026-08-21T00:00:00+00:00",
-            requirements=("liteyukibot-v7==7.0.0a13",),
+            requirements=(f"liteyukibot-v7=={BUNDLE_VERSION}",),
             python=str(python),
-            distributions={"liteyukibot-v7": "7.0.0a13"},
+            distributions={"liteyukibot-v7": BUNDLE_VERSION},
             direct_urls={},
             config_version=6,
-            bundle_tag="v7.0.0a13",
-            bundle_version="7.0.0a13",
+            bundle_tag=BUNDLE_TAG,
+            bundle_version=BUNDLE_VERSION,
             bundle_manifest_sha256="a" * 64,
             dependency_lock_sha256="b" * 64,
             artifact_filenames=(),

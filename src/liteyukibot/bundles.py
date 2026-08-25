@@ -12,6 +12,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from email import policy
 from email.parser import BytesParser
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import cast
 
@@ -21,8 +22,12 @@ BUNDLE_MANIFEST_NAME = "artifacts.manifest.json"
 BUNDLE_LOCK_NAME = "dependencies.lock.json"
 BUNDLE_SBOM_NAME = "sbom.cdx.json"
 BUNDLE_SIGNATURE_NAME = "artifacts.manifest.sigstore.json"
-BUNDLE_TAG = "v7.0.0a13"
-BUNDLE_VERSION = "7.0.0a13"
+_KERNEL_DISTRIBUTION = "liteyukibot-v7"
+try:
+    BUNDLE_VERSION = version(_KERNEL_DISTRIBUTION)
+except PackageNotFoundError:
+    BUNDLE_VERSION = "0+unknown"
+BUNDLE_TAG = f"v{BUNDLE_VERSION}"
 BUNDLE_BASELINE: Mapping[str, int] = {
     "lyip": 2,
     "runtime_ipc": 7,
@@ -477,7 +482,7 @@ def verify_bundle(
 
     bundle = bundle.resolve()
     if tag != BUNDLE_TAG:
-        raise BundleError(f"current Alpha13 tag must be {BUNDLE_TAG}")
+        raise BundleError(f"current Alpha bundle tag must be {BUNDLE_TAG}")
     if not bundle.is_dir():
         raise BundleError(f"bundle directory does not exist: {bundle}")
     manifest_path = bundle / BUNDLE_MANIFEST_NAME

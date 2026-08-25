@@ -10,7 +10,7 @@ authors = [
     { name = "LiteyukiStudio" },
 ]
 dependencies = [
-    "liteyukibot-v7-runtime-adapter>=7.0.0a1,<8",
+    "liteyukibot-v7-runtime-adapter==7.0.0a14",
     "websockets>=15,<16",
 ]
 

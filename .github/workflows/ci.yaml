@@ -37,6 +37,11 @@ jobs:
         run: |
           uv python install 3.14
           uv sync --locked --all-packages --extra onebot --extra satori --extra webui
+      - name: Resolve current release identity
+        id: release
+        working-directory: LiteyukiBot
+        shell: bash
+        run: uv run python scripts/check_release.py --github-output "$GITHUB_OUTPUT"
       - name: Quality checks
         working-directory: LiteyukiBot
         run: |
@@ -78,11 +83,11 @@ jobs:
           uv run python -m scripts.run_satori_adapter_install
           uv run python -m scripts.run_agent_install
           uv run python -m scripts.run_webui_install
-          uv run --no-project --python 3.14 --find-links dist/workspace --with dist/workspace/liteyukibot_v7-7.0.0a13-py3-none-any.whl --with dist/workspace/liteyukibot_v7_runtime_nonebot-7.0.0a13-py3-none-any.whl --with dist/workspace/liteyukibot_v7_example_nonebot_plugin-0.1.0-py3-none-any.whl python scripts/run_nonebot_plugin_e2e.py --wheel-dir dist/workspace --workspace tmp/alpha13-nonebot-e2e
-          uv run python scripts/run_isolated_install.py --with dist/workspace/liteyukibot_v7-7.0.0a13-py3-none-any.whl --with dist/workspace/liteyukibot_v7_runtime_nonebot_api-7.0.0a13-py3-none-any.whl --verifier scripts/verify_nonebot_api_install.py -- --expected-version 7.0.0a13
+          uv run --no-project --python 3.14 --find-links dist/workspace --with dist/workspace/liteyukibot_v7-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/workspace/liteyukibot_v7_runtime_nonebot-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/workspace/liteyukibot_v7_example_nonebot_plugin-0.1.0-py3-none-any.whl python scripts/run_nonebot_plugin_e2e.py --wheel-dir dist/workspace --workspace tmp/alpha14-nonebot-e2e
+          uv run python scripts/run_isolated_install.py --with dist/workspace/liteyukibot_v7-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/workspace/liteyukibot_v7_runtime_nonebot_api-${{ steps.release.outputs.version }}-py3-none-any.whl --verifier scripts/verify_nonebot_api_install.py -- --expected-version ${{ steps.release.outputs.version }}
           uv build --project examples/broker-peer --out-dir dist/examples
-          uv run python scripts/run_isolated_install.py --with dist/workspace/liteyukibot_v7-7.0.0a13-py3-none-any.whl --with dist/examples/liteyukibot_example_broker_peer-0.1.0-py3-none-any.whl --verifier scripts/verify_broker_peer_example.py
-          uv run python scripts/run_isolated_install.py --with dist/workspace/liteyukibot_v7-7.0.0a13-py3-none-any.whl --with dist/examples/liteyukibot_example_plugin-0.1.0-py3-none-any.whl --verifier scripts/verify_native_plugin_example.py
+          uv run python scripts/run_isolated_install.py --with dist/workspace/liteyukibot_v7-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/examples/liteyukibot_example_broker_peer-0.1.0-py3-none-any.whl --verifier scripts/verify_broker_peer_example.py
+          uv run python scripts/run_isolated_install.py --with dist/workspace/liteyukibot_v7-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/examples/liteyukibot_example_plugin-0.1.0-py3-none-any.whl --verifier scripts/verify_native_plugin_example.py
       - name: Run WebUI browser checks
         if: matrix.os == 'ubuntu-latest'
         working-directory: LiteyukiBot

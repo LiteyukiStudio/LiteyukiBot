@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7-runtime-nonebot"
-version = "7.0.0a13"
+version = "7.0.0a14"
 description = "NoneBot2 broker bridge for LiteyukiBot v7."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -11,8 +11,8 @@ authors = [
 ]
 dependencies = [
     "h2>=4.4.1,<5",
-    "liteyukibot-v7==7.0.0a13",
-    "liteyukibot-v7-runtime-nonebot-api==7.0.0a13",
+    "liteyukibot-v7==7.0.0a14",
+    "liteyukibot-v7-runtime-nonebot-api==7.0.0a14",
     "nonebot2[fastapi,httpx,websockets]>=2.5,<3",
 ]
 

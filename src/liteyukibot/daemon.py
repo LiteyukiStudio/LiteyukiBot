@@ -17,6 +17,7 @@ import zmq.asyncio
 
 from .broker.lifecycle import BrokerLifecycleClient, BrokerLifecycleError
 from .broker.service import BridgeCatalog
+from .bundles import BUNDLE_TAG, BUNDLE_VERSION
 from .config import CONFIG_VERSION, DaemonSettings, DevelopmentSettings, WebUISettings
 from .config.documents import read_document, write_document
 from .control import ControlServer, request_control
@@ -2013,8 +2014,8 @@ class InstanceDaemon:
                     f"migration_required: candidate profile requires config v{candidate.config_version}; "
                     f"active daemon contract is v{CONFIG_VERSION}"
                 )
-            if candidate.bundle_tag != "v7.0.0a13" or candidate.bundle_version != "7.0.0a13":
-                raise UpdateError("candidate profile is not an Alpha13 verified bundle")
+            if candidate.bundle_tag != BUNDLE_TAG or candidate.bundle_version != BUNDLE_VERSION:
+                raise UpdateError("candidate profile is not a verified current Alpha bundle")
             self.update_journal.begin(candidate_profile=profile_id, previous_profile=active)
             admission_frozen = False
             kernel_frozen = False

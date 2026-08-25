@@ -81,7 +81,7 @@ jobs:
           uv sync --locked --all-packages --extra onebot --extra satori --extra webui
       - name: Validate Alpha source registry
         run: |
-          test "$RELEASE_TAG" = "v7.0.0a13"
+          uv run python scripts/check_release.py --tag "$RELEASE_TAG"
           uv run --group release python scripts/alpha_release.py check-source
       - name: Build lockstep Python artifacts
         run: |
