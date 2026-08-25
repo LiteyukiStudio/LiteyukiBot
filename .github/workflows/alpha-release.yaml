@@ -78,16 +78,13 @@ jobs:
       - name: Install locked workspace
         run: |
           uv python install 3.14
-          uv sync --locked --all-packages --extra onebot --extra satori --extra webui
+          uv sync --locked --all-packages --extra onebot --extra satori
       - name: Validate Alpha source registry
         run: |
           uv run python scripts/check_release.py --tag "$RELEASE_TAG"
           uv run --group release python scripts/alpha_release.py check-source
       - name: Build lockstep Python artifacts
         run: |
-          pnpm --dir webui install --frozen-lockfile
-          pnpm --dir webui build
-          uv run python scripts/stage_webui_assets.py
           uv build --project packages/kernel --out-dir dist/alpha
           uv build --out-dir dist/alpha
           uv build --project examples/nonebot-plugin --out-dir dist/alpha
@@ -105,7 +102,6 @@ jobs:
           uv build --project packages/adapter-onebot --out-dir dist/alpha
           uv build --project packages/adapter-satori --out-dir dist/alpha
           uv build --project packages/agent --out-dir dist/alpha
-          uv build --project packages/webui --out-dir dist/alpha
           uv build --project packages/devcli --out-dir dist/alpha
       - name: Build Native IPC source distribution
         run: uv build --project packages/ipc-native --sdist --out-dir dist/alpha

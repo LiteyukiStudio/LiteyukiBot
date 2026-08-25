@@ -98,6 +98,8 @@ def test_release_registry_covers_exactly_the_workspace_bundle() -> None:
         "liteyukibot-v7-devcli",
     } == distributions
     assert all(not component.project_dir.startswith("extras/") for component in registry.components)
+    assert registry.by_component_id["webui"].policy.included_in_alpha_bundle is False
+    assert "webui" not in {component.component_id for component in registry.alpha_bundle_components}
     assert "examples/native-plugin" not in {component.project_dir for component in registry.components}
     assert "examples/broker-peer" not in {component.project_dir for component in registry.components}
     assert {component.component_id for component in registry.components if component.policy.tag_prefix is None} == {
@@ -299,14 +301,13 @@ def test_bundle_install_commands_use_only_staged_wheels(tmp_path: Path) -> None:
     assert command[:4] == ["uv", "run", "--no-project", "--python"]
     assert str(bundle / f"liteyukibot_v7-{ALPHA_VERSION}-py3-none-any.whl") in command
     assert str(bundle / f"liteyukibot_v7_cordis-{ALPHA_VERSION}-py3-none-any.whl") in command
-    assert wheels_for(bundle, "liteyukibot-v7-webui") == (
-        bundle / f"liteyukibot_v7_webui-{ALPHA_VERSION}-py3-none-any.whl",
-    )
+    with pytest.raises(AlphaReleaseError, match="missing a wheel"):
+        wheels_for(bundle, "liteyukibot-v7-webui")
 
 
 def test_bundle_verifier_projection_covers_every_non_reference_component() -> None:
     names = {verification.name for verification in VERIFICATIONS}
-    assert len(VERIFICATIONS) == 19
+    assert len(VERIFICATIONS) == 18
     assert "example-nonebot-plugin" not in names
     assert names == {
         component.component_id for component in RELEASE_COMPONENTS if component.component_id != "example-nonebot-plugin"

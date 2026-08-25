@@ -31,7 +31,7 @@ control. The default workspace is `tmp\webui-daemon`; pass `-SkipBuild` to
 reuse already staged assets.
 
 For Vite HMR against a real daemon, run `pnpm --dir webui run web`. It starts
-an isolated development daemon with the `webui` optional package when needed,
+an isolated development daemon with the independent WebUI distribution,
 proxies `/api` through Vite with the required loopback origin, and opens the
 one-use WebUI handoff in the browser.
 

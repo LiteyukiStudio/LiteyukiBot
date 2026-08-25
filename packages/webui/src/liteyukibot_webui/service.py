@@ -642,7 +642,7 @@ def _load_web_dependencies() -> None:
     """
     if FastAPI is None:
         raise WebUiUnavailableError(
-            "WebUI support is not installed; install `liteyukibot-v7[webui]` or `liteyukibot-v7-webui[server]`."
+            "WebUI support is not installed; install `liteyukibot-v7-webui[server]`."
         )
 
 

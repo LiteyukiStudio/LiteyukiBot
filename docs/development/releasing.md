@@ -58,13 +58,16 @@ created; Alpha14 supersedes that source identity.
 
 The authoritative [Alpha14 route](../roadmap/v7-alpha-14-baseline.md) opens
 `v7.0.0a14`, removes AstrBot, Neo-MoFox, and v6 compatibility from active
-mainline, and requires a workspace-derived 20-distribution signed graph. Their
+mainline, and requires a 20-distribution workspace registry plus a
+19-distribution CLI-first signed bundle. WebUI remains in the workspace as a
+separately verified optional release and is not part of that bundle. Their
 source snapshots remain under `extras/legacy-bridges`; they are not eligible
 release projects or v7.0.0 support targets. The route also defines the kernel,
 Broker, plugin-manager, daemon, and root-composition ownership work.
 
 Kernel contracts, root composition, IPC, WebUI, DevCLI, Cordis, and broker-bridge components use the
-lockstep Alpha version. Business plugins and independently distributed PyPI
+lockstep Alpha version. WebUI retains its independent `webui-v*` release path;
+the root package no longer provides a WebUI extra. Business plugins and independently distributed PyPI
 packages retain their own versions and must declare the compatible kernel
 Alpha. No Alpha stage is a release commitment: it becomes eligible only after
 its roadmap exit criteria and the complete repository validation gate pass.

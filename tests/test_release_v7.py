@@ -136,7 +136,7 @@ def test_isolated_install_resolves_exactly_one_local_requirement_pattern(tmp_pat
 
 
 def test_isolated_install_preserves_package_extras_requirement() -> None:
-    requirement = "liteyukibot-v7[webui]>=7.0.0a13,<8"
+    requirement = "liteyukibot-v7-webui[server]==7.0.0a14"
 
     assert _requirement(requirement) == requirement
 

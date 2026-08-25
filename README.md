@@ -81,12 +81,16 @@ uv run liteyuki run
 
 ## Packages
 
-The kernel package is `liteyukibot-v7`. Optional features are separate PyPI
+The CLI and composition package is `liteyukibot-v7`; it installs the exact
+`liteyukibot-v7-kernel` contract nucleus. Optional features are separate PyPI
 packages and must be installed into the same environment before they are
-enabled in `liteyuki.toml`.
+enabled in `liteyuki.toml`. WebUI is not part of the CLI-first release bundle
+and must be installed explicitly as `liteyukibot-v7-webui[server]`.
 
 | Package | Current responsibility |
 | --- | --- |
+| `liteyukibot-v7-kernel` | Protocol-neutral DTOs, contracts, EventBus, services, and lifecycle APIs. |
+| `liteyukibot-v7` | Branded CLI and application composition. |
 | `liteyukibot-v7-permissions` | Exact-principal capability policy service. |
 | `liteyukibot-v7-commands` | Protocol-neutral command router and schemas. |
 | `liteyukibot-v7-resources` | Declarative resource and authorization boundary. |
@@ -99,9 +103,11 @@ enabled in `liteyuki.toml`.
 | `liteyukibot-v7-adapter-onebot` | Native OneBot v11 HTTP Post and HTTP API adapter. |
 | `liteyukibot-v7-agent-resolver` | Declarative agent module and tool resolver. |
 | `liteyukibot-v7-agent` | OpenAI-compatible native agent runtime. |
+| `liteyukibot-v7-webui` | Frozen optional local WebUI, maintained and released separately. |
 
 Read the package README in [`packages/`](packages/README.md) before enabling a
-package. The kernel does not install framework integrations implicitly.
+package. Root composition does not install framework integrations or WebUI
+implicitly.
 
 ## Docker
 

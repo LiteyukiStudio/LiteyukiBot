@@ -37,6 +37,7 @@ class ReleasePolicy:
     requires_sdist: bool = True
     reserved: bool = False
     reference_e2e_components: tuple[str, ...] = ()
+    included_in_alpha_bundle: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,6 +105,18 @@ class WorkspaceRegistry:
     @property
     def verification_components(self) -> tuple[WorkspaceComponent, ...]:
         return tuple(component for component in self.components if component.policy.verifier is not None)
+
+    @property
+    def alpha_bundle_components(self) -> tuple[WorkspaceComponent, ...]:
+        """Return components included in the signed CLI-first Alpha bundle."""
+
+        return tuple(component for component in self.components if component.policy.included_in_alpha_bundle)
+
+    @property
+    def alpha_bundle_verification_components(self) -> tuple[WorkspaceComponent, ...]:
+        """Return isolated verifiers required by the signed Alpha bundle."""
+
+        return tuple(component for component in self.alpha_bundle_components if component.policy.verifier is not None)
 
     @property
     def reference_e2e_component(self) -> WorkspaceComponent:
@@ -231,6 +244,7 @@ POLICIES: tuple[tuple[str, ReleasePolicy], ...] = (
             tag_selector="webui-v",
             verifier="scripts/verify_webui_install.py",
             verifier_components=("kernel", "root", "webui"),
+            included_in_alpha_bundle=False,
         ),
     ),
     (
@@ -500,6 +514,9 @@ def resolve_workspace_registry(root: Path) -> WorkspaceRegistry:
     if len(ids) != len(set(ids)) or len(distributions) != len(set(distributions)):
         raise ReleaseRegistryError("release policy contains duplicate component IDs or distributions")
     by_id = {component.component_id: component for component in components}
+    included_ids = {
+        component.component_id for component in components if component.policy.included_in_alpha_bundle
+    }
     release_names: list[str] = []
     for component in components:
         policy = component.policy
@@ -512,6 +529,10 @@ def resolve_workspace_registry(root: Path) -> WorkspaceRegistry:
         for dependency in (*policy.verifier_components, *policy.reference_e2e_components):
             if dependency not in by_id:
                 raise ReleaseRegistryError(f"{component.component_id} references unknown component {dependency}")
+            if policy.included_in_alpha_bundle and dependency not in included_ids:
+                raise ReleaseRegistryError(
+                    f"Alpha bundle component {component.component_id} references excluded component {dependency}"
+                )
         if policy.verifier is None and policy.verifier_components:
             raise ReleaseRegistryError(f"{component.component_id} has verifier components without a verifier")
         if policy.reference_e2e_components and policy.verifier is not None:

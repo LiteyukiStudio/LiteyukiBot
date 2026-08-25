@@ -51,7 +51,7 @@ function Get-WebUiStatus {
         if ($null -ne $nativeErrorPreference) {
             Set-Variable -Name "PSNativeCommandUseErrorActionPreference" -Value $false -Scope Local
         }
-        $output = & uv run --extra webui liteyuki --workspace $Workspace --instance $Instance web status 2>$null
+        $output = & uv run --package liteyukibot-v7-webui --extra server liteyuki --workspace $Workspace --instance $Instance web status 2>$null
     }
     finally {
         $ErrorActionPreference = $previousErrorActionPreference

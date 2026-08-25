@@ -46,6 +46,16 @@ def _verify_removed_runtime_surface(distribution_name: str) -> None:
         raise RuntimeError("retired liteyukibot.runtime package remains importable")
 
 
+def _verify_cli_first_surface(distribution_name: str) -> None:
+    """Reject root artifacts that install or embed the optional WebUI."""
+
+    requirements = importlib.metadata.requires(distribution_name) or ()
+    if any(requirement.lower().startswith("liteyukibot-v7-webui") for requirement in requirements):
+        raise RuntimeError("installed root distribution depends on the optional WebUI")
+    if importlib.util.find_spec("liteyukibot_webui") is not None:
+        raise RuntimeError("root-only installation unexpectedly provides the WebUI package")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--distribution", default="liteyukibot-v7")
@@ -63,6 +73,7 @@ def main() -> int:
     if args.expect_kernel:
         observed["liteyukibot-v7-kernel"] = importlib.metadata.version("liteyukibot-v7-kernel")
         observed["liteyukibot_kernel"] = _module_version("liteyukibot_kernel")
+    _verify_cli_first_surface(args.distribution)
     if args.expect_no_legacy_runtime:
         _verify_removed_runtime_surface(args.distribution)
     mismatches = {

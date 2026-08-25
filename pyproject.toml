@@ -1,7 +1,7 @@
 [project]
 name = "liteyukibot-v7"
 version = "7.0.0a14"
-description = "A protocol-neutral, multi-runtime chatbot kernel."
+description = "LiteyukiBot v7 CLI and application composition package."
 readme = "README.md"
 requires-python = ">=3.14"
 license = "LicenseRef-LSO-Common-1.4"
@@ -31,11 +31,6 @@ yaml = [
 http = [
     "fastapi>=0.141,<1",
     "uvicorn>=0.52,<1",
-]
-webui = [
-    "fastapi>=0.141,<1",
-    "uvicorn>=0.52,<1",
-    "liteyukibot-v7-webui[server]==7.0.0a14",
 ]
 
 [project.scripts]
@@ -74,7 +69,6 @@ exclude = ["extras/legacy-bridges/*"]
 [tool.uv.sources]
 liteyukibot-v7 = { workspace = true }
 liteyukibot-v7-kernel = { workspace = true }
-liteyukibot-v7-webui = { workspace = true }
 liteyukibot-v7-runtime-nonebot-api = { workspace = true }
 
 [tool.uv.build-backend]
