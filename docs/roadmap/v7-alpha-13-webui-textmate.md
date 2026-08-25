@@ -1,13 +1,30 @@
 # v7 Alpha 13: WebUI and LYF TextMate Extraction
 
-Status: active. npm publication remains deferred because the current npm
-account is not a member of the `@liteyuki` scope. The standalone package is
-validated from a fixed Git commit and local tarballs during this stage.
+Status: complete as a source milestone. No `v7.0.0a13` GitHub Release was
+created; Alpha14 supersedes its source identity.
 
 Alpha13 updates the operator WebUI for the Alpha12 plugin lifecycle and moves
 LYF TextMate tokenization into the independently versioned
 `LiteyukiStudio/lyf-textmate` repository and `@liteyuki/lyf-textmate` npm
 package. The source identity for this stage is `7.0.0a13` / `v7.0.0a13`.
+
+Completion evidence:
+
+- `@liteyuki/lyf-textmate@0.1.0-alpha.13` was published through the
+  `LiteyukiStudio/lyf-textmate` GitHub Actions trusted publisher workflow
+  `.github/workflows/publish.yml`. npm records SLSA provenance, source
+  `gitHead` `fc94c4280fb22e0cc937779734c975e5e0b6e373`, and integrity
+  `sha512-8vfqxmjMvJvO3KLctd1Yg4Pjl0lO9hEL4p9C7YxMFD8VEx0YchMk3TM8bRwQ1qyr8gjsb4H0kc0eNxCoEFod7A==`.
+- LiteyukiBot commit `62065111b9345b52120ca2d3d3de9fe485aed65b`
+  replaced the temporary Git dependency with the exact npm version.
+  `webui/package.json` and `webui/pnpm-lock.yaml` both resolve
+  `0.1.0-alpha.13`; the lock also retains the registry integrity.
+- The typed plugin WebUI and read-only LYF tokenization consumer are merged.
+  Remaining architecture and release work moved to the
+  [Alpha14 route](v7-alpha-14-baseline.md).
+
+The remainder of this document preserves the implementation plan and its
+original sequencing; it is not the current release route.
 
 ## Verified starting point
 
@@ -46,13 +63,13 @@ Alpha13 must:
 
 Alpha13 does not add an LYF editor, execute source from the browser, expose
 credentials, turn plugin metadata into trusted content, redesign the portable
-Runtime API, or perform the stable-release 72-hour soak. It also does not move
+Runtime API, or perform Beta qualification. It also does not move
 Python LYF parsing or diagnostics into JavaScript.
 
-## Recommended package boundary
+## Implemented package boundary
 
-Create `LiteyukiStudio/lyf-textmate` only after npm-team access is confirmed.
-Publish `@liteyuki/lyf-textmate` as an ESM-first, framework-neutral package.
+`LiteyukiStudio/lyf-textmate` owns the ESM-first, framework-neutral
+`@liteyuki/lyf-textmate` package.
 Keep React components in LiteyukiBot; the reusable package owns language data
 and tokenization rather than application layout.
 
@@ -230,15 +247,10 @@ provenance verification, and a memory/residency workload. Capture Playwright
 screenshots at desktop and mobile widths for Plugins and LYF states and inspect
 them for clipping, overlap, blank code panes, and unreadable token contrast.
 
-## Pull-request and release sequence
+## Completion boundary
 
-1. PR the standalone package implementation without a stable npm release.
-2. Publish and verify an immutable prerelease under the confirmed team scope.
-3. PR the typed LiteyukiBot backend contract and tests.
-4. PR the WebUI integration pinned to the verified package version.
-5. Build and verify the Alpha13 bundle, then publish `v7.0.0a13` following the
-   normal signed release process.
-
-Keep these changes reviewable as separate ownership boundaries. Do not vendor
-the standalone package into `webui/`, publish from an unreviewed local tree, or
-make the LiteyukiBot release depend on a floating npm tag.
+The standalone package, typed backend contract, WebUI integration, and exact
+npm consumer landed as separate ownership changes. The package is not vendored
+into `webui/` and the consumer does not depend on a floating npm tag. Alpha13
+did not create a signed `v7.0.0a13` GitHub Release; opening the Alpha14 source
+and release graph superseded that artifact step.

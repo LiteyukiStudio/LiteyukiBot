@@ -225,6 +225,21 @@ restarts, rolls back, uninstalls, and collects through an external workspace;
 the public post-release index path repeats that proof from immutable Alpha12
 artifacts; and the complete repository and three-sample benchmark gates pass.
 
+### Alpha 13: WebUI and LYF TextMate
+
+Alpha13 is a completed source milestone. Its
+[implementation record](v7-alpha-13-webui-textmate.md) covers the typed plugin
+WebUI, the standalone provenance-bearing LYF TextMate package, and the exact
+npm consumer. It did not create a `v7.0.0a13` GitHub Release.
+
+### Alpha 14: Ownership and release baseline
+
+The [Alpha14 ownership and release baseline](v7-alpha-14-baseline.md) is the
+authoritative current route. Alpha14 subtracts retired compatibility, makes the
+19-distribution signed graph complete, corrects kernel/Broker/plugin-manager/
+daemon ownership, converts first-party business plugins to real Cordis
+implementations, and freezes WebUI feature growth.
+
 ## Shared release gates
 
 Every Alpha must pass the complete repository pytest suite, Ruff, Mypy,
@@ -236,9 +251,10 @@ SHA-256 evidence used for verification.
 Alpha11 and later performance-sensitive stages run the two parallel
 qualification profiles: bare kernel and kernel with all installed first-party
 packages. Alpha12 promotes the external-host end-to-end workload into its
-release gate. The 72-hour soak is deferred to stable-release qualification and
-must not be claimed by an Alpha, Beta, or RC merely because shorter CI and
-local endurance runs pass.
+release gate. Beta requires both 14 consecutive days without a new public
+contract and a reviewed 72-hour reference deployment soak, with retained
+evidence approved by both owners. Shorter CI, benchmark, and local endurance
+runs satisfy neither gate.
 
 ## Non-goals
 
