@@ -5,15 +5,13 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from importlib import metadata
 from pathlib import Path, PurePosixPath
-from typing import cast
 from urllib.parse import unquote, urlsplit
 
-from .broker.service import BridgeCatalog, BridgeSupportGrade
-from .managed_plugins import ManagedFacetInstaller
+from .bridge_contracts import ManagedPluginTarget, ManagedPluginTargetResolver
 from .plugin_sources import PluginSource, PluginSourceStore
 from .plugin_store import (
     ArtifactStore,
@@ -27,16 +25,6 @@ from .plugin_store import (
 )
 
 CommandRunner = Callable[[list[str]], None]
-
-
-@dataclass(frozen=True, slots=True)
-class _ManagedPluginTarget:
-    """Normalized install boundary for stable Broker bridges."""
-
-    kind: str
-    distribution: str
-    facet_installer: ManagedFacetInstaller
-    probe_module: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,12 +55,19 @@ class PluginUninstallResult:
 class PluginInstallationService:
     """Resolve source metadata into a runtime-owned, independently restartable generation."""
 
-    def __init__(self, workspace: str | Path, *, run: CommandRunner | None = None) -> None:
+    def __init__(
+        self,
+        workspace: str | Path,
+        *,
+        run: CommandRunner | None = None,
+        target_resolver: ManagedPluginTargetResolver | None = None,
+    ) -> None:
         """Initialize the plugin installation service.
 
         Args:
             workspace: The workspace value used by the operation.
             run: The run value used by the operation.
+            target_resolver: Composition-owned installed target resolver.
 
         Returns:
             None.
@@ -86,6 +81,7 @@ class PluginInstallationService:
         self.artifacts = ArtifactStore(self.workspace)
         self.generations = RuntimeGenerationStore(self.workspace)
         self._run = run or _run_command
+        self._target_resolver = target_resolver
 
     def install(
         self,
@@ -526,40 +522,34 @@ class PluginInstallationService:
         if generation.source_id is None:
             raise PluginStoreError("active runtime generation has no source provenance; reinstall its plugin roots")
 
-    @staticmethod
-    def _require_target(runtime_kind: str) -> _ManagedPluginTarget:
-        """Return a stable Broker bridge target, failing when it is unavailable.
+    def _require_target(self, runtime_kind: str) -> ManagedPluginTarget:
+        """Return an eligible managed target, failing when it is unavailable.
 
         Args:
             runtime_kind: The runtime kind value used by the operation.
 
         Returns:
-            Normalized managed target for environment creation and probing.
+            Composition-resolved target for environment creation and probing.
 
         Notes:
-            Internal implementation detail for `PluginInstallationService._require_target`. It delegates to
-            `get`, `discover` while keeping intermediate state local to the owning operation.
+            Internal implementation detail for `PluginInstallationService._require_target`. Target discovery
+            and support-grade policy remain outside plugin management.
         """
-        bridge = BridgeCatalog().discover().get(runtime_kind)
-        if bridge is None:
+        target = self._target_resolver(runtime_kind) if self._target_resolver is not None else None
+        if target is None:
             raise PluginStoreError(f"plugin target kind {runtime_kind!r} is not installed")
         if (
-            bridge.grade is not BridgeSupportGrade.STABLE
-            or bridge.facet_installer is None
-            or bridge.probe_module is None
+            not target.eligible
+            or target.facet_installer is None
+            or target.probe_module is None
         ):
             raise PluginStoreError(f"bridge kind {runtime_kind!r} does not support managed plugin installation")
-        return _ManagedPluginTarget(
-            bridge.kind,
-            bridge.distribution,
-            bridge.facet_installer,
-            bridge.probe_module,
-        )
+        return target
 
     def _create_environment(
         self,
         generation_path: Path,
-        runtime: _ManagedPluginTarget,
+        runtime: ManagedPluginTarget,
         facets: Mapping[str, PluginFacet],
         *,
         offline: bool,
@@ -603,7 +593,7 @@ class PluginInstallationService:
                 wheel_paths.append(str(staged))
             self._run(["uv", "pip", "install", "--no-index", "--no-deps", "--python", str(python), *wheel_paths])
 
-    def _probe_generation(self, generation_path: Path, runtime: _ManagedPluginTarget) -> None:
+    def _probe_generation(self, generation_path: Path, runtime: ManagedPluginTarget) -> None:
         """Verify the isolated runtime host imports before changing deployment state.
 
         Args:
@@ -620,6 +610,9 @@ class PluginInstallationService:
         """
 
         python = self.generations.python_path(generation_path)
+        probe_module = runtime.probe_module
+        if probe_module is None:
+            raise AssertionError("managed runtime import probe module is required")
         self._run(
             [
                 str(python),
@@ -628,12 +621,11 @@ class PluginInstallationService:
                 "importlib.metadata.distribution(sys.argv[1]); "
                 "importlib.import_module(sys.argv[2])",
                 runtime.distribution,
-                runtime.probe_module,
+                probe_module,
             ]
         )
-        probe = getattr(runtime.facet_installer, "probe_command", None)
-        if callable(probe):
-            command = cast(Callable[[Path, Path], Sequence[str]], probe)(python, generation_path)
+        if runtime.facet_probe is not None:
+            command = runtime.facet_probe.probe_command(python, generation_path)
             if not command or any(not argument for argument in command):
                 raise PluginStoreError(f"managed runtime kind {runtime.kind!r} returned an invalid probe command")
             self._run(list(command))

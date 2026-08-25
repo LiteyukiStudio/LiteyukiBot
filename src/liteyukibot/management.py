@@ -11,6 +11,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol
 
+from .bridge_contracts import ManagedPluginTargetResolver
 from .operations import (
     ManagementPrincipal,
     OperationConfirmation,
@@ -301,13 +302,21 @@ class ManagementService(Protocol):
 
 class KernelManagement:
     """Represent the kernel management contract."""
-    def __init__(self, app: Any, workspace: str, stop: Callable[[], None]) -> None:
+    def __init__(
+        self,
+        app: Any,
+        workspace: str,
+        stop: Callable[[], None],
+        *,
+        target_resolver: ManagedPluginTargetResolver | None = None,
+    ) -> None:
         """Initialize the kernel management.
 
         Args:
             app: The app value used by the operation.
             workspace: The workspace value used by the operation.
             stop: The stop value used by the operation.
+            target_resolver: Composition-owned installed target resolver.
 
         Returns:
             None.
@@ -316,6 +325,7 @@ class KernelManagement:
         self._app = app
         self._workspace = workspace
         self._stop = stop
+        self._target_resolver = target_resolver
         self.operations: OperationLedger | None = None
         self._owns_operations = False
         self._operation_routes: dict[str, ManagementOperationRoute] = {}
@@ -882,7 +892,7 @@ class KernelManagement:
         if len(arguments) not in (2, 3, 4):
             raise ManagementError("usage: plugin install <runtime-id> <bundle-id> [source-id] [index-digest]")
         runtime = self._target(arguments[0])
-        result = PluginInstallationService(self._workspace).install(
+        result = PluginInstallationService(self._workspace, target_resolver=self._target_resolver).install(
             arguments[1],
             runtime_id=arguments[0],
             runtime_kind=runtime.kind,
@@ -908,7 +918,7 @@ class KernelManagement:
         if len(arguments) not in (1, 2):
             raise ManagementError("usage: plugin update <runtime-id> [source-id]")
         runtime = self._target(arguments[0])
-        result = PluginInstallationService(self._workspace).update(
+        result = PluginInstallationService(self._workspace, target_resolver=self._target_resolver).update(
             runtime_id=arguments[0],
             runtime_kind=runtime.kind,
             source_id=arguments[1] if len(arguments) == 2 else None,
@@ -964,7 +974,7 @@ class KernelManagement:
         if len(arguments) != 2:
             raise ManagementError(f"usage: plugin {operation} <runtime-id> <bundle-id>")
         runtime = self._target(arguments[0])
-        service = PluginInstallationService(self._workspace)
+        service = PluginInstallationService(self._workspace, target_resolver=self._target_resolver)
         result = getattr(service, operation)(arguments[1], runtime_id=arguments[0], runtime_kind=runtime.kind)
         return ManagementResult(f"{operation}d {arguments[1]} as {result.generation.id}")
 
@@ -985,7 +995,7 @@ class KernelManagement:
         if len(arguments) != 2:
             raise ManagementError("usage: plugin uninstall <runtime-id> <bundle-id>")
         runtime = self._target(arguments[0])
-        result = PluginInstallationService(self._workspace).uninstall(
+        result = PluginInstallationService(self._workspace, target_resolver=self._target_resolver).uninstall(
             arguments[1], runtime_id=arguments[0], runtime_kind=runtime.kind
         )
         generation = result.generation.id if result.generation else "deactivated"

@@ -6,6 +6,8 @@ from .bridge_contracts import (
     ManagedFacet,
     ManagedFacetInstaller,
     ManagedFacetProbe,
+    ManagedPluginTarget,
+    ManagedPluginTargetResolver,
 )
 
 __all__ = [
@@ -14,4 +16,6 @@ __all__ = [
     "ManagedFacet",
     "ManagedFacetInstaller",
     "ManagedFacetProbe",
+    "ManagedPluginTarget",
+    "ManagedPluginTargetResolver",
 ]

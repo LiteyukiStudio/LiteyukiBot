@@ -43,6 +43,7 @@ from .daemon import InstanceDaemon
 from .exceptions import LiteyukiError
 from .init_wizard import WizardCancelled, build_custom_initialization_plan, run_init_wizard
 from .instances import DEFAULT_INSTANCE, InstancePaths
+from .managed_target_resolver import resolve_managed_plugin_target
 from .plugin_install import PluginInstallationService, PluginInstallPreview
 from .plugin_sources import OFFICIAL_SOURCE_ID, PluginSource, PluginSourceStore
 from .plugin_store import ArtifactStore, RuntimeGenerationStore
@@ -594,6 +595,22 @@ def _confirm_plugin_install(preview: PluginInstallPreview, *, confirmed: bool) -
     return input("Install this plugin? [y/N]: ").strip().casefold() in {"y", "yes"}
 
 
+def _plugin_installation_service(workspace: str | Path) -> PluginInstallationService:
+    """Create a plugin installation service at the composition boundary.
+
+    Args:
+        workspace: Project workspace containing plugin state.
+
+    Returns:
+        Service with the installed bridge target resolver injected.
+
+    Notes:
+        CLI composition owns bridge discovery; the plugin manager remains
+        independent from Broker implementation types.
+    """
+    return PluginInstallationService(workspace, target_resolver=resolve_managed_plugin_target)
+
+
 def _plugin_install(args: argparse.Namespace, settings: AppSettings, workspace: ConfigWorkspace) -> int:
     """Implement the plugin install operation for the component.
 
@@ -611,7 +628,7 @@ def _plugin_install(args: argparse.Namespace, settings: AppSettings, workspace: 
         operation.
     """
     runtime = _configured_target(args.runtime_id, settings)
-    service = PluginInstallationService(workspace.directory)
+    service = _plugin_installation_service(workspace.directory)
     preview = service.preview(args.bundle_id, source_id=args.source_id)
     if not _confirm_plugin_install(preview, confirmed=args.yes):
         print("installation cancelled")
@@ -670,7 +687,7 @@ def _plugin_update(args: argparse.Namespace, settings: AppSettings, workspace: C
     """
     runtime = _configured_target(args.runtime_id, settings)
     with _exclusive_workspace(workspace):
-        result = PluginInstallationService(workspace.directory).update(
+        result = _plugin_installation_service(workspace.directory).update(
             runtime_id=args.runtime_id,
             runtime_kind=runtime.kind,
             source_id=args.source_id,
@@ -698,7 +715,7 @@ def _plugin_uninstall(args: argparse.Namespace, settings: AppSettings, workspace
     """
     runtime = _configured_target(args.runtime_id, settings)
     with _exclusive_workspace(workspace):
-        result = PluginInstallationService(workspace.directory).uninstall(
+        result = _plugin_installation_service(workspace.directory).uninstall(
             args.bundle_id,
             runtime_id=args.runtime_id,
             runtime_kind=runtime.kind,
@@ -729,7 +746,7 @@ def _plugin_disable(args: argparse.Namespace, settings: AppSettings, workspace: 
     """
     runtime = _configured_target(args.runtime_id, settings)
     with _exclusive_workspace(workspace):
-        result = PluginInstallationService(workspace.directory).disable(
+        result = _plugin_installation_service(workspace.directory).disable(
             args.bundle_id,
             runtime_id=args.runtime_id,
             runtime_kind=runtime.kind,
@@ -757,7 +774,7 @@ def _plugin_enable(args: argparse.Namespace, settings: AppSettings, workspace: C
     """
     runtime = _configured_target(args.runtime_id, settings)
     with _exclusive_workspace(workspace):
-        result = PluginInstallationService(workspace.directory).enable(
+        result = _plugin_installation_service(workspace.directory).enable(
             args.bundle_id,
             runtime_id=args.runtime_id,
             runtime_kind=runtime.kind,
