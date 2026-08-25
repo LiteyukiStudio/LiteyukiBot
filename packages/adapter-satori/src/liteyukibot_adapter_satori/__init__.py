@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from liteyukibot_runtime_adapter.contracts import AdapterPlugin
 
-from liteyukibot.broker import BridgeSupportGrade
+from liteyukibot.bridge_contracts import BridgeSupportGrade
 
 from .connection import create_satori
 

@@ -1,6 +1,6 @@
 """LiteyukiBot's separately distributed NoneBot broker bridge."""
 
-from liteyukibot.broker import BridgeDefinition, BridgeSupportGrade
+from liteyukibot.bridge_contracts import BridgeDefinition, BridgeSupportGrade
 
 from .facets import NoneBotFacetInstaller
 from .host import launch

@@ -5,18 +5,16 @@ from __future__ import annotations
 import asyncio
 import re
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
-from enum import StrEnum
 from importlib import metadata
 from inspect import isawaitable, iscoroutinefunction
-from typing import Protocol, cast
+from typing import cast
 
 import zmq.asyncio
 
+from ..bridge_contracts import BridgeDefinition, BridgeLauncher, BridgeSupportGrade
 from ..config.models import AppSettings, BrokerBridgeSettings, JsonValue
 from ..config.vault import SecretVault
 from ..lyip import LyipFrame
-from ..managed_plugins import ManagedFacetInstaller
 from .peer import BridgeRegistrationError, BrokerPeerServer, BrokerPeerService
 from .protocol import (
     ActionResourceDeclaration,
@@ -26,43 +24,6 @@ from .protocol import (
     BridgeRejected,
     BrokerToolDeclaration,
 )
-
-
-class BridgeLauncher(Protocol):
-    """An installed bridge package's process-local launch entry point."""
-
-    def __call__(self, settings: AppSettings, bridge_id: str, token: str) -> Awaitable[None] | None:
-        """Invoke the bridge launcher as a callable.
-
-        Args:
-            settings: Validated application settings.
-            bridge_id: Stable identifier for the bridge.
-            token: Authentication token presented at the boundary.
-
-        Returns:
-            The `Awaitable[None] | None` result produced by the operation.
-        """
-        ...
-
-
-class BridgeSupportGrade(StrEnum):
-    """Release qualification declared by an installed bridge distribution."""
-
-    EXPERIMENTAL = "experimental"
-    STABLE = "stable"
-    MIXED = "mixed"
-
-
-@dataclass(frozen=True, slots=True)
-class BridgeDefinition:
-    """Package-owned metadata and launcher for one bridge kind."""
-
-    kind: str
-    grade: BridgeSupportGrade
-    distribution: str
-    launch: BridgeLauncher
-    facet_installer: ManagedFacetInstaller | None = None
-    probe_module: str | None = None
 
 
 class BridgeCatalog:
