@@ -10,6 +10,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+try:
+    from scripts.release_registry import ReleaseRegistryError, resolve_workspace_registry
+except ModuleNotFoundError:  # pragma: no cover - exercised by direct script execution
+    from release_registry import (  # type: ignore[import-not-found, no-redef]
+        ReleaseRegistryError,
+        resolve_workspace_registry,
+    )
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _ALPHA_VERSION = re.compile(r"a\d+(?:[.+-]|$)", re.IGNORECASE)
 
@@ -34,128 +42,29 @@ class ReleaseProject:
         return PROJECT_ROOT / self.project_dir / "pyproject.toml"
 
 
-RELEASE_PROJECTS: dict[str, ReleaseProject] = {
-    "root": ReleaseProject(
-        name="root",
-        project_dir=".",
-        distribution="liteyukibot-v7",
-        tag_prefix="v",
-        tag_selector="v7.",
-        verifier="scripts/verify_published_install.py",
-    ),
-    "permissions": ReleaseProject(
-        name="permissions",
-        project_dir="packages/permissions",
-        distribution="liteyukibot-v7-permissions",
-        tag_prefix="permissions-v",
-        tag_selector="permissions-v",
-        verifier="scripts/verify_permissions_install.py",
-    ),
-    "commands": ReleaseProject(
-        name="commands",
-        project_dir="packages/commands",
-        distribution="liteyukibot-v7-commands",
-        tag_prefix="commands-v",
-        tag_selector="commands-v",
-        verifier="scripts/verify_commands_install.py",
-    ),
-    "resources": ReleaseProject(
-        name="resources",
-        project_dir="packages/resources",
-        distribution="liteyukibot-v7-resources",
-        tag_prefix="resources-v",
-        tag_selector="resources-v",
-        verifier="scripts/verify_resources_install.py",
-    ),
-    "functions": ReleaseProject(
-        name="functions",
-        project_dir="packages/functions",
-        distribution="liteyukibot-v7-functions",
-        tag_prefix="functions-v",
-        tag_selector="functions-v",
-        verifier="scripts/verify_functions_install.py",
-    ),
-    "profile": ReleaseProject(
-        name="profile",
-        project_dir="packages/profile",
-        distribution="liteyukibot-v7-profile",
-        tag_prefix="profile-v",
-        tag_selector="profile-v",
-        verifier="scripts/verify_profile_install.py",
-    ),
-    "essentials": ReleaseProject(
-        name="essentials",
-        project_dir="packages/essentials",
-        distribution="liteyukibot-v7-essentials",
-        tag_prefix="essentials-v",
-        tag_selector="essentials-v",
-        verifier="scripts/verify_essentials_install.py",
-    ),
-    "runtime-nonebot": ReleaseProject(
-        name="runtime-nonebot",
-        project_dir="packages/runtime-nonebot",
-        distribution="liteyukibot-v7-runtime-nonebot",
-        tag_prefix="runtime-nonebot-v",
-        tag_selector="runtime-nonebot-v",
-        verifier="scripts/verify_nonebot_runtime_install.py",
-    ),
-    "runtime-adapter": ReleaseProject(
-        name="runtime-adapter",
-        project_dir="packages/runtime-adapter",
-        distribution="liteyukibot-v7-runtime-adapter",
-        tag_prefix="runtime-adapter-v",
-        tag_selector="runtime-adapter-v",
-        verifier="scripts/verify_adapter_runtime_install.py",
-    ),
-    "adapter-onebot": ReleaseProject(
-        name="adapter-onebot",
-        project_dir="packages/adapter-onebot",
-        distribution="liteyukibot-v7-adapter-onebot",
-        tag_prefix="adapter-onebot-v",
-        tag_selector="adapter-onebot-v",
-        verifier="scripts/verify_onebot_adapter_install.py",
-    ),
-    "adapter-satori": ReleaseProject(
-        name="adapter-satori",
-        project_dir="packages/adapter-satori",
-        distribution="liteyukibot-v7-adapter-satori",
-        tag_prefix="adapter-satori-v",
-        tag_selector="adapter-satori-v",
-        verifier="scripts/verify_satori_adapter_install.py",
-    ),
-    "agent-resolver": ReleaseProject(
-        name="agent-resolver",
-        project_dir="packages/agent-resolver",
-        distribution="liteyukibot-v7-agent-resolver",
-        tag_prefix="agent-resolver-v",
-        tag_selector="agent-resolver-v",
-        verifier="scripts/verify_agent_resolver_install.py",
-    ),
-    "agent": ReleaseProject(
-        name="agent",
-        project_dir="packages/agent",
-        distribution="liteyukibot-v7-agent",
-        tag_prefix="agent-v",
-        tag_selector="agent-v",
-        verifier="scripts/verify_agent_install.py",
-    ),
-    "webui": ReleaseProject(
-        name="webui",
-        project_dir="packages/webui",
-        distribution="liteyukibot-v7-webui",
-        tag_prefix="webui-v",
-        tag_selector="webui-v",
-        verifier="scripts/verify_webui_install.py",
-    ),
-    "ipc-native": ReleaseProject(
-        name="ipc-native",
-        project_dir="packages/ipc-native",
-        distribution="liteyukibot-v7-ipc-native",
-        tag_prefix="ipc-native-v",
-        tag_selector="ipc-native-v",
-        verifier="scripts/verify_ipc_native_install.py",
-    ),
-}
+def _release_projects() -> dict[str, ReleaseProject]:
+    try:
+        registry = resolve_workspace_registry(PROJECT_ROOT)
+    except ReleaseRegistryError as error:
+        raise RuntimeError(str(error)) from error
+    projects: dict[str, ReleaseProject] = {}
+    for component in registry.publishable_components:
+        policy = component.policy
+        if policy.tag_prefix is None or policy.tag_selector is None or policy.verifier is None:
+            raise RuntimeError(f"publishable component {component.component_id} has incomplete release policy")
+        project_name = policy.release_name or component.component_id
+        projects[project_name] = ReleaseProject(
+            name=project_name,
+            project_dir=component.project_dir,
+            distribution=component.distribution,
+            tag_prefix=policy.tag_prefix,
+            tag_selector=policy.tag_selector,
+            verifier=policy.verifier,
+        )
+    return projects
+
+
+RELEASE_PROJECTS: dict[str, ReleaseProject] = _release_projects()
 
 
 def read_release_identity(project_file: Path) -> ReleaseIdentity:

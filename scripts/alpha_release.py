@@ -11,7 +11,6 @@ import tarfile
 import tomllib
 import zipfile
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
 from email import policy
 from email.parser import BytesParser
 from pathlib import Path
@@ -31,25 +30,26 @@ from liteyukibot.bundles import (
     verify_bundle as verify_offline_bundle,
 )
 
+try:
+    from scripts.release_registry import (
+        ReleaseRegistryError,
+        WorkspaceComponent,
+        normalize_distribution_name,
+        resolve_workspace_registry,
+        validate_first_party_pins,
+    )
+except ModuleNotFoundError:  # pragma: no cover - exercised by direct script execution
+    from release_registry import (  # type: ignore[import-not-found, no-redef]
+        ReleaseRegistryError,
+        WorkspaceComponent,
+        normalize_distribution_name,
+        resolve_workspace_registry,
+        validate_first_party_pins,
+    )
+
 
 class AlphaReleaseError(BundleError):
     """Raised when an Alpha bundle does not satisfy its frozen contract."""
-
-
-@dataclass(frozen=True, slots=True)
-class AlphaComponent:
-    """One distribution included in the current Alpha bundle."""
-
-    component_id: str
-    project_dir: str
-    distribution: str
-    requires_sdist: bool = True
-    version: str | None = None
-    reserved: bool = False
-
-    @property
-    def release_version(self) -> str:
-        return self.version or ALPHA_VERSION
 
 
 ALPHA_VERSION = BUNDLE_VERSION
@@ -61,36 +61,11 @@ SIGNATURE_NAME = BUNDLE_SIGNATURE_NAME
 OIDC_ISSUER = "https://token.actions.githubusercontent.com"
 WORKFLOW_PATH = ".github/workflows/alpha-release.yaml"
 BASELINE: Mapping[str, int] = BUNDLE_BASELINE
-LOCKSTEP_COMPONENTS: tuple[AlphaComponent, ...] = (
-    AlphaComponent("kernel", ".", "liteyukibot-v7"),
-    AlphaComponent("ipc-native", "packages/ipc-native", "liteyukibot-v7-ipc-native"),
-    AlphaComponent("cordis", "packages/cordis", "liteyukibot-v7-cordis"),
-    AlphaComponent("nonebot-bridge", "packages/runtime-nonebot", "liteyukibot-v7-runtime-nonebot"),
-    AlphaComponent("nonebot-api", "packages/runtime-nonebot-api", "liteyukibot-v7-runtime-nonebot-api"),
-    AlphaComponent("adapter-bridge", "packages/runtime-adapter", "liteyukibot-v7-runtime-adapter"),
-    AlphaComponent("webui", "packages/webui", "liteyukibot-v7-webui"),
-    AlphaComponent("devcli", "packages/devcli", "liteyukibot-v7-devcli", reserved=True),
-)
-INDEPENDENT_COMPONENTS: tuple[AlphaComponent, ...] = (
-    AlphaComponent(
-        "example-nonebot-plugin",
-        "examples/nonebot-plugin",
-        "liteyukibot-v7-example-nonebot-plugin",
-        version="0.1.0",
-    ),
-    AlphaComponent("permissions", "packages/permissions", "liteyukibot-v7-permissions", version="0.3.0a2"),
-    AlphaComponent("commands", "packages/commands", "liteyukibot-v7-commands", version="0.3.0a1"),
-    AlphaComponent("resources", "packages/resources", "liteyukibot-v7-resources", version="0.2.0a1"),
-    AlphaComponent("profile", "packages/profile", "liteyukibot-v7-profile", version="0.2.0a1"),
-    AlphaComponent("essentials", "packages/essentials", "liteyukibot-v7-essentials", version="0.3.0a1"),
-    AlphaComponent("agent-resolver", "packages/agent-resolver", "liteyukibot-v7-agent-resolver", version="0.2.0a1"),
-    AlphaComponent("functions", "packages/functions", "liteyukibot-v7-functions", version="0.1.0a3"),
-)
-RELEASE_COMPONENTS = (
-    tuple(component for component in LOCKSTEP_COMPONENTS if component.component_id != "devcli")
-    + INDEPENDENT_COMPONENTS
-    + (next(component for component in LOCKSTEP_COMPONENTS if component.component_id == "devcli"),)
-)
+AlphaComponent = WorkspaceComponent
+_REGISTRY = resolve_workspace_registry(Path(__file__).resolve().parents[1])
+LOCKSTEP_COMPONENTS: tuple[AlphaComponent, ...] = _REGISTRY.lockstep_components
+INDEPENDENT_COMPONENTS: tuple[AlphaComponent, ...] = _REGISTRY.independent_components
+RELEASE_COMPONENTS: tuple[AlphaComponent, ...] = _REGISTRY.components
 
 SignatureVerifier = Callable[[Path, Path, str], None]
 
@@ -129,7 +104,19 @@ def certificate_identity(tag: str = ALPHA_TAG) -> str:
 def validate_source_registry(root: Path) -> None:
     """Check that source metadata is exactly the current Alpha inventory."""
 
-    for component in RELEASE_COMPONENTS:
+    try:
+        registry = resolve_workspace_registry(root)
+        validate_first_party_pins(registry)
+    except ReleaseRegistryError as error:
+        raise AlphaReleaseError(str(error)) from error
+
+    root_component = next(component for component in registry.components if component.component_id == "kernel")
+    root_project = _project(root, root_component)
+    root_version = _string_field(root_project, "version", context="pyproject.toml")
+    if root_version != ALPHA_VERSION:
+        raise AlphaReleaseError(f"root project must use Alpha version {ALPHA_VERSION}")
+
+    for component in registry.components:
         project = _project(root, component)
         context = str(Path(component.project_dir) / "pyproject.toml")
         if _string_field(project, "name", context=context) != component.distribution:
@@ -137,19 +124,12 @@ def validate_source_registry(root: Path) -> None:
         if _string_field(project, "version", context=context) != component.release_version:
             raise AlphaReleaseError(f"{context} must use Alpha version {component.release_version}")
 
-    root_project = _project(root, LOCKSTEP_COMPONENTS[0])
     optional = root_project.get("optional-dependencies")
     webui_extra = optional.get("webui") if isinstance(optional, dict) else None
-    if not isinstance(webui_extra, list) or f"liteyukibot-v7-webui[server]=={ALPHA_VERSION}" not in webui_extra:
+    webui = registry.by_component_id["webui"]
+    expected_webui = f"{webui.distribution}[server]=={webui.release_version}"
+    if not isinstance(webui_extra, list) or expected_webui not in webui_extra:
         raise AlphaReleaseError("root webui extra must pin the Alpha WebUI wheel exactly")
-
-    for component in RELEASE_COMPONENTS:
-        if component.component_id in {"kernel", "ipc-native", "webui", "example-nonebot-plugin"}:
-            continue
-        project = _project(root, component)
-        dependencies = project.get("dependencies")
-        if not isinstance(dependencies, list) or f"liteyukibot-v7=={ALPHA_VERSION}" not in dependencies:
-            raise AlphaReleaseError(f"{component.component_id} must pin liteyukibot-v7 to {ALPHA_VERSION}")
 
 
 def _distribution_metadata(path: Path) -> tuple[str, str]:
@@ -211,8 +191,11 @@ def _artifact_records(dist: Path) -> list[dict[str, object]]:
     return records
 
 
-def _validate_artifact_set(records: Sequence[Mapping[str, object]]) -> None:
-    expected = {component.distribution: component for component in RELEASE_COMPONENTS}
+def _validate_artifact_set(
+    records: Sequence[Mapping[str, object]],
+    components: Sequence[AlphaComponent] = RELEASE_COMPONENTS,
+) -> None:
+    expected = {normalize_distribution_name(component.distribution): component for component in components}
     observed: dict[str, set[str]] = {distribution: set() for distribution in expected}
     for record in records:
         distribution = record.get("distribution")
@@ -220,12 +203,14 @@ def _validate_artifact_set(records: Sequence[Mapping[str, object]]) -> None:
         kind = record.get("kind")
         if not isinstance(distribution, str) or not isinstance(version, str) or not isinstance(kind, str):
             raise AlphaReleaseError("manifest artifact has invalid metadata")
-        if distribution in expected and version != expected[distribution].release_version:
+        normalized = normalize_distribution_name(distribution)
+        component = expected.get(normalized)
+        if component is not None and version != component.release_version:
             raise AlphaReleaseError(f"{distribution} artifact has the wrong Alpha version")
-        if distribution in observed:
-            observed[distribution].add(kind)
-    for component in RELEASE_COMPONENTS:
-        kinds = observed[component.distribution]
+        if normalized in observed:
+            observed[normalized].add(kind)
+    for component in components:
+        kinds = observed[normalize_distribution_name(component.distribution)]
         if "wheel" not in kinds:
             raise AlphaReleaseError(f"bundle is missing a wheel for {component.distribution}")
         if component.requires_sdist and "sdist" not in kinds:
@@ -236,10 +221,12 @@ def create_manifest(root: Path, dist: Path) -> Path:
     """Write the exact canonical Alpha manifest for staged release artifacts."""
 
     validate_source_registry(root)
+    registry = resolve_workspace_registry(root)
+    components_for_release = registry.components
     records = _artifact_records(dist)
-    _validate_artifact_set(records)
+    _validate_artifact_set(records, components_for_release)
     components: list[dict[str, object]] = []
-    for component in RELEASE_COMPONENTS:
+    for component in components_for_release:
         project = _project(root, component)
         components.append(
             {
@@ -248,7 +235,7 @@ def create_manifest(root: Path, dist: Path) -> Path:
                 "version": component.release_version,
                 "license": _string_field(project, "license", context=component.project_dir),
                 "reserved": component.reserved,
-                "independent": component in INDEPENDENT_COMPONENTS,
+                "independent": component.independent,
             }
         )
     lock_path = dist / LOCK_NAME
@@ -370,9 +357,10 @@ def _verify_manifest_shape(manifest: Mapping[str, object], *, tag: str) -> list[
     components = manifest.get("components")
     if not isinstance(components, list):
         raise AlphaReleaseError("manifest components are invalid")
-    expected = {component.component_id: component.distribution for component in RELEASE_COMPONENTS}
-    expected["devcli"] = "liteyukibot-v7-devcli"
+    expected_components = {component.component_id: component for component in RELEASE_COMPONENTS}
+    expected = {component_id: component.distribution for component_id, component in expected_components.items()}
     observed: dict[str, str] = {}
+    observed_ids: list[str] = []
     for component in components:
         if not isinstance(component, dict):
             raise AlphaReleaseError("manifest component is invalid")
@@ -380,23 +368,24 @@ def _verify_manifest_shape(manifest: Mapping[str, object], *, tag: str) -> list[
         if not isinstance(component_id, str) or not isinstance(distribution, str):
             raise AlphaReleaseError("manifest component identity is invalid")
         observed[component_id] = distribution
+        observed_ids.append(component_id)
     if observed != expected:
         raise AlphaReleaseError("manifest component inventory does not match the current Alpha")
-    if len(components) != len(expected):
+    if len(components) != len(expected) or tuple(observed_ids) != tuple(expected_components):
         raise AlphaReleaseError("manifest component inventory contains duplicates")
-    expected_components = {component.component_id: component for component in RELEASE_COMPONENTS}
     for component in components:
-        assert isinstance(component, dict)
+        if not isinstance(component, dict):
+            raise AlphaReleaseError("manifest component is invalid")
         component_id = cast(str, component["id"])
-        expected_version = (
-            expected_components[component_id].release_version if component_id != "devcli" else ALPHA_VERSION
-        )
-        independent = component_id in {item.component_id for item in INDEPENDENT_COMPONENTS}
-        if component.get("version") != expected_version or component.get("reserved") is not (component_id == "devcli"):
+        expected_component = expected_components[component_id]
+        if (
+            component.get("version") != expected_component.release_version
+            or component.get("reserved") is not expected_component.reserved
+        ):
             raise AlphaReleaseError("manifest component version or reserved state is invalid")
-        if component.get("independent") is not independent:
+        if component.get("independent") is not expected_component.independent:
             raise AlphaReleaseError("manifest component independent state is invalid")
-        if component_id != "devcli" and not isinstance(component.get("license"), str):
+        if not isinstance(component.get("license"), str):
             raise AlphaReleaseError("manifest component license is invalid")
     artifacts = manifest.get("artifacts")
     if not isinstance(artifacts, list) or not all(isinstance(record, dict) for record in artifacts):
@@ -439,6 +428,7 @@ def verify_bundle(
             sigstore_command=sigstore_command,
             signature_verifier=signature_verifier,
         )
+        _verify_manifest_shape(verified.manifest, tag=tag)
         _validate_artifact_set(verified.artifact_records)
     except BundleError as error:
         raise AlphaReleaseError(str(error)) from error
