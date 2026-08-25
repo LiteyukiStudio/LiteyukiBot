@@ -7,7 +7,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from liteyukibot.plugin_store import ArtifactStore, PluginFacet, PluginStoreError
+from liteyukibot.bridge_contracts import ManagedArtifactStore, ManagedFacet
+from liteyukibot.plugin_store import PluginStoreError
 
 _MODULE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*")
 
@@ -17,9 +18,9 @@ class NoneBotFacetInstaller:
 
     def materialize(
         self,
-        artifacts: ArtifactStore,
+        artifacts: ManagedArtifactStore,
         generation: Path,
-        facets: Mapping[str, PluginFacet],
+        facets: Mapping[str, ManagedFacet],
     ) -> dict[str, Any]:
         """Materialize the none bot facet installer operation.
 

@@ -4,6 +4,7 @@ This is the v7 broker migration entry point. It is intentionally not
 interoperable with the legacy runtime child protocol.
 """
 
+from ..bridge_contracts import BridgeDefinition, BridgeLauncher, BridgeSupportGrade
 from ..topic_patterns import topic_pattern_matches, validate_topic_pattern
 from .actions import (
     MESSAGE_SEND_KIND,
@@ -99,9 +100,6 @@ from .runtime_catalog import (
 )
 from .service import (
     BridgeCatalog,
-    BridgeDefinition,
-    BridgeLauncher,
-    BridgeSupportGrade,
     BrokerService,
     bridge_token_from_vault,
     resolve_secret_references,

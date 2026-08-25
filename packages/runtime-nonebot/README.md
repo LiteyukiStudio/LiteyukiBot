@@ -29,6 +29,11 @@ loaded together accidentally. A failed candidate startup restores the previous
 generation; garbage collection retains only the active and previous
 generations and their referenced artifacts.
 
+The package implements the neutral `ManagedFacetInstaller` and
+`ManagedFacetProbe` contracts from `liteyukibot.bridge_contracts`. It consumes
+only verified archive extraction plus the runtime kind, artifact digests, and
+load plan needed for materialization; Broker does not own the plugin store.
+
 With the separately installed `liteyukibot-v7-runtime-nonebot-api` package, the
 bridge publishes the Alpha10.1 v1.2 `event.snapshot`, `event.send`,
 `bot.snapshot`, and `bot.send` runtime APIs. Only kernel-owned portable JSON

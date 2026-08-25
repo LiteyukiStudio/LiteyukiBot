@@ -35,6 +35,12 @@ broker bridges; an ID present in both is rejected. Only a stable bridge that
 declares both a facet installer and a startup probe may own managed generations.
 Alpha12 qualifies the NoneBot bridge only.
 
+Composition discovers bridge entry points, applies that eligibility policy,
+and supplies a resolved managed target to plugin installation. The installer
+receives only the narrow artifact-store and facet contracts from
+`liteyukibot.bridge_contracts`; neither Broker discovery nor the concrete
+plugin-store API is part of the package-owned facet materialization contract.
+
 Installation materializes a new generation directory and virtual environment,
 installs the exact bridge distribution plus hash-verified wheels, writes a
 manifest and host load plan, and runs the host probe before changing the atomic

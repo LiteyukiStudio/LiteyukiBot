@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from importlib.metadata import PackageNotFoundError, version
 
-from liteyukibot.broker import BridgeDefinition, BridgeSupportGrade
+from liteyukibot.bridge_contracts import BridgeDefinition, BridgeSupportGrade
 
 from .host import launch, launch_sandbox
 

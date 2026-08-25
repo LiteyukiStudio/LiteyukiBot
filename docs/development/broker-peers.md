@@ -33,6 +33,10 @@ The Broker does not provide framework environment bootstrap, heartbeats,
 persistence, or child-process restart policy. Configuration lives under
 `broker.bridges`; the owning bridge package supplies framework startup and
 shutdown through `BridgeDefinition(kind, grade, distribution, launch)`.
+`BridgeDefinition`, `BridgeSupportGrade`, and managed facet/probe protocols are
+owned by `liteyukibot.bridge_contracts`; `liteyukibot.broker` only re-exports
+the Bridge types. Broker code must not import plugin-store or plugin-install
+implementations.
 
 Keep framework SDK objects, credentials, connections, and event/action
 conversion in the package that owns the framework. The kernel must not import

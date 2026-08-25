@@ -85,6 +85,13 @@ generation fields such as `runtime_id`, `runtime_kind`, and
 `PLUGIN_GENERATION_ENV` until their owning public contract is deliberately
 migrated.
 
+The first route step uses `liteyukibot.bridge_contracts` as the canonical
+contract module. Broker may re-export those types but must not own or import
+plugin-store implementations. The legacy `liteyukibot.managed_plugins` path is
+only an implementation-free import compatibility surface. Concrete target
+eligibility and entry-point discovery belong to composition and are injected
+into plugin installation rather than rediscovered there.
+
 ## Diagnostic traceability
 
 The diagnostic goal is to reconstruct the causal path of a failure from logs,
