@@ -14,8 +14,7 @@ from urllib.parse import urlparse
 from uuid import uuid4
 
 import zmq.asyncio
-
-from liteyukibot.broker import (
+from liteyukibot_broker import (
     MESSAGE_SEND_KIND,
     ActionOutcome,
     ActionRequest,
@@ -33,10 +32,11 @@ from liteyukibot.broker import (
     parse_message_send_request,
     portable_runtime_api_catalog,
 )
+from liteyukibot_broker.lyip import LyipLane
+
 from liteyukibot.config import AppSettings
 from liteyukibot.events import ConversationRef, EventEnvelope, JsonValue, Message, Segment
 from liteyukibot.logging import get_logger
-from liteyukibot.lyip import LyipLane
 from liteyukibot.plugin_store import PLUGIN_GENERATION_ENV
 from liteyukibot.runtime_api import BotSnapshot, EventSnapshot, SendResult
 

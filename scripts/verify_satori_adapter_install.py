@@ -9,10 +9,10 @@ from pathlib import Path
 
 import liteyukibot_adapter_satori
 import liteyukibot_runtime_adapter
+from liteyukibot_broker import BridgeSupportGrade
 from liteyukibot_runtime_adapter.host import discover_adapter_plugins
 
 import liteyukibot
-from liteyukibot.broker import BridgeSupportGrade
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 

@@ -5,10 +5,10 @@ from dataclasses import dataclass
 
 import pytest
 import zmq.asyncio
-
-from liteyukibot.broker.diagnostics import BrokerDiagnostics, BrokerDiagnosticsClient, BrokerDiagnosticsError
-from liteyukibot.broker.peer import BridgeSession, BrokerPeerServer, BrokerPeerService
-from liteyukibot.broker.protocol import (
+from liteyukibot_broker.diagnostics import BrokerDiagnostics, BrokerDiagnosticsClient, BrokerDiagnosticsError
+from liteyukibot_broker.lyip import LyipFrame, LyipLane
+from liteyukibot_broker.peer import BridgeSession, BrokerPeerServer, BrokerPeerService
+from liteyukibot_broker.protocol import (
     ActionResourceDeclaration,
     BridgeAccess,
     BridgeManifest,
@@ -19,8 +19,7 @@ from liteyukibot.broker.protocol import (
     decode_broker_message,
     encode_broker_message,
 )
-from liteyukibot.broker.routing import ActionRequest, BrokerAdmissionError, BrokerLedger, EventIngress
-from liteyukibot.lyip import LyipFrame, LyipLane
+from liteyukibot_broker.routing import ActionRequest, BrokerAdmissionError, BrokerLedger, EventIngress
 
 
 @dataclass

@@ -14,8 +14,9 @@ from time import monotonic
 from typing import Any, cast
 
 import zmq.asyncio
+from liteyukibot_broker.diagnostics import BrokerDiagnosticsClient
+from liteyukibot_broker.lifecycle import BrokerLifecycleClient, BrokerLifecycleError
 
-from .broker.lifecycle import BrokerLifecycleClient, BrokerLifecycleError
 from .broker.service import BridgeCatalog
 from .bundles import BUNDLE_TAG, BUNDLE_VERSION
 from .config import CONFIG_VERSION, DaemonSettings, DevelopmentSettings, WebUISettings
@@ -272,8 +273,6 @@ class InstanceDaemon:
             )
         self._broker_diagnostics = None
         if broker_endpoint is not None and broker_diagnostics_token is not None:
-            from .broker import BrokerDiagnosticsClient
-
             self._broker_diagnostics = BrokerDiagnosticsClient.from_broker_endpoint(
                 context=zmq.asyncio.Context.instance(),
                 endpoint=broker_endpoint,

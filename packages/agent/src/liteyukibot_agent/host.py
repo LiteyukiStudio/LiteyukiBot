@@ -13,10 +13,7 @@ from uuid import uuid4
 import zmq.asyncio
 from jsonschema import Draft202012Validator, ValidationError
 from liteyukibot_agent_resolver import AgentToolDescriptor
-from liteyukibot_permissions.service import create_permission_service
-
-from liteyukibot import AuthorizationContext
-from liteyukibot.broker import (
+from liteyukibot_broker import (
     MESSAGE_SEND_KIND,
     BridgeAccess,
     BridgeClient,
@@ -32,14 +29,17 @@ from liteyukibot.broker import (
     ToolResult,
     message_send_resource_key,
 )
-from liteyukibot.broker.protocol import AuthorizationContextWire
+from liteyukibot_broker.lyip import LyipLane
+from liteyukibot_broker.protocol import AuthorizationContextWire
+from liteyukibot_permissions.service import create_permission_service
+
+from liteyukibot import AuthorizationContext
 from liteyukibot.capabilities import AGENT_HISTORY_CLEAR as AGENT_HISTORY_CLEAR_CAPABILITY
 from liteyukibot.capabilities import AGENT_PROMPT_SELECT as AGENT_PROMPT_SELECT_CAPABILITY
 from liteyukibot.config import AppSettings
 from liteyukibot.events import EventEnvelope, Message, Segment
 from liteyukibot.events.models import JsonValue
 from liteyukibot.functions import AGENT_FUNCTION_CATALOG, AGENT_PROMPT_SELECT
-from liteyukibot.lyip import LyipLane
 
 from .catalog import (
     ACTIVE_TOOL_LIMIT,

@@ -12,6 +12,7 @@ authors = [
 dependencies = [
     "h2>=4.4.1,<5",
     "liteyukibot-v7==7.0.0a14",
+    "liteyukibot-v7-broker==7.0.0a14",
     "liteyukibot-v7-runtime-nonebot-api==7.0.0a14",
     "nonebot2[fastapi,httpx,websockets]>=2.5,<3",
 ]
@@ -33,6 +34,7 @@ build-backend = "uv_build"
 
 [tool.uv.sources]
 liteyukibot-v7 = { workspace = true }
+liteyukibot-v7-broker = { workspace = true }
 liteyukibot-v7-runtime-nonebot-api = { workspace = true }
 
 [tool.uv.build-backend]

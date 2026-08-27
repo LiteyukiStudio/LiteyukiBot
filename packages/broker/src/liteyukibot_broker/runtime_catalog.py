@@ -6,7 +6,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import cast
 
-from ..runtime_api_models import BotSnapshot, EventSnapshot, SendResult
+from liteyukibot_kernel.runtime_api_models import BotSnapshot, EventSnapshot, SendResult
+
 from .protocol import RuntimeApiDeclaration, runtime_api_catalog_fingerprint
 
 PORTABLE_RUNTIME_API_VERSION = "1.2"

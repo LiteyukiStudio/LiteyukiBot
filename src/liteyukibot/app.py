@@ -14,21 +14,20 @@ from typing import Any, cast
 from uuid import uuid4
 
 from jsonschema import Draft202012Validator, ValidationError
+from liteyukibot_broker import (
+    AuthorizationContextWire,
+    BridgeControlInvoke,
+    BrokerToolDeclaration,
+    ControlOutcome,
+    ToolInvoke,
+    ToolOutcome,
+)
 
 from ._version import __version__
 from .action_service import ActionService
 from .agents import AGENT_HISTORY_SERVICE
 from .authorization import AuthorizationContext
-from .broker import (
-    AuthorizationContextWire,
-    BridgeControlInvoke,
-    BrokerToolDeclaration,
-    ControlOutcome,
-    KernelBrokerPeer,
-    ToolInvoke,
-    ToolOutcome,
-    configured_kernel_bridge,
-)
+from .broker.kernel import KernelBrokerPeer, configured_kernel_bridge
 from .capabilities import ADAPTER_CALL_API, AGENT_HISTORY_CLEAR, PERMISSION_SERVICE_MAJOR, PERMISSION_SERVICE_NAME
 from .config import AppSettings
 from .control import ControlServer

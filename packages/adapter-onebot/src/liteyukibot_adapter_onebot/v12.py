@@ -9,9 +9,9 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
+from liteyukibot_broker import MessageSendPayload
 from liteyukibot_runtime_adapter.contracts import AdapterConnection, AdapterContext, EventEmitter
 
-from liteyukibot.broker import MessageSendPayload
 from liteyukibot.events import (
     ActorRef,
     ConversationRef,

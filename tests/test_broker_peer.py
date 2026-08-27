@@ -4,9 +4,7 @@ import asyncio
 
 import pytest
 import zmq.asyncio
-from pydantic import ValidationError
-
-from liteyukibot.broker import (
+from liteyukibot_broker import (
     ActionResourceDeclaration,
     BridgeAccess,
     BridgeClient,
@@ -25,7 +23,8 @@ from liteyukibot.broker import (
     encode_broker_message,
     runtime_api_catalog_fingerprint,
 )
-from liteyukibot.lyip import LyipError, LyipFrame, LyipLane, LyipOfferResult, ZmqLyipDealer
+from liteyukibot_broker.lyip import LyipError, LyipFrame, LyipLane, LyipOfferResult, ZmqLyipDealer
+from pydantic import ValidationError
 
 
 def _manifest(bridge_id: str = "astrbot") -> BridgeManifest:

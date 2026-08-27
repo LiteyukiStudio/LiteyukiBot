@@ -6,7 +6,7 @@ from typing import Annotated, Final
 
 from pydantic import Field, TypeAdapter
 
-from ..lyip import LyipError, LyipFrame, LyipLane
+from .lyip import LyipError, LyipFrame, LyipLane
 from .routing import (
     ActionRequest,
     ActionResult,

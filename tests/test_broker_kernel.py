@@ -8,10 +8,7 @@ from typing import Any, cast
 
 import pytest
 import zmq.asyncio
-from pydantic import ValidationError
-
-from liteyukibot.app import LiteyukiApp
-from liteyukibot.broker import (
+from liteyukibot_broker import (
     MESSAGE_SEND_KIND,
     ActionOutcome,
     ActionRequest,
@@ -24,11 +21,13 @@ from liteyukibot.broker import (
     BrokerBridgeRunner,
     BrokerPeerServer,
     EventIngress,
-    KernelBrokerPeer,
     ToolInvoke,
-    configured_kernel_bridge,
     parse_message_send_request,
 )
+from pydantic import ValidationError
+
+from liteyukibot.app import LiteyukiApp
+from liteyukibot.broker.kernel import KernelBrokerPeer, configured_kernel_bridge
 from liteyukibot.config import AppSettings
 from liteyukibot.events import (
     ActionEnvelope,

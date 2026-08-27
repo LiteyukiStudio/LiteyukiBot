@@ -12,9 +12,10 @@ import liteyukibot_agent
 from liteyukibot_agent.catalog import AgentCatalog
 from liteyukibot_agent.store import ConversationStore
 from liteyukibot_agent_resolver import AgentToolDescriptor
+from liteyukibot_broker import BridgeSupportGrade
 
 import liteyukibot
-from liteyukibot.broker import BridgeCatalog, BridgeSupportGrade
+from liteyukibot.broker.service import BridgeCatalog
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 

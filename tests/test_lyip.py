@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import pytest
 import zmq.asyncio
-
-from liteyukibot.config import LyipLinkSettings, LyipSettings
-from liteyukibot.lyip import (
+from liteyukibot_broker.lyip import (
     MAX_LYIP_PAYLOAD_SIZE,
     MAX_LYIP_WIRE_FRAME_SIZE,
     InMemoryLyipLink,
@@ -19,6 +17,8 @@ from liteyukibot.lyip import (
     _encode_frame,
     select_lyip_backend,
 )
+
+from liteyukibot.config import LyipLinkSettings, LyipSettings
 
 
 def _frame(

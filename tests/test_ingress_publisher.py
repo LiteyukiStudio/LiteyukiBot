@@ -3,8 +3,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-
-from liteyukibot.broker import BoundedIngressPublisher
+from liteyukibot_broker import BoundedIngressPublisher
 
 
 @pytest.mark.asyncio

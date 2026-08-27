@@ -7,8 +7,7 @@ import json
 from collections.abc import Mapping
 
 import zmq.asyncio
-
-from liteyukibot.broker import (
+from liteyukibot_broker import (
     AuthorizationContextWire,
     BridgeAccess,
     BridgeClient,

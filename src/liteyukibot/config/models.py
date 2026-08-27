@@ -10,9 +10,8 @@ from types import MappingProxyType
 from typing import Any, Literal, cast
 
 from jsonschema import Draft202012Validator, SchemaError
+from liteyukibot_broker.topic_patterns import validate_topic_pattern
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator, model_serializer, model_validator
-
-from ..topic_patterns import validate_topic_pattern
 
 type JsonValue = str | int | float | bool | None | tuple[JsonValue, ...] | Mapping[str, JsonValue]
 

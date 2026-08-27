@@ -142,6 +142,18 @@ POLICIES: tuple[tuple[str, ReleasePolicy], ...] = (
         ),
     ),
     (
+        "packages/broker",
+        ReleasePolicy(
+            "broker",
+            "lockstep",
+            tag_prefix="broker-v",
+            tag_selector="broker-v",
+            verifier="scripts/verify_broker_install.py",
+            verifier_components=("kernel", "broker"),
+            expected_version="lockstep",
+        ),
+    ),
+    (
         ".",
         ReleasePolicy(
             "root",
@@ -150,8 +162,8 @@ POLICIES: tuple[tuple[str, ReleasePolicy], ...] = (
             tag_prefix="v",
             tag_selector="v7.",
             verifier="scripts/verify_published_install.py",
-            verifier_components=("kernel", "root"),
-            verifier_arguments=("--expect-kernel", "--expect-no-legacy-runtime"),
+            verifier_components=("kernel", "broker", "root"),
+            verifier_arguments=("--expect-kernel", "--expect-broker", "--expect-no-legacy-runtime"),
             expected_version="lockstep",
         ),
     ),
@@ -252,7 +264,7 @@ POLICIES: tuple[tuple[str, ReleasePolicy], ...] = (
         ReleasePolicy(
             "example-nonebot-plugin",
             "independent",
-            reference_e2e_components=("kernel", "root", "nonebot-bridge", "example-nonebot-plugin"),
+            reference_e2e_components=("kernel", "broker", "root", "nonebot-bridge", "example-nonebot-plugin"),
         ),
     ),
     (

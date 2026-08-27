@@ -6,8 +6,9 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
+from liteyukibot_broker import MessageSendPayload
+
 from liteyukibot.bridge_contracts import BridgeSupportGrade
-from liteyukibot.broker import MessageSendPayload
 from liteyukibot.events import EventEnvelope
 from liteyukibot.json_value import JsonValue
 

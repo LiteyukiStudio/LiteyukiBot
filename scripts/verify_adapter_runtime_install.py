@@ -8,9 +8,10 @@ import json
 from pathlib import Path
 
 import liteyukibot_runtime_adapter
+from liteyukibot_broker import BridgeSupportGrade
 
 import liteyukibot
-from liteyukibot.broker import BridgeCatalog, BridgeSupportGrade
+from liteyukibot.broker.service import BridgeCatalog
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 

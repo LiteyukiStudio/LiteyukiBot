@@ -236,7 +236,7 @@ npm consumer. It did not create a `v7.0.0a13` GitHub Release.
 
 The [Alpha14 ownership and release baseline](v7-alpha-14-baseline.md) is the
 authoritative current route. Alpha14 subtracts retired compatibility, makes the
-19-distribution signed graph complete, corrects kernel/Broker/plugin-manager/
+20-distribution signed graph complete, corrects kernel/Broker/plugin-manager/
 daemon ownership, converts first-party business plugins to real Cordis
 implementations, and freezes WebUI feature growth.
 

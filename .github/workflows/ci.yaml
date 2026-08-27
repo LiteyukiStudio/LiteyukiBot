@@ -40,6 +40,7 @@ jobs:
         run: |
           uv run python scripts/check_release.py
           uv run python scripts/check_release.py --package kernel
+          uv run python scripts/check_release.py --package broker
           uv run python scripts/check_release.py --package permissions
           uv run python scripts/check_release.py --package commands
           uv run python scripts/check_release.py --package functions
@@ -58,7 +59,8 @@ jobs:
           uv build
           uv build --all-packages --out-dir dist/workspace --clear
           uv run python -m scripts.run_kernel_install
-          uv run --no-project --python 3.14 python scripts/run_isolated_install.py --with "dist/workspace/liteyukibot_v7_kernel-*-py3-none-any.whl" --with "dist/workspace/liteyukibot_v7-*-py3-none-any.whl" --verifier scripts/verify_published_install.py -- --expect-kernel --expect-no-legacy-runtime
+          uv run python -m scripts.run_broker_install
+          uv run --no-project --python 3.14 python scripts/run_isolated_install.py --with "dist/workspace/liteyukibot_v7_kernel-*-py3-none-any.whl" --with "dist/workspace/liteyukibot_v7_broker-*-py3-none-any.whl" --with "dist/workspace/liteyukibot_v7-*-py3-none-any.whl" --verifier scripts/verify_published_install.py -- --expect-kernel --expect-broker --expect-no-legacy-runtime
           uv run python -m scripts.run_tool_install_smoke
           uv build --project examples/native-plugin --out-dir dist/examples
           uv run python -m scripts.run_developer_kit_install
@@ -75,7 +77,7 @@ jobs:
           uv run --no-project --python 3.14 --find-links dist/workspace --with dist/workspace/liteyukibot_v7_kernel-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/workspace/liteyukibot_v7-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/workspace/liteyukibot_v7_runtime_nonebot-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/workspace/liteyukibot_v7_example_nonebot_plugin-0.1.0-py3-none-any.whl python scripts/run_nonebot_plugin_e2e.py --wheel-dir dist/workspace --workspace tmp/alpha14-nonebot-e2e
           uv run python scripts/run_isolated_install.py --with dist/workspace/liteyukibot_v7_kernel-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/workspace/liteyukibot_v7-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/workspace/liteyukibot_v7_runtime_nonebot_api-${{ steps.release.outputs.version }}-py3-none-any.whl --verifier scripts/verify_nonebot_api_install.py -- --expected-version ${{ steps.release.outputs.version }}
           uv build --project examples/broker-peer --out-dir dist/examples
-          uv run python scripts/run_isolated_install.py --with dist/workspace/liteyukibot_v7_kernel-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/workspace/liteyukibot_v7-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/examples/liteyukibot_example_broker_peer-0.1.0-py3-none-any.whl --verifier scripts/verify_broker_peer_example.py
+          uv run python scripts/run_isolated_install.py --with dist/workspace/liteyukibot_v7_kernel-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/workspace/liteyukibot_v7_broker-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/workspace/liteyukibot_v7-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/examples/liteyukibot_example_broker_peer-0.1.0-py3-none-any.whl --verifier scripts/verify_broker_peer_example.py
           uv run python scripts/run_isolated_install.py --with dist/workspace/liteyukibot_v7_kernel-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/workspace/liteyukibot_v7-${{ steps.release.outputs.version }}-py3-none-any.whl --with dist/examples/liteyukibot_example_plugin-0.1.0-py3-none-any.whl --verifier scripts/verify_native_plugin_example.py
       - name: Capture qualification baselines
         working-directory: LiteyukiBot

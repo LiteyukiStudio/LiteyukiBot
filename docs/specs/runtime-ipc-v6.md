@@ -240,5 +240,6 @@ events have no B7 broker action path.
 
 Run `uv run pytest tests/test_broker_peer.py tests/test_broker_business.py
 tests/test_broker_routing.py tests/test_broker_kernel.py`. The executable definitions are under
-`src/liteyukibot/broker/`; LYIP frame mechanics are specified by
+`packages/broker/src/liteyukibot_broker/`; root composition integration remains
+under `src/liteyukibot/broker/`. LYIP frame mechanics are specified by
 [Runtime LYIP v2](runtime-lyip-v2.md).

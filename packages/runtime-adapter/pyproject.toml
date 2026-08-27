@@ -11,6 +11,7 @@ authors = [
 ]
 dependencies = [
     "liteyukibot-v7==7.0.0a14",
+    "liteyukibot-v7-broker==7.0.0a14",
 ]
 
 [project.entry-points."liteyukibot.bridges"]
@@ -22,6 +23,7 @@ build-backend = "uv_build"
 
 [tool.uv.sources]
 liteyukibot-v7 = { workspace = true }
+liteyukibot-v7-broker = { workspace = true }
 
 [tool.uv.build-backend]
 module-root = "src"

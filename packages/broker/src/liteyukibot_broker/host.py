@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from jsonschema import Draft202012Validator, ValidationError
+from liteyukibot_kernel.events.models import JsonValue
 
-from ..events.models import JsonValue
 from .peer import BridgeClient, BridgeRegistrationError
 from .protocol import AuthorizationContextWire, runtime_version_matches
 from .routing import (

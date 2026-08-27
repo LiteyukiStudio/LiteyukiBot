@@ -21,11 +21,12 @@ from typing import Any
 
 import zmq.asyncio
 from filelock import FileLock, Timeout
+from liteyukibot_broker import BridgeRegistrationError, BrokerDiagnosticsClient
 from tomli_w import dumps as dump_toml
 
 from . import __version__
 from .app import LiteyukiApp
-from .broker import BridgeRegistrationError, BrokerDiagnosticsClient, configured_kernel_bridge
+from .broker.kernel import configured_kernel_bridge
 from .broker.service import BridgeCatalog, BrokerService, resolve_secret_references
 from .config import (
     AppSettings,
