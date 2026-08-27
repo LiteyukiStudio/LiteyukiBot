@@ -319,6 +319,7 @@ def test_bundle_verifier_projection_covers_every_non_reference_component() -> No
     onebot = next(item for item in VERIFICATIONS if item.name == "adapter-onebot")
     assert onebot.distributions == (
         "liteyukibot-v7-kernel",
+        "liteyukibot-v7-broker",
         "liteyukibot-v7",
         "liteyukibot-v7-runtime-adapter",
         "liteyukibot-v7-adapter-onebot",
@@ -328,6 +329,7 @@ def test_bundle_verifier_projection_covers_every_non_reference_component() -> No
     satori = next(item for item in VERIFICATIONS if item.name == "adapter-satori")
     assert satori.distributions == (
         "liteyukibot-v7-kernel",
+        "liteyukibot-v7-broker",
         "liteyukibot-v7",
         "liteyukibot-v7-runtime-adapter",
         "liteyukibot-v7-adapter-satori",
@@ -337,6 +339,7 @@ def test_bundle_verifier_projection_covers_every_non_reference_component() -> No
     agent = next(item for item in VERIFICATIONS if item.name == "agent")
     assert agent.distributions == (
         "liteyukibot-v7-kernel",
+        "liteyukibot-v7-broker",
         "liteyukibot-v7",
         "liteyukibot-v7-permissions",
         "liteyukibot-v7-commands",

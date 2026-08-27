@@ -27,6 +27,7 @@ def main() -> int:
         raise RuntimeError("uv executable was not found")
     wheels = (
         _one_wheel("liteyukibot_v7_kernel"),
+        _one_wheel("liteyukibot_v7_broker"),
         _one_wheel("liteyukibot_v7"),
         _one_wheel("liteyukibot_v7_permissions"),
     )

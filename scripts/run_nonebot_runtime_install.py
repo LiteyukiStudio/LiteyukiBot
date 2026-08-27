@@ -27,6 +27,7 @@ def main() -> int:
     command = [uv, "run", "--no-project", "--python", "3.14"]
     for wheel in (
         _one_wheel("liteyukibot_v7_kernel"),
+        _one_wheel("liteyukibot_v7_broker"),
         _one_wheel("liteyukibot_v7"),
         _one_wheel("liteyukibot_v7_runtime_nonebot_api"),
         _one_wheel("liteyukibot_v7_runtime_nonebot"),
