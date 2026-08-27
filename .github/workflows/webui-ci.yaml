@@ -6,6 +6,7 @@ on:
     paths:
       - "webui/**"
       - "packages/webui/**"
+      - "packages/broker/**"
       - "src/liteyukibot/daemon.py"
       - "src/liteyukibot/plugins.py"
       - "src/liteyukibot/resource_packs.py"
@@ -20,6 +21,7 @@ on:
     paths:
       - "webui/**"
       - "packages/webui/**"
+      - "packages/broker/**"
       - "src/liteyukibot/daemon.py"
       - "src/liteyukibot/plugins.py"
       - "src/liteyukibot/resource_packs.py"
@@ -69,6 +71,7 @@ jobs:
           uv run mypy packages/webui scripts/stage_webui_assets.py scripts/run_webui_install.py scripts/verify_webui_install.py
           uv run pytest packages/webui/tests tests/test_daemon.py tests/test_management.py tests/test_operations.py
           uv build --project packages/kernel --out-dir dist/workspace --clear
+          uv build --project packages/broker --out-dir dist/workspace
           uv build --out-dir dist/workspace
           uv build --project packages/webui --out-dir dist/workspace
           uv run python -m scripts.run_webui_install
