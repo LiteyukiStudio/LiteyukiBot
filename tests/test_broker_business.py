@@ -4,9 +4,7 @@ import asyncio
 
 import pytest
 import zmq.asyncio
-from pydantic import ValidationError
-
-from liteyukibot.broker import (
+from liteyukibot_broker import (
     BROKER_ACTION_REQUEST_TYPE_ID,
     ActionRequest,
     ActionResourceDeclaration,
@@ -35,8 +33,9 @@ from liteyukibot.broker import (
     decode_business_message,
     encode_business_message,
 )
-from liteyukibot.broker.business import BrokerBusinessMessage
-from liteyukibot.lyip import LyipFrame, LyipLane, LyipOfferResult
+from liteyukibot_broker.business import BrokerBusinessMessage
+from liteyukibot_broker.lyip import LyipFrame, LyipLane, LyipOfferResult
+from pydantic import ValidationError
 
 
 def _manifest(

@@ -5,15 +5,14 @@ from __future__ import annotations
 import json
 from base64 import b64decode, b64encode
 from collections import deque
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Literal
+from typing import Literal, Protocol, cast
 from urllib.parse import urlparse
 
 import zmq
 import zmq.asyncio
-
-from .config.models import LyipSettings
 
 MAX_LYIP_PAYLOAD_SIZE = 8 * 1024 * 1024
 MAX_LYIP_WIRE_FRAME_SIZE = 12 * 1024 * 1024
@@ -74,8 +73,21 @@ class LyipFrame:
             raise ValueError(f"LYIP payload exceeds {MAX_LYIP_PAYLOAD_SIZE} bytes")
 
 
+class _LyipLinkSettings(Protocol):
+    """Minimal link-settings shape accepted by the transport selector."""
+
+    backend: str | None
+
+
+class _LyipSettings(Protocol):
+    """Minimal settings shape accepted by the transport selector."""
+
+    default_backend: str
+    links: Mapping[str, _LyipLinkSettings]
+
+
 def select_lyip_backend(
-    settings: LyipSettings,
+    settings: object,
     runtime_id: str,
     *,
     native_shared_memory_available: bool = False,
@@ -91,8 +103,9 @@ def select_lyip_backend(
         The `LyipBackend` result produced by the operation.
     """
 
-    link = settings.links.get(runtime_id)
-    requested = link.backend if link is not None and link.backend is not None else settings.default_backend
+    typed_settings = cast(_LyipSettings, settings)
+    link = typed_settings.links.get(runtime_id)
+    requested = link.backend if link is not None and link.backend is not None else typed_settings.default_backend
     if requested == "auto":
         return LyipBackend.SHM if native_shared_memory_available else LyipBackend.ZMQ
     if requested == "shm" and not native_shared_memory_available:
@@ -508,3 +521,18 @@ class ZmqLyipDealer(_ZmqEndpoint):
         """
         for socket in self._sockets.values():
             socket.close(linger=0)
+
+
+__all__ = [
+    "InMemoryLyipLink",
+    "LyipBackend",
+    "LyipError",
+    "LyipFrame",
+    "LyipLane",
+    "LyipOfferResult",
+    "MAX_LYIP_PAYLOAD_SIZE",
+    "MAX_LYIP_WIRE_FRAME_SIZE",
+    "ZmqLyipDealer",
+    "ZmqLyipRouter",
+    "select_lyip_backend",
+]

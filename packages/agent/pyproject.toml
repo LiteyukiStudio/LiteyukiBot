@@ -11,6 +11,7 @@ authors = [
 ]
 dependencies = [
     "liteyukibot-v7==7.0.0a14",
+    "liteyukibot-v7-broker==7.0.0a14",
     "liteyukibot-v7-agent-resolver==0.2.0a1",
     "liteyukibot-v7-permissions==0.3.0a2",
     "openai>=2,<3",
@@ -26,6 +27,7 @@ build-backend = "uv_build"
 
 [tool.uv.sources]
 liteyukibot-v7 = { workspace = true }
+liteyukibot-v7-broker = { workspace = true }
 liteyukibot-v7-agent-resolver = { workspace = true }
 liteyukibot-v7-permissions = { workspace = true }
 

@@ -3,8 +3,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-
-from liteyukibot.broker import BoundedIngressPublisher
+from liteyukibot_broker import BoundedIngressPublisher
 
 
 @pytest.mark.asyncio
@@ -32,6 +31,7 @@ async def test_bounded_ingress_publisher_is_fifo_and_drops_when_full() -> None:
 
     release.set()
     await asyncio.wait_for(completed.wait(), timeout=0.5)
+    await asyncio.sleep(0.01)
     await publisher.close()
 
     assert received == ["first", "second"]
@@ -65,6 +65,7 @@ async def test_bounded_ingress_publisher_isolates_handler_failures_and_timeouts(
     assert publisher.submit("healthy") is True
 
     await asyncio.wait_for(completed.wait(), timeout=0.5)
+    await asyncio.sleep(0.01)
     await publisher.close()
 
     assert [type(error) for error in errors] == [RuntimeError, TimeoutError]
@@ -72,6 +73,49 @@ async def test_bounded_ingress_publisher_isolates_handler_failures_and_timeouts(
     assert publisher.stats.completed == 1
     assert publisher.stats.failed == 2
     assert publisher.stats.dropped == 0
+
+
+@pytest.mark.asyncio
+async def test_bounded_ingress_publisher_continues_after_handler_suppresses_cancellation() -> None:
+    started = asyncio.Event()
+    cancelled = asyncio.Event()
+    released = asyncio.Event()
+    finished = asyncio.Event()
+    healthy = asyncio.Event()
+    received: list[str] = []
+
+    async def handler(value: str) -> None:
+        if value == "stuck":
+            started.set()
+            try:
+                while not released.is_set():
+                    await released.wait()
+            except asyncio.CancelledError:
+                cancelled.set()
+                while not released.is_set():
+                    await released.wait()
+            finally:
+                finished.set()
+            return
+        received.append(value)
+        healthy.set()
+
+    publisher = BoundedIngressPublisher(handler, timeout_seconds=0.01)
+    await publisher.start()
+    assert publisher.submit("stuck") is True
+    await asyncio.wait_for(started.wait(), timeout=0.2)
+    assert publisher.submit("healthy") is True
+
+    await asyncio.wait_for(cancelled.wait(), timeout=0.2)
+    await asyncio.wait_for(healthy.wait(), timeout=0.2)
+    await asyncio.sleep(0.01)
+    assert received == ["healthy"]
+    assert publisher.stats.completed == 1
+    assert publisher.stats.failed == 1
+
+    released.set()
+    await asyncio.wait_for(finished.wait(), timeout=0.2)
+    await publisher.close()
 
 
 @pytest.mark.asyncio

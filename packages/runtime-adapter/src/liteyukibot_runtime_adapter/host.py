@@ -11,8 +11,7 @@ from urllib.parse import urlparse
 from uuid import uuid4
 
 import zmq.asyncio
-
-from liteyukibot.broker import (
+from liteyukibot_broker import (
     MESSAGE_SEND_KIND,
     ActionOutcome,
     ActionRequest,
@@ -24,11 +23,12 @@ from liteyukibot.broker import (
     EventIngress,
     parse_message_send_request,
 )
+from liteyukibot_broker.lyip import LyipLane
+
 from liteyukibot.config import AppSettings
 from liteyukibot.events import EventEnvelope
 from liteyukibot.events import JsonValue as EventJsonValue
 from liteyukibot.json_value import json_value
-from liteyukibot.lyip import LyipLane
 
 from .contracts import AdapterConnection, AdapterContext, AdapterPlugin
 

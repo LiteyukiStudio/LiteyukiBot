@@ -8,10 +8,10 @@ from typing import Any
 
 import pytest
 from liteyukibot_adapter_satori.connection import SatoriConnection
+from liteyukibot_broker import MessageSendPayload
 from liteyukibot_runtime_adapter.contracts import AdapterContext
 from websockets.asyncio.server import Server, ServerConnection, serve
 
-from liteyukibot.broker import MessageSendPayload
 from liteyukibot.events import (
     ConversationRef,
     EventEnvelope,

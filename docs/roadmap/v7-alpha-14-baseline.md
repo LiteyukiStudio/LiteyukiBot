@@ -26,9 +26,9 @@ framework compatibility or the WebUI product surface.
   workspace, lock, CI, and release graph. Their source snapshots under
   `extras/legacy-bridges/` are historical material, not supported mainline
   features.
-- The Alpha14 release registry covers all 20 workspace distributions. Every
-  first-party dependency is exact-pinned and 19 distributions have isolated
-  install verifiers. The CLI-first signed bundle contains 19 distributions;
+- The Alpha14 release registry covers all 21 workspace distributions. Every
+  first-party dependency is exact-pinned and 20 distributions have isolated
+  install verifiers. The CLI-first signed bundle contains 20 distributions;
   WebUI remains a separately verified and published optional component. The
   reference NoneBot plugin has its external-host lifecycle E2E, and four
   bundle-only components remain outside the PyPI project projection.
@@ -130,7 +130,7 @@ Alpha14 is complete only when:
   target contracts, and retired compatibility remains outside mainline;
 - first-party Cordis business plugins do not delegate their implementation to
   Native plugin wrappers;
-- the 20-distribution registry, 19-distribution CLI bundle, signed
+  - the 21-distribution registry, 20-distribution CLI bundle, signed
   manifest/SBOM, exact pins, all applicable install
   verifiers, reference E2E, full tests, Ruff, Mypy, and workspace build pass
   from built artifacts; and

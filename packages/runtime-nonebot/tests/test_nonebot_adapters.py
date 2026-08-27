@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+from liteyukibot_broker import MESSAGE_SEND_KIND, ActionRequest, MessageSendPayload, message_send_resource_key
 from liteyukibot_runtime_nonebot.contracts import (
     AdapterContractError,
     adapter_id,
@@ -17,7 +18,6 @@ from liteyukibot_runtime_nonebot.contracts import (
 )
 from liteyukibot_runtime_nonebot.host import NoneBotHost
 
-from liteyukibot.broker import MESSAGE_SEND_KIND, ActionRequest, MessageSendPayload, message_send_resource_key
 from liteyukibot.events import ConversationRef, Message, Segment, canonical_source_event_id
 
 _ADAPTER_MODULES = (

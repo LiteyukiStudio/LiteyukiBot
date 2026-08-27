@@ -60,6 +60,7 @@ jobs:
           RELEASE_VERSION: ${{ steps.release.outputs.version }}
         run: >-
           uv run --no-project --python 3.14 --find-links dist/release
+          --with "dist/release/liteyukibot_v7_broker-${RELEASE_VERSION}-py3-none-any.whl"
           --with "dist/release/liteyukibot_v7-${RELEASE_VERSION}-py3-none-any.whl"
           --with "dist/release/liteyukibot_v7_runtime_nonebot-${RELEASE_VERSION}-py3-none-any.whl"
           python scripts/run_nonebot_plugin_e2e.py

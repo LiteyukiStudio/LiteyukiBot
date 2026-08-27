@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 import zmq.asyncio
 
-from ..lyip import LyipError, LyipFrame, LyipLane, LyipOfferResult, ZmqLyipDealer, ZmqLyipRouter
+from .lyip import LyipError, LyipFrame, LyipLane, LyipOfferResult, ZmqLyipDealer, ZmqLyipRouter
 from .protocol import (
     BridgeManifest,
     BridgeRegister,

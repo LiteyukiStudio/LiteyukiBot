@@ -6,9 +6,7 @@ from typing import cast
 
 import pytest
 import zmq.asyncio
-from pydantic import ValidationError
-
-from liteyukibot.broker import (
+from liteyukibot_broker import (
     MESSAGE_SEND_KIND,
     ActionOutcome,
     ActionRequest,
@@ -25,6 +23,8 @@ from liteyukibot.broker import (
     message_send_resource_key,
     parse_message_send_request,
 )
+from pydantic import ValidationError
+
 from liteyukibot.events.models import ConversationRef, Message, Segment
 
 

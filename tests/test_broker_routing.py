@@ -3,9 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pytest
-from pydantic import ValidationError
-
-from liteyukibot.broker import (
+from liteyukibot_broker import (
     ActionRequest,
     ActionResourceDeclaration,
     BridgeAccess,
@@ -17,7 +15,8 @@ from liteyukibot.broker import (
     EventCompleted,
     EventIngress,
 )
-from liteyukibot.topic_patterns import topic_pattern_matches
+from liteyukibot_broker.topic_patterns import topic_pattern_matches
+from pydantic import ValidationError
 
 
 @dataclass

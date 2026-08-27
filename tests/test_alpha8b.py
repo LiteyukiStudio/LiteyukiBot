@@ -8,10 +8,8 @@ from zipfile import ZipFile
 
 import pytest
 from liteyuki_devcli.cli import main as devcli_main
-from scripts.build_lyf_vsix import GRAMMAR, build
-
-from liteyukibot.broker.peer import BrokerPeerService
-from liteyukibot.broker.protocol import (
+from liteyukibot_broker.peer import BrokerPeerService
+from liteyukibot_broker.protocol import (
     BridgeAccess,
     BridgeManifest,
     BridgeRegister,
@@ -22,7 +20,9 @@ from liteyukibot.broker.protocol import (
     decode_broker_message,
     encode_broker_message,
 )
-from liteyukibot.broker.routing import BrokerAdmissionError
+from liteyukibot_broker.routing import BrokerAdmissionError
+from scripts.build_lyf_vsix import GRAMMAR, build
+
 from liteyukibot.bundles import BUNDLE_TAG, BUNDLE_VERSION
 from liteyukibot.config import ConfigWorkspace, DaemonSettings
 from liteyukibot.daemon import InstanceDaemon
@@ -139,8 +139,8 @@ def test_broker_lifecycle_freeze_blocks_business_admission() -> None:
     registered = decode_broker_message(service.handle_control(peer, register_frame))
     assert isinstance(registered, BridgeRegistered)
 
-    from liteyukibot.broker.business import encode_business_message
-    from liteyukibot.broker.routing import EventIngress
+    from liteyukibot_broker.business import encode_business_message
+    from liteyukibot_broker.routing import EventIngress
 
     event_frame = encode_business_message(
         EventIngress(source_event_id="source-1", topic="message.created", ordering_key="conversation-1"),

@@ -10,6 +10,7 @@ authors = [
     { name = "LiteyukiStudio" },
 ]
 dependencies = [
+    "liteyukibot-v7-broker==7.0.0a14",
     "liteyukibot-v7-runtime-adapter==7.0.0a14",
     "websockets>=15,<16",
 ]
@@ -24,6 +25,7 @@ build-backend = "uv_build"
 
 [tool.uv.sources]
 liteyukibot-v7-runtime-adapter = { workspace = true }
+liteyukibot-v7-broker = { workspace = true }
 
 [tool.uv.build-backend]
 module-root = "src"

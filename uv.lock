@@ -17,6 +17,7 @@ members = [
     "liteyukibot-v7-adapter-satori",
     "liteyukibot-v7-agent",
     "liteyukibot-v7-agent-resolver",
+    "liteyukibot-v7-broker",
     "liteyukibot-v7-commands",
     "liteyukibot-v7-cordis",
     "liteyukibot-v7-devcli",
@@ -766,6 +767,7 @@ dependencies = [
     { name = "filelock" },
     { name = "jsonschema" },
     { name = "license-expression" },
+    { name = "liteyukibot-v7-broker" },
     { name = "liteyukibot-v7-kernel" },
     { name = "prompt-toolkit" },
     { name = "pydantic" },
@@ -812,6 +814,7 @@ requires-dist = [
     { name = "filelock", specifier = ">=3.19,<4" },
     { name = "jsonschema", specifier = ">=4.26,<5" },
     { name = "license-expression", specifier = ">=30.4.4" },
+    { name = "liteyukibot-v7-broker", editable = "packages/broker" },
     { name = "liteyukibot-v7-kernel", editable = "packages/kernel" },
     { name = "prompt-toolkit", specifier = ">=3.0,<4" },
     { name = "pydantic", specifier = ">=2.13,<3" },
@@ -850,12 +853,14 @@ name = "liteyukibot-v7-adapter-onebot"
 version = "0.1.0a1"
 source = { editable = "packages/adapter-onebot" }
 dependencies = [
+    { name = "liteyukibot-v7-broker" },
     { name = "liteyukibot-v7-runtime-adapter" },
     { name = "websockets" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "liteyukibot-v7-broker", editable = "packages/broker" },
     { name = "liteyukibot-v7-runtime-adapter", editable = "packages/runtime-adapter" },
     { name = "websockets", specifier = ">=15,<16" },
 ]
@@ -866,6 +871,7 @@ version = "0.1.0a2"
 source = { editable = "packages/adapter-satori" }
 dependencies = [
     { name = "liteyukibot-v7" },
+    { name = "liteyukibot-v7-broker" },
     { name = "liteyukibot-v7-runtime-adapter" },
     { name = "websockets" },
 ]
@@ -873,6 +879,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "liteyukibot-v7", editable = "." },
+    { name = "liteyukibot-v7-broker", editable = "packages/broker" },
     { name = "liteyukibot-v7-runtime-adapter", editable = "packages/runtime-adapter" },
     { name = "websockets", specifier = ">=15,<16" },
 ]
@@ -884,6 +891,7 @@ source = { editable = "packages/agent" }
 dependencies = [
     { name = "liteyukibot-v7" },
     { name = "liteyukibot-v7-agent-resolver" },
+    { name = "liteyukibot-v7-broker" },
     { name = "liteyukibot-v7-permissions" },
     { name = "openai" },
 ]
@@ -892,6 +900,7 @@ dependencies = [
 requires-dist = [
     { name = "liteyukibot-v7", editable = "." },
     { name = "liteyukibot-v7-agent-resolver", editable = "packages/agent-resolver" },
+    { name = "liteyukibot-v7-broker", editable = "packages/broker" },
     { name = "liteyukibot-v7-permissions", editable = "packages/permissions" },
     { name = "openai", specifier = ">=2,<3" },
 ]
@@ -906,6 +915,25 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "liteyukibot-v7", editable = "." }]
+
+[[package]]
+name = "liteyukibot-v7-broker"
+version = "7.0.0a14"
+source = { editable = "packages/broker" }
+dependencies = [
+    { name = "jsonschema" },
+    { name = "liteyukibot-v7-kernel" },
+    { name = "pydantic" },
+    { name = "pyzmq" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "jsonschema", specifier = ">=4.26,<5" },
+    { name = "liteyukibot-v7-kernel", editable = "packages/kernel" },
+    { name = "pydantic", specifier = ">=2.13,<3" },
+    { name = "pyzmq", specifier = ">=27.1.0" },
+]
 
 [[package]]
 name = "liteyukibot-v7-commands"
@@ -1069,10 +1097,14 @@ version = "7.0.0a14"
 source = { editable = "packages/runtime-adapter" }
 dependencies = [
     { name = "liteyukibot-v7" },
+    { name = "liteyukibot-v7-broker" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "liteyukibot-v7", editable = "." }]
+requires-dist = [
+    { name = "liteyukibot-v7", editable = "." },
+    { name = "liteyukibot-v7-broker", editable = "packages/broker" },
+]
 
 [[package]]
 name = "liteyukibot-v7-runtime-nonebot"
@@ -1081,6 +1113,7 @@ source = { editable = "packages/runtime-nonebot" }
 dependencies = [
     { name = "h2" },
     { name = "liteyukibot-v7" },
+    { name = "liteyukibot-v7-broker" },
     { name = "liteyukibot-v7-runtime-nonebot-api" },
     { name = "nonebot2", extra = ["fastapi", "httpx", "websockets"] },
 ]
@@ -1097,6 +1130,7 @@ satori = [
 requires-dist = [
     { name = "h2", specifier = ">=4.4.1,<5" },
     { name = "liteyukibot-v7", editable = "." },
+    { name = "liteyukibot-v7-broker", editable = "packages/broker" },
     { name = "liteyukibot-v7-runtime-nonebot-api", editable = "packages/runtime-nonebot-api" },
     { name = "nonebot-adapter-onebot", marker = "extra == 'onebot'", specifier = ">=2.4,<3" },
     { name = "nonebot-adapter-satori", marker = "extra == 'satori'", specifier = ">=1.3,<2" },

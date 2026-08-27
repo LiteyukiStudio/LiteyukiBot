@@ -10,13 +10,10 @@ from inspect import isawaitable, iscoroutinefunction
 from typing import cast
 
 import zmq.asyncio
-
-from ..bridge_contracts import BridgeDefinition, BridgeLauncher, BridgeSupportGrade
-from ..config.models import AppSettings, BrokerBridgeSettings, JsonValue
-from ..config.vault import SecretVault
-from ..lyip import LyipFrame
-from .peer import BridgeRegistrationError, BrokerPeerServer, BrokerPeerService
-from .protocol import (
+from liteyukibot_broker import BridgeDefinition, BridgeLauncher, BridgeSupportGrade
+from liteyukibot_broker.lyip import LyipFrame
+from liteyukibot_broker.peer import BridgeRegistrationError, BrokerPeerServer, BrokerPeerService
+from liteyukibot_broker.protocol import (
     ActionResourceDeclaration,
     BridgeAccess,
     BridgeManifest,
@@ -24,6 +21,9 @@ from .protocol import (
     BridgeRejected,
     BrokerToolDeclaration,
 )
+
+from ..config.models import AppSettings, BrokerBridgeSettings, JsonValue
+from ..config.vault import SecretVault
 
 
 class BridgeCatalog:

@@ -3,21 +3,22 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+from liteyukibot_broker import (
+    BridgeDefinition as BrokerBridgeDefinition,
+)
+from liteyukibot_broker import (
+    BridgeLauncher as BrokerBridgeLauncher,
+)
+from liteyukibot_broker import (
+    BridgeSupportGrade as BrokerBridgeSupportGrade,
+)
+
 from liteyukibot.bridge_contracts import (
     BridgeDefinition,
     BridgeLauncher,
     BridgeSupportGrade,
     ManagedFacetInstaller,
     ManagedFacetProbe,
-)
-from liteyukibot.broker import (
-    BridgeDefinition as BrokerBridgeDefinition,
-)
-from liteyukibot.broker import (
-    BridgeLauncher as BrokerBridgeLauncher,
-)
-from liteyukibot.broker import (
-    BridgeSupportGrade as BrokerBridgeSupportGrade,
 )
 from liteyukibot.broker.service import (
     BridgeDefinition as ServiceBridgeDefinition,

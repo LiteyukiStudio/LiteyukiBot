@@ -12,7 +12,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import zmq.asyncio
 
-from ..lyip import LyipLane, LyipOfferResult, ZmqLyipDealer
+from .lyip import LyipLane, LyipOfferResult, ZmqLyipDealer
 from .protocol import (
     BridgeRejected,
     BrokerDiagnosticsDetail,

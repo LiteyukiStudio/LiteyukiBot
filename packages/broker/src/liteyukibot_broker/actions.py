@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Literal, Self
 
+from liteyukibot_kernel.events.models import ConversationRef, FrozenModel, Message
 from pydantic import Field, field_validator, model_validator
 
-from ..events.models import ConversationRef, FrozenModel, Message
 from .routing import ActionRequest
 
 MESSAGE_SEND_KIND: Literal["message.send"] = "message.send"

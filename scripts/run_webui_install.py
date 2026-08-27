@@ -13,10 +13,16 @@ def main() -> int:
     wheels = tuple(workspace.glob("liteyukibot_v7_webui-*.whl"))
     root_wheels = tuple(workspace.glob("liteyukibot_v7-*-py3-none-any.whl"))
     kernel_wheels = tuple(workspace.glob("liteyukibot_v7_kernel-*-py3-none-any.whl"))
-    if len(wheels) != 1 or len(root_wheels) != 1 or len(kernel_wheels) != 1:
+    broker_wheels = tuple(workspace.glob("liteyukibot_v7_broker-*.whl"))
+    if (
+        len(wheels) != 1
+        or len(root_wheels) != 1
+        or len(kernel_wheels) != 1
+        or len(broker_wheels) != 1
+    ):
         raise RuntimeError(
-            "expected one WebUI, root, and kernel wheel, found "
-            f"{len(wheels)}, {len(root_wheels)}, and {len(kernel_wheels)}"
+            "expected one WebUI, root, kernel, and broker wheel, found "
+            f"{len(wheels)}, {len(root_wheels)}, {len(kernel_wheels)}, and {len(broker_wheels)}"
         )
     subprocess.run(
         [
@@ -31,6 +37,8 @@ def main() -> int:
             str(wheels[0]),
             "--with",
             str(kernel_wheels[0]),
+            "--with",
+            str(broker_wheels[0]),
             "--with",
             str(root_wheels[0]),
             "--verifier",

@@ -5,17 +5,17 @@ from collections.abc import Mapping
 from typing import cast
 
 import pytest
-from liteyukibot_runtime_adapter import bridge_definition
-from liteyukibot_runtime_adapter.contracts import AdapterConnection, AdapterContext, AdapterPlugin
-from liteyukibot_runtime_adapter.host import AdapterHost, _adapter_manifest
-
-from liteyukibot.broker import (
+from liteyukibot_broker import (
     BridgeSupportGrade,
     BrokerBridgeRunner,
     EventIngress,
     MessageSendPayload,
     make_message_send_request,
 )
+from liteyukibot_runtime_adapter import bridge_definition
+from liteyukibot_runtime_adapter.contracts import AdapterConnection, AdapterContext, AdapterPlugin
+from liteyukibot_runtime_adapter.host import AdapterHost, _adapter_manifest
+
 from liteyukibot.config.models import BrokerActionResourceSettings
 from liteyukibot.events import ConversationRef, EventEnvelope, Message
 

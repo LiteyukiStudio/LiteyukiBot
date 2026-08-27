@@ -10,11 +10,11 @@ from typing import Any
 import pytest
 from liteyukibot_adapter_onebot.v11 import OneBotV11Connection, OneBotV11Error
 from liteyukibot_adapter_onebot.v12 import OneBotV12Connection
+from liteyukibot_broker import MessageSendPayload
 from liteyukibot_runtime_adapter.contracts import AdapterContext
 from websockets.asyncio.client import connect
 from websockets.asyncio.server import ServerConnection, serve
 
-from liteyukibot.broker import MessageSendPayload
 from liteyukibot.events import ConversationRef, EventEnvelope, Message, Segment
 from liteyukibot.json_value import JsonValue
 

@@ -13,12 +13,12 @@ from types import MappingProxyType
 from typing import Any, Literal, Self
 from uuid import uuid4
 
+from liteyukibot_kernel.events.models import JsonValue
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator, model_validator
 
-from ..events.models import JsonValue
-from ..topic_patterns import topic_pattern_matches
 from .peer import BridgeRegistrationError, BridgeSession
 from .protocol import BROKER_PROTOCOL_VERSION, AuthorizationContextWire, BridgeAccess, runtime_version_matches
+from .topic_patterns import topic_pattern_matches
 
 
 def _validate_json(value: Any, path: str = "payload") -> None:

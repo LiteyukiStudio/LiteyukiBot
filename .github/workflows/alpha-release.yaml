@@ -86,6 +86,7 @@ jobs:
       - name: Build lockstep Python artifacts
         run: |
           uv build --project packages/kernel --out-dir dist/alpha
+          uv build --project packages/broker --out-dir dist/alpha
           uv build --out-dir dist/alpha
           uv build --project examples/nonebot-plugin --out-dir dist/alpha
           uv build --project packages/permissions --out-dir dist/alpha

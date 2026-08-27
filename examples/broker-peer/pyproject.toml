@@ -5,6 +5,7 @@ description = "Minimal installable LiteyukiBot v7 B7 broker-peer example."
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "liteyukibot-v7-broker==7.0.0a14",
     "liteyukibot-v7>=7.0.0a13,<8",
 ]
 
@@ -17,6 +18,7 @@ build-backend = "uv_build"
 
 [tool.uv.sources]
 liteyukibot-v7 = { workspace = true }
+liteyukibot-v7-broker = { workspace = true }
 
 [tool.uv.build-backend]
 module-root = "src"

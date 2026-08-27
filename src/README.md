@@ -18,7 +18,9 @@ across the Broker boundary.
   compatibility re-exports of `liteyukibot_kernel`.
 - `config/` owns settings, workspace initialization, inspection, and the secret
   vault.
-- `broker/` owns the authenticated cross-process peer contract.
+- `packages/broker/` owns the authenticated cross-process peer contract;
+  root `broker/` only composes it with AppSettings, Vault, EventBus, and CLI
+  lifecycle concerns.
 - `runtime_api.py` owns the capability-routed provider facade used by plugins.
 - `cli.py` owns the `liteyuki`, `liteyukibot`, and `ly` commands.
 - `builtin_resources/` contains kernel-owned resource-pack assets.

@@ -14,10 +14,10 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 from xml.etree import ElementTree
 
+from liteyukibot_broker import MessageSendPayload
 from liteyukibot_runtime_adapter.contracts import AdapterConnection, AdapterContext, EventEmitter
 from websockets.asyncio.client import connect
 
-from liteyukibot.broker import MessageSendPayload
 from liteyukibot.events import (
     ActorRef,
     ConversationRef,

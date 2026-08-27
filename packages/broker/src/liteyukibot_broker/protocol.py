@@ -11,8 +11,8 @@ from typing import Annotated, Final, Literal
 from jsonschema import Draft202012Validator, SchemaError
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_serializer, model_validator
 
-from ..lyip import LyipError, LyipFrame, LyipLane
-from ..topic_patterns import validate_topic_pattern
+from .lyip import LyipError, LyipFrame, LyipLane
+from .topic_patterns import validate_topic_pattern
 
 BROKER_PROTOCOL_VERSION: Final = 7
 BROKER_REGISTER_TYPE_ID: Final = 600

@@ -5,8 +5,7 @@ from collections.abc import Mapping
 
 import pytest
 import zmq.asyncio
-
-from liteyukibot.broker import (
+from liteyukibot_broker import (
     AuthorizationContextWire,
     BridgeAccess,
     BridgeClient,

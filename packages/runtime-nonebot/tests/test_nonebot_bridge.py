@@ -8,6 +8,12 @@ from types import ModuleType, SimpleNamespace
 from typing import Any, cast
 
 import pytest
+from liteyukibot_broker import (
+    AuthorizationContextWire,
+    MessageSendPayload,
+    RuntimeApiInvoke,
+)
+from liteyukibot_broker.lyip import LyipLane
 from liteyukibot_runtime_nonebot import bridge_definition
 from liteyukibot_runtime_nonebot.host import (
     MESSAGE_CREATED_TOPIC,
@@ -17,13 +23,7 @@ from liteyukibot_runtime_nonebot.host import (
     _runtime_api_declarations,
 )
 
-from liteyukibot.broker import (
-    AuthorizationContextWire,
-    MessageSendPayload,
-    RuntimeApiInvoke,
-)
 from liteyukibot.events import ConversationRef, EventEnvelope, JsonValue, Message, Segment
-from liteyukibot.lyip import LyipLane
 
 
 def test_nonebot_bridge_declares_stable_package_metadata() -> None:

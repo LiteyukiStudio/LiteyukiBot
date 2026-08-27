@@ -7,11 +7,9 @@ from typing import Any, cast
 
 import pytest
 import zmq.asyncio
-from pydantic import ValidationError
-
-import liteyukibot.cli as cli
-from liteyukibot.broker.peer import BridgeRegistrationError
-from liteyukibot.broker.protocol import (
+from liteyukibot_broker.lyip import LyipLane, ZmqLyipRouter
+from liteyukibot_broker.peer import BridgeRegistrationError
+from liteyukibot_broker.protocol import (
     ActionResourceDeclaration,
     BridgeAccess,
     BridgeManifest,
@@ -22,6 +20,9 @@ from liteyukibot.broker.protocol import (
     decode_broker_message,
     encode_broker_message,
 )
+from pydantic import ValidationError
+
+import liteyukibot.cli as cli
 from liteyukibot.broker.service import (
     BridgeCatalog,
     BridgeDefinition,
@@ -32,7 +33,6 @@ from liteyukibot.broker.service import (
     resolve_secret_references,
 )
 from liteyukibot.config import AppSettings, BrokerToolSettings
-from liteyukibot.lyip import LyipLane, ZmqLyipRouter
 
 
 def _settings() -> AppSettings:

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import pytest
-
-from liteyukibot.broker import (
+from liteyukibot_broker import (
     RuntimeApiOperation,
     portable_runtime_api_catalog,
     portable_runtime_api_catalog_fingerprint,

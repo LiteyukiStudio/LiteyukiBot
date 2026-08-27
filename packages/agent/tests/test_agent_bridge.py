@@ -10,8 +10,7 @@ from liteyukibot_agent.engine import AgentEngine, ModelReply, ToolCall
 from liteyukibot_agent.host import AGENT_HISTORY_CLEAR, AGENT_PROMPT_SELECT, AgentBridgeHost
 from liteyukibot_agent.store import ConversationStore
 from liteyukibot_agent_resolver import AgentToolDescriptor
-
-from liteyukibot.broker import (
+from liteyukibot_broker import (
     ActionResult,
     AuthorizationContextWire,
     BridgeControlInvoke,
@@ -22,6 +21,7 @@ from liteyukibot.broker import (
     EventMessage,
     ToolResult,
 )
+
 from liteyukibot.events import ActorRef, ConversationRef, EventEnvelope, Message, Segment
 
 

@@ -39,6 +39,7 @@ def main() -> int:
     build_dir = _build_dir()
     wheels = (
         _one_wheel(build_dir, "liteyukibot_v7_kernel"),
+        _one_wheel(build_dir, "liteyukibot_v7_broker"),
         _one_wheel(build_dir, "liteyukibot_v7"),
         _one_wheel(_example_build_dir(), "liteyukibot_example_plugin"),
     )
