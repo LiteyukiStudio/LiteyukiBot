@@ -2,6 +2,7 @@
 
 from liteyukibot_kernel.bridge_contracts import BridgeDefinition, BridgeLauncher, BridgeSupportGrade
 
+from ._version import __version__
 from .actions import (
     MESSAGE_SEND_KIND,
     MessageSendPayload,
@@ -188,4 +189,5 @@ __all__ = [
     "parse_message_send_request",
     "topic_pattern_matches",
     "validate_topic_pattern",
+    "__version__",
 ]

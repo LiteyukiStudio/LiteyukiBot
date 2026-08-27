@@ -22,6 +22,8 @@ def main() -> int:
     module_file = getattr(module, "__file__", None)
     if not isinstance(module_file, str) or Path(module_file).resolve().is_relative_to(SOURCE_ROOT):
         raise RuntimeError(f"workspace source import detected: {module_file}")
+    if getattr(module, "__version__", None) != distribution.version:
+        raise RuntimeError("Broker module version does not match its distribution")
     if importlib.util.find_spec("liteyukibot") is not None:
         raise RuntimeError("standalone Broker installation unexpectedly provides root composition")
 
@@ -46,5 +48,7 @@ def main() -> int:
     if ingress.topic != "message.created":
         raise RuntimeError("Broker routing contract failed")
     return 0
+
+
 if __name__ == "__main__":
     raise SystemExit(main())
