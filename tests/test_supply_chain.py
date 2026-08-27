@@ -16,8 +16,5 @@ def test_release_workflow_actions_are_pinned_to_immutable_commits() -> None:
         assert all(_ACTION.match(line) for line in lines), workflow
 
 
-def test_release_lockfiles_and_node_pin_are_present() -> None:
+def test_python_workspace_lockfile_is_present() -> None:
     assert (ROOT / "uv.lock").is_file()
-    assert (ROOT / "packages" / "ipc-native" / "Cargo.lock").is_file()
-    assert (ROOT / "webui" / "pnpm-lock.yaml").is_file()
-    assert (ROOT / ".node-version").read_text(encoding="utf-8").strip() == "25.8.1"

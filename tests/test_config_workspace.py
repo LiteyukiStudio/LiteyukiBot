@@ -16,8 +16,9 @@ def test_workspace_init_creates_current_valid_template(tmp_path: Path) -> None:
     path = workspace.initialize()
 
     assert path == tmp_path / "liteyuki.toml"
-    assert load_settings(path, environ={}).config_version == 6
-    assert load_settings(path, environ={}).logging.payload_exclude_runtimes == ()
+    settings = load_settings(path, environ={})
+    assert settings.config_version == 7
+    assert settings.commands.prefixes == ("/",)
 
 
 def test_workspace_init_rejects_invalid_logging_values_without_writing(tmp_path: Path) -> None:
@@ -40,8 +41,8 @@ def test_outdated_workspace_config_is_backed_up_and_blocks_start(tmp_path: Path)
     assert backups[0].read_text(encoding="utf-8") == original
     assert backups[0].stat().st_mode & 0o200 == 0
     assert config.read_text(encoding="utf-8") == original
-    template = tmp_path / ".liteyuki" / "config-upgrades" / "liteyuki.v6.toml"
-    assert "config_version = 6" in template.read_text(encoding="utf-8")
+    template = tmp_path / ".liteyuki" / "config-upgrades" / "liteyuki.v7.toml"
+    assert "config_version = 7" in template.read_text(encoding="utf-8")
     instructions = (tmp_path / ".liteyuki" / "config-upgrades" / "README.md").read_text(encoding="utf-8")
     assert "did not modify your existing configuration" in instructions
 
@@ -64,15 +65,15 @@ def test_workspace_upgrade_is_idempotent_until_explicit_refresh(tmp_path: Path) 
 
 def test_future_workspace_config_is_not_backed_up(tmp_path: Path) -> None:
     config = tmp_path / "liteyuki.toml"
-    config.write_text("config_version = 7\n", encoding="utf-8")
+    config.write_text("config_version = 8\n", encoding="utf-8")
 
     with pytest.raises(ConfigurationError, match="newer than this kernel"):
         ConfigWorkspace(tmp_path).prepare()
     assert not (tmp_path / ".liteyuki").exists()
 
 
-@pytest.mark.parametrize("version", (0, 1, 2, 3, 4, 5))
-def test_every_pre_v6_version_creates_recovery_material_without_validating_old_fields(
+@pytest.mark.parametrize("version", (0, 1, 2, 3, 4, 5, 6))
+def test_every_pre_v7_version_creates_recovery_material_without_validating_old_fields(
     tmp_path: Path, version: int
 ) -> None:
     config = tmp_path / "liteyuki.toml"
@@ -116,21 +117,21 @@ def test_docker_workspace_without_config_initializes_once(tmp_path: Path, monkey
     assert path == tmp_path / "liteyuki.toml"
     assert path.is_file()
     settings = load_settings(path, environ={})
-    assert settings.plugins.enabled == ()
-    assert settings.runtimes == {}
+    assert settings.cordis.enabled == ()
+    assert settings.onebot.v11.accounts == {}
 
 
-def test_cli_init_noninteractive_writes_project_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cli_init_writes_project_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
 
-    assert cli_module.main(["init", "--non-interactive"]) == 0
+    assert cli_module.main(["init"]) == 0
     assert (tmp_path / "liteyuki.toml").is_file()
 
 
 def test_cli_init_uses_explicit_workspace(tmp_path: Path) -> None:
     workspace = tmp_path / "instance"
 
-    assert cli_module.main(["--workspace", str(workspace), "init", "--non-interactive"]) == 0
+    assert cli_module.main(["--workspace", str(workspace), "init"]) == 0
 
     assert (workspace / "liteyuki.toml").is_file()
 

@@ -1,6 +1,6 @@
 [project]
 name = "liteyukibot-v7"
-version = "7.0.0a14"
+version = "7.0.0a15"
 description = "LiteyukiBot v7 CLI and application composition package."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -10,48 +10,26 @@ authors = [
     { name = "LiteyukiStudio" },
 ]
 dependencies = [
-    "liteyukibot-v7-kernel==7.0.0a14",
-    "liteyukibot-v7-broker==7.0.0a14",
-    "cryptography>=46,<51",
-    "filelock>=3.19,<4",
+    "liteyukibot-v7-kernel==7.0.0a15",
+    "liteyukibot-v7-cordis==7.0.0a15",
+    "liteyukibot-v7-adapter-onebot==7.0.0a15",
     "pydantic>=2.13,<3",
-    "pyzmq>=27.1.0",
     "PyYAML>=6,<7",
-    "prompt_toolkit>=3.0,<4",
     "tomli-w>=1.2,<2",
     "yukilog>=1,<2",
-    "jsonschema>=4.26,<5",
-    "license-expression>=30.4.4",
-    "tornado>=6.1,<7",
-]
-
-[project.optional-dependencies]
-yaml = [
-    "PyYAML>=6,<7",
-]
-http = [
-    "fastapi>=0.141,<1",
-    "uvicorn>=0.52,<1",
 ]
 
 [project.scripts]
-liteyukibot = "liteyukibot.cli:main"
 liteyuki = "liteyukibot.cli:main"
-ly = "liteyukibot.cli:main"
 
 [dependency-groups]
 dev = [
     "mypy>=1.18,<2",
     "pip-audit>=2.9,<3",
-    "psutil>=7,<8",
     "types-PyYAML>=6.0.12,<7",
-    "types-psutil>=7,<8",
     "pytest>=9,<10",
     "pytest-asyncio>=1.2,<2",
     "ruff>=0.14,<1",
-    "maturin>=1.14.1",
-    "types-jsonschema>=4.26,<5",
-    "httpx2>=2.9,<3",
 ]
 release = [
     "cyclonedx-bom>=7.3.1",
@@ -64,14 +42,14 @@ requires = ["uv_build>=0.11.32,<0.12"]
 build-backend = "uv_build"
 
 [tool.uv.workspace]
-members = ["packages/*", "examples/nonebot-plugin"]
+members = ["packages/kernel", "packages/cordis", "packages/adapter-onebot"]
 exclude = ["extras/legacy-bridges/*"]
 
 [tool.uv.sources]
 liteyukibot-v7 = { workspace = true }
-liteyukibot-v7-broker = { workspace = true }
 liteyukibot-v7-kernel = { workspace = true }
-liteyukibot-v7-runtime-nonebot-api = { workspace = true }
+liteyukibot-v7-cordis = { workspace = true }
+liteyukibot-v7-adapter-onebot = { workspace = true }
 
 [tool.uv.build-backend]
 module-root = "src"
@@ -92,7 +70,7 @@ select = ["E", "F", "I", "UP", "B", "ASYNC"]
 [tool.mypy]
 python_version = "3.14"
 strict = true
-files = ["src", "tests", "scripts", "examples", "packages"]
+files = ["src", "tests", "scripts", "packages"]
 
 [[tool.mypy.overrides]]
 module = ["license_expression"]

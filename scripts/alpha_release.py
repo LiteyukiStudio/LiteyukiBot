@@ -16,7 +16,7 @@ from email.parser import BytesParser
 from pathlib import Path
 from typing import Any, cast
 
-from liteyukibot.bundles import (
+from scripts.bundles import (
     BUNDLE_BASELINE,
     BUNDLE_LOCK_NAME,
     BUNDLE_MANIFEST_NAME,
@@ -26,7 +26,7 @@ from liteyukibot.bundles import (
     BUNDLE_VERSION,
     BundleError,
 )
-from liteyukibot.bundles import (
+from scripts.bundles import (
     verify_bundle as verify_offline_bundle,
 )
 
@@ -127,11 +127,6 @@ def validate_source_registry(root: Path) -> None:
             raise AlphaReleaseError(f"{context} distribution does not match the Alpha registry")
         if _string_field(project, "version", context=context) != component.release_version:
             raise AlphaReleaseError(f"{context} must use Alpha version {component.release_version}")
-
-    optional = root_project.get("optional-dependencies")
-    if isinstance(optional, dict) and "webui" in optional:
-        raise AlphaReleaseError("root project must not expose a WebUI installation extra")
-
 
 def _distribution_metadata(path: Path) -> tuple[str, str]:
     metadata_bytes: bytes

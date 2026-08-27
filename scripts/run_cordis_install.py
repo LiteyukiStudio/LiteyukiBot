@@ -27,12 +27,17 @@ def main() -> int:
     command = [uv, "run", "--no-project", "--python", "3.14"]
     for wheel in (
         _one_wheel("liteyukibot_v7_kernel"),
-        _one_wheel("liteyukibot_v7_broker"),
-        _one_wheel("liteyukibot_v7"),
         _one_wheel("liteyukibot_v7_cordis"),
     ):
         command.extend(("--with", str(wheel)))
-    command.extend(("python", str(ROOT / "scripts" / "verify_cordis_install.py")))
+    command.extend(
+        (
+            "python",
+            str(ROOT / "scripts" / "verify_cordis_install.py"),
+            "--expected-version",
+            "7.0.0a15",
+        )
+    )
     with tempfile.TemporaryDirectory() as directory:
         subprocess.run(command, cwd=directory, env=_clean_environment(os.environ), check=True)
     return 0

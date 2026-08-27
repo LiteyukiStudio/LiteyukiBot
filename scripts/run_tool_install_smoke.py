@@ -25,10 +25,17 @@ def _kernel_wheel() -> Path:
     return wheels[0].resolve()
 
 
-def _broker_wheel() -> Path:
-    wheels = tuple((ROOT / "dist" / "workspace").glob("liteyukibot_v7_broker-*-py3-none-any.whl"))
+def _cordis_wheel() -> Path:
+    wheels = tuple((ROOT / "dist" / "workspace").glob("liteyukibot_v7_cordis-*-py3-none-any.whl"))
     if len(wheels) != 1:
-        raise RuntimeError(f"expected one broker wheel in dist/workspace, found {len(wheels)}")
+        raise RuntimeError(f"expected one Cordis wheel in dist/workspace, found {len(wheels)}")
+    return wheels[0].resolve()
+
+
+def _adapter_onebot_wheel() -> Path:
+    wheels = tuple((ROOT / "dist" / "workspace").glob("liteyukibot_v7_adapter_onebot-*-py3-none-any.whl"))
+    if len(wheels) != 1:
+        raise RuntimeError(f"expected one OneBot adapter wheel in dist/workspace, found {len(wheels)}")
     return wheels[0].resolve()
 
 
@@ -60,7 +67,9 @@ def main() -> int:
                 "--with",
                 str(_kernel_wheel()),
                 "--with",
-                str(_broker_wheel()),
+                str(_cordis_wheel()),
+                "--with",
+                str(_adapter_onebot_wheel()),
                 str(_root_wheel()),
             ],
             cwd=root,
@@ -70,7 +79,7 @@ def main() -> int:
         if not version:
             raise RuntimeError("installed liteyuki CLI did not report a version")
         _run(
-            ["liteyuki", "--workspace", str(workspace), "init", "--non-interactive", "--locale", "en-US"],
+            ["liteyuki", "--workspace", str(workspace), "init", "--locale", "en-US"],
             cwd=root,
             environment=environment,
         )

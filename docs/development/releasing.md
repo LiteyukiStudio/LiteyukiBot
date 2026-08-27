@@ -1,204 +1,60 @@
-# Releasing v7 Packages
+# Alpha15 Release Procedure
 
-This document preserves the historical B7 package procedure and records the
-boundary for the planned Alpha release process. It is not evidence that a
-future Alpha, RC, or stable release is ready. The forward-looking sequence is
-defined in [the v7 Alpha roadmap](../roadmap/v7-alpha-roadmap.md).
+Alpha15 is a signed GitHub Release bundle. It is not uploaded to PyPI. The
+release identity is `v7.0.0a15`, and the bundle contains exactly these four
+lockstep distributions:
 
-## Planned Alpha boundary
-
-The next version line starts at `7.0.0a1`; Beta1-Beta7 are architecture
-validation history. Before RC1, do not publish the kernel or its lockstep
-runtime components to PyPI. An Alpha may publish only an immutable GitHub
-Release asset containing a signed release manifest and SHA-256 digests.
-
-[Alpha 1 baseline](../roadmap/v7-alpha-1-baseline.md) fixes the first planned
-tag as `v7.0.0a1`, defines its seven-component bundle, reserves DevCLI without
-shipping it, and requires a tag-bound first-party Sigstore proof for the
-aggregate manifest. The existing workflows below must be changed before that
-release so that they reject every Alpha version and cannot call `uv publish`.
-
-[Alpha 2](../roadmap/v7-alpha-2-plugin-permission-tools.md) retained that
-release mechanism at `v7.0.0a2` and added only the independent Permissions
-asset to the signed bundle. It did not authorize a PyPI plugin release.
-
-[Alpha 3](../roadmap/v7-alpha-3-business-plugin-migration.md) adds the planned
-first-party business assets and frozen Functions compatibility rebuild to the
-signed `v7.0.0a3` bundle. It does not change the PyPI boundary.
-
-[Alpha 4](../roadmap/v7-alpha-4-adapter-bridge.md) adds the independent OneBot
-and Satori driver assets to the signed `v7.0.0a4` bundle. From this point, every
-Alpha rebuilds every independent first-party package against that Alpha's exact
-kernel version. It does not authorize PyPI publication or turn bridge lifecycle
-ownership into broker supervision.
-
-[Alpha 5](../roadmap/v7-alpha-5-compatibility-bridges.md) and
-[Alpha 6](../roadmap/v7-alpha-6-agent-bridge.md) retain the same full-bundle
-release rule while adding compatibility and Agent bridge assets.
-
-[Alpha 7](../roadmap/v7-alpha-7-lyf-dsl.md), [Alpha 8]
-(../roadmap/v7-alpha-8-devcli-updates.md), and [Alpha 9]
-(../roadmap/v7-alpha-9-runtime-ecosystem.md) retain that signed bundle rule
-while adding the DSL, DevCLI, updater, and bounded runtime facade surfaces. The
-Alpha9 source identity is `v7.0.0a9`; its bundle includes the resolved offline
-dependency lock, DevCLI wheel, read-only LYF VSIX, daemon graph lifecycle
-evidence, and the typed AstrBot/NoneBot runtime API packages. It remains a
-GitHub Release artifact and is not a PyPI publication.
-
-[Alpha 12](../roadmap/v7-alpha-12-ecosystem-activation.md) advances the current
-source identity to `v7.0.0a12`, adds the independently versioned reference
-NoneBot plugin to the signed bundle, and requires the managed-generation
-external-host E2E before release.
-
-[Alpha 13](../roadmap/v7-alpha-13-webui-textmate.md) completed the typed plugin
-WebUI and LYF TextMate consumer source milestone. The published
-`@liteyuki/lyf-textmate@0.1.0-alpha.13` has npm SLSA provenance, and the WebUI
-pins that exact version and integrity. No `v7.0.0a13` GitHub Release was
-created; Alpha14 supersedes that source identity.
-
-The authoritative [Alpha14 route](../roadmap/v7-alpha-14-baseline.md) opens
-`v7.0.0a14`, removes AstrBot, Neo-MoFox, and v6 compatibility from active
-mainline, and requires a 21-distribution workspace registry plus a
-20-distribution CLI-first signed bundle. WebUI remains in the workspace as a
-separately verified optional release and is not part of that bundle. Their
-source snapshots remain under `extras/legacy-bridges`; they are not eligible
-release projects or v7.0.0 support targets. The route also defines the kernel,
-Broker, plugin-manager, daemon, and root-composition ownership work.
-
-Kernel contracts, root composition, IPC, WebUI, DevCLI, Cordis, and broker-bridge components use the
-lockstep Alpha version. WebUI retains its independent `webui-v*` release path;
-the root package no longer provides a WebUI extra. Business plugins and independently distributed PyPI
-packages retain their own versions and must declare the compatible kernel
-Alpha. No Alpha stage is a release commitment: it becomes eligible only after
-its roadmap exit criteria and the complete repository validation gate pass.
-Beta additionally requires both an explicitly recorded 14-day period without
-a new public contract and a reviewed 72-hour reference deployment soak. Both
-owners must approve the retained evidence.
-
-## Historical B7 procedure
-
-The sections below describe the B7 package artifacts and trusted-publisher
-setup. They are historical evidence only and must not be reused to publish a
-pre-RC Alpha to PyPI.
-
-### B7 qualification boundary
-
-B7 changes the bridge and extension contracts but does not authorize a stable
-release. Before any B7 tag, release qualification must include the normal CI
-and package install verifiers, the schema-2 `bare` and
-`installed-first-party` benchmark artifacts with their resolved manifests, and
-the separately planned long-running soak. Do not claim that the 72-hour soak or
-full-workspace theoretical benchmark has completed until their retained
-artifacts are reviewed. At that historical B7 point, bridge support grades were
-package metadata: NoneBot was `stable` and AstrBot was `experimental`. This
-does not restore the retired AstrBot project to the current release graph.
-
-`liteyukibot-v7-runtime-cordis` was a rejected Rust/PyO3 design spike and has
-no publisher, identity, tag, or release-order entry. Beta6 introduces the
-independent Python `liteyukibot-v7-cordis` package; it receives release
-metadata only after its host/plugin entry points and install verifier exist.
-
-## Historical Trusted Publishers
-
-The PyPI publisher settings use:
-
-- owner/repository: `LiteyukiStudio/LiteyukiBot`;
-- root workflow/environment: `publish.yml` / `pypi`;
-- plugin workflow: `publish-plugins.yaml`;
-- one environment per plugin, as listed below.
-
-Before the first plugin upload, create these Pending Publishers:
-
-| Project | GitHub environment |
-| --- | --- |
-| `liteyukibot-v7-kernel` | `pypi-kernel` |
-| `liteyukibot-v7-broker` | `pypi-broker` |
-| `liteyukibot-v7-permissions` | `pypi-permissions` |
-| `liteyukibot-v7-commands` | `pypi-commands` |
-| `liteyukibot-v7-resources` | `pypi-resources` |
-| `liteyukibot-v7-functions` | `pypi-lyfunctions` |
-| `liteyukibot-v7-profile` | `pypi-profile` |
-| `liteyukibot-v7-essentials` | `pypi-essentials` |
-| `liteyukibot-v7-runtime-nonebot` | `pypi-runtime-nonebot` |
-| `liteyukibot-v7-runtime-adapter` | `pypi-runtime-adapter` |
-| `liteyukibot-v7-adapter-onebot` | `pypi-adapter-onebot` |
-| `liteyukibot-v7-adapter-satori` | `pypi-adapter-satori` |
-| `liteyukibot-v7-runtime-v6` | `pypi-runtime-v6` |
-| `liteyukibot-v7-agent-resolver` | `pypi-agent-resolver` |
-| `liteyukibot-v7-agent` | `pypi-agent` |
-| `liteyukibot-v7-runtime-astrbot` | `pypi-astrbot-runtime` |
-| `liteyukibot-v7-runtime-mofox` | `pypi-mofox-runtime` |
-
-PyPI requires different pending project names to use distinct publisher
-identities. The workflow selects the environment from the release tag (or the
-manual dispatch package), while the repository and workflow name stay shared.
-
-Do not create tags until every corresponding publisher is configured. A 404
-from the PyPI JSON endpoint is expected before the first trusted upload; an
-existing project owned elsewhere is a release blocker, not a reason to rename a
-distribution inside the workflow.
-
-## Historical B7 Identities
-
-| Package | Source | Tag |
+| Component | Distribution | Source |
 | --- | --- | --- |
-| `liteyukibot-v7==7.0.0b2` | historical B7 release metadata | `v7.0.0b2` |
-| `liteyukibot-v7-permissions==0.2.0a2` | `packages/permissions` | `permissions-v0.2.0a2` |
-| `liteyukibot-v7-commands==0.2.0a2` | `packages/commands` | `commands-v0.2.0a2` |
-| `liteyukibot-v7-resources==0.1.0a2` | `packages/resources` | `resources-v0.1.0a2` |
-| `liteyukibot-v7-functions==0.1.0a2` | `packages/functions` | `functions-v0.1.0a2` |
-| `liteyukibot-v7-profile==0.1.0a2` | `packages/profile` | `profile-v0.1.0a2` |
-| `liteyukibot-v7-essentials==0.2.0a3` | `packages/essentials` | `essentials-v0.2.0a3` |
-| `liteyukibot-v7-runtime-nonebot==0.1.0a1` | `packages/runtime-nonebot` | `runtime-nonebot-v0.1.0a1` |
-| `liteyukibot-v7-runtime-adapter==0.1.0a2` | `packages/runtime-adapter` | `runtime-adapter-v0.1.0a2` |
-| `liteyukibot-v7-adapter-onebot==0.1.0a1` | `packages/adapter-onebot` | `adapter-onebot-v0.1.0a1` |
-| `liteyukibot-v7-adapter-satori==0.1.0a2` | `packages/adapter-satori` | `adapter-satori-v0.1.0a2` |
-| `liteyukibot-v7-runtime-v6==0.1.0a2` | `packages/runtime-v6` | `runtime-v6-v0.1.0a2` |
-| `liteyukibot-v7-agent-resolver==0.1.0a1` | `packages/agent-resolver` | `agent-resolver-v0.1.0a1` |
-| `liteyukibot-v7-agent==0.1.0a9` | `packages/agent` | `agent-v0.1.0a9` |
-| `liteyukibot-v7-runtime-astrbot==0.1.0a7` | `packages/runtime-astrbot` | `runtime-astrbot-v0.1.0a7` |
-| `liteyukibot-v7-runtime-mofox==0.1.0a8` | `packages/runtime-mofox` | `runtime-mofox-v0.1.0a8` |
+| `root` | `liteyukibot-v7` | `.` |
+| `kernel` | `liteyukibot-v7-kernel` | `packages/kernel` |
+| `cordis` | `liteyukibot-v7-cordis` | `packages/cordis` |
+| `adapter-onebot` | `liteyukibot-v7-adapter-onebot` | `packages/adapter-onebot` |
 
-`scripts/check_release.py` owns this mapping. Both publish workflows reject a
-tag that does not exactly match the selected source version and distribution.
+The canonical identities, tags, dependency pins, verifier commands, and
+manifest order live in `scripts/release_registry.py`. All four project
+versions and all internal dependency pins must equal `7.0.0a15`.
 
-## Historical Order
+## Local Qualification
 
-Push and wait for each release before creating the next tag:
-
-1. `v7.0.0b2`;
-2. `permissions-v0.2.0a2`;
-3. `commands-v0.2.0a2`;
-4. `resources-v0.1.0a2`;
-5. `functions-v0.1.0a2`;
-6. `profile-v0.1.0a2`;
-7. `essentials-v0.2.0a3`;
-8. `runtime-nonebot-v0.1.0a1`.
-9. `runtime-adapter-v0.1.0a2`.
-10. `adapter-onebot-v0.1.0a1`.
-11. `adapter-satori-v0.1.0a2`.
-12. `runtime-v6-v0.1.0a2`.
-13. `agent-resolver-v0.1.0a1`.
-14. `agent-v0.1.0a9` (requires `commands-v0.2.0a2`).
-15. `runtime-astrbot-v0.1.0a7`.
-16. `runtime-mofox-v0.1.0a8`.
-
-Each plugin workflow builds only its selected project, installs that wheel in a
-temporary uv environment against already published dependencies, exercises its
-real entry point, then uploads that package. This makes an out-of-order release
-fail before publication.
-
-Neo-MoFox is an explicit, fixed-commit installation prerequisite rather than a
-wheel dependency because PyPI rejects direct VCS dependencies. The MoFox
-release verifier installs that same requirement before exercising the runtime.
-
-After the final upload, verify the public dependency chain without a checkout:
+Use CPython 3.14 and uv:
 
 ```bash
-uv run --no-project --python 3.14 \
-  --with "liteyukibot-v7-essentials==0.2.0a3" \
-  python -c "import importlib.metadata as m; print(m.version('liteyukibot-v7'))"
+uv sync --locked --all-packages
+uv run liteyuki check
+uv run ruff check src tests scripts examples packages
+uv run mypy
+uv run pytest
+uv build --all-packages --out-dir dist/workspace --clear
+uv run python -m scripts.run_kernel_install
+uv run python -m scripts.run_cordis_install
+uv run python -m scripts.run_onebot_adapter_install
+uv run python -m scripts.run_tool_install_smoke
 ```
 
-Never move or reuse a release tag. Correct source and publish a new pre-release
-version when an uploaded artifact is wrong.
+`uv run python scripts/check_release.py` and
+`uv run --group release python scripts/alpha_release.py check-source` must
+pass before building the bundle. The CI workflow is the authoritative complete
+sequence; the Alpha workflow repeats the source, build, manifest, signature,
+offline install, and verification gates.
+
+## Bundle Rules
+
+Build only the four project directories. Generate the canonical manifest and
+SBOM, sign `artifacts.manifest.json` with Sigstore, copy the bundle outside the
+checkout, and run `scripts.run_alpha_bundle_installs` with staged wheels and
+`--no-index`. Do not include old Broker, runtime, NoneBot, Satori, WebUI,
+Agent, LYF, native IPC, or example artifacts.
+
+Both PyPI workflows retain `--reject-alpha`; no Alpha tag may publish to PyPI.
+Any future stable publication needs matching trusted-publisher configuration,
+an exact registry identity, and explicit release review.
+
+## SnowLuma Provenance
+
+The OneBot adapter is an independently written protocol client and does not
+bundle SnowLuma source, native addons, or assets. Its README links the external
+project and states that LiteyukiBot is not affiliated with or endorsed by it.
+If future code copies or derives from SnowLuma, preserve the complete upstream
+license and notices separately and obtain any required written permission
+before public distribution. Do not package the proprietary native addon.

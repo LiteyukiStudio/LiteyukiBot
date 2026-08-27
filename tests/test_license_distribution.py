@@ -3,6 +3,8 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
+from scripts.release_registry import resolve_workspace_registry
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 LICENSE_FILES = ("LICENSE", "LICENSE.en", "LICENSE.zh-CN")
 LSO_COMMON = "LicenseRef-LSO-Common-1.4"
@@ -15,23 +17,20 @@ def _project_table(project_file: Path) -> dict[str, object]:
     return project
 
 
-def test_root_declares_complete_lso_common_license_set() -> None:
-    project = _project_table(PROJECT_ROOT / "pyproject.toml")
-
-    assert project["license"] == LSO_COMMON
-    assert project["license-files"] == list(LICENSE_FILES)
-    for name in LICENSE_FILES:
-        assert (PROJECT_ROOT / name).is_file()
-
-
-def test_package_license_files_match_the_root_distribution() -> None:
+def test_target_distributions_declare_the_complete_lso_common_license_set() -> None:
+    registry = resolve_workspace_registry(PROJECT_ROOT)
     root_contents = {name: (PROJECT_ROOT / name).read_bytes() for name in LICENSE_FILES}
-    package_dirs = sorted(path.parent for path in (PROJECT_ROOT / "packages").glob("*/pyproject.toml"))
-    package_dirs.append(PROJECT_ROOT / "examples" / "nonebot-plugin")
 
-    for package_dir in package_dirs:
-        project = _project_table(package_dir / "pyproject.toml")
-        assert project["license"] == LSO_COMMON, package_dir.name
-        assert project["license-files"] == list(LICENSE_FILES), package_dir.name
+    assert all((PROJECT_ROOT / name).is_file() for name in LICENSE_FILES)
+    for component in registry.components:
+        project_dir = PROJECT_ROOT / component.project_dir
+        project = _project_table(project_dir / "pyproject.toml")
+        assert project["license"] == LSO_COMMON, component.project_dir
+        assert project["license-files"] == list(LICENSE_FILES), component.project_dir
         for name, expected in root_contents.items():
-            assert (package_dir / name).read_bytes() == expected, f"{package_dir.name}/{name}"
+            assert (project_dir / name).read_bytes() == expected, f"{component.project_dir}/{name}"
+
+
+def test_workspace_registry_has_no_external_source_distribution() -> None:
+    registry = resolve_workspace_registry(PROJECT_ROOT)
+    assert all(not component.project_dir.startswith("extras/") for component in registry.components)

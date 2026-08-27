@@ -1,8 +1,0 @@
-resources.command.set_summary=设置{name}字段
-resources.command.fields=。字段：{fields}
-resources.error.invalid_arguments=资源命令参数无效
-resources.error.no_readable_fields=没有可读取的资源字段
-resources.error.request_failed=资源请求失败：{error}
-resources.command.updated=已更新{path}.{field}
-resources.command.reset=已重置{path}.{field}
-resources.command.reset_summary=将{name}字段重置为默认值

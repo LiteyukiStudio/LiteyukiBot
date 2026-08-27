@@ -1,14 +1,15 @@
 # LiteyukiBot v7 Kernel
 
-Protocol-neutral contracts and the in-process event kernel shared by
-LiteyukiBot v7 components.
+`liteyukibot-v7-kernel` owns the protocol-neutral Alpha15 contracts:
 
-This package owns JSON-safe event and action DTOs, authorization and
-capability declarations, service and lifecycle contracts, bridge contracts,
-the EventBus, and the portable Runtime API contract. It does not own the CLI,
-application composition, Broker service, plugin installation, daemon, WebUI,
-or framework integrations.
+- immutable JSON-safe event, message and action models;
+- bounded `EventBus` and source-correlated `ActionService`;
+- service registry, owned background tasks and application status.
 
-Applications should normally install `liteyukibot-v7`. Component authors may
-depend on `liteyukibot-v7-kernel` when they need only the protocol-neutral
-contract surface.
+Messages support text, mention, reply and image segments. The only action is
+`SendMessage`. The kernel does not own configuration, CLI, Cordis discovery,
+OneBot transport or built-in business features, and it does not import the
+root application package.
+
+Applications normally install `liteyukibot-v7`; component authors may depend
+directly on this package for the small contract surface.

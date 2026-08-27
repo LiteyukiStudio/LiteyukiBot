@@ -13,8 +13,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
 import yaml
-
-from .services import ServiceKey
+from liteyukibot_kernel import ServiceKey
 
 RESOURCE_CATALOG_SERVICE = ServiceKey("liteyukibot.resource-packs", 1)
 RESOURCE_MANIFEST_FILENAME = "manifest-v1.json"

@@ -16,11 +16,6 @@ COPY examples ./examples
 
 RUN uv sync --locked --no-dev --no-editable \
     --package liteyukibot-v7 \
-    --package liteyukibot-v7-runtime-nonebot \
-    --extra yaml \
-    --extra http \
-    --extra onebot \
-    --extra satori \
     && /opt/venv/bin/liteyuki version
 
 FROM python:3.14-slim-bookworm
@@ -35,12 +30,12 @@ WORKDIR /app
 
 RUN groupadd --system --gid 10001 liteyuki \
     && useradd --system --uid 10001 --gid liteyuki --home-dir /app --no-create-home liteyuki \
-    && mkdir -p /app/data /app/cache /app/plugins \
+    && mkdir -p /app/data /app/cache \
     && chown -R liteyuki:liteyuki /app
 
 COPY --from=builder /opt/venv /opt/venv
 
-VOLUME ["/app/data", "/app/cache", "/app/plugins"]
+VOLUME ["/app/data", "/app/cache"]
 
 USER liteyuki
 

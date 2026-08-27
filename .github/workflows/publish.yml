@@ -37,6 +37,7 @@ jobs:
           wheel="$(find dist -maxdepth 1 -name '*.whl' -print -quit)"
           uv run --no-project --python 3.14 python scripts/run_isolated_install.py \
             --with "$wheel" --verifier scripts/verify_published_install.py -- \
-            --expected-version "${RELEASE_TAG#v}" --expect-kernel --expect-no-legacy-runtime
+            --expected-version "${RELEASE_TAG#v}" --expect-kernel --expect-cordis \
+            --expect-adapter-onebot --expect-no-legacy-runtime
       - name: Publish distribution
         run: uv publish

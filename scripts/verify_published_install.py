@@ -25,6 +25,15 @@ def _module_version(module_name: str) -> str:
     return version
 
 
+def _verify_module_location(module_name: str) -> None:
+    module = importlib.import_module(module_name)
+    module_file = getattr(module, "__file__", None)
+    if not isinstance(module_file, str):
+        raise RuntimeError(f"{module_name} does not expose __file__")
+    if Path(module_file).resolve().is_relative_to(SOURCE_ROOT):
+        raise RuntimeError(f"workspace source import detected: {module_file}")
+
+
 def _verify_removed_runtime_surface(distribution_name: str) -> None:
     """Reject a root wheel that still ships the retired child Runtime package.
 
@@ -47,13 +56,15 @@ def _verify_removed_runtime_surface(distribution_name: str) -> None:
 
 
 def _verify_cli_first_surface(distribution_name: str) -> None:
-    """Reject root artifacts that install or embed the optional WebUI."""
+    """Reject root artifacts that still expose retired package surfaces."""
 
     requirements = importlib.metadata.requires(distribution_name) or ()
-    if any(requirement.lower().startswith("liteyukibot-v7-webui") for requirement in requirements):
-        raise RuntimeError("installed root distribution depends on the optional WebUI")
-    if importlib.util.find_spec("liteyukibot_webui") is not None:
-        raise RuntimeError("root-only installation unexpectedly provides the WebUI package")
+    retired = ("liteyukibot-v7-broker", "liteyukibot-v7-runtime", "liteyukibot-v7-webui")
+    if any(requirement.lower().split("[", 1)[0].startswith(retired) for requirement in requirements):
+        raise RuntimeError("installed root distribution depends on a retired package")
+    for module_name in ("liteyukibot_broker", "liteyukibot_runtime_adapter", "liteyukibot_webui"):
+        if importlib.util.find_spec(module_name) is not None:
+            raise RuntimeError(f"root installation unexpectedly provides {module_name}")
 
 
 def main() -> int:
@@ -61,7 +72,8 @@ def main() -> int:
     parser.add_argument("--distribution", default="liteyukibot-v7")
     parser.add_argument("--expected-version")
     parser.add_argument("--expect-kernel", action="store_true")
-    parser.add_argument("--expect-broker", action="store_true")
+    parser.add_argument("--expect-cordis", action="store_true")
+    parser.add_argument("--expect-adapter-onebot", action="store_true")
     parser.add_argument("--expect-no-legacy-runtime", action="store_true")
     args = parser.parse_args()
 
@@ -74,9 +86,12 @@ def main() -> int:
     if args.expect_kernel:
         observed["liteyukibot-v7-kernel"] = importlib.metadata.version("liteyukibot-v7-kernel")
         observed["liteyukibot_kernel"] = _module_version("liteyukibot_kernel")
-    if args.expect_broker:
-        observed["liteyukibot-v7-broker"] = importlib.metadata.version("liteyukibot-v7-broker")
-        observed["liteyukibot_broker"] = _module_version("liteyukibot_broker")
+    if args.expect_cordis:
+        observed["liteyukibot-v7-cordis"] = importlib.metadata.version("liteyukibot-v7-cordis")
+        _verify_module_location("liteyukibot_cordis")
+    if args.expect_adapter_onebot:
+        observed["liteyukibot-v7-adapter-onebot"] = importlib.metadata.version("liteyukibot-v7-adapter-onebot")
+        _verify_module_location("liteyukibot_adapter_onebot")
     _verify_cli_first_surface(args.distribution)
     if args.expect_no_legacy_runtime:
         _verify_removed_runtime_surface(args.distribution)

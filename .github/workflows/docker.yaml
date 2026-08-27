@@ -9,7 +9,9 @@ on:
       - .github/workflows/docker.yaml
       - liteyuki.example.toml
       - pyproject.toml
-      - packages/runtime-nonebot/**
+      - packages/kernel/**
+      - packages/cordis/**
+      - packages/adapter-onebot/**
       - src/**
       - uv.lock
   workflow_dispatch:

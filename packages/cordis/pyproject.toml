@@ -1,23 +1,20 @@
 [project]
 name = "liteyukibot-v7-cordis"
-version = "7.0.0a14"
+version = "7.0.0a15"
 description = "Python-first Cordis Plugin v1 host for LiteyukiBot v7."
 readme = "README.md"
 requires-python = ">=3.14"
 license = "LicenseRef-LSO-Common-1.4"
 license-files = ["LICENSE", "LICENSE.en", "LICENSE.zh-CN"]
 authors = [{ name = "LiteyukiStudio" }]
-dependencies = ["liteyukibot-v7==7.0.0a14"]
-
-[project.entry-points."liteyukibot.cordis_hosts"]
-python = "liteyukibot_cordis:host_factory"
+dependencies = ["liteyukibot-v7-kernel==7.0.0a15"]
 
 [build-system]
 requires = ["uv_build>=0.11.32,<0.12"]
 build-backend = "uv_build"
 
 [tool.uv.sources]
-liteyukibot-v7 = { workspace = true }
+liteyukibot-v7-kernel = { workspace = true }
 
 [tool.uv.build-backend]
 module-root = "src"

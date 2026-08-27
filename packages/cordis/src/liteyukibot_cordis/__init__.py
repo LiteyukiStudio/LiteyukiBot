@@ -1,23 +1,18 @@
-"""Public Cordis Plugin v1 contracts."""
+"""Minimal Python Cordis contracts for LiteyukiBot business features."""
 
-from .audit import CordisAuditRecord, CordisAuditService
 from .core import CordisDispatchResult, CordisEvent, CordisManager, CordisSession, PluginFactory
-from .host import CordisHost, CordisPluginDefinition, discover_cordis_plugins, host_factory
+from .discovery import CORDIS_PLUGIN_ENTRY_POINT_GROUP, discover_plugins
 from .scope import ProviderCycleError, Scope, UnavailableProviderError
 
 __all__ = [
-    "CordisAuditRecord",
-    "CordisAuditService",
+    "CORDIS_PLUGIN_ENTRY_POINT_GROUP",
     "CordisDispatchResult",
     "CordisEvent",
-    "CordisHost",
-    "CordisPluginDefinition",
     "CordisManager",
     "CordisSession",
     "PluginFactory",
     "ProviderCycleError",
     "Scope",
     "UnavailableProviderError",
-    "host_factory",
-    "discover_cordis_plugins",
+    "discover_plugins",
 ]
