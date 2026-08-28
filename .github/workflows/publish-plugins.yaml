@@ -4,8 +4,11 @@ on:
   push:
     tags:
       - "kernel-v*"
+      - "!kernel-v7.*a*"
       - "cordis-v*"
+      - "!cordis-v7.*a*"
       - "adapter-onebot-v*"
+      - "!adapter-onebot-v7.*a*"
   workflow_dispatch:
     inputs:
       package:

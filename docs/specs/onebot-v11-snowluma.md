@@ -16,6 +16,23 @@ Plain `ws://` endpoints must be loopback; remote endpoints require `wss://`.
 Only private and group message events are accepted. Lifecycle, heartbeat,
 notice, request and `message_sent` events are ignored.
 
+The application status includes one account entry per configured runtime with
+connection state, pending call count, queued event count and bytes, reconnect
+count, and the last exception type. It never includes access tokens or message
+payloads. The account event queue has both a count limit and a weighted byte
+budget; shutdown drains queued events before reporting cleanup complete.
+The service remains available while an account is reconnecting and reports a
+`degraded` state until all configured accounts are connected.
+
+Event delivery callbacks are async-only and are rejected during client
+construction when synchronous callbacks are supplied. Account shutdown
+rejects new calls before clearing the connection. If an already admitted
+transport send ignores cancellation, connection close is deferred until its
+send gate is released and the lingering task remains visible in status. The
+client reports `cleanup_pending` or `failed` while cleanup is incomplete and
+only reports `stopped` after queued events, transport close, and background
+tasks have been released.
+
 The profile translates only text, mention, reply and image segments and
 executes only source-bound `SendMessage` actions. Unknown segment kinds cause
 the event to be discarded instead of widening the kernel model.

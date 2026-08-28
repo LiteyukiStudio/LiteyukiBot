@@ -2,7 +2,9 @@ name: Publish LiteyukiBot
 
 on:
   push:
-    tags: ["v7.*"]
+    tags:
+      - "v7.*"
+      - "!v7.*a*"
   workflow_dispatch:
     inputs:
       version:

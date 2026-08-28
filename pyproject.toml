@@ -26,6 +26,7 @@ liteyuki = "liteyukibot.cli:main"
 dev = [
     "mypy>=1.18,<2",
     "pip-audit>=2.9,<3",
+    "pytest-cov>=7,<8",
     "types-PyYAML>=6.0.12,<7",
     "pytest>=9,<10",
     "pytest-asyncio>=1.2,<2",
@@ -58,6 +59,19 @@ module-name = "liteyukibot"
 [tool.pytest.ini_options]
 testpaths = ["tests", "packages"]
 asyncio_mode = "auto"
+
+[tool.coverage.run]
+branch = true
+source = [
+    "src/liteyukibot",
+    "packages/kernel/src/liteyukibot_kernel",
+    "packages/cordis/src/liteyukibot_cordis",
+    "packages/adapter-onebot/src/liteyukibot_adapter_onebot",
+]
+
+[tool.coverage.report]
+fail_under = 70
+show_missing = true
 
 [tool.ruff]
 line-length = 120

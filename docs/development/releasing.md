@@ -25,7 +25,7 @@ uv run liteyuki --workspace tmp/release-workspace init
 uv run liteyuki --workspace tmp/release-workspace check
 uv run ruff check src tests scripts packages
 uv run mypy
-uv run pytest
+uv run pytest --cov --cov-report=term-missing
 uv build --all-packages --out-dir dist/workspace --clear
 uv run python -m scripts.run_kernel_install
 uv run python -m scripts.run_cordis_install
@@ -47,7 +47,8 @@ checkout, and run `scripts.run_alpha_bundle_installs` with staged wheels and
 `--no-index`. Do not include old Broker, runtime, NoneBot, Satori, WebUI,
 Agent, LYF, native IPC, or example artifacts.
 
-Both PyPI workflows retain `--reject-alpha`; no Alpha tag may publish to PyPI.
+Both PyPI workflows retain `--reject-alpha` and exclude Alpha tag patterns at
+the trigger; no Alpha tag may publish to PyPI.
 Any future stable publication needs matching trusted-publisher configuration,
 an exact registry identity, and explicit release review.
 

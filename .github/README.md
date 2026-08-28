@@ -4,8 +4,8 @@
 workflows for the `v7` branch and package-specific immutable tags.
 
 - `ci.yaml` is the cross-platform quality and installation matrix.
-- `docker.yaml` validates the root image for relevant pull requests.
-- `publish.yml` publishes the kernel distribution from `v7.*` tags.
+- `docker.yaml` builds and smoke-tests the root image for relevant pull requests and main pushes.
+- `publish.yml` publishes the root distribution from stable `v7.*` tags.
 - `publish-plugins.yaml` publishes first-party packages from package-specific
   tags.
 

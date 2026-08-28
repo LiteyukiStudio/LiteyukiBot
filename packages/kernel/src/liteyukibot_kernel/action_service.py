@@ -4,14 +4,23 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Awaitable, Callable
+from typing import Any, cast
 
 from .events import ActionEnvelope, ActionResult, EventEnvelope
 
 type ActionBackend = Callable[
     [EventEnvelope | None, ActionEnvelope],
-    Awaitable[ActionResult] | ActionResult,
+    Awaitable[ActionResult],
 ]
-type ActionPolicy = Callable[[EventEnvelope | None, ActionEnvelope], ActionResult | None]
+type ActionPolicy = Callable[[EventEnvelope | None, ActionEnvelope], Awaitable[ActionResult | None]]
+
+
+def _is_async_callable(value: object) -> bool:
+    """Return whether a callback is an async function or async callable object."""
+
+    if inspect.iscoroutinefunction(value):
+        return True
+    return callable(value) and inspect.iscoroutinefunction(cast(Any, value).__call__)
 
 
 class ActionService:
@@ -27,6 +36,10 @@ class ActionService:
         Returns:
             None.
         """
+        if not _is_async_callable(backend):
+            raise TypeError("action backend must be an async callable")
+        if not _is_async_callable(policy):
+            raise TypeError("action policy must be an async callable")
         self._backend = backend
         self._policy = policy
 
@@ -40,7 +53,7 @@ class ActionService:
         Returns:
             The action result produced by the policy or backend.
         """
-        guarded = self._policy(event, action)
+        guarded = await self._policy(event, action)
         if guarded is not None:
             if guarded.action_id != action.action_id:
                 return ActionResult(
@@ -50,9 +63,7 @@ class ActionService:
                     error_message="action policy returned a result for another action",
                 )
             return guarded
-        result = self._backend(event, action)
-        if inspect.isawaitable(result):
-            result = await result
+        result = await self._backend(event, action)
         if result.action_id != action.action_id:
             return ActionResult(
                 action_id=action.action_id,

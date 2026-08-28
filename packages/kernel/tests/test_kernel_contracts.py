@@ -8,6 +8,7 @@ from liteyukibot_kernel import (
     Action,
     EventBus,
     KernelStatusSnapshot,
+    ServiceKey,
     ServiceRegistry,
 )
 
@@ -48,6 +49,17 @@ def test_status_features_are_frozen() -> None:
     features["commands"] = "failed"
     assert snapshot.features == {"commands": "ready"}
     assert snapshot.as_dict()["features"] == {"commands": "ready"}
+
+
+def test_service_registry_remove_respects_provider_ownership() -> None:
+    registry = ServiceRegistry()
+    key = ServiceKey("test.service", 1)
+    registry.provide(key, object(), provider="owner")
+
+    assert registry.remove(key, provider="other") is False
+    assert registry.provider_for(key) == "owner"
+    assert registry.remove(key, provider="owner") is True
+    assert registry.provider_for(key) is None
 
 
 def test_root_facade_does_not_advertise_webui_contracts() -> None:

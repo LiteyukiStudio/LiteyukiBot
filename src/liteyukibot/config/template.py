@@ -37,7 +37,10 @@ def render_config_template(
             "queue_capacity": 1024,
             "enqueue_timeout_seconds": 1.0,
             "handler_timeout_seconds": 30.0,
+            "action_timeout_seconds": 30.0,
+            "shutdown_timeout_seconds": 10.0,
             "max_concurrent_events": 100,
+            "max_event_bytes": 1024 * 1024,
         },
         "logging": {
             "level": logging_level,

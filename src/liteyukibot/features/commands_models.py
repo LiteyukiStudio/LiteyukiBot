@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from liteyukibot_kernel.events import (
     ActionEnvelope,
@@ -14,7 +14,7 @@ from liteyukibot_kernel.events import (
     SendMessage,
 )
 
-from .commands_parsing import CommandSchema, ParsedCommand, parse_command
+from .commands_parsing import CommandParseError, CommandSchema, ParsedCommand, parse_command
 from .permissions import PUBLIC
 
 
@@ -104,6 +104,8 @@ class CommandInvocation:
     raw_arguments: str
     schema: CommandSchema = CommandSchema()
     command_path: tuple[str, ...] = ()
+    _parsed: ParsedCommand | None = field(default=None, repr=False, compare=False)
+    _parse_error: CommandParseError | None = field(default=None, repr=False, compare=False)
 
     def parse(self) -> ParsedCommand:
         """Parse the command invocation operation.
@@ -111,6 +113,10 @@ class CommandInvocation:
         Returns:
             The `ParsedCommand` result produced by the operation.
         """
+        if self._parse_error is not None:
+            raise self._parse_error
+        if self._parsed is not None:
+            return self._parsed
         return parse_command(self.raw_arguments, self.schema)
 
     def reply(self, message: Message | str) -> HandlerResult:
@@ -143,7 +149,7 @@ class CommandInvocation:
 
 type CommandHandler = Callable[
     [CommandInvocation],
-    Awaitable[HandlerResult | None] | HandlerResult | None,
+    Awaitable[HandlerResult | None],
 ]
 
 @dataclass(frozen=True, slots=True)

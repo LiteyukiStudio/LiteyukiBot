@@ -41,6 +41,7 @@ async def activate(scope: Scope) -> None:
     database.parent.mkdir(parents=True, exist_ok=True)
     service = SQLiteProfileService(database)
     try:
+        await service.start()
         registration = resources.register(
             ResourceSpec(
                 "profile",

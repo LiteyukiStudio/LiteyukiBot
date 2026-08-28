@@ -12,9 +12,17 @@ from typing import Any, Protocol, cast
 from uuid import uuid4
 
 type Provider = Callable[[Scope], Any] | Callable[[], Any]
-type Disposer = Callable[[], Awaitable[None] | None]
+type Disposer = Callable[[], Awaitable[None]]
 
 _PROVIDER_STACK: ContextVar[tuple[Hashable, ...]] = ContextVar("cordis_provider_stack", default=())
+
+
+def _is_async_callable(value: object) -> bool:
+    """Return whether a callback is an async function or async callable object."""
+
+    if inspect.iscoroutinefunction(value):
+        return True
+    return callable(value) and inspect.iscoroutinefunction(cast(Any, value).__call__)
 
 
 class RegistrationSink(Protocol):
@@ -59,6 +67,7 @@ class Scope:
         self._disposers: list[Disposer] = []
         self._children: list[Scope] = []
         self._closed = False
+        self._cleanup_complete = False
         if parent is not None:
             parent._children.append(self)
 
@@ -91,6 +100,8 @@ class Scope:
         self._ensure_open()
         if not callable(disposer):
             raise TypeError("Cordis disposer must be callable")
+        if not _is_async_callable(disposer):
+            raise TypeError("Cordis disposers must be async callables")
         self._disposers.append(disposer)
 
     def on(self, handler: object, *, order: int = 0) -> None:
@@ -104,7 +115,7 @@ class Scope:
 
     async def aclose(self) -> None:
         """Close descendants and owned resources deterministically."""
-        if self._closed:
+        if self._cleanup_complete:
             return
         self._closed = True
         errors: list[BaseException] = []
@@ -118,27 +129,34 @@ class Scope:
             await asyncio.gather(*resolutions, return_exceptions=True)
         self._resolutions.clear()
         children = tuple(self._children)
-        self._children.clear()
         for child in reversed(children):
             try:
                 await child.aclose()
             except BaseException as error:
                 errors.append(error)
-        for disposer in reversed(self._disposers):
+        disposer_failed = False
+        for disposer in reversed(tuple(self._disposers)):
+            if disposer not in self._disposers:
+                continue
             try:
                 result = disposer()
                 if inspect.isawaitable(result):
                     await result
             except BaseException as error:
+                disposer_failed = True
                 errors.append(error)
-        self._instances.clear()
-        self._providers.clear()
-        self._disposers.clear()
+            else:
+                with contextlib.suppress(ValueError):
+                    self._disposers.remove(disposer)
+        if not disposer_failed:
+            self._instances.clear()
+            self._providers.clear()
+        if errors:
+            raise BaseExceptionGroup("Cordis scope cleanup failed", errors)
+        self._cleanup_complete = True
         if self.parent is not None:
             with contextlib.suppress(ValueError):
                 self.parent._children.remove(self)
-        if errors:
-            raise BaseExceptionGroup("Cordis scope cleanup failed", errors)
 
     async def _resolve(self, key: Hashable) -> object:
         if key in self._instances:
@@ -169,8 +187,8 @@ class Scope:
             value = provider(self) if parameters else provider()  # type: ignore[call-arg]
         if inspect.isawaitable(value):
             value = await value
-        self._instances[key] = value
         disposer = _resource_disposer(value)
+        self._instances[key] = value
         if disposer is not None:
             self._disposers.append(disposer)
         return value
@@ -197,9 +215,13 @@ class Scope:
 def _resource_disposer(value: object) -> Disposer | None:
     close = getattr(value, "aclose", None)
     if callable(close):
+        if not _is_async_callable(close):
+            raise TypeError("Cordis resource aclose must be an async callable")
         return cast(Disposer, close)
     close = getattr(value, "close", None)
     if callable(close):
+        if not _is_async_callable(close):
+            raise TypeError("Cordis resource close must be an async callable")
         return cast(Disposer, close)
     return None
 

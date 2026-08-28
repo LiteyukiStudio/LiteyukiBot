@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 from collections.abc import Callable, Coroutine
 from typing import Any
 
@@ -82,6 +83,8 @@ class ManagedTasks:
         Returns:
             None.
         """
+        if not math.isfinite(timeout_seconds) or timeout_seconds < 0:
+            raise ValueError("timeout_seconds must be finite and non-negative")
         self._closing = True
         tasks = tuple(self._tasks)
         for task in tasks:

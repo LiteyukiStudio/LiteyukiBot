@@ -115,6 +115,7 @@ def _check(settings: AppSettings) -> None:
     """Report successful validation of one immutable settings snapshot."""
     if settings.config_version != 7:
         raise ValueError("configuration is not version 7")
+    settings.cordis.validate_enabled_config()
     from liteyukibot_adapter_onebot import OneBotV11Service
     from liteyukibot_cordis import discover_plugins
 

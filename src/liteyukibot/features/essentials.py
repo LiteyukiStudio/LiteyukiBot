@@ -115,7 +115,7 @@ async def activate(scope: Scope) -> None:
         ),
     )
     command_service.register_many(bindings, owner=scope.plugin_id)
-    def unregister() -> None:
+    async def unregister() -> None:
         command_service.unregister_owner(scope.plugin_id)
 
     scope.own(unregister)

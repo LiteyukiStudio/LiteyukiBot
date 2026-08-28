@@ -3,18 +3,38 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import inspect
+import math
 from collections import deque
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from yukilog import Logger, get_logger
 
 from .models import ActionEnvelope, ActionResult, DispatchResult, EventEnvelope, HandlerFailure, HandlerResult
 
-type EventHandler = Callable[[EventEnvelope], Awaitable[HandlerResult | None] | HandlerResult | None]
-type ActionExecutor = Callable[[EventEnvelope, ActionEnvelope], Awaitable[ActionResult] | ActionResult]
-type ActionGuard = Callable[[EventEnvelope, ActionEnvelope], Awaitable[ActionResult | None] | ActionResult | None]
+type EventHandler = Callable[[EventEnvelope], Awaitable[HandlerResult | None]]
+type ActionExecutor = Callable[[EventEnvelope, ActionEnvelope], Awaitable[ActionResult]]
+type ActionGuard = Callable[[EventEnvelope, ActionEnvelope], Awaitable[ActionResult | None]]
+
+_CANCELLATION_GRACE_SECONDS = 0.05
+_DEFAULT_MAX_EVENT_BYTES = 1024 * 1024
+
+
+class _OperationTimeout(TimeoutError):
+    """Raised when a tracked handler or action task exceeds its deadline."""
+
+    def __init__(self, task: asyncio.Task[Any]) -> None:
+        super().__init__()
+        self.task = task
+
+
+def _is_async_callable(value: object) -> bool:
+    """Return whether a callback is an async function or async callable object."""
+
+    if inspect.iscoroutinefunction(value):
+        return True
+    return callable(value) and inspect.iscoroutinefunction(cast(Any, value).__call__)
 
 @dataclass(frozen=True, slots=True)
 class Subscription:
@@ -37,6 +57,7 @@ class _QueuedEvent:
     """Represent the validated queued event contract."""
     event: EventEnvelope
     future: asyncio.Future[DispatchResult]
+    completed: bool = False
 
 
 class EventBus:
@@ -48,7 +69,10 @@ class EventBus:
         queue_capacity: int = 1024,
         enqueue_timeout: float = 1.0,
         handler_timeout: float = 30.0,
+        action_timeout: float = 30.0,
+        close_timeout: float = 10.0,
         max_concurrent_events: int = 100,
+        max_event_bytes: int = _DEFAULT_MAX_EVENT_BYTES,
         action_executor: ActionExecutor | None = None,
         action_guard: ActionGuard | None = None,
         logger: Logger | None = None,
@@ -59,7 +83,10 @@ class EventBus:
             queue_capacity: Maximum number of events admitted but not yet completed.
             enqueue_timeout: Maximum time to wait for event capacity, in seconds.
             handler_timeout: Maximum time allowed for one handler invocation, in seconds.
+            action_timeout: Maximum time allowed for one action guard or executor, in seconds.
+            close_timeout: Maximum time to wait for admitted events during shutdown, in seconds.
             max_concurrent_events: Maximum number of events dispatched concurrently.
+            max_event_bytes: Maximum UTF-8 JSON size of one admitted event.
             action_executor: Executor that routes actions to the owning runtime.
             action_guard: Optional policy hook that can reject an action before execution.
             logger: Structured logger used for diagnostics.
@@ -69,16 +96,29 @@ class EventBus:
         """
         if queue_capacity < 1:
             raise ValueError("queue_capacity must be at least 1")
-        if enqueue_timeout < 0:
-            raise ValueError("enqueue_timeout must not be negative")
-        if handler_timeout <= 0:
-            raise ValueError("handler_timeout must be positive")
+        if not math.isfinite(enqueue_timeout) or enqueue_timeout < 0:
+            raise ValueError("enqueue_timeout must be finite and non-negative")
+        if not math.isfinite(handler_timeout) or handler_timeout <= 0:
+            raise ValueError("handler_timeout must be finite and positive")
+        if not math.isfinite(action_timeout) or action_timeout <= 0:
+            raise ValueError("action_timeout must be finite and positive")
+        if not math.isfinite(close_timeout) or close_timeout <= 0:
+            raise ValueError("close_timeout must be finite and positive")
         if max_concurrent_events < 1:
             raise ValueError("max_concurrent_events must be at least 1")
+        if max_event_bytes < 1:
+            raise ValueError("max_event_bytes must be at least 1")
+        if action_executor is not None and not _is_async_callable(action_executor):
+            raise TypeError("action_executor must be an async callable")
+        if action_guard is not None and not _is_async_callable(action_guard):
+            raise TypeError("action_guard must be an async callable")
 
         self._queue_capacity = queue_capacity
         self._enqueue_timeout = enqueue_timeout
         self._handler_timeout = handler_timeout
+        self._action_timeout = action_timeout
+        self._close_timeout = close_timeout
+        self._max_event_bytes = max_event_bytes
         self._action_executor = action_executor
         self._action_guard = action_guard
         self._logger = logger or get_logger(component="events")
@@ -94,6 +134,9 @@ class EventBus:
         self._idle = asyncio.Event()
         self._idle.set()
         self._outstanding = 0
+        self._in_flight: dict[int, _QueuedEvent] = {}
+        self._forced_close = False
+        self._operation_tasks: set[asyncio.Task[Any]] = set()
 
     @property
     def closed(self) -> bool:
@@ -113,6 +156,15 @@ class EventBus:
         """
         return self._outstanding
 
+    @property
+    def background_tasks(self) -> int:
+        """Return tracked dispatcher, worker and callback tasks still alive."""
+
+        dispatcher = int(self._dispatcher is not None and not self._dispatcher.done())
+        workers = sum(not task.done() for task in self._key_workers.values())
+        operations = sum(not task.done() for task in self._operation_tasks)
+        return dispatcher + workers + operations
+
     def subscribe(self, handler: EventHandler, *, order: int = 0, name: str | None = None) -> Subscription:
         """Register a handler and return its subscription.
 
@@ -126,6 +178,8 @@ class EventBus:
         """
         if not callable(handler):
             raise TypeError("handler must be callable")
+        if not _is_async_callable(handler):
+            raise TypeError("EventBus handlers must be async callables")
         sequence = self._next_subscription_id
         self._next_subscription_id += 1
         inferred_name = getattr(handler, "__qualname__", None)
@@ -172,6 +226,8 @@ class EventBus:
         """
         if not self._accepting:
             return DispatchResult(event_id=event.id, status="closed")
+        if len(event.model_dump_json().encode("utf-8")) > self._max_event_bytes:
+            return DispatchResult(event_id=event.id, status="overloaded")
         await self.start()
 
         try:
@@ -204,7 +260,17 @@ class EventBus:
         if not self._accepting:
             return
         self._accepting = False
-        await self._idle.wait()
+        try:
+            async with asyncio.timeout(self._close_timeout):
+                await self._idle.wait()
+        except TimeoutError:
+            self._logger.warning(
+                "event bus shutdown exceeded {} seconds; cancelling admitted events",
+                self._close_timeout,
+            )
+            await self._force_close()
+        else:
+            await self._cancel_operation_tasks()
         if self._dispatcher is not None:
             self._dispatcher.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -271,9 +337,11 @@ class EventBus:
         try:
             while key_queue:
                 queued = key_queue.popleft()
+                self._in_flight[id(queued)] = queued
+                barriers: tuple[asyncio.Task[Any], ...] = ()
                 try:
                     async with self._concurrency:
-                        result = await self._dispatch(queued.event)
+                        result, barriers = await self._dispatch(queued.event)
                     if not queued.future.done():
                         queued.future.set_result(result)
                 except BaseException as exc:
@@ -282,16 +350,20 @@ class EventBus:
                     if isinstance(exc, (asyncio.CancelledError, KeyboardInterrupt, SystemExit)):
                         raise
                 finally:
-                    self._outstanding -= 1
-                    self._capacity.release()
-                    if self._outstanding == 0:
-                        self._idle.set()
+                    self._finish_queued(queued)
+                await self._wait_for_barriers(barriers)
                 await asyncio.sleep(0)
         finally:
-            del self._key_queues[key]
-            del self._key_workers[key]
+            while key_queue:
+                self._close_queued(key_queue.popleft())
+            if self._outstanding == 0:
+                self._idle.set()
+            if self._key_queues.get(key) is key_queue:
+                del self._key_queues[key]
+            if self._key_workers.get(key) is asyncio.current_task():
+                del self._key_workers[key]
 
-    async def _dispatch(self, event: EventEnvelope) -> DispatchResult:
+    async def _dispatch(self, event: EventEnvelope) -> tuple[DispatchResult, tuple[asyncio.Task[Any], ...]]:
         """Dispatch the event bus operation.
 
         Args:
@@ -304,6 +376,8 @@ class EventBus:
             Internal implementation detail for `EventBus._dispatch`. It delegates to `bind`, `timeout`,
             `callback`, `isawaitable` while keeping intermediate state local to the owning operation.
         """
+        if self._forced_close:
+            return DispatchResult(event_id=event.id, status="closed"), ()
         event_logger = self._logger.bind(
             event_id=event.id,
             runtime=event.runtime_id,
@@ -311,17 +385,21 @@ class EventBus:
         )
         failures: list[HandlerFailure] = []
         action_results: list[ActionResult] = []
+        barriers: list[asyncio.Task[Any]] = []
+        pending_action_barriers: list[asyncio.Task[Any]] = []
         handlers_called = 0
         stopped = False
 
         for registered in tuple(self._handlers):
             handlers_called += 1
             try:
-                async with asyncio.timeout(self._handler_timeout):
-                    result = registered.callback(event)
-                    if inspect.isawaitable(result):
-                        result = await result
-            except TimeoutError:
+                result = await self._run_operation(
+                    registered.callback(event),
+                    timeout_seconds=self._handler_timeout,
+                    name=f"handler {registered.subscription.name}",
+                    barriers=barriers,
+                )
+            except _OperationTimeout:
                 failure = HandlerFailure(
                     handler=registered.subscription.name,
                     kind="timeout",
@@ -331,14 +409,19 @@ class EventBus:
                 event_logger.error("event handler {} timed out", registered.subscription.name)
                 continue
             except Exception as exc:
+                error_type = type(exc).__name__
                 failures.append(
                     HandlerFailure(
                         handler=registered.subscription.name,
                         kind="error",
-                        message=f"{type(exc).__name__}: {exc}",
+                        message=f"{error_type}: handler failed",
                     )
                 )
-                event_logger.exception("event handler {} failed", registered.subscription.name)
+                event_logger.error(
+                    "event handler {} failed: {}",
+                    registered.subscription.name,
+                    error_type,
+                )
                 continue
 
             if result is None:
@@ -360,7 +443,22 @@ class EventBus:
             failures.extend(result.failures)
             action_results.extend(result.action_results)
             for action in result.actions:
-                action_results.append(await self._execute_action(event, action))
+                pending_action_barriers[:] = [task for task in pending_action_barriers if not task.done()]
+                if pending_action_barriers:
+                    action_results.append(
+                        ActionResult(
+                            action_id=action.action_id,
+                            success=False,
+                            error_code="ACTION_BLOCKED",
+                            error_message="a previous action is still running",
+                        )
+                    )
+                    continue
+                action_result, new_action_barriers = await self._execute_action(event, action)
+                action_results.append(action_result)
+                if new_action_barriers:
+                    barriers.extend(new_action_barriers)
+                    pending_action_barriers.extend(new_action_barriers)
             if result.stop_propagation:
                 stopped = True
                 break
@@ -372,9 +470,42 @@ class EventBus:
             stopped=stopped,
             action_results=tuple(action_results),
             failures=tuple(failures),
-        )
+        ), tuple(barriers)
 
-    async def _execute_action(self, event: EventEnvelope, action: ActionEnvelope) -> ActionResult:
+    async def _execute_action(
+        self,
+        event: EventEnvelope,
+        action: ActionEnvelope,
+    ) -> tuple[ActionResult, tuple[asyncio.Task[Any], ...]]:
+        """Execute one action with a bounded guard and executor lifetime."""
+
+        barriers: list[asyncio.Task[Any]] = []
+        try:
+            result = cast(
+                ActionResult,
+                await self._run_operation(
+                    self._execute_action_unbounded(event, action),
+                    timeout_seconds=self._action_timeout,
+                    name=f"action {action.action_id}",
+                    barriers=barriers,
+                ),
+            )
+            return result, tuple(barriers)
+        except _OperationTimeout:
+            self._logger.bind(event_id=event.id, runtime=event.runtime_id, bot_id=event.bot_id).error(
+                "action {} exceeded {} seconds", action.action_id, self._action_timeout
+            )
+            return (
+                ActionResult(
+                    action_id=action.action_id,
+                    success=False,
+                    error_code="ACTION_TIMEOUT",
+                    error_message=f"action exceeded {self._action_timeout:g} seconds",
+                ),
+                tuple(barriers),
+            )
+
+    async def _execute_action_unbounded(self, event: EventEnvelope, action: ActionEnvelope) -> ActionResult:
         """Execute action.
 
         Args:
@@ -391,9 +522,7 @@ class EventBus:
         """
         if self._action_guard is not None:
             try:
-                guarded: Any = self._action_guard(event, action)
-                if inspect.isawaitable(guarded):
-                    guarded = await guarded
+                guarded: Any = await self._action_guard(event, action)
                 if guarded is not None:
                     if not isinstance(guarded, ActionResult):
                         raise TypeError(f"expected ActionResult or None, got {type(guarded).__name__}")
@@ -401,14 +530,17 @@ class EventBus:
                         raise ValueError("action guard result correlation id does not match the action")
                     return guarded
             except Exception as exc:
-                self._logger.bind(event_id=event.id, runtime=event.runtime_id, bot_id=event.bot_id).exception(
-                    "action guard failed for action {}", action.action_id
+                error_type = type(exc).__name__
+                self._logger.bind(event_id=event.id, runtime=event.runtime_id, bot_id=event.bot_id).error(
+                    "action guard failed for action {}: {}",
+                    action.action_id,
+                    error_type,
                 )
                 return ActionResult(
                     action_id=action.action_id,
                     success=False,
                     error_code="ACTION_GUARD_ERROR",
-                    error_message=f"{type(exc).__name__}: {exc}",
+                    error_message=f"{error_type}: action guard failed",
                 )
         if self._action_executor is None:
             return ActionResult(
@@ -418,21 +550,144 @@ class EventBus:
                 error_message="the event bus has no action executor",
             )
         try:
-            result: Any = self._action_executor(event, action)
-            if inspect.isawaitable(result):
-                result = await result
+            result: Any = await self._action_executor(event, action)
             if not isinstance(result, ActionResult):
                 raise TypeError(f"expected ActionResult, got {type(result).__name__}")
             if result.action_id != action.action_id:
                 raise ValueError("action result correlation id does not match the action")
             return result
         except Exception as exc:
-            self._logger.bind(event_id=action.event_id, runtime=action.runtime_id, bot_id=action.bot_id).exception(
-                "action executor failed for action {}", action.action_id
+            error_type = type(exc).__name__
+            self._logger.bind(event_id=action.event_id, runtime=action.runtime_id, bot_id=action.bot_id).error(
+                "action executor failed for action {}: {}",
+                action.action_id,
+                error_type,
             )
             return ActionResult(
                 action_id=action.action_id,
                 success=False,
                 error_code="ACTION_EXECUTOR_ERROR",
-                error_message=f"{type(exc).__name__}: {exc}",
+                error_message=f"{error_type}: action executor failed",
             )
+
+    def _finish_queued(self, queued: _QueuedEvent) -> None:
+        """Release admission accounting exactly once for one queued event."""
+
+        if queued.completed:
+            return
+        queued.completed = True
+        self._in_flight.pop(id(queued), None)
+        self._outstanding -= 1
+        self._capacity.release()
+        if self._outstanding == 0:
+            self._idle.set()
+
+    async def _force_close(self) -> None:
+        """Resolve admitted events and cancel workers after the graceful deadline."""
+
+        self._forced_close = True
+        for worker in tuple(self._key_workers.values()):
+            worker.cancel()
+        await self._cancel_operation_tasks()
+
+        while True:
+            try:
+                queued = self._ingress.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            self._ingress.task_done()
+            self._close_queued(queued)
+
+        for key_queue in tuple(self._key_queues.values()):
+            while key_queue:
+                self._close_queued(key_queue.popleft())
+            key_queue.clear()
+        for queued in tuple(self._in_flight.values()):
+            self._close_queued(queued)
+        if self._outstanding == 0:
+            self._idle.set()
+
+    def _close_queued(self, queued: _QueuedEvent) -> None:
+        """Complete one admitted event as closed during forced shutdown."""
+
+        if not queued.future.done():
+            queued.future.set_result(DispatchResult(event_id=queued.event.id, status="closed"))
+        self._finish_queued(queued)
+
+    async def _run_operation(
+        self,
+        operation: Awaitable[Any],
+        *,
+        timeout_seconds: float,
+        name: str,
+        barriers: list[asyncio.Task[Any]] | None = None,
+    ) -> Any:
+        """Run one async callback with bounded waiting and tracked cancellation."""
+
+        task = asyncio.ensure_future(operation)
+        self._operation_tasks.add(task)
+        try:
+            done, pending = await asyncio.wait((task,), timeout=timeout_seconds)
+            if pending:
+                task.cancel()
+                done_after_cancel, _ = await asyncio.wait((task,), timeout=_CANCELLATION_GRACE_SECONDS)
+                for completed in done_after_cancel:
+                    with contextlib.suppress(BaseException):
+                        completed.exception()
+                if not task.done():
+                    self._logger.error("{} did not stop after cancellation", name)
+                    if barriers is not None:
+                        barriers.append(task)
+                raise _OperationTimeout(task)
+            return task.result()
+        except asyncio.CancelledError:
+            if not task.done():
+                task.cancel()
+                done_after_cancel, _ = await asyncio.wait((task,), timeout=_CANCELLATION_GRACE_SECONDS)
+                for completed in done_after_cancel:
+                    with contextlib.suppress(BaseException):
+                        completed.exception()
+                if not task.done() and barriers is not None:
+                    barriers.append(task)
+            raise
+        finally:
+            if task.done():
+                self._operation_tasks.discard(task)
+            else:
+                task.add_done_callback(self._forget_operation)
+
+    def _forget_operation(self, task: asyncio.Task[Any]) -> None:
+        """Drop a tracked operation after an uncooperative callback eventually ends."""
+
+        self._operation_tasks.discard(task)
+        if not task.cancelled():
+            with contextlib.suppress(BaseException):
+                task.exception()
+
+    async def _wait_for_barriers(self, barriers: tuple[asyncio.Task[Any], ...]) -> None:
+        """Wait for timed-out work before processing the next event for the same key."""
+
+        current = asyncio.current_task()
+        for task in barriers:
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError:
+                if current is not None and current.cancelling():
+                    raise
+            except BaseException:
+                with contextlib.suppress(BaseException):
+                    task.exception()
+
+    async def _cancel_operation_tasks(self) -> None:
+        """Cancel tracked callback tasks without making shutdown unbounded."""
+
+        tasks = tuple(self._operation_tasks)
+        for task in tasks:
+            task.cancel()
+        if not tasks:
+            return
+        done, pending = await asyncio.wait(tasks, timeout=_CANCELLATION_GRACE_SECONDS)
+        for task in done:
+            self._forget_operation(task)
+        if pending:
+            self._logger.error("{} callback tasks remained after shutdown cancellation", len(pending))

@@ -1,6 +1,8 @@
 name: v7 Docker
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
     paths:
@@ -34,6 +36,24 @@ jobs:
         with:
           context: .
           push: false
+          load: true
           tags: liteyukibot:v7-ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Smoke test image
+        run: docker run --rm liteyukibot:v7-ci version
+
+      - name: Validate image configuration
+        run: docker run --rm liteyukibot:v7-ci check
+
+      - name: Smoke test application lifecycle
+        run: |
+          container_id="$(docker run --detach liteyukibot:v7-ci run)"
+          trap 'docker rm --force "$container_id" >/dev/null 2>&1 || true' EXIT
+          sleep 2
+          test "$(docker inspect --format='{{.State.Running}}' "$container_id")" = "true"
+          docker stop --time 10 "$container_id"
+          exit_code="$(docker wait "$container_id")"
+          test "$exit_code" = "0"
+          test "$(docker inspect --format='{{.State.OOMKilled}}' "$container_id")" = "false"

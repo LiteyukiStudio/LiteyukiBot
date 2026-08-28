@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
-from typing import Any, Protocol
+from dataclasses import dataclass, replace
+from typing import Any, Protocol, cast
 
 from liteyukibot_kernel.events import EventEnvelope, HandlerFailure, HandlerResult
 from liteyukibot_kernel.services import ServiceKey
@@ -17,9 +17,19 @@ from .commands_models import (
     CommandRegistration,
     CommandSpec,
 )
+from .commands_parsing import CommandParseError
+from .common import run_blocking
 from .permissions import PermissionService
 
 COMMAND_SERVICE = ServiceKey("liteyukibot.commands", 2)
+
+
+def _is_async_callable(value: object) -> bool:
+    """Return whether a callback is an async function or async callable object."""
+
+    if inspect.iscoroutinefunction(value):
+        return True
+    return callable(value) and inspect.iscoroutinefunction(cast(Any, value).__call__)
 
 
 class _Logger(Protocol):
@@ -261,6 +271,8 @@ class _CommandService:
                 raise TypeError("command binding must contain CommandSpec")
             if not callable(handler):
                 raise TypeError(f"handler for command {spec.name} must be callable")
+            if not _is_async_callable(handler):
+                raise TypeError(f"handler for command {spec.name} must be an async callable")
             raw_tokens = (*spec.path, spec.name, *spec.aliases)
             if any(token.startswith(prefix) for token in raw_tokens for prefix in self._prefixes):
                 raise ValueError(f"command {spec.name} names and aliases must not include a prefix")
@@ -425,14 +437,20 @@ class _CommandService:
             command_path=spec.command_path,
         )
         try:
-            result: Any = registered.handler(invocation)
-            if inspect.isawaitable(result):
-                result = await result
+            try:
+                parsed_invocation = await run_blocking(invocation.parse)
+            except CommandParseError as error:
+                invocation = replace(invocation, _parse_error=error)
+            else:
+                invocation = replace(invocation, _parsed=parsed_invocation)
+            result = await registered.handler(invocation)
         except Exception as error:
-            self._logger.exception(
-                "command {} handler owned by {} failed",
+            error_type = type(error).__name__
+            self._logger.error(
+                "command {} handler owned by {} failed: {}",
                 spec.name,
                 registered.registration.owner,
+                error_type,
                 event_id=event.id,
             )
             return HandlerResult(
@@ -440,7 +458,7 @@ class _CommandService:
                     HandlerFailure(
                         handler=f"command:{spec.name}",
                         kind="error",
-                        message=f"{type(error).__name__}: {error}",
+                        message=f"{error_type}: command handler failed",
                     ),
                 ),
                 stop_propagation=True,
@@ -488,10 +506,11 @@ class _CommandService:
         """
         try:
             return self._permissions.allows(event, spec.permission)
-        except Exception:
-            self._logger.exception(
-                "permission check for command {} failed",
+        except Exception as error:
+            self._logger.error(
+                "permission check for command {} failed: {}",
                 spec.name,
+                type(error).__name__,
                 event_id=event.id,
             )
             return False

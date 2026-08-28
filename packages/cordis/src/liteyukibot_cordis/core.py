@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import inspect
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 
 from liteyukibot_kernel.events import (
     ActionEnvelope,
@@ -20,8 +21,16 @@ from liteyukibot_kernel.events import (
 
 from .scope import Disposer, RegistrationSink, Scope
 
-type OrderedHandler = Callable[[CordisSession], Awaitable[None] | None]
+type OrderedHandler = Callable[[CordisSession], Awaitable[None]]
 type PluginFactory = Callable[[Scope], Awaitable[None] | None]
+
+
+def _is_async_callable(value: object) -> bool:
+    """Return whether a callback is an async function or async callable object."""
+
+    if inspect.iscoroutinefunction(value):
+        return True
+    return callable(value) and inspect.iscoroutinefunction(cast(Any, value).__call__)
 
 
 class ActionServiceLike(Protocol):
@@ -100,6 +109,7 @@ class CordisManager(RegistrationSink):
         self._sequence = 0
         self._subscription: Subscription | None = None
         self._closed = False
+        self._cleanup_task: asyncio.Task[None] | None = None
 
     @property
     def active_plugin_ids(self) -> tuple[str, ...]:
@@ -139,11 +149,13 @@ class CordisManager(RegistrationSink):
             raise RuntimeError("Cordis manager is closed")
         if not callable(handler):
             raise TypeError("Cordis event handler must be callable")
+        if not _is_async_callable(handler):
+            raise TypeError("Cordis event handlers must be async callables")
         registration = _Registration(scope, order, cast(OrderedHandler, handler), self._sequence)
         self._sequence += 1
         self._registrations.append(registration)
 
-        def dispose() -> None:
+        async def dispose() -> None:
             with contextlib.suppress(ValueError):
                 self._registrations.remove(registration)
 
@@ -161,9 +173,7 @@ class CordisManager(RegistrationSink):
             ordered = sorted(self._registrations, key=lambda item: (item.order, item.sequence))
             for item in ordered:
                 try:
-                    result = item.handler(session)
-                    if inspect.isawaitable(result):
-                        await result
+                    await item.handler(session)
                 except Exception as error:
                     failures.append(f"ordered: {type(error).__name__}")
                     break
@@ -179,17 +189,38 @@ class CordisManager(RegistrationSink):
         return HandlerResult(actions=result.actions, action_results=result.action_results, failures=failures)
 
     async def aclose(self) -> None:
-        if self._closed:
-            return
+        task = self._cleanup_task
+        if task is not None:
+            if not task.done():
+                await asyncio.shield(task)
+                return
+            try:
+                task.result()
+            except BaseException:
+                self._cleanup_task = None
+            else:
+                return
         self._closed = True
+        task = asyncio.create_task(self._aclose_impl(), name="cordis-manager-cleanup")
+        self._cleanup_task = task
+        task.add_done_callback(self._cleanup_done)
+        await asyncio.shield(task)
+
+    async def _aclose_impl(self) -> None:
+        """Finish manager cleanup in one shared task even if a caller times out."""
+
         if self._subscription is not None:
             self.events.unsubscribe(self._subscription)
             self._subscription = None
         self._registrations.clear()
-        try:
-            await self.scope.aclose()
-        finally:
-            self._plugin_scopes.clear()
+        await self.scope.aclose()
+        self._plugin_scopes.clear()
+
+    @staticmethod
+    def _cleanup_done(task: asyncio.Task[None]) -> None:
+        if not task.cancelled():
+            with contextlib.suppress(BaseException):
+                task.exception()
 
 
 __all__ = [

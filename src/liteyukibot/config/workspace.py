@@ -54,6 +54,8 @@ class ConfigWorkspace:
             The `Path` result produced by the operation.
         """
 
+        if self.path.is_symlink():
+            raise ConfigurationError([ConfigIssue(self.path, "project configuration must not be a symlink")])
         if not self.path.exists():
             if self.is_docker():
                 self.initialize()
@@ -87,6 +89,8 @@ class ConfigWorkspace:
             The `Path | None` result produced by the operation.
         """
 
+        if self.path.is_symlink():
+            raise ConfigurationError([ConfigIssue(self.path, "project configuration must not be a symlink")])
         if not self.path.exists():
             raise ConfigurationError(
                 [ConfigIssue(self.path, "project configuration is missing; run liteyuki init first")]
@@ -149,6 +153,16 @@ class ConfigWorkspace:
         """
         if self.path.exists():
             raise ConfigurationError([ConfigIssue(self.path, "project configuration already exists")])
+        resource_directory = self.directory / "resources"
+        if resource_directory.is_symlink():
+            raise ConfigurationError([ConfigIssue(resource_directory, "resource directory must not be a symlink")])
+        if resource_directory.exists() and not resource_directory.is_dir():
+            raise ConfigurationError([ConfigIssue(resource_directory, "resource path is not a directory")])
+        index = resource_directory / "index.json"
+        if index.is_symlink():
+            raise ConfigurationError([ConfigIssue(index, "resource index must not be a symlink")])
+        if index.exists() and not index.is_file():
+            raise ConfigurationError([ConfigIssue(index, "resource index path is not a file")])
         logging = LoggingSettings.model_validate(
             {
                 "level": logging_level,
@@ -176,12 +190,23 @@ class ConfigWorkspace:
             onebot=onebot,
         )
         AppSettings.model_validate(tomllib.loads(rendered))
-        self.path.write_text(rendered, encoding="utf-8")
-        resource_directory = self.directory / "resources"
-        resource_directory.mkdir(exist_ok=True)
-        index = resource_directory / "index.json"
-        if not index.exists():
-            index.write_text("[]\n", encoding="utf-8")
+        try:
+            with self.path.open("x", encoding="utf-8") as stream:
+                stream.write(rendered)
+        except FileExistsError as error:
+            raise ConfigurationError([ConfigIssue(self.path, "project configuration already exists")]) from error
+        try:
+            resource_directory.mkdir(exist_ok=True)
+        except FileExistsError as error:
+            raise ConfigurationError([ConfigIssue(resource_directory, "resource path is not a directory")]) from error
+        if resource_directory.is_symlink() or not resource_directory.is_dir():
+            raise ConfigurationError([ConfigIssue(resource_directory, "resource directory must be a real directory")])
+        try:
+            with index.open("x", encoding="utf-8") as stream:
+                stream.write("[]\n")
+        except FileExistsError:
+            if index.is_symlink() or not index.is_file():
+                raise ConfigurationError([ConfigIssue(index, "resource index must be a real file")]) from None
         return self.path
 
     def _read_root_document(self) -> dict[str, Any]:
@@ -241,6 +266,18 @@ class ConfigWorkspace:
         backup = self.management_directory / "config-backups" / timestamp / self.filename
         upgrade_directory = self.management_directory / "config-upgrades"
         upgrade = upgrade_directory / f"liteyuki.v{CONFIG_VERSION}.toml"
+        instructions = upgrade_directory / "README.md"
+        for candidate in (
+            self.management_directory,
+            self.management_directory / "config-backups",
+            upgrade_directory,
+            upgrade,
+            instructions,
+        ):
+            if candidate.is_symlink():
+                raise ConfigurationError(
+                    [ConfigIssue(candidate, "configuration management path must not be a symlink")]
+                )
         if upgrade.exists() and not refresh:
             found = "missing" if version is None else str(version)
             raise ConfigUpgradeRequired(
@@ -252,7 +289,7 @@ class ConfigWorkspace:
         shutil.copy2(self.path, backup)
         backup.chmod(stat.S_IREAD)
         upgrade.write_text(render_config_template(), encoding="utf-8")
-        (upgrade_directory / "README.md").write_text(
+        instructions.write_text(
             "# Configuration upgrade required\n\n"
             "The kernel did not modify your existing configuration. Compare the generated "
             f"`liteyuki.v{CONFIG_VERSION}.toml` with the backup under `../config-backups/`, "
