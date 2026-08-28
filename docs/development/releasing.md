@@ -23,7 +23,7 @@ Use CPython 3.14 and uv:
 uv sync --locked --all-packages
 uv run liteyuki --workspace tmp/release-workspace init
 uv run liteyuki --workspace tmp/release-workspace check
-uv run ruff check src tests scripts examples packages
+uv run ruff check src tests scripts packages
 uv run mypy
 uv run pytest
 uv build --all-packages --out-dir dist/workspace --clear

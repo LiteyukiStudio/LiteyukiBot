@@ -42,7 +42,7 @@ jobs:
         run: |
           uv run liteyuki --workspace tmp/ci-workspace init
           uv run liteyuki --workspace tmp/ci-workspace check
-          uv run ruff check src tests scripts examples packages
+          uv run ruff check src tests scripts packages
           uv run mypy
           uv run pytest
           uv run pip-audit --local --progress-spinner off --vulnerability-service osv

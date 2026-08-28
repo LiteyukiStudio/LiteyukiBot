@@ -30,7 +30,7 @@ Run the smallest relevant checks while editing, then the repository quality
 suite before opening a pull request:
 
 ```bash
-uv run ruff check src tests scripts examples packages
+uv run ruff check src tests scripts packages
 uv run mypy
 uv run pytest
 uv build

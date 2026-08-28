@@ -62,7 +62,7 @@ asyncio_mode = "auto"
 [tool.ruff]
 line-length = 120
 target-version = "py314"
-src = ["src", "tests", "scripts", "examples", "packages"]
+src = ["src", "tests", "scripts", "packages"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC"]

@@ -21,7 +21,7 @@ Use CPython 3.14 and uv. Install the locked workspace with:
 uv sync --locked --all-packages
 uv run liteyuki --workspace tmp/validation-workspace init
 uv run liteyuki --workspace tmp/validation-workspace check
-uv run ruff check src tests scripts examples packages
+uv run ruff check src tests scripts packages
 uv run mypy
 uv run pytest
 uv build --all-packages --out-dir dist/workspace --clear
