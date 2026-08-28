@@ -2,14 +2,23 @@
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import Any, Literal, Protocol, cast
 
 from .permissions import Principal
 
 type ResourceOperation = Literal["inspect", "set", "delete"]
 type ResourceConverter = Callable[[str], object]
+
+
+def _is_async_callable(value: object) -> bool:
+    """Return whether a callback is an async function or async callable object."""
+
+    if inspect.iscoroutinefunction(value):
+        return True
+    return callable(value) and inspect.iscoroutinefunction(cast(Any, value).__call__)
 
 
 def _token(kind: str, value: object) -> str:
@@ -55,6 +64,8 @@ class ResourceField:
         _token("field name", self.name)
         if not callable(self.converter):
             raise TypeError(f"resource field {self.name} converter must be callable")
+        if _is_async_callable(self.converter):
+            raise TypeError(f"resource field {self.name} converter must be synchronous")
         if not isinstance(self.description, str):
             raise TypeError(f"resource field {self.name} description must be a string")
         for operation, enabled in (

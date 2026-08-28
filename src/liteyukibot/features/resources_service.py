@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 
 from liteyukibot_kernel.events import EventEnvelope, HandlerResult
 from liteyukibot_kernel.services import ServiceKey
@@ -15,10 +15,19 @@ from liteyukibot.i18n import Translator
 from .commands_models import CommandBinding, CommandInvocation, CommandRegistration, CommandSpec
 from .commands_parsing import ArgumentSpec, CommandParseError, CommandSchema, OptionSpec
 from .commands_service import CommandService
+from .common import run_blocking
 from .permissions import PermissionService, Principal
 from .resources_models import ResourceField, ResourceOperation, ResourceProvider, ResourceRegistration, ResourceSpec
 
 RESOURCE_SERVICE = ServiceKey("liteyukibot.resources", 2)
+
+
+def _is_async_callable(value: object) -> bool:
+    """Return whether a callback is an async function or async callable object."""
+
+    if inspect.iscoroutinefunction(value):
+        return True
+    return callable(value) and inspect.iscoroutinefunction(cast(Any, value).__call__)
 
 
 class ResourceError(ValueError):
@@ -241,8 +250,11 @@ class _ResourceService:
             if not isinstance(spec, ResourceSpec):
                 raise TypeError("resource binding must contain ResourceSpec")
             for operation in ("inspect", "set", "delete"):
-                if not callable(getattr(provider, operation, None)):
+                callback = getattr(provider, operation, None)
+                if not callable(callback):
                     raise TypeError(f"resource provider must define {operation}")
+                if not _is_async_callable(callback):
+                    raise TypeError(f"resource provider {operation} must be an async callable")
             path = tuple(segment.casefold() for segment in spec.resource_path)
             if path in claimed:
                 raise ValueError(f"resource path is already registered: {' '.join(path)}")
@@ -386,7 +398,7 @@ class _ResourceService:
             raise ResourceError(f"resource field is not settable: {field}")
         self._authorize(event, principal, selected, "set")
         try:
-            converted = selected.converter(value)
+            converted = await run_blocking(lambda: selected.converter(value))
         except Exception as error:
             raise ResourceError(f"invalid value for resource field: {field}") from error
         await _await_provider(registered.provider.set(principal, selected, converted))
@@ -706,7 +718,12 @@ def _error_text(error: ResourceError, translator: Translator) -> str:
         Internal implementation detail for `_error_text`. It delegates to `text` while keeping
         intermediate state local to the owning operation.
     """
-    return translator.text("resources.error.request_failed", "Resource request failed: {error}", error=error)
+    detail = " ".join(str(error).split())[:256]
+    return translator.text(
+        "resources.error.request_failed",
+        "Resource request failed: {error}",
+        error=detail,
+    )
 
 
 def create_resource_service(

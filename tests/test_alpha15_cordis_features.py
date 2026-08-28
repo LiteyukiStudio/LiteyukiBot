@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+import threading
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from liteyukibot_cordis import CordisManager, CordisSession, Scope
@@ -26,10 +28,12 @@ from liteyukibot.features.catalog import activate_builtin_features, feature_orde
 from liteyukibot.features.commands import ArgumentSpec, CommandSchema, OptionSpec, integer_value, parse_command
 from liteyukibot.features.commands_models import CommandInvocation, CommandSpec
 from liteyukibot.features.commands_service import create_command_service
-from liteyukibot.features.common import SERVICE_REGISTRY, NullTranslator
+from liteyukibot.features.common import SERVICE_REGISTRY, NullTranslator, publish_service
 from liteyukibot.features.permissions import PERMISSION_SERVICE, create_permission_service
 from liteyukibot.features.profile import PROFILE_DATABASE, PROFILE_SERVICE
 from liteyukibot.features.resources import RESOURCE_SERVICE
+from liteyukibot.features.resources_models import ResourceField, ResourceSpec
+from liteyukibot.features.resources_service import ResourceError, _error_text, create_resource_service
 
 
 class _Actions:
@@ -102,6 +106,95 @@ async def test_command_service_preserves_handler_outcomes() -> None:
     assert result.failures == (failure,)
 
 
+def test_command_service_rejects_synchronous_handlers() -> None:
+    service = create_command_service({}, create_permission_service({}), _Logger())
+
+    with pytest.raises(TypeError, match="async callable"):
+        service.register(CommandSpec("ping"), cast(Any, lambda _invocation: None), owner="test")
+
+
+def test_command_converters_reject_async_callables() -> None:
+    async def converter(_value: str) -> int:
+        return 1
+
+    with pytest.raises(TypeError, match="converter must be synchronous"):
+        ArgumentSpec("value", converter=converter)
+    with pytest.raises(TypeError, match="converter must be synchronous"):
+        OptionSpec("value", converter=converter)
+
+
+def test_resource_converters_reject_async_callables() -> None:
+    async def converter(_value: str) -> int:
+        return 1
+
+    with pytest.raises(TypeError, match="converter must be synchronous"):
+        ResourceField("value", converter)
+
+
+def test_resource_errors_keep_actionable_details() -> None:
+    assert _error_text(ResourceError("resource field not found: missing"), cast(Any, NullTranslator())) == (
+        "Resource request failed: resource field not found: missing"
+    )
+
+
+@pytest.mark.asyncio
+async def test_blocking_command_converter_remains_a_same_key_fifo_barrier() -> None:
+    started = threading.Event()
+    release = threading.Event()
+    handled: list[str] = []
+
+    def converter(value: str) -> int:
+        started.set()
+        if not release.wait(timeout=5):
+            raise TimeoutError("test converter was not released")
+        return int(value)
+
+    command_service = create_command_service({}, create_permission_service({}), _Logger())
+
+    async def handler(invocation: CommandInvocation) -> HandlerResult:
+        handled.append(str(invocation.parse().arguments["value"]))
+        return HandlerResult()
+
+    command_service.register(
+        CommandSpec("ping", schema=CommandSchema(arguments=(ArgumentSpec("value", converter=converter),))),
+        handler,
+        owner="test",
+    )
+    bus = EventBus(handler_timeout=0.01)
+    bus.subscribe(command_service.dispatch)
+    first = asyncio.create_task(bus.publish(_event("/ping 1")))
+    second = asyncio.create_task(bus.publish(_event("/ping 2")))
+    await asyncio.wait_for(asyncio.to_thread(started.wait), timeout=1)
+
+    first_result = await asyncio.wait_for(first, timeout=1)
+    assert first_result.failures[0].kind == "timeout"
+    assert handled == []
+
+    release.set()
+    await asyncio.wait_for(second, timeout=1)
+    assert handled == ["2"]
+    await bus.aclose()
+
+
+def test_resource_service_rejects_synchronous_provider_methods() -> None:
+    class SynchronousProvider:
+        def inspect(self, _principal: object, _field: ResourceField) -> object:
+            return None
+
+        def set(self, _principal: object, _field: ResourceField, _value: object) -> None:
+            return None
+
+        def delete(self, _principal: object, _field: ResourceField) -> None:
+            return None
+
+    commands = create_command_service({}, create_permission_service({}), _Logger())
+    resources = create_resource_service(create_permission_service({}), commands, cast(Any, NullTranslator()))
+    spec = ResourceSpec("test", fields=(ResourceField("value", str),))
+
+    with pytest.raises(TypeError, match="async callable"):
+        resources.register(spec, cast(Any, SynchronousProvider()), owner="test")
+
+
 @pytest.mark.asyncio
 async def test_minimal_cordis_preserves_ordered_handlers_and_cleanup() -> None:
     actions = _Actions()
@@ -136,7 +229,11 @@ async def test_minimal_cordis_preserves_ordered_handlers_and_cleanup() -> None:
 
         scope.on(second, order=2)
         scope.on(first, order=1)
-        scope.own(lambda: closed.append("plugin"))
+
+        async def close_plugin() -> None:
+            closed.append("plugin")
+
+        scope.own(close_plugin)
 
     await manager.activate("test.feature", factory)
     source = _event()
@@ -182,6 +279,36 @@ async def test_builtin_features_activate_in_dependency_order(tmp_path: Path) -> 
     assert actions.calls
     await manager.aclose()
     assert registry.snapshot() == ()
+
+
+@pytest.mark.asyncio
+async def test_legacy_service_registry_uses_a_scope_unique_owner() -> None:
+    class LegacyRegistry:
+        def __init__(self) -> None:
+            self.items: dict[object, tuple[object, str]] = {}
+
+        def provide(self, key: object, value: object, *, provider: str) -> None:
+            self.items[key] = (value, provider)
+
+        def remove_provider(self, provider: str) -> None:
+            for key in [key for key, item in self.items.items() if item[1] == provider]:
+                del self.items[key]
+
+    registry = LegacyRegistry()
+    root = Scope(plugin_id="root")
+    root.provide(SERVICE_REGISTRY, lambda: registry)
+    first = root.child(plugin_id="duplicate")
+    second = root.child(plugin_id="duplicate")
+    first_key = object()
+    second_key = object()
+
+    await publish_service(first, first_key, object())
+    await publish_service(second, second_key, object())
+    await first.aclose()
+
+    assert first_key not in registry.items
+    assert second_key in registry.items
+    await root.aclose()
 
 
 class _Logger:

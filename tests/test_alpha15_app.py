@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import cast
 
@@ -8,6 +9,7 @@ from liteyukibot_kernel import ActorRef, ConversationRef, EventEnvelope
 
 from liteyukibot import LiteyukiApp
 from liteyukibot import cli as cli_module
+from liteyukibot.app import AppState
 from liteyukibot.config import ConfigWorkspace, load_settings
 from liteyukibot.features.resources import RESOURCE_SERVICE, ResourceService
 
@@ -42,6 +44,54 @@ async def test_default_workspace_starts_all_required_features(tmp_path: Path) ->
         await app.stop()
 
     assert app.status()["state"] == "stopped"
+    assert app.status()["features"] == {
+        "commands": "stopped",
+        "essentials": "stopped",
+        "permissions": "stopped",
+        "profile": "stopped",
+        "resources": "stopped",
+    }
+    assert app.services.get(RESOURCE_SERVICE) is None
+
+
+@pytest.mark.asyncio
+async def test_stop_waits_for_an_in_progress_start(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    config = ConfigWorkspace(tmp_path).initialize()
+    app = LiteyukiApp(load_settings(config, environ={}), resource_workspace=tmp_path)
+    entered = asyncio.Event()
+    release = asyncio.Event()
+
+    async def delayed_cordis() -> None:
+        entered.set()
+        await release.wait()
+
+    monkeypatch.setattr(app, "_start_cordis", delayed_cordis)
+    starting = asyncio.create_task(app.start())
+    await entered.wait()
+    stopping = asyncio.create_task(app.stop())
+    await asyncio.sleep(0)
+
+    assert app.state.value == "starting"
+    release.set()
+    await asyncio.gather(starting, stopping)
+
+    assert app.state.value == "stopped"
+    assert app.status()["accepting_events"] is False
+    assert app.events.closed
+
+
+@pytest.mark.asyncio
+async def test_stop_recovers_when_a_lifecycle_operation_reference_is_missing(tmp_path: Path) -> None:
+    config = ConfigWorkspace(tmp_path).initialize()
+
+    for state in (AppState.STARTING, AppState.STOPPING):
+        app = LiteyukiApp(load_settings(config, environ={}), resource_workspace=tmp_path)
+        app.state = state
+
+        await app.stop()
+
+        assert app.state is AppState.STOPPED
+        assert app.events.closed
 
 
 @pytest.mark.asyncio
@@ -92,6 +142,31 @@ def test_cli_check_rejects_invalid_onebot_transport(tmp_path: Path, capsys: pyte
 
     assert cli_module.main(["--workspace", str(tmp_path), "check"]) == 2
     assert "loopback" in capsys.readouterr().err
+
+
+def test_cli_check_rejects_non_string_onebot_token(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    ConfigWorkspace(tmp_path).initialize(
+        onebot={
+            "v11": {
+                "accounts": {
+                    "qq-main": {
+                        "implementation": "snowluma",
+                        "self_id": "42",
+                        "ws_url": "ws://127.0.0.1:3001/",
+                        "access_token": 123,
+                    }
+                }
+            }
+        }
+    )
+
+    assert cli_module.main(["--workspace", str(tmp_path), "check"]) == 2
+    assert "access_token must be a string" in capsys.readouterr().err
+
+
+def test_config_rejects_configuration_for_disabled_cordis_plugin(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="not enabled"):
+        ConfigWorkspace(tmp_path).initialize(cordis_config={"example.plugin": {"enabled": True}})
 
 
 @pytest.mark.asyncio

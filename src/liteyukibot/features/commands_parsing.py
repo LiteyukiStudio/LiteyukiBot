@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
+from typing import Any, cast
 
 type ValueConverter = Callable[[str], object]
+
+
+def _is_async_callable(value: object) -> bool:
+    """Return whether a callback is an async function or async callable object."""
+
+    if inspect.iscoroutinefunction(value):
+        return True
+    return callable(value) and inspect.iscoroutinefunction(cast(Any, value).__call__)
 
 
 def _validate_name(kind: str, value: object) -> str:
@@ -108,6 +118,8 @@ class ArgumentSpec:
         _validate_name("argument name", self.name)
         if not callable(self.converter):
             raise TypeError(f"command argument {self.name} converter must be callable")
+        if _is_async_callable(self.converter):
+            raise TypeError(f"command argument {self.name} converter must be synchronous")
         if not isinstance(self.required, bool) or not isinstance(self.variadic, bool):
             raise TypeError(f"command argument {self.name} required and variadic must be booleans")
         if self.required and self.default is not None:
@@ -150,6 +162,8 @@ class OptionSpec:
             seen.add(alias)
         if not callable(self.converter):
             raise TypeError(f"command option {self.name} converter must be callable")
+        if _is_async_callable(self.converter):
+            raise TypeError(f"command option {self.name} converter must be synchronous")
         if not all(isinstance(value, bool) for value in (self.required, self.flag, self.repeatable)):
             raise TypeError(f"command option {self.name} required, flag, and repeatable must be booleans")
         if (self.flag or self.repeatable) and self.default is not None:

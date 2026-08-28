@@ -16,9 +16,9 @@ Use the root checks after changing this directory:
 ```bash
 uv run liteyuki --workspace tmp/src-check-workspace init
 uv run liteyuki --workspace tmp/src-check-workspace check
-uv run ruff check src tests
+uv run ruff check src tests scripts packages
 uv run mypy
-uv run pytest tests
+uv run pytest --cov --cov-report=term-missing
 ```
 
 Public configuration, event, action, service, or plugin changes require a

@@ -10,6 +10,10 @@ composition layer over the kernel EventBus and ActionService.
 Providers are lazy, scoped and cycle-checked. Concurrent requests share one
 provider resolution. Owned resources close in reverse order. Ordered event
 handlers stop after the first failure and report it through `DispatchResult`.
+Factories may be synchronous or asynchronous, but ordered event handlers are
+async-only and are rejected at registration if they are synchronous.
+Owned disposers and resources exposing `aclose` or `close` must be async
+callables as well. Synchronous cleanup is rejected at the scope boundary.
 
 The manager activates the built-in feature chain in this order:
 
@@ -28,6 +32,9 @@ Configured plugin IDs are loaded from the `liteyukibot.cordis_plugins` entry
 point group. Only IDs listed in `[cordis].enabled` are loaded, in configuration
 order. Missing, duplicate or non-callable entries fail startup. Each factory
 receives one child scope and its JSON-safe `[cordis.config.<id>]` table.
+Configuration tables must be present only for enabled plugin IDs. Each plugin
+factory owns validation of its table and should fail activation before
+registering handlers or resources when the table is invalid.
 
 There is no separate Cordis host entry point, native delegation, manifest
 layer, scheduler, middleware, parallel fanout, runtime API or hot reload in

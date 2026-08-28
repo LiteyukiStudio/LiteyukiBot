@@ -2,13 +2,47 @@
 
 from __future__ import annotations
 
-from collections.abc import Hashable, Mapping
+import asyncio
+import threading
+import weakref
+from collections.abc import Callable, Hashable, Mapping
 from typing import Any, Protocol, runtime_checkable
 
 from liteyukibot_cordis import Scope, UnavailableProviderError
 
 SERVICE_REGISTRY = "liteyukibot.service_registry"
 LOGGER_PROVIDER = "liteyukibot.logger"
+_BLOCKING_OPERATION_CAPACITY = 32
+_blocking_slots: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Semaphore] = weakref.WeakKeyDictionary()
+_blocking_slots_lock = threading.Lock()
+
+
+def _blocking_slot_semaphore() -> asyncio.Semaphore:
+    loop = asyncio.get_running_loop()
+    with _blocking_slots_lock:
+        slots = _blocking_slots.get(loop)
+        if slots is None:
+            slots = asyncio.Semaphore(_BLOCKING_OPERATION_CAPACITY)
+            _blocking_slots[loop] = slots
+        return slots
+
+
+async def run_blocking[ThreadResult](operation: Callable[[], ThreadResult]) -> ThreadResult:
+    """Run one bounded synchronous converter while preserving cancellation as a FIFO barrier."""
+
+    async def run() -> ThreadResult:
+        async with _blocking_slot_semaphore():
+            return await asyncio.to_thread(operation)
+
+    task = asyncio.create_task(run(), name="liteyukibot-blocking-feature-operation")
+    try:
+        return await asyncio.shield(task)
+    except asyncio.CancelledError:
+        try:
+            await asyncio.shield(task)
+        except BaseException:
+            pass
+        raise
 
 
 @runtime_checkable
@@ -79,10 +113,15 @@ async def publish_service(scope: Scope, key: Hashable, value: object) -> None:
         return
     if not isinstance(registry, ServiceRegistryLike):
         raise TypeError("feature service registry does not implement the kernel registry contract")
-    registry.provide(key, value, provider=scope.plugin_id)
+    exact_remove = getattr(registry, "remove", None)
+    provider = scope.plugin_id if callable(exact_remove) else f"{scope.plugin_id}:{scope.id}"
+    registry.provide(key, value, provider=provider)
 
-    def remove() -> None:
-        registry.remove_provider(scope.plugin_id)
+    async def remove() -> None:
+        if callable(exact_remove):
+            exact_remove(key, provider=provider)
+        else:
+            registry.remove_provider(provider)
 
     scope.own(remove)
 
@@ -95,4 +134,5 @@ __all__ = [
     "config_mapping",
     "optional_use",
     "publish_service",
+    "run_blocking",
 ]

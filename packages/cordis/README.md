@@ -16,4 +16,14 @@ The public surface is intentionally small:
 There is no separate host entry point, native plugin host, runtime API,
 scheduler, middleware, parallel fanout or hot reload.
 
+Plugin factories may be synchronous or asynchronous, but event handlers
+registered through `Scope.on` must be async callables. Synchronous handlers are
+rejected at registration so they cannot block the application event loop.
+Owned disposers and resources exposing `aclose` or `close` must also be async
+callables; synchronous cleanup is rejected instead of running outside the
+shutdown deadline contract.
+
+Root command handlers and resource-provider operations use the same async-only
+boundary before they are attached to Cordis.
+
 Run `uv run pytest packages/cordis/tests` after changes.

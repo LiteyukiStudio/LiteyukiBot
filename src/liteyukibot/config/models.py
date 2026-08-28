@@ -4,7 +4,7 @@ import math
 from collections.abc import Mapping
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Literal, cast
+from typing import Any, Literal, Self, cast
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator, model_validator
 
@@ -53,9 +53,12 @@ class CoreSettings(FrozenSettingsModel):
     data_dir: Path = Field(default_factory=lambda: (Path.cwd() / "data").resolve())
     cache_dir: Path = Field(default_factory=lambda: (Path.cwd() / "cache").resolve())
     queue_capacity: int = Field(default=1024, ge=1)
-    enqueue_timeout_seconds: float = Field(default=1.0, gt=0)
+    enqueue_timeout_seconds: float = Field(default=1.0, ge=0)
     handler_timeout_seconds: float = Field(default=30.0, gt=0)
+    action_timeout_seconds: float = Field(default=30.0, gt=0)
+    shutdown_timeout_seconds: float = Field(default=10.0, gt=0)
     max_concurrent_events: int = Field(default=100, ge=1)
+    max_event_bytes: int = Field(default=1024 * 1024, ge=1)
 
 
 class LoggingSettings(FrozenSettingsModel):
@@ -107,6 +110,21 @@ class CordisSettings(FrozenSettingsModel):
     def freeze_config(cls, value: Mapping[str, Any]) -> Mapping[str, Any]:
         _validate_json(value, "cordis.config")
         return cast(Mapping[str, Any], _freeze(value))
+
+    def validate_enabled_config(self) -> None:
+        """Reject configuration entries for plugins that are not enabled."""
+
+        unknown = sorted(set(self.config) - set(self.enabled))
+        if unknown:
+            names = ", ".join(repr(item) for item in unknown)
+            raise ValueError(f"cordis.config contains plugins that are not enabled: {names}")
+
+    @model_validator(mode="after")
+    def validate_config_for_enabled_plugins(self) -> Self:
+        """Keep plugin configuration and activation selection as one model invariant."""
+
+        self.validate_enabled_config()
+        return self
 
     @field_serializer("config")
     def serialize_config(self, value: Mapping[str, Any]) -> dict[str, Any]:

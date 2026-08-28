@@ -28,6 +28,8 @@ class SnowLumaAccountSettings:
         _validate_ws_url(self.ws_url)
         if self.access_token is not None:
             token = self.access_token
+            if not isinstance(token, str):
+                raise ValueError("access_token must be a string when set")
             if (
                 not token
                 or token != token.strip()
@@ -37,6 +39,10 @@ class SnowLumaAccountSettings:
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> SnowLumaAccountSettings:
+        if not isinstance(value, Mapping):
+            raise ValueError("SnowLuma account settings must be a mapping")
+        if any(not isinstance(key, str) for key in value):
+            raise ValueError("SnowLuma account setting keys must be strings")
         unknown = set(value) - {"implementation", "self_id", "ws_url", "access_token"}
         if unknown:
             raise ValueError(f"unknown SnowLuma account settings: {', '.join(sorted(unknown))}")
@@ -45,9 +51,9 @@ class SnowLumaAccountSettings:
             raise ValueError(f"missing SnowLuma account settings: {', '.join(sorted(missing))}")
         return cls(
             implementation=cast(Literal["snowluma"], value["implementation"]),
-            self_id=cast(str, value["self_id"]),
-            ws_url=cast(str, value["ws_url"]),
-            access_token=cast(str | None, value.get("access_token")),
+            self_id=value["self_id"],
+            ws_url=value["ws_url"],
+            access_token=value.get("access_token"),
         )
 
 

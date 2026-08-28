@@ -43,7 +43,11 @@ def test_inspection_tracks_all_precedence_layers_with_json_pointer(tmp_path: Pat
 def test_inspection_json_pointer_keeps_dotted_plugin_ids_unambiguous(tmp_path: Path) -> None:
     config = tmp_path / "liteyuki.toml"
     config.write_text(
-        'config_version = 7\n[cordis.config."example.plugin"]\nvalue = "configured"\n',
+        "config_version = 7\n"
+        "[cordis]\n"
+        'enabled = ["example.plugin"]\n'
+        '[cordis.config."example.plugin"]\n'
+        'value = "configured"\n',
         encoding="utf-8",
     )
 

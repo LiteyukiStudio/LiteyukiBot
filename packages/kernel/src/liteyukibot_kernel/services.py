@@ -92,6 +92,15 @@ class ServiceRegistry:
         for key in [key for key, item in self._services.items() if item.provider == provider]:
             del self._services[key]
 
+    def remove(self, key: ServiceKey, *, provider: str | None = None) -> bool:
+        """Remove one service when it is still owned by the expected provider."""
+
+        current = self._services.get(key)
+        if current is None or (provider is not None and current.provider != provider):
+            return False
+        del self._services[key]
+        return True
+
     def require(self, key: ServiceKey) -> Any:
         """Return the service registry operation, failing when it is unavailable.
 

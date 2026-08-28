@@ -4,9 +4,9 @@
 SnowLuma. It depends only on the kernel contracts and `websockets`; it does not
 embed an HTTP listener or a framework runtime.
 
-```bash
-uv add liteyukibot-v7-kernel liteyukibot-v7-adapter-onebot
-```
+Alpha15 is distributed as a signed GitHub Release bundle rather than through
+PyPI. Install the root bundle and use the workspace's pinned adapter package;
+do not add this Alpha15 package from a public package index.
 
 Configure one or more accounts in the application composition:
 
@@ -23,6 +23,9 @@ group message events to the kernel `EventBus`, and can be passed directly as
 the backend of `ActionService`. It exposes only source-bound `message.send`
 actions. Reply routes belong to their source account and are discarded on
 disconnect.
+Inbound events are retained under both a 1024-event queue limit and a 16 MiB
+weighted byte budget. Account shutdown drains queued events and exposes
+unfinished transport cleanup in status.
 
 ## SnowLuma Notice
 
@@ -42,7 +45,8 @@ written permission before public distribution.
 use `wss://`. When configured, the token is sent as
 `Authorization: Bearer <access_token>`. WebSocket handshakes and action calls
 have fixed 30-second timeouts; a healthy connected socket remains open and
-reconnects after an actual disconnect.
+reconnects after an actual disconnect with bounded backoff. Runtime status
+exposes connection health and queue counters without credentials or payloads.
 
 ## Development
 

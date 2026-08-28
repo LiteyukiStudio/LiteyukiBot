@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import json
+import struct
 import zipfile
-from collections.abc import Callable, Iterable, Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from dataclasses import dataclass, field
 from functools import partial
 from hashlib import sha256
 from importlib import resources
 from pathlib import Path, PurePosixPath
+from types import MappingProxyType
 from typing import Any, Literal
 
 import yaml
@@ -18,10 +20,134 @@ from liteyukibot_kernel import ServiceKey
 RESOURCE_CATALOG_SERVICE = ServiceKey("liteyukibot.resource-packs", 1)
 RESOURCE_MANIFEST_FILENAME = "manifest-v1.json"
 RESOURCE_MANIFEST_SCHEMA = 1
+_RESOURCE_MAX_FILES = 4096
+_RESOURCE_MAX_FILE_BYTES = 8 * 1024 * 1024
+_RESOURCE_MAX_TOTAL_BYTES = 64 * 1024 * 1024
+_RESOURCE_MAX_COMPRESSED_BYTES = 64 * 1024 * 1024
+_RESOURCE_MAX_COMPRESSION_RATIO = 100
+_RESOURCE_CATALOG_MAX_PACKS = 256
+_RESOURCE_CATALOG_MAX_BYTES = 256 * 1024 * 1024
+_RESOURCE_MAX_INDEX_BYTES = 1024 * 1024
+_RESOURCE_MAX_MANIFEST_BYTES = 1024 * 1024
 
 
 class ResourcePackError(ValueError):
     """Raised when a resource pack or its workspace index is unsafe or invalid."""
+
+
+def _validate_resource_budget(
+    *, file_count: int, total_bytes: int, file_size: int, origin: str
+) -> None:
+    """Reject resource packs that exceed bounded file or decompression budgets."""
+
+    if file_size < 0 or file_size > _RESOURCE_MAX_FILE_BYTES:
+        raise ResourcePackError(
+            f"resource pack file exceeds {_RESOURCE_MAX_FILE_BYTES} bytes: {origin}"
+        )
+    if file_count > _RESOURCE_MAX_FILES:
+        raise ResourcePackError(f"resource pack contains more than {_RESOURCE_MAX_FILES} files: {origin}")
+    if total_bytes > _RESOURCE_MAX_TOTAL_BYTES:
+        raise ResourcePackError(
+            f"resource pack exceeds {_RESOURCE_MAX_TOTAL_BYTES} uncompressed bytes: {origin}"
+        )
+
+
+def _read_limited_path(
+    path: Path,
+    origin: str,
+    *,
+    max_bytes: int = _RESOURCE_MAX_FILE_BYTES,
+) -> bytes:
+    """Read a filesystem resource while enforcing the per-file limit first."""
+
+    try:
+        with path.open("rb") as stream:
+            content = stream.read(max_bytes + 1)
+    except OSError as error:
+        raise ResourcePackError(f"cannot read resource file: {origin}") from error
+    if len(content) > max_bytes:
+        raise ResourcePackError(f"resource pack file exceeds {max_bytes} bytes: {origin}")
+    return content
+
+
+def _read_limited_traversable(
+    path: resources.abc.Traversable,
+    origin: str,
+    *,
+    max_bytes: int = _RESOURCE_MAX_FILE_BYTES,
+) -> bytes:
+    """Read an importlib resource while enforcing the per-file limit first."""
+
+    try:
+        with path.open("rb") as stream:
+            content = stream.read(max_bytes + 1)
+    except OSError as error:
+        raise ResourcePackError(f"cannot read resource file: {origin}") from error
+    if len(content) > max_bytes:
+        raise ResourcePackError(f"resource pack file exceeds {max_bytes} bytes: {origin}")
+    return content
+
+
+def _resource_read_limit(relative: str) -> int:
+    """Return the tighter read budget for metadata files with dedicated limits."""
+
+    return _RESOURCE_MAX_MANIFEST_BYTES if relative == RESOURCE_MANIFEST_FILENAME else _RESOURCE_MAX_FILE_BYTES
+
+
+def _path_size(path: Path, origin: str) -> int:
+    """Return a resource file size before reading its contents."""
+
+    try:
+        return path.stat().st_size
+    except OSError as error:
+        raise ResourcePackError(f"cannot stat resource file: {origin}") from error
+
+
+def _validate_zip_directory_budget(path: Path) -> None:
+    """Inspect bounded ZIP metadata before ``ZipFile`` materializes its directory list."""
+
+    origin = str(path)
+    archive_size = _path_size(path, origin)
+    if archive_size > _RESOURCE_MAX_COMPRESSED_BYTES:
+        raise ResourcePackError(f"resource ZIP exceeds {_RESOURCE_MAX_COMPRESSED_BYTES} compressed bytes: {path}")
+    tail_size = min(archive_size, 22 + 65_535)
+    try:
+        with path.open("rb") as stream:
+            stream.seek(archive_size - tail_size)
+            tail = stream.read(tail_size)
+    except OSError as error:
+        raise ResourcePackError(f"cannot read resource ZIP metadata: {path}") from error
+    eocd_offset = tail.rfind(b"PK\x05\x06")
+    if eocd_offset < 0 or eocd_offset + 22 > len(tail):
+        raise ResourcePackError(f"resource ZIP is invalid: {path}")
+    try:
+        eocd = struct.unpack_from("<4s4H2IH", tail, eocd_offset)
+    except struct.error as error:
+        raise ResourcePackError(f"resource ZIP is invalid: {path}") from error
+    entry_count = eocd[4]
+    if entry_count == 0xFFFF:
+        absolute_eocd_offset = archive_size - tail_size + eocd_offset
+        locator_offset = absolute_eocd_offset - 20
+        if locator_offset < 0:
+            raise ResourcePackError(f"resource ZIP is invalid: {path}")
+        try:
+            with path.open("rb") as stream:
+                stream.seek(locator_offset)
+                locator = stream.read(20)
+                if len(locator) != 20:
+                    raise ResourcePackError(f"resource ZIP is invalid: {path}")
+                locator_values = struct.unpack("<4sIQ", locator)
+                if locator_values[0] != b"PK\x06\x07":
+                    raise ResourcePackError(f"resource ZIP is invalid: {path}")
+                stream.seek(locator_values[2])
+                zip64_eocd = stream.read(56)
+        except (OSError, struct.error) as error:
+            raise ResourcePackError(f"resource ZIP is invalid: {path}") from error
+        if len(zip64_eocd) != 56 or zip64_eocd[:4] != b"PK\x06\x06":
+            raise ResourcePackError(f"resource ZIP is invalid: {path}")
+        entry_count = struct.unpack_from("<4sQ2H2I4Q", zip64_eocd)[7]
+    if entry_count > _RESOURCE_MAX_FILES:
+        raise ResourcePackError(f"resource pack contains more than {_RESOURCE_MAX_FILES} files: {path}")
 
 
 def _token(value: object, subject: str) -> str:
@@ -57,7 +183,13 @@ def _relative_path(value: str) -> str:
         `as_posix` while keeping intermediate state local to the owning operation.
     """
     path = PurePosixPath(value)
-    if path.is_absolute() or not path.parts or any(part in {"", ".", ".."} for part in path.parts):
+    if (
+        "\x00" in value
+        or "\\" in value
+        or path.is_absolute()
+        or not path.parts
+        or any(part in {"", ".", ".."} for part in path.parts)
+    ):
         raise ResourcePackError(f"resource path is unsafe: {value!r}")
     return path.as_posix()
 
@@ -113,17 +245,42 @@ def write_resource_manifest(root: str | Path) -> Path:
     if not directory.is_dir():
         raise ResourcePackError(f"resource manifest root is not a directory: {directory}")
     files: dict[str, bytes] = {}
+    file_count = 0
+    total_bytes = 0
     for candidate in directory.rglob("*"):
+        if candidate.is_symlink():
+            raise ResourcePackError(f"resource pack contains an unsafe file: {candidate}")
         if candidate.is_dir():
             continue
-        if candidate.is_symlink() or not candidate.resolve().is_relative_to(directory):
+        if not candidate.resolve().is_relative_to(directory):
             raise ResourcePackError(f"resource pack contains an unsafe file: {candidate}")
         relative = _relative_path(candidate.relative_to(directory).as_posix())
         if relative == RESOURCE_MANIFEST_FILENAME:
             continue
-        files[relative] = candidate.read_bytes()
+        origin = f"{directory}:{relative}"
+        declared_size = _path_size(candidate, origin)
+        file_count += 1
+        total_bytes += declared_size
+        _validate_resource_budget(
+            file_count=file_count,
+            total_bytes=total_bytes,
+            file_size=declared_size,
+            origin=str(directory),
+        )
+        content = _read_limited_path(candidate, origin)
+        total_bytes = total_bytes - declared_size + len(content)
+        _validate_resource_budget(
+            file_count=file_count,
+            total_bytes=total_bytes,
+            file_size=len(content),
+            origin=str(directory),
+        )
+        files[relative] = content
     manifest = directory / RESOURCE_MANIFEST_FILENAME
-    manifest.write_bytes(_canonical_json(_manifest_payload(files)) + b"\n")
+    rendered = _canonical_json(_manifest_payload(files)) + b"\n"
+    if len(rendered) > _RESOURCE_MAX_MANIFEST_BYTES:
+        raise ResourcePackError(f"resource manifest exceeds {_RESOURCE_MAX_MANIFEST_BYTES} bytes")
+    manifest.write_bytes(rendered)
     return manifest
 
 
@@ -141,13 +298,35 @@ def verify_resource_manifest(root: str | Path) -> None:
     if not directory.is_dir():
         raise ResourcePackError(f"resource manifest root is not a directory: {directory}")
     files: dict[str, ResourceFile] = {}
+    file_count = 0
+    total_bytes = 0
     for candidate in directory.rglob("*"):
+        if candidate.is_symlink():
+            raise ResourcePackError(f"resource pack contains an unsafe file: {candidate}")
         if candidate.is_dir():
             continue
-        if candidate.is_symlink() or not candidate.resolve().is_relative_to(directory):
+        if not candidate.resolve().is_relative_to(directory):
             raise ResourcePackError(f"resource pack contains an unsafe file: {candidate}")
         relative = _relative_path(candidate.relative_to(directory).as_posix())
-        files[relative] = ResourceFile("verification", relative, candidate.read_bytes)
+        origin = f"{directory}:{relative}"
+        declared_size = _path_size(candidate, origin)
+        file_count += 1
+        total_bytes += declared_size
+        _validate_resource_budget(
+            file_count=file_count,
+            total_bytes=total_bytes,
+            file_size=declared_size,
+            origin=str(directory),
+        )
+        content = _read_limited_path(candidate, origin, max_bytes=_resource_read_limit(relative))
+        total_bytes = total_bytes - declared_size + len(content)
+        _validate_resource_budget(
+            file_count=file_count,
+            total_bytes=total_bytes,
+            file_size=len(content),
+            origin=str(directory),
+        )
+        files[relative] = ResourceFile("verification", relative, partial(bytes, content))
     _verify_manifest(files)
 
 
@@ -189,6 +368,25 @@ class ResourceFile:
     path: str
     _read: Callable[[], bytes]
 
+    def __post_init__(self) -> None:
+        """Snapshot and validate file content so public readers cannot mutate a pack later."""
+
+        _token(self.pack_id, "file pack id")
+        if not isinstance(self.path, str) or _relative_path(self.path) != self.path:
+            raise ResourcePackError(f"resource file path is unsafe: {self.path!r}")
+        if not callable(self._read):
+            raise TypeError("resource file reader must be callable")
+        content = self._read()
+        if not isinstance(content, bytes):
+            raise TypeError("resource file reader must return bytes")
+        _validate_resource_budget(
+            file_count=1,
+            total_bytes=len(content),
+            file_size=len(content),
+            origin=f"{self.pack_id}:{self.path}",
+        )
+        object.__setattr__(self, "_read", partial(bytes, content))
+
     def read_bytes(self) -> bytes:
         """Read bytes.
 
@@ -214,6 +412,62 @@ class ResourcePack:
     """Represent the resource pack contract."""
     metadata: ResourcePackMetadata
     files: Mapping[str, ResourceFile]
+    size_bytes: int = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        """Compute the retained byte size from actual file contents."""
+
+        if not isinstance(self.metadata, ResourcePackMetadata):
+            raise TypeError("resource pack metadata must be ResourcePackMetadata")
+        if not isinstance(self.files, Mapping):
+            raise TypeError("resource pack files must be a mapping")
+        normalized_files: dict[str, ResourceFile] = {}
+        total_bytes = 0
+        for file_count, (path, resource) in enumerate(self.files.items(), start=1):
+            if file_count > _RESOURCE_MAX_FILES:
+                raise ResourcePackError(
+                    f"resource pack contains more than {_RESOURCE_MAX_FILES} files: {self.metadata.origin}"
+                )
+            if not isinstance(path, str) or _relative_path(path) != path:
+                raise ResourcePackError(f"resource file path is unsafe: {path!r}")
+            if not isinstance(resource, ResourceFile):
+                raise TypeError("resource pack files must contain ResourceFile values")
+            if resource.path != path:
+                raise ResourcePackError(f"resource file path does not match its mapping key: {path}")
+            if resource.pack_id != self.metadata.id:
+                raise ResourcePackError(f"resource file belongs to a different pack: {path}")
+            content = resource.read_bytes()
+            total_bytes += len(content)
+            _validate_resource_budget(
+                file_count=file_count,
+                total_bytes=total_bytes,
+                file_size=len(content),
+                origin=f"{self.metadata.origin}:{resource.path}",
+            )
+            normalized_files[path] = resource
+        object.__setattr__(self, "files", MappingProxyType(normalized_files))
+        object.__setattr__(self, "size_bytes", total_bytes)
+
+
+def _resource_pack_size(pack: ResourcePack) -> int:
+    """Return the verified in-memory size of one resource pack."""
+
+    size = pack.size_bytes
+    return size
+
+
+def _append_catalog_pack(packs: list[ResourcePack], pack: ResourcePack, total_bytes: int) -> int:
+    """Append one pack while enforcing catalog-wide count and memory budgets."""
+
+    if len(packs) >= _RESOURCE_CATALOG_MAX_PACKS:
+        raise ResourcePackError(f"resource catalog contains more than {_RESOURCE_CATALOG_MAX_PACKS} packs")
+    total_bytes += _resource_pack_size(pack)
+    if total_bytes > _RESOURCE_CATALOG_MAX_BYTES:
+        raise ResourcePackError(
+            f"resource catalog exceeds {_RESOURCE_CATALOG_MAX_BYTES} in-memory bytes"
+        )
+    packs.append(pack)
+    return total_bytes
 
 
 class ResourceCatalog:
@@ -228,15 +482,24 @@ class ResourceCatalog:
         Returns:
             None.
         """
-        ordered = tuple(packs)
+        ordered: list[ResourcePack] = []
         ids: set[str] = set()
         files: dict[str, ResourceFile] = {}
-        for pack in ordered:
+        total_bytes = 0
+        for pack in packs:
+            if len(ordered) >= _RESOURCE_CATALOG_MAX_PACKS:
+                raise ResourcePackError(f"resource catalog contains more than {_RESOURCE_CATALOG_MAX_PACKS} packs")
             if pack.metadata.id in ids:
                 raise ResourcePackError(f"duplicate resource pack id: {pack.metadata.id}")
             ids.add(pack.metadata.id)
+            total_bytes += _resource_pack_size(pack)
+            if total_bytes > _RESOURCE_CATALOG_MAX_BYTES:
+                raise ResourcePackError(
+                    f"resource catalog exceeds {_RESOURCE_CATALOG_MAX_BYTES} in-memory bytes"
+                )
+            ordered.append(pack)
             files.update(pack.files)
-        self._packs = ordered
+        self._packs = tuple(ordered)
         self._files = files
 
     @property
@@ -386,11 +649,23 @@ class ResourceCatalog:
             The `ResourceCatalog` result produced by the operation.
         """
         builtin = Path(__file__).with_name("builtin_resources") / "vanilla_language"
-        packs = [_load_directory(builtin, "kernel")]
-        for declaration in sorted(plugin_packs, key=lambda item: (item.package, item.root)):
+        packs: list[ResourcePack] = []
+        total_bytes = _append_catalog_pack(packs, _load_directory(builtin, "kernel"), 0)
+        declarations: list[ResourcePackDeclaration] = []
+        for declaration in plugin_packs:
+            if len(declarations) >= _RESOURCE_CATALOG_MAX_PACKS - 1:
+                raise ResourcePackError(f"resource catalog contains more than {_RESOURCE_CATALOG_MAX_PACKS} packs")
+            declarations.append(declaration)
+        declarations.sort(key=lambda item: (item.package, item.root))
+        for declaration in declarations:
             root = resources.files(declaration.package).joinpath(declaration.root)
-            packs.append(_load_traversable(root, f"package:{declaration.package}:{declaration.root}"))
-        packs.extend(_load_workspace_packs(Path(workspace)))
+            total_bytes = _append_catalog_pack(
+                packs,
+                _load_traversable(root, f"package:{declaration.package}:{declaration.root}"),
+                total_bytes,
+            )
+        for pack in _load_workspace_packs(Path(workspace)):
+            total_bytes = _append_catalog_pack(packs, pack, total_bytes)
         return cls(packs)
 
     def reload(
@@ -514,6 +789,8 @@ def _verify_manifest(files: Mapping[str, ResourceFile]) -> None:
         raw = files[RESOURCE_MANIFEST_FILENAME].read_bytes()
     except KeyError as error:
         raise ResourcePackError("resource pack has no manifest-v1.json") from error
+    if len(raw) > _RESOURCE_MAX_MANIFEST_BYTES:
+        raise ResourcePackError(f"resource manifest exceeds {_RESOURCE_MAX_MANIFEST_BYTES} bytes")
     try:
         manifest = json.loads(raw)
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
@@ -526,6 +803,8 @@ def _verify_manifest(files: Mapping[str, ResourceFile]) -> None:
     root_digest = manifest.get("root_sha256")
     if not isinstance(entries, list) or not isinstance(root_digest, str):
         raise ResourcePackError("resource manifest has invalid entries")
+    if len(entries) > _RESOURCE_MAX_FILES:
+        raise ResourcePackError(f"resource manifest contains more than {_RESOURCE_MAX_FILES} files")
     normalized: list[dict[str, object]] = []
     paths: set[str] = set()
     for entry in entries:
@@ -534,7 +813,14 @@ def _verify_manifest(files: Mapping[str, ResourceFile]) -> None:
         path, digest, size = entry.get("path"), entry.get("sha256"), entry.get("size")
         if not isinstance(path, str) or _relative_path(path) != path or path == RESOURCE_MANIFEST_FILENAME:
             raise ResourcePackError("resource manifest entry path is invalid")
-        if path in paths or not isinstance(digest, str) or len(digest) != 64 or not isinstance(size, int) or size < 0:
+        if (
+            path in paths
+            or not isinstance(digest, str)
+            or len(digest) != 64
+            or not isinstance(size, int)
+            or isinstance(size, bool)
+            or size < 0
+        ):
             raise ResourcePackError("resource manifest entry is invalid")
         paths.add(path)
         normalized.append({"path": path, "sha256": digest, "size": size})
@@ -569,17 +855,45 @@ def _load_directory(root: Path, origin: str) -> ResourcePack:
     """
     root = root.resolve()
     metadata_path = root / "metadata.yml"
+    if metadata_path.is_symlink():
+        raise ResourcePackError(f"resource pack contains an unsafe file: {metadata_path}")
     if not metadata_path.is_file():
         raise ResourcePackError(f"resource pack has no metadata.yml: {root}")
-    metadata = _read_metadata(metadata_path.read_text(encoding="utf-8"), str(root), root.name)
+    metadata = _read_metadata(
+        _read_limited_path(metadata_path, str(metadata_path)).decode("utf-8"),
+        str(root),
+        root.name,
+    )
     files: dict[str, ResourceFile] = {}
+    file_count = 0
+    total_bytes = 0
     for candidate in root.rglob("*"):
+        if candidate.is_symlink():
+            raise ResourcePackError(f"resource pack contains an unsafe file: {candidate}")
         if candidate.is_dir():
             continue
-        if candidate.is_symlink() or not candidate.resolve().is_relative_to(root):
+        if not candidate.resolve().is_relative_to(root):
             raise ResourcePackError(f"resource pack contains an unsafe file: {candidate}")
         relative = _relative_path(candidate.relative_to(root).as_posix())
-        files[relative] = ResourceFile(metadata.id, relative, candidate.read_bytes)
+        origin = f"{root}:{relative}"
+        declared_size = _path_size(candidate, origin)
+        file_count += 1
+        total_bytes += declared_size
+        _validate_resource_budget(
+            file_count=file_count,
+            total_bytes=total_bytes,
+            file_size=declared_size,
+            origin=str(root),
+        )
+        content = _read_limited_path(candidate, origin, max_bytes=_resource_read_limit(relative))
+        total_bytes = total_bytes - declared_size + len(content)
+        _validate_resource_budget(
+            file_count=file_count,
+            total_bytes=total_bytes,
+            file_size=len(content),
+            origin=str(root),
+        )
+        files[relative] = ResourceFile(metadata.id, relative, partial(bytes, content))
     _verify_manifest(files)
     _validate_icon(metadata, files)
     return ResourcePack(metadata, files)
@@ -602,8 +916,14 @@ def _load_traversable(root: resources.abc.Traversable, origin: str) -> ResourceP
     metadata_file = root.joinpath("metadata.yml")
     if not metadata_file.is_file():
         raise ResourcePackError(f"resource pack has no metadata.yml: {origin}")
-    metadata = _read_metadata(metadata_file.read_text(encoding="utf-8"), origin, origin.rsplit(":", 1)[-1])
+    metadata = _read_metadata(
+        _read_limited_traversable(metadata_file, f"{origin}:metadata.yml").decode("utf-8"),
+        origin,
+        origin.rsplit(":", 1)[-1],
+    )
     files: dict[str, ResourceFile] = {}
+    file_count = 0
+    total_bytes = 0
 
     def visit(node: resources.abc.Traversable, prefix: str = "") -> None:
         """Implement the visit operation for the load traversable.
@@ -620,12 +940,26 @@ def _load_traversable(root: resources.abc.Traversable, origin: str) -> ResourceP
             `_relative_path`, `is_dir`, `visit` while keeping intermediate state local to the owning
             operation.
         """
+        nonlocal file_count, total_bytes
         for child in node.iterdir():
             relative = _relative_path(f"{prefix}/{child.name}" if prefix else child.name)
             if child.is_dir():
                 visit(child, relative)
             elif child.is_file():
-                files[relative] = ResourceFile(metadata.id, relative, child.read_bytes)
+                content = _read_limited_traversable(
+                    child,
+                    f"{origin}:{relative}",
+                    max_bytes=_resource_read_limit(relative),
+                )
+                file_count += 1
+                total_bytes += len(content)
+                _validate_resource_budget(
+                    file_count=file_count,
+                    total_bytes=total_bytes,
+                    file_size=len(content),
+                    origin=origin,
+                )
+                files[relative] = ResourceFile(metadata.id, relative, partial(bytes, content))
 
     visit(root)
     _verify_manifest(files)
@@ -646,26 +980,70 @@ def _load_zip(path: Path) -> ResourcePack:
         Internal implementation detail for `_load_zip`. It delegates to `infolist`, `is_dir`, `items`,
         `_relative_path` while keeping intermediate state local to the owning operation.
     """
+    _validate_zip_directory_budget(path)
     try:
         with zipfile.ZipFile(path) as archive:
-            entries = {entry.filename: entry for entry in archive.infolist() if not entry.is_dir()}
-            for name, entry in entries.items():
-                _relative_path(name)
+            entries: dict[str, zipfile.ZipInfo] = {}
+            normalized_names: set[str] = set()
+            file_count = 0
+            total_bytes = 0
+            total_compressed_bytes = 0
+            for entry in archive.infolist():
+                if entry.is_dir():
+                    continue
+                name = entry.filename
+                if name in entries:
+                    raise ResourcePackError(f"resource ZIP contains duplicate file: {name}")
+                normalized = _relative_path(name)
+                if normalized in normalized_names:
+                    raise ResourcePackError(f"resource ZIP contains duplicate path: {normalized}")
+                file_count += 1
+                total_bytes += entry.file_size
+                total_compressed_bytes += entry.compress_size
+                _validate_resource_budget(
+                    file_count=file_count,
+                    total_bytes=total_bytes,
+                    file_size=entry.file_size,
+                    origin=str(path),
+                )
+                if total_compressed_bytes > _RESOURCE_MAX_COMPRESSED_BYTES:
+                    raise ResourcePackError(
+                        f"resource ZIP exceeds {_RESOURCE_MAX_COMPRESSED_BYTES} compressed bytes: {path}"
+                    )
+                if normalized == RESOURCE_MANIFEST_FILENAME and entry.file_size > _RESOURCE_MAX_MANIFEST_BYTES:
+                    raise ResourcePackError(f"resource manifest exceeds {_RESOURCE_MAX_MANIFEST_BYTES} bytes")
+                if entry.file_size and (
+                    entry.compress_size == 0
+                    or entry.file_size / entry.compress_size > _RESOURCE_MAX_COMPRESSION_RATIO
+                ):
+                    raise ResourcePackError(f"resource ZIP compression ratio is unsafe: {name}")
                 mode = entry.external_attr >> 16
                 if mode and mode & 0o170000 == 0o120000:
                     raise ResourcePackError(f"resource ZIP contains a symbolic link: {path}")
+                entries[name] = entry
+                normalized_names.add(normalized)
             metadata_entry = entries.get("metadata.yml")
             if metadata_entry is None:
                 raise ResourcePackError(f"resource ZIP has no metadata.yml: {path}")
-            metadata = _read_metadata(archive.read(metadata_entry).decode("utf-8"), str(path), path.stem)
+            contents: dict[str, bytes] = {}
+            actual_total_bytes = 0
+            for name, entry in entries.items():
+                content = archive.read(entry)
+                if len(content) != entry.file_size:
+                    raise ResourcePackError(f"resource ZIP entry size does not match: {name}")
+                actual_total_bytes += len(content)
+                _validate_resource_budget(
+                    file_count=file_count,
+                    total_bytes=actual_total_bytes,
+                    file_size=len(content),
+                    origin=str(path),
+                )
+                contents[name] = content
+            metadata = _read_metadata(contents["metadata.yml"].decode("utf-8"), str(path), path.stem)
     except zipfile.BadZipFile as error:
         raise ResourcePackError(f"resource ZIP is invalid: {path}") from error
     files = {
-        _relative_path(name): ResourceFile(
-            metadata.id,
-            _relative_path(name),
-            partial(_read_zip_entry, path, name),
-        )
+        _relative_path(name): ResourceFile(metadata.id, _relative_path(name), partial(bytes, contents[name]))
         for name in entries
     }
     _verify_manifest(files)
@@ -706,62 +1084,49 @@ def _validate_icon(metadata: ResourcePackMetadata, files: Mapping[str, ResourceF
         raise ResourcePackError("resource pack icon must include an alpha channel")
 
 
-def _read_zip_entry(path: Path, name: str) -> bytes:
-    """Read zip entry.
-
-    Args:
-        path: Filesystem or logical resource path.
-        name: Stable name used to identify the value.
-
-    Returns:
-        The `bytes` result produced by the operation.
-
-    Notes:
-        Internal implementation detail for `_read_zip_entry`. It delegates to `read` while keeping
-        intermediate state local to the owning operation.
-    """
-    with zipfile.ZipFile(path) as archive:
-        return archive.read(name)
-
-
-def _load_workspace_packs(workspace: Path) -> list[ResourcePack]:
+def _load_workspace_packs(workspace: Path) -> Iterator[ResourcePack]:
     """Load workspace packs.
 
     Args:
         workspace: The workspace value used by the operation.
 
     Returns:
-        The `list[ResourcePack]` result produced by the operation.
+        An iterator of loaded resource packs.
 
     Notes:
         Internal implementation detail for `_load_workspace_packs`. It delegates to `resolve`, `exists`,
         `loads`, `read_text` while keeping intermediate state local to the owning operation.
     """
     root = workspace.resolve() / "resources"
+    if root.is_symlink():
+        raise ResourcePackError(f"resource root is an unsafe file: {root}")
     index = root / "index.json"
+    if index.is_symlink():
+        raise ResourcePackError(f"resource index is an unsafe file: {index}")
     if not index.exists():
-        return []
+        return
     try:
-        requested = json.loads(index.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raw_index = _read_limited_path(index, f"resource index: {index}", max_bytes=_RESOURCE_MAX_INDEX_BYTES)
+        requested = json.loads(raw_index.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise ResourcePackError(f"cannot read resource index: {index}") from error
     if not isinstance(requested, list) or any(not isinstance(item, str) for item in requested):
         raise ResourcePackError("resource index must be a list of pack names")
+    if len(requested) > _RESOURCE_CATALOG_MAX_PACKS:
+        raise ResourcePackError(f"resource index contains more than {_RESOURCE_CATALOG_MAX_PACKS} pack names")
     if len(set(requested)) != len(requested):
         raise ResourcePackError("resource index must not contain duplicate pack names")
-    packs: list[ResourcePack] = []
     for name in requested:
         relative = _relative_path(name)
         candidate = (root / relative).resolve()
         if not candidate.is_relative_to(root.resolve()):
             raise ResourcePackError(f"resource index escapes its workspace: {name}")
         if candidate.is_dir():
-            packs.append(_load_directory(candidate, "workspace"))
+            yield _load_directory(candidate, "workspace")
         elif candidate.is_file() and candidate.suffix.lower() == ".zip":
-            packs.append(_load_zip(candidate))
+            yield _load_zip(candidate)
         else:
             raise ResourcePackError(f"resource pack listed by index does not exist: {name}")
-    return packs
 
 
 __all__ = [

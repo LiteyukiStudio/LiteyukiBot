@@ -39,6 +39,34 @@ def test_workspace_init_rejects_invalid_logging_values_without_writing(tmp_path:
     assert not (tmp_path / "liteyuki.toml").exists()
 
 
+def test_workspace_init_rejects_a_resource_root_symlink(tmp_path: Path) -> None:
+    external = tmp_path / "external"
+    external.mkdir()
+    try:
+        (tmp_path / "resources").symlink_to(external, target_is_directory=True)
+    except OSError:
+        pytest.skip("symbolic links are unavailable in this test environment")
+
+    with pytest.raises(ConfigurationError, match="must not be a symlink"):
+        ConfigWorkspace(tmp_path).initialize()
+    assert not (tmp_path / "liteyuki.toml").exists()
+
+
+def test_workspace_init_rejects_a_resource_index_symlink(tmp_path: Path) -> None:
+    resources = tmp_path / "resources"
+    resources.mkdir()
+    external = tmp_path / "external-index.json"
+    external.write_text("[]\n", encoding="utf-8")
+    try:
+        (resources / "index.json").symlink_to(external)
+    except OSError:
+        pytest.skip("symbolic links are unavailable in this test environment")
+
+    with pytest.raises(ConfigurationError, match="must not be a symlink"):
+        ConfigWorkspace(tmp_path).initialize()
+    assert not (tmp_path / "liteyuki.toml").exists()
+
+
 def test_outdated_workspace_config_is_backed_up_and_blocks_start(tmp_path: Path) -> None:
     config = tmp_path / "liteyuki.toml"
     original = "[core]\nqueue_capacity = 1\nobsolete_field = true\n"

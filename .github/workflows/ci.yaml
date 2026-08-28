@@ -44,7 +44,7 @@ jobs:
           uv run liteyuki --workspace tmp/ci-workspace check
           uv run ruff check src tests scripts packages
           uv run mypy
-          uv run pytest
+          uv run pytest --cov --cov-report=term-missing
           uv run pip-audit --local --progress-spinner off --vulnerability-service osv
       - name: Build all target distributions
         working-directory: LiteyukiBot
