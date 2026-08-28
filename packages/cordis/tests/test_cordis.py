@@ -76,6 +76,27 @@ async def test_scope_rejects_missing_and_cyclic_providers() -> None:
 
 
 @pytest.mark.asyncio
+async def test_scope_deduplicates_concurrent_provider_resolution() -> None:
+    scope = Scope(plugin_id="test")
+    provided = object()
+    calls = 0
+
+    async def provider() -> object:
+        nonlocal calls
+        calls += 1
+        await asyncio.sleep(0)
+        return provided
+
+    scope.provide("service", provider)
+    first, second = await asyncio.gather(scope.use("service"), scope.use("service"))
+
+    assert first is provided
+    assert second is provided
+    assert calls == 1
+    await scope.aclose()
+
+
+@pytest.mark.asyncio
 async def test_manager_runs_ordered_handlers_and_binds_emitted_actions() -> None:
     manager = CordisManager(EventBus(), _Actions())
     seen: list[str] = []
@@ -109,6 +130,40 @@ async def test_manager_runs_ordered_handlers_and_binds_emitted_actions() -> None
     assert result.failures == ()
     assert result.actions[0].event_id == source.id
     await manager.aclose()
+
+
+@pytest.mark.asyncio
+async def test_manager_propagates_failures_and_direct_action_results_through_event_bus() -> None:
+    bus = EventBus()
+    manager = CordisManager(bus, _Actions())
+
+    async def factory(scope: Scope) -> None:
+        async def failing(session: CordisSession) -> None:
+            source = session.event.envelope
+            await session.execute(
+                ActionEnvelope(
+                    runtime_id=source.runtime_id,
+                    bot_id=source.bot_id,
+                    action=SendMessage(
+                        message=Message(segments=(Segment(type="text", data={"text": "ok"}),)),
+                        conversation=source.conversation,
+                    ),
+                )
+            )
+            raise RuntimeError("boom")
+
+        scope.on(failing)
+
+    await manager.activate("test", factory)
+    await manager.start()
+    result = await bus.publish(_event())
+
+    assert [(failure.kind, failure.handler) for failure in result.failures] == [("error", "cordis.manager")]
+    assert len(result.action_results) == 1
+    assert result.action_results[0].success
+
+    await manager.aclose()
+    await bus.aclose()
 
 
 def test_discovery_loads_only_explicit_plugins_in_configuration_order(monkeypatch: pytest.MonkeyPatch) -> None:

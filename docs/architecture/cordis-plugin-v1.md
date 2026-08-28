@@ -7,8 +7,9 @@ composition layer over the kernel EventBus and ActionService.
 
 `Scope` provides `child`, `provide`, `use`, `own`, `on` and `aclose`.
 `CordisManager` provides `activate`, `start`, `dispatch` and `aclose`.
-Providers are lazy, scoped and cycle-checked. Owned resources close in reverse
-order. Ordered event handlers stop after the first failure.
+Providers are lazy, scoped and cycle-checked. Concurrent requests share one
+provider resolution. Owned resources close in reverse order. Ordered event
+handlers stop after the first failure and report it through `DispatchResult`.
 
 The manager activates the built-in feature chain in this order:
 

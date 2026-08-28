@@ -14,7 +14,8 @@ transport objects do not belong in this tree.
 Use the root checks after changing this directory:
 
 ```bash
-uv run liteyuki check
+uv run liteyuki --workspace tmp/src-check-workspace init
+uv run liteyuki --workspace tmp/src-check-workspace check
 uv run ruff check src tests
 uv run mypy
 uv run pytest tests

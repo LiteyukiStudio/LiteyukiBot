@@ -19,6 +19,7 @@ Run from the repository root:
 ```bash
 uv sync --locked --all-packages
 uv run python scripts/check_release.py
+uv run --group release python -m scripts.alpha_release check-source
 uv build --all-packages --out-dir dist/workspace --clear
 uv run python -m scripts.run_kernel_install
 uv run python -m scripts.run_cordis_install

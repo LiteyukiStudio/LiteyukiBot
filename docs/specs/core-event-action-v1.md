@@ -28,5 +28,10 @@ The bounded `EventBus` preserves FIFO processing for each runtime, bot and
 conversation key. Capacity, enqueue timeout, handler timeout and concurrency
 come from `[core]` configuration.
 
+Handlers may report structured failures and action results in `HandlerResult`.
+`EventBus` includes those reports in `DispatchResult`; hosts must inspect the
+returned status and failures instead of treating every completed coroutine as a
+successful handler execution.
+
 Evidence: `packages/kernel/src/liteyukibot_kernel/events/` and the kernel and
 OneBot package tests.

@@ -21,6 +21,17 @@ def test_workspace_init_creates_current_valid_template(tmp_path: Path) -> None:
     assert settings.commands.prefixes == ("/",)
 
 
+def test_relative_environment_paths_use_the_primary_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    config = ConfigWorkspace(tmp_path).initialize()
+    other_directory = tmp_path / "other"
+    other_directory.mkdir()
+    monkeypatch.chdir(other_directory)
+
+    settings = load_settings(config, environ={"LITEYUKI__CORE__DATA_DIR": "relative-data"})
+
+    assert settings.core.data_dir == (tmp_path / "relative-data").resolve()
+
+
 def test_workspace_init_rejects_invalid_logging_values_without_writing(tmp_path: Path) -> None:
     with pytest.raises(ValidationError):
         ConfigWorkspace(tmp_path).initialize(payload_mode="everything")

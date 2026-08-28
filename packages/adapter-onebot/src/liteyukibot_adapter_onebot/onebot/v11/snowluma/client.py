@@ -20,6 +20,8 @@ from .settings import SnowLumaAccountSettings
 CONNECT_TIMEOUT_SECONDS = 30.0
 ACTION_TIMEOUT_SECONDS = 30.0
 RECONNECT_DELAY_SECONDS = 5.0
+_EVENT_QUEUE_CAPACITY = 1024
+_MAX_REPLY_ROUTES = 4096
 _MAX_MESSAGE_BYTES = 1024 * 1024
 
 EventHandler = Callable[[EventEnvelope], Awaitable[object] | object]
@@ -49,7 +51,7 @@ class SnowLumaClient:
         self._connected = asyncio.Event()
         self._pending: dict[str, asyncio.Future[dict[str, Any]]] = {}
         self._reply_routes: dict[str, ConversationRef] = {}
-        self._events: asyncio.Queue[EventEnvelope] = asyncio.Queue()
+        self._events: asyncio.Queue[EventEnvelope] = asyncio.Queue(maxsize=_EVENT_QUEUE_CAPACITY)
         self._event_dispatch_task: asyncio.Task[None] | None = None
         self._closed = True
 
@@ -76,7 +78,7 @@ class SnowLumaClient:
             return
         self._closed = False
         self._connected.clear()
-        self._events = asyncio.Queue()
+        self._events = asyncio.Queue(maxsize=_EVENT_QUEUE_CAPACITY)
         self._event_dispatch_task = asyncio.create_task(
             self._dispatch_events(), name=f"onebot-snowluma-events-{self.self_id}"
         )
@@ -176,15 +178,15 @@ class SnowLumaClient:
         while not self._closed:
             disconnect_error: BaseException | None = None
             try:
-                async with asyncio.timeout(CONNECT_TIMEOUT_SECONDS):
-                    async with websocket_client.connect(
-                        self.settings.ws_url,
-                        additional_headers=headers,
-                        max_size=_MAX_MESSAGE_BYTES,
-                    ) as connection:
-                        self._connection = connection
-                        self._connected.set()
-                        await self._consume(connection)
+                async with websocket_client.connect(
+                    self.settings.ws_url,
+                    additional_headers=headers,
+                    max_size=_MAX_MESSAGE_BYTES,
+                    open_timeout=CONNECT_TIMEOUT_SECONDS,
+                ) as connection:
+                    self._connection = connection
+                    self._connected.set()
+                    await self._consume(connection)
             except asyncio.CancelledError:
                 raise
             except Exception as error:
@@ -231,8 +233,13 @@ class SnowLumaClient:
             if event is None or self.on_event is None:
                 continue
             if event.reply_token is not None:
-                self._reply_routes[event.reply_token] = event.conversation
+                self._remember_reply_route(event.reply_token, event.conversation)
             await self._events.put(event)
+
+    def _remember_reply_route(self, token: str, conversation: ConversationRef) -> None:
+        self._reply_routes[token] = conversation
+        if len(self._reply_routes) > _MAX_REPLY_ROUTES:
+            self._reply_routes.pop(next(iter(self._reply_routes)))
 
     async def _dispatch_events(self) -> None:
         while not self._closed:

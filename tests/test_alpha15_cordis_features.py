@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 from liteyukibot_cordis import CordisManager, CordisSession, Scope
@@ -12,6 +13,8 @@ from liteyukibot_kernel.events import (
     ConversationRef,
     EventBus,
     EventEnvelope,
+    HandlerFailure,
+    HandlerResult,
     Message,
     Segment,
     SendMessage,
@@ -21,6 +24,8 @@ from liteyukibot_kernel.status import KernelStatusSnapshot
 
 from liteyukibot.features.catalog import activate_builtin_features, feature_order
 from liteyukibot.features.commands import ArgumentSpec, CommandSchema, OptionSpec, integer_value, parse_command
+from liteyukibot.features.commands_models import CommandInvocation, CommandSpec
+from liteyukibot.features.commands_service import create_command_service
 from liteyukibot.features.common import SERVICE_REGISTRY, NullTranslator
 from liteyukibot.features.permissions import PERMISSION_SERVICE, create_permission_service
 from liteyukibot.features.profile import PROFILE_DATABASE, PROFILE_SERVICE
@@ -78,6 +83,23 @@ def test_command_parser_handles_typed_arguments_and_options() -> None:
     parsed = parse_command("3 --limit 5", schema)
     assert parsed.arguments == {"count": 3}
     assert parsed.options == {"limit": 5}
+
+
+@pytest.mark.asyncio
+async def test_command_service_preserves_handler_outcomes() -> None:
+    service = create_command_service({}, create_permission_service({}), _Logger())
+    failure = HandlerFailure(handler="command.handler", kind="error", message="partial")
+    action_result = ActionResult(action_id="action", success=False, error_code="rejected")
+
+    async def handler(_invocation: CommandInvocation) -> HandlerResult:
+        return HandlerResult(action_results=(action_result,), failures=(failure,))
+
+    service.register(CommandSpec("ping"), handler, owner="test")
+    result = await service.dispatch(_event("/ping"))
+
+    assert result is not None
+    assert result.action_results == (action_result,)
+    assert result.failures == (failure,)
 
 
 @pytest.mark.asyncio
@@ -163,19 +185,19 @@ async def test_builtin_features_activate_in_dependency_order(tmp_path: Path) -> 
 
 
 class _Logger:
-    def bind(self, **_values: object) -> _Logger:
+    def bind(self, **_values: Any) -> _Logger:
         return self
 
-    def info(self, _message: str, *_args: object, **_values: object) -> None:
+    def info(self, _message: str, *_args: Any, **_values: Any) -> None:
         return None
 
-    def warning(self, _message: str, *_args: object, **_values: object) -> None:
+    def warning(self, message: str, *args: Any, **kwargs: Any) -> None:
         return None
 
-    def exception(self, _message: str, *_args: object, **_values: object) -> None:
+    def exception(self, message: str, *args: Any, **kwargs: Any) -> None:
         return None
 
-    def error(self, _message: str, *_args: object, **_values: object) -> None:
+    def error(self, message: str, *args: Any, **kwargs: Any) -> None:
         return None
 
 

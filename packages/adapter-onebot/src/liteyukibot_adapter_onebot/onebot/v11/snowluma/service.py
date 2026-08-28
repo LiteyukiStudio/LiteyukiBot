@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import inspect
 from collections.abc import Mapping
 from typing import Any
 
@@ -95,9 +94,15 @@ class OneBotService:
         if self.events is None:
             return
         try:
-            result = self.events.publish(event)
-            if inspect.isawaitable(result):
-                await result
+            result = await self.events.publish(event)
+            if result.status != "processed":
+                self._log(
+                    "warning",
+                    "account {} event {} was not accepted by EventBus: {}",
+                    event.runtime_id,
+                    event.id,
+                    result.status,
+                )
         except Exception as error:
             self._log("error", "event {} could not be published: {}", event.id, error)
 

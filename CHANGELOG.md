@@ -1,5 +1,15 @@
 # Changelog
 
+## 7.0.0a15 - 2026-08-28
+
+- reduced the active workspace to the root application, kernel, Cordis, and
+  OneBot adapter distributions;
+- fixed concurrent Cordis provider resolution, idle SnowLuma reconnects,
+  bounded OneBot ingress, action outcome propagation, and Alpha bundle command
+  execution;
+- removed obsolete Alpha13 WebUI, benchmark, daemon launcher, and native
+  plugin documentation from the active tree and retained a short archive note.
+
 ## 7.0.0a13 - Unreleased
 
 - retired the AstrBot, Neo-MoFox, and v6 compatibility packages from the

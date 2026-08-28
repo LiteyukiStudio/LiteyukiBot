@@ -691,8 +691,10 @@ def _load_settings(
     issues: list[ConfigIssue] = []
     loader = _FileLoader(issues, tracker)
     merged: ConfigMap = {}
+    path_base = Path.cwd()
 
     if primary_path is not None:
+        path_base = Path(primary_path).expanduser().resolve(strict=False).parent
         primary_values = loader.load_root(primary_path, require_config_version=True)
         merged = _deep_merge(merged, primary_values)
     for config_path in config_paths:
@@ -700,11 +702,11 @@ def _load_settings(
     environment_values = _environment_layer(os.environ if environ is None else environ, issues)
     if tracker is not None:
         tracker.apply(environment_values, ConfigSource("environment", "LITEYUKI__"))
-    merged = _deep_merge(merged, _resolve_declared_paths(environment_values, Path.cwd()))
+    merged = _deep_merge(merged, _resolve_declared_paths(environment_values, path_base))
     command_line_values = _cli_layer(cli_overrides, issues)
     if tracker is not None:
         tracker.apply(command_line_values, ConfigSource("command_line", "--set"))
-    merged = _deep_merge(merged, _resolve_declared_paths(command_line_values, Path.cwd()))
+    merged = _deep_merge(merged, _resolve_declared_paths(command_line_values, path_base))
     _reject_removed_sections(merged, issues)
 
     try:

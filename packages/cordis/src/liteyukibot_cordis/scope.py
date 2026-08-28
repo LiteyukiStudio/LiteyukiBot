@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import inspect
 from collections.abc import Awaitable, Callable, Hashable, Mapping
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
 from uuid import uuid4
 
 type Provider = Callable[[Scope], Any] | Callable[[], Any]
 type Disposer = Callable[[], Awaitable[None] | None]
+
+_PROVIDER_STACK: ContextVar[tuple[Hashable, ...]] = ContextVar("cordis_provider_stack", default=())
 
 
 class RegistrationSink(Protocol):
@@ -51,7 +55,7 @@ class Scope:
         self._sink: RegistrationSink | None = sink if sink is not None else parent._sink if parent else None
         self._providers: dict[Hashable, Provider] = {}
         self._instances: dict[Hashable, object] = {}
-        self._resolving: list[Hashable] = []
+        self._resolutions: dict[Hashable, asyncio.Task[object]] = {}
         self._disposers: list[Disposer] = []
         self._children: list[Scope] = []
         self._closed = False
@@ -104,6 +108,15 @@ class Scope:
             return
         self._closed = True
         errors: list[BaseException] = []
+        current_task = asyncio.current_task()
+        resolutions = tuple(
+            task for task in self._resolutions.values() if task is not current_task and not task.done()
+        )
+        for task in resolutions:
+            task.cancel()
+        if resolutions:
+            await asyncio.gather(*resolutions, return_exceptions=True)
+        self._resolutions.clear()
         children = tuple(self._children)
         self._children.clear()
         for child in reversed(children):
@@ -130,28 +143,43 @@ class Scope:
     async def _resolve(self, key: Hashable) -> object:
         if key in self._instances:
             return self._instances[key]
-        if key in self._resolving:
-            chain = " -> ".join(repr(item) for item in (*self._resolving, key))
+        stack = _PROVIDER_STACK.get()
+        if key in stack:
+            chain = " -> ".join(repr(item) for item in (*stack, key))
             raise ProviderCycleError(f"Cordis provider dependency cycle: {chain}")
         self._ensure_open()
-        provider = self._providers[key]
-        self._resolving.append(key)
-        try:
+        task = self._resolutions.get(key)
+        if task is None:
+            token = _PROVIDER_STACK.set((*stack, key))
             try:
-                parameters = inspect.signature(provider).parameters
-            except (TypeError, ValueError):
-                value = provider()  # type: ignore[call-arg]
-            else:
-                value = provider(self) if parameters else provider()  # type: ignore[call-arg]
-            if inspect.isawaitable(value):
-                value = await value
-            self._instances[key] = value
-            disposer = _resource_disposer(value)
-            if disposer is not None:
-                self._disposers.append(disposer)
-            return value
-        finally:
-            self._resolving.pop()
+                task = asyncio.create_task(self._resolve_provider(key), name=f"cordis-provider-{key!r}")
+            finally:
+                _PROVIDER_STACK.reset(token)
+            self._resolutions[key] = task
+            task.add_done_callback(lambda completed: self._resolution_done(key, completed))
+        return await asyncio.shield(task)
+
+    async def _resolve_provider(self, key: Hashable) -> object:
+        provider = self._providers[key]
+        try:
+            parameters = inspect.signature(provider).parameters
+        except (TypeError, ValueError):
+            value = provider()  # type: ignore[call-arg]
+        else:
+            value = provider(self) if parameters else provider()  # type: ignore[call-arg]
+        if inspect.isawaitable(value):
+            value = await value
+        self._instances[key] = value
+        disposer = _resource_disposer(value)
+        if disposer is not None:
+            self._disposers.append(disposer)
+        return value
+
+    def _resolution_done(self, key: Hashable, task: asyncio.Future[object]) -> None:
+        if self._resolutions.get(key) is task:
+            del self._resolutions[key]
+        with contextlib.suppress(asyncio.CancelledError):
+            task.exception()
 
     def _find_provider_owner(self, key: Hashable) -> Scope | None:
         scope: Scope | None = self

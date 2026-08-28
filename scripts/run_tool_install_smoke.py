@@ -8,6 +8,9 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from scripts.bundles import BUNDLE_VERSION
+from scripts.run_isolated_install import _clean_environment
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -51,7 +54,7 @@ def main() -> int:
         root = Path(directory)
         tool_directory = root / "tools"
         workspace = root / "workspace"
-        environment = os.environ.copy()
+        environment = _clean_environment(os.environ)
         environment["UV_TOOL_DIR"] = str(tool_directory)
         bin_directory = Path(_run([uv, "tool", "dir", "--bin"], cwd=root, environment=environment).stdout.strip())
         environment["PATH"] = os.pathsep.join((str(bin_directory), environment.get("PATH", "")))
@@ -76,8 +79,8 @@ def main() -> int:
             environment=environment,
         )
         version = _run(["liteyuki", "version"], cwd=root, environment=environment).stdout.strip()
-        if not version:
-            raise RuntimeError("installed liteyuki CLI did not report a version")
+        if version != BUNDLE_VERSION:
+            raise RuntimeError(f"installed liteyuki CLI reported {version!r}; expected {BUNDLE_VERSION!r}")
         _run(
             ["liteyuki", "--workspace", str(workspace), "init", "--locale", "en-US"],
             cwd=root,

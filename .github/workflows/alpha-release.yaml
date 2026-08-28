@@ -26,7 +26,7 @@ jobs:
       - name: Validate Alpha source registry
         run: |
           uv run python scripts/check_release.py --tag "$RELEASE_TAG"
-          uv run --group release python scripts/alpha_release.py check-source
+          uv run --group release python -m scripts.alpha_release check-source
       - name: Build target distributions
         run: |
           uv build --project packages/kernel --out-dir dist/alpha
@@ -40,7 +40,7 @@ jobs:
           uv run --no-project --with pip python -m pip download \
             --requirement dist/alpha/dependencies.requirements.txt --dest dist/alpha --no-deps
       - name: Generate bundle evidence
-        run: uv run --group release python scripts/alpha_release.py generate --dist dist/alpha
+        run: uv run --group release python -m scripts.alpha_release generate --dist dist/alpha
       - name: Sign canonical manifest
         run: >-
           uv run --group release sigstore sign
@@ -50,7 +50,7 @@ jobs:
         run: |
           bundle="$(mktemp -d)"
           cp -a dist/alpha/. "$bundle"
-          uv run --group release python scripts/alpha_release.py verify --bundle "$bundle"
+          uv run --group release python -m scripts.alpha_release verify --bundle "$bundle"
           uv run python -m scripts.run_alpha_bundle_installs --bundle "$bundle"
       - name: Create immutable GitHub Release
         env:

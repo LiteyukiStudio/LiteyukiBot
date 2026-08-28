@@ -40,8 +40,9 @@ written permission before public distribution.
 
 `ws://` URLs are accepted only for loopback endpoints; remote endpoints must
 use `wss://`. When configured, the token is sent as
-`Authorization: Bearer <access_token>`. Connect and action calls have fixed
-30-second timeouts and reconnect after 5 seconds.
+`Authorization: Bearer <access_token>`. WebSocket handshakes and action calls
+have fixed 30-second timeouts; a healthy connected socket remains open and
+reconnects after an actual disconnect.
 
 ## Development
 

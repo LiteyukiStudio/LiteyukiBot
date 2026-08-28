@@ -7,7 +7,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from liteyukibot_kernel.events import EventEnvelope, HandlerResult
+from liteyukibot_kernel.events import EventEnvelope, HandlerFailure, HandlerResult
 from liteyukibot_kernel.services import ServiceKey
 
 from .commands_models import (
@@ -428,14 +428,23 @@ class _CommandService:
             result: Any = registered.handler(invocation)
             if inspect.isawaitable(result):
                 result = await result
-        except Exception:
+        except Exception as error:
             self._logger.exception(
                 "command {} handler owned by {} failed",
                 spec.name,
                 registered.registration.owner,
                 event_id=event.id,
             )
-            return HandlerResult(stop_propagation=True)
+            return HandlerResult(
+                failures=(
+                    HandlerFailure(
+                        handler=f"command:{spec.name}",
+                        kind="error",
+                        message=f"{type(error).__name__}: {error}",
+                    ),
+                ),
+                stop_propagation=True,
+            )
         if result is None:
             return HandlerResult(stop_propagation=True)
         if not isinstance(result, HandlerResult):
@@ -446,8 +455,22 @@ class _CommandService:
                 type(result).__name__,
                 event_id=event.id,
             )
-            return HandlerResult(stop_propagation=True)
-        return HandlerResult(actions=result.actions, stop_propagation=True)
+            return HandlerResult(
+                failures=(
+                    HandlerFailure(
+                        handler=f"command:{spec.name}",
+                        kind="invalid_result",
+                        message=f"expected HandlerResult or None, got {type(result).__name__}",
+                    ),
+                ),
+                stop_propagation=True,
+            )
+        return HandlerResult(
+            actions=result.actions,
+            action_results=result.action_results,
+            failures=result.failures,
+            stop_propagation=True,
+        )
 
     def _allows(self, event: EventEnvelope, spec: CommandSpec) -> bool:
         """Determine whether the command service operation is allowed.

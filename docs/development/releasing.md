@@ -21,7 +21,8 @@ Use CPython 3.14 and uv:
 
 ```bash
 uv sync --locked --all-packages
-uv run liteyuki check
+uv run liteyuki --workspace tmp/release-workspace init
+uv run liteyuki --workspace tmp/release-workspace check
 uv run ruff check src tests scripts examples packages
 uv run mypy
 uv run pytest
@@ -33,8 +34,8 @@ uv run python -m scripts.run_tool_install_smoke
 ```
 
 `uv run python scripts/check_release.py` and
-`uv run --group release python scripts/alpha_release.py check-source` must
-pass before building the bundle. The CI workflow is the authoritative complete
+`uv run --group release python -m scripts.alpha_release check-source` must pass
+before building the bundle. The CI workflow is the authoritative complete
 sequence; the Alpha workflow repeats the source, build, manifest, signature,
 offline install, and verification gates.
 

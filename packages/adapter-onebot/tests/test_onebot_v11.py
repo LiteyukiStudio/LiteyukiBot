@@ -4,6 +4,7 @@ import asyncio
 import json
 from typing import Any
 
+import liteyukibot_adapter_onebot.onebot.v11.snowluma.client as client_module
 import pytest
 from liteyukibot_adapter_onebot.onebot.v11 import (
     OneBotService,
@@ -13,16 +14,19 @@ from liteyukibot_adapter_onebot.onebot.v11 import (
     to_onebot_message,
     to_portable_message,
 )
-from liteyukibot_kernel import ActionEnvelope, ConversationRef, Message, Segment, SendMessage
+from liteyukibot_adapter_onebot.onebot.v11.snowluma.client import SnowLumaClient
+from liteyukibot_kernel import ActionEnvelope, ConversationRef, DispatchResult, Message, Segment, SendMessage
 from websockets.asyncio.server import Server, ServerConnection, serve
 
 
 class RecordingEventBus:
-    def __init__(self) -> None:
+    def __init__(self, *, status: str = "processed") -> None:
         self.events: asyncio.Queue[Any] = asyncio.Queue()
+        self.status = status
 
-    async def publish(self, event: Any) -> None:
+    async def publish(self, event: Any) -> DispatchResult:
         await self.events.put(event)
+        return DispatchResult(event_id=event.id, status=self.status)  # type: ignore[arg-type]
 
 
 def _settings(url: str, *, self_id: str = "42", token: str | None = "secret") -> SnowLumaAccountSettings:
@@ -214,3 +218,45 @@ async def test_disconnect_fails_pending_call_and_clears_reply_routes() -> None:
         await service.close()
         server.close()
         await server.wait_closed()
+
+
+@pytest.mark.asyncio
+async def test_snowluma_does_not_reconnect_while_an_endpoint_is_idle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connected = asyncio.Event()
+    connection_count = 0
+
+    async def gateway(connection: ServerConnection) -> None:
+        nonlocal connection_count
+        connection_count += 1
+        connected.set()
+        await connection.wait_closed()
+
+    server = await serve(gateway, "127.0.0.1", 0)
+    monkeypatch.setattr(client_module, "CONNECT_TIMEOUT_SECONDS", 0.05)
+    monkeypatch.setattr(client_module, "RECONNECT_DELAY_SECONDS", 0.01)
+    client = SnowLumaClient(_settings(f"ws://127.0.0.1:{_port(server)}/"))
+    try:
+        await client.start()
+        await asyncio.wait_for(connected.wait(), timeout=1)
+        await asyncio.sleep(0.12)
+        assert client._events.maxsize == client_module._EVENT_QUEUE_CAPACITY
+        assert connection_count == 1
+        assert client.connected
+    finally:
+        await client.close()
+        server.close()
+        await server.wait_closed()
+
+
+def test_snowluma_bounds_retained_reply_routes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(client_module, "_MAX_REPLY_ROUTES", 2)
+    client = SnowLumaClient(_settings("ws://127.0.0.1:3001/"))
+    conversation = ConversationRef(id="2002", type="group")
+
+    client._remember_reply_route("first", conversation)
+    client._remember_reply_route("second", conversation)
+    client._remember_reply_route("third", conversation)
+
+    assert tuple(client.reply_routes) == ("second", "third")

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import io
 import json
+import subprocess
+import sys
 import tarfile
 import zipfile
 from pathlib import Path
@@ -70,6 +72,17 @@ def test_source_registry_matches_alpha15_target() -> None:
     registry = resolve_workspace_registry(ROOT)
     assert {component.distribution for component in registry.components} == TARGET_DISTRIBUTIONS
     assert {component.version for component in registry.components} == {"7.0.0a15"}
+
+
+def test_alpha_release_script_supports_direct_execution() -> None:
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "alpha_release.py"), "check-source"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
 
 
 def test_bundle_manifest_is_canonical_and_verifies_four_artifacts(tmp_path: Path) -> None:

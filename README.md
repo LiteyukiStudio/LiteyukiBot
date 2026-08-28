@@ -34,25 +34,22 @@ features. Satori, NoneBot, the generic runtime bridge, standalone Broker,
 WebUI, Agent, LYF, and native IPC packages are not Alpha15 distributions.
 Historical bridge snapshots remain under `extras/legacy-bridges` only.
 
-## Install And Run
+## Run From A Checkout
 
-Requirements: CPython 3.14 or later and [uv][uv-link].
-
-```bash
-uv tool install --python 3.14 liteyukibot-v7
-mkdir my-bot
-liteyuki --workspace my-bot init
-liteyuki --workspace my-bot check
-liteyuki --workspace my-bot run
-```
-
-For a checkout:
+Requirements: CPython 3.14 or later and [uv][uv-link]. Alpha15 is distributed
+as a signed GitHub Release bundle, not through PyPI. Use the release procedure
+for a verified bundle installation.
 
 ```bash
 uv sync --locked --all-packages
-uv run liteyuki check
-uv run liteyuki run
+uv run liteyuki --workspace my-bot init
+uv run liteyuki --workspace my-bot check
+uv run liteyuki --workspace my-bot run
 ```
+
+For a release install, download and verify the signed bundle, then use the
+staged wheels and dependency closure described in
+[`docs/development/releasing.md`](docs/development/releasing.md).
 
 The generated `liteyuki.toml` is configuration schema 7. Built-in features
 are enabled by the application; configure their sections directly. OneBot is

@@ -397,17 +397,19 @@ class ActionResult(FrozenModel):
         return self
 
 
-class HandlerResult(FrozenModel):
-    """Represent the validated handler result contract."""
-    actions: tuple[ActionEnvelope, ...] = ()
-    stop_propagation: bool = False
-
-
 class HandlerFailure(FrozenModel):
     """Represent the validated handler failure contract."""
     handler: str
     kind: Literal["timeout", "error", "invalid_result"]
     message: str
+
+
+class HandlerResult(FrozenModel):
+    """Represent the validated handler result contract."""
+    actions: tuple[ActionEnvelope, ...] = ()
+    action_results: tuple[ActionResult, ...] = ()
+    failures: tuple[HandlerFailure, ...] = ()
+    stop_propagation: bool = False
 
 
 class DispatchResult(FrozenModel):

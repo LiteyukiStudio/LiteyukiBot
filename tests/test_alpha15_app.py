@@ -44,6 +44,18 @@ async def test_default_workspace_starts_all_required_features(tmp_path: Path) ->
     assert app.status()["state"] == "stopped"
 
 
+@pytest.mark.asyncio
+async def test_custom_profile_database_parent_is_created(tmp_path: Path) -> None:
+    config = ConfigWorkspace(tmp_path).initialize(profile={"database": "nested/profile.sqlite3"})
+    app = LiteyukiApp(load_settings(config, environ={}), resource_workspace=tmp_path)
+
+    await app.start()
+    try:
+        assert (tmp_path / "nested" / "profile.sqlite3").is_file()
+    finally:
+        await app.stop()
+
+
 def test_onebot_account_key_is_preserved_as_runtime_identity(tmp_path: Path) -> None:
     config = ConfigWorkspace(tmp_path).initialize(
         onebot={

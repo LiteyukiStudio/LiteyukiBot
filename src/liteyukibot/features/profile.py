@@ -38,6 +38,7 @@ async def activate(scope: Scope) -> None:
     if not isinstance(raw_database, (str, Path)):
         raise TypeError("profile database path must be a string or Path")
     database = Path(raw_database)
+    database.parent.mkdir(parents=True, exist_ok=True)
     service = SQLiteProfileService(database)
     try:
         registration = resources.register(

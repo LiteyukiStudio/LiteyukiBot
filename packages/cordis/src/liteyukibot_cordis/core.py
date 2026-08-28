@@ -8,7 +8,15 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Protocol, cast
 
-from liteyukibot_kernel.events import ActionEnvelope, ActionResult, EventBus, EventEnvelope, HandlerResult, Subscription
+from liteyukibot_kernel.events import (
+    ActionEnvelope,
+    ActionResult,
+    EventBus,
+    EventEnvelope,
+    HandlerFailure,
+    HandlerResult,
+    Subscription,
+)
 
 from .scope import Disposer, RegistrationSink, Scope
 
@@ -165,7 +173,10 @@ class CordisManager(RegistrationSink):
 
     async def _handle_event(self, envelope: EventEnvelope) -> HandlerResult:
         result = await self.dispatch(envelope)
-        return HandlerResult(actions=result.actions)
+        failures = tuple(
+            HandlerFailure(handler="cordis.manager", kind="error", message=failure) for failure in result.failures
+        )
+        return HandlerResult(actions=result.actions, action_results=result.action_results, failures=failures)
 
     async def aclose(self) -> None:
         if self._closed:
