@@ -7,9 +7,8 @@ import json
 import os
 import shutil
 import subprocess
-import sys
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -75,21 +74,6 @@ def _manifest(bundle: Path) -> list[Mapping[str, object]]:
     return [cast(Mapping[str, object], item) for item in artifacts]
 
 
-def _native_wheel(candidates: Sequence[Path]) -> Path:
-    if len(candidates) == 1:
-        return candidates[0]
-    if sys.platform == "win32":
-        markers = ("win_amd64", "win32")
-    elif sys.platform == "darwin":
-        markers = ("macosx",)
-    else:
-        markers = ("manylinux", "linux_")
-    matching = tuple(path for path in candidates if any(marker in path.name.lower() for marker in markers))
-    if len(matching) != 1:
-        raise AlphaReleaseError(f"bundle has no unique native wheel for {sys.platform}")
-    return matching[0]
-
-
 def wheels_for(bundle: Path, distribution: str) -> tuple[Path, ...]:
     """Return the staged wheels suitable for one verifier on this platform."""
 
@@ -106,8 +90,6 @@ def wheels_for(bundle: Path, distribution: str) -> tuple[Path, ...]:
         candidates.append(wheel)
     if not candidates:
         raise AlphaReleaseError(f"Alpha bundle is missing a wheel for {distribution}")
-    if distribution == "liteyukibot-v7-ipc-native":
-        return (_native_wheel(candidates),)
     if len(candidates) != 1:
         raise AlphaReleaseError(f"Alpha bundle has multiple wheels for {distribution}")
     return tuple(candidates)
@@ -139,34 +121,6 @@ def run(bundle: Path) -> None:
     with tempfile.TemporaryDirectory(prefix="liteyuki-alpha-bundle-") as directory:
         for verification in VERIFICATIONS:
             subprocess.run(command_for(bundle, verification, uv), cwd=directory, env=environment, check=True)
-        reference = _REGISTRY.reference_e2e_component
-        reference_distributions = tuple(
-            _REGISTRY.by_component_id[component_id].distribution
-            for component_id in reference.policy.reference_e2e_components
-        )
-        e2e_command = [
-            uv,
-            "run",
-            "--no-project",
-            "--python",
-            "3.14",
-            "--no-index",
-            "--find-links",
-            str(bundle.resolve()),
-        ]
-        for distribution in reference_distributions:
-            e2e_command.extend(("--with", str(wheels_for(bundle, distribution)[0].resolve())))
-        e2e_command.extend(
-            [
-            "python",
-            str((ROOT / "scripts" / "run_nonebot_plugin_e2e.py").resolve()),
-            "--wheel-dir",
-            str(bundle.resolve()),
-            "--workspace",
-            str((Path(directory) / "nonebot-e2e").resolve()),
-            ]
-        )
-        subprocess.run(e2e_command, cwd=directory, env=environment, check=True)
 
 
 def main() -> int:

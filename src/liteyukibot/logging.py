@@ -159,7 +159,7 @@ def log_payload(
         None.
     """
 
-    if settings.payload_mode != "full" or (runtime_id is not None and runtime_id in settings.payload_exclude_runtimes):
+    if settings.payload_mode != "full":
         return
     logger.bind(
         component="payload",

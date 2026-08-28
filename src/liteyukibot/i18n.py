@@ -9,8 +9,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from liteyukibot_kernel import ServiceKey
+
 from .resource_packs import ResourceCatalog
-from .services import ServiceKey
 
 DEFAULT_LOCALE = "en-US"
 SUPPORTED_LOCALES = ("en-US", "zh-CN")

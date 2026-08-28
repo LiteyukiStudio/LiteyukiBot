@@ -27,13 +27,17 @@ def main() -> int:
     command = [uv, "run", "--no-project", "--python", "3.14"]
     for distribution in (
         "liteyukibot_v7_kernel",
-        "liteyukibot_v7_broker",
-        "liteyukibot_v7",
-        "liteyukibot_v7_runtime_adapter",
         "liteyukibot_v7_adapter_onebot",
     ):
         command.extend(("--with", str(_one_wheel(distribution))))
-    command.extend(("python", str(ROOT / "scripts" / "verify_onebot_adapter_install.py")))
+    command.extend(
+        (
+            "python",
+            str(ROOT / "scripts" / "verify_onebot_adapter_install.py"),
+            "--expected-version",
+            "7.0.0a15",
+        )
+    )
     with tempfile.TemporaryDirectory() as directory:
         subprocess.run(command, cwd=directory, env=_clean_environment(os.environ), check=True)
     return 0

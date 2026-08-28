@@ -115,14 +115,15 @@ class ConfigWorkspace:
         logging_console: bool = True,
         logging_json_lines: bool = False,
         payload_mode: str = "metadata",
-        payload_exclude_runtimes: tuple[str, ...] = (),
         locale: str = "auto",
-        plugins: tuple[str, ...] = (),
-        plugin_config: dict[str, dict[str, Any]] | None = None,
         cordis_plugins: tuple[str, ...] = (),
         cordis_config: dict[str, Any] | None = None,
-        runtimes: dict[str, dict[str, Any]] | None = None,
-        runtime_event_routes: tuple[dict[str, Any], ...] = (),
+        permissions: dict[str, Any] | None = None,
+        commands: dict[str, Any] | None = None,
+        resources: dict[str, Any] | None = None,
+        profile: dict[str, Any] | None = None,
+        essentials: dict[str, Any] | None = None,
+        onebot: dict[str, Any] | None = None,
     ) -> Path:
         """Initialize the config workspace operation.
 
@@ -133,14 +134,15 @@ class ConfigWorkspace:
             logging_console: The logging console value used by the operation.
             logging_json_lines: The logging json lines value used by the operation.
             payload_mode: The payload mode value used by the operation.
-            payload_exclude_runtimes: The payload exclude runtimes value used by the operation.
             locale: The locale value used by the operation.
-            plugins: The plugins value used by the operation.
-            plugin_config: The plugin config value used by the operation.
             cordis_plugins: The cordis plugins value used by the operation.
             cordis_config: The cordis config value used by the operation.
-            runtimes: The runtimes value used by the operation.
-            runtime_event_routes: The runtime event routes value used by the operation.
+            permissions: Direct Permissions package settings.
+            commands: Direct Commands package settings.
+            resources: Direct Resources package settings.
+            profile: Direct Profile package settings.
+            essentials: Direct Essentials package settings.
+            onebot: Adapter-owned OneBot settings.
 
         Returns:
             The `Path` result produced by the operation.
@@ -153,7 +155,6 @@ class ConfigWorkspace:
                 "console": logging_console,
                 "json_lines": logging_json_lines,
                 "payload_mode": payload_mode,
-                "payload_exclude_runtimes": payload_exclude_runtimes,
             }
         )
         self.directory.mkdir(parents=True, exist_ok=True)
@@ -164,18 +165,21 @@ class ConfigWorkspace:
             logging_console=logging.console,
             logging_json_lines=logging.json_lines,
             payload_mode=logging.payload_mode,
-            payload_exclude_runtimes=logging.payload_exclude_runtimes,
             locale=locale,
-            plugins=plugins,
-            plugin_config=plugin_config,
             cordis_plugins=cordis_plugins,
             cordis_config=cordis_config,
+            permissions=permissions,
+            commands=commands,
+            resources=resources,
+            profile=profile,
+            essentials=essentials,
+            onebot=onebot,
         )
         AppSettings.model_validate(tomllib.loads(rendered))
         self.path.write_text(rendered, encoding="utf-8")
-        resources = self.directory / "resources"
-        resources.mkdir(exist_ok=True)
-        index = resources / "index.json"
+        resource_directory = self.directory / "resources"
+        resource_directory.mkdir(exist_ok=True)
+        index = resource_directory / "index.json"
         if not index.exists():
             index.write_text("[]\n", encoding="utf-8")
         return self.path

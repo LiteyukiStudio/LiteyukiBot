@@ -3,48 +3,40 @@
 from __future__ import annotations
 
 import importlib.metadata
+import importlib.util
 import json
 from pathlib import Path
 
 import liteyukibot_cordis
-
-import liteyukibot
-from liteyukibot.config import CordisSettings
-from liteyukibot.events import EventBus
+import liteyukibot_kernel
+from liteyukibot_cordis import CordisManager, Scope
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 
 
-class _Actions:
-    async def execute(self, *_args: object, **_kwargs: object) -> object:
-        raise AssertionError("verification does not execute actions")
-
-
-def verify() -> None:
-    imported = (Path(liteyukibot.__file__).resolve(), Path(liteyukibot_cordis.__file__).resolve())
+def verify(expected_version: str | None = None) -> None:
+    imported = (Path(liteyukibot_cordis.__file__).resolve(), Path(liteyukibot_kernel.__file__).resolve())
     if any(path.is_relative_to(SOURCE_ROOT) for path in imported):
         raise RuntimeError(f"workspace source import detected: {imported}")
+    if importlib.util.find_spec("liteyukibot") is not None:
+        raise RuntimeError("standalone Cordis installation unexpectedly provides the root package")
+    if not callable(CordisManager) or not callable(Scope):
+        raise RuntimeError("Cordis public contracts are incomplete")
 
-    matches = tuple(
-        item for item in importlib.metadata.entry_points(group="liteyukibot.cordis_hosts") if item.name == "python"
-    )
-    if len(matches) != 1:
-        raise RuntimeError(f"expected one Cordis host entry point, found {len(matches)}")
-    factory = matches[0].load()
-    host = factory(events=EventBus(), actions=_Actions(), settings=CordisSettings(), logger=None)
-    if not callable(getattr(host, "start", None)) or not callable(getattr(host, "aclose", None)):
-        raise RuntimeError("Cordis host entry point returned an invalid host")
+    observed = {
+        "liteyukibot-v7-kernel": importlib.metadata.version("liteyukibot-v7-kernel"),
+        "liteyukibot-v7-cordis": importlib.metadata.version("liteyukibot-v7-cordis"),
+    }
+    if expected_version is not None and any(version != expected_version for version in observed.values()):
+        raise RuntimeError(f"expected all Cordis dependencies at {expected_version}; observed {observed}")
 
-    print(
-        json.dumps(
-            {
-                "liteyukibot-v7": importlib.metadata.version("liteyukibot-v7"),
-                "liteyukibot-v7-cordis": importlib.metadata.version("liteyukibot-v7-cordis"),
-            },
-            sort_keys=True,
-        )
-    )
+    print(json.dumps(observed, sort_keys=True))
 
 
 if __name__ == "__main__":
-    verify()
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--expected-version")
+    arguments = parser.parse_args()
+    verify(arguments.expected_version)

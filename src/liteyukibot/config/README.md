@@ -1,16 +1,10 @@
-# Configuration Subsystem
+# Configuration
 
-This package owns typed settings, ordered configuration loading, provenance,
-redaction, workspace initialization, upgrade recovery material, and encrypted
-secret-vault handling.
+This package owns immutable schema-7 settings, ordered TOML/JSON/YAML layers,
+environment and CLI overrides, provenance inspection, redaction, workspace
+initialization and manual upgrade material.
 
-Configuration precedence and operator behavior are specified in
-[`docs/configuration.md`](../../../docs/configuration.md). Keep schema models
-strict and diagnostics redacted. New secret values must remain out of IPC,
-logs, control responses, and exception text.
+Removed sections fail validation. Secrets are redacted by `config show` and
+`config explain`; the configuration layer does not own a credential vault.
 
-Run focused coverage with:
-
-```bash
-uv run pytest tests/test_config_v7.py tests/test_config_initializer.py tests/test_config_inspection.py tests/test_config_vault.py tests/test_config_workspace.py
-```
+Run `uv run pytest tests/test_config_inspection.py tests/test_config_workspace.py`.

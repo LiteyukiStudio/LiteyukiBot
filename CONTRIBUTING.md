@@ -5,18 +5,20 @@
 `main` is the v7 development branch. Start a feature or fix branch from an
 up-to-date `main`; do not merge v6 source or dependencies into v7 wholesale.
 
-Keep one change focused on one kernel contract, package, runtime, test surface,
-or documentation concern. The kernel owns the portable models, runtime IPC,
-configuration, and lifecycle. Framework SDK objects stay in their separately
-published child-runtime packages.
+Keep one change focused on one kernel contract, package, adapter, test surface,
+or documentation concern. The kernel owns portable models, EventBus, actions,
+services, and lifecycle contracts. The root package owns configuration, CLI,
+application composition, and built-in features; framework details stay in the
+owning adapter package.
 
 ## Development Environment
 
 Use CPython 3.14 and uv:
 
 ```bash
-uv sync --locked --all-packages --extra onebot --extra satori
-uv run liteyuki check
+uv sync --locked --all-packages
+uv run liteyuki --workspace tmp/validation-workspace init
+uv run liteyuki --workspace tmp/validation-workspace check
 ```
 
 `uv.lock` is the repository lockfile. Update it only when dependency metadata
@@ -28,11 +30,12 @@ Run the smallest relevant checks while editing, then the repository quality
 suite before opening a pull request:
 
 ```bash
-uv run ruff check src tests scripts examples packages
+uv run ruff check src tests scripts packages
 uv run mypy
 uv run pytest
 uv build
 uv build --all-packages --out-dir dist/workspace --clear
+uv run pip-audit --local --progress-spinner off --vulnerability-service osv
 ```
 
 Changes to package metadata, entry points, release validation, runtime hosts,
@@ -44,14 +47,13 @@ or temporary research artifacts.
 ## Contracts And Tests
 
 Update the relevant specification, architecture guide, or package README when a
-public Event, Action, Broker IPC, configuration, service, or plugin contract
-changes. Keep protocol models JSON-safe and versioned. A bridge must use the
-shared Broker peer contract, declare capabilities explicitly, and never create
-a bridge-to-bridge transport.
+public Event, Action, configuration, service, or plugin contract changes. Keep
+protocol models JSON-safe and versioned. Adapters own protocol details and
+communicate with the kernel through its public event and action contracts.
 
 Add or update focused tests under `tests/` or the owning `packages/*/tests/`
-directory. Test real package entry points and Broker peer behavior where a
-change crosses a process or installation boundary.
+directory. Test real package entry points where a change crosses an
+installation boundary.
 
 ## Pull Requests And Releases
 

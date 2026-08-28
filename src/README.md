@@ -1,37 +1,25 @@
 # Root Composition Source
 
-`src/liteyukibot/` is the branded `liteyukibot-v7` CLI and composition
-distribution. It owns application configuration, native-plugin lifecycle,
-Broker and daemon integration, and the command-line interface. The independent
-contract nucleus lives in `packages/kernel` and is published as
-`liteyukibot-v7-kernel` from the `liteyukibot_kernel` namespace.
+`src/liteyukibot/` is the branded `liteyukibot-v7` application and CLI. It
+owns configuration schema 7, workspace initialization, application lifecycle,
+logging, resource packs, and the built-in Cordis feature catalog. The root
+application depends directly on the independent `liteyukibot-v7-kernel`
+package and does not duplicate its contracts.
 
-Keep framework SDK imports and adapter objects out of this tree. Add a bridge
-or platform integration under `packages/` and exchange only public contracts
-across the Broker boundary.
+The built-in feature modules under `liteyukibot/features/` provide permissions,
+commands, resources, profile, and essentials in one application-owned path.
+The OneBot v11 adapter remains in `packages/adapter-onebot`; framework SDKs and
+transport objects do not belong in this tree.
 
-## Layout
-
-- `app.py` and `plugins.py` currently implement root composition and native
-  plugin lifecycle.
-- `events/`, `services.py`, `tasks.py`, and the other contract modules are
-  compatibility re-exports of `liteyukibot_kernel`.
-- `config/` owns settings, workspace initialization, inspection, and the secret
-  vault.
-- `packages/broker/` owns the authenticated cross-process peer contract;
-  root `broker/` only composes it with AppSettings, Vault, EventBus, and CLI
-  lifecycle concerns.
-- `runtime_api.py` owns the capability-routed provider facade used by plugins.
-- `cli.py` owns the `liteyuki`, `liteyukibot`, and `ly` commands.
-- `builtin_resources/` contains kernel-owned resource-pack assets.
-
-Use the root quality commands after modifying this directory:
+Use the root checks after changing this directory:
 
 ```bash
+uv run liteyuki --workspace tmp/src-check-workspace init
+uv run liteyuki --workspace tmp/src-check-workspace check
 uv run ruff check src tests
 uv run mypy
 uv run pytest tests
 ```
 
-Public contract changes require focused tests and the matching document under
-`docs/specs/`, `docs/architecture/`, or `docs/configuration.md`.
+Public configuration, event, action, service, or plugin changes require a
+focused test and an update to the owning document under `docs/`.

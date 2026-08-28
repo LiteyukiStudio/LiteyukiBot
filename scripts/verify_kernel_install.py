@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 
 import liteyukibot_kernel
-from liteyukibot_kernel import EventBus, RuntimeRequirement, ServiceRegistry
+from liteyukibot_kernel import EventBus, ServiceRegistry, ServiceRequirement
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 
@@ -26,7 +26,7 @@ def verify(*, expected_version: str | None = None) -> None:
     if liteyukibot_kernel.__version__ != installed:
         raise RuntimeError("kernel module and distribution versions disagree")
 
-    if not callable(EventBus) or not callable(ServiceRegistry) or not callable(RuntimeRequirement):
+    if not callable(EventBus) or not callable(ServiceRegistry) or not callable(ServiceRequirement):
         raise RuntimeError("kernel contract exports are incomplete")
 
     print(json.dumps({"liteyukibot-v7-kernel": installed}, sort_keys=True))

@@ -1,30 +1,37 @@
 # Core Event And Action v1
 
-- Specification version: `1`
-- Applies to: current v7 pre-release Event and Action models
-- Compatibility: pre-stable; exact model changes require matching runtime and
-  plugin updates before the first stable v7 release
+The kernel owns immutable, JSON-safe protocol-neutral values. SDK objects,
+transport clients and credentials do not enter these models.
 
-## Contract
+## Event
 
-The kernel owns portable, JSON-safe Event and Action models. Framework SDK
-objects, transport clients, secrets, and arbitrary Python objects never enter
-these models or cross a runtime boundary. Adapters normalize platform input to
-an immutable Event; plugins and runtimes consume that portable value.
+`EventEnvelope` carries a stable ID, `runtime_id`, adapter name, bot identity,
+private or group conversation, optional actor, optional message and a reply
+token. An adapter account configuration key is its `runtime_id`; the protocol
+account identifier is `bot_id`.
 
-An Event has a stable ID, runtime and bot provenance, time, typed segments,
-and optional actor/channel context. An Action describes a requested external
-effect and is routed only to its owning runtime. Event handling and Action
-execution are independent asynchronous outcomes; an Action result is not a
-replacement for Event completion.
+Messages support exactly four segment types:
 
-The current EventBus applies bounded queueing and handler concurrency from
-`core` settings. Overload, timeout, and handler failure are explicit
-outcomes. Producers must not create an unbounded queue or bypass the kernel to
-deliver directly to another runtime.
+- `text` with `data.text`
+- `mention` with `data.user_id` or `data.scope = "all"`
+- `reply` with `data.message_id`
+- `image` with `data.url`
 
-## Evidence
+## Action
 
-The owning models and tests are `src/liteyukibot/events/` and
-`tests/test_events_v7.py`. Cross-process behavior is specified by
-[Broker Peer IPC v6](runtime-ipc-v6.md), not this document.
+Alpha15 supports only `SendMessage`. It requires either an explicit
+conversation or an adapter-issued reply token. Adapter execution must reject
+proactive actions and actions whose event, runtime or bot identity differs from
+the source event.
+
+The bounded `EventBus` preserves FIFO processing for each runtime, bot and
+conversation key. Capacity, enqueue timeout, handler timeout and concurrency
+come from `[core]` configuration.
+
+Handlers may report structured failures and action results in `HandlerResult`.
+`EventBus` includes those reports in `DispatchResult`; hosts must inspect the
+returned status and failures instead of treating every completed coroutine as a
+successful handler execution.
+
+Evidence: `packages/kernel/src/liteyukibot_kernel/events/` and the kernel and
+OneBot package tests.

@@ -1,86 +1,34 @@
 # Cordis Plugin v1
 
-## Status
+Cordis is the only Alpha15 extension system. It is a trusted in-process Python
+composition layer over the kernel EventBus and ActionService.
 
-This is the accepted Beta6 contract, with the B7 extension-topology rules. It describes a
-Python-first in-process plugin model; it is not a promise of JavaScript Cordis
-or Koishi compatibility and does not replace Native Plugin v1.
+## Public Surface
 
-## Distribution And Discovery
+`Scope` provides `child`, `provide`, `use`, `own`, `on` and `aclose`.
+`CordisManager` provides `activate`, `start`, `dispatch` and `aclose`.
+Providers are lazy, scoped and cycle-checked. Concurrent requests share one
+provider resolution. Owned resources close in reverse order. Ordered event
+handlers stop after the first failure and report it through `DispatchResult`.
 
-The implementation is the independently buildable `packages/cordis` package,
-published as `liteyukibot-v7-cordis`. The root kernel must not import this
-package or depend on it in workspace metadata.
+The manager activates the built-in feature chain in this order:
 
-The kernel discovers exactly one Cordis host implementation from
-`liteyukibot.cordis_hosts`. That host adapts the shared EventBus, ActionService,
-logging, and lifecycle without widening Native Plugin v1's `PluginManager`.
-The host discovers plugin factories from `liteyukibot.cordis_plugins`.
+1. permissions
+2. commands
+3. resources
+4. profile
+5. essentials
 
-## Extension identity and coexistence
+These features are part of the root distribution and are not independently
+published or optional.
 
-Cordis Plugin v1 and Native Classic Plugin v1 are independent hosts. Each
-enabled extension declares an ID and a coexistence class. `exclusive` is the
-default: the same ID cannot be active in both hosts. Only matching Native and
-Cordis declarations that both explicitly set `infrastructure` may coexist.
+## Third-Party Discovery
 
-This check prevents accidental dual activation; it does not merge lifecycle,
-services, dependencies, or state across hosts. First-party infrastructure
-extensions must test their dual-host behavior. Third-party coexistence is
-best-effort and remains the extension author's compatibility responsibility.
+Configured plugin IDs are loaded from the `liteyukibot.cordis_plugins` entry
+point group. Only IDs listed in `[cordis].enabled` are loaded, in configuration
+order. Missing, duplicate or non-callable entries fail startup. Each factory
+receives one child scope and its JSON-safe `[cordis.config.<id>]` table.
 
-Cordis is optional. Its root configuration is:
-
-```toml
-[cordis]
-enabled = ["example.plugin"]
-config = { "example.plugin" = { mode = "safe" } }
-```
-
-`enabled` contains plugin IDs and `config` is JSON-safe package configuration.
-No local executable module loading is part of this contract. Disabled Cordis
-must not import or start the host package. A missing or duplicate host is a
-configuration error when Cordis is enabled.
-
-## Author API And Lifecycle
-
-A discovered entry point returns a declarative factory receiving `Scope`.
-`on`, `parallel`, `middleware`, `route(name, predicate, handler)`, and
-`schedule` register the four official composition presets and custom scheduling.
-`use` activates a provider on first use and caches it in the scope that owns
-that provider.
-
-The manager owns a manager scope, one scope per activated plugin, and a child
-scope per event. It detects dependency cycles and closes providers, listeners,
-schedulers, tasks, and other disposers in reverse dependency order. Scope
-closure is idempotent; event closure cannot unload plugin-owned providers.
-
-## Event, Dispatch, And Audit
-
-`CordisEvent` wraps one immutable `EventEnvelope`, exposed as `event.envelope`.
-It never mints a second event identity or mutates the envelope. `CordisSession`
-is a scoped lifecycle and action facade, not a framework SDK object.
-
-| Preset | Failure behavior |
-| --- | --- |
-| Ordered listener | Record failure and stop the current chain. |
-| Parallel fanout | Wait for every branch and aggregate results. |
-| Waterfall middleware | Record failure and stop the current chain. |
-| Directed route | Run matching named routes independently and isolate failure. |
-
-Action failures are dispatch results; no handler or action receives implicit
-retries. Custom schedulers run through the host-managed best-effort task
-wrapper.
-
-Cordis plugins have full in-process access. Beta6 provides only bounded,
-redacted audit records and structured logs for observable operations. It does
-not enforce permissions, consult the Permissions package, or add WebUI/CLI
-audit queries. Audit records exclude payloads, credentials, and configuration.
-
-## Non-Goals
-
-- JavaScript Cordis/Koishi compatibility or platform Session/Bot objects.
-- A Rust/PyO3 runtime, supervised catcher child, or second kernel.
-- Permission enforcement, Function DSL, implicit retries, HMR, or marketplace.
-- A promise that arbitrary third-party extensions can run concurrently in both
-  Native and Cordis hosts.
+There is no separate Cordis host entry point, native delegation, manifest
+layer, scheduler, middleware, parallel fanout, runtime API or hot reload in
+Alpha15.

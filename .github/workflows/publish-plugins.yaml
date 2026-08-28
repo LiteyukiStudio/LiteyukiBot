@@ -1,49 +1,23 @@
-name: Publish LiteyukiBot Plugins
+name: Publish LiteyukiBot Packages
 
 on:
   push:
     tags:
-      - "permissions-v*"
-      - "commands-v*"
-      - "resources-v*"
-      - "functions-v*"
-      - "profile-v*"
-      - "essentials-v*"
-      - "runtime-nonebot-v*"
-      - "runtime-adapter-v*"
-      - "adapter-onebot-v*"
-      - "adapter-satori-v*"
-      - "agent-resolver-v*"
-      - "agent-v*"
-      - "webui-v*"
-      - "ipc-native-v*"
       - "kernel-v*"
-      - "broker-v*"
+      - "cordis-v*"
+      - "adapter-onebot-v*"
   workflow_dispatch:
     inputs:
       package:
-        description: Plugin package to publish
+        description: Package to publish
         required: true
         type: choice
         options:
-          - permissions
-          - commands
-          - resources
-          - functions
-          - profile
-          - essentials
-          - runtime-nonebot
-          - runtime-adapter
-          - adapter-onebot
-          - adapter-satori
-          - agent-resolver
-          - agent
-          - webui
-          - ipc-native
           - kernel
-          - broker
+          - cordis
+          - adapter-onebot
       version:
-        description: Exact plugin version to publish
+        description: Exact package version to publish
         required: true
         type: string
 
@@ -53,25 +27,13 @@ permissions:
 
 jobs:
   publish:
-    if: >-
-      (github.event_name == 'workflow_dispatch' && inputs.package != 'ipc-native') ||
-      (github.event_name != 'workflow_dispatch' && !startsWith(github.ref_name, 'ipc-native-v'))
     runs-on: ubuntu-latest
     env:
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('{0}-v{1}', inputs.package, inputs.version) || github.ref_name }}
     environment:
-      name: ${{ github.event_name == 'workflow_dispatch' && inputs.package == 'ipc-native' && 'pypi-ipc-native' || github.event_name == 'workflow_dispatch' && inputs.package == 'webui' && 'pypi-webui' || github.event_name == 'workflow_dispatch' && inputs.package == 'functions' && 'pypi-lyfunctions' || github.event_name == 'workflow_dispatch' && inputs.package == 'runtime-adapter' && 'pypi-runtime-adapter' || github.event_name == 'workflow_dispatch' && inputs.package == 'agent-resolver' && 'pypi-agent-resolver' || github.event_name == 'workflow_dispatch' && format('pypi-{0}', inputs.package) || startsWith(github.ref_name, 'ipc-native-v') && 'pypi-ipc-native' || startsWith(github.ref_name, 'kernel-v') && 'pypi-kernel' || startsWith(github.ref_name, 'broker-v') && 'pypi-broker' || startsWith(github.ref_name, 'webui-v') && 'pypi-webui' || startsWith(github.ref_name, 'permissions-v') && 'pypi-permissions' || startsWith(github.ref_name, 'commands-v') && 'pypi-commands' || startsWith(github.ref_name, 'resources-v') && 'pypi-resources' || startsWith(github.ref_name, 'functions-v') && 'pypi-lyfunctions' || startsWith(github.ref_name, 'profile-v') && 'pypi-profile' || startsWith(github.ref_name, 'runtime-nonebot-v') && 'pypi-runtime-nonebot' || startsWith(github.ref_name, 'runtime-adapter-v') && 'pypi-runtime-adapter' || startsWith(github.ref_name, 'adapter-onebot-v') && 'pypi-adapter-onebot' || startsWith(github.ref_name, 'adapter-satori-v') && 'pypi-adapter-satori' || startsWith(github.ref_name, 'agent-resolver-v') && 'pypi-agent-resolver' || startsWith(github.ref_name, 'agent-v') && 'pypi-agent' || 'pypi-essentials' }}
+      name: ${{ github.event_name == 'workflow_dispatch' && format('pypi-{0}', inputs.package) || startsWith(github.ref_name, 'kernel-v') && 'pypi-kernel' || startsWith(github.ref_name, 'cordis-v') && 'pypi-cordis' || 'pypi-adapter-onebot' }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
-        if: startsWith(github.ref_name, 'webui-v') || (github.event_name == 'workflow_dispatch' && inputs.package == 'webui')
-        with:
-          version: 11.5.3
-          run_install: false
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
-        if: startsWith(github.ref_name, 'webui-v') || (github.event_name == 'workflow_dispatch' && inputs.package == 'webui')
-        with:
-          node-version-file: .node-version
       - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.11.16"
@@ -82,109 +44,22 @@ jobs:
         run: >-
           uv run --no-project --python 3.14 python scripts/check_release.py
           --tag "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT" --reject-alpha
-      - name: Build plugin distribution
-        run: |
-          if [[ "${{ steps.release.outputs.package }}" == "webui" ]]; then
-            pnpm --dir webui install --frozen-lockfile
-            pnpm --dir webui build
-            uv run python scripts/stage_webui_assets.py
-          fi
-          uv build --project "${{ steps.release.outputs.project }}" --out-dir dist/release --clear
+      - name: Build distribution
+        run: uv build --project "${{ steps.release.outputs.project }}" --out-dir dist/release --clear
       - name: Generate SBOM and artifact manifest
         run: |
           uv export --project "${{ steps.release.outputs.project }}" --no-dev --no-emit-project \
-            --format requirements-txt --output-file dist/release/requirements.txt
+            --format requirements.txt --output-file dist/release/requirements.txt
           uv run --group release cyclonedx-py requirements dist/release/requirements.txt \
             --pyproject "${{ steps.release.outputs.project }}/pyproject.toml" --output-reproducible \
             --output-file dist/release/sbom.cdx.json
           uv run --group release python scripts/generate_supply_chain.py \
             --project "${{ steps.release.outputs.project }}" --dist dist/release
-      - name: Verify plugin wheel with published dependencies
+      - name: Verify package wheel with published dependencies
         run: |
           wheel="$(find dist/release -maxdepth 1 -name '*.whl' -print -quit)"
-          requirements=(--with "$wheel")
           uv run --no-project --python 3.14 python scripts/run_isolated_install.py \
-            "${requirements[@]}" --verifier "${{ steps.release.outputs.verifier }}" -- \
+            --with "$wheel" --verifier "${{ steps.release.outputs.verifier }}" -- \
             --expected-version "${{ steps.release.outputs.version }}"
-      - name: Publish plugin distribution
+      - name: Publish package distribution
         run: uv publish dist/release/*.whl dist/release/*.tar.gz
-
-  native-build:
-    if: >-
-      (github.event_name == 'workflow_dispatch' && inputs.package == 'ipc-native') ||
-      (github.event_name != 'workflow_dispatch' && startsWith(github.ref_name, 'ipc-native-v'))
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            manylinux: "2_28"
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            manylinux: "2_28"
-            qemu: true
-          - os: macos-13
-            target: x86_64-apple-darwin
-            manylinux: "off"
-          - os: macos-14
-            target: aarch64-apple-darwin
-            manylinux: "off"
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            manylinux: "off"
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        if: matrix.os != 'ubuntu-latest'
-        with:
-          python-version: "3.14"
-      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
-        if: matrix.qemu == true
-      - uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380 # v1.49.4
-        with:
-          working-directory: packages/ipc-native
-          maturin-version: v1.14.1
-          target: ${{ matrix.target }}
-          manylinux: ${{ matrix.manylinux }}
-          args: --release --locked --compatibility pypi --out ../../dist/native
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: ipc-native-${{ matrix.target }}
-          path: dist/native/*
-          if-no-files-found: error
-
-  native-publish:
-    needs: native-build
-    runs-on: ubuntu-latest
-    environment: pypi-ipc-native
-    env:
-      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('ipc-native-v{0}', inputs.version) || github.ref_name }}
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
-        with:
-          version: "0.11.16"
-      - name: Install Python
-        run: uv python install 3.14
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          pattern: ipc-native-*
-          path: dist/native
-          merge-multiple: true
-      - name: Validate native release identity
-        run: >-
-          uv run --no-project --python 3.14 python scripts/check_release.py
-          --tag "$RELEASE_TAG" --reject-alpha
-      - name: Generate native SBOM and artifact manifest
-        run: |
-          uv export --project packages/ipc-native --no-dev --no-emit-project \
-            --format requirements-txt --output-file dist/native/requirements.txt
-          uv run --group release cyclonedx-py requirements dist/native/requirements.txt \
-            --pyproject packages/ipc-native/pyproject.toml --output-reproducible \
-            --output-file dist/native/sbom.cdx.json
-          uv run --group release python scripts/generate_supply_chain.py \
-            --project packages/ipc-native --dist dist/native
-      - name: Publish native distributions
-        run: uv publish dist/native/*.whl

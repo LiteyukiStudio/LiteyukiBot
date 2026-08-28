@@ -1,4 +1,0 @@
-allowBuilds:
-  esbuild: true
-minimumReleaseAgeExclude:
-  - '@liteyuki/lyf-textmate@0.1.0-alpha.13'

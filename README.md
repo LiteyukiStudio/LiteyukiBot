@@ -2,7 +2,7 @@
 
 [![][banner]][liteyuki-link]
 <h2><a href="https://bot.liteyuki.org"><span style="color: #a2d8f4">LiteyukiBot</span> <span style="color: #d0e9ff">v7</span></a></h2>
-<h4><span style="color: #a2d8f4">Protocol-neutral, multi-runtime chatbot kernel</span></h4>
+<h4><span style="color: #a2d8f4">Liteyuki-first Python chatbot application</span></h4>
 
 [![][Liteyuki7]][liteyuki-link]
 [![][Python3.14]][python-link]
@@ -14,150 +14,73 @@
 
 ## About
 
-LiteyukiBot v7 is a CPython 3.14 chatbot kernel. It owns configuration,
-native-plugin lifecycle, routing, permissions, logging, and broker-peer IPC.
-Framework integrations run as separately installed B7 broker bridges and
-exchange frozen protocol-neutral models with the kernel rather than SDK
-objects. Retired AstrBot, Neo-MoFox, and v6 compatibility experiments are kept
-only as source snapshots under `extras/legacy-bridges`; they are not workspace,
-release, CI, or support targets.
+LiteyukiBot v7 is a CPython 3.14 application built around a small,
+protocol-neutral kernel. The root distribution owns configuration, the CLI,
+application composition, native lifecycle, logging, and the built-in Cordis
+features. The Alpha15 source identity is `7.0.0a15`; it is a signed GitHub
+release bundle and is not a PyPI release.
 
-The default branch is the maintained LiteyukiBot v7 line. The prior v6 line is
-preserved on the `v6` branch. The current source pre-release is the `7.0.0a14`
-Alpha lockstep baseline; it is not yet a PyPI release. Alpha14 is the ownership,
-release-graph, and architecture-subtraction stage defined by the
-[authoritative Alpha14 route](docs/roadmap/v7-alpha-14-baseline.md). Beta
-requires both a 14-day public-contract freeze and a reviewed 72-hour reference
-deployment soak.
+Alpha15 intentionally ships four lockstep distributions:
 
-## Features
+| Distribution | Responsibility |
+| --- | --- |
+| `liteyukibot-v7` | Branded CLI and application composition. |
+| `liteyukibot-v7-kernel` | JSON-safe events, actions, services, lifecycle, and status contracts. |
+| `liteyukibot-v7-cordis` | Trusted in-process Cordis scopes and ordered event handlers. |
+| `liteyukibot-v7-adapter-onebot` | OneBot v11 SnowLuma WebSocket client and kernel event/action conversion. |
 
-- interactive or non-interactive project initialization through `liteyuki`;
-- immutable TOML/JSON configuration with includes, environment variables, CLI
-  overrides, provenance inspection, encrypted runtime secrets, and recovery
-  material for configuration upgrades;
-- native plugins with explicit entry points, lifecycle hooks, services,
-  managed tasks, private storage, resource packs, and localized text;
-- authenticated B7 broker-peer IPC, per-conversation event ordering, bounded
-  concurrency, lease-bound deliveries, and routed protocol-neutral actions;
-- retained and verifiable runtime plugin generations with source indexes,
-  rollback, disable/enable, and garbage collection commands;
-- first-party command, permission, resource, profile, essential-command, and
-  agent packages;
-- separately packaged NoneBot2 and protocol-adapter bridges, including native
-  OneBot v11 support.
+Permissions, commands, resources, profile, and essentials are built-in root
+features. Satori, NoneBot, the generic runtime bridge, standalone Broker,
+WebUI, Agent, LYF, and native IPC packages are not Alpha15 distributions.
+Historical bridge snapshots remain under `extras/legacy-bridges` only.
 
-## Install And Run
+## Run From A Checkout
 
-Requirements:
-
-- CPython 3.14 or later;
-- [uv][uv-link].
-
-Install the command-line tool and create a workspace:
-
-```bash
-uv tool install --python 3.14 liteyukibot-v7
-mkdir my-bot
-liteyuki --workspace my-bot init
-liteyuki --workspace my-bot check
-liteyuki --workspace my-bot run
-```
-
-`liteyukibot`, `liteyuki`, and `ly` are equivalent command names. Use
-`init --non-interactive --locale en-US` for automation. The generated
-`liteyuki.toml` is the workspace configuration; see
-[configuration operations](docs/configuration.md) for secrets, profiles,
-configuration precedence, and recovery procedures.
-
-To work from a checkout instead of a tool installation:
+Requirements: CPython 3.14 or later and [uv][uv-link]. Alpha15 is distributed
+as a signed GitHub Release bundle, not through PyPI. Use the release procedure
+for a verified bundle installation.
 
 ```bash
 uv sync --locked --all-packages
-uv run liteyuki init
-uv run liteyuki check
-uv run liteyuki run
+uv run liteyuki --workspace my-bot init
+uv run liteyuki --workspace my-bot check
+uv run liteyuki --workspace my-bot run
 ```
 
-## Packages
+For a release install, download and verify the signed bundle, then use the
+staged wheels and dependency closure described in
+[`docs/development/releasing.md`](docs/development/releasing.md).
 
-The CLI and composition package is `liteyukibot-v7`; it installs the exact
-`liteyukibot-v7-kernel` contract nucleus. Optional features are separate PyPI
-packages and must be installed into the same environment before they are
-enabled in `liteyuki.toml`. WebUI is not part of the CLI-first release bundle
-and must be installed explicitly as `liteyukibot-v7-webui[server]`.
+The generated `liteyuki.toml` is configuration schema 7. Built-in features
+are enabled by the application; configure their sections directly. OneBot is
+enabled by adding accounts under `[onebot.v11.accounts]`. See
+[configuration operations](docs/configuration.md).
 
-| Package | Current responsibility |
-| --- | --- |
-| `liteyukibot-v7-kernel` | Protocol-neutral DTOs, contracts, EventBus, services, and lifecycle APIs. |
-| `liteyukibot-v7` | Branded CLI and application composition. |
-| `liteyukibot-v7-permissions` | Exact-principal capability policy service. |
-| `liteyukibot-v7-commands` | Protocol-neutral command router and schemas. |
-| `liteyukibot-v7-resources` | Declarative resource and authorization boundary. |
-| `liteyukibot-v7-profile` | Persistent per-bot nickname and language profiles. |
-| `liteyukibot-v7-essentials` | Help and protected status commands. |
-| `liteyukibot-v7-functions` | v6 `.lyf`, `.lyfunction`, and `.mcfunction` executor. |
-| `liteyukibot-v7-runtime-nonebot` | B7 NoneBot2 broker bridge. |
-| `liteyukibot-v7-runtime-nonebot-api` | NoneBot-independent typed Runtime API v1.2 facade. |
-| `liteyukibot-v7-runtime-adapter` | Python platform-adapter broker bridge. |
-| `liteyukibot-v7-adapter-onebot` | Native OneBot v11 HTTP Post and HTTP API adapter. |
-| `liteyukibot-v7-agent-resolver` | Declarative agent module and tool resolver. |
-| `liteyukibot-v7-agent` | OpenAI-compatible native agent runtime. |
-| `liteyukibot-v7-webui` | Frozen optional local WebUI, maintained and released separately. |
+## OneBot And SnowLuma
 
-Read the package README in [`packages/`](packages/README.md) before enabling a
-package. Root composition does not install framework integrations or WebUI
-implicitly.
-
-## Docker
-
-Build the current image locally:
-
-```bash
-docker build -t liteyukibot:v7-local .
-docker run --rm liteyukibot:v7-local version
-```
-
-The image runs as a non-root user. Mount `/app/data`, `/app/cache`, and
-`/app/plugins` for persistent state, then provide `/app/liteyuki.toml` for a
-configured deployment.
-
-## Services And Support
-
-Current installation, configuration, compatibility, and release boundaries are
-documented in this repository. Report reproducible defects or documentation
-errors through the [GitHub repository][github-link], including the installed
-package versions, operating system, Python version, and the minimal command or
-configuration that reproduces the result. Do not include vault passwords,
-tokens, or message payloads in public reports.
+The OneBot package is an independently written protocol client. It does not
+bundle SnowLuma source, native addons, or assets. SnowLuma is an external
+project; LiteyukiBot is not affiliated with or endorsed by it. Operators are
+responsible for the external service's terms, privacy requirements, and
+platform risks. See the [adapter README](packages/adapter-onebot/README.md)
+and the [SnowLuma project](https://github.com/SnowLuma/SnowLuma).
 
 ## Documentation
 
-- [Configuration operations](docs/configuration.md)
+- [Configuration schema 7](docs/configuration.md)
 - [v7 architecture](docs/architecture/v7.md)
-- [Alpha14 route](docs/roadmap/v7-alpha-14-baseline.md)
-- [Historical Beta1 contract](docs/archive/2026-08-17/beta1-contract.md)
-- [Native plugin development](docs/development/native-plugins.md)
-- [Broker peer development](docs/development/broker-peers.md)
-- [Runtime API and provider conformance](docs/development/runtime-api-conformance.md)
-- [Contributor guide](CONTRIBUTING.md)
 - [Release procedure](docs/development/releasing.md)
+- [Cordis plugin contract](docs/architecture/cordis-plugin-v1.md)
+- [Contributor guide](CONTRIBUTING.md)
 
-## References
+Report reproducible defects with installed versions, operating system, Python
+version, and the smallest reproducer. Do not include credentials or message
+payloads in public reports.
 
-- [NoneBot](https://nonebot.dev/) informs the separately packaged NoneBot
-  runtime boundary.
-
-## Other
-
-This repository is a uv workspace containing the kernel, first-party packages,
-examples, tests, developer tools, documentation, and release workflows.
-Directory-level development guidance is provided by each directory's README.
-
-[Liteyuki7]: https://img.shields.io/badge/LiteyukiBot-7.0.0a14-blue?style=for-the-badge
+[Liteyuki7]: https://img.shields.io/badge/LiteyukiBot-7.0.0a15-blue?style=for-the-badge
 [Python3.14]: https://img.shields.io/badge/Python-3.14+-blue?style=for-the-badge
 [Usage]: https://img.shields.io/badge/Usage-CLI-blue?style=for-the-badge
-[Repo]: https://img.shields.io/badge/Distribution-PyPI-blue?style=for-the-badge
+[Repo]: https://img.shields.io/badge/Distribution-GitHub%20Release-blue?style=for-the-badge
 [Github]: https://img.shields.io/badge/GitHub-Repository-blue?style=for-the-badge
 [banner]: https://socialify.git.ci/LiteyukiStudio/LiteyukiBot/image?description=1&font=Source+Code+Pro&forks=1&issues=1&name=1&owner=1&pattern=Floating+Cogs&pulls=1&stargazers=1&theme=Auto
 
@@ -165,5 +88,5 @@ Directory-level development guidance is provided by each directory's README.
 [uv-link]: https://docs.astral.sh/uv/
 [usage-link]: docs/configuration.md
 [liteyuki-link]: https://github.com/LiteyukiStudio/LiteyukiBot
-[repo-link]: https://pypi.org/project/liteyukibot-v7/
+[repo-link]: https://github.com/LiteyukiStudio/LiteyukiBot/releases
 [github-link]: https://github.com/LiteyukiStudio/LiteyukiBot

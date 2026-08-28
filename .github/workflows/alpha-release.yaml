@@ -9,123 +9,48 @@ permissions:
   id-token: write
 
 jobs:
-  native:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            manylinux: "2_28"
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            manylinux: "2_28"
-            qemu: true
-          - os: macos-13
-            target: x86_64-apple-darwin
-            manylinux: "off"
-          - os: macos-14
-            target: aarch64-apple-darwin
-            manylinux: "off"
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            manylinux: "off"
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        if: matrix.os != 'ubuntu-latest'
-        with:
-          python-version: "3.14"
-      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
-        if: matrix.qemu == true
-      - uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380 # v1.49.4
-        with:
-          working-directory: packages/ipc-native
-          maturin-version: v1.14.1
-          target: ${{ matrix.target }}
-          manylinux: ${{ matrix.manylinux }}
-          args: --release --locked --compatibility pypi --out ../../dist/alpha
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: alpha-native-${{ matrix.target }}
-          path: dist/alpha/*.whl
-          if-no-files-found: error
-
   bundle:
-    needs: native
     runs-on: ubuntu-latest
     env:
       RELEASE_TAG: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
-        with:
-          version: 11.5.3
-          run_install: false
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
-        with:
-          node-version-file: .node-version
       - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.11.16"
           enable-cache: true
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          pattern: alpha-native-*
-          path: dist/alpha
-          merge-multiple: true
       - name: Install locked workspace
         run: |
           uv python install 3.14
-          uv sync --locked --all-packages --extra onebot --extra satori
+          uv sync --locked --all-packages
       - name: Validate Alpha source registry
         run: |
           uv run python scripts/check_release.py --tag "$RELEASE_TAG"
-          uv run --group release python scripts/alpha_release.py check-source
-      - name: Build lockstep Python artifacts
+          uv run --group release python -m scripts.alpha_release check-source
+      - name: Build target distributions
         run: |
           uv build --project packages/kernel --out-dir dist/alpha
-          uv build --project packages/broker --out-dir dist/alpha
-          uv build --out-dir dist/alpha
-          uv build --project examples/nonebot-plugin --out-dir dist/alpha
-          uv build --project packages/permissions --out-dir dist/alpha
-          uv build --project packages/commands --out-dir dist/alpha
-          uv build --project packages/resources --out-dir dist/alpha
-          uv build --project packages/profile --out-dir dist/alpha
-          uv build --project packages/essentials --out-dir dist/alpha
-          uv build --project packages/agent-resolver --out-dir dist/alpha
-          uv build --project packages/functions --out-dir dist/alpha
           uv build --project packages/cordis --out-dir dist/alpha
-          uv build --project packages/runtime-nonebot --out-dir dist/alpha
-          uv build --project packages/runtime-nonebot-api --out-dir dist/alpha
-          uv build --project packages/runtime-adapter --out-dir dist/alpha
           uv build --project packages/adapter-onebot --out-dir dist/alpha
-          uv build --project packages/adapter-satori --out-dir dist/alpha
-          uv build --project packages/agent --out-dir dist/alpha
-          uv build --project packages/devcli --out-dir dist/alpha
-      - name: Build Native IPC source distribution
-        run: uv build --project packages/ipc-native --sdist --out-dir dist/alpha
+          uv build --project . --out-dir dist/alpha
       - name: Download the resolved offline dependency closure
         run: |
-          uv export --locked --all-packages --no-dev --no-emit-workspace --format requirements.txt --output-file dist/alpha/dependencies.requirements.txt
-          uv run --no-project --with pip python -m pip download --requirement dist/alpha/dependencies.requirements.txt --dest dist/alpha --no-deps
-          uv run --no-project --with pip python -m pip download --only-binary=:all: --no-deps setuptools wheel Cython --dest dist/alpha
-      - name: Package the read-only LYF developer artifacts
-        run: |
-          uv run python scripts/build_lyf_vsix.py --out dist/alpha/liteyuki-lyf-0.8.0.vsix
-          pnpm --dir tools/dev-launcher pack --pack-destination dist/alpha
+          uv export --locked --all-packages --no-dev --no-emit-workspace --format requirements.txt \
+            --output-file dist/alpha/dependencies.requirements.txt
+          uv run --no-project --with pip python -m pip download \
+            --requirement dist/alpha/dependencies.requirements.txt --dest dist/alpha --no-deps
       - name: Generate bundle evidence
-        run: uv run --group release python scripts/alpha_release.py generate --dist dist/alpha
+        run: uv run --group release python -m scripts.alpha_release generate --dist dist/alpha
       - name: Sign canonical manifest
         run: >-
-          uv run --group release sigstore sign --bundle dist/alpha/artifacts.manifest.sigstore.json
+          uv run --group release sigstore sign
+          --bundle dist/alpha/artifacts.manifest.sigstore.json
           dist/alpha/artifacts.manifest.json
       - name: Verify the staged bundle outside the source tree
         run: |
           bundle="$(mktemp -d)"
           cp -a dist/alpha/. "$bundle"
-          uv run --group release python scripts/alpha_release.py verify --bundle "$bundle"
+          uv run --group release python -m scripts.alpha_release verify --bundle "$bundle"
           uv run python -m scripts.run_alpha_bundle_installs --bundle "$bundle"
       - name: Create immutable GitHub Release
         env:

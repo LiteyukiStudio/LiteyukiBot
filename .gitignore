@@ -31,4 +31,3 @@ config-prod.yaml
 /tmp/
 /dist/
 **/*.pyd
-/benchmark.json

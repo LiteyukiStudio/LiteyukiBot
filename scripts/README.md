@@ -1,41 +1,29 @@
-# Developer And Release Scripts
+# Release And Verification Scripts
 
-Scripts in this directory are executable verification and release-support
-tools. They are not runtime imports and should remain small command-line
-programs with deterministic inputs and clear exit statuses.
+Scripts here are deterministic command-line checks, not runtime imports. The
+Alpha15 release graph is defined in `release_registry.py` and contains only
+the four lockstep distributions.
 
-- `check_release.py` validates source versions, package identities, and tags.
-- `run_*_install.py` creates isolated environments and exercises installed
-  package entry points.
-- `verify_*_install.py` contains the verifier invoked by an isolated install.
-- `benchmark_v7.py` records kernel performance measurements.
-- `run_tool_install_smoke.py` verifies the published CLI installation flow.
-- `run_webui_daemon.ps1` builds the SPA, stages assets, and controls an
-  isolated local daemon WebUI instance for manual integration testing.
+- `check_release.py` validates project identities and release tags.
+- `alpha_release.py` validates and generates the signed bundle manifest.
+- `run_alpha_bundle_installs.py` verifies every staged target wheel offline.
+- `run_kernel_install.py`, `run_cordis_install.py`, and
+  `run_onebot_adapter_install.py` exercise isolated package installations.
+- `verify_published_install.py` verifies the root wheel and its three internal
+  dependencies without importing the checkout.
+- `run_tool_install_smoke.py` checks the installed `liteyuki` CLI path.
+- `generate_supply_chain.py` produces release supply-chain metadata.
 
-Invoke scripts through uv from the repository root:
+Run from the repository root:
 
 ```bash
+uv sync --locked --all-packages
 uv run python scripts/check_release.py
-uv run python -m scripts.run_tool_install_smoke
+uv run --group release python -m scripts.alpha_release check-source
+uv build --all-packages --out-dir dist/workspace --clear
+uv run python -m scripts.run_kernel_install
+uv run python -m scripts.run_cordis_install
+uv run python -m scripts.run_onebot_adapter_install
 ```
 
-On Windows, start and open a disposable WebUI instance with:
-
-```powershell
-.\scripts\run_webui_daemon.ps1
-```
-
-Use `-Action Start`, `-Action Status`, or `-Action Stop` for lifecycle
-control. The default workspace is `tmp\webui-daemon`; pass `-SkipBuild` to
-reuse already staged assets.
-
-For Vite HMR against a real daemon, run `pnpm --dir webui run web`. It starts
-an isolated development daemon with the independent WebUI distribution,
-proxies `/api` through Vite with the required loopback origin, and opens the
-one-use WebUI handoff in the browser.
-
-When adding a publishable package, give it an isolated install verifier and add
-the package identity to `check_release.py`, CI, and the release procedure.
-Scripts must not embed credentials or modify tracked source files as a side
-effect.
+Scripts must not embed credentials or modify tracked source as a side effect.

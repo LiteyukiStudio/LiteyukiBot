@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import importlib.metadata
 import re
-import tomllib
 from pathlib import Path
 
 import pytest
+from scripts.bundles import BUNDLE_TAG, BUNDLE_VERSION
 from scripts.check_release import (
     RELEASE_PROJECTS,
     ReleaseIdentity,
@@ -13,55 +13,59 @@ from scripts.check_release import (
     read_release_identity,
     validate_release,
 )
-from scripts.run_developer_kit_install import _build_dir, _example_build_dir
+from scripts.release_registry import resolve_workspace_registry, validate_first_party_pins
 from scripts.run_isolated_install import _clean_environment, _requirement
 
-import liteyukibot
-from liteyukibot.bundles import BUNDLE_TAG, BUNDLE_VERSION
+ROOT = Path(__file__).resolve().parents[1]
+TARGET_DISTRIBUTIONS = {
+    "liteyukibot-v7",
+    "liteyukibot-v7-kernel",
+    "liteyukibot-v7-cordis",
+    "liteyukibot-v7-adapter-onebot",
+}
 
 
-def test_kernel_import_namespace_uses_distribution_version() -> None:
-    expected = importlib.metadata.version("liteyukibot-v7")
+def test_root_version_comes_from_the_target_distribution() -> None:
+    assert BUNDLE_VERSION == "7.0.0a15"
+    assert importlib.metadata.version("liteyukibot-v7") == BUNDLE_VERSION
 
-    assert liteyukibot.__version__ == expected
+
+def test_release_registry_contains_exactly_the_four_alpha_distributions() -> None:
+    registry = resolve_workspace_registry(ROOT)
+
+    assert {component.distribution for component in registry.components} == TARGET_DISTRIBUTIONS
+    assert {component.project_dir for component in registry.components} == {
+        ".",
+        "packages/kernel",
+        "packages/cordis",
+        "packages/adapter-onebot",
+    }
+    assert len(registry.components) == 4
+    assert not registry.independent_components
+    assert {component.component_id for component in registry.verification_components} == {
+        "kernel",
+        "root",
+        "cordis",
+        "adapter-onebot",
+    }
 
 
-@pytest.mark.parametrize("name", tuple(RELEASE_PROJECTS))
-def test_current_release_identities_accept_exact_tags(name: str) -> None:
-    project = RELEASE_PROJECTS[name]
-    identity = read_release_identity(project.project_file)
-    tag = BUNDLE_TAG if name == "root" else f"{project.tag_prefix}{identity.version}"
-
-    validate_release(identity, project=project, tag=tag)
-    assert identity.distribution == project.distribution
-    assert project_for_tag(tag) == project
+def test_publishable_projection_contains_only_target_projects() -> None:
+    assert set(RELEASE_PROJECTS) == {"kernel", "root", "cordis", "adapter-onebot"}
+    for project in RELEASE_PROJECTS.values():
+        identity = read_release_identity(project.project_file)
+        tag = BUNDLE_TAG if project.name == "root" else f"{project.tag_prefix}{identity.version}"
+        validate_release(identity, project=project, tag=tag)
+        assert project_for_tag(tag) == project
 
 
 def test_workspace_first_party_dependencies_are_exactly_pinned() -> None:
-    root = Path(__file__).parents[1]
-    project_files = [
-        root / "pyproject.toml",
-        *sorted((root / "packages").glob("*/pyproject.toml")),
-        root / "examples" / "nonebot-plugin" / "pyproject.toml",
-    ]
-    projects = [tomllib.loads(project_file.read_text(encoding="utf-8"))["project"] for project_file in project_files]
-    expected_versions = {
-        re.sub(r"[-_.]+", "-", project["name"]).lower(): project["version"] for project in projects
-    }
-    specs: list[str] = []
-    for project in projects:
-        specs.extend(spec for spec in project.get("dependencies", []) if spec.startswith("liteyukibot-v7"))
-        optional = project.get("optional-dependencies", {})
-        for group in optional.values():
-            specs.extend(spec for spec in group if spec.startswith("liteyukibot-v7"))
-
-    assert specs
-    for specification in specs:
-        match = re.fullmatch(r"([A-Za-z0-9._-]+)(?:\[[^]]+\])?==([^,;\s]+)", specification)
-        assert match is not None, f"first-party dependency is not an exact pin: {specification}"
-        normalized_name = re.sub(r"[-_.]+", "-", match.group(1)).lower()
-        assert match.group(2) == expected_versions[normalized_name]
-    assert f"liteyukibot-v7=={BUNDLE_VERSION}" in specs
+    validate_first_party_pins(resolve_workspace_registry(ROOT))
+    root_project = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert "liteyukibot-v7-kernel==7.0.0a15" in root_project
+    assert "liteyukibot-v7-cordis==7.0.0a15" in root_project
+    assert "liteyukibot-v7-adapter-onebot==7.0.0a15" in root_project
+    assert "liteyukibot-v7-broker" not in root_project
 
 
 @pytest.mark.parametrize(
@@ -70,9 +74,9 @@ def test_workspace_first_party_dependencies_are_exactly_pinned() -> None:
         (ReleaseIdentity("liteyukibot", "7.0.0a5"), "root", None, "project.name"),
         (ReleaseIdentity("liteyukibot-v7", "7.0.0a5"), "root", "v7.0.0a3", "release tag"),
         (
-            ReleaseIdentity("liteyukibot-v7-commands", "0.2.0a1"),
-            "commands",
-            "permissions-v0.2.0a1",
+            ReleaseIdentity("liteyukibot-v7-cordis", "7.0.0a15"),
+            "cordis",
+            "kernel-v7.0.0a15",
             "release tag",
         ),
     ],
@@ -90,9 +94,9 @@ def test_release_identity_rejects_mismatches(
 def test_release_identity_rejects_alpha_from_pypi_workflows() -> None:
     with pytest.raises(RuntimeError, match="signed GitHub bundle"):
         validate_release(
-            ReleaseIdentity("liteyukibot-v7", "7.0.0a1"),
+            ReleaseIdentity("liteyukibot-v7", "7.0.0a15"),
             project=RELEASE_PROJECTS["root"],
-            tag="v7.0.0a1",
+            tag="v7.0.0a15",
             reject_alpha=True,
         )
 
@@ -135,25 +139,7 @@ def test_isolated_install_resolves_exactly_one_local_requirement_pattern(tmp_pat
         _requirement(str(tmp_path / "liteyukibot_v7-*.whl"))
 
 
-def test_isolated_install_preserves_package_extras_requirement() -> None:
-    requirement = "liteyukibot-v7-webui[server]==7.0.0a14"
-
-    assert _requirement(requirement) == requirement
-
-
-def test_developer_kit_install_uses_an_explicit_build_directory(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    monkeypatch.setenv("LITEYUKI_BUILD_DIR", str(tmp_path))
-
-    assert _build_dir() == tmp_path.resolve()
-    assert _example_build_dir() == (tmp_path / "examples").resolve()
-
-
-def test_developer_kit_install_uses_ci_build_directories(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("LITEYUKI_BUILD_DIR", raising=False)
-    root = Path(__file__).parents[1]
-
-    assert _build_dir() == (root / "dist" / "workspace").resolve()
-    assert _example_build_dir() == (root / "dist" / "examples").resolve()
+def test_target_version_is_an_alpha15_lockstep_identity() -> None:
+    registry = resolve_workspace_registry(ROOT)
+    assert {component.version for component in registry.components} == {"7.0.0a15"}
+    assert re.search(r'version = "7\.0\.0a15"', (ROOT / "pyproject.toml").read_text(encoding="utf-8"))

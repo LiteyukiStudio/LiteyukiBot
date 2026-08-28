@@ -30,6 +30,8 @@ def main() -> int:
         str(wheels[0].resolve()),
         "python",
         str(ROOT / "scripts" / "verify_kernel_install.py"),
+        "--expected-version",
+        "7.0.0a15",
     ]
     with tempfile.TemporaryDirectory() as directory:
         subprocess.run(command, cwd=directory, env=_clean_environment(os.environ), check=True)

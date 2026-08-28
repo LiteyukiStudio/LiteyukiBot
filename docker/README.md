@@ -13,5 +13,5 @@ docker run --rm liteyukibot:v7-local version
 ```
 
 Do not add secrets, workspace data, profiles, or plugin bundles to image
-layers. The image runs as a non-root user and exposes `/app/data`,
-`/app/cache`, and `/app/plugins` as persistent volumes.
+layers. The image runs as a non-root user and exposes `/app/data` and
+`/app/cache` as persistent volumes.

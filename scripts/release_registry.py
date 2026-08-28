@@ -36,7 +36,6 @@ class ReleasePolicy:
     expected_version: ExpectedVersion = "none"
     requires_sdist: bool = True
     reserved: bool = False
-    reference_e2e_components: tuple[str, ...] = ()
     included_in_alpha_bundle: bool = True
 
 
@@ -118,16 +117,7 @@ class WorkspaceRegistry:
 
         return tuple(component for component in self.alpha_bundle_components if component.policy.verifier is not None)
 
-    @property
-    def reference_e2e_component(self) -> WorkspaceComponent:
-        references = tuple(component for component in self.components if component.policy.reference_e2e_components)
-        if len(references) != 1:
-            raise ReleaseRegistryError("release registry must define exactly one reference E2E component")
-        return references[0]
-
-
-# The tuple order is the canonical manifest and verification order. DevCLI is
-# deliberately last because it is a reserved release component.
+# The tuple order is the canonical manifest and verification order.
 POLICIES: tuple[tuple[str, ReleasePolicy], ...] = (
     (
         "packages/kernel",
@@ -142,18 +132,6 @@ POLICIES: tuple[tuple[str, ReleasePolicy], ...] = (
         ),
     ),
     (
-        "packages/broker",
-        ReleasePolicy(
-            "broker",
-            "lockstep",
-            tag_prefix="broker-v",
-            tag_selector="broker-v",
-            verifier="scripts/verify_broker_install.py",
-            verifier_components=("kernel", "broker"),
-            expected_version="lockstep",
-        ),
-    ),
-    (
         ".",
         ReleasePolicy(
             "root",
@@ -162,20 +140,14 @@ POLICIES: tuple[tuple[str, ReleasePolicy], ...] = (
             tag_prefix="v",
             tag_selector="v7.",
             verifier="scripts/verify_published_install.py",
-            verifier_components=("kernel", "broker", "root"),
-            verifier_arguments=("--expect-kernel", "--expect-broker", "--expect-no-legacy-runtime"),
+            verifier_components=("kernel", "cordis", "adapter-onebot", "root"),
+            verifier_arguments=(
+                "--expect-kernel",
+                "--expect-cordis",
+                "--expect-adapter-onebot",
+                "--expect-no-legacy-runtime",
+            ),
             expected_version="lockstep",
-        ),
-    ),
-    (
-        "packages/ipc-native",
-        ReleasePolicy(
-            "ipc-native",
-            "lockstep",
-            tag_prefix="ipc-native-v",
-            tag_selector="ipc-native-v",
-            verifier="scripts/verify_ipc_native_install.py",
-            verifier_components=("ipc-native",),
         ),
     ),
     (
@@ -183,43 +155,10 @@ POLICIES: tuple[tuple[str, ReleasePolicy], ...] = (
         ReleasePolicy(
             "cordis",
             "lockstep",
+            tag_prefix="cordis-v",
+            tag_selector="cordis-v",
             verifier="scripts/verify_cordis_install.py",
-            verifier_components=("kernel", "broker", "root", "cordis"),
-        ),
-    ),
-    (
-        "packages/runtime-nonebot",
-        ReleasePolicy(
-            "nonebot-bridge",
-            "lockstep",
-            release_name="runtime-nonebot",
-            tag_prefix="runtime-nonebot-v",
-            tag_selector="runtime-nonebot-v",
-            verifier="scripts/verify_nonebot_runtime_install.py",
-            verifier_components=("kernel", "broker", "root", "nonebot-bridge"),
-            expected_version="lockstep",
-        ),
-    ),
-    (
-        "packages/runtime-nonebot-api",
-        ReleasePolicy(
-            "nonebot-api",
-            "lockstep",
-            verifier="scripts/verify_nonebot_api_install.py",
-            verifier_components=("kernel", "broker", "root", "nonebot-api"),
-            expected_version="lockstep",
-        ),
-    ),
-    (
-        "packages/runtime-adapter",
-        ReleasePolicy(
-            "adapter-bridge",
-            "lockstep",
-            release_name="runtime-adapter",
-            tag_prefix="runtime-adapter-v",
-            tag_selector="runtime-adapter-v",
-            verifier="scripts/verify_adapter_runtime_install.py",
-            verifier_components=("kernel", "broker", "root", "adapter-bridge"),
+            verifier_components=("kernel", "cordis"),
             expected_version="lockstep",
         ),
     ),
@@ -227,151 +166,12 @@ POLICIES: tuple[tuple[str, ReleasePolicy], ...] = (
         "packages/adapter-onebot",
         ReleasePolicy(
             "adapter-onebot",
-            "independent",
+            "lockstep",
             tag_prefix="adapter-onebot-v",
             tag_selector="adapter-onebot-v",
             verifier="scripts/verify_onebot_adapter_install.py",
-            verifier_components=("kernel", "broker", "root", "adapter-bridge", "adapter-onebot"),
-            expected_version="component",
-        ),
-    ),
-    (
-        "packages/adapter-satori",
-        ReleasePolicy(
-            "adapter-satori",
-            "independent",
-            tag_prefix="adapter-satori-v",
-            tag_selector="adapter-satori-v",
-            verifier="scripts/verify_satori_adapter_install.py",
-            verifier_components=("kernel", "broker", "root", "adapter-bridge", "adapter-satori"),
-            expected_version="component",
-        ),
-    ),
-    (
-        "packages/webui",
-        ReleasePolicy(
-            "webui",
-            "lockstep",
-            tag_prefix="webui-v",
-            tag_selector="webui-v",
-            verifier="scripts/verify_webui_install.py",
-            verifier_components=("kernel", "broker", "root", "webui"),
-            included_in_alpha_bundle=False,
-        ),
-    ),
-    (
-        "examples/nonebot-plugin",
-        ReleasePolicy(
-            "example-nonebot-plugin",
-            "independent",
-            reference_e2e_components=("kernel", "broker", "root", "nonebot-bridge", "example-nonebot-plugin"),
-        ),
-    ),
-    (
-        "packages/permissions",
-        ReleasePolicy(
-            "permissions",
-            "independent",
-            tag_prefix="permissions-v",
-            tag_selector="permissions-v",
-            verifier="scripts/verify_permissions_install.py",
-            verifier_components=("kernel", "broker", "root", "permissions"),
-            expected_version="component",
-        ),
-    ),
-    (
-        "packages/commands",
-        ReleasePolicy(
-            "commands",
-            "independent",
-            tag_prefix="commands-v",
-            tag_selector="commands-v",
-            verifier="scripts/verify_commands_install.py",
-            verifier_components=("kernel", "broker", "root", "permissions", "commands"),
-            expected_version="component",
-        ),
-    ),
-    (
-        "packages/resources",
-        ReleasePolicy(
-            "resources",
-            "independent",
-            tag_prefix="resources-v",
-            tag_selector="resources-v",
-            verifier="scripts/verify_resources_install.py",
-            verifier_components=("kernel", "broker", "root", "permissions", "commands", "resources"),
-            expected_version="component",
-        ),
-    ),
-    (
-        "packages/profile",
-        ReleasePolicy(
-            "profile",
-            "independent",
-            tag_prefix="profile-v",
-            tag_selector="profile-v",
-            verifier="scripts/verify_profile_install.py",
-            verifier_components=("kernel", "broker", "root", "permissions", "commands", "resources", "profile"),
-            expected_version="component",
-        ),
-    ),
-    (
-        "packages/essentials",
-        ReleasePolicy(
-            "essentials",
-            "independent",
-            tag_prefix="essentials-v",
-            tag_selector="essentials-v",
-            verifier="scripts/verify_essentials_install.py",
-            verifier_components=("kernel", "broker", "root", "permissions", "commands", "essentials"),
-            expected_version="component",
-        ),
-    ),
-    (
-        "packages/agent-resolver",
-        ReleasePolicy(
-            "agent-resolver",
-            "independent",
-            tag_prefix="agent-resolver-v",
-            tag_selector="agent-resolver-v",
-            verifier="scripts/verify_agent_resolver_install.py",
-            verifier_components=("kernel", "broker", "root", "agent-resolver"),
-            expected_version="component",
-        ),
-    ),
-    (
-        "packages/agent",
-        ReleasePolicy(
-            "agent",
-            "independent",
-            tag_prefix="agent-v",
-            tag_selector="agent-v",
-            verifier="scripts/verify_agent_install.py",
-            verifier_components=("kernel", "broker", "root", "permissions", "commands", "agent-resolver", "agent"),
-            expected_version="component",
-        ),
-    ),
-    (
-        "packages/functions",
-        ReleasePolicy(
-            "functions",
-            "independent",
-            tag_prefix="functions-v",
-            tag_selector="functions-v",
-            verifier="scripts/verify_functions_install.py",
-            verifier_components=("kernel", "broker", "root", "functions"),
-            expected_version="component",
-        ),
-    ),
-    (
-        "packages/devcli",
-        ReleasePolicy(
-            "devcli",
-            "lockstep",
-            verifier="scripts/verify_devcli_install.py",
-            verifier_components=("kernel", "broker", "root", "functions", "devcli"),
+            verifier_components=("kernel", "adapter-onebot"),
             expected_version="lockstep",
-            reserved=True,
         ),
     ),
 )
@@ -538,23 +338,15 @@ def resolve_workspace_registry(root: Path) -> WorkspaceRegistry:
             raise ReleaseRegistryError(f"{component.component_id} has a release name but no tag policy")
         if policy.tag_prefix is not None:
             release_names.append(policy.release_name or component.component_id)
-        for dependency in (*policy.verifier_components, *policy.reference_e2e_components):
+        for dependency in policy.verifier_components:
             if dependency not in by_id:
                 raise ReleaseRegistryError(f"{component.component_id} references unknown component {dependency}")
             if policy.included_in_alpha_bundle and dependency not in included_ids:
                 raise ReleaseRegistryError(
                     f"Alpha bundle component {component.component_id} references excluded component {dependency}"
                 )
-        referenced_components = (*policy.verifier_components, *policy.reference_e2e_components)
-        if "root" in referenced_components and "broker" not in referenced_components:
-            raise ReleaseRegistryError(f"{component.component_id} must verify Broker alongside root")
         if policy.verifier is None and policy.verifier_components:
             raise ReleaseRegistryError(f"{component.component_id} has verifier components without a verifier")
-        if policy.reference_e2e_components and policy.verifier is not None:
-            raise ReleaseRegistryError(f"{component.component_id} cannot be both isolated and reference verified")
-    references = tuple(component for component in components if component.policy.reference_e2e_components)
-    if len(references) != 1:
-        raise ReleaseRegistryError("release policy must define exactly one reference E2E component")
     if len(release_names) != len(set(release_names)):
         raise ReleaseRegistryError("release policy contains duplicate release names")
     return WorkspaceRegistry(root=root, components=tuple(components))

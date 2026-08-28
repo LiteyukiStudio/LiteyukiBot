@@ -145,7 +145,7 @@ class EventBus:
             Whether the requested condition is satisfied.
         """
         for index, registered in enumerate(self._handlers):
-            if registered.subscription.id == subscription.id:
+            if registered.subscription is subscription:
                 del self._handlers[index]
                 return True
         return False
@@ -357,6 +357,8 @@ class EventBus:
                 )
                 continue
 
+            failures.extend(result.failures)
+            action_results.extend(result.action_results)
             for action in result.actions:
                 action_results.append(await self._execute_action(event, action))
             if result.stop_propagation:

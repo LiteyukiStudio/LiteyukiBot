@@ -367,20 +367,12 @@ def _resolve_declared_paths(data: ConfigMap, base_directory: Path) -> ConfigMap:
             resolved_logging["file"] = _resolve_path(resolved_logging["file"], base_directory)
         result["logging"] = resolved_logging
 
-    runtimes = result.get("runtimes")
-    if isinstance(runtimes, Mapping):
-        resolved_runtimes: ConfigMap = {}
-        for runtime_id, runtime in runtimes.items():
-            if isinstance(runtime, Mapping):
-                resolved_runtime = dict(runtime)
-                if "working_directory" in resolved_runtime and resolved_runtime["working_directory"] is not None:
-                    resolved_runtime["working_directory"] = _resolve_path(
-                        resolved_runtime["working_directory"], base_directory
-                    )
-                resolved_runtimes[str(runtime_id)] = resolved_runtime
-            else:
-                resolved_runtimes[str(runtime_id)] = runtime
-        result["runtimes"] = resolved_runtimes
+    profile = result.get("profile")
+    if isinstance(profile, Mapping):
+        resolved_profile = dict(profile)
+        if "database" in resolved_profile and resolved_profile["database"] is not None:
+            resolved_profile["database"] = _resolve_path(resolved_profile["database"], base_directory)
+        result["profile"] = resolved_profile
 
     return result
 
@@ -478,8 +470,8 @@ class _FileLoader:
         parsed = self._parse_file(path)
         if parsed is None:
             return {}
-        if require_config_version and parsed.get("config_version") != 6:
-            self.issues.append(ConfigIssue(path, "root configuration requires config_version = 6"))
+        if require_config_version and parsed.get("config_version") != 7:
+            self.issues.append(ConfigIssue(path, "root configuration requires config_version = 7"))
         self._loaded[identity] = path
         self._active.append(path)
         try:
@@ -613,7 +605,6 @@ def load_settings(
     primary_path: str | os.PathLike[str] | None = None,
     *,
     config_paths: Iterable[str | os.PathLike[str]] = (),
-    instance_config_paths: Iterable[str | os.PathLike[str]] = (),
     environ: Mapping[str, str] | None = None,
     cli_overrides: CliOverrides = (),
 ) -> AppSettings:
@@ -626,7 +617,6 @@ def load_settings(
     Args:
         primary_path: Filesystem path for the primary.
         config_paths: The config paths value used by the operation.
-        instance_config_paths: The instance config paths value used by the operation.
         environ: The environ value used by the operation.
         cli_overrides: The cli overrides value used by the operation.
 
@@ -637,7 +627,6 @@ def load_settings(
     return _load_settings(
         primary_path,
         config_paths=config_paths,
-        instance_config_paths=instance_config_paths,
         environ=environ,
         cli_overrides=cli_overrides,
         tracker=None,
@@ -648,7 +637,6 @@ def inspect_settings(
     primary_path: str | os.PathLike[str] | None = None,
     *,
     config_paths: Iterable[str | os.PathLike[str]] = (),
-    instance_config_paths: Iterable[str | os.PathLike[str]] = (),
     environ: Mapping[str, str] | None = None,
     cli_overrides: CliOverrides = (),
 ) -> ConfigInspection:
@@ -657,7 +645,6 @@ def inspect_settings(
     Args:
         primary_path: Filesystem path for the primary.
         config_paths: The config paths value used by the operation.
-        instance_config_paths: The instance config paths value used by the operation.
         environ: The environ value used by the operation.
         cli_overrides: The cli overrides value used by the operation.
 
@@ -670,7 +657,6 @@ def inspect_settings(
     settings, provenance = _load_settings(
         primary_path,
         config_paths=config_paths,
-        instance_config_paths=instance_config_paths,
         environ=environ,
         cli_overrides=cli_overrides,
         tracker=tracker,
@@ -683,7 +669,6 @@ def _load_settings(
     primary_path: str | os.PathLike[str] | None,
     *,
     config_paths: Iterable[str | os.PathLike[str]],
-    instance_config_paths: Iterable[str | os.PathLike[str]],
     environ: Mapping[str, str] | None,
     cli_overrides: CliOverrides,
     tracker: _ProvenanceTracker | None,
@@ -693,7 +678,6 @@ def _load_settings(
     Args:
         primary_path: Filesystem path for the primary.
         config_paths: The config paths value used by the operation.
-        instance_config_paths: The instance config paths value used by the operation.
         environ: The environ value used by the operation.
         cli_overrides: The cli overrides value used by the operation.
         tracker: The tracker value used by the operation.
@@ -702,34 +686,28 @@ def _load_settings(
         The `tuple[AppSettings, ConfigProvenance | None]` result produced by the operation.
 
     Notes:
-        Internal implementation detail for `_load_settings`. It delegates to `_FileLoader`, `load_root`,
-        `_deep_merge`, `_validate_instance_overlay` while keeping intermediate state local to the owning
-        operation.
+        Internal implementation detail for `_load_settings`.
     """
     issues: list[ConfigIssue] = []
     loader = _FileLoader(issues, tracker)
     merged: ConfigMap = {}
+    path_base = Path.cwd()
 
     if primary_path is not None:
+        path_base = Path(primary_path).expanduser().resolve(strict=False).parent
         primary_values = loader.load_root(primary_path, require_config_version=True)
         merged = _deep_merge(merged, primary_values)
     for config_path in config_paths:
         merged = _deep_merge(merged, loader.load_root(config_path))
-    for instance_config_path in instance_config_paths:
-        overlay = loader.load_root(instance_config_path)
-        _validate_instance_overlay(overlay, Path(instance_config_path))
-        merged = _deep_merge(merged, overlay)
-
     environment_values = _environment_layer(os.environ if environ is None else environ, issues)
     if tracker is not None:
         tracker.apply(environment_values, ConfigSource("environment", "LITEYUKI__"))
-    merged = _deep_merge(merged, _resolve_declared_paths(environment_values, Path.cwd()))
+    merged = _deep_merge(merged, _resolve_declared_paths(environment_values, path_base))
     command_line_values = _cli_layer(cli_overrides, issues)
     if tracker is not None:
         tracker.apply(command_line_values, ConfigSource("command_line", "--set"))
-    merged = _deep_merge(merged, _resolve_declared_paths(command_line_values, Path.cwd()))
-    _reject_legacy_runtime_config(merged, issues)
-    _reject_legacy_agent_config(merged, issues)
+    merged = _deep_merge(merged, _resolve_declared_paths(command_line_values, path_base))
+    _reject_removed_sections(merged, issues)
 
     try:
         settings = AppSettings.model_validate(merged)
@@ -751,123 +729,29 @@ def _load_settings(
     return settings, None if tracker is None else tracker.freeze()
 
 
-def _reject_legacy_runtime_config(merged: Mapping[str, Any], issues: list[ConfigIssue]) -> None:
-    """Implement the reject legacy runtime config operation for the component.
-
-    Args:
-        merged: The merged value used by the operation.
-        issues: The issues value used by the operation.
-
-    Returns:
-        None.
-
-    Notes:
-        Internal implementation detail for `_reject_legacy_runtime_config`. It delegates to `get`,
-        `items`, `append` while keeping intermediate state local to the owning operation.
-    """
-    runtimes = merged.get("runtimes")
-    if not isinstance(runtimes, Mapping):
-        return
-    for runtime_id, runtime in runtimes.items():
-        if not isinstance(runtime, Mapping):
-            continue
-        kind = runtime.get("kind")
-        if kind == "agent":
+def _reject_removed_sections(merged: Mapping[str, Any], issues: list[ConfigIssue]) -> None:
+    """Report configuration sections that no longer have an active owner."""
+    removed = (
+        "broker",
+        "runtime",
+        "runtimes",
+        "daemon",
+        "webui",
+        "http",
+        "lyip",
+        "agent",
+        "plugins",
+        "development",
+        "vault",
+    )
+    for name in removed:
+        if name in merged:
             issues.append(
                 ConfigIssue(
                     "merged configuration",
-                    "migration_required: the Agent runtime was replaced by broker.bridges.<id>",
-                    ("runtimes", str(runtime_id), "kind"),
+                    f"configuration section [{name}] was removed in config_version 7",
+                    (name,),
                 )
-            )
-        elif kind == "adapter":
-            issues.append(
-                ConfigIssue(
-                    "merged configuration",
-                    "migration_required: adapter runtimes must be configured under broker.bridges",
-                    ("runtimes", str(runtime_id), "kind"),
-                )
-            )
-        elif kind in {"v6", "mofox", "astrbot"}:
-            issues.append(
-                ConfigIssue(
-                    "merged configuration",
-                    f"unsupported: {kind} was retired from the LiteyukiBot v7.0.0 mainline",
-                    ("runtimes", str(runtime_id), "kind"),
-                )
-            )
-
-
-def _reject_legacy_agent_config(merged: Mapping[str, Any], issues: list[ConfigIssue]) -> None:
-    """Implement the reject legacy agent config operation for the component.
-
-    Args:
-        merged: The merged value used by the operation.
-        issues: The issues value used by the operation.
-
-    Returns:
-        None.
-
-    Notes:
-        Internal implementation detail for `_reject_legacy_agent_config`. It delegates to `append`,
-        `get` while keeping intermediate state local to the owning operation.
-    """
-    if "agent" in merged:
-        issues.append(
-            ConfigIssue(
-                "merged configuration",
-                "migration_required: [agent] was replaced by broker.bridges.<id>",
-                ("agent",),
-            )
-        )
-    plugins = merged.get("plugins")
-    if not isinstance(plugins, Mapping):
-        return
-    enabled = plugins.get("enabled")
-    if isinstance(enabled, (list, tuple)) and "liteyukibot.agent" in enabled:
-        issues.append(
-            ConfigIssue(
-                "merged configuration",
-                "migration_required: liteyukibot.agent is no longer a plugin",
-                ("plugins", "enabled"),
-            )
-        )
-    config = plugins.get("config")
-    if isinstance(config, Mapping) and "liteyukibot.agent" in config:
-        issues.append(
-            ConfigIssue(
-                "merged configuration",
-                "migration_required: liteyukibot.agent configuration was removed",
-                ("plugins", "config", "liteyukibot.agent"),
-            )
-        )
-
-
-def _validate_instance_overlay(overlay: Mapping[str, Any], path: Path) -> None:
-    """Prevent an instance overlay from escaping its derived private storage.
-
-    Args:
-        overlay: The overlay value used by the operation.
-        path: Filesystem or logical resource path.
-
-    Returns:
-        None.
-
-    Notes:
-        Internal implementation detail for `_validate_instance_overlay`. It delegates to `join` while
-        keeping intermediate state local to the owning operation.
-    """
-
-    restricted = (("config_version",), ("core", "data_dir"), ("core", "cache_dir"), ("logging", "file"))
-    for parts in restricted:
-        current: Any = overlay
-        for part in parts:
-            if not isinstance(current, Mapping) or part not in current:
-                break
-            current = current[part]
-        else:
-            raise ConfigurationError(
-                [ConfigIssue(path, f"instance configuration cannot set {'.'.join(parts)}", parts)]
             )
 
 

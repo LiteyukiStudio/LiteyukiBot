@@ -4,14 +4,14 @@ import math
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from types import MappingProxyType
-from typing import Annotated, Any, Literal, Self
+from typing import Any, Literal, Self
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator, model_validator
 
 type JsonValue = None | bool | int | float | str | tuple[JsonValue, ...] | Mapping[str, JsonValue]
-type SegmentType = Literal["text", "media", "mention", "reply", "adapter"]
-type ConversationType = Literal["private", "group", "channel", "thread", "unknown"]
+type SegmentType = Literal["text", "mention", "reply", "image"]
+type ConversationType = Literal["private", "group"]
 
 
 def _new_id() -> str:
@@ -174,6 +174,13 @@ class Segment(FrozenModel):
         """
         if self.type == "text" and not isinstance(self.data.get("text"), str):
             raise ValueError("text segments require a string data.text")
+        if self.type == "mention":
+            if self.data.get("scope") != "all" and not isinstance(self.data.get("user_id"), str):
+                raise ValueError("mention segments require data.user_id or data.scope=all")
+        if self.type == "reply" and not isinstance(self.data.get("message_id"), str):
+            raise ValueError("reply segments require a string data.message_id")
+        if self.type == "image" and not isinstance(self.data.get("url"), str):
+            raise ValueError("image segments require a string data.url")
         return self
 
 
@@ -205,7 +212,7 @@ class ActorRef(FrozenModel):
 class ConversationRef(FrozenModel):
     """Represent the validated conversation ref contract."""
     id: str = Field(min_length=1)
-    type: ConversationType = "unknown"
+    type: ConversationType
     parent_id: str | None = None
 
     @property
@@ -315,62 +322,7 @@ class SendMessage(FrozenModel):
         return self
 
 
-class EditMessage(FrozenModel):
-    """Replace a platform message previously created by this bot."""
-
-    type: Literal["edit_message"] = "edit_message"
-    message_id: str = Field(min_length=1)
-    message: Message
-    conversation: ConversationRef | None = None
-
-
-class CallApi(FrozenModel):
-    """Represent the validated call api contract."""
-    type: Literal["call_api"] = "call_api"
-    api: str = Field(min_length=1)
-    params: Mapping[str, JsonValue] = Field(default_factory=dict)
-
-    @field_validator("params", mode="before")
-    @classmethod
-    def validate_params_are_json(cls, value: Any) -> Any:
-        """Validate params are json.
-
-        Args:
-            value: Value to validate, transform, or store.
-
-        Returns:
-            The `Any` result produced by the operation.
-        """
-        _validate_json_value(value, "params")
-        return value
-
-    @field_validator("params", mode="after")
-    @classmethod
-    def freeze_params(cls, value: Mapping[str, JsonValue]) -> Mapping[str, JsonValue]:
-        """Freeze params.
-
-        Args:
-            value: Value to validate, transform, or store.
-
-        Returns:
-            The `Mapping[str, JsonValue]` result produced by the operation.
-        """
-        return MappingProxyType({key: _freeze_json(item) for key, item in value.items()})
-
-    @field_serializer("params")
-    def serialize_params(self, value: Mapping[str, JsonValue]) -> dict[str, Any]:
-        """Implement the serialize params operation for the call api.
-
-        Args:
-            value: Value to validate, transform, or store.
-
-        Returns:
-            The `dict[str, Any]` result produced by the operation.
-        """
-        return {key: _thaw_json(item) for key, item in value.items()}
-
-
-type Action = Annotated[SendMessage | EditMessage | CallApi, Field(discriminator="type")]
+type Action = SendMessage
 
 
 class ActionEnvelope(FrozenModel):
@@ -445,17 +397,19 @@ class ActionResult(FrozenModel):
         return self
 
 
-class HandlerResult(FrozenModel):
-    """Represent the validated handler result contract."""
-    actions: tuple[ActionEnvelope, ...] = ()
-    stop_propagation: bool = False
-
-
 class HandlerFailure(FrozenModel):
     """Represent the validated handler failure contract."""
     handler: str
     kind: Literal["timeout", "error", "invalid_result"]
     message: str
+
+
+class HandlerResult(FrozenModel):
+    """Represent the validated handler result contract."""
+    actions: tuple[ActionEnvelope, ...] = ()
+    action_results: tuple[ActionResult, ...] = ()
+    failures: tuple[HandlerFailure, ...] = ()
+    stop_propagation: bool = False
 
 
 class DispatchResult(FrozenModel):
