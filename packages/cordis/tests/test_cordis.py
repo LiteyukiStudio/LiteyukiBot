@@ -170,6 +170,34 @@ async def test_manager_retries_scope_cleanup_after_a_disposer_failure() -> None:
     assert not manager.active_plugin_ids
 
 
+@pytest.mark.asyncio
+async def test_scope_defers_parent_cleanup_until_children_close() -> None:
+    closed: list[str] = []
+    attempts = 0
+    root = Scope(plugin_id="root")
+    child = root.child(plugin_id="child")
+
+    async def close_child() -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise RuntimeError("temporary child cleanup failure")
+        closed.append("child")
+
+    async def close_root() -> None:
+        closed.append("root")
+
+    child.own(close_child)
+    root.own(close_root)
+
+    with pytest.raises(BaseExceptionGroup, match="scope cleanup failed"):
+        await root.aclose()
+
+    assert closed == []
+    await root.aclose()
+    assert closed == ["child", "root"]
+
+
 def test_scope_rejects_synchronous_disposers() -> None:
     scope = Scope(plugin_id="test")
 

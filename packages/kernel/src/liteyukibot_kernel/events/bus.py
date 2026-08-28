@@ -586,7 +586,8 @@ class EventBus:
         """Resolve admitted events and cancel workers after the graceful deadline."""
 
         self._forced_close = True
-        for worker in tuple(self._key_workers.values()):
+        workers = tuple(self._key_workers.values())
+        for worker in workers:
             worker.cancel()
         await self._cancel_operation_tasks()
 
@@ -604,6 +605,16 @@ class EventBus:
             key_queue.clear()
         for queued in tuple(self._in_flight.values()):
             self._close_queued(queued)
+        workers = tuple(self._key_workers.values())
+        for worker in workers:
+            worker.cancel()
+        if workers:
+            done, pending = await asyncio.wait(workers, timeout=_CANCELLATION_GRACE_SECONDS)
+            for worker in done:
+                with contextlib.suppress(BaseException):
+                    worker.result()
+            if pending:
+                self._logger.error("{} event key workers remained after shutdown cancellation", len(pending))
         if self._outstanding == 0:
             self._idle.set()
 
@@ -631,6 +642,11 @@ class EventBus:
             if pending:
                 task.cancel()
                 done_after_cancel, _ = await asyncio.wait((task,), timeout=_CANCELLATION_GRACE_SECONDS)
+                if task.done() and not task.cancelled():
+                    try:
+                        return task.result()
+                    except BaseException:
+                        pass
                 for completed in done_after_cancel:
                     with contextlib.suppress(BaseException):
                         completed.exception()

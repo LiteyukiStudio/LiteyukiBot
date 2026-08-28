@@ -357,7 +357,7 @@ class SnowLumaClient:
                 continue
             try:
                 value = json.loads(raw)
-            except TypeError, ValueError:
+            except (TypeError, ValueError):
                 continue
             if not isinstance(value, Mapping):
                 continue

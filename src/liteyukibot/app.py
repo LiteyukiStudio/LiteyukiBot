@@ -338,9 +338,18 @@ class LiteyukiApp:
                 if self.state is AppState.STARTING:
                     start_operation = self._start_operation
                     stop_operation = None
+                    if start_operation is None:
+                        self.state = AppState.STOPPING
+                        stop_operation = asyncio.create_task(self._stop_impl(), name="liteyukibot-stop")
+                        self._stop_operation = stop_operation
+                        stop_operation.add_done_callback(self._clear_stop_operation)
                 elif self.state is AppState.STOPPING:
                     start_operation = None
                     stop_operation = self._stop_operation
+                    if stop_operation is None:
+                        stop_operation = asyncio.create_task(self._stop_impl(), name="liteyukibot-stop")
+                        self._stop_operation = stop_operation
+                        stop_operation.add_done_callback(self._clear_stop_operation)
                 else:
                     self.state = AppState.STOPPING
                     start_operation = None

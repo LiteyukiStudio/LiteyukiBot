@@ -9,6 +9,7 @@ from liteyukibot_kernel import ActorRef, ConversationRef, EventEnvelope
 
 from liteyukibot import LiteyukiApp
 from liteyukibot import cli as cli_module
+from liteyukibot.app import AppState
 from liteyukibot.config import ConfigWorkspace, load_settings
 from liteyukibot.features.resources import RESOURCE_SERVICE, ResourceService
 
@@ -77,6 +78,20 @@ async def test_stop_waits_for_an_in_progress_start(tmp_path: Path, monkeypatch: 
     assert app.state.value == "stopped"
     assert app.status()["accepting_events"] is False
     assert app.events.closed
+
+
+@pytest.mark.asyncio
+async def test_stop_recovers_when_a_lifecycle_operation_reference_is_missing(tmp_path: Path) -> None:
+    config = ConfigWorkspace(tmp_path).initialize()
+
+    for state in (AppState.STARTING, AppState.STOPPING):
+        app = LiteyukiApp(load_settings(config, environ={}), resource_workspace=tmp_path)
+        app.state = state
+
+        await app.stop()
+
+        assert app.state is AppState.STOPPED
+        assert app.events.closed
 
 
 @pytest.mark.asyncio

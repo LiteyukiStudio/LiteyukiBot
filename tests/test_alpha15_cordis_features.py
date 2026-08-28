@@ -33,7 +33,7 @@ from liteyukibot.features.permissions import PERMISSION_SERVICE, create_permissi
 from liteyukibot.features.profile import PROFILE_DATABASE, PROFILE_SERVICE
 from liteyukibot.features.resources import RESOURCE_SERVICE
 from liteyukibot.features.resources_models import ResourceField, ResourceSpec
-from liteyukibot.features.resources_service import create_resource_service
+from liteyukibot.features.resources_service import ResourceError, _error_text, create_resource_service
 
 
 class _Actions:
@@ -131,6 +131,12 @@ def test_resource_converters_reject_async_callables() -> None:
         ResourceField("value", converter)
 
 
+def test_resource_errors_keep_actionable_details() -> None:
+    assert _error_text(ResourceError("resource field not found: missing"), cast(Any, NullTranslator())) == (
+        "Resource request failed: resource field not found: missing"
+    )
+
+
 @pytest.mark.asyncio
 async def test_blocking_command_converter_remains_a_same_key_fifo_barrier() -> None:
     started = threading.Event()
@@ -139,7 +145,8 @@ async def test_blocking_command_converter_remains_a_same_key_fifo_barrier() -> N
 
     def converter(value: str) -> int:
         started.set()
-        release.wait()
+        if not release.wait(timeout=5):
+            raise TimeoutError("test converter was not released")
         return int(value)
 
     command_service = create_command_service({}, create_permission_service({}), _Logger())

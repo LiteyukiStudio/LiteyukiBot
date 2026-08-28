@@ -134,7 +134,8 @@ class Scope:
                 await child.aclose()
             except BaseException as error:
                 errors.append(error)
-        disposer_failed = False
+        if errors:
+            raise BaseExceptionGroup("Cordis scope cleanup failed", errors)
         for disposer in reversed(tuple(self._disposers)):
             if disposer not in self._disposers:
                 continue
@@ -143,16 +144,14 @@ class Scope:
                 if inspect.isawaitable(result):
                     await result
             except BaseException as error:
-                disposer_failed = True
                 errors.append(error)
             else:
                 with contextlib.suppress(ValueError):
                     self._disposers.remove(disposer)
-        if not disposer_failed:
-            self._instances.clear()
-            self._providers.clear()
         if errors:
             raise BaseExceptionGroup("Cordis scope cleanup failed", errors)
+        self._instances.clear()
+        self._providers.clear()
         self._cleanup_complete = True
         if self.parent is not None:
             with contextlib.suppress(ValueError):

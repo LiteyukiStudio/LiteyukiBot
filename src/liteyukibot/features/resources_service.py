@@ -718,7 +718,12 @@ def _error_text(error: ResourceError, translator: Translator) -> str:
         Internal implementation detail for `_error_text`. It delegates to `text` while keeping
         intermediate state local to the owning operation.
     """
-    return translator.text("resources.error.request_failed", "Resource request failed")
+    detail = " ".join(str(error).split())[:256]
+    return translator.text(
+        "resources.error.request_failed",
+        "Resource request failed: {error}",
+        error=detail,
+    )
 
 
 def create_resource_service(

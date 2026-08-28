@@ -188,6 +188,21 @@ async def test_event_bus_blocks_actions_after_an_uncooperative_action_timeout() 
 
 
 @pytest.mark.asyncio
+async def test_event_bus_accepts_operation_completed_during_cancellation_grace() -> None:
+    async def operation() -> str:
+        try:
+            await asyncio.sleep(10)
+        except asyncio.CancelledError:
+            return "completed"
+        raise AssertionError("operation unexpectedly completed before timeout")
+
+    bus = EventBus()
+
+    assert await bus._run_operation(operation(), timeout_seconds=0.01, name="test operation") == "completed"
+    await bus.aclose()
+
+
+@pytest.mark.asyncio
 async def test_event_bus_blocks_actions_across_handlers_after_an_uncooperative_timeout() -> None:
     source = _event()
     first = _action(source)
