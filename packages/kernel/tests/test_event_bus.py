@@ -203,6 +203,39 @@ async def test_event_bus_accepts_operation_completed_during_cancellation_grace()
 
 
 @pytest.mark.asyncio
+async def test_event_bus_keeps_admission_until_action_barrier_finishes() -> None:
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def execute(_event: EventEnvelope, _action: ActionEnvelope) -> ActionResult:
+        started.set()
+        try:
+            await release.wait()
+        except asyncio.CancelledError:
+            await release.wait()
+        return ActionResult(action_id=_action.action_id, success=True)
+
+    async def handler(event: EventEnvelope) -> HandlerResult:
+        return HandlerResult(actions=(_action(event),))
+
+    bus = EventBus(action_timeout=0.01, close_timeout=1, action_executor=execute)
+    bus.subscribe(handler)
+    published = asyncio.create_task(bus.publish(_event()))
+    await started.wait()
+
+    result = await asyncio.wait_for(published, timeout=1)
+    assert result.action_results[0].error_code == "ACTION_TIMEOUT"
+    assert bus.outstanding == 1
+
+    closing = asyncio.create_task(bus.aclose())
+    await asyncio.sleep(0.01)
+    assert not closing.done()
+    release.set()
+    await asyncio.wait_for(closing, timeout=1)
+    assert bus.outstanding == 0
+
+
+@pytest.mark.asyncio
 async def test_event_bus_blocks_actions_across_handlers_after_an_uncooperative_timeout() -> None:
     source = _event()
     first = _action(source)

@@ -340,19 +340,20 @@ class EventBus:
                 self._in_flight[id(queued)] = queued
                 barriers: tuple[asyncio.Task[Any], ...] = ()
                 try:
-                    async with self._concurrency:
-                        result, barriers = await self._dispatch(queued.event)
-                    if not queued.future.done():
-                        queued.future.set_result(result)
-                except BaseException as exc:
-                    if not queued.future.done():
-                        queued.future.set_exception(exc)
-                    if isinstance(exc, (asyncio.CancelledError, KeyboardInterrupt, SystemExit)):
-                        raise
+                    try:
+                        async with self._concurrency:
+                            result, barriers = await self._dispatch(queued.event)
+                        if not queued.future.done():
+                            queued.future.set_result(result)
+                    except BaseException as exc:
+                        if not queued.future.done():
+                            queued.future.set_exception(exc)
+                        if isinstance(exc, (asyncio.CancelledError, KeyboardInterrupt, SystemExit)):
+                            raise
+                    await self._wait_for_barriers(barriers)
+                    await asyncio.sleep(0)
                 finally:
                     self._finish_queued(queued)
-                await self._wait_for_barriers(barriers)
-                await asyncio.sleep(0)
         finally:
             while key_queue:
                 self._close_queued(key_queue.popleft())

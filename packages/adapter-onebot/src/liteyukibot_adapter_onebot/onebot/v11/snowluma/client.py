@@ -533,7 +533,17 @@ class SnowLumaClient:
             task.cancel()
         if not tasks:
             return ()
-        done, pending = await asyncio.wait(tasks, timeout=_remaining_seconds(deadline))
+        try:
+            done, pending = await asyncio.wait(tasks, timeout=_remaining_seconds(deadline))
+        except asyncio.CancelledError:
+            done = {task for task in tasks if task.done()}
+            pending = {task for task in tasks if not task.done()}
+            for task in done:
+                self._forget_task(task)
+            for task in pending:
+                self._lingering_tasks.add(task)
+                task.add_done_callback(self._forget_task)
+            raise
         for task in done:
             self._forget_task(task)
         for task in pending:

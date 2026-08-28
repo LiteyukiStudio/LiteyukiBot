@@ -460,6 +460,52 @@ async def test_snowluma_close_tracks_an_uncooperative_task() -> None:
 
 
 @pytest.mark.asyncio
+async def test_snowluma_close_cancellation_tracks_lifecycle_tasks() -> None:
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def stuck() -> None:
+        started.set()
+        try:
+            await release.wait()
+        except asyncio.CancelledError:
+            await release.wait()
+
+    client = SnowLumaClient(_settings("ws://127.0.0.1:3001/"))
+    client._closed = False
+    lifecycle = asyncio.create_task(stuck())
+    client._task = lifecycle
+    await started.wait()
+
+    entered = asyncio.Event()
+    original_cancel_tasks = client._cancel_tasks
+
+    async def cancel_tasks(
+        tasks: tuple[asyncio.Task[Any], ...],
+        *,
+        deadline: float,
+    ) -> tuple[asyncio.Task[Any], ...]:
+        entered.set()
+        return await original_cancel_tasks(tasks, deadline=deadline)
+
+    client._cancel_tasks = cancel_tasks  # type: ignore[method-assign]
+    closing = asyncio.create_task(client.close(timeout_seconds=5))
+    await entered.wait()
+    closing.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await closing
+
+    assert lifecycle in client._lingering_tasks
+    with pytest.raises(RuntimeError, match="cleanup"):
+        await client.start()
+
+    release.set()
+    await asyncio.wait_for(lifecycle, timeout=1)
+    await asyncio.sleep(0)
+    assert client.status()["background_tasks"] == 0
+
+
+@pytest.mark.asyncio
 async def test_snowluma_close_defers_transport_close_behind_uncooperative_send() -> None:
     client = SnowLumaClient(_settings("ws://127.0.0.1:3001/"))
     connection = _UncooperativeSendConnection()
