@@ -40,7 +40,7 @@ def normalize_event(
     """Convert one inbound OneBot v11 message, notice, or request event."""
 
     post_type = payload.get("post_type")
-    if post_type not in {"message", "notice", "request"}:
+    if not isinstance(post_type, str) or post_type not in {"message", "notice", "request"}:
         return None
 
     event_self_id = payload.get("self_id")

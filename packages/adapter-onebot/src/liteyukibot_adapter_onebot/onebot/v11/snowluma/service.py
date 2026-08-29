@@ -18,6 +18,7 @@ from liteyukibot_kernel import (
     SendMessage,
 )
 
+from ..core import ONEBOT_V11_ADAPTER
 from .client import CLOSE_TIMEOUT_SECONDS, SnowLumaClient
 from .settings import SnowLumaAccountSettings
 
@@ -129,7 +130,12 @@ class OneBotService:
 
         if event is None:
             return _failure(action, "SOURCE_EVENT_REQUIRED", "OneBot actions require a source event")
-        if action.event_id != event.id or action.runtime_id != event.runtime_id or action.bot_id != event.bot_id:
+        if (
+            event.adapter != ONEBOT_V11_ADAPTER
+            or action.event_id != event.id
+            or action.runtime_id != event.runtime_id
+            or action.bot_id != event.bot_id
+        ):
             return _failure(action, "SOURCE_EVENT_MISMATCH", "OneBot action does not match its source event")
         client = self.accounts.get(action.runtime_id)
         if client is None or client.self_id != action.bot_id:

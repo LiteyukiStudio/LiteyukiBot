@@ -239,6 +239,7 @@ def test_onebot_v11_cq_text_entities_round_trip(value: str) -> None:
 def test_onebot_v11_event_filter_accepts_messages_notices_and_requests() -> None:
     assert normalize_event({"post_type": "message_sent"}, self_id="42") is None
     assert normalize_event({"post_type": "meta_event"}, self_id="42") is None
+    assert normalize_event({"post_type": ["message"]}, self_id="42") is None
     assert normalize_event({**_event(message_type="channel"), "group_id": 2002}, self_id="42") is None
     event = normalize_event(_event(), self_id="42")
     assert event is not None
@@ -519,10 +520,18 @@ async def test_onebot_service_rejects_proactive_and_cross_account_actions() -> N
     assert result.success is False
     assert result.error_code == "SOURCE_EVENT_REQUIRED"
 
-    event = normalize_event(_event(), self_id="42", runtime_id="qq-main", adapter="onebot.v11.snowluma")
+    event = normalize_event(_event(), self_id="42", runtime_id="qq-main")
     assert event is not None
     cross_account = action.model_copy(update={"event_id": event.id, "runtime_id": event.runtime_id, "bot_id": "other"})
     result = await service.execute(event, cross_account)
+    assert result.success is False
+    assert result.error_code == "SOURCE_EVENT_MISMATCH"
+
+    foreign_event = event.model_copy(update={"adapter": "other"})
+    matching_action = action.model_copy(
+        update={"event_id": foreign_event.id, "runtime_id": foreign_event.runtime_id, "bot_id": foreign_event.bot_id}
+    )
+    result = await service.execute(foreign_event, matching_action)
     assert result.success is False
     assert result.error_code == "SOURCE_EVENT_MISMATCH"
 
@@ -600,7 +609,7 @@ async def test_onebot_service_does_not_return_remote_action_error_text(
         {"qq-main": _settings("ws://127.0.0.1:3001/", self_id="42", token=None)},
         event_bus=RecordingEventBus(),  # type: ignore[arg-type]
     )
-    event = normalize_event(_event(), self_id="42", runtime_id="qq-main", adapter="onebot.v11.snowluma")
+    event = normalize_event(_event(), self_id="42", runtime_id="qq-main")
     assert event is not None
 
     async def fail(_action: SendMessage) -> Any:
