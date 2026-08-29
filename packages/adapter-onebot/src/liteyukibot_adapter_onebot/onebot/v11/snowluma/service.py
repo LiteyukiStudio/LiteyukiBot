@@ -7,14 +7,24 @@ import math
 from collections.abc import Mapping
 from typing import Any
 
-from liteyukibot_kernel import ActionEnvelope, ActionResult, EventBus, EventEnvelope, SendMessage
+from liteyukibot_kernel import (
+    ActionEnvelope,
+    ActionResult,
+    AdapterAction,
+    DeleteMessage,
+    EventBus,
+    EventEnvelope,
+    RespondRequest,
+    SendMessage,
+)
 
+from ..core import ONEBOT_V11_ADAPTER
 from .client import CLOSE_TIMEOUT_SECONDS, SnowLumaClient
 from .settings import SnowLumaAccountSettings
 
 
 class OneBotService:
-    """Own SnowLuma accounts and expose source-bound ``message.send``."""
+    """Own SnowLuma accounts and expose source-bound OneBot actions."""
 
     def __init__(
         self,
@@ -120,15 +130,29 @@ class OneBotService:
 
         if event is None:
             return _failure(action, "SOURCE_EVENT_REQUIRED", "OneBot actions require a source event")
-        if action.event_id != event.id or action.runtime_id != event.runtime_id or action.bot_id != event.bot_id:
+        if (
+            event.adapter != ONEBOT_V11_ADAPTER
+            or action.event_id != event.id
+            or action.runtime_id != event.runtime_id
+            or action.bot_id != event.bot_id
+        ):
             return _failure(action, "SOURCE_EVENT_MISMATCH", "OneBot action does not match its source event")
-        if not isinstance(action.action, SendMessage):
-            return _failure(action, "UNSUPPORTED_ACTION", "OneBot v11 exposes only message.send")
         client = self.accounts.get(action.runtime_id)
         if client is None or client.self_id != action.bot_id:
             return _failure(action, "ACCOUNT_NOT_CONFIGURED", "the source OneBot account is not configured")
         try:
-            data = await client.send_message(action.action)
+            if isinstance(action.action, SendMessage):
+                data = await client.send_message(action.action)
+            elif isinstance(action.action, DeleteMessage):
+                data = await client.delete_message(action.action)
+            elif isinstance(action.action, RespondRequest):
+                data = await client.respond_request(event, action.action)
+            elif isinstance(action.action, AdapterAction):
+                if action.action.adapter != event.adapter:
+                    return _failure(action, "SOURCE_EVENT_MISMATCH", "adapter action does not match its source event")
+                data = await client.execute_adapter_action(action.action)
+            else:
+                return _failure(action, "UNSUPPORTED_ACTION", "the OneBot action is not supported")
         except Exception as error:
             self._log("error", "account {} action failed: {}", action.runtime_id, type(error).__name__)
             return _failure(action, "ONEBOT_ACTION_FAILED", "OneBot action failed")

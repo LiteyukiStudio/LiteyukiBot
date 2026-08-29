@@ -11,7 +11,15 @@ from typing import Any, cast
 from uuid import uuid4
 
 import websockets.asyncio.client as websocket_client
-from liteyukibot_kernel import ConversationRef, EventEnvelope, SendMessage, json_value
+from liteyukibot_kernel import (
+    AdapterAction,
+    ConversationRef,
+    DeleteMessage,
+    EventEnvelope,
+    RespondRequest,
+    SendMessage,
+    json_value,
+)
 from liteyukibot_kernel.events import JsonValue
 
 from ..core import ONEBOT_V11_ADAPTER, OneBotV11Error, normalize_event, to_onebot_message
@@ -29,6 +37,16 @@ _EVENT_QUEUE_BYTE_SLOTS = _EVENT_QUEUE_BYTE_BUDGET // _EVENT_QUEUE_BYTE_UNIT
 _MAX_PENDING_CALLS = 1024
 _MAX_REPLY_ROUTES = 4096
 _MAX_MESSAGE_BYTES = 1024 * 1024
+_PORTABLE_ACTION_APIS = frozenset(
+    {
+        "delete_msg",
+        "send_group_msg",
+        "send_msg",
+        "send_private_msg",
+        "set_friend_add_request",
+        "set_group_add_request",
+    }
+)
 
 EventHandler = Callable[[EventEnvelope], Awaitable[object]]
 
@@ -240,12 +258,54 @@ class SnowLumaClient:
         target = _positive_integer_id(conversation.id)
         message = to_onebot_message(action.message)
         if conversation.type == "private":
-            response = await self.call_api("send_private_msg", {"user_id": target, "message": message})
+            params: dict[str, Any] = {"user_id": target, "message": message}
+            if conversation.parent_id is not None:
+                params["group_id"] = _positive_integer_id(conversation.parent_id)
+            response = await self.call_api("send_private_msg", params)
         elif conversation.type == "group":
             response = await self.call_api("send_group_msg", {"group_id": target, "message": message})
         else:
             raise OneBotV11Error(f"OneBot v11 does not support {conversation.type!r} conversations")
         return response
+
+    async def delete_message(self, action: DeleteMessage) -> JsonValue:
+        """Delete one source-bound OneBot message."""
+
+        return await self.call_api("delete_msg", {"message_id": _message_id(action.message_id)})
+
+    async def respond_request(self, event: EventEnvelope, action: RespondRequest) -> JsonValue:
+        """Respond to the friend or group request represented by ``event``."""
+
+        flag = event.details.get("flag")
+        if not isinstance(flag, str) or not flag:
+            raise OneBotV11Error("OneBot request events require a non-empty flag")
+        if event.type == "request.friend":
+            if action.reason:
+                raise OneBotV11Error("SnowLuma friend requests do not support a response reason")
+            return await self.call_api("set_friend_add_request", {"flag": flag, "approve": action.approve})
+        if event.type.startswith("request.group.") or event.type == "request.group":
+            subtype = event.details.get("sub_type", "add")
+            if not isinstance(subtype, str) or not subtype:
+                raise OneBotV11Error("OneBot group requests require a non-empty sub_type")
+            return await self.call_api(
+                "set_group_add_request",
+                {
+                    "flag": flag,
+                    "sub_type": subtype,
+                    "approve": action.approve,
+                    "reason": action.reason or "",
+                },
+            )
+        raise OneBotV11Error("respond_request requires a OneBot friend or group request event")
+
+    async def execute_adapter_action(self, action: AdapterAction) -> JsonValue:
+        """Execute an extension API not represented by a portable action."""
+
+        if action.adapter != ONEBOT_V11_ADAPTER:
+            raise OneBotV11Error("adapter_action must target onebot.v11")
+        if action.name in _PORTABLE_ACTION_APIS:
+            raise OneBotV11Error(f"OneBot API {action.name!r} requires a portable kernel action")
+        return await self.call_api(action.name, action.params)
 
     async def call_api(self, api: str, params: Mapping[str, Any]) -> JsonValue:
         """Call one OneBot v11 API and return its JSON ``data`` field."""
@@ -293,10 +353,10 @@ class SnowLumaClient:
             self._pending.pop(correlation_id, None)
             if current is not None:
                 self._send_tasks.discard(current)
-        if response.get("status") != "ok" or response.get("retcode") != 0:
-            retcode = response.get("retcode")
+        retcode = response.get("retcode")
+        if response.get("status") != "ok" or type(retcode) is not int or retcode != 0:
             safe_retcode = (
-                retcode if isinstance(retcode, int) and not isinstance(retcode, bool) else type(retcode).__name__
+                retcode if type(retcode) is int else type(retcode).__name__
             )
             raise OneBotV11Error(f"OneBot API {api!r} failed with retcode {safe_retcode!r}")
         return cast(JsonValue, json_value(response.get("data")))
@@ -384,7 +444,7 @@ class SnowLumaClient:
                 continue
             if event is None or self.on_event is None:
                 continue
-            if event.reply_token is not None:
+            if event.reply_token is not None and event.conversation is not None:
                 self._remember_reply_route(event.reply_token, event.conversation)
             reserved = await self._reserve_event(event)
             if reserved is None:
@@ -627,6 +687,13 @@ def _remaining_seconds(deadline: float) -> float:
 def _positive_integer_id(value: str) -> int:
     if not value.isdecimal() or (parsed := int(value)) <= 0:
         raise OneBotV11Error("OneBot v11 conversation IDs must be positive integers")
+    return parsed
+
+
+def _message_id(value: str) -> int:
+    digits = value[1:] if value.startswith("-") else value
+    if not digits.isdecimal() or (parsed := int(value)) == 0:
+        raise OneBotV11Error("OneBot v11 message IDs must be non-zero integers")
     return parsed
 
 

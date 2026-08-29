@@ -7,10 +7,11 @@
   byte, handler, action and shutdown limits are explicit configuration points;
 - service registry, owned background tasks and application status.
 
-Messages support text, mention, reply and image segments. The only action is
-`SendMessage`. The kernel does not own configuration, CLI, Cordis discovery,
-OneBot transport or built-in business features, and it does not import the
-root application package.
+Messages support text, mention, reply, image, audio, video, file, emoji, and an
+explicit adapter extension segment. Actions cover sending, message deletion,
+request responses, and source-bound adapter extensions. The kernel does not
+own configuration, CLI, Cordis discovery, OneBot transport or built-in
+business features, and it does not import the root application package.
 
 Applications normally install `liteyukibot-v7`; component authors may depend
 directly on this package for the small contract surface.

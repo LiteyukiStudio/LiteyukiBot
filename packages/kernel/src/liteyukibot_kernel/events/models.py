@@ -4,13 +4,23 @@ import math
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from types import MappingProxyType
-from typing import Any, Literal, Self
+from typing import Annotated, Any, Literal, Self
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator, model_validator
 
 type JsonValue = None | bool | int | float | str | tuple[JsonValue, ...] | Mapping[str, JsonValue]
-type SegmentType = Literal["text", "mention", "reply", "image"]
+type SegmentType = Literal[
+    "text",
+    "mention",
+    "reply",
+    "image",
+    "audio",
+    "video",
+    "file",
+    "emoji",
+    "adapter",
+]
 type ConversationType = Literal["private", "group"]
 
 
@@ -179,8 +189,20 @@ class Segment(FrozenModel):
                 raise ValueError("mention segments require data.user_id or data.scope=all")
         if self.type == "reply" and not isinstance(self.data.get("message_id"), str):
             raise ValueError("reply segments require a string data.message_id")
-        if self.type == "image" and not isinstance(self.data.get("url"), str):
-            raise ValueError("image segments require a string data.url")
+        if self.type in {"image", "audio", "video", "file"}:
+            url = self.data.get("url")
+            file_id = self.data.get("file_id")
+            if not (isinstance(url, str) and url) and not (isinstance(file_id, str) and file_id):
+                raise ValueError(f"{self.type} segments require a non-empty data.url or data.file_id")
+        if self.type == "emoji" and not isinstance(self.data.get("id"), str):
+            raise ValueError("emoji segments require a string data.id")
+        if self.type == "adapter":
+            if not isinstance(self.data.get("adapter"), str) or not self.data["adapter"]:
+                raise ValueError("adapter segments require a non-empty data.adapter")
+            if not isinstance(self.data.get("type"), str) or not self.data["type"]:
+                raise ValueError("adapter segments require a non-empty data.type")
+            if not isinstance(self.data.get("data"), Mapping):
+                raise ValueError("adapter segments require object data.data")
         return self
 
 
@@ -235,11 +257,30 @@ class EventEnvelope(FrozenModel):
     adapter: str = Field(min_length=1)
     bot_id: str = Field(min_length=1)
     type: str = Field(min_length=1)
-    conversation: ConversationRef
+    conversation: ConversationRef | None = None
     actor: ActorRef | None = None
     message: Message | None = None
     reply_token: str | None = None
+    details: Mapping[str, JsonValue] = Field(default_factory=dict)
     raw: Mapping[str, JsonValue] = Field(default_factory=dict)
+
+    @field_validator("details", mode="before")
+    @classmethod
+    def validate_details_are_json(cls, value: Any) -> Any:
+        """Validate adapter-normalized event details."""
+        _validate_json_value(value, "details")
+        return value
+
+    @field_validator("details", mode="after")
+    @classmethod
+    def freeze_details(cls, value: Mapping[str, JsonValue]) -> Mapping[str, JsonValue]:
+        """Freeze adapter-normalized event details."""
+        return MappingProxyType({key: _freeze_json(item) for key, item in value.items()})
+
+    @field_serializer("details")
+    def serialize_details(self, value: Mapping[str, JsonValue]) -> dict[str, Any]:
+        """Serialize adapter-normalized event details."""
+        return {key: _thaw_json(item) for key, item in value.items()}
 
     @field_validator("raw", mode="before")
     @classmethod
@@ -300,7 +341,8 @@ class EventEnvelope(FrozenModel):
         Returns:
             The `tuple[str, str, str]` result produced by the operation.
         """
-        return self.runtime_id, self.bot_id, self.conversation.ordering_key
+        ordering_key = self.conversation.ordering_key if self.conversation is not None else "account"
+        return self.runtime_id, self.bot_id, ordering_key
 
 
 class SendMessage(FrozenModel):
@@ -322,7 +364,52 @@ class SendMessage(FrozenModel):
         return self
 
 
-type Action = SendMessage
+class DeleteMessage(FrozenModel):
+    """Delete or recall one platform message."""
+
+    type: Literal["delete_message"] = "delete_message"
+    message_id: str = Field(min_length=1)
+
+
+class RespondRequest(FrozenModel):
+    """Approve or reject the request represented by the source event."""
+
+    type: Literal["respond_request"] = "respond_request"
+    approve: bool
+    reason: str | None = None
+
+
+class AdapterAction(FrozenModel):
+    """Call one explicitly targeted adapter extension operation."""
+
+    type: Literal["adapter_action"] = "adapter_action"
+    adapter: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    params: Mapping[str, JsonValue] = Field(default_factory=dict)
+
+    @field_validator("params", mode="before")
+    @classmethod
+    def validate_params_are_json(cls, value: Any) -> Any:
+        """Validate adapter action parameters."""
+        _validate_json_value(value, "params")
+        return value
+
+    @field_validator("params", mode="after")
+    @classmethod
+    def freeze_params(cls, value: Mapping[str, JsonValue]) -> Mapping[str, JsonValue]:
+        """Freeze adapter action parameters."""
+        return MappingProxyType({key: _freeze_json(item) for key, item in value.items()})
+
+    @field_serializer("params")
+    def serialize_params(self, value: Mapping[str, JsonValue]) -> dict[str, Any]:
+        """Serialize adapter action parameters."""
+        return {key: _thaw_json(item) for key, item in value.items()}
+
+
+type Action = Annotated[
+    SendMessage | DeleteMessage | RespondRequest | AdapterAction,
+    Field(discriminator="type"),
+]
 
 
 class ActionEnvelope(FrozenModel):

@@ -13,8 +13,10 @@ Each `[onebot.v11.accounts.<id>]` table requires:
 
 The table key is the kernel `runtime_id`. Multiple accounts are independent.
 Plain `ws://` endpoints must be loopback; remote endpoints require `wss://`.
-Only private and group message events are accepted. Lifecycle, heartbeat,
-notice, request and `message_sent` events are ignored.
+Private and group messages, notices, and friend/group requests are published.
+`message_sent`, lifecycle, and heartbeat events remain transport-internal and
+are not sent to Cordis. Published events must carry a finite numeric `time`;
+malformed events are discarded by the adapter.
 
 The application status includes one account entry per configured runtime with
 connection state, pending call count, queued event count and bytes, reconnect
@@ -33,9 +35,30 @@ client reports `cleanup_pending` or `failed` while cleanup is incomplete and
 only reports `stopped` after queued events, transport close, and background
 tasks have been released.
 
-The profile translates only text, mention, reply and image segments and
-executes only source-bound `SendMessage` actions. Unknown segment kinds cause
-the event to be discarded instead of widening the kernel model.
+The profile maps text, mention, reply, image, record/audio, video, file, and
+face/emoji segments to portable kernel types. Array messages use standard v11
+segment objects and legacy strings parse CQ forms with v11 entity escaping.
+Other valid segment or CQ types use an explicit `adapter` segment that retains
+their native type and JSON-safe data.
+
+Notice types are published as `notice.<notice_type>[.<sub_type>]`; requests use
+`request.<request_type>[.<sub_type>]`. Event-specific IDs and values are
+available through `EventEnvelope.details`, with top-level `*_id` values
+normalized to strings. Group events use a group conversation, direct events
+use a private conversation, and account-only notices have no synthetic
+conversation.
+
+Source-bound actions support sending, deleting messages, responding to the
+source friend/group request, and calling remaining SnowLuma APIs through
+`AdapterAction`. The extension path rejects the send/delete/request APIs that
+already have portable actions. All paths require matching event, runtime, bot,
+adapter, and configured account identities.
+
+For a private event with `sub_type = "group"`, the adapter reads the source
+group from `sender.group_id` (or the top-level `group_id` fallback) into
+`ConversationRef.parent_id`. A reply to that conversation sends
+`send_private_msg` with both `user_id` and `group_id`, preserving the temporary
+session instead of turning it into an ordinary friend message.
 
 SnowLuma is an external project. LiteyukiBot is not affiliated with it and
 does not bundle SnowLuma source, assets or implementation code. The local
