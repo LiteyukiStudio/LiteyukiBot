@@ -24,6 +24,7 @@ liteyuki = "liteyukibot.cli:main"
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6,<7",
     "mypy>=1.18,<2",
     "pip-audit>=2.9,<3",
     "pytest-cov>=7,<8",

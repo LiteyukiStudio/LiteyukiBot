@@ -18,14 +18,22 @@ ws_url = "ws://127.0.0.1:3001/"
 access_token = "onebot-token"
 ```
 
-`OneBotService` owns all configured accounts, publishes supported private and
-group message events to the kernel `EventBus`, and can be passed directly as
-the backend of `ActionService`. It exposes only source-bound `message.send`
-actions. Reply routes belong to their source account and are discarded on
+`OneBotService` owns all configured accounts, publishes private/group messages,
+notices, and friend/group requests to the kernel `EventBus`, and can be passed
+directly as the backend of `ActionService`. Sending, deletion, request
+responses, and adapter extensions remain bound to their source event and
+account. Reply routes belong to their source account and are discarded on
 disconnect.
 Inbound events are retained under both a 1024-event queue limit and a 16 MiB
 weighted byte budget. Account shutdown drains queued events and exposes
 unfinished transport cleanup in status.
+
+The profile translates text, mention, reply, image, audio/record, video, file,
+and face/emoji segments. Legacy string messages parse the same CQ forms with
+v11 entity escaping. Other valid CQ codes and segment kinds retain their native
+type and data in an explicit OneBot-targeted adapter segment. Private messages
+with `sub_type = "group"` retain `sender.group_id` as the conversation parent
+and send replies with `send_private_msg.group_id`.
 
 ## SnowLuma Notice
 
