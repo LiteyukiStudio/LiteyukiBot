@@ -36,6 +36,14 @@ Configuration tables must be present only for enabled plugin IDs. Each plugin
 factory owns validation of its table and should fail activation before
 registering handlers or resources when the table is invalid.
 
+The CLI plugin index uses schema 2 metadata. A current bundle declares its
+PyPI distribution as `project_id` and its entry-point names in the selected
+Cordis facet's `load.entry_points` array. The CLI verifies the wheel bytes,
+installs it into the current Python interpreter with `uv pip`, and then checks
+that those entry points belong to the declared distribution. Bundle metadata
+and local activation state are managed by the host CLI only; adapter commands
+cannot install, enable, disable, remove, or configure plugins.
+
 There is no separate Cordis host entry point, native delegation, manifest
 layer, scheduler, middleware, parallel fanout, runtime API or hot reload in
 Alpha15.

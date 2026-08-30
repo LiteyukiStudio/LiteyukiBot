@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import os
 import shutil
 import subprocess
@@ -46,10 +47,26 @@ def _run(command: list[str], *, cwd: Path, environment: dict[str, str]) -> subpr
     return subprocess.run(command, cwd=cwd, env=environment, text=True, capture_output=True, check=True)
 
 
-def main() -> int:
+def _run_liteyuki(
+    arguments: list[str], *, workspace: Path, cwd: Path, environment: dict[str, str]
+) -> subprocess.CompletedProcess[str]:
+    return _run(
+        ["liteyuki", "--workspace", str(workspace), *arguments],
+        cwd=cwd,
+        environment=environment,
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
     uv = shutil.which("uv")
     if uv is None:
         raise RuntimeError("uv executable was not found")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--plugin-index", help="optional local or HTTPS Alpha15 plugin index")
+    parser.add_argument("--plugin-id", help="bundle ID to exercise from --plugin-index")
+    args = parser.parse_args(argv)
+    if args.plugin_index and not args.plugin_id:
+        parser.error("--plugin-id is required with --plugin-index")
     with tempfile.TemporaryDirectory(prefix="liteyuki-tool-smoke-") as directory:
         root = Path(directory)
         tool_directory = root / "tools"
@@ -86,7 +103,48 @@ def main() -> int:
             cwd=root,
             environment=environment,
         )
-        _run(["liteyuki", "--workspace", str(workspace), "check"], cwd=root, environment=environment)
+        _run_liteyuki(["check"], workspace=workspace, cwd=root, environment=environment)
+        if args.plugin_index:
+            _run_liteyuki(
+                ["plugin", "install", args.plugin_id, "--index-url", args.plugin_index],
+                workspace=workspace,
+                cwd=root,
+                environment=environment,
+            )
+            _run_liteyuki(
+                ["plugin", "config", "set", args.plugin_id, "smoke=true"],
+                workspace=workspace,
+                cwd=root,
+                environment=environment,
+            )
+            _run_liteyuki(
+                ["plugin", "config", "show", args.plugin_id],
+                workspace=workspace,
+                cwd=root,
+                environment=environment,
+            )
+            _run_liteyuki(["check"], workspace=workspace, cwd=root, environment=environment)
+            _run_liteyuki(
+                ["plugin", "disable", args.plugin_id],
+                workspace=workspace,
+                cwd=root,
+                environment=environment,
+            )
+            _run_liteyuki(["check"], workspace=workspace, cwd=root, environment=environment)
+            _run_liteyuki(
+                ["plugin", "enable", args.plugin_id],
+                workspace=workspace,
+                cwd=root,
+                environment=environment,
+            )
+            _run_liteyuki(["check"], workspace=workspace, cwd=root, environment=environment)
+            _run_liteyuki(
+                ["plugin", "remove", args.plugin_id],
+                workspace=workspace,
+                cwd=root,
+                environment=environment,
+            )
+            _run_liteyuki(["check"], workspace=workspace, cwd=root, environment=environment)
     return 0
 
 

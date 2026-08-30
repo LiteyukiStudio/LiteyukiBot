@@ -12,6 +12,9 @@ the four lockstep distributions.
 - `verify_published_install.py` verifies the root wheel and its three internal
   dependencies without importing the checkout.
 - `run_tool_install_smoke.py` checks the installed `liteyuki` CLI path.
+- `run_tool_install_smoke.py --plugin-index INDEX --plugin-id ID` additionally
+  checks indexed plugin installation, local configuration, enable/disable, and
+  removal inside a fresh `uv tool` environment.
 - `generate_supply_chain.py` produces release supply-chain metadata.
 
 Run from the repository root:
