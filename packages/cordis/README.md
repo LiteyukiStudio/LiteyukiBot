@@ -26,4 +26,8 @@ shutdown deadline contract.
 Root command handlers and resource-provider operations use the same async-only
 boundary before they are attached to Cordis.
 
+The root `liteyuki plugin` CLI manages indexed Cordis distributions. It writes
+only the host workspace's `[cordis]` selection and local `.liteyuki` state;
+OneBot adapters do not expose plugin installation or configuration operations.
+
 Run `uv run pytest packages/cordis/tests` after changes.

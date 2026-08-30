@@ -51,10 +51,23 @@ For a release install, download and verify the signed bundle, then use the
 staged wheels and dependency closure described in
 [`docs/development/releasing.md`](docs/development/releasing.md).
 
+The resulting user-facing install is a normal `uv tool install` using the
+four verified Alpha15 wheels; the exact command is documented in
+[`docs/configuration.md`](docs/configuration.md). The current Alpha15 root is
+not the older PyPI `liteyukibot` project.
+
 The generated `liteyuki.toml` is configuration schema 7. Built-in features
 are enabled by the application; configure their sections directly. OneBot is
 enabled by adding accounts under `[onebot.v11.accounts]`. See
 [configuration operations](docs/configuration.md).
+
+Alpha15 Cordis plugins are managed locally by the installed CLI. Use
+`liteyuki --workspace my-bot plugin list` to inspect the default index and
+`plugin install`, `plugin enable`, `plugin disable`, and `plugin remove` for
+the lifecycle. The manager installs verified wheels into the current Python
+interpreter and does not add plugin operations to OneBot adapters. The public
+index currently has no Alpha15-compatible entries; packages from the older
+`liteyukibot.plugins` entry-point group are not interchangeable with Alpha15.
 
 ## OneBot And SnowLuma
 

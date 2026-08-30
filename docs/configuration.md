@@ -59,6 +59,54 @@ Built-in permissions, commands, resources, profile, and essentials are
 application-owned features and are not enabled by installing separate
 packages. Their settings are configured in the corresponding sections.
 
+## Cordis Plugins
+
+Alpha15 plugin management is local CLI functionality. It never exposes
+installation, activation, or plugin configuration through OneBot or any
+adapter command. The default metadata index is:
+
+```text
+https://raw.githubusercontent.com/LiteyukiStudio/liteyukibot-v7-plugins/main/index.json
+```
+
+The current interpreter is the install target, so run these commands from the
+same `uv tool` environment that will run LiteyukiBot:
+
+```powershell
+# Run once from a verified Alpha15 release bundle directory.
+$release = "C:\path\to\verified\release"
+uv tool install --python 3.14 --force `
+  --with "$release\liteyukibot_v7_kernel-7.0.0a15-py3-none-any.whl" `
+  --with "$release\liteyukibot_v7_cordis-7.0.0a15-py3-none-any.whl" `
+  --with "$release\liteyukibot_v7_adapter_onebot-7.0.0a15-py3-none-any.whl" `
+  "$release\liteyukibot_v7-7.0.0a15-py3-none-any.whl"
+
+liteyuki --workspace my-bot plugin list
+liteyuki --workspace my-bot plugin show <bundle-id>
+liteyuki --workspace my-bot plugin install <bundle-id>
+liteyuki --workspace my-bot plugin config set <bundle-id> key=value
+liteyuki --workspace my-bot plugin config show <bundle-id>
+liteyuki --workspace my-bot plugin installed
+liteyuki --workspace my-bot plugin disable <bundle-id>
+liteyuki --workspace my-bot plugin enable <bundle-id>
+liteyuki --workspace my-bot plugin remove <bundle-id>
+```
+
+`plugin install` downloads the selected Alpha15 Cordis wheel after checking
+its declared size and SHA-256, then invokes `uv pip install --python` against
+the running interpreter. Installation activates the bundle by default;
+`--no-enable` leaves it installed but inactive. Activation state is written
+to `[cordis].enabled` and local provenance is stored in
+`.liteyuki/plugins.json`. If a disabled plugin has a
+`[cordis.config.<entry-point>]` table, the CLI retains that table locally and
+restores it when the plugin is enabled again. Edit plugin-owned configuration
+in the workspace TOML; adapters do not provide a configuration channel.
+
+The public index currently contains no Alpha15-compatible bundle. Existing
+packages using the historical `liteyukibot.plugins` entry-point group are not
+compatible with the current `liteyukibot.cordis_plugins` contract and must not
+be installed through this command.
+
 ## OneBot v11
 
 Install the Alpha15 adapter with the root application, then add one or more
