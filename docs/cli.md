@@ -19,6 +19,24 @@ uv run --project . --locked python -m scripts.run_source_smoke
 The source smoke uses a disposable instance and runs the editable checkout
 through uv. It does not build wheels or install a uv tool.
 
+## Help
+
+Use `help` without a target for the complete CLI syntax, or pass a command
+path for its focused help:
+
+~~~bash
+liteyuki help
+liteyuki help check
+liteyuki help config show
+liteyuki check --help
+liteyuki -h check
+~~~
+
+Command paths are resolved from the parser's registered subcommands, including
+aliases. The help command does not prepare or load a workspace. A CLI extension
+that registers another parser automatically participates in the same help
+lookup; it does not need a second command-to-help mapping.
+
 ## Development Debug Probe
 
 `tests debug` starts the selected instance in the current process for a bounded
@@ -97,6 +115,7 @@ after the selected command.
 liteyuki [GLOBAL OPTIONS] COMMAND [COMMAND OPTIONS]
 
 Commands:
+  help                        show help for the CLI or a command
   init                         create a schema-7 instance configuration
   check                        validate configuration without starting
   run                          start the selected instance in the foreground

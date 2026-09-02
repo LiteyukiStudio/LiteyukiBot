@@ -28,6 +28,53 @@ def test_help_describes_source_and_registered_instance_selection() -> None:
     assert "--instance NAME" in help_text
     assert "instance add dev PATH" in help_text
     assert "check --instance dev --format json" in help_text
+    assert "help" in help_text
+
+
+def test_help_command_prints_root_help_without_preparing_a_workspace(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli_module.main(["help"]) == 0
+
+    output = capsys.readouterr()
+    assert "usage: liteyuki" in output.out
+    assert "{help,run,check" in output.out
+    assert output.err == ""
+
+
+def test_help_command_walks_nested_parser_paths_and_aliases(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli_module.main(["help", "config", "show"]) == 0
+    output = capsys.readouterr()
+    assert "usage: liteyuki config show" in output.out
+    assert "--format {json,toml}" in output.out
+
+    assert cli_module.main(["help", "workspace", "list"]) == 0
+    output = capsys.readouterr()
+    assert "usage: liteyuki instance list" in output.out
+
+
+@pytest.mark.parametrize("flag", ("-h", "--help"))
+def test_help_prefix_form_targets_a_command_without_argparse_error(
+    flag: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli_module.main([flag, "check"]) == 0
+
+    output = capsys.readouterr()
+    assert "usage: liteyuki check" in output.out
+    assert output.err == ""
+
+
+def test_help_command_reports_unknown_command_paths(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli_module.main(["help", "missing"]) == 2
+
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert output.err == "unknown command path: missing\n"
 
 
 def test_instance_registry_round_trip_keeps_directory_on_unregistration(tmp_path: Path) -> None:

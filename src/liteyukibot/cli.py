@@ -104,6 +104,39 @@ def _add_context_options(parser: argparse.ArgumentParser, *, suppress_defaults: 
     )
 
 
+def _normalize_help_argv(argv: Sequence[str]) -> list[str]:
+    """Normalize the prefix form ``liteyuki -h COMMAND`` to the help command."""
+    values = list(argv)
+    if len(values) > 1 and values[0] in {"-h", "--help"}:
+        return ["help", *values[1:]]
+    return values
+
+
+def _subparser_choices(parser: argparse.ArgumentParser) -> dict[str, argparse.ArgumentParser]:
+    """Return the registered child parsers without duplicating the command tree."""
+    for action in parser._actions:
+        choices = getattr(action, "choices", None)
+        if isinstance(choices, dict) and all(
+            isinstance(value, argparse.ArgumentParser) for value in choices.values()
+        ):
+            return cast(dict[str, argparse.ArgumentParser], choices)
+    return {}
+
+
+def _resolve_help_parser(
+    parser: argparse.ArgumentParser,
+    command_path: Sequence[str],
+) -> argparse.ArgumentParser | None:
+    """Resolve a command path by walking the parsers registered in argparse."""
+    current = parser
+    for command in command_path:
+        next_parser = _subparser_choices(current).get(command)
+        if next_parser is None:
+            return None
+        current = next_parser
+    return current
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the supported foreground CLI parser."""
     parser = argparse.ArgumentParser(
@@ -114,6 +147,7 @@ def build_parser() -> argparse.ArgumentParser:
             "Examples:\n"
             "  liteyuki --workspace PATH init\n"
             "  liteyuki --workspace PATH check\n"
+            "  liteyuki help check\n"
             "  liteyuki instance add dev PATH\n"
             "  liteyuki --instance dev run\n"
             "  liteyuki check --instance dev --format json\n"
@@ -124,6 +158,18 @@ def build_parser() -> argparse.ArgumentParser:
     _add_context_options(parser)
 
     subcommands = parser.add_subparsers(dest="command", required=True)
+    help_command = subcommands.add_parser(
+        "help",
+        help="show help for the CLI or a command",
+        description="Show the full CLI help or detailed help for a registered command path.",
+    )
+    help_command.add_argument(
+        "command_path",
+        nargs="*",
+        metavar="COMMAND",
+        help="command path to describe, for example config show",
+    )
+    _add_context_options(help_command, suppress_defaults=True)
     run = subcommands.add_parser(
         "run",
         help="run LiteyukiBot in the foreground",
@@ -422,7 +468,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Run one supported CLI operation and return its process status."""
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    raw_argv = sys.argv[1:] if argv is None else argv
+    args = parser.parse_args(_normalize_help_argv(raw_argv))
+    if args.command == "help":
+        return _help(parser, args.command_path)
     if args.command == "version":
         print(__version__)
         return 0
@@ -478,6 +528,19 @@ def main(argv: Sequence[str] | None = None) -> int:
 def _print_error(error: BaseException) -> None:
     """Print one concise CLI error without a traceback."""
     print(str(error), file=sys.stderr)
+
+
+def _help(parser: argparse.ArgumentParser, command_path: Sequence[str]) -> int:
+    """Print the root or command-specific help without starting a workspace."""
+    if not command_path:
+        parser.print_help()
+        return 0
+    target = _resolve_help_parser(parser, command_path)
+    if target is None:
+        print(f"unknown command path: {' '.join(command_path)}", file=sys.stderr)
+        return 2
+    target.print_help()
+    return 0
 
 
 def _resolve_workspace(args: argparse.Namespace, *, use_default: bool) -> Path:
