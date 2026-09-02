@@ -6,11 +6,18 @@ import json
 import os
 import re
 import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .exceptions import LiteyukiError
+
+if os.name == "nt":
+    import msvcrt
+else:
+    import fcntl
 
 REGISTRY_ENVIRONMENT_VARIABLE = "LITEYUKI_INSTANCE_REGISTRY"
 _FORMAT_VERSION = 1
@@ -56,6 +63,44 @@ def _validate_name(name: str) -> str:
 
 def _name_key(name: str) -> str:
     return _validate_name(name).casefold()
+
+
+@contextmanager
+def _registry_lock(path: Path) -> Iterator[None]:
+    """Serialize registry mutations across processes with a persistent sidecar lock."""
+    lock_path = path.with_name(f".{path.name}.lock")
+    if lock_path.is_symlink() or (lock_path.exists() and not lock_path.is_file()):
+        raise InstanceRegistryError(f"instance registry lock is not a regular file: {lock_path}")
+    try:
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with lock_path.open("a+b") as stream:
+            try:
+                if os.name == "nt":
+                    stream.seek(0, os.SEEK_END)
+                    if stream.tell() == 0:
+                        stream.write(b"\0")
+                        stream.flush()
+                    stream.seek(0)
+                    msvcrt.locking(stream.fileno(), msvcrt.LK_LOCK, 1)
+                else:
+                    fcntl_module = cast(Any, fcntl)
+                    fcntl_module.flock(stream.fileno(), fcntl_module.LOCK_EX)
+            except OSError as error:
+                raise InstanceRegistryError(f"cannot lock instance registry: {lock_path}") from error
+            try:
+                yield
+            finally:
+                try:
+                    if os.name == "nt":
+                        stream.seek(0)
+                        msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+                    else:
+                        fcntl_module = cast(Any, fcntl)
+                        fcntl_module.flock(stream.fileno(), fcntl_module.LOCK_UN)
+                except OSError as error:
+                    raise InstanceRegistryError(f"cannot unlock instance registry: {lock_path}") from error
+    except OSError as error:
+        raise InstanceRegistryError(f"cannot open instance registry lock: {lock_path}") from error
 
 
 class InstanceRegistry:
@@ -106,35 +151,43 @@ class InstanceRegistry:
         if path.exists() and not path.is_dir():
             raise InstanceRegistryError(f"instance path is not a directory: {path}")
 
-        records, default_name = self._read()
         key = validated_name.casefold()
-        existing = records.get(key)
-        if existing is not None and not replace:
-            raise InstanceRegistryError(f"instance nickname already exists: {existing.name}")
-        if existing is not None and default_name is not None and default_name.casefold() == key:
-            default_name = validated_name
-        record = InstanceRecord(validated_name, path)
-        records[key] = record
-        self._write(records, default_name)
-        return record
+        with _registry_lock(self.path):
+            records, default_name = self._read()
+            existing = records.get(key)
+            if existing is not None and not replace:
+                raise InstanceRegistryError(f"instance nickname already exists: {existing.name}")
+            if existing is not None and default_name is not None and default_name.casefold() == key:
+                default_name = validated_name
+            record = InstanceRecord(validated_name, path)
+            records[key] = record
+            self._write(records, default_name)
+            return record
 
     def set_default(self, name: str) -> InstanceRecord:
         """Set one registered nickname as the implicit instance."""
-        record = self.resolve(name)
-        records, _ = self._read()
-        self._write(records, record.name)
-        return record
+        key = _name_key(name)
+        with _registry_lock(self.path):
+            records, _ = self._read()
+            record = records.get(key)
+            if record is None:
+                raise InstanceRegistryError(f"unknown instance nickname: {name}")
+            self._write(records, record.name)
+            return record
 
     def remove(self, name: str) -> InstanceRecord:
         """Remove a registration while keeping the instance directory intact."""
-        record = self.resolve(name)
-        records, default_name = self._read()
-        key = record.name.casefold()
-        del records[key]
-        if default_name is not None and default_name.casefold() == key:
-            default_name = None
-        self._write(records, default_name)
-        return record
+        key = _name_key(name)
+        with _registry_lock(self.path):
+            records, default_name = self._read()
+            record = records.get(key)
+            if record is None:
+                raise InstanceRegistryError(f"unknown instance nickname: {name}")
+            del records[key]
+            if default_name is not None and default_name.casefold() == key:
+                default_name = None
+            self._write(records, default_name)
+            return record
 
     def _read(self) -> tuple[dict[str, InstanceRecord], str | None]:
         if not self.path.exists():

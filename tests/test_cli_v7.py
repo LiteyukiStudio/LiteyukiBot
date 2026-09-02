@@ -1,14 +1,22 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import multiprocessing
 import signal
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import pytest
 
 import liteyukibot.cli as cli_module
-from liteyukibot.config import ConfigWorkspace
+from liteyukibot import LiteyukiApp
+from liteyukibot.config import ConfigWorkspace, load_settings
 from liteyukibot.instances import InstanceRegistry, InstanceRegistryError
+
+
+def _register_instance_worker(registry_path: str, name: str, directory: str) -> str:
+    return InstanceRegistry(registry_path).register(name, directory).name
 
 
 def test_shutdown_signals_include_windows_ctrl_break_when_available() -> None:
@@ -96,6 +104,37 @@ def test_instance_registry_round_trip_keeps_directory_on_unregistration(tmp_path
     assert loaded.list() == ()
     assert loaded.default() is None
     assert not instance_path.exists()
+
+
+def test_instance_registry_keeps_concurrent_registrations(
+    tmp_path: Path,
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    context = multiprocessing.get_context("spawn")
+
+    with ProcessPoolExecutor(max_workers=4, mp_context=context) as executor:
+        futures = [
+            executor.submit(
+                _register_instance_worker,
+                str(registry_path),
+                f"worker-{index}",
+                str(tmp_path / f"instance-{index}"),
+            )
+            for index in range(4)
+        ]
+        assert sorted(future.result(timeout=10) for future in futures) == [
+            "worker-0",
+            "worker-1",
+            "worker-2",
+            "worker-3",
+        ]
+
+    assert {record.name for record in InstanceRegistry(registry_path).list()} == {
+        "worker-0",
+        "worker-1",
+        "worker-2",
+        "worker-3",
+    }
 
 
 @pytest.mark.parametrize("name", ("", "bad/name", "bad name", "中文"))
@@ -197,7 +236,7 @@ def test_cli_tests_debug_emits_jsonl_lifecycle_and_applies_onebot_ablation(
                 "--workspace",
                 str(tmp_path),
                 "--duration",
-                "0.02",
+                "1.0",
                 "--ablate",
                 "onebot",
                 "--log-tail",
@@ -214,6 +253,39 @@ def test_cli_tests_debug_emits_jsonl_lifecycle_and_applies_onebot_ablation(
     assert "onebot" not in records[1]["status"]
     assert any(record["kind"] == "snapshot" for record in records)
     assert records[-1]["status"]["state"] == "stopped"
+
+
+@pytest.mark.asyncio
+async def test_cli_tests_debug_bounds_startup_to_the_session_deadline(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = ConfigWorkspace(tmp_path).initialize()
+    settings = load_settings(config, environ={})
+
+    async def delayed_startup(_self: object) -> None:
+        await asyncio.sleep(10)
+
+    monkeypatch.setattr(LiteyukiApp, "_start_cordis", delayed_startup)
+
+    result = await asyncio.wait_for(
+        cli_module._debug_session(
+            settings,
+            workspace=tmp_path,
+            duration=0.01,
+            interval=0.01,
+            output_format="jsonl",
+            ablations=(),
+            log_tail=0,
+        ),
+        timeout=1,
+    )
+
+    assert result == 2
+    records = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert [record["kind"] for record in records] == ["started", "failed", "stopped"]
+    assert records[1]["error"]["message"] == "debug startup exceeded session deadline"
 
 
 def test_cli_tests_debug_returns_configured_log_tail(

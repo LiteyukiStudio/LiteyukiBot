@@ -140,6 +140,12 @@ class LiteyukiApp:
             operation.add_done_callback(self._clear_start_operation)
         await asyncio.shield(operation)
 
+    def cancel_start(self) -> None:
+        """Request cancellation of a startup task without waiting for its cleanup."""
+        operation = self._start_operation
+        if operation is not None and not operation.done():
+            operation.cancel()
+
     async def _start_impl(self) -> None:
         """Run startup in a task that cannot be orphaned by caller cancellation."""
 

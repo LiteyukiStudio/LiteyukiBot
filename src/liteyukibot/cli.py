@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import json
 import signal
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Coroutine, Sequence
 from datetime import UTC, datetime
 from math import isfinite
 from pathlib import Path
@@ -438,7 +439,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=_non_negative_float,
         default=5.0,
         metavar="SECONDS",
-        help="maximum session duration; 0 starts and stops immediately (default: 5)",
+        help="maximum active diagnostic budget before cleanup; 0 skips runtime wait (default: 5)",
     )
     debug.add_argument(
         "--interval",
@@ -845,9 +846,10 @@ async def _debug_session(
 
     session_error: BaseException | None = None
     cleanup_error: BaseException | None = None
+    deadline = monotonic() + (duration if duration > 0 else settings.core.shutdown_timeout_seconds)
     try:
         _validate(settings)
-        await app.start()
+        await _run_debug_operation(app, app.start, deadline=deadline, name="startup")
         _emit_debug(
             output_format,
             "ready",
@@ -855,7 +857,6 @@ async def _debug_session(
             ablations=ablations,
             **_debug_snapshot(app, settings, log_tail=log_tail),
         )
-        deadline = monotonic() + duration
         while duration > 0:
             remaining = deadline - monotonic()
             if remaining <= 0:
@@ -882,7 +883,8 @@ async def _debug_session(
         )
     finally:
         try:
-            await app.stop()
+            cleanup_deadline = max(deadline, monotonic() + settings.core.shutdown_timeout_seconds)
+            await _run_debug_operation(app, app.stop, deadline=cleanup_deadline, name="cleanup")
         except (asyncio.CancelledError, KeyboardInterrupt):
             raise
         except BaseException as error:
@@ -903,6 +905,29 @@ async def _debug_session(
             **_debug_snapshot(app, settings, log_tail=log_tail),
         )
     return 2 if session_error is not None or cleanup_error is not None else 0
+
+
+async def _run_debug_operation(
+    app: LiteyukiApp,
+    operation: Callable[[], Coroutine[Any, Any, None]],
+    *,
+    deadline: float,
+    name: str,
+) -> None:
+    """Run one lifecycle operation within the shared diagnostic deadline."""
+    task = asyncio.create_task(operation(), name=f"liteyuki-debug-{name}")
+    try:
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            raise TimeoutError
+        await asyncio.wait_for(asyncio.shield(task), timeout=remaining)
+    except TimeoutError as error:
+        app.cancel_start()
+        task.cancel()
+        with contextlib.suppress(BaseException):
+            await task
+        await asyncio.sleep(0)
+        raise TimeoutError(f"debug {name} exceeded session deadline") from error
 
 
 def _debug_snapshot(app: LiteyukiApp, settings: AppSettings, *, log_tail: int) -> dict[str, object]:

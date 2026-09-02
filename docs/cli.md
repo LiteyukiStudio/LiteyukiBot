@@ -40,8 +40,12 @@ lookup; it does not need a second command-to-help mapping.
 ## Development Debug Probe
 
 `tests debug` starts the selected instance in the current process for a bounded
-session. It does not attach to, inspect, or control a separate `liteyuki run`
-process, and it never changes the instance configuration.
+session. For a positive `--duration`, validation, startup, and runtime
+observation must fit within the active diagnostic deadline. Cleanup is then
+bounded by the configured shutdown timeout. A zero duration skips runtime
+observation but still starts and stops the instance. It does not attach to,
+inspect, or control a separate `liteyuki run` process, and it never changes the
+instance configuration.
 
 The default output is JSON Lines on stdout so an LLM or another tool can read
 one `started`, `ready`, `snapshot`, `failed`, or `stopped` record at a time.
