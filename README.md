@@ -47,6 +47,18 @@ uv run liteyuki --workspace my-bot check
 uv run liteyuki --workspace my-bot run
 ```
 
+For repeated development runs, register the instance directory once:
+
+~~~bash
+uv run liteyuki instance add dev my-bot
+uv run liteyuki instance use dev
+uv run liteyuki check
+uv run liteyuki run
+~~~
+
+See the [CLI guide](docs/cli.md) for nickname selection, source smoke
+validation, and the complete command syntax.
+
 For a release install, download and verify the signed bundle, then use the
 staged wheels and dependency closure described in
 [`docs/development/releasing.md`](docs/development/releasing.md).
