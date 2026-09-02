@@ -19,6 +19,7 @@ Use CPython 3.14 and uv:
 uv sync --locked --all-packages
 uv run liteyuki --workspace tmp/validation-workspace init
 uv run liteyuki --workspace tmp/validation-workspace check
+uv run --project . --locked python -m scripts.run_source_smoke
 ```
 
 `uv.lock` is the repository lockfile. Update it only when dependency metadata
