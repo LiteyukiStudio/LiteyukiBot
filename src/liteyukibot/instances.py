@@ -81,7 +81,8 @@ def _registry_lock(path: Path) -> Iterator[None]:
                         stream.write(b"\0")
                         stream.flush()
                     stream.seek(0)
-                    msvcrt.locking(stream.fileno(), msvcrt.LK_LOCK, 1)
+                    msvcrt_module = cast(Any, msvcrt)
+                    msvcrt_module.locking(stream.fileno(), msvcrt_module.LK_LOCK, 1)
                 else:
                     fcntl_module = cast(Any, fcntl)
                     fcntl_module.flock(stream.fileno(), fcntl_module.LOCK_EX)
@@ -93,7 +94,8 @@ def _registry_lock(path: Path) -> Iterator[None]:
                 try:
                     if os.name == "nt":
                         stream.seek(0)
-                        msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+                        msvcrt_module = cast(Any, msvcrt)
+                        msvcrt_module.locking(stream.fileno(), msvcrt_module.LK_UNLCK, 1)
                     else:
                         fcntl_module = cast(Any, fcntl)
                         fcntl_module.flock(stream.fileno(), fcntl_module.LOCK_UN)
