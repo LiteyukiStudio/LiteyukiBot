@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import signal
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,16 @@ import pytest
 import liteyukibot.cli as cli_module
 from liteyukibot.config import ConfigWorkspace
 from liteyukibot.instances import InstanceRegistry, InstanceRegistryError
+
+
+def test_shutdown_signals_include_windows_ctrl_break_when_available() -> None:
+    signals = cli_module._shutdown_signals()
+
+    assert signal.SIGINT in signals
+    assert signal.SIGTERM in signals
+    sigbreak = getattr(signal, "SIGBREAK", None)
+    if sigbreak is not None:
+        assert sigbreak in signals
 
 
 def test_help_describes_source_and_registered_instance_selection() -> None:

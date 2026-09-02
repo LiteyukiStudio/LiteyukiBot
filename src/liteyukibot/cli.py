@@ -127,7 +127,7 @@ def build_parser() -> argparse.ArgumentParser:
     run = subcommands.add_parser(
         "run",
         help="run LiteyukiBot in the foreground",
-        description="Start the selected instance and wait for SIGINT or SIGTERM.",
+        description="Start the selected instance and wait for SIGINT, SIGTERM, or Windows SIGBREAK.",
     )
     _add_context_options(run, suppress_defaults=True)
     check = subcommands.add_parser(
@@ -977,7 +977,7 @@ async def _run_until_signal(
     resource_workspace: str | Path = ".",
     app_factory: Callable[..., LiteyukiApp] | None = None,
 ) -> None:
-    """Run an app until SIGINT or SIGTERM, with a Windows-compatible fallback."""
+    """Run an app until SIGINT/SIGTERM/SIGBREAK, with a Windows-compatible fallback."""
     app = LiteyukiApp(settings, resource_workspace=resource_workspace) if app_factory is None else app_factory(settings)
     stop_event = asyncio.Event()
 
@@ -987,7 +987,7 @@ async def _run_until_signal(
     loop = asyncio.get_running_loop()
     installed: list[signal.Signals] = []
     fallback: dict[signal.Signals, Any] = {}
-    signals = (signal.SIGINT, signal.SIGTERM)
+    signals = _shutdown_signals()
     try:
         for signum in signals:
             try:
@@ -1017,6 +1017,16 @@ async def _run_until_signal(
             except (NotImplementedError, RuntimeError, ValueError):
                 pass
         await app.stop()
+
+
+def _shutdown_signals() -> tuple[signal.Signals, ...]:
+    """Return portable termination signals, including Windows Ctrl+Break when available."""
+    signals: list[signal.Signals] = [signal.SIGINT, signal.SIGTERM]
+    sigbreak = getattr(signal, "SIGBREAK", None)
+    if sigbreak is not None:
+        signals.append(cast(signal.Signals, sigbreak))
+    return tuple(signals)
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
