@@ -42,6 +42,7 @@ jobs:
         run: |
           uv run liteyuki --workspace tmp/ci-workspace init
           uv run liteyuki --workspace tmp/ci-workspace check
+          uv run --project . --locked python -m scripts.run_source_smoke
           uv run ruff check src tests scripts packages
           uv run mypy
           uv run pytest --cov --cov-report=term-missing

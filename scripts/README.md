@@ -4,6 +4,8 @@ Scripts here are deterministic command-line checks, not runtime imports. The
 Alpha15 release graph is defined in `release_registry.py` and contains only
 the four lockstep distributions.
 
+- run_source_smoke.py exercises the editable source checkout through uv using a
+  disposable runtime instance.
 - `check_release.py` validates project identities and release tags.
 - `alpha_release.py` validates and generates the signed bundle manifest.
 - `run_alpha_bundle_installs.py` verifies every staged target wheel offline.
@@ -17,10 +19,14 @@ the four lockstep distributions.
   removal inside a fresh `uv tool` environment.
 - `generate_supply_chain.py` produces release supply-chain metadata.
 
+The source smoke is the normal development path; the wheel and tool checks
+below are installation and release-boundary validation.
+
 Run from the repository root:
 
 ```bash
 uv sync --locked --all-packages
+uv run --project . --locked python -m scripts.run_source_smoke
 uv run python scripts/check_release.py
 uv run --group release python -m scripts.alpha_release check-source
 uv build --all-packages --out-dir dist/workspace --clear

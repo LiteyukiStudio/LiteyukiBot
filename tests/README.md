@@ -12,7 +12,7 @@ network account.
 Run a focused test while changing behavior:
 
 ```bash
-uv run pytest tests/test_cli_v7.py
+uv run pytest tests/test_cli_v7.py tests/test_config_workspace.py
 uv run pytest packages/<package>/tests
 ```
 
